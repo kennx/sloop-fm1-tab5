@@ -152,9 +152,32 @@ static int kb_command(int argc, char **argv)
     return 0;
 }
 
-/* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 域 20..12000，ms 域 1..60000） */
+/* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 域 20..12000，ms 域 1..60000）；
+ * AUD REG dump ES8388 寄存器（排障） */
 static int aud_command(int argc, char **argv)
 {
+    if (argc == 2 && strcasecmp(argv[1], "reg") == 0) {
+        audio_tone_dump_regs();
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "pa") == 0) {
+        audio_tone_dump_pa();
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "l2") == 0) {
+        char *end = NULL;
+        long v = strtol(argv[2], &end, 0);
+        if (end == argv[2] || *end != '\0' || v < 0 || v > 0x21) {
+            printf("用法: AUD L2 <0x00..0x21>（LOUT2/ROUT2 音量）\n");
+            return 1;
+        }
+        audio_tone_set_l2vol((uint8_t)v);
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "max") == 0) {
+        audio_tone_max_all();
+        return 0;
+    }
     long hz = 0;
     long ms = 2000;
     bool args_ok = argc >= 3 && argc <= 4 && strcasecmp(argv[1], "tone") == 0;
