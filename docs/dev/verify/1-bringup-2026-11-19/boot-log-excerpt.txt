@@ -88,7 +88,3 @@ I (4020) Adev_Codec: Open codec device OK
 I (4020) sloop_audio: speaker codec open 44100Hz/2ch/16bit rc=0
 
 # 以下为 REPL 就绪横幅（证明 console 通道启动正常、无 fatal/abort/backtrace）
-74:sloop>  I (3990) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
-87:sloop>  AUD TONE 440 1500
-0
-0 （无错误级日志）

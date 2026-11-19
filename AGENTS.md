@@ -112,6 +112,9 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 2. 固件响应头：`SCR <width> <height> <fmt> <len>\n`（fmt ∈ `rgb565` | `rgb888`，len 为字节数）
 3. 固件随后发送 **len 字节裸二进制**（帧缓冲原样：rgb565 为小端，rgb888 为 RGB 字节序）
 4. 尾标记：`SCR OK\n`
+5. 失败令牌：固件侧任一步失败时改回 `SCR ERR <原因>\n`（如 `display_panel_not_ready`、`spiram_malloc_failed`、`lvgl_lock_timeout`）；PC 工具收到须**快速失败**（`scripts/screenshot.py` 即时报错退出，不等超时）
+
+导出帧为**旋转后的横屏逻辑帧**（1280×720）：面板物理为竖扫 720×1280，固件发送前已按 `firmware/main/display.c` 的旋转几何旋出横屏帧——PC 侧拿到的即屏幕所见帧，无需再旋转。
 
 固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。协议字段后续如扩展（如 `SCR <page>` 指定页面），须同步更新本节与 `scripts/screenshot.py`。
 
