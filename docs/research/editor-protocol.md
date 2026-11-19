@@ -110,7 +110,7 @@
 |---|---|
 | 72–76 DSYN_LIST/GET/PUT/STORE/PLAY | SYN1–4 每音色 22 字节 `dsnd_t`（wave/src/pitch/fine/bend/…/level），part 0..15 单音色、16 名字、17 整 kit 自工厂派生；PLAY 试听 |
 
-### v11 主题（SLOOP 2.7）：备份对象 11（36B `theme_t`，RGB565 五屏色+四轨色+CRC32）。
+### v11 主题（SLOOP 2.7）：备份对象 11（36B `theme_t`，RGB565 五屏色+四轨色+背景色+CRC32）。
 
 ### v12 LIVE（SLOOP 2.7）——**遥控面板，本项目的核心命令**
 

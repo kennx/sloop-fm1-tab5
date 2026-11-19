@@ -16,7 +16,7 @@ M-VAVE FM-1 是一台低价口袋 FM 合成器（约 ¥300 档），2026 年中�
 | 主控 SoC | 杰里科 JieLi **AC791N**（封装 AC7911B8），双核 32 位 **pi32v2** RISC 自有内核（非 ARM、非 Xtensa、无公开指令集手册），实测主频约 120 MHz |
 | 屏幕 | 240×240 TFT 彩屏，SPI 接口 |
 | 键盘 | 27 键硅胶键盘（约两个八度，标准钢琴布局，白键 16 / 黑键 11），LED 键灯 |
-| 编码器 | 4 个旋钮（MASTER、SELECT + KNOB 1–4 布局见 SLOOP 文档） |
+| 编码器 | 共 6 个：MASTER、SELECT 双编码器 + KNOB 1–4（布局详见 SLOOP 固件文档 §2） |
 | DAC | CS4344 |
 | 功放 | SL5316（内建扬声器，插耳机自动切换） |
 | USB | USB Type-C：USB MIDI + USB 音频（UAC1）+ 充电，**class-compliant 免驱** |

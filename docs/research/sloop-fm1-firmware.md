@@ -18,8 +18,8 @@ SLOOP 把 M-VAVE FM-1 变成一台**四轨 live groovebox**：3 个合成器轨 
 | 轨道 | 4（1–3 合成器，4 鼓机），轨色蓝/绿/黄/橙 |
 | 合成引擎 | 12：ANALOG、FM4、**FM6**（6-op，吃 DX7 patch）、PHASE（相位失真）、TRIO（三振荡）、DRAWBAR（音轮风琴）、VOICE（共振峰）、GRAIN（颗粒）、LOFI（芯片）、SAMPLE（采样）、**PHYS**（物理建模，DaisySP/Mutable Rings 系）、**NOISE** |
 | 声音 | 153 工厂预置 + 32 用户槽 |
-| 鼓 | 37 kits（1 采样声学 + 32 合成 + USR1–4 自采样 + SYN1–4 自合成），16 lanes/kit |
-| 音序 | 每轨 64 步、独立 LEN/DIV（1/32–2 小节，多律同相）、chord≤4 音、TIE/SIDE、MPC swing 0–100、parameter locks（24/轨）、micro timing（±1/64 步）、fill 条件 |
+| 鼓 | 37 工厂 kits（1 套 CC0 采样声学鼓的 5 种处理 + 32 合成 kits）+ 用户 kits（USR1–4 自采样、SYN1–4 自合成），16 lanes/kit |
+| 音序 | 每轨 64 步、独立 LEN/DIV（1/32–2 小节，多律同相）、chord≤4 音、TIE/SLIDE、MPC swing 0–100、parameter locks（24/轨）、micro timing（±1/64 步）、fill 条件 |
 | 歌曲 | 4 段 A–D + 链式播放 + SONG REC |
 | FX | 每轨 INSERT + per-track 滤波（LP/BP/HP + 共振）+ 发送（合唱/延时/混响）；27 个 punch-in 效果；母带 DUST/DUCK/FILT/限制器；TEXTURE 底噪层 |
 | MIDI | USB MIDI in/out + TRS MIDI IN；每轨可配通道；MIDI CC / LEARN / Bank Select / 时钟同步（USB 或 TRS）/ OUT=SEQ |
@@ -90,7 +90,7 @@ firmware/
 
 `firmware/host/preview.c` 把固件核心编到 PC（测试）和 WASM（网页音频预览，Emscripten）：
 - `tools/build_preview.py` → `sloop-preview.wasm`，12 引擎逐样本对拍测试；
-- `tests/run_tests.sh`：flash 存储/用户预置/MIDI 解析/DSP 渲染/4 轨混音/项目格式/SPLICER/回归套件（golden.txt 哈希 + CPU 预算）；
+- `tests/run_tests.sh`：flash 存储/用户预置/MIDI 解析/DSP 渲染/4 轨混音/项目格式/SLICER/回归套件（golden.txt 哈希 + CPU 预算）；
 - **含义**：核心 DSP/音序代码与平台解耦良好，第三个平台目标（ESP-IDF）工程上是「再写一个 host」+ 替换 UI。
 
 ### 3.4 原平台构建（对照）

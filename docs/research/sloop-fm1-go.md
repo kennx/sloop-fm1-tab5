@@ -1,7 +1,7 @@
 # Sloop Go 调研（联动模式的行为蓝本）
 
 > 用途：sloop-fm1-tab5 项目参考——「两台设备同步操作」的目标体验即本 App 的体验
-> 调研日期：2026-11-19 ｜ 上游版本：1.8.0 / versionCode 51（commit ed941b5，README 记 versionName 1.7.25，以仓库为准）
+> 调研日期：2026-11-19 ｜ 上游版本：1.8.0 / versionCode 51（commit ed941b5；versionName 两处 README 不一致——根 README 记 1.8.0、android/README 记 1.7.25，以仓库代码为准）
 > 仓库：<https://github.com/jahlib/sloop-fm1-go> ｜ 许可：GPL-3.0
 > 注意：名字带 "go" 但**不是 Go 语言**——是 Kotlin + Jetpack Compose 的 Android 原生 App（"go" = 便携伴生）。
 
@@ -38,7 +38,7 @@ com.sloop.go
 - **合并策略**：音符/步进等离散编辑保序；同一旋钮/推子的中间值只留最新（coalesced instant SET）。
 - 失败暂停队列 → Device → Retry 恢复；断开时未发编辑明确报告并丢弃；队列纯 RAM 不持久化。
 - **Now / Late（Store 草稿）两模式**：Now 每次改动立即入队；Late 按轨存 RAM 草稿，SEND 时把整轨 64 步按序入队（含休止）。
-- **LIVE 命令（77）驱动实时页**：PLAY/STOP、层键（mute/solo/fill/tap）、27 punch-in 效果垫、REC、undo/redo、ROLL、ERASE、图案工具、链、THROW、母带音量、鼓 TUNE/DECAY——**即 FM-1 面板按钮的完整遥控**（op 表见 `editor-protocol.md` §LIVE）。切换型请求只发一次，超时不重发。
+- **LIVE 命令（77）驱动实时页**：PLAY/STOP、层键（mute/solo/fill/tap）、27 punch-in 效果垫、REC、undo/redo、ROLL、ERASE、图案工具、链、THROW、母带音量、鼓 TUNE/DECAY——**即 FM-1 面板按钮的完整遥控**（op 表见 `editor-protocol.md` §2「v12 LIVE」）。切换型请求只发一次，超时不重发。
 - 音符不走 SysEx：LIVE 页用普通 MIDI 音符按轨通道发出（GLO > MIDI 配置；鼓走 DR MAP）。
 
 ### 3.2 状态侧（FM-1 → App）
@@ -69,7 +69,7 @@ com.sloop.go
 | Recorder | FM-1 USB 音频录 WAV/FLAC（16/24/32f，压限器、频谱/波形/声像表） | UAC1 音频流（非 SysEx） |
 | Device | 连接管理、固件信息、主题 | INFO/PING |
 
-未移植（上游协议有而 App 未做）：projects、用户预设置银行、备份/恢复、live playhead（部分）。
+未移植（上游协议有而 App 未做）：projects、用户预设置银行、sample upload（⚠️ 上游两处 README 矛盾：根 README 把采样上传述为功能、android/README 列入未移植；固件侧 SMP_* 命令确实存在，App 实现状态待核）、备份/恢复、live playhead（部分）。
 
 ## 5. USB 接入细节
 
