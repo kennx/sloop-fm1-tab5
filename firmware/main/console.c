@@ -88,21 +88,22 @@ static int scr_command(int argc, char **argv)
     /* 分块写出并在块间 vTaskDelay 让出 CPU：整段一次性 fwrite 会让 REPL 任务
      * 连续占核超过任务看门狗 5s 阈值（CONFIG_ESP_TASK_WDT_TIMEOUT_S，默认
      * 监视 IDLE0/1），看门狗经 esp_rom_printf 打印的寄存器转储绕过日志
-     * 静默混入帧流，破坏协议字节流。 */
+     * 静默混入帧流，破坏协议字节流。off 为字节偏移，buf 须按字节步进。 */
     bool ok = true;
     for (size_t off = 0; off < SCR_FRAME_BYTES && ok; off += SCR_TX_CHUNK) {
         size_t n = SCR_FRAME_BYTES - off;
         if (n > SCR_TX_CHUNK) {
             n = SCR_TX_CHUNK;
         }
-        ok = fwrite(buf + off, 1, n, stdout) == n;
+        ok = fwrite((uint8_t *)buf + off, 1, n, stdout) == n;
         vTaskDelay(1);
     }
     ok = ok && fflush(stdout) == 0;
-    usb_serial_jtag_vfs_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
-    /* 尾标记须紧跟帧数据：恢复日志级别放在其后，避免日志行插进两者之间 */
+    /* 尾标记在 LF 模式下打印（线上严格为 "SCR OK\n"，AGENTS §5.3），且须
+     * 紧跟帧数据；CRLF 行尾与日志级别的恢复放在其后 */
     printf(ok ? "SCR OK\n" : "SCR ERR stdout_write\n");
-    esp_log_level_set("*", ESP_LOG_INFO);
+    usb_serial_jtag_vfs_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+    esp_log_level_set("*", CONFIG_LOG_DEFAULT_LEVEL);
 
     heap_caps_free(buf);
     ESP_LOGI(TAG, "SCR: 传输完成，PSRAM 剩余 %u 字节",
