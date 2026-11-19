@@ -2,8 +2,9 @@
  * sloop-fm1-tab5 — firmware bootstrap
  *
  * 当前阶段：Phase 1 bring-up——MIPI-DSI 显示已点亮（display.c，横屏 1280×720 + 测试图）、
- * console 通道与 SCR 截屏命令已落地（console.c，AGENTS §5.3）。
- * 后续按 AGENTS.md §3 规划逐步落地：音频/键盘 bring-up（KB/AUD 命令）
+ * console 通道与 SCR 截屏/KB 键盘命令已落地（console.c，AGENTS §5.3）、
+ * Tab5 Keyboard 驱动已接入（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50）。
+ * 后续按 AGENTS.md §3 规划逐步落地：音频 bring-up（AUD 命令）
  * → sloop_core 移植 → 编辑器协议 / USB host 接入 FM-1。
  */
 #include "console.h"
@@ -15,6 +16,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_tab5";
 
@@ -52,10 +54,15 @@ void app_main(void)
         ESP_LOGE(TAG, "console 初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* TODO(bring-up): bsp_audio / Tab5 Keyboard I2C (0x6D, G0/G1)
-     *                  + 启动自检（含键盘 I2C 扫描，见 docs/tab5-keyboard-hardware.md §6；
-     *                  KB/AUD 自检命令在 console.c 追加注册）
-     */
+    /* Tab5 Keyboard 自检（0x6D 无应答不算致命——键盘可能未接 Ext.Port1，
+     * 驱动就位等待硬件接入；全键矩阵核对见 §5.4/任务报告人测清单）*/
+    ret = tab5_keyboard_init();
+    if (ret != ESP_OK && ret != ESP_ERR_NOT_FOUND) {
+        ESP_LOGE(TAG, "键盘初始化失败: %s", esp_err_to_name(ret));
+    }
+    ESP_LOGI(TAG, "keyboard: %s", tab5_keyboard_probe() ? "OK (0x6D)" : "NOT FOUND");
+
+    /* TODO(bring-up): bsp_audio（AUD 自检命令在 console.c 追加注册）*/
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
     }

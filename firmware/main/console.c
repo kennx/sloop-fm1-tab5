@@ -1,9 +1,10 @@
 /*
  * sloop-fm1-tab5 — console 通道与 SCR 帧导出（AGENTS.md §5.3）
  *
- * USB-Serial-JTAG REPL（prompt "sloop> "），注册 SCR 截屏命令：
- * PC 发 "SCR\n" → 固件回 "SCR 1280 720 rgb565 1843200\n" → 1843200 字节
- * 裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
+ * USB-Serial-JTAG REPL（prompt "sloop> "），注册命令：
+ *  - SCR：截屏命令。PC 发 "SCR\n" → 固件回 "SCR 1280 720 rgb565 1843200\n" → 1843200 字节
+ *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
+ *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -15,6 +16,7 @@
 #include "console.h"
 
 #include <stdio.h>
+#include <strings.h>
 
 #include "bsp/m5stack_tab5.h"
 #include "display.h"
@@ -26,6 +28,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_console";
 
@@ -111,6 +114,37 @@ static int scr_command(int argc, char **argv)
     return ok ? 0 : 1;
 }
 
+/* KB 排障入口：无参打印 probe 结果与事件计数；ON/OFF 开关解码日志 */
+static int kb_command(int argc, char **argv)
+{
+    if (argc >= 2) {
+        if (strcasecmp(argv[1], "on") == 0) {
+            tab5_kb_set_log(true);
+            printf("KB 解码日志 ON\n");
+            return 0;
+        }
+        if (strcasecmp(argv[1], "off") == 0) {
+            tab5_kb_set_log(false);
+            printf("KB 解码日志 OFF\n");
+            return 0;
+        }
+        printf("用法: KB [ON|OFF]\n");
+        return 1;
+    }
+
+    bool present = tab5_keyboard_probe();
+    tab5_kb_stats_t st;
+    tab5_kb_get_stats(&st);
+    printf("KB probe: %s (0x%02X @ G%d/G%d, INT=G%d)\n", present ? "OK" : "NOT FOUND",
+           TAB5_KB_I2C_ADDR, TAB5_KB_I2C_SDA_GPIO, TAB5_KB_I2C_SCL_GPIO, TAB5_KB_INT_GPIO);
+    if (present) {
+        printf("KB fw: 0x%02X, events down=%u up=%u dropped=%u pending=%d, INT=%d\n",
+               st.fw_version, (unsigned)st.down_count, (unsigned)st.up_count,
+               (unsigned)st.dropped, st.pending, st.int_level);
+    }
+    return 0;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -135,6 +169,19 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&scr_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 SCR 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    /* KB（Tab5 Keyboard 排障）；AUD 自检命令（Task 7）在此追加 */
+    const esp_console_cmd_t kb_cmd = {
+        .command = "KB",
+        .help = "键盘状态/事件计数；KB ON|OFF 开关解码日志",
+        .hint = "[ON|OFF]",
+        .func = &kb_command,
+    };
+    ret = esp_console_cmd_register(&kb_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 KB 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
