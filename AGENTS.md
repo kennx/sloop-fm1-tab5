@@ -45,6 +45,7 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-firmware.md
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
+│   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
 │   ├── design/                    # 架构与设计决策（ADR；已有 001-idf-version.md）
 │   └── dev/                       # 开发日志/环境/设备档案（已有 device-notes.md）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
@@ -148,6 +149,8 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 编辑器协议理解修正（以原文为准） | `docs/research/editor-protocol.md` |
 | 环境搭建踩坑、构建配置变更 | `docs/dev/` |
 | 调研文档失实被发现 | 就地修正并注明来源 |
+| 发现可延迟的已知缺口/风险（不阻塞当前任务但跨会话须记住） | `docs/deferred-issues.md` 新增条目（必填：背景/影响面/为何可延迟/解决方向/触发条件） |
+| deferred 条目被解决 | **删除该条目**；若涉及方案选型，先沉淀 `docs/design/` ADR 再删 |
 
 规则：
 - 文档与代码同一提交组内提交（纯文档变更用 `docs` 类型独立提交）。
