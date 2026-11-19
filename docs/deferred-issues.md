@@ -29,14 +29,3 @@
 | **解决方向** | `scripts/build.sh` 在 defaults 比 sdkconfig 新时自动删除重建（或至少显著警告）；实现时注意保留用户在 sdkconfig 中的有意覆盖（本项目策略=defaults 为唯一权威，覆盖不入库，直接重建即可）。 |
 | **触发条件** | 下一次任何 `sdkconfig.defaults` 变更任务（Task 3）前不修则必须手动规避；顺手修进 build.sh 更佳。 |
 | **登记** | 2026-11-19（阶段 1 Task 1 实测） |
-
-## DI-3: DPI 帧缓冲内容错位（LVGL 局部渲染 flush 管线缺陷，屏显自 Task 2 起即错）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | Task 3 SCR 截屏探针发现 DPI 帧缓冲内容与逻辑画面不符（屏幕自 Task 2 点亮起就是错的，此前仅日志验证未看屏）：顶带 y<~128 基本正确、其下逐行水平错动（DMA2D 路径实测剪切 shift(y)=(-4·y) mod 128px）、底带四轨条整体错位（rotation 0 实测竖向 2:1 压缩：内容行 c 落在 py≈c/2）、py∈[644,1206) 为非图案噪声、py≥1206 未写（黑）。帧缓冲间距 1440B（720px）与导出旋转几何均已排除（raw 帧转储证实 FB 行 py=0 = 逻辑列 x=1279，与源码推导的 ROTATION_90 映射一致）。 |
-| **影响面** | **屏显内容本身**：SCR 截屏忠实反映了坏帧（截图管线无责），但 Task 4 像素探针门禁无法通过、后续一切 UI 视觉验证失效。SCR 协议/传输/旋转不受影响（已独立验证）。 |
-| **为何可延迟** | Task 3 核心交付（SCR 证据通道）已完成并可用；缺陷属显示组装（Task 2 域），与截屏管线可分离修复；不影响键盘/音频 bring-up 开发。 |
-| **解决方向** | 已排除：DMA2D 帧拷贝（CPU memcpy 路径同样错）、LVGL 9.6 vs 9.5（pin 9.5.0 症状逐探针点相同）、PPA（未启用）、stride 对齐（CONFIG_LV_DRAW_BUF_STRIDE_ALIGN=1 无填充）、旋转几何（rotation 0 同样错）、并行 draw unit（CONFIG_LV_DRAW_SW_DRAW_UNIT_CNT=1 已是 1）、TWDT/传输损坏（cmp 逐字节一致）。嫌疑收敛于 **LVGL 9.5/9.6 局部渲染切片（slice/tile）与 esp_lvgl_port 2.9.0 flush 假设的交互**（首切片正确、后续切片目的偏移漂移）。下一步：对 esp-bsp `display_rotation` 官方例程在同等 LVGL 版本下复现对照；或上报 espressif/esp-bsp issue 附 SCR 证据；或临时绕过（整帧重绘/DIRECT 模式与 sw_rotate 互斥，需改用 LVGL 自带矩阵旋转或 PPA 路线）。 |
-| **触发条件** | Task 4（像素探针门禁）开工前必须解决；任何需要「屏幕内容正确」的任务同理。 |
-| **登记** | 2026-11-19（阶段 1 Task 3 SCR 首次看屏发现；证据与实验矩阵见 task-3-report.md） |
