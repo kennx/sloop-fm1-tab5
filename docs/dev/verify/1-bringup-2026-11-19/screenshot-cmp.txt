@@ -1,0 +1,8 @@
+# 截屏确定性证据（2026-11-19，固件 0f6fbf5）
+# 帧A: scripts/verify.sh 一键流程所截（screenshot-20261119-204142.png）
+# 帧B: 像素抽检运行所截（screenshot-check.png，与帧A间隔约4分钟、中间设备经一次硬复位重启）
+# 两帧均为静态测试图，逐字节 cmp 一致 ⇒ 无撕裂/脏区/不定渲染
+
+bbe03a48ea7dd5b7acaec1a74c9efe38f437daeb3bc1b64293a6578ff1f25c28  firmware/build/verify/screenshot-20261119-204142.png
+bbe03a48ea7dd5b7acaec1a74c9efe38f437daeb3bc1b64293a6578ff1f25c28  firmware/build/verify/screenshot-check.png
+cmp: 两帧字节一致

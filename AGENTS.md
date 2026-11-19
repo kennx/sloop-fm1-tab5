@@ -52,11 +52,11 @@ sloop-fm1-tab5/
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
-│   ├── main/                      #    应用入口（当前: bootstrap；待: 双模式调度）
-│   ├── components/                #    【规划】sloop_core / sloop_hal_tab5 / editor_proto / usb_fm1
+│   ├── main/                      #    应用入口（当前: 阶段 1 bring-up 自检——显示/console/键盘/音频；待: 双模式调度）
+│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；【规划】sloop_core / sloop_hal_tab5 / editor_proto / usb_fm1
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
-│   └── partitions.csv             #    【规划】自定义分区（大 app + 资产 FATFS + 预留 OTA；LVGL/资产合入前必须落地——默认单 app 仅 1MB）
+│   └── partitions.csv             #    已落地（单 factory app 8MB + FATFS storage 0x7F0000 + NVS，无 OTA A/B，回滚=重烧；见 docs/design/002 §3 P1-1）
 ├── scripts/                       # 构建/烧录/截屏验证脚本（用法见 §5）
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
