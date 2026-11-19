@@ -8,7 +8,7 @@
 
 1. **正确性优先于性能**（AGENTS §4）：引擎逐样本对齐上游之后才允许性能优化。
 2. **host 先行、golden 锚定**：SLOOP 核心本就支持 PC/WASM 构建（上游 `host/preview.c`）。先把引擎在 PC 上跑起来并固化 golden 基线（渲染/音频哈希），再交叉编译上 Tab5；设备侧只需证明「搬运无损」。
-3. **截屏驱动 UI 验证**（AGENTS §5.3/§5.4）：阶段 1 落地 `SCR` 后，一切 UI 改动以「截图 + 视觉检查」为完成条件；阶段 3 增加串口输入注入，使 UI 状态可脚本化复现、可前后对比。
+3. **截屏驱动 UI 验证**（AGENTS §5.3/§5.4）：阶段 1 落地 `SCR` 后，一切 UI 改动以「截图 + 视觉检查」为完成条件；阶段 3 增加串口输入注入，使 UI 状态可脚本化复现、可前后对比；**门禁证据按 §8 晋升入库**，合并主张以登记证据为准。
 4. **每阶段收尾即里程碑候选**：阶段完成 = §5.5 对应门禁全绿，即可作为 dev→main 合并点（§7.4 的示例即「bring-up 完成」「sloop_core 首版可听」）；阶段 4（独立模式完整）与阶段 5（联动可用）为强制合并点。
 5. **开工先核对上游**：上游迭代快，每阶段开工先核对 sloop-fm1 / sloop-fm1-go / `EDITOR_PROTOCOL.md` 最新版本，更新 `docs/research/` 版本基线后再写代码。
 6. **双模式共享状态抽象**（AGENTS §1）：阶段 3 起建立「状态快照 + 编辑命令」归一模型，阶段 5 的联动模式直接复用，避免两套 UI 逻辑。
@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | 0 | 工程骨架 | 仓库/文档/脚本/构建烧录链路就绪 | 构建 + 烧录 + 启动日志 | ✅ 完成（基线 7f7543d） |
 | 1 | 平台 bring-up | Tab5 成为**可观测、可验证**的目标机：屏/触摸/键盘/音频/截屏/分区 | SCR 截屏视觉检查；按键触摸日志；听音 | ⬜ |
-| 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希比对；可听触发 | ⬜ |
+| 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | ⬜ |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | ⬜ |
 | 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | ⬜ |
 | 5 | 联动模式 | FM-1 双机同步（编辑器协议双向 + UAC1 采集） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
@@ -36,21 +36,22 @@
 
 | 任务 | 内容 | 验证 |
 |---|---|---|
-| P1-1 分区表 | `partitions.csv`：大 app（≥6MB，LVGL+引擎+调试）+ FATFS 资产分区（≥6MB，样本/预置）+ NVS + 预留 OTA/otadata；具体数值定稿后回写本文 | 烧录后分区日志正常；app 摆脱 1MB 默认上限 |
+| P1-1 分区表 | `partitions.csv`：**OTA 姿态定为单 factory app（无 A/B 槽）**——开发期 USB 常在，回滚路径 = esptool 重烧；未来确需 OTA 时再重划分区（资产重烧成本已知，可接受）。示例布局：factory app 8MB + FATFS 资产 ~7.9MB + NVS（实现时定稿并回写本文）；FATFS 取大值，使 P2-5 无论资产主力在 flash 还是 SD 均容纳（SD 为独立硬件，后加无损现有分区） | 烧录后分区日志正常；app 摆脱 1MB 默认上限 |
 | P1-2 显示点亮 | `bsp_display_start()`（MIPI-DSI + esp_lvgl_port）；确认日志 `Discovered board version 3 (LCD ST7121…)`（批次探测，见 device-notes §1）；画测试图（彩条 + 几何图形 + 文本标签） | SCR 截屏视觉检查：彩条颜色顺序正确、无花屏撕裂、文本可读 |
-| P1-3 SCR 命令 | console 注册 `SCR`（§5.3 协议）：从显示控制器取完整稳定帧，rgb565 小端输出；LVGL 双缓冲下取非活动帧避免撕裂 | `scripts/screenshot.py` 出图且像素正确（程序化抽检颜色 + 视觉检查） |
+| P1-3 SCR 命令 | console 注册 `SCR`（§5.3 协议）：从显示控制器取完整稳定帧，rgb565 小端输出；LVGL 双缓冲下取非活动帧避免撕裂；扩展 `scripts/screenshot.py` 支持像素抽检（如 `--check <x>,<y>,<r>,<g>,<b>`），已知色块可机检 | `screenshot.py` 出图且像素抽检通过（程序化 + 视觉检查；scripts 门禁 selftest 仍须过） |
 | P1-4 触摸 | BSP 触摸 indev；触摸处画十字准星 + 坐标日志 | 点四角/中心 → 截屏中准星位置与手指一致（坐标映射无旋转/镜像错误） |
-| P1-5 Tab5 Keyboard | 独立 I2C 总线 G0/G1 探测 0x6D；INT=G50；按键解码（参考 M5Tab5-UserDemo 与协议 PDF）；启动自检 | 按键 → 日志键码正确；探测成功后 device-notes §2 更新为 ✅ |
-| P1-6 音频 | BSP 音频（esp_codec_dev，ES8388）：console `AUD TONE` 播 440Hz 正弦 | 扬声器/耳机可听、无爆音；codec 初始化日志正常 |
-| P1-7 验证链路收口 | 本阶段所有验证走 `scripts/verify.sh`；截图归档 `firmware/build/verify/` | verify.sh 一键全绿 |
+| P1-5 Tab5 Keyboard | 独立 I2C 总线 G0/G1 探测 0x6D；INT=G50；按键解码（参考 M5Tab5-UserDemo 与协议 PDF）；启动自检；**全 70 键逐键 + 修饰键/多键同按典型组合**解码核对 | 全键矩阵逐键日志核对；探测成功后 device-notes §2 更新为 ✅ |
+| P1-6 音频 | BSP 音频（esp_codec_dev，ES8388）：console `AUD TONE` 播 440Hz 正弦；I2S/codec 实际采样率确认为 **44.1kHz**（上游假设，见 research；48k 时钟配 44.1k 数据会整体音高偏高约 8%，440Hz 试音兼作人工校验） | 扬声器/耳机可听、无爆音；codec 配置回读 44.1kHz；听感音高正确 |
+| P1-7 验证链路收口 | 本阶段所有验证走 `scripts/verify.sh`；截图先落暂存区 `firmware/build/verify/`，**门禁证据按 §8 晋升入库并登记** | verify.sh 一键全绿 + verification-log 登记 |
 
 **完成判据（阶段门禁）**：
 1. §5.5「固件代码」全部行绿（第二次构建零新增警告、烧录 Hash verified、启动无 fatal/abort/backtrace）；
 2. 测试图截屏通过 §5.4 视觉检查——**项目第一次真实 UI 截图验证**；
-3. 键盘自检通过（0x6D 应答 + 至少 10 个键码解码正确）；
+3. 键盘自检通过（0x6D 应答 + 70 键全矩阵逐键 + 典型组合解码正确）；
 4. 触摸四角校准截图通过；
-5. `AUD TONE` 听音通过（人工确认）；
-6. 里程碑候选：bring-up 完成（可合 main，§7.4）。
+5. `AUD TONE` 听音通过（人工确认，音高正确）；
+6. 验证证据按 §8 晋升入库并在 verification-log 登记（第一次完整闭环）；
+7. 里程碑候选：bring-up 完成（可合 main，§7.4）。
 
 **风险与对策**：
 - ST7121 批次差异 → BSP 1.3.3 运行时自动分流已核验（device-notes §1），日志确认即闭环；
@@ -64,20 +65,20 @@
 | 任务 | 内容 | 验证 |
 |---|---|---|
 | P2-1 上游引入 | 开工先核对上游最新版本（§0.5）并更新 research 基线；以固定 commit 引入上游代码（机制小 ADR：submodule vs vendoring+补丁，遵 §8「补丁/适配层隔离」）；GPL 声明与子模块许可（Dexed msfa / DaisySP / Mutable 等）完整保留 | 引入物清单 + 许可核查记录入 docs |
-| P2-2 host 基线 | PC 构建 host/preview；复用/补齐 golden 回归（渲染哈希、音频块哈希）；落 `scripts/host-test.sh`（§5.5 该门禁自此生效）；golden 基线值入库 | host-test.sh 退出码 0 |
-| P2-3 组件拆分 | `sloop_core`（引擎，尽量不改上游文件）+ `sloop_hal_tab5`（hal 落地：I2S/ES8388 音频、FATFS 存储、定时器、日志）。决策点（ADR）：本地是否复用上游 editor 命令语义作为统一编辑入口（为双模式归一铺路） | 组件交叉编译零新增警告；依赖边界入 ADR |
-| P2-4 设备侧自检命令 | console：`ENG SELFTEST`（跑 golden 子集，回传哈希）、`ENG TRIG <kit> <note>`（出声）、`ENG PERF`（每音频块 CPU 周期） | 设备哈希 == host 哈希（见下「浮点等价」） |
-| P2-5 样本资产 | 工厂 kit 样本来源与格式核实（⚠️ 上游 release 资产 / loader 打包 / FM-1 flash 镜像，开工时定）；烧入 FATFS 分区或 SD 卡；loader 移植、kit 枚举 | `ENG TRIG` 采样 kit 出声正确 |
-| P2-6 性能基线 | 记录每块 CPU 周期/内存水位，对照 FM-1（pi32v2 ~120MHz）→ P4（360MHz 双核）预算 | 数据记 docs/dev；确认余量充足 |
+| P2-2 host 基线 | PC 构建 host/preview；复用/补齐 golden 回归（渲染哈希、音频块哈希）；落 `scripts/host-test.sh`（§5.5 该门禁自此生效）；golden 基线值入库。**数值编译约定（ADR）**：host/device 双侧 `-ffp-contract=off`、禁 `-ffast-math`，工具链版本与编译 flags 随 golden 基线一并入库（保证基线换机可复现） | host-test.sh 退出码 0 |
+| P2-3 组件拆分 | `sloop_core`（引擎，尽量不改上游文件）+ `sloop_hal_tab5`（hal 落地：I2S/ES8388 音频、FATFS 存储、定时器、日志）。决策点（ADR）：本地是否复用上游 editor 命令语义作为统一编辑入口（为双模式归一铺路） | 组件交叉编译零新增警告；I2S 实测输出采样率 44.1kHz、音频块大小与上游一致；依赖边界入 ADR |
+| P2-4 设备侧自检命令 | console：`ENG SELFTEST`（跑 golden 子集，回传**每用例哈希 + 对内嵌参考向量的 max\|err\|/SNR**，使「容差内通过」可计算可记录）、`ENG TRIG <kit> <note>`（出声）、`ENG PERF`（每音频块 CPU 周期） | 设备哈希 == host 哈希；不等时按误差度量走容差通道（见下「浮点等价」） |
+| P2-5 样本资产 | 工厂 kit 样本来源与格式核实（⚠️ 上游 release 资产 / loader 打包 / FM-1 flash 镜像，开工时定）；**资产再分发许可核查**——结论入 docs，不可再分发则资产不入库，改为 fetch-from-upstream 脚本 + 本地烧录流程；烧入 FATFS 分区或 SD 卡（flash-vs-SD 微型 ADR）；loader 移植、kit 枚举 | `ENG TRIG` 采样 kit 出声正确；许可结论与资产入库方式入档 |
+| P2-6 性能基线 | 记录每块 CPU 周期/内存水位，对照 FM-1（pi32v2 ~120MHz）→ P4（360MHz 双核）预算 | 数据记 docs/dev 并登记 verification-log；确认余量充足 |
 
 **完成判据**：
-1. `scripts/host-test.sh` 全绿（PC 基线固化）；
-2. `ENG SELFTEST` 设备哈希与 host 一致（或差异在文档化容差内并给出成因）；
+1. `scripts/host-test.sh` 全绿（PC 基线固化，工具链/flags 随基线入库）；
+2. `ENG SELFTEST` 设备哈希与 host 一致；不一致时在文档化容差内（max\|err\|/SNR 度量）通过并记录成因与差异源；
 3. `ENG TRIG` 至少一个合成 kit + 一个采样 kit 听音正确；
 4. 性能基线数据入档；构建零新增警告；
 5. 里程碑候选：「sloop_core 首版可听」（可合 main，§7.4）。
 
-**浮点等价风险**：host（x86-64 SSE）与 P4（RV32F）同为 IEEE-754 单精度，基本运算逐位一致可期；libm 超越函数可能有 ULP 差异 → golden 优先锚定整数/定点路径或采用容差比较，实测后固化策略（必要时 ADR）。
+**浮点等价风险**：除 libm 超越函数的 ULP 差异外，**FP contraction 是更早的分叉源**——GCC 默认 `-ffp-contract=fast`，RV32F 会把 `a*b+c` 收缩为 `fmadd` 指令，而 x86-64 基线（SSE2，未开 `-mfma`）不会，普通 DSP 乘加行即分叉。对策（P2-2 ADR）：双侧 `-ffp-contract=off` + 禁 `-ffast-math`，工具链与 flags 随基线入库；残余差异（libm 等）用 `ENG SELFTEST` 的误差度量判定——**哈希不等 ≠ 失败，走可计算的容差通道并留痕**。
 
 ## 5. 阶段 3 — 独立模式 MVP（可玩闭环）
 
@@ -89,26 +90,26 @@
 | P3-2 UI 架构 ADR | UI 用 LVGL（BSP esp_lvgl_port）；决策：1280×720 原生重排版（推荐，参考 Sloop Go 屏设）vs 240×240 放大兼容；页面路由对应 SLOOP 层级；视觉规范（四轨主题色 蓝/绿/黄/橙 等） | ADR 落档 |
 | P3-3 MVP 四屏 | PLAY（kit 信息 + 演奏触发指示）、TRACKS（四轨选择着色）、STEP（步进网格编辑）、TRANSPORT（播放/停/BPM） | 每屏截屏过 §5.4 |
 | P3-4 状态模型 | AppState 快照 + 编辑命令归一抽象（本地引擎执行；阶段 5 同一抽象直发 FM-1） | 状态层单测（host 可跑）+ 设备行为 |
-| P3-5 串口输入注入 | console `KEY <code>` / `TAP <x> <y>` 与 `SCR` 组合，UI 状态可脚本复现；同步更新 AGENTS §5.3/§5.4 与 screenshot.py | 注入脚本驱动的截屏序列 |
+| P3-5 串口输入注入 | console `KEY <code>` / `TAP <x> <y>` 与 `SCR` 组合，UI 状态可脚本复现；同步更新 AGENTS §5.3/§5.4 与 screenshot.py（含 §5.4 预留的 `SCR <page>` 参数化一并评估） | 注入脚本驱动的截屏序列 |
 
 **完成判据**：
 1. 端到端人工试玩：选 kit → Tab5 Keyboard 演奏出声 → 步进写入 → 循环播放（听感正确、无爆音卡顿）；
 2. MVP 四屏截屏全部过 §5.4 视觉检查（布局/着色/可读性）；
 3. 注入式测试：至少 3 条脚本化交互流（如「选轨→改步→截屏」）稳定复现；
-4. host-test.sh 仍全绿；短时 soak（≥30min）无泄漏/重启。
+4. host-test.sh 仍全绿；短时 soak（≥30min）：最小剩余堆水位稳定（不随时间单调下降）、日志无 task watchdog/backtrace/重启。
 
 ## 6. 阶段 4 — 独立模式功能对齐
 
 **目标**：独立模式达到与 FM-1 上 SLOOP 等价的完整体验。
 
-任务（先从上游手册/界面整理**功能对齐清单**，逐项打勾）：
+任务（先从上游手册/界面整理**功能对齐清单**，逐项编 **P4-x** 任务号，再逐项打勾）：
 - 全部页面：kit/参数编辑器（旋钮页）、pattern/编曲、采样槽管理（USR/SYN）、设置页等；
 - 引擎特性补齐：TIE/SLIDE/SLICER、FM6/DSYN 参数面、用户预置存取（FATFS）；
-- 视觉：全页面截屏套件（页面 × 关键状态矩阵），归档 `firmware/build/verify/`；
-- 稳定性：长时 soak（数小时）+ 堆/PSRAM 水位记录；
+- 视觉：全页面截屏套件（页面 × 关键状态矩阵），证据按 §8 晋升入库；
+- 稳定性：长时 soak（数小时，量化口径同阶段 3）+ 堆/PSRAM 水位记录；顺带记录 INA226 电流与芯片温度（板载即有，tab5-hardware §3.6）；供电姿态：标准版无 NP-F550 电池，长 soak 须外接电源；
 - 仅在此之后做性能优化（§0.1）。
 
-**完成判据**：功能对齐清单全绿；全页面截屏套件通过；soak 无异常；**强制里程碑：dev → main 合并（§5.5 全门禁重跑）**。
+**完成判据**：功能对齐清单全绿；全页面截屏套件通过且证据入库；soak 量化判据通过；**强制里程碑：dev → main 合并（§5.5 全门禁重跑）**。
 
 ## 7. 阶段 5 — 联动模式（Companion）
 
@@ -116,12 +117,12 @@
 
 | 任务 | 内容 | 验证 |
 |---|---|---|
-| P5-0 前置 | FM-1 真机接入（device-notes 登记，SLOOP 版本经 INFO 回读）；**解决 DI-1**：ADR-002 选型并实现 USB-MIDI host 类驱动 | 设备枚举 1209:0001，MIDI 端口 "Felucca" |
+| P5-0 前置 | FM-1 真机接入（device-notes 登记，SLOOP 版本经 INFO 回读）；使能 USB-A VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`，不开则总线无电、表现为静默无设备，tab5-hardware §3.11）；**双模式调度与共存策略 ADR**（FM-1 接入时本地会话处置：切换/并行/双音频源；对应 AGENTS §3 `main/`「待：双模式调度」预留课题）；**解决 DI-1**：ADR-002 选型并实现 USB-MIDI host 类驱动 | 设备枚举 1209:0001，MIDI 端口 "Felucca"；调度 ADR 落档 |
 | P5-1 usb_fm1 组件 | MIDI bulk IN/OUT + 4 字节事件包 + SysEx 重组（参考 fm1-cartridge 先例） | 环回 + 真机收发 |
 | P5-2 editor_proto 组件 | 帧编解码（以上游 `EDITOR_PROTOCOL.md` 为权威，⚠️ 版本开工复核）、INFO 协商、GET/SET、WATCH/PING、push 解析、one-in-flight 队列、LIVE 遥控 | codec round-trip 单测 + mock 对端冒烟 |
 | P5-3 同步层 | DeviceController（FIFO + 瞬时 SET 合并）/ DeviceState（不可变快照）语义移植自 Sloop Go；断连丢弃队列/草稿 | 同步场景测试 |
 | P5-4 Companion UI | 连接状态页、编辑页（直驱 FM-1）、LIVE 遥控面板；复用 P3-4 状态抽象 | 截屏 + **前后截图 diff 证明双向同步**（FM-1 操作 → Tab5 SCR 变化；Tab5 操作 → FM-1 屏幕人工确认） |
-| P5-5 音频采集 | usb_host_uac 采集 FM-1 UAC1 → 混音/监听出 ES8388 | 听音 + 采集统计日志 |
+| P5-5 音频采集 | usb_host_uac 采集 FM-1 UAC1 → 混音/监听出 ES8388。⚠️ FM-1 的 UAC1 速率由其固件设置决定（44.1/48k），与本地 44.1k 混音存在双时钟/SRC 问题（重采样或时钟主从方案届时定） | 听音（无可闻漂移/爆音）+ 采集统计日志 |
 
 **完成判据**：
 1. §5.5「联动协议」门禁生效并全绿（连接 → INFO 版本协商 → WATCH push 可达，冒烟脚本化）；
@@ -131,6 +132,7 @@
 
 ## 8. 横切事项（全阶段）
 
+- **验证证据入库**：`firmware/build/verify/` 仅为**抓取暂存**（被 .gitignore 覆盖，`build.sh --clean` 会整目录删除）；门禁判定所用证据（通过代表图、全部失败图、soak 摘要、`ENG PERF` 数据、协议冒烟 transcript）晋升至 `docs/dev/verify/<阶段>-<日期>/`，并在 `docs/dev/verification-log.md` 登记（阶段/门禁/日期/提交号/证据 SHA256/结论）。阶段 4/5 强制合并点的完成主张**以登记证据为准**。
 - **分支**（§7.4）：阶段内工作在 `feat/<主题>` 分支推进、合回 dev；每阶段收尾重跑 §5.5 对应门禁，均可作为合并 main 的候选点。
 - **门禁激活时点**：UI 截屏门禁自阶段 1 第一次截图起生效；`host-test.sh` 门禁自阶段 2 生效；「联动协议」门禁自阶段 5 生效。
 - **文档同步**（§6）：新组件/新 ADR/环境坑随任务同提交；上游版本跟进先改 research 基线。
@@ -142,3 +144,4 @@
 | 日期 | 变更 |
 |---|---|
 | 2026-11-19 | 首版：阶段 0–5 划分、任务编号（P1-x…P5-x）与各阶段完成判据 |
+| 2026-11-19 | 评审修订（1 Critical + 3 Important + 7 Minor）：证据入库策略（§8/P1-7/阶段 4，配套 AGENTS §5.4 与 verification-log）；浮点等价可执行化（FP contraction 对策 + 误差度量容差通道）；分区 OTA 姿态定稿（单 factory app，算术自洽）；资产再分发许可核查；44.1kHz 对齐（P1-6/P2-3）；USB-A VBUS 使能（P5-0）；双模式调度 ADR（P5-0）；soak 判据量化；70 键全矩阵核对；阶段 4 补 P4-x 编号约定 |

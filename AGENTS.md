@@ -49,7 +49,7 @@ sloop-fm1-tab5/
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
 │   ├── design/                    # 架构决策与移植路线图（001-idf-version.md、002-port-roadmap.md）
-│   └── dev/                       # 开发日志/环境/设备档案（已有 device-notes.md）
+│   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（当前: bootstrap；待: 双模式调度）
 │   ├── components/                #    【规划】sloop_core / sloop_hal_tab5 / editor_proto / usb_fm1
@@ -116,12 +116,12 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 ### 5.4 UI 视觉验证标准（涉及 UI 的改动必做）
 
-1. 烧录后执行 `scripts/screenshot.py`（或 `verify.sh`），截图统一存 `firmware/build/verify/screenshot-<时间戳>.png`。
+1. 烧录后执行 `scripts/screenshot.py`（或 `verify.sh`），截图先落**抓取暂存区** `firmware/build/verify/screenshot-<时间戳>.png`（该目录不入库，`build.sh --clean` 会整目录删除）。**门禁判定所用证据须晋升入库**：复制到 `docs/dev/verify/<阶段>-<日期>/`，并在 `docs/dev/verification-log.md` 登记（阶段/门禁/日期/提交号/证据 SHA256/结论；策略详见 `docs/design/002-port-roadmap.md` §8）。
 2. **必须用视觉能力读取 PNG 检查**（不是看日志推断）：
    - 无花屏、撕裂、错位、缺色、残留脏区；
    - 布局与该屏设计一致（如 TRACKS 屏四轨着色 蓝/绿/黄/橙，文本可读）；
    - 与改动预期状态一致（选中态、层级页面、弹窗等）。
-3. 结论写入任务报告；**失败的截图也保留**（文件名加 `-fail`）供对比修复。
+3. 结论写入任务报告与 verification-log；**失败截图同样晋升入库**（文件名加 `-fail`）供对比修复。
 4. 多页面/多状态验证：待 UI 页面路由落地后，扩展 `SCR <page>` 或串口按键注入参数化截屏（届时更新本节）。
 
 ### 5.5 验证门禁（任务完成的定义）
