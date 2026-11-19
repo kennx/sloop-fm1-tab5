@@ -86,10 +86,11 @@ sloop-fm1-tab5/
 |---|---|
 | `scripts/build.sh [--clean] [idf.py 参数…]` | 构建 `firmware/`；自动探测 ESP-IDF 环境（已在 PATH 则直接用，否则尝试 `$ESP_IDF_EXPORT`、`~/esp/esp-idf/export.sh` 等常见位置） |
 | `scripts/flash.sh [PORT] [--monitor]` | 烧录；PORT 缺省自动探测（`/dev/ttyACM*` 优先，其次 `/dev/ttyUSB*`）；`--monitor` 烧录后进入串口监视 |
-| `scripts/screenshot.py PORT [OUT.png]` | 经串口发送 `SCR` 命令取帧缓冲，存为 PNG |
+| `scripts/screenshot.py PORT [OUT.png]` | 经串口发送 `SCR` 命令取帧缓冲，存为 PNG（默认输出 `$SLOOP_TAB5_PROJECT/build/verify/`；`--selftest` 离线自测，无需设备） |
 | `scripts/verify.sh [PORT]` | 一键验证：构建 → 烧录 → 等待启动 → 截屏到 `firmware/build/verify/` |
 
 - Python 依赖（screenshot.py）：`pip install -r scripts/requirements.txt`（pyserial + Pillow；numpy 可选，加速 RGB565 解码）。
+- `flash.sh` 接受 `--clean` 但**忽略**之（构建清理统一走 `build.sh --clean`）；`verify.sh` 不接受额外参数。
 - 工程目录可用 `SLOOP_TAB5_PROJECT` 环境变量覆盖（默认 `<repo>/firmware`）；工程未初始化时脚本会明确报错退出。
 
 ### 5.2 标准流程（每次固件迭代）
@@ -107,7 +108,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 1. PC 发送行命令：`SCR\n`
 2. 固件响应头：`SCR <width> <height> <fmt> <len>\n`（fmt ∈ `rgb565` | `rgb888`，len 为字节数）
-3. 固件随后发送 **len 字节裸二进制**（帧缓冲原样，rgb565 为小端）
+3. 固件随后发送 **len 字节裸二进制**（帧缓冲原样：rgb565 为小端，rgb888 为 RGB 字节序）
 4. 尾标记：`SCR OK\n`
 
 固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。协议字段后续如扩展（如 `SCR <page>` 指定页面），须同步更新本节与 `scripts/screenshot.py`。
@@ -133,6 +134,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
 | 引擎/DSP 相关 | host 回归测试通过（上游 golden 套件搬运后生效，届时补 `scripts/host-test.sh`） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
+| scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
 
 ## 6. 文档维护协议（自动维护）
 

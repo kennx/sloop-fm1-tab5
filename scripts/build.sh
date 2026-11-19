@@ -21,8 +21,11 @@ done
 
 BUILD_DIR="${SLOOP_TAB5_BUILD:-$PROJECT_DIR/build}"
 if (( CLEAN )) && [ -d "$BUILD_DIR" ]; then
+    case "$BUILD_DIR" in
+        ""|"/"|"//"|"/tmp"|"$HOME") die "拒绝清理可疑的构建目录: '$BUILD_DIR'" ;;
+    esac
     echo "==> 清理 $BUILD_DIR"
-    rm -rf "$BUILD_DIR"
+    rm -rf --one-file-system "$BUILD_DIR"
 fi
 
 echo "==> 构建 $PROJECT_DIR (build: $BUILD_DIR)"

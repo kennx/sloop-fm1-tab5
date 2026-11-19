@@ -36,6 +36,8 @@ ensure_idf() {
         if . "$c" >/dev/null 2>&1 && command -v idf.py >/dev/null 2>&1; then
             echo "已加载 ESP-IDF 环境: $c" >&2
             return 0
+        else
+            echo "提示: 候选 export.sh 加载失败（环境损坏或缺少依赖）: $c" >&2
         fi
     done < <(_idf_export_candidates)
     die "未找到 ESP-IDF（idf.py）。请先安装 ESP-IDF ≥5.4，或 source 其 export.sh，或设置 ESP_IDF_EXPORT=/path/to/esp-idf/export.sh"
