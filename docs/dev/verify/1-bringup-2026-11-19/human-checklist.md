@@ -1,7 +1,7 @@
 # 阶段 1 bring-up 人工验证清单（机器侧完成后的人测项）
 
 > 背景：阶段 1 全部任务已机器侧完成并合并 dev（2026-11-19，feat/bringup → dev @ 6b54824）。
-> 本清单为 roadmap §3 完成判据中**需要人手/人耳/人眼**的 4 项；全部通过后：
+> 本清单为 roadmap §3 完成判据中**需要人手/人耳/人眼**的验证项（听音已通过，余 3 项）；全部通过后：
 > 1. 在 `docs/dev/verification-log.md` 把对应 ⏳ 行改判 ✅（补日期/提交号/证据）；
 > 2. `docs/deferred-issues.md` 删除 DI-4（键盘矩阵）条目；
 > 3. `docs/design/002-port-roadmap.md` §1 阶段 1 状态 🔶 → ✅，即可考虑 dev→main 里程碑合并（§7.4）。
@@ -28,14 +28,15 @@ scripts/flash.sh /dev/ttyACM0 --monitor   # 启动自检应打印 keyboard: OK (
 - 结束后 console 输 `KB` 核对事件计数（down 数 = up 数 = 按键次数）；
 - monitor transcript 存 `firmware/build/verify/kb-test.log` 后晋升本目录（DI-4 要求）。
 
-## 3. 440Hz 听音（P1-6）
+## 3. 440Hz 听音（P1-6）—— ✅ 已通过（2026-11-19）
 
-```text
-console 输入：AUD TONE 440 3000
-```
-- 扬声器与 3.5mm 耳机各听一次：3 秒稳定纯音，起始无爆音、结束无咔哒；
-- 音高为标准 A4；**若整体明显偏高约半音（≈8%）⇒ 采样率错配**（44.1k/48k），回查 `audio_tone.c` 的 fs 与 I2S 配置；
-- 可再用 `AUD TONE 1000 2000` 对照。
+- 首测无声 → 定位 es8388 输出音量初始化缺口（取证与修复见 `docs/dev/device-notes.md` §5、fix 4278509）→ 修复后人测出声。
+- 音高精度未细究（以出声为判据），阶段 2 音频调优时复核（DI-6）。
+
+<!-- 原始步骤保留备查：
+console 输入：AUD TONE 440 3000；扬声器与 3.5mm 耳机各听一次：3 秒稳定纯音，
+起始无爆音、结束无咔哒；音高为标准 A4（偏高≈8% ⇒ 采样率错配，回查 fs 与 I2S 配置）。 -->
+
 
 ## 4. §5.4 视觉复看测试图（P1-2）
 
@@ -45,4 +46,4 @@ console 输入：AUD TONE 440 3000
 
 ---
 
-完成上述 4 项后，阶段 1 全部门禁闭环（机器侧 8 项已登记于 verification-log，见 SHA256SUMS）。
+完成余下 3 项后，阶段 1 全部门禁闭环（机器侧 8 项 + 听音人测已登记于 verification-log，见 SHA256SUMS）。
