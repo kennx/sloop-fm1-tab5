@@ -1,0 +1,12 @@
+# console 往返转录（2026-11-19，固件 0f6fbf5）——KB 探测与 AUD TONE 自检
+# 采集: 同一串口会话（USB-Serial-JTAG），命令以 LF 结束发送，响应为 CRLF（已归一化）
+
+KB
+KB probe: OK (0x6D @ G0/G1, INT=G50)
+KB fw: 0x01, events down=0 up=0 dropped=0 pending=0, INT=1
+sloop>  AUD TONE 440 1500
+AUD TONE 440Hz 1500ms 播放中...
+I (10620) sloop_audio: tone 440Hz 1500ms 开始
+I (12120) sloop_audio: tone 结束
+AUD TONE 完成
+sloop>  

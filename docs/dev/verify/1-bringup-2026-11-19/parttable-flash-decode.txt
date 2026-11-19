@@ -1,0 +1,11 @@
+# 已烧录分区表直读证据（2026-11-19，固件 0f6fbf5 烧录后）
+# 采集: esptool read_flash 0x8000 0x1000（只读）→ gen_esp32part.py 解码
+# 对照: firmware/partitions.csv（nvs 0x6000 / phy 0x1000 / factory 0x800000 / storage 0x7F0000；
+#       解码输出为人类可读单位 24K/4K/8M/8128K，数值等同）
+
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,8M,
+storage,data,fat,0x810000,8128K,

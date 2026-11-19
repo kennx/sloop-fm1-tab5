@@ -1,11 +1,12 @@
 /*
- * sloop-fm1-tab5 — firmware bootstrap
+ * sloop-fm1-tab5 — bring-up 自检入口（阶段 1）
  *
- * 当前阶段：Phase 1 bring-up——MIPI-DSI 显示已点亮（display.c，横屏 1280×720 + 测试图）、
- * console 通道与 SCR 截屏/KB 键盘/AUD 音频命令已落地（console.c，AGENTS §5.3）、
- * Tab5 Keyboard 驱动已接入（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50）、
- * ES8388 扬声器已出声（audio_tone.c，44.1kHz/2ch/16bit 正弦自检）。
- * 后续按 AGENTS.md §3 规划逐步落地：sloop_core 移植 → 编辑器协议 / USB host 接入 FM-1。
+ * 阶段 1 平台 bring-up 已落地（2026-11-19，机器侧门禁全绿）：MIPI-DSI 显示与
+ * 测试图（display.c）、console SCR/KB/AUD 命令（console.c，AGENTS §5.3）、
+ * Tab5 Keyboard 驱动（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50，
+ * FW 0x01）、ES8388 扬声器正弦自检（audio_tone.c，44.1kHz/2ch/16bit）。
+ * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
+ * 下一阶段：阶段 2 sloop_core 引擎移植（docs/design/002-port-roadmap.md §4）。
  */
 #include "audio_tone.h"
 #include "console.h"
