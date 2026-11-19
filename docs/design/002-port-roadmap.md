@@ -1,7 +1,7 @@
 # 002 — sloop-fm1 → Tab5 移植路线图（分阶段计划）
 
 > 状态：生效中（阶段 0 已完成）｜ 制定日期：2026-11-19
-> 关联：AGENTS.md §1（产品目标）、§5（构建/烧录/验证门禁）、§7.4（分支与里程碑）；`docs/research/`（上游调研）
+> 关联：AGENTS.md §1（产品目标）、§5（构建/烧录/验证门禁）、§7.4（分支与里程碑）；`docs/research/`（上游调研）；设计规格 `docs/superpowers/specs/2026-11-19-sloop-tab5-port-design.md` 与阶段 1 实施计划 `docs/superpowers/plans/2026-11-19-phase1-bringup.md`
 > 性质：移植主计划。各阶段开工/完成时更新本文状态列；阶段内产生的新决策按 AGENTS §6 沉淀为 ADR 并在本文登记。
 
 ## 0. 总原则
