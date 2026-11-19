@@ -45,16 +45,12 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-firmware.md
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
-│   ├── design/                    # 【规划】架构与设计决策（ADR、模块设计、按键映射）
-│   └── dev/                       # 【规划】开发日志/环境搭建/调试笔记
-├── firmware/                      # 【规划】ESP-IDF 工程（target: esp32p4）
-│   ├── main/                      #    应用入口、双模式调度
-│   ├── components/
-│   │   ├── sloop_core/            #    上游 src/ 移植层（尽量薄补丁，跟随上游）
-│   │   ├── sloop_hal_tab5/        #    Tab5 HAL 后端（音频/输入/显示/存储）
-│   │   ├── editor_proto/          #    编辑器协议（host 侧客户端 + 可选内嵌服务端）
-│   │   └── usb_fm1/               #    FM-1 USB host 接入（MIDI + UAC1）
-│   └── partitions.csv 等
+│   ├── design/                    # 架构与设计决策（ADR；已有 001-idf-version.md）
+│   └── dev/                       # 开发日志/环境/设备档案（已有 device-notes.md）
+├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
+│   ├── main/                      #    应用入口（当前: bootstrap；待: 双模式调度）
+│   ├── components/                #    【规划】sloop_core / sloop_hal_tab5 / editor_proto / usb_fm1
+│   └── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 ├── scripts/                       # 构建/烧录/截屏验证脚本（用法见 §5）
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
