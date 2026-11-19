@@ -13,6 +13,8 @@
 
 两条模式共享同一 UI 与状态模型（设计原则：状态快照 + 编辑命令的抽象在本地引擎与远程 FM-1 之间归一）。
 
+移植的**阶段划分、各阶段目标与完成判据**见 `docs/design/002-port-roadmap.md`（主计划，随进度维护状态列）。
+
 ### 非目标（当前）
 
 - 不做 FM-1 固件更新/刷机功能（明确禁止发送更新协议帧）。
@@ -46,7 +48,7 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构与设计决策（ADR；已有 001-idf-version.md）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version.md、002-port-roadmap.md）
 │   └── dev/                       # 开发日志/环境/设备档案（已有 device-notes.md）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（当前: bootstrap；待: 双模式调度）
