@@ -36,6 +36,7 @@
 ```
 sloop-fm1-tab5/
 ├── AGENTS.md                  # 本文件：目标/规范/协议（随项目演进维护）
+├── LICENSE                    # GPL-3.0 全文（与上游 sloop-fm1/sloop-fm1-go 同一 blob）
 ├── docs/
 │   ├── tab5-hardware.md           # Tab5 硬件参考（已有）
 │   ├── tab5-keyboard-hardware.md  # Tab5 Keyboard 参考（已有）
