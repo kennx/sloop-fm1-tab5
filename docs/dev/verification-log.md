@@ -13,7 +13,8 @@
 | 2026-11-19 | 阶段 1 / P1-5 | 键盘自检（机器侧） | ✅ 通过（机器侧） | 8f8e01b | `1-bringup-2026-11-19/console-transcript.txt` 46970ac9… + `boot-log-excerpt.txt` | 0x6D 应答 OK、键盘固件 FW 0x01（寄存器 0xFE）、INT 空闲电平正确；**70 键全矩阵+组合为人测待办（DI-4，见 docs/deferred-issues.md）**；`kb-test.log` 未产出（DI-4 人测产物，执行后落 `firmware/build/verify/` 再晋升） |
 | 2026-11-19 | 阶段 1 / P1-4 | 触摸四角校准 | ⏳ 人测待办 | 70b75ed | （无——准星截图需手指按压，机器不可代） | 触摸 indev/准星/坐标日志路径已落地（启动日志「触摸反馈就绪」）；四角+中心按压校准与按住截屏核对待人工执行 |
 | 2026-11-19 | 阶段 1 / P1-2 | §5.4 视觉复看（测试图目检） | ⏳ 人测待办 | 211bee5 | `1-bringup-2026-11-19/test-pattern.png` bbe03a48…（待人工目检对象） | AI 会话无图像工具：文本可读性（"SLOOP TAB5 BRINGUP"）、圆/对角线渲染等目检项未被像素抽检覆盖，须人眼复看已晋升 PNG（AGENTS §5.4(2)） |
-| 2026-11-19 | 阶段 1 / P1-6 | AUD TONE 音频（机器侧） | ✅ 通过（机器侧） | 0f6fbf5 | `1-bringup-2026-11-19/console-transcript.txt` + `boot-log-excerpt.txt` | ES8388 codec 44100Hz/2ch/16bit 打开 rc=0；`AUD TONE 440 1500` 命令往返成功（播放中→完成）；**扬声器/耳机听音（音高/爆音）人测待办** |
+| 2026-11-19 | 阶段 1 / P1-6 | AUD TONE 音频（机器侧） | ✅ 通过（机器侧） | 0f6fbf5 | `1-bringup-2026-11-19/console-transcript.txt` + `boot-log-excerpt.txt` | ES8388 codec 44100Hz/2ch/16bit 打开 rc=0；`AUD TONE 440 1500` 命令往返成功（播放中→完成） |
+| 2026-11-19 | 阶段 1 / P1-6 | AUD TONE 听音（人测） | ✅ 通过（人测，先失败后修复） | 4278509 | （人耳确认，无文件证据；寄存器取证见 device-notes §5） | **首测无声**（默认态）；systematic-debugging 定位根因 = es8388 驱动初始化把 LOUT2/ROUT2 音量写 0 + out_vol(70)→-11dB；四路输出音量 0x21 + DAC 0dB 后**人测出声**；修复（开机默认即实证出声态）后复测出声。音高精度未细究（本次以出声为判据），阶段 2 音频调优时复核。决定性寄存器未二分 → DI-6 |
 | 2026-11-19 | 阶段 1 / Task 8 | §5.5 scripts 门禁（selftest） | ✅ 通过 | 0f6fbf5 | `1-bringup-2026-11-19/build-gates.txt`（门禁 4 段） | `screenshot.py --selftest` 6 组断言通过；系统 python3 与 IDF venv python3.14 双跑均退出码 0 |
 
 > 证据相对路径均以 `docs/dev/verify/` 为根；SHA256 为 16 位前缀，全值见 `1-bringup-2026-11-19/SHA256SUMS`。
