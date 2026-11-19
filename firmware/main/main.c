@@ -2,11 +2,12 @@
  * sloop-fm1-tab5 — firmware bootstrap
  *
  * 当前阶段：Phase 1 bring-up——MIPI-DSI 显示已点亮（display.c，横屏 1280×720 + 测试图）、
- * console 通道与 SCR 截屏/KB 键盘命令已落地（console.c，AGENTS §5.3）、
- * Tab5 Keyboard 驱动已接入（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50）。
- * 后续按 AGENTS.md §3 规划逐步落地：音频 bring-up（AUD 命令）
- * → sloop_core 移植 → 编辑器协议 / USB host 接入 FM-1。
+ * console 通道与 SCR 截屏/KB 键盘/AUD 音频命令已落地（console.c，AGENTS §5.3）、
+ * Tab5 Keyboard 驱动已接入（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50）、
+ * ES8388 扬声器已出声（audio_tone.c，44.1kHz/2ch/16bit 正弦自检）。
+ * 后续按 AGENTS.md §3 规划逐步落地：sloop_core 移植 → 编辑器协议 / USB host 接入 FM-1。
  */
+#include "audio_tone.h"
 #include "console.h"
 #include "display.h"
 #include "esp_chip_info.h"
@@ -62,7 +63,13 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "keyboard: %s", tab5_keyboard_probe() ? "OK (0x6D)" : "NOT FOUND");
 
-    /* TODO(bring-up): bsp_audio（AUD 自检命令在 console.c 追加注册）*/
+    /* 扬声器 codec 自检（ES8388，44.1kHz/2ch/16bit；失败不算致命——
+     * 仅损失 AUD TONE 自检能力，等待硬件复查）*/
+    ret = audio_tone_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "音频初始化失败: %s", esp_err_to_name(ret));
+    }
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
     }

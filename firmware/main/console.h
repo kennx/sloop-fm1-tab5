@@ -1,9 +1,9 @@
 /*
  * sloop-fm1-tab5 — console 通道（bring-up）
  *
- * USB-Serial-JTAG REPL + 项目验证命令。当前注册 SCR 帧导出命令
- * （AGENTS.md §5.3 截屏协议，PC 侧对端 scripts/screenshot.py）；
- * 后续 KB/AUD 自检命令在 app_console_init() 内追加注册。
+ * USB-Serial-JTAG REPL + 项目验证命令。当前注册 SCR 帧导出
+ * （AGENTS.md §5.3 截屏协议，PC 侧对端 scripts/screenshot.py）、
+ * KB 键盘排障与 AUD 音频自检命令。
  */
 #pragma once
 

@@ -5,6 +5,7 @@
  *  - SCR：截屏命令。PC 发 "SCR\n" → 固件回 "SCR 1280 720 rgb565 1843200\n" → 1843200 字节
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
+ *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -16,9 +17,11 @@
 #include "console.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
 
 #include "bsp/m5stack_tab5.h"
+#include "audio_tone.h"
 #include "display.h"
 #include "driver/usb_serial_jtag_vfs.h"
 #include "esp_console.h"
@@ -145,6 +148,38 @@ static int kb_command(int argc, char **argv)
     return 0;
 }
 
+/* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 合法域 20..12000） */
+static int aud_command(int argc, char **argv)
+{
+    long hz = 0;
+    long ms = 2000;
+    bool args_ok = argc >= 3 && argc <= 4 && strcasecmp(argv[1], "tone") == 0;
+
+    if (args_ok) {
+        char *end = NULL;
+        hz = strtol(argv[2], &end, 10);
+        args_ok = end != argv[2] && *end == '\0';
+    }
+    if (args_ok && argc == 4) {
+        char *end = NULL;
+        ms = strtol(argv[3], &end, 10);
+        args_ok = end != argv[3] && *end == '\0';
+    }
+    if (!args_ok || hz < 20 || hz > 12000 || ms <= 0) {
+        printf("用法: AUD TONE <20..12000> [ms=2000]\n");
+        return 1;
+    }
+
+    printf("AUD TONE %ldHz %ldms 播放中...\n", hz, ms);
+    esp_err_t ret = audio_tone_play((uint32_t)hz, (uint32_t)ms);
+    if (ret != ESP_OK) {
+        printf("AUD TONE 失败: %s\n", esp_err_to_name(ret));
+        return 1;
+    }
+    printf("AUD TONE 完成\n");
+    return 0;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -159,7 +194,7 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* 先注册命令后启动 REPL；KB/AUD 自检命令（Task 5/7）在此追加 */
+    /* 先注册命令后启动 REPL（SCR/KB/AUD） */
     const esp_console_cmd_t scr_cmd = {
         .command = "SCR",
         .help = "导出帧缓冲（AGENTS §5.3 截屏协议，screenshot.py 对端）",
@@ -172,7 +207,7 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* KB（Tab5 Keyboard 排障）；AUD 自检命令（Task 7）在此追加 */
+    /* KB（Tab5 Keyboard 排障） */
     const esp_console_cmd_t kb_cmd = {
         .command = "KB",
         .help = "键盘状态/事件计数；KB ON|OFF 开关解码日志",
@@ -182,6 +217,19 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&kb_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 KB 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    /* AUD（音频自检） */
+    const esp_console_cmd_t aud_cmd = {
+        .command = "AUD",
+        .help = "音频自检；AUD TONE <20..12000> [ms=2000] 播放正弦纯音",
+        .hint = "TONE <hz> [ms]",
+        .func = &aud_command,
+    };
+    ret = esp_console_cmd_register(&aud_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 AUD 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
