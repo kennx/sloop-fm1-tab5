@@ -50,7 +50,9 @@ sloop-fm1-tab5/
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（当前: bootstrap；待: 双模式调度）
 │   ├── components/                #    【规划】sloop_core / sloop_hal_tab5 / editor_proto / usb_fm1
-│   └── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
+│   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
+│   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
+│   └── partitions.csv             #    【规划】自定义分区（大 app + 资产 FATFS + 预留 OTA；LVGL/资产合入前必须落地——默认单 app 仅 1MB）
 ├── scripts/                       # 构建/烧录/截屏验证脚本（用法见 §5）
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
@@ -131,6 +133,8 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 引擎/DSP 相关 | host 回归测试通过（上游 golden 套件搬运后生效，届时补 `scripts/host-test.sh`） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
+
+> **已知豁免**：kconfig 重新生成后的首个 configure pass 会出现一对 CMake 提示（`build.cmake:631` 警告 + `Missing kconfig option. Re-run the build process...`），紧接的第二次构建即消失——这是 IDF 已知行为，门禁按第二次构建的输出判定。
 
 ## 6. 文档维护协议（自动维护）
 

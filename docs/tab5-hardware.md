@@ -23,8 +23,8 @@ Tab5 是一款双芯片架构的便携式智能物联网终端开发设备：
 | 主控 SoC | ESP32-P4NRW32 @RISC-V 32 位双核 360MHz + LP 核 40MHz |
 | 无线模组 | ESP32-C6-MINI-1U（Wi-Fi 6，SDIO 通信） |
 | Flash | 16MB |
-| PSRAM | 32MB Octal |
-| 显示 | 5″ IPS TFT 1280×720，MIPI-DSI，ST7123/ST7123 触控一体（早期版为 ILI9881C+GT911） |
+| PSRAM | 32MB（Hex 16 线接口；esp32p4 在 IDF 中唯一 PSRAM 模式为 `SPIRAM_MODE_HEX`，M5 规格页记作 Octal 指颗粒封装） |
+| 显示 | 5″ IPS TFT 1280×720，MIPI-DSI，ST7123/ST7121 触控一体（早期版为 ILI9881C+GT911） |
 | 摄像头 | SC2356 2MP（1600×1200），MIPI-CSI |
 | 音频编解码 | ES8388 |
 | 回声消除前端 | ES7210（AEC） |
@@ -221,7 +221,7 @@ Tab5 是一款双芯片架构的便携式智能物联网终端开发设备：
 ### 5.2 ESP-IDF 硬件驱动要点
 
 - **I2C 总线**：所有板载 I2C 设备挂 G31(SDA)/G32(SCL)，用 `i2c_master` API 建总线后按地址挂设备（地址表见第 4 节）
-- **PSRAM**：32MB Octal，项目开 `SPIRAM`（BSP/出厂固件默认已配）
+- **PSRAM**：32MB，项目开 `SPIRAM`，模式用 `SPIRAM_MODE_HEX`（P4 唯一选项，无 OCT 符号；误写 `SPIRAM_MODE_OCT` 会报 unknown kconfig symbol）
 - **烧录**：USB-C（OTG）+ esptool：`idf.py flash monitor`
 - **屏幕复位时序**：见第 6 节坑点；ESP-IDF 下参考出厂固件/BSP 的面板初始化实现，勿自己从零写
 
