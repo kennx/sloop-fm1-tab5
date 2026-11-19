@@ -1,10 +1,10 @@
-# ESP-IDF / 构建产物（配置以 sdkconfig.defaults 为源，生成物不入库）
+# ESP-IDF / 构建产物（配置以 sdkconfig.defaults 为源，生成物不入库；
+# firmware/dependencies.lock 例外入库——锁定组件版本保证屏幕批次探测等 BSP 行为可复现）
 firmware/build/
 build/
 firmware/sdkconfig
 sdkconfig.old
 sdkconfig.defaults.bak
-dependencies.lock
 managed_components/
 
 # Python
