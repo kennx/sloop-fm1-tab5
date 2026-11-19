@@ -1,0 +1,20 @@
+# sloop-fm1-tab5 — Tab5 (ESP32-P4) 默认配置
+# Target
+CONFIG_IDF_TARGET="esp32p4"
+
+# 芯片修订版: 本机 Tab5 为早期样片 v1.3（esptool 识别；IDF 默认面向量产 v3.1+，会拒刷）。
+# P4 的 <3.0 与 >=3.0 硬件互斥，须先打开总开关再选最低修订档。
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_100=y
+
+# Flash 16MB
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# PSRAM 32MB（BSP 显示缓冲与后续音频/采样依赖）
+# 注: esp32p4 的 Kconfig 符号是 SPIRAM_MODE_HEX（16 线），无 SPIRAM_MODE_OCT
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_HEX=y
+CONFIG_SPIRAM_SPEED_200M=y
+
+# 日志
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y

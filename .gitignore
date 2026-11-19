@@ -1,6 +1,7 @@
-# ESP-IDF / 构建产物
+# ESP-IDF / 构建产物（配置以 sdkconfig.defaults 为源，生成物不入库）
 firmware/build/
 build/
+firmware/sdkconfig
 sdkconfig.old
 sdkconfig.defaults.bak
 dependencies.lock
