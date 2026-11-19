@@ -203,7 +203,7 @@ Tab5 是一款双芯片架构的便携式智能物联网终端开发设备：
 
 | 资源 | 链接 | 说明 |
 |---|---|---|
-| **官方 BSP**（Espressif 组件库） | https://components.espressif.com/components/espressif/m5stack_tab5 | `idf.py add-dependency "espressif/m5stack_tab5"`，最新稳定版 1.3.2，Apache-2.0，target: esp32p4 |
+| **官方 BSP**（Espressif 组件库） | https://components.espressif.com/components/espressif/m5stack_tab5 | `idf.py add-dependency "espressif/m5stack_tab5"`，最新稳定版 1.3.3（2026-11-19 复核，本仓库锁定 ^1.3.3），Apache-2.0，target: esp32p4 |
 | BSP 源码 | https://github.com/espressif/esp-bsp/tree/master/bsp/m5stack_tab5 | esp-bsp 仓库 m5stack_tab5 目录 |
 | **出厂固件源码** | https://github.com/m5stack/M5Tab5-UserDemo | 官方出厂固件，即 ESP-IDF 工程，含全部板载外设初始化参考（含键盘） |
 | 出厂固件编译教程 | https://docs.m5stack.com/zh_CN/esp_idf/m5tab5/userdemo | 官方 ESP-IDF 编译/烧录教程 |
