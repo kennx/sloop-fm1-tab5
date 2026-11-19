@@ -6,6 +6,7 @@
  * → sloop_core 移植 → 编辑器协议 / USB host 接入 FM-1。
  */
 #include "esp_chip_info.h"
+#include "esp_err.h"
 #include "esp_flash.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
@@ -18,13 +19,19 @@ static void log_hardware_summary(void)
 {
     esp_chip_info_t chip;
     esp_chip_info(&chip);
-    uint32_t flash_bytes = 0;
-    esp_flash_get_size(NULL, &flash_bytes);
     ESP_LOGI(TAG, "SoC: ESP32-P4 rev v%d.%d, %d cores", chip.revision / 100, chip.revision % 100,
              chip.cores);
-    ESP_LOGI(TAG, "Flash: %u MB %s, PSRAM: %s", (unsigned)(flash_bytes / (1024 * 1024)),
-             (chip.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external",
-             CONFIG_SPIRAM ? "enabled" : "disabled");
+
+    uint32_t flash_bytes = 0;
+    esp_err_t ret = esp_flash_get_size(NULL, &flash_bytes);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Flash: %u MB %s, PSRAM: %s", (unsigned)(flash_bytes / (1024 * 1024)),
+                 (chip.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external",
+                 CONFIG_SPIRAM ? "enabled" : "disabled");
+    } else {
+        ESP_LOGW(TAG, "Flash: 容量读取失败 (%s), PSRAM: %s", esp_err_to_name(ret),
+                 CONFIG_SPIRAM ? "enabled" : "disabled");
+    }
 }
 
 void app_main(void)
