@@ -19,6 +19,10 @@
  * - 底带 y∈[480,720)：4 条水平条各 1280×60，蓝/绿/黄/橙（四轨主题色）；
  * - 四角白色 L 形标记（臂长 32px、边宽 8px）验证无裁切；左上角标记与
  *   白色彩条同色不可辨，该角裁切判定依赖白条自身贴边。
+ *
+ * 触摸反馈（Task 5）：30ms 轮询触摸 indev，按下时把 lv_layer_top 上的
+ * 白色十字准星（臂 32px、线宽 2px）移到触点并限流输出坐标日志
+ * （位移 ≥8px 才记录）；松开后准星留在最后位置，便于截屏核对。
  */
 #include "display.h"
 
@@ -28,6 +32,7 @@
 #include "lvgl.h"
 #include "esp_lvgl_port.h"
 #include "bsp/m5stack_tab5.h"
+#include "bsp/touch.h"
 
 static const char *TAG = "sloop_display";
 
@@ -39,7 +44,7 @@ esp_lcd_panel_handle_t app_display_panel(void)
     return s_panel;
 }
 
-/* 无主题装饰的纯色矩形（彩条/底条/L 形标记共用） */
+/* 无主题装饰的纯色矩形（彩条/底条/L 形标记/触摸准星共用） */
 static lv_obj_t *make_rect(lv_obj_t *parent, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color)
 {
     lv_obj_t *rect = lv_obj_create(parent);
@@ -111,6 +116,91 @@ static void draw_test_pattern(void)
     make_rect(scr, 1272, 688, 8, 32, 0xFFFFFF);
 }
 
+/* ==================== 触摸反馈（Task 5：十字准星 + 坐标日志） ==================== */
+
+/* 准星几何：两条正交白色细条组成十字，臂长 32px、线宽 2px */
+enum { CROSS_ARM = 32, CROSS_THICK = 2 };
+
+static lv_indev_t *s_touch_indev;    /* lvgl_port_add_touch 注册的触摸 indev */
+static lv_obj_t *s_cross_h;          /* 准星横条（lv_layer_top 上） */
+static lv_obj_t *s_cross_v;          /* 准星竖条（lv_layer_top 上） */
+static int32_t s_last_log_x = -1000; /* 上次日志坐标，屏外初值保证首按必记录 */
+static int32_t s_last_log_y = -1000;
+
+static lv_indev_t *touch_indev_init(lv_display_t *disp)
+{
+    /* 镜像 BSP bsp_display_indev_touch_init()（bsp_display.c）：本文件走的
+     * bsp_display_new_with_handles() 路径只组装 LCD，不含触摸——
+     * bsp_display_get_input_dev() 背后的静态指针仅由 bsp_display_start_with_config()
+     * 路径赋值，在此路径恒为 NULL，须自行挂接触摸 indev。 */
+    esp_lcd_touch_handle_t tp = NULL;
+    esp_err_t ret = bsp_touch_new(NULL, &tp);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "bsp_touch_new 失败: %s", esp_err_to_name(ret));
+        return NULL;
+    }
+    const lvgl_port_touch_cfg_t touch_cfg = {
+        .disp = disp,
+        .handle = tp,
+    };
+    lv_indev_t *indev = lvgl_port_add_touch(&touch_cfg);
+    if (indev == NULL) {
+        ESP_LOGE(TAG, "lvgl_port_add_touch 失败");
+        return NULL;
+    }
+    ESP_LOGI(TAG, "触摸 indev 已挂接（随显示旋转映射到横屏坐标）");
+    return indev;
+}
+
+/* 本回调运行于 LVGL 任务（esp_lvgl_port 的 lvgl_port_task 已持 lvgl
+ * 递归锁调用 lv_timer_handler），不可也无须再 bsp_display_lock。 */
+static void touch_feedback_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    if (s_touch_indev == NULL || s_cross_h == NULL) {
+        return;
+    }
+    if (lv_indev_get_state(s_touch_indev) != LV_INDEV_STATE_PRESSED) {
+        return; /* 松开后准星留在最后位置，便于截屏核对 */
+    }
+
+    lv_point_t pt;
+    lv_indev_get_point(s_touch_indev, &pt);
+
+    lv_obj_set_hidden(s_cross_h, false);
+    lv_obj_set_hidden(s_cross_v, false);
+    lv_obj_set_pos(s_cross_h, pt.x - CROSS_ARM / 2, pt.y - CROSS_THICK / 2);
+    lv_obj_set_pos(s_cross_v, pt.x - CROSS_THICK / 2, pt.y - CROSS_ARM / 2);
+
+    /* 坐标限流：距上次日志位移 ≥8px（欧氏距离）才输出 */
+    int32_t dx = pt.x - s_last_log_x;
+    int32_t dy = pt.y - s_last_log_y;
+    if (dx * dx + dy * dy >= 8 * 8) {
+        ESP_LOGI(TAG, "touch (%d,%d)", (int)pt.x, (int)pt.y);
+        s_last_log_x = pt.x;
+        s_last_log_y = pt.y;
+    }
+}
+
+void app_display_touch_feedback_start(void)
+{
+    if (s_touch_indev == NULL) {
+        ESP_LOGE(TAG, "触摸 indev 缺失，反馈未启动");
+        return;
+    }
+
+    bsp_display_lock(0);
+    lv_obj_t *layer = lv_layer_top();
+    s_cross_h = make_rect(layer, 0, 0, CROSS_ARM, CROSS_THICK, 0xFFFFFF);
+    s_cross_v = make_rect(layer, 0, 0, CROSS_THICK, CROSS_ARM, 0xFFFFFF);
+    lv_obj_set_hidden(s_cross_h, true);
+    lv_obj_set_hidden(s_cross_v, true);
+    lv_timer_create(touch_feedback_timer_cb, 30, NULL);
+    bsp_display_unlock();
+
+    ESP_LOGI(TAG, "触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流");
+}
+
 esp_err_t app_display_init(void)
 {
     /* 本机为 ST7121 批次（docs/dev/device-notes.md §1），DSI lane 速率须用
@@ -172,6 +262,13 @@ esp_err_t app_display_init(void)
         return ESP_FAIL;
     }
 
+    /* 触摸 indev：本路径 BSP 未挂接（见 touch_indev_init 注释），失败仅降级
+     * 为无触摸模式，不阻塞显示/console 的 bring-up 验证 */
+    s_touch_indev = touch_indev_init(disp);
+    if (s_touch_indev == NULL) {
+        ESP_LOGE(TAG, "触摸初始化失败，继续以无触摸模式运行");
+    }
+
     bsp_display_lock(0);
     lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_90);
     draw_test_pattern();
@@ -181,5 +278,7 @@ esp_err_t app_display_init(void)
 
     bsp_display_backlight_on();
     ESP_LOGI(TAG, "显示就绪: %dx%d 横屏, bring-up 测试图已绘制", (int)log_hres, (int)log_vres);
+
+    app_display_touch_feedback_start();
     return ESP_OK;
 }
