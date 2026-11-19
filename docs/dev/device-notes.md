@@ -27,7 +27,9 @@ CONFIG_ESP32P4_REV_MIN_100=y           # 最低修订 v1.0，覆盖本机 v1.3
 
 ### ST7121 批次的软件影响
 
-BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDDI 固件版本自动分流：fw 1 → ST7121（`disp_init_data_st7121.h`），fw 3 → ST7123，否则 ILI9881C+GT911。**无需任何配置**，bring-up 后从日志 `Discovered board version 3 (LCD ST7121...)` 可确认探测结果。
+BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDDI 固件版本自动分流：fw 1 → ST7121（`disp_init_data_st7121.h`），fw 3 → ST7123，否则 ILI9881C+GT911。批次分流本身**无需任何配置**，bring-up 后从日志 `Discovered board version 3 (LCD ST7121...)` 可确认探测结果。
+
+⚠️ 例外：应用侧若绕过 `bsp_display_start()` 改用 `bsp_display_new_with_handles()` 组装（为保留 panel 句柄供 SCR 取帧，见 `firmware/main/display.c`），DSI lane 速率须自行固定 **965Mbps**——BSP 对 ST7121 批次的降速适配（`BSP_LCD_ST712X_MIPI_DSI_LANE_BITRATE_MBPS`）发生在其内部「先探测后建总线」流程里，而 `bsp_get_board_version()` 是 BSP 静态接口，应用无法先探测再传参。该固定值仅适用于 ST7121 批次本机。
 
 ## 2. M5Stack Tab5 Keyboard（A164）— ⏳ 待固件验证
 
@@ -44,3 +46,4 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 | 日期 | 事件 |
 |---|---|
 | 2026-11-19 | 首次烧录 `sloop_fm1_tab5.bin`（骨架，git 3394356）成功；启动日志正常（v1.3/16MB/32MB PSRAM 确认） |
+| 2026-11-19 | 显示点亮（git 211bee5）：ST7121 探测正常，横屏 1280×720 测试图绘制成功 |
