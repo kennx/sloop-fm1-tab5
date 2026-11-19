@@ -7,6 +7,7 @@
     FW  -> <len 字节裸二进制帧缓冲>                (rgb565 为小端)
     FW  -> "SCR OK\\n"
 
+固件失败时改回 "SCR ERR <原因>\\n"，脚本立即报错退出（不等超时）。
 固件未注册 SCR 命令时会超时并给出提示。
 
 用法:
@@ -57,6 +58,8 @@ def read_header(ser, timeout: float):
         if not line:
             continue
         text = line.decode(errors="replace").strip()
+        if text.startswith("SCR ERR"):
+            raise ValueError(f"固件返回 {text}（截屏失败，原因见固件侧日志）")
         if text.startswith("SCR ") and len(text.split()) == 5:
             _, w, h, fmt, ln = text.split()
             if fmt not in ("rgb565", "rgb888"):
@@ -322,6 +325,18 @@ def _capture_checks() -> None:
 
     with_fake(b"SCR 4 2 rgb565 16\n" + frame + b"SCR BAD\n", bad_tail)
 
+    def scr_err_fast_fail() -> None:
+        with tempfile.TemporaryDirectory() as td:
+            try:
+                capture("/dev/null", str(Path(td) / "err.png"), 115200, 3.0)
+            except ValueError as e:
+                assert "SCR ERR" in str(e) and "lvgl_lock_timeout" in str(e), \
+                    f"错误信息应含 SCR ERR 与原因: {e}"
+            else:
+                raise AssertionError("固件回 SCR ERR 时应快速失败（抛 ValueError），而非等到超时")
+
+    with_fake(b"SCR ERR lvgl_lock_timeout\n", scr_err_fast_fail)
+
 
 def _check_pixel_checks() -> None:
     img = rgb565_to_rgb(struct.pack("<8H", *_W565), 4, 2)
@@ -341,7 +356,7 @@ def run_selftest() -> None:
     _decode_checks()
     _capture_checks()
     _check_pixel_checks()
-    print("自测断言 6 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、像素抽检）")
+    print("自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、像素抽检）")
 
 
 if __name__ == "__main__":
