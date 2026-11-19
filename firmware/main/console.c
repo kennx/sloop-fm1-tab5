@@ -68,7 +68,11 @@ static int scr_command(int argc, char **argv)
         return 1;
     }
 
-    bsp_display_lock(0);                 /* 暂停 LVGL 刷新（§5.3 稳帧策略） */
+    if (!bsp_display_lock(5000)) {       /* 有限等待：LVGL 任务僵死时不吊死 console 通道 */
+        heap_caps_free(buf);
+        printf("SCR ERR lvgl_lock_timeout\n");
+        return 1;
+    }
     vTaskDelay(pdMS_TO_TICKS(40));       /* ≥2 帧，等潜在 flush 收尾 */
     void *fb = NULL;
     esp_err_t ret = esp_lcd_dpi_panel_get_frame_buffer(panel, 1, &fb);
@@ -148,7 +152,7 @@ static int kb_command(int argc, char **argv)
     return 0;
 }
 
-/* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 合法域 20..12000） */
+/* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 域 20..12000，ms 域 1..60000） */
 static int aud_command(int argc, char **argv)
 {
     long hz = 0;
@@ -165,8 +169,8 @@ static int aud_command(int argc, char **argv)
         ms = strtol(argv[3], &end, 10);
         args_ok = end != argv[3] && *end == '\0';
     }
-    if (!args_ok || hz < 20 || hz > 12000 || ms <= 0) {
-        printf("用法: AUD TONE <20..12000> [ms=2000]\n");
+    if (!args_ok || hz < 20 || hz > 12000 || ms < 1 || ms > 60000) {
+        printf("用法: AUD TONE <20..12000> [ms=1..60000]\n");
         return 1;
     }
 
@@ -223,7 +227,7 @@ esp_err_t app_console_init(void)
     /* AUD（音频自检） */
     const esp_console_cmd_t aud_cmd = {
         .command = "AUD",
-        .help = "音频自检；AUD TONE <20..12000> [ms=2000] 播放正弦纯音",
+        .help = "音频自检；AUD TONE <20..12000> [ms=1..60000] 播放正弦纯音",
         .hint = "TONE <hz> [ms]",
         .func = &aud_command,
     };
