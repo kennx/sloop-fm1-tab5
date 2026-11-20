@@ -16,7 +16,9 @@
     2. 每次采样 streaming=1 且 xrun=0（流式音频无欠载）；
     3. 渲染占空比 duty_mean ≤ 2× 阶段 2 静默渲染基线 9.44%（= 18.88%），duty_max 记录；
     4. 音频任务栈余量 ≥ 2KB；
-    5. KEY STATS count 增量 == 期望事件数（每轮 2 个：down/up）；
+    5. KEY STATS count 增量 == 期望事件数（每轮 2 个：down/up）。注意：KEY 注入走
+       与物理键盘相同的入口，计数增量证明「console 注入的命令被执行了」，**不**证明
+       物理键盘事件链（I2C 轮询/解码）在跑——键盘链路由人工逐键核对（DI-4）；
     6. 原始串口日志无 panic / Guru Meditation / task_wdt / abort / Backtrace；
     7. 每周期的切页回显与 STATE SNAP 页面断言全过（无切页回归）；
     8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）。
@@ -282,6 +284,8 @@ def main() -> None:
         ser.close()
 
     measured = rows[-1]["t"] if rows else 0
+    if not rows:
+        problems.append("未采集到任何采样（会话未就绪或首采样前中断）")
     lines = [f"# soak {stamp} port={args.port} requested={args.duration:.0f}s measured={measured}s "
              f"interval={args.interval:.0f}s cycle={args.cycle:.0f}s",
              "# t_s internal_free internal_min psram_free streaming xrun audio_stack_free "
@@ -298,7 +302,7 @@ def main() -> None:
                  f"HEAP_NET_FLOOR={HEAP_NET_FLOOR}B（首末差），"
                  f"HEAP_JITTER={HEAP_JITTER}B（连续 3 采样非增累计下滑容差）")
     lines.append(f"占空比判定：基线 {DUTY_BASELINE_PCT:.2f}%（阶段 2 静默渲染），"
-                 f"上限 2× = {DUTY_MAX_PCT:.2f}%（流式 render_mean_us / 块预算 5805µs）")
+                 f"上限 2× = {DUTY_MAX_PCT:.2f}%（流式 render_mean_us / 块预算 5804µs）")
     lines.append(f"实测时长 {measured}s / 请求 {args.duration:.0f}s")
     lines.append(f"断言失败 {s.failures} 项")
     lines.append("判定问题：无" if not problems else "判定问题：\n- " + "\n- ".join(problems))
@@ -312,7 +316,6 @@ def main() -> None:
     print(f"[PASS] soak: {len(rows)} 次采样（{measured}s），内部堆 {rows[0]['internal_free']} -> "
           f"{rows[-1]['internal_free']}B，xrun=0，duty_mean 最大 "
           f"{max(r['duty_mean'] for r in rows):.2f}%（上限 {DUTY_MAX_PCT:.2f}%），无 panic/WDT")
-
 
 if __name__ == "__main__":
     main()
