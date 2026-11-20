@@ -594,12 +594,12 @@ int sloop_core_selftest(const char *case_name)
      * UI 定时器每 30ms 调 sloop_core_read、input 任务会 sloop_core_note/write_step
      * ——不持锁就是「活写者 + 快照回滚」的数据竞争（写者可能把半个用例的状态带进
      * 下一个用例，或读方看到回滚中途）。
-     * 调用方（console 的 ENG SELFTEST）在调用前后进入/退出诊断模式：暂停 30ms UI
-     * 定时器并挂起 input 任务（sloop_ui_diag_enter/leave），因此本锁的等待者只有
+     * 调用方（console 的 ENG SELFTEST）在调用前后执行 sloop_core_diag_freeze(true/false)：
+     * 冻结后 read 返回冻结快照、写 API 直接丢弃（都不取锁），因此本锁的等待者只剩
      * 音频任务（已按设计停流）——没有长时持锁 + 高优先级等待者的组合，就不会触发
-     * 该 FreeRTOS SMP 端口的跨核 yield 风暴（vPortYield busy-wait；阶段 3 收口的
-     * 既有固件在 UI live 时跑全量 SELFTEST 即因此卡死刷 task_wdt，见 ADR-007）。
-     * 诊断模式期间 UI 冻结、键盘编辑不落地，见 sloop_core.h。 */
+     * 该 FreeRTOS SMP 端口的跨核 yield 风暴（vPortYield busy-wait；阶段 3 收口的既有
+     * 固件在 UI live 时跑 SELFTEST 即因此卡死刷 task_wdt，见 ADR-007）。
+     * 诊断模式期间 UI 停在最后一帧、键盘编辑不落地，见 sloop_core.h。 */
     engine_lock();
     selftest_restore();
     ctl.selector = case_name;
