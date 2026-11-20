@@ -11,6 +11,9 @@
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
  *    与状态层持有的选轨/mute/solo；引擎真值看 ENG SNAP）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
+ *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
+ *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→state_apply
+ *    返回，均值/最大，µs）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -496,6 +499,50 @@ static int ui_command(int argc, char **argv)
     return 1;
 }
 
+/* KEY（InputManager 注入）：与物理键盘同一入口 sloop_ui_input_key()。
+ * 延迟口径 = 命令入口 → 该调用返回（含 state_apply 的状态互斥与引擎写），
+ * 每条命令打印 elapsed_us，KEY STATS 给出累计均值/最大。 */
+static uint32_t s_key_calls;
+static uint64_t s_key_us_sum;
+static uint32_t s_key_us_max;
+
+static int key_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "stats") == 0) {
+        printf("KEY STATS count=%u mean_us=%u max_us=%u\n", (unsigned)s_key_calls,
+               (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
+               (unsigned)s_key_us_max);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "stats") == 0 && strcasecmp(argv[2], "reset") == 0) {
+        s_key_calls = 0;
+        s_key_us_sum = 0;
+        s_key_us_max = 0;
+        printf("KEY STATS reset\n");
+        return 0;
+    }
+    if (argc == 3) {
+        char *end = NULL;
+        unsigned long code = strtoul(argv[1], &end, 0);
+        bool down = strcasecmp(argv[2], "down") == 0;
+        if (end != argv[1] && *end == '\0' && code <= 0x7F && (down || strcasecmp(argv[2], "up") == 0)) {
+            int64_t t0 = esp_timer_get_time();
+            sloop_ui_input_key((uint8_t)code, down);
+            uint32_t us = (uint32_t)(esp_timer_get_time() - t0);
+            s_key_calls++;
+            s_key_us_sum += us;
+            if (us > s_key_us_max) s_key_us_max = us;
+            printf("KEY 0x%02lX %s %s elapsed_us=%u\n", code, down ? "down" : "up",
+                   tab5_kb_key_name((uint8_t)code), (unsigned)us);
+            return 0;
+        }
+    }
+    printf("用法: KEY <code=十进制|0xhex> <down|up> | KEY STATS [RESET]\n"
+           "code = tab5_keyboard 事件码 (row<<4|col)：sym=0x30 Aa=0x31 ctrl=0x40 alt=0x41 "
+           "z=0x42 space=0x4D esc=0x00 tab=0x20\n");
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -583,6 +630,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&ui_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 UI 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t key_cmd = {
+        .command = "KEY",
+        .help = "键盘注入（与物理同入口）：KEY <code> <down|up>；KEY STATS [RESET] 打印注入延迟",
+        .hint = "<code> <down|up> | STATS [RESET]",
+        .func = &key_command,
+    };
+    ret = esp_console_cmd_register(&key_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 KEY 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

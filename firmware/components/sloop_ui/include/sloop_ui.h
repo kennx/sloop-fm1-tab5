@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "esp_err.h"
@@ -26,6 +27,13 @@ void sloop_ui_switch_page(uint8_t page);
 uint8_t sloop_ui_current_page(void);
 
 /* 音符触发指示（PLAY 页大号指示）：点亮 120ms 后由 UI 定时器熄灭。
- * 输入层（Task 6 的 InputManager）调用；内部加锁。 */
+ * 约束：调用方不得持 state/引擎锁（本函数内部取 LVGL 锁——与那两把锁构成
+ * 成环风险的唯一路径）；LVGL 锁 100ms 超时时静默丢弃指示（音符照常发声）。
+ * 输入层（input.c）在 state_apply 返回之后调用。 */
 void sloop_ui_flash_note(uint8_t note);
+
+/* InputManager 入口（input.c）：code = tab5_keyboard 事件码（row<<4|col），
+ * down = 按下/释放。物理键盘（input 任务 5ms 轮询）与 console `KEY` 注入共用；
+ * 可从任意任务调用（内部互斥 + 状态层互斥），不得在 ISR 中调用。 */
+void sloop_ui_input_key(uint8_t code, bool down);
 

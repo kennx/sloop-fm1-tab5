@@ -30,6 +30,7 @@
 typedef enum {
     CMD_NOTE_ON, CMD_NOTE_OFF, CMD_PLAY, CMD_STOP, CMD_SELECT_TRACK,
     CMD_TOGGLE_STEP, CMD_SET_BPM, CMD_SET_TRACK, CMD_MUTE, CMD_SOLO,
+    CMD_ERASE_NOTE,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
@@ -45,7 +46,13 @@ typedef enum {
  *                    n>0 但 time 为 TIE/REST 的步算空（切换 → 开，不是 → 关）。
  *                    鼓轨（track 3）MVP 只读，忽略。
  *  CMD_SET_BPM       v 钳位到 40..240（上游 params.c 的 GP[G_BPM]）后写 G_BPM
- *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位 */
+ *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位
+ *  CMD_ERASE_NOTE    a=track(0..2) b=note(1..127)：从 focus_step 指向的步删除该音符
+ *                    （步号取 AppState.focus_step，与 CMD_TOGGLE_STEP 显式带步号不同）。
+ *                    read-modify-write：其余音符前移，每音符字段（lvl/rat 的 2bit、
+ *                    flags 的 CONT 位）随之前移；最后一个音符删除后 n=0/time=REST。
+ *                    步里没有该音符（或步已空）时不写引擎。鼓轨忽略。
+ */
 typedef struct {
     edit_cmd_type_t type;
     uint32_t a, b;
@@ -58,8 +65,14 @@ typedef struct {
     uint8_t focus_step;         /* STEP 页焦点步（0..15） */
     uint8_t focus_track;        /* 焦点轨（0..3） */
     uint8_t last_note;          /* 最近演奏音；0 = 还没弹过（note 0 不记忆） */
-    uint8_t layer_held;         /* 层键位掩码（位义由 InputManager 定义） */
+    uint8_t layer_held;         /* 层键位掩码（APP_LAYER_*，InputManager 写、UI 读） */
 } app_state_t;
+
+/* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
+#define APP_LAYER_FX   0x01u /* Sym */
+#define APP_LAYER_EDIT 0x02u /* Aa：擦除聚焦步音符 */
+#define APP_LAYER_SEL  0x04u /* Ctrl：1–4 选轨 */
+#define APP_LAYER_GLO  0x08u /* Alt：1–4 静音 / 5–8 独奏 */
 
 typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,

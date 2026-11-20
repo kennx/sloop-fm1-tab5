@@ -11,10 +11,16 @@
  * lvgl_port_task 已持递归锁），不再重复加锁，与 display.c 的约定一致。
  * 定时器每 30ms 先 state_sync_from_engine() 拉引擎真值，再对各页做脏检查
  * 刷新（四页都刷新，切页时无需补刷）。
+ *
+ * InputManager（input.c）在 sloop_ui_start 末尾启动：5ms 轮询 Tab5 Keyboard
+ * 事件 → 层模型 → EditCmd；页签条右侧的 LAYER 提示由本文件的定时器按
+ * state.layer_held 刷新。
  */
 #include "sloop_ui.h"
 
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "bsp/m5stack_tab5.h"
 #include "esp_heap_caps.h"
@@ -30,6 +36,8 @@ static const char *const k_tab_names[APP_STATE_PAGES] = {"PLAY", "TRACKS", "STEP
 static lv_obj_t *s_tabs[APP_STATE_PAGES];
 static lv_obj_t *s_tab_labels[APP_STATE_PAGES];
 static lv_obj_t *s_pages[APP_STATE_PAGES];
+static lv_obj_t *s_layer_hint;
+static uint8_t s_layer_shown = 0xFF; /* 脏检查（0xFF = 尚未刷新） */
 static lv_timer_t *s_timer;
 static uint8_t s_page;
 static bool s_started;
@@ -103,6 +111,42 @@ static void create_tab_bar(lv_obj_t *root)
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -24, 22);
+
+    /* 层键提示（InputManager 写 layer_held，30ms 定时器刷新）：按住 Sym/Aa/Ctrl/Alt
+     * 时在页签条右侧显示 LAYER FX/EDIT/SEL/GLO */
+    s_layer_hint = lv_label_create(bar);
+    lv_label_set_text(s_layer_hint, "");
+    lv_obj_set_style_text_font(s_layer_hint, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(s_layer_hint, lv_color_hex(UI_TEXT_DIM), 0);
+    lv_obj_align(s_layer_hint, LV_ALIGN_TOP_RIGHT, -110, 22);
+}
+
+static void update_layer_hint(uint8_t layer)
+{
+    if (layer == s_layer_shown) return;
+    s_layer_shown = layer;
+    static const struct {
+        uint8_t bit;
+        const char *name;
+    } k_names[] = {
+        {APP_LAYER_FX, "FX"},
+        {APP_LAYER_EDIT, "EDIT"},
+        {APP_LAYER_SEL, "SEL"},
+        {APP_LAYER_GLO, "GLO"},
+    };
+    char buf[32] = "";
+    for (size_t i = 0; i < sizeof(k_names) / sizeof(k_names[0]); i++) {
+        if ((layer & k_names[i].bit) == 0) continue;
+        if (buf[0] == '\0') {
+            snprintf(buf, sizeof(buf), "LAYER %s", k_names[i].name);
+        } else {
+            strncat(buf, " ", sizeof(buf) - strlen(buf) - 1);
+            strncat(buf, k_names[i].name, sizeof(buf) - strlen(buf) - 1);
+        }
+    }
+    lv_label_set_text(s_layer_hint, buf);
+    lv_obj_set_style_text_color(s_layer_hint,
+                                lv_color_hex(layer != 0 ? UI_ACCENT : UI_TEXT_DIM), 0);
 }
 
 static void create_pages(lv_obj_t *root)
@@ -127,6 +171,7 @@ static void ui_timer_cb(lv_timer_t *timer)
     state_sync_from_engine();
     app_state_t st;
     state_get_copy(&st);
+    update_layer_hint(st.layer_held);
     page_play_update(&st);
     page_tracks_update(&st);
     page_step_update(&st);
@@ -189,6 +234,12 @@ esp_err_t sloop_ui_start(void)
              (unsigned)APP_STATE_PAGES, UI_W, UI_H, (unsigned)(mon.total_size - mon.free_size),
              (unsigned)mon.total_size, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     bsp_display_unlock();
+
+    /* 输入任务在 LVGL 锁外启动（面板就绪后）；失败只丢键盘输入，不影响 UI */
+    esp_err_t input_ret = input_start();
+    if (input_ret != ESP_OK) {
+        ESP_LOGE(TAG, "输入任务启动失败: %s（触摸仍可用）", esp_err_to_name(input_ret));
+    }
     return ESP_OK;
 }
 

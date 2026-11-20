@@ -286,6 +286,80 @@ static void case_copy_and_sync(void)
     check_ll("layer_held", s.layer_held, 3);
 }
 
+/* ⑥ ERASE_NOTE：read-modify-write 删除聚焦步的指定音符。其余音符前移，每音符
+ * 字段（lvl/rat 的 2bit、flags 的 CONT 位）随之前移；最后一个音符删除后步转
+ * REST；无匹配/越界一律不写引擎。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
+static void case_erase_note(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* 和弦步：note 60/64；lvl k0=1/k1=2；rat k0=2/k1=1；flags ACcent + CONT(note0) */
+    sloop_step_t chord = { .n = 2, .note = { 60, 64, 0, 0 }, .vel = 88, .time = 0,
+                           .flags = 0x01u | 0x08u, .lvl = 0x09, .rat = 0x06,
+                           .micro = -2, .fill = 1 };
+    g_stub.step[0][5] = chord;
+    state_set_focus(0, 5);
+
+    uint32_t reads0 = g_stub.read_step_calls;
+    uint32_t writes0 = g_stub.write_step_calls;
+    apply(CMD_ERASE_NOTE, 0, 60, 0);
+    check_ll("RMW read_step ×1", g_stub.read_step_calls - reads0, 1);
+    check_ll("RMW write_step ×1", g_stub.write_step_calls - writes0, 1);
+    const sloop_step_t *st = &g_stub.step[0][5];
+    check_ll("删首音后 n", st->n, 1);
+    check_ll("删首音后 note0=原 note1", st->note[0], 64);
+    check_ll("删首音后 note1 清零", st->note[1], 0);
+    check_ll("lvl 随音符前移", st->lvl, 0x02);
+    check_ll("rat 随音符前移", st->rat, 0x01);
+    check_ll("CONT 位随移（无其余 CONT）", st->flags, 0x01);
+    check_ll("time 保持 NOTE", st->time, 0);
+    check_ll("vel 保留", st->vel, 88);
+    check_ll("micro 保留", st->micro, -2);
+    check_ll("fill 保留", st->fill, 1);
+    state_get_copy(&s);
+    check_ll("copy 步 n", s.core.step[0][5].n, 1);
+    check_ll("copy 步 note0", s.core.step[0][5].note[0], 64);
+
+    /* 无匹配音符：连读都不用（不写引擎） */
+    writes0 = g_stub.write_step_calls;
+    apply(CMD_ERASE_NOTE, 0, 60, 0);
+    check_ll("无匹配不写", g_stub.write_step_calls - writes0, 0);
+
+    /* 删除最后一个音符：步转 REST，n=0 */
+    apply(CMD_ERASE_NOTE, 0, 64, 0);
+    check_ll("删末音后 n", st->n, 0);
+    check_ll("删末音后 time=REST", st->time, 2);
+    check_ll("删末音后 note0", st->note[0], 0);
+    state_get_copy(&s);
+    check_ll("copy 步关", s.core.step[0][5].n, 0);
+
+    /* 三音和弦删中间音：note 60/64/67 → 60/67；lvl k1=3 前移为 k1 */
+    sloop_step_t trio = { .n = 3, .note = { 60, 64, 67, 0 }, .vel = 90, .time = 0,
+                          .flags = 0x08u, .lvl = 0x0Cu /* k0=0 k1=3 k2=0 */, .rat = 0,
+                          .micro = 0, .fill = 0 };
+    g_stub.step[1][2] = trio;
+    state_set_focus(1, 2);
+    apply(CMD_ERASE_NOTE, 1, 64, 0);
+    const sloop_step_t *trio_st = &g_stub.step[1][2];
+    check_ll("中间音删后 n", trio_st->n, 2);
+    check_ll("中间音删后 note0", trio_st->note[0], 60);
+    check_ll("中间音删后 note1", trio_st->note[1], 67);
+    check_ll("中间音删后 note2", trio_st->note[2], 0);
+    check_ll("中间音删后 lvl", trio_st->lvl, 0x00);
+
+    /* 越界：鼓轨/note 0/note 128 不读不写 */
+    reads0 = g_stub.read_step_calls;
+    writes0 = g_stub.write_step_calls;
+    state_set_focus(3, 0);
+    apply(CMD_ERASE_NOTE, 3, 60, 0);
+    apply(CMD_ERASE_NOTE, 0, 0, 0);
+    apply(CMD_ERASE_NOTE, 0, 200, 0);
+    check_ll("越界不读", g_stub.read_step_calls - reads0, 0);
+    check_ll("越界不写", g_stub.write_step_calls - writes0, 0);
+}
+
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
 static void case_bounds(void)
 {
@@ -326,6 +400,7 @@ int main(void)
     run("TOGGLE_STEP 空步↔关（last_note/默认 60）", case_toggle_step_empty);
     run("TOGGLE_STEP read-modify-write 保留字段", case_toggle_step_preserves);
     run("MUTE/SOLO 轨位翻转", case_mute_solo);
+    run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);
 

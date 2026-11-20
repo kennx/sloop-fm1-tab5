@@ -67,6 +67,59 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
     }
 }
 
+/* 上游 step_t 的每音符 2bit 字段（lvl/rat）：删除第 k 个音符时把后面的前移
+ * （镜像 ui.c 的 drop2，音符数 ≤4，字段只有 8 位）。 */
+static uint8_t state_drop2(uint8_t v, uint32_t k)
+{
+    return (uint8_t)((v & ((1u << (2u * k)) - 1u)) | ((v >> (2u * k + 2u)) << (2u * k)));
+}
+
+/* flags 的 CONT 位段（SF_CONT0=8，四音符各 1 位）：删除第 k 个音符时前移 */
+static uint8_t state_drop_cont(uint8_t flags, uint32_t k)
+{
+    uint32_t c = (flags & (15u * 8u)) / 8u;
+    c = (c & ((1u << k) - 1u)) | ((c >> (k + 1u)) << k);
+    return (uint8_t)((flags & ~(15u * 8u)) | c * 8u);
+}
+
+static void cmd_erase_note(app_state_t *s, uint32_t track, uint16_t note)
+{
+    if (track >= STATE_SYNTH_TRACKS || note == 0 || note > STATE_NOTE_MAX) return;
+    uint32_t idx = s->focus_step;
+    if (idx >= STATE_STEPS_MAX) return;
+
+    sloop_step_t st;
+    sloop_core_read_step(track, idx, &st);
+    uint32_t n = st.n > 4u ? 4u : st.n;
+    bool removed = false;
+    for (uint32_t k = 0; k < n;) {
+        if (st.note[k] != note) {
+            k++;
+            continue;
+        }
+        for (uint32_t j = k; j + 1u < n; j++) st.note[j] = st.note[j + 1u];
+        st.note[n - 1u] = 0;
+        st.lvl = state_drop2(st.lvl, k);
+        st.rat = state_drop2(st.rat, k);
+        st.flags = state_drop_cont(st.flags, k);
+        n--;
+        removed = true;
+    }
+    if (!removed) return; /* 没有该音符：不写引擎（与越界同口径） */
+
+    st.n = (uint8_t)n;
+    if (n == 0) st.time = STATE_ST_REST; /* 最后一个音符删除后步变空（REST） */
+    sloop_core_write_step(track, idx, &st); /* vel/micro/fill 原样带回 */
+
+    if (idx < APP_STATE_STEPS) { /* 快照只覆盖前 16 列视窗 */
+        s->core.step[track][idx].n = st.n;
+        memcpy(s->core.step[track][idx].note, st.note, sizeof(st.note));
+        s->core.step[track][idx].vel = st.vel;
+        s->core.step[track][idx].time = st.time;
+        s->core.step[track][idx].flags = st.flags;
+    }
+}
+
 static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
 {
     int32_t v = bpm;
@@ -100,6 +153,7 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SET_TRACK: cmd_select_track(s, cmd->a); break;
     case CMD_MUTE:
     case CMD_SOLO: cmd_track_mix(s, cmd->type, cmd->a); break;
+    case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, (uint16_t)cmd->b); break;
     default: break;
     }
     state_unlock();
