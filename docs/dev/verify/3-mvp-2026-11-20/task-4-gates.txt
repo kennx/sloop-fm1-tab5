@@ -1,0 +1,48 @@
+Task 4 门禁摘录（2026-11-20）
+
+== sdkconfig 变更（LV_FONT_MONTSERRAT_16/20/28）后的首次构建：出现 AGENTS §5.5 已豁免的 kconfig 提示对
+36:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+50:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+51:  Missing kconfig option.  Re-run the build process...
+(同次构建另有 sloop_ui 初版的 4 条 lv_obj_add_flag/remove_flag deprecation 警告，已改为 lv_obj_set_hidden/set_scrollable 后归零)
+
+== scripts/build.sh 第 2 遍（首次门禁判定）
+warning 行数: 0
+Project build complete. To flash, run:
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+
+== 终版源（含 state_init 前移修复）构建 ×2：均 0 warning/0 error
+第 1 遍 exit=0, warning/error 行数: 0
+第 2 遍 exit=0, warning/error 行数: 0
+sloop_fm1_tab5.bin binary size 0x16cc50 bytes. Smallest app partition is 0x800000 bytes. 0x6933b0 bytes (82%) free.
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+(中途一次重配因 components.espressif.com 返回异常 JSON 失败：CMake build.cmake:633；重跑两遍均通过——工具链网络瞬时故障，非代码问题)
+
+== scripts/flash.sh（终版）
+Hash of data verified.
+Hash of data verified.
+Hash of data verified.
+Hard resetting via RTS pin...
+
+== 启动（reset 后 7s 串口捕获，节选；完整见 task-4-boot-log.txt）
+sloop_tab5: UI 启动前内部堆剩余 120619 字节
+sloop_ui: UI 就绪: 4 页 @1280x720, 内部堆剩余 120619 字节
+
+== 构建后 PLAY 截屏 SHA256（与 task-4-play.png 逐字节一致）
+bde48cc8a3b7ffe0317356222282b7ba8d5a88a244ace7fd741e28c366be5cf2  /tmp/task4-play-final2.png
+
+== scripts/host-test.sh
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (11 notes), 0 crashes; 5.2 s
+ALL HOST TESTS PASSED (subset)
+
+== scripts/state-test.sh
+6 passed, 0 failed
+STATE TEST PASSED
+
+== python3 scripts/screenshot.py --selftest
+自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、像素抽检）
+selftest OK
+
+== third_party manifest
+OK 条目: 233
+sloop-fm1/web/FUKIAI-LICENSE.txt: OK

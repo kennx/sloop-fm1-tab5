@@ -1,0 +1,13 @@
+I (1405) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1405) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1405) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (2935) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3085) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3085) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+sloop>  I (4085) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4085) sloop_tab5: keyboard: OK (0x6D)
+I (4115) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4135) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4145) sloop_audio_stream: stream started, half=256 frames
+I (4145) sloop_tab5: UI 启动前内部堆剩余 120619 字节
+I (4215) sloop_ui: UI 就绪: 4 页 @1280x720, 内部堆剩余 120619 字节

@@ -19,6 +19,15 @@
 
 A。UI 组件 `sloop_ui`（LVGL 四屏 + 页签 + InputManager）；状态组件 `sloop_state`（AppState + EditCmd，无 LVGL 依赖）；引擎补只读快照与全量步读写接口（spec §3.1）。渲染 = AppState 副本的纯函数式刷新（脏检查）。物理触摸经 LVGL 控件回调发 EditCmd；注入 `TAP` 走各屏 hit-test 表 → 同一 EditCmd（EditCmd 层等价，非原始指针事件）。
 
+## 落地状态（2026-11-20，阶段 3 Task 4）
+
+`sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页对象创建一次、
+切页只改显隐）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
+console `UI <page>`。PLAY/TRANSPORT 两页功能完整（TRACK/ENGINE/PRESET、电平条、120ms 音符指示、
+PLAY/STOP、BPM ±1、步位置）；TRACKS/STEP 为占位页，Task 5 扩展。全部 LVGL 调用走
+`bsp_display_lock`（esp_lvgl_port 递归锁，页签回调/定时器已在 LVGL 任务上下文）；UI 启动失败回退
+bring-up 测试图。idle 内部堆门禁实测 ≈120.4KB（≥60KB）。
+
 ## 后果
 
 - 阶段 4 全页面在此架构上扩展（页面路由+控件复用）；阶段 5 将 `state_apply` 的执行端换成 FM-1 会话即可复用 UI。

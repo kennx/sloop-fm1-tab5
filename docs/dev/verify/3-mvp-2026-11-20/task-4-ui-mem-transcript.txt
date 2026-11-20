@@ -1,0 +1,37 @@
+sloop> UI
+UI
+UI page=play (0)
+sloop> ENG MEM
+ENG MEM
+ENG MEM internal_free=120519 internal_min=99956 psram_free=30129000 psram_min=30129000
+sloop> UI play
+UI play
+UI page=play (0)
+sloop> ENG MEM
+ENG MEM
+ENG MEM internal_free=120475 internal_min=99956 psram_free=30129000 psram_min=30129000
+sloop> UI tracks
+UI tracks
+UI page=tracks (1)
+sloop> ENG MEM
+ENG MEM
+ENG MEM internal_free=120443 internal_min=99956 psram_free=30129000 psram_min=30129000
+sloop> UI step
+UI step
+UI page=step (2)
+sloop> ENG MEM
+ENG MEM
+ENG MEM internal_free=120399 internal_min=99956 psram_free=30129000 psram_min=30129000
+sloop> UI transport
+UI transport
+UI page=transport (3)
+sloop> ENG MEM
+ENG MEM
+ENG MEM internal_free=120355 internal_min=99956 psram_free=30129000 psram_min=30129000
+sloop> UI bogus
+UI bogus
+用法: UI <play|tracks|step|transport>（无参打印当前页）
+Command returned non-zero error code: 0x1 (ERROR)
+sloop> UI
+UI
+UI page=transport (3)
