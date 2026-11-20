@@ -9,7 +9,7 @@
 
 | 门禁（AGENTS §5.5） | 结果 | 证据 |
 |---|---|---|
-| 固件代码（构建 ×2） | ✅ 两遍退出码 0、编译警告 0（首遍为 `--clean`，无 kconfig 提示对——配置未变） | `task-8-fix2-build-clean.log`、`task-8-fix2-build-incremental.log` |
+| 固件代码（构建 ×2） | ✅ 两遍退出码 0、编译警告 0；首遍 `--clean` 仅出现 AGENTS §5.5 豁免的 kconfig 提示对（`build.cmake:631` + `Missing kconfig option`），第二遍 0 提示 | `task-8-fix2-build-clean.log`、`task-8-fix2-build-incremental.log` |
 | 烧录 | ✅ 三段 `Hash of data verified` | `task-8-fix2-flash.log` |
 | 启动日志 | ✅ 键盘 0x6D、`UI 就绪 4 页`（池 40712/59612B）、InputManager 55 映射、触摸反馈 OFF；无 fatal/abort/Backtrace/task_wdt | `task-8-fix2-boot-log.txt` |
 | 状态层单测（新用例） | ✅ 8 passed（新增关步字段清零、TIE 连缀折叠、显式步号擦除） | `task-8-fix2-state-test.log` |
