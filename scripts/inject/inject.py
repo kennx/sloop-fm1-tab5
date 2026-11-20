@@ -253,14 +253,22 @@ def playhead_columns(img) -> dict:
         out[r] = cols
     return out
 
-# 注入坐标（屏幕绝对坐标，含 72px 页签条；由布局宏换算）
-TRANSPORT_PLAY = (208, 168)   # PLAY 按钮 (48,48,320×180) 中心
-TRANSPORT_STOP = (560, 168)   # STOP 按钮 (400,48,320×180) 中心
-TRANSPORT_BPM_PLUS = (1050, 250)  # "+" (1000,140,100×100) 中心
-TRANSPORT_BPM_MINUS = (910, 250)  # "-" (860,140,100×100) 中心
-STEP_CELL_A = (267, 208)   # 轨 0 步 2（列心 x=88+2*73+33，行心 y=72+84+52）
-STEP_CELL_B = (486, 332)   # 轨 1 步 5（x=88+5*73+33，y=72+84+124+52）
-TRACKS_CARD2 = (800, 260)  # 卡 2 (648..944, 112..582) 内
+# 注入坐标（屏幕绝对坐标 = 页内坐标 + 页签条 UI_TAB_BAR_H，各点取控件矩形中心）。
+# 每个数字对应固件里的布局宏——页面布局改动时按同名宏同步这里：
+#   UI_TAB_BAR_H  = 72   （ui.c）
+#   TRANSPORT_*   = page_transport.c 建按钮的 TRANSPORT_{PLAY,STOP,BPM}_{X,Y,W,H}
+#   GRID_*/CELL_*/ROW_PITCH = page_step.c 步网格宏
+#   CARD_*        = page_tracks.c 卡宏（卡距 = CARD_W + 16）
+TRANSPORT_PLAY = (208, 210)       # TRANSPORT_PLAY 中心：x=48+320/2，y=72+48+180/2
+TRANSPORT_STOP = (560, 210)       # TRANSPORT_STOP 中心：x=400+320/2，y 同 PLAY
+TRANSPORT_BPM_PLUS = (1050, 262)  # TRANSPORT_BPM_PLUS 中心：x=1000+100/2，y=72+140+100/2
+TRANSPORT_BPM_MINUS = (910, 262)  # TRANSPORT_BPM_MINUS 中心：x=860+100/2，y 同 "+"
+# 轨 0 步 2：x=GRID_X0+2*CELL_STEP_X+CELL_W/2=88+146+33，y=72+GRID_Y0+CELL_H/2=72+84+52
+STEP_CELL_A = (267, 208)
+# 轨 1 步 5：x=88+5*73+33；y=72+84+1*ROW_PITCH+52
+STEP_CELL_B = (486, 332)
+# 卡 2：x=CARD_X0+2*(CARD_W+16)+CARD_W/2=24+624+148；y=72+CARD_Y+CARD_H/2=72+40+235
+TRACKS_CARD2 = (796, 347)
 
 
 def ensure_stopped(s: Session) -> None:
