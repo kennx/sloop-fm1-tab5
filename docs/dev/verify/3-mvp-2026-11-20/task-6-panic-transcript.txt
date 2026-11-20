@@ -1,0 +1,27 @@
+KEY 0x30 down
+I (26094) sloop_input: layer down 0x01
+KEY 0x30 down sym elapsed_us=745
+sloop>  KEY 0x42 down
+I (26094) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=1174
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x01 selected_track=0 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY PANIC
+W (26104) sloop_input: PANIC 释放 1 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  --- 待切页撤销（tab 后立即 PANIC，UI tick 后再查页面）
+UI
+UI page=tracks (1)
+sloop>  KEY STATS
+KEY STATS count=16 mean_us=431 max_us=1518 input_stack_free=3752
+sloop>  

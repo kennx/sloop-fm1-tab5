@@ -1,4 +1,4 @@
-# Task 6 截屏抽检（固件 bb6f193）
+# Task 6 截屏抽检（固件 6cd7d39）
 $ UI play
 已保存: firmware/build/verify/t6-play-final.png
   [通过] (104,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
@@ -6,28 +6,29 @@ $ UI play
   [通过] (640,400) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
   [通过] (1090,270) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 16）
 像素抽检 4/4 项通过
-$ KEY 0x31 down; UI play
-STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x02 selected_track=0 last_note=0 bpm=90 playing=0
-已保存: firmware/build/verify/t6-play-layer-edit-final.png
-$ KEY 0x31 up; UI tracks
+$ KEY tab（异步切页）
 UI page=tracks (1)
+已保存: firmware/build/verify/t6-tracks-final.png
   [通过] (20,347) 实测 (56,120,216) ≈ 期望 (59,123,216)（容差 16）
   [通过] (332,347) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
   [通过] (304,552) 实测 (40,52,64) ≈ 期望 (44,53,64)（容差 8）
   [通过] (616,552) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 8）
   [通过] (280,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
 像素抽检 5/5 项通过
-$ UI step
+$ KEY 0x31 down; UI play
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x02 selected_track=0 last_note=0 bpm=90 playing=0
+已保存: firmware/build/verify/t6-play-layer-edit-final.png
+$ KEY 0x31 up; UI step
 UI page=step (2)
+已保存: firmware/build/verify/t6-step-final.png
   [通过] (121,208) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
   [通过] (640,700) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
   [通过] (89,208) 实测 (240,244,248) ≈ 期望 (242,245,248)（容差 10）
   [通过] (121,580) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
   [通过] (400,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
 像素抽检 5/5 项通过
+
 ## 区域分析
 层提示带 (980..1180, 16..54) UI_ACCENT 像素：idle=0 / LAYER EDIT=371
 层提示带与 idle 不同的像素数：700
 音符指示框 (950..1230, 130..410) 轨色像素：idle 框色=(24, 32, 32) flash 框色=(57, 121, 222) flash 轨色像素=78135
-（flash 采集口径：`KEY 0x21 down` 后等 70ms 让 30ms UI 定时器消费邮箱并渲染，再发 SCR；
-SCR 持锁 40ms 后取帧，仍在 120ms 点亮窗内。同步取锁的旧实现在此口径下同样可见。）

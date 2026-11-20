@@ -1,0 +1,23 @@
+KEY STATS RESET
+KEY STATS reset
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=72
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=65
+sloop>  UI
+UI page=tracks (1)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=27
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=66
+sloop>  UI
+UI page=step (2)
+sloop>  KEY 0x00 down
+KEY 0x00 down esc elapsed_us=22
+sloop>  KEY 0x00 up
+KEY 0x00 up esc elapsed_us=61
+sloop>  UI
+UI page=play (0)
+sloop>  KEY STATS
+KEY STATS count=6 mean_us=52 max_us=72 input_stack_free=3752
+sloop>  

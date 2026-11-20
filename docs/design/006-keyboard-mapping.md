@@ -34,7 +34,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | SEL 层 | Ctrl + 1..4（0x01..0x04） | 选轨 0..3（`CMD_SELECT_TRACK`，同时设焦点轨） |
 | GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；状态层持有，断言用 `STATE SNAP`，DI-9） |
 | 走带 | space 0x4D | 播放/停止切换（`CMD_PLAY`/`CMD_STOP`）；enter 0x3D 未映射（原计划的 REC 占位在 MVP 移除） |
-| 页面 | esc 0x00=PLAY；tab 0x20=下一屏 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁） |
+| 页面 | esc 0x00=PLAY；tab 0x20=下一屏 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs） |
 | 焦点 | ← 0x4A / → 0x4C 移焦点步（0..15 环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` |
 
 八度切换（原计划的 OCT±）**未实现**：键表里 `-` 0x0B / `+` 0x0C（以及 0 0x0A 等）仍空闲，
@@ -78,6 +78,6 @@ InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll(
 - `sloop_ui_flash_note()` 由输入层在 `state_apply` 返回后调用（PLAY 页音符指示）：
   只写一个「待显示音符」邮箱、**不取任何锁**，由 30ms UI 定时器点亮。Task 6 实测：
   同步取 LVGL 锁的旧实现让每条 note-on 的派发被帧等待拖到 ≈21ms（state_apply 本身
-  仅 183–187µs）；邮箱化后 100 次 note-on 派发均值 ≈0.50ms、p95 ≈0.67ms、max ≈1.31ms（note-off max 1.56ms）。
+  仅 183–187µs）；邮箱化后 100 次 note-on 派发均值 ≈0.51ms、p95 ≈0.68ms、max ≈1.37ms（note-off max 1.32ms）。
   层提示与键盘操作共用状态层，联动模式（阶段 5）可复用。
 - 阶段 4 需在层内补齐完整键位子集（FX 27 垫、SEQ 步进、八度切换等）。
