@@ -1,0 +1,126 @@
+ESP-ROM:esp32p4-eco2-20240710
+Build:Jul 10 2024
+rst:0x17 (CHIP_USB_UART_RESET),boot:0x20c (SPI_FAST_FLASH_BOOT)
+Core0 Saved PC:0x4ff038ca
+Core1 Saved PC:0x4ff038ca
+SPI mode:DIO, clock div:1
+load:0x4ff33ce0,len:0x1664
+load:0x4ff29ed0,len:0xe24
+load:0x4ff2cbd0,len:0x3548
+entry 0x4ff29eda
+I (8) boot: ESP-IDF v5.5.5 2nd stage bootloader
+I (8) boot: compile time Nov 19 2026 17:25:56
+I (9) boot: Multicore bootloader
+I (10) boot: chip revision: v1.3
+I (10) boot: efuse block revision: v0.3
+I (10) boot.esp32p4: SPI Speed      : 80MHz
+I (11) boot.esp32p4: SPI Mode       : DIO
+I (11) boot.esp32p4: SPI Flash Size : 16MB
+I (11) boot: Enabling RNG early entropy source...
+I (12) boot: Partition Table:
+I (12) boot: ## Label            Usage          Type ST Offset   Length
+I (13) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (13) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (14) boot:  2 factory          factory app      00 00 00010000 00800000
+I (14) boot:  3 storage          Unknown data     01 81 00810000 007f0000
+I (16) boot: End of partition table
+I (16) esp_image: segment 0: paddr=00010020 vaddr=400d0020 size=72ed8h (470744) map
+I (83) esp_image: segment 1: paddr=00082f00 vaddr=30100000 size=0007ch (   124) load
+I (84) esp_image: segment 2: paddr=00082f84 vaddr=4ff00000 size=0d094h ( 53396) load
+I (94) esp_image: segment 3: paddr=00090020 vaddr=40000020 size=c0190h (786832) map
+I (205) esp_image: segment 4: paddr=001501b8 vaddr=4ff0d094 size=08fc8h ( 36808) load
+I (213) esp_image: segment 5: paddr=00159188 vaddr=4ff16080 size=04644h ( 17988) load
+I (217) esp_image: segment 6: paddr=0015d7d4 vaddr=50108080 size=00020h (    32) load
+I (223) boot: Loaded app from partition at offset 0x10000
+I (223) boot: Disabling RNG early entropy source...
+I (229) hex_psram: vendor id    : 0x0d (AP)
+I (229) hex_psram: Latency      : 0x01 (Fixed)
+I (229) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (230) hex_psram: dev id       : 0x03 (generation 4)
+I (230) hex_psram: density      : 0x07 (256 Mbit)
+I (230) hex_psram: good-die     : 0x06 (Pass)
+I (231) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (231) hex_psram: BurstType    : 0x00 ( Wrap)
+I (231) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (232) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (232) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (232) hex_psram: DriveStrength: 0x00 (1/1)
+I (233) MSPI Timing: Enter psram timing tuning
+I (406) esp_psram: Found 32MB PSRAM device
+I (407) esp_psram: Speed: 200MHz
+I (407) hex_psram: psram CS IO is dedicated
+I (408) cpu_start: Multicore app
+I (1358) esp_psram: SPI SRAM memory test OK
+I (1367) cpu_start: Pro cpu start user code
+I (1367) cpu_start: cpu freq: 360000000 Hz
+I (1367) app_init: Application information:
+I (1367) app_init: Project name:     sloop_fm1_tab5
+I (1367) app_init: App version:      d956b6d
+I (1368) app_init: Compile time:     Nov 20 2026 14:17:40
+I (1368) app_init: ELF file SHA256:  3f0942ce4...
+I (1368) app_init: ESP-IDF:          v5.5.5
+I (1368) efuse_init: Min chip rev:     v1.0
+I (1368) efuse_init: Max chip rev:     v1.99
+I (1369) efuse_init: Chip rev:         v1.3
+I (1369) heap_init: Initializing. RAM available for dynamic allocation:
+I (1369) heap_init: At 4FF1D250 len 0001DD70 (119 KiB): RETENT_RAM
+I (1370) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1370) heap_init: At 4FF9B0D0 len 00004F30 (19 KiB): RAM
+I (1370) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1370) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1371) esp_psram: Adding pool of 32768K of PSRAM memory to heap allocator
+I (1372) spi_flash: detected chip: generic
+I (1372) spi_flash: flash io: dio
+I (1372) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1373) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1374) main_task: Started on CPU0
+I (1374) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1374) main_task: Calling app_main()
+I (1374) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1374) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1374) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1374) LVGL: Starting LVGL task
+I (1374) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1884) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1884) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1884) st7123: version: 1.0.2
+I (2904) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2904) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2904) ST7123: Touch panel create success, version: 1.0.2
+I (2904) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3054) M5Stack Tab5: Setting LCD backlight: 100%
+I (3054) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3054) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+
+Type 'help' to get the list of commands.
+
+Use UP/DOWN arrows to navigate through command history.
+
+Press TAB when typing command name to auto-complete.
+
+
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+
+sloop>  I (4054) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4054) sloop_tab5: keyboard: OK (0x6D)
+W (4054) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4054) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4074) I2S_IF: Paired data: 0x4ff9d9c4, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4074) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4074) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4084) ES8388: Start on mode:2
+I (4084) Adev_Codec: Open codec device OK
+I (4084) sloop_audio: speaker codec open 44100Hz/2ch/16bit rc=0
+MAX: DAC=0dB, L1/R1/L2/R2=0x21 OK
+I (4094) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+ENG INFO
+ENG INFO init=ESP_OK rate=44100 frames=256 NENGINES=12 P_COUNT=71 G_COUNT=50
+sloop>  ENG SMOKE
+ENG SMOKE frames=256 on_hash=7623977cf27501f3 off_hash=586303da713b280f nonzero=444 result=PASS
+sloop>
