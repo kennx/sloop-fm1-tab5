@@ -177,7 +177,9 @@ def main():
     parser.add_argument("--output", help="把设备回显逐行存盘（原始 transcript）")
     parser.add_argument("--timeout", type=float, default=900,
                         help="等待汇总行的超时秒数（全量实测约 160s，默认 900）")
-    parser.add_argument("--compare", metavar="LOG")
+    parser.add_argument("--compare", metavar="LOG",
+                        help="离线复核已存 transcript；默认按全量 182 例校验，"
+                             "旧单例 transcript 需同时给 --case NAME")
     args = parser.parse_args()
     if args.compare:
         return compare(Path(args.compare).read_text().splitlines(), case=args.case)

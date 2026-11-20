@@ -393,6 +393,10 @@ esp_err_t sloop_core_status(void)
     return core_status;
 }
 
+/* 渲染不查 s_frozen：正常唯一调用方是音频任务，而自检的前置条件就是「流已停」
+ * （`ENG SELFTEST` 在流式时拒绝），诊断期 UI 定时器/LVGL 定时器/输入又全部静默
+ * （sloop_ui_quiesce）——自检期间本函数不会被调用，「冻结后没有新的锁使用者」
+ * 因此成立。diagnostic 的 SMOKE/PERF 也只在非自检期间由 console 调用。 */
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
     engine_lock();

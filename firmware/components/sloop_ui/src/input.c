@@ -2,7 +2,8 @@
  * sloop_ui InputManager：Tab5 Keyboard 事件码 → 层模型 → EditCmd（ADR-006）
  *
  * 唯一入口 sloop_ui_input_key(code, down)，两条路径共用：
- *  - input 任务（本文件）：tab5_kb_poll() 每 5ms 取事件，优先级 4（低于音频 5）；
+ *  - input 任务（本文件）：tab5_kb_poll() 按 INPUT_POLL_TICKS 取事件（100Hz tick 下
+ *    10ms，见下方 tick 地板说明），优先级 4（低于音频 5）；
  *  - console 注入 `KEY <code> <down|up>`（console.c），与物理按键同入口。
  * code 为 tab5_keyboard.h 的事件码（row<<4|col），键名见 tab5_kb_key_name()。
  *
@@ -20,6 +21,7 @@
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
  */
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -168,7 +170,9 @@ static bool s_started;
  * 已收尾（置标志时任务可能正派发一批事件，只等标志不够）。 */
 static volatile bool s_quiesce;
 static volatile uint32_t s_quiesce_ack;
-static volatile uint32_t s_quiesce_dropped;
+/* 丢弃计数由 input 任务与 console（KEY 注入被拒）两个上下文写：原子自增/清零，
+ * 避免丢计数（诊断量级，不需要严格一致） */
+static atomic_uint s_quiesce_dropped;
 
 /* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响 */
 static bool s_note_on[128];
@@ -344,12 +348,12 @@ void sloop_ui_input_key(uint8_t code, bool down)
     /* 诊断期：丢弃并计数（不派发 = 不碰 state/引擎锁）。批内竞态由 input 任务在
      * 批次边界确认，见 input_quiesce_begin()。 */
     if (s_quiesce) {
-        s_quiesce_dropped++;
+        atomic_fetch_add(&s_quiesce_dropped, 1u);
         return;
     }
     input_lock();
     if (s_quiesce) { /* 等锁期间进入静默（input 任务/另一注入者持有互斥） */
-        s_quiesce_dropped++;
+        atomic_fetch_add(&s_quiesce_dropped, 1u);
         input_unlock();
         return;
     }
@@ -402,14 +406,14 @@ static void input_task(void *arg)
     while (1) {
         int n = tab5_kb_poll(ev, INPUT_BATCH);
         if (s_quiesce) {
-            s_quiesce_dropped += (uint32_t)n; /* 静默期：排空队列、不派发 */
+            atomic_fetch_add(&s_quiesce_dropped, (unsigned)n); /* 静默期：排空队列、不派发 */
             s_quiesce_ack++;                  /* 已回到批次边界（不持任何锁/不占 I2C） */
-            /* 阻塞等恢复通知（input_quiesce_end）：诊断期不再每 5ms 轮询/yield */
+            /* 阻塞等恢复通知（input_quiesce_end）：诊断期不再按轮询周期 yield */
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             /* 静默期积压的事件一律丢弃、不补发：诊断期 UI 已暂停，补发可能只有
              * note-on 而 note-off 已被驱动 FIFO 覆盖 → 挂音 */
             while ((n = tab5_kb_poll(ev, INPUT_BATCH)) > 0) {
-                s_quiesce_dropped += (uint32_t)n;
+                atomic_fetch_add(&s_quiesce_dropped, (unsigned)n);
             }
             continue;
         }
@@ -436,9 +440,12 @@ esp_err_t input_start(void)
         return ESP_ERR_NO_MEM;
     }
     s_started = true;
-    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums（%u tick），任务优先级 %u",
-             (unsigned)BINDING_COUNT, (unsigned)INPUT_POLL_MS, (unsigned)INPUT_POLL_TICKS,
-             (unsigned)INPUT_TASK_PRIO);
+    /* 打印生效周期（不是请求的 INPUT_POLL_MS）：周期以 tick 为单位，100Hz 下
+     * 1 tick = 10ms，请求的 5ms 表达不出来（INPUT_POLL_MS 只是意图） */
+    const unsigned period_ms = (unsigned)(INPUT_POLL_TICKS * portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums（%u tick @%uHz），任务优先级 %u",
+             (unsigned)BINDING_COUNT, period_ms, (unsigned)INPUT_POLL_TICKS,
+             (unsigned)configTICK_RATE_HZ, (unsigned)INPUT_TASK_PRIO);
     return ESP_OK;
 }
 
@@ -471,12 +478,11 @@ uint32_t input_quiesce_end(void)
     s_quiesce = false;
     s_quiesce_ack = 0;
     if (s_task != NULL) xTaskNotifyGive(s_task); /* 唤醒静默期阻塞的 input 任务 */
-    uint32_t dropped = s_quiesce_dropped;
-    s_quiesce_dropped = 0; /* 恢复后清零计数（诊断期丢弃量只在本轮有意义） */
+    uint32_t dropped = atomic_exchange(&s_quiesce_dropped, 0u); /* 恢复后清零（本轮量才有意义） */
     return dropped;
 }
 
 uint32_t input_quiesce_dropped(void)
 {
-    return s_quiesce_dropped;
+    return atomic_load(&s_quiesce_dropped);
 }

@@ -12,8 +12,8 @@
  * 定时器每 30ms 先 state_sync_from_engine() 拉引擎真值，再对各页做脏检查
  * 刷新（四页都刷新，切页时无需补刷）。
  *
- * InputManager（input.c）在 sloop_ui_start 末尾启动：5ms 轮询 Tab5 Keyboard
- * 事件 → 层模型 → EditCmd；页签条右侧的 LAYER 提示由本文件的定时器按
+ * InputManager（input.c）在 sloop_ui_start 末尾启动：按 tick 地板轮询 Tab5 Keyboard
+ * 事件（100Hz tick 下 10ms）→ 层模型 → EditCmd；页签条右侧的 LAYER 提示由本文件的定时器按
  * state.layer_held 刷新。
  *
  * 注入（console）：`TAP <x> <y>` 经 sloop_ui_input_tap() 按当前页 hit-test 表派发，
@@ -65,6 +65,7 @@ static uint8_t s_page_pending = 0xFF;
 static uint8_t s_page;
 static bool s_started;
 static bool s_quiesced;
+static bool s_indev_disabled; /* 诊断期是否由本函数整体禁用了 indev */
 
 /* 无主题装饰的容器（root/页面/页签条共用） */
 static lv_obj_t *make_plain(lv_obj_t *parent)
@@ -376,8 +377,14 @@ void sloop_ui_quiesce(bool on)
         /* 光停自己的 30ms 定时器还不够：LVGL 任务仍会跑 indev 读（触摸 I2C）与
          * 刷新定时器，每 1-30ms 醒一次。诊断期连 LVGL 定时器一起停（lvgl_port_stop
          * 置 lv_timer_enable(false) 并停 tick），LVGL 任务转入 500ms 级休眠——
-         * 「诊断期 UI 暂停、不要求渲染与自检并发」（spec P4-0）。 */
+         * 「诊断期 UI 暂停、不要求渲染与自检并发」（spec P4-0）。
+         * 另外单独禁用全部 indev：lvgl_port_stop 只停定时器/心跳，物理触摸事件在
+         * lv_timer_handler 里仍会派发（DI-10 幽灵按压会改页面/翻步格）。禁用后
+         * lv_indev_read() 在调用 read 回调之前就跳过（indev.c），所以这里无法计数；
+         * 触摸侧没有「丢弃计数」可打印。 */
+        lv_indev_enable(NULL, false);
         esp_err_t stop_ret = lvgl_port_stop();
+        s_indev_disabled = true;
         bsp_display_unlock();
         ESP_LOGI(TAG, "诊断期静默 ON：UI 定时器暂停、LVGL 定时器%s、输入丢弃生效",
                  stop_ret == ESP_OK ? "停用" : "停用失败");
@@ -388,6 +395,11 @@ void sloop_ui_quiesce(bool on)
     if (!bsp_display_lock(1000)) {
         ESP_LOGE(TAG, "诊断期恢复：LVGL 锁超时，30ms 定时器未恢复（需复位）");
     } else {
+        if (s_indev_disabled) {
+            /* LVGL 没有「enabled 查询」接口，只能整体还原；本机 indev 只有触摸一个 */
+            lv_indev_enable(NULL, true);
+            s_indev_disabled = false;
+        }
         esp_err_t resume_ret = lvgl_port_resume(); /* 先恢复 LVGL 定时器（含刷新/indev） */
         if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 四页刷新 */
         bsp_display_unlock();

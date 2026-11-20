@@ -39,7 +39,8 @@ uint8_t sloop_ui_current_page(void);
 void sloop_ui_flash_note(uint8_t note);
 
 /* InputManager 入口（input.c）：code = tab5_keyboard 事件码（row<<4|col），
- * down = 按下/释放。物理键盘（input 任务 5ms 轮询）与 console `KEY` 注入共用；
+ * down = 按下/释放。物理键盘（input 任务按 tick 地板轮询，100Hz 下 10ms）与 console
+ * `KEY` 注入共用；
  * 可从任意任务调用（内部互斥 + 状态层互斥），不得在 ISR 中调用。 */
 void sloop_ui_input_key(uint8_t code, bool down);
 
@@ -92,7 +93,8 @@ uint32_t sloop_ui_input_stack_free(void);
  * sloop_core_diag_quiesce_hook 调用，console `UI QUIESCE <on|off>` 可用于复验）：
  *  - on：先置输入丢弃标志并等 input 任务回到批次边界（≤50ms，超时记 WARN），
  *    再在 LVGL 锁内暂停 30ms UI 定时器、`lvgl_port_stop()` 停 LVGL 的刷新/indev
- *    定时器并作废待执行切页。此后键盘事件只被计数、KEY/TAP 注入被拒
+ *    定时器、`lv_indev_enable(NULL, false)` 禁用触摸 indev（物理触摸不再派发），
+ *    并作废待执行切页。此后键盘事件只被计数、KEY/TAP 注入被拒
  *    （`SLOOP_TAP_RESULT_QUIESCED` / `KEY ERR quiesced`）。
  *  - off：`lvgl_port_resume()` + 恢复 30ms 定时器（下一拍 state_sync + 四页刷新），
  *    唤醒 input 任务并清零/打印本轮丢弃量。

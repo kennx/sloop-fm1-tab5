@@ -63,8 +63,8 @@ bool page_tracks_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
-/* InputManager 任务（input.c）：建互斥并启动 5ms 轮询任务；由 sloop_ui_start()
- * 在 LVGL 锁外调用（键盘驱动须已初始化）。 */
+/* InputManager 任务（input.c）：建互斥并启动轮询任务（周期取 tick 地板，
+ * 100Hz 下 10ms）；由 sloop_ui_start() 在 LVGL 锁外调用（键盘驱动须已初始化）。 */
 esp_err_t input_start(void);
 
 /* 输入静默（诊断期，sloop_ui_quiesce 调用）：
