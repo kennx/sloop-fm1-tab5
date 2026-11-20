@@ -1,0 +1,21 @@
+Memory Type Usage Summary
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Memory Type/Section ┃ Used [bytes] ┃ Used [%] ┃ Remain [bytes] ┃ Total [bytes] ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ Flash               │       810348 │          │                │               │
+│    .text            │       669556 │          │                │               │
+│    .rodata          │       140272 │          │                │               │
+│    .init_array      │          264 │          │                │               │
+│    .appdesc         │          256 │          │                │               │
+│ DIRAM               │       180998 │     31.4 │         395466 │        576464 │
+│    .text            │        90162 │    15.64 │                │               │
+│    .bss             │        68424 │    11.87 │                │               │
+│    .data            │        15372 │     2.67 │                │               │
+│    .bss             │         7040 │     1.22 │                │               │
+│ HP core RAM         │          122 │     1.49 │           8070 │          8192 │
+│    .text            │           62 │     0.76 │                │               │
+│    .data            │           60 │     0.73 │                │               │
+│ LP RAM              │            0 │      0.0 │          32768 │         32768 │
+└─────────────────────┴──────────────┴──────────┴────────────────┴───────────────┘
+Total image size: 916108 bytes (.bin may be padded larger)
+Note: The reported total sizes may be smaller than those in the technical reference manual due to reserved memory and application configuration. The total flash size available for the application is not included by default, as it cannot be reliably determined due to the presence of other data like the bootloader, partition table, and application partition size.
