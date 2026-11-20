@@ -69,4 +69,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 开机序列末尾（`main.c`，`sloop_core_init` 成功后）直接 `sloop_hal_audio_start(sloop_core_render)` 启流；失败只记 ERROR 不阻断（`ENG AUDIO ON` 可重试）。
 - `ENG AUDIO OFF` → `sloop_hal_audio_stop()`：置停止请求，任务在写块收尾后跳出循环、自挂起，stop 再 `vTaskDelete` 并置句柄 NULL；**codec 保持打开**（`AUD TONE` 立即可用）。不可直接删阻塞在 codec 写里的任务——会丢失 I2S 驱动锁（实测 AUD TONE 报 `channel is not enabled`）。无参数打印 `streaming=`/`xrun=`；无任务时 stop 幂等返回 ESP_OK。
 - 流式期间 `ENG SELFTEST` 拒绝行带 `hint=ENG AUDIO OFF`（拒绝语义不变）；停流后 `ENG SELFTEST`（含单例）、`AUD TONE`、离线 `ENG PERF` 恢复正常。
+- 流式期间 `ENG SMOKE` 同样被拒（`ENG SMOKE FAIL busy: audio streaming`，无 OFF 提示）；`ENG PERF` 在流式时只打印 xrun/栈余量分支，离线 100 块基线也需 `ENG AUDIO OFF` 后才可测。
+- 停流不复位引擎运行期编辑（`sloop_core` 无「恢复 init 快照」入口）：普通 `ENG AUDIO OFF` 后 `ENG SNAP`/注音仍看到停流前的状态；而 `ENG SELFTEST` 自身在开始时 `selftest_restore()` 到初始快照、结束时再恢复一次，故自检会抹掉运行期编辑（自检语义，非 stop 副作用）。
 - `xrun` 为累计计数，停/启不清零。
+- 脚本化自检：`scripts/device-selftest.py` 自动 `ENG AUDIO OFF` → 跑 SELFTEST → 恢复 `ENG AUDIO ON`（见 AGENTS §5.1/§5.5）。
