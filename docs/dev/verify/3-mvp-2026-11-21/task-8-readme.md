@@ -52,7 +52,7 @@
 - 判定：内部堆非单调下降且 ≥60KB；每次采样 `streaming=1`、`xrun=0`；音频任务栈余量 ≥2KB；
   串口日志无 panic/WDT/fatal/backtrace；切页回显与 STATE 页面断言全过；时长 ≥1800s。
 - 结果：**PASS**（7 次采样，t=0/300/600/900/1200/1500/1800s；150 个动作循环、150 次步翻转、
-  150 次选轨、150 次 KEY note on/off；数据表与判定原文 `task-8-soak-summary.txt`）。
+  150 次选轨、150 组 KEY note on/off（300 事件）；数据表与判定原文 `task-8-soak-summary.txt`）。
 
 ```
     t_s  internal_free  internal_min  psram_free  streaming  xrun  audio_stack_free  key_mean_us  key_max_us  input_stack_free  page
