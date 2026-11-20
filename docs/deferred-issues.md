@@ -74,13 +74,3 @@
 | **触发条件** | 阶段 2 里程碑「sloop_core 首版可听」合入 dev/main 前必须完成。 |
 | **登记** | 2026-11-20（P2-4） |
 
-## DI-8: 音频流单向门——一旦启流，SELFTEST/AUD TONE/离线 PERF 直到复位不可用
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `sloop_hal_tab5/src/audio_stream.c` 只有 `sloop_hal_audio_start()`，无 stop 路径：`audio_task` 句柄一旦置位就永不复位，`sloop_hal_audio_streaming()` 恒为真。任何一次 `ENG TRIG`（或未来 UI 在开机时启流）之后：`ENG SELFTEST` 立即拒绝（流式期间返回 busy，`cases=0 result=FAIL reason=busy_or_uninitialized`）、`AUD TONE` 拒绝并发（`audio_tone_play` 的 streaming 守卫）、`ENG PERF` 只剩流式 xrun/水位读数（离线 100 块渲染基线不可再测）。本次终审还发现启流后 `ENG SMOKE` 会与渲染任务抢引擎状态，已加 streaming 守卫（同属此单向门）。 |
-| **影响面** | 阶段 3 UI 若按设计在开机即持有音频（首屏即发声），**最强的正确性门禁（182 例同源哈希）在出货固件里永久不可用**；AUD TONE 与离线 PERF 同样失效。诊断能力只保留在「未启流前」的窗口（当前 console 手动路径刚好满足，故阶段 2 已完成门禁）。 |
-| **为何可延迟** | 阶段 2 的门禁已在启流前跑完并入库（182/182，见 verification-log P2-6 行）；当前固件只有 console 手动启流入口，不构成出货形态。启流状态机与阶段 3 的音频所有权（谁在何时启停音频）耦合，单独在阶段 2 造 stop 路径容易返工。 |
-| **解决方向** | (a) 实现 `sloop_hal_audio_stop()`：置停止请求 → `xTaskNotify`/信号量唤醒或删除任务 → `vTaskDelete` + 等待（或 `audio_task` 置 NULL 前用 `eTaskGetState` 确认退出）→ 复位引擎快照（`sloop_core` 提供「恢复 init 快照」入口，否则停流后状态仍带运行期编辑）；(b) 或改为开机自检钩子：UI 接管音频前先跑一次 SELFTEST（限时/仅维护模式），把门禁前移；(c) 建议阶段 3 立 ADR 决定 UI 与诊断的仲裁方式（维护模式/启动按键进入）。 |
-| **触发条件** | 阶段 3 UI 接管音频启动（开机即启流）之前；出货固件冻结前必须解决其一（stop 路径或启动自检钩子），否则等于放弃设备侧自检能力。 |
-| **登记** | 2026-11-20（阶段 2 终审修复轮） |

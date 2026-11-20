@@ -6,7 +6,8 @@
  * Tab5 Keyboard 驱动（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50，
  * FW 0x01）、ES8388 扬声器正弦自检（audio_tone.c，44.1kHz/2ch/16bit）。
  * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
- * 阶段 2 已接入 sloop_core 同源自测组合 TU、RAM 存储与 ES8388 引擎音频流。
+ * 阶段 2 已接入 sloop_core 同源自测组合 TU、RAM 存储与 ES8388 引擎音频流
+ * （阶段 3 起开机即启流，ENG AUDIO ON|OFF 可停启，DI-8）。
  */
 #include "audio_tone.h"
 #include "console.h"
@@ -83,6 +84,13 @@ void app_main(void)
     } else {
         ESP_LOGI(TAG, "SLOOP 引擎初始化完成: rate=%u frames=%u",
                  (unsigned)sloop_core_rate(), (unsigned)sloop_core_frames());
+        /* 开机即启流（阶段 3 音频所有权，DI-8）：UI 渲染与音频并行；诊断命令
+         * （ENG SELFTEST/AUD TONE/离线 PERF）需先 ENG AUDIO OFF。失败不阻断启动。*/
+        esp_err_t audio_ret = sloop_hal_audio_start(sloop_core_render);
+        if (audio_ret != ESP_OK) {
+            ESP_LOGE(TAG, "音频流启动失败: %s（引擎静默，ENG AUDIO ON 可重试）",
+                     esp_err_to_name(audio_ret));
+        }
     }
 
     while (1) {

@@ -6,7 +6,8 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG 与 PERF）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF
+ *    与 AUDIO ON|OFF 音频流启停，DI-8）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -283,6 +284,38 @@ static int eng_command(int argc, char **argv)
                (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_G_COUNT);
         return 0;
     }
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "audio") == 0) {
+        /* DI-8：开机即启流（main.c），SELFTEST/AUD TONE/离线 PERF 需先 OFF */
+        if (argc == 3 && strcasecmp(argv[2], "on") == 0) {
+            if (sloop_core_status() != ESP_OK) {
+                printf("ENG AUDIO FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
+                return 1;
+            }
+            esp_err_t ret = sloop_hal_audio_start(sloop_core_render);
+            if (ret != ESP_OK) {
+                printf("ENG AUDIO FAIL audio=%s\n", esp_err_to_name(ret));
+                return 1;
+            }
+            printf("ENG AUDIO streaming=1 xrun=%u OK\n", (unsigned)sloop_hal_audio_xruns());
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "off") == 0) {
+            esp_err_t ret = sloop_hal_audio_stop();
+            if (ret != ESP_OK) {
+                printf("ENG AUDIO FAIL audio=%s\n", esp_err_to_name(ret));
+                return 1;
+            }
+            printf("ENG AUDIO streaming=0 xrun=%u OK\n", (unsigned)sloop_hal_audio_xruns());
+            return 0;
+        }
+        if (argc == 3) {
+            printf("用法: ENG AUDIO [ON|OFF]\n");
+            return 1;
+        }
+        printf("ENG AUDIO streaming=%u xrun=%u\n", (unsigned)sloop_hal_audio_streaming(),
+               (unsigned)sloop_hal_audio_xruns());
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "smoke") == 0) {
         /* 渲染与音频流互斥（流式时 SMOKE 的块会与渲染任务抢同一引擎锁/状态） */
         if (sloop_hal_audio_streaming()) {
@@ -326,7 +359,7 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 5 && strcasecmp(argv[1], "trig") == 0) {
-        /* 先验参、后启流：参数错误不得启流（否则本会话 AUD TONE/离线 PERF 被永久占用） */
+        /* 先验参、后启流：参数错误不得启流（否则需先 ENG AUDIO OFF 才能恢复 AUD TONE/离线 PERF） */
         uint32_t a = 0, b = 0;
         bool is_synth = strcasecmp(argv[2], "synth") == 0 && eng_uint(argv[3], 2, &a) &&
                         eng_uint(argv[4], 127, &b);
@@ -389,7 +422,7 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|AUDIO [ON|OFF]\n");
     return 1;
 }
 
@@ -449,8 +482,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF/AUDIO",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);

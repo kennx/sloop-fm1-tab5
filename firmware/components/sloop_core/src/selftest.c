@@ -535,7 +535,7 @@ void sloop_core_set_global(uint32_t id, int16_t value)
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
-        printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized\n");
+        printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
     UBaseType_t console_priority = uxTaskPriorityGet(NULL);

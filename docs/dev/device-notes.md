@@ -50,6 +50,8 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 | 2026-11-19 | 显示点亮（git 211bee5）：ST7121 探测正常，横屏 1280×720 测试图绘制成功 |
 | 2026-11-19 | 阶段 1 bring-up 机器侧收口（git 0f6fbf5）：分区表直读核对、键盘 0x6D+FW 0x01、ES8388 44.1kHz 出声自检、SCR 截屏+像素抽检闭环全绿；人测项（DI-4 键矩阵/触摸校准/听音）待办 |
 | 2026-11-19 | 阶段 1 听音人测无声 → 定位 es8388 输出音量初始化缺口（见 §5）→ 修复（4278509）→ 人测出声 |
+| 2026-11-20 | 阶段 2 引擎上机：设备/host 182/182 同源 golden 哈希全等；PERF 静默均值 9.44%/最大 11.73%、xrun=0；CC0 资产 283KB/8 集；ENG SELFTEST/TRACK/TRIG/PERF/INFO/SMOKE 命令就位（feat/sloop-core） |
+| 2026-11-20 | 阶段 3 Task 2（DI-8）：音频流可停启（`ENG AUDIO ON/OFF`），开机即启流；SELFTEST/AUD TONE/离线 PERF 需先停流（见 §6） |
 
 ## 5. ES8388 无声排障取证（2026-11-19，阶段 1 听音人测）
 
@@ -61,4 +63,10 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 结论：板级功放输入路径需要显式初始化输出音量；开机态固化为四路 0x21（`audio_tone_init` 板级修正）。
 - 未决：决定性寄存器（L1 还是 L2、0x21 是否必要）未二分（DI-6）；耳机通路未单独人测。
 - 附录：`esp_codec_dev_read_reg` 对 es8388 不透传（恒失败），读寄存器须走裸 I2C（BSP 总线句柄 + 0x10 从地址）。
-| 2026-11-20 | 阶段 2 引擎上机：设备/host 182/182 同源 golden 哈希全等；PERF 静默均值 9.44%/最大 11.73%、xrun=0；CC0 资产 283KB/8 集；ENG SELFTEST/TRACK/TRIG/PERF/INFO/SMOKE 命令就位（feat/sloop-core） |
+
+## 6. 音频流所有权与启停（DI-8，2026-11-20 解决）
+
+- 开机序列末尾（`main.c`，`sloop_core_init` 成功后）直接 `sloop_hal_audio_start(sloop_core_render)` 启流；失败只记 ERROR 不阻断（`ENG AUDIO ON` 可重试）。
+- `ENG AUDIO OFF` → `sloop_hal_audio_stop()`：置停止请求，任务在写块收尾后跳出循环、自挂起，stop 再 `vTaskDelete` 并置句柄 NULL；**codec 保持打开**（`AUD TONE` 立即可用）。不可直接删阻塞在 codec 写里的任务——会丢失 I2S 驱动锁（实测 AUD TONE 报 `channel is not enabled`）。无参数打印 `streaming=`/`xrun=`；无任务时 stop 幂等返回 ESP_OK。
+- 流式期间 `ENG SELFTEST` 拒绝行带 `hint=ENG AUDIO OFF`（拒绝语义不变）；停流后 `ENG SELFTEST`（含单例）、`AUD TONE`、离线 `ENG PERF` 恢复正常。
+- `xrun` 为累计计数，停/启不清零。
