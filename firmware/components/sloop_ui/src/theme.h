@@ -12,6 +12,7 @@
 
 #include "lvgl.h"
 #include "sloop_state.h"
+#include "sloop_ui.h"
 
 #define UI_W 1280
 #define UI_H 720
@@ -53,6 +54,14 @@ void page_step_update(const app_state_t *st);
 
 void page_transport_create(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
+
+/* hit-test（console `TAP` 注入）：坐标为页面区相对坐标（调用方已扣 UI_TAB_BAR_H）。
+ * 命中：调用与控件事件回调**相同**的动作函数并填 out，返回 true；未命中返回 false。
+ * 调用方（ui.c）已持 bsp_display_lock，动作里的控件写/立即刷新都在该锁内。
+ * 矩形几何与建控件用同一组布局宏，不得另抄一份数字。 */
+bool page_tracks_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
 /* InputManager 任务（input.c）：建互斥并启动 5ms 轮询任务；由 sloop_ui_start()
  * 在 LVGL 锁外调用（键盘驱动须已初始化）。 */

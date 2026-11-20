@@ -18,6 +18,8 @@
  *
  * 点击：合成轨先 state_set_focus()（UI 局部态）再 state_apply(CMD_TOGGLE_STEP)，
  * 随后立即刷新本页一次（不等 30ms 定时器，切页/截屏不受 tick 时序影响）。
+ * 控件回调与 console `TAP` 注入都只调用 step_activate()（唯一共同路径），
+ * TAP 的命中矩形由建格同一组布局宏推导（无第二份坐标表）。
  *
  * 内存：75 个格/标签对象共用静态 lv_style_t（格底 5 种 + 高亮 3 种 + 文本 6 种），
  * 每对象一份局部样式会把 LVGL 池（约 58KB）吃穿；状态变化用 lv_obj_replace_style
@@ -130,12 +132,10 @@ static void set_status(const char *text, uint32_t color)
     lv_obj_set_style_text_color(s_status, lv_color_hex(color), 0);
 }
 
-static void cell_clicked_cb(lv_event_t *e)
+/* 格激活（LVGL 上下文、调用方已持锁）：控件点击回调与 TAP 注入的**唯一共同路径**。
+ * 两条路径的 EditCmd 序列因此由本函数唯一决定（ADR-005 的 EditCmd 层等价）。 */
+static void step_activate(uint8_t r, uint8_t c)
 {
-    uint32_t id = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
-    uint8_t r = (uint8_t)(id / APP_STATE_STEPS);
-    uint8_t c = (uint8_t)(id % APP_STATE_STEPS);
-
     if (r >= APP_STATE_TRACKS - 1) {
         /* 鼓轨只读：MVP 不发 CMD_TOGGLE_STEP（阶段 4 接 DRUM_STEP），也不改焦点——
          * 焦点轨跟着合成轨行走，点鼓轨不应把焦点留在不可编辑的行上 */
@@ -150,6 +150,36 @@ static void cell_clicked_cb(lv_event_t *e)
         set_status(buf, ui_track_color(r));
     }
     refresh();
+}
+
+static void cell_clicked_cb(lv_event_t *e)
+{
+    uint32_t id = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
+    step_activate((uint8_t)(id / APP_STATE_STEPS), (uint8_t)(id % APP_STATE_STEPS));
+}
+
+/* TAP hit-test：矩形由建格所用的同一组宏（GRID_X0/Y0、CELL_W/H、CELL_STEP_X、
+ * ROW_PITCH）现场推导——不另存一份坐标表，布局改动不会与注入漂移。
+ * 行/列各一次区间判定；落在格间距（列间 6px、行间 20px）或网格外即未命中。 */
+bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    for (uint8_t r = 0; r < APP_STATE_TRACKS; r++) {
+        int32_t y0 = GRID_Y0 + r * ROW_PITCH;
+        if (y < y0 || y >= y0 + CELL_H) continue;
+        for (uint8_t c = 0; c < APP_STATE_STEPS; c++) {
+            int32_t x0 = GRID_X0 + c * CELL_STEP_X;
+            if (x < x0 || x >= x0 + CELL_W) continue;
+            step_activate(r, c);
+            if (out != NULL) {
+                out->kind = (r == APP_STATE_TRACKS - 1) ? SLOOP_TAP_STEP_DRUM : SLOOP_TAP_STEP_CELL;
+                out->a = r;
+                out->b = c;
+            }
+            return true;
+        }
+        return false; /* 行命中但 x 落列缝 */
+    }
+    return false;
 }
 
 static void cell_apply(uint8_t r, uint8_t c, uint8_t old_state, uint8_t state)

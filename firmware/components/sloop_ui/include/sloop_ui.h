@@ -45,6 +45,33 @@ void sloop_ui_input_key(uint8_t code, bool down);
  * 清 layer_held、撤销待执行切页。可从任意任务调用，不取 LVGL 锁。 */
 void sloop_ui_input_panic(void);
 
+/* 撤销待执行切页（清空异步切页邮箱）。console 同步切页（`UI`）与 `KEY PANIC`
+ * 共用：避免「读当前页→请求同页」在切页中途读到旧值而漏撤销。不取 LVGL 锁。 */
+void sloop_ui_cancel_pending_page(void);
+
+/* TAP 注入（console `TAP <x> <y>`）：坐标 = 屏幕绝对坐标（含页签条，与触摸 indev
+ * 同口径）。按当前页 hit-test 表命中矩形，执行与控件回调**相同的动作函数**
+ * （EditCmd 层等价，见 ADR-005；不声称原始指针事件等价）。
+ * 命中返回 true 并把动作/参数填进 out（out 可为 NULL）；未命中返回 false，不改状态。
+ * 内部取 LVGL 锁（命中后要改控件文本/立即刷新），仅 console 注入路径调用。 */
+typedef enum {
+    SLOOP_TAP_MISS = 0,
+    SLOOP_TAP_STEP_CELL,     /* a=track b=step：设焦点 + CMD_TOGGLE_STEP */
+    SLOOP_TAP_STEP_DRUM,     /* b=step：鼓轨只读，只写状态行提示 */
+    SLOOP_TAP_TRACK_CARD,    /* a=track：CMD_SELECT_TRACK */
+    SLOOP_TAP_TRANSPORT_PLAY,
+    SLOOP_TAP_TRANSPORT_STOP,
+    SLOOP_TAP_TRANSPORT_BPM, /* v=±1：CMD_SET_BPM */
+} sloop_tap_kind_t;
+
+typedef struct {
+    sloop_tap_kind_t kind;
+    uint8_t a, b;
+    int16_t v;
+} sloop_tap_result_t;
+
+bool sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+
 /* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
 

@@ -15,6 +15,11 @@
  * InputManager（input.c）在 sloop_ui_start 末尾启动：5ms 轮询 Tab5 Keyboard
  * 事件 → 层模型 → EditCmd；页签条右侧的 LAYER 提示由本文件的定时器按
  * state.layer_held 刷新。
+ *
+ * 注入（console）：`TAP <x> <y>` 经 sloop_ui_input_tap() 按当前页 hit-test 表派发，
+ * 与控件回调共用页内动作函数（EditCmd 层等价，ADR-005）；`UI <page>` 为同步切页，
+ * 会先作废异步切页邮箱（sloop_ui_cancel_pending_page），保证回显页即落地页。
+ * 异步切页按「一拍一页」：同一定时器周期内的多次 tab 只保留最后一次请求的目标页。
  */
 #include "sloop_ui.h"
 
@@ -280,6 +285,33 @@ void sloop_ui_request_page(uint8_t page)
     portEXIT_CRITICAL(&s_page_mux);
 }
 
+/* TAP 注入的页级派发：坐标为页面区相对坐标；PLAY 页无可点控件（纯呈现）。
+ * 调用方已持 LVGL 锁（动作函数会改控件文本并立即刷新本页）。 */
+static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    if (y < UI_TAB_BAR_H) return false;
+    int16_t py = (int16_t)(y - UI_TAB_BAR_H);
+    switch (page) {
+    case APP_PAGE_STEP: return page_step_tap(x, py, out);
+    case APP_PAGE_TRACKS: return page_tracks_tap(x, py, out);
+    case APP_PAGE_TRANSPORT: return page_transport_tap(x, py, out);
+    default: return false; /* PLAY：无编辑控件 */
+    }
+}
+
+bool sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    if (out != NULL) *out = (sloop_tap_result_t){0};
+    if (!s_started) return false;
+    if (!bsp_display_lock(1000)) {
+        ESP_LOGW(TAG, "TAP 注入失败: LVGL 锁超时");
+        return false;
+    }
+    bool hit = page_tap(s_page, x, y, out);
+    bsp_display_unlock();
+    return hit;
+}
+
 void sloop_ui_switch_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES) {
@@ -294,8 +326,19 @@ void sloop_ui_switch_page(uint8_t page)
         ESP_LOGW(TAG, "切页 %u 失败: LVGL 锁超时", (unsigned)page);
         return;
     }
+    /* 同步切页作废异步请求：否则紧邻的一次 tab/esc 会让定时器下一拍把页面切走
+     * （console `UI` 的成功回显必须代表落地页）。清邮箱与 show_page 都在
+     * LVGL 锁内，定时器无法插入；清空之后新的 request 属于更新的一次请求，保留。 */
+    sloop_ui_cancel_pending_page();
     show_page(page);
     bsp_display_unlock();
+}
+
+void sloop_ui_cancel_pending_page(void)
+{
+    portENTER_CRITICAL(&s_page_mux);
+    s_page_pending = 0xFF;
+    portEXIT_CRITICAL(&s_page_mux);
 }
 
 uint8_t sloop_ui_current_page(void)

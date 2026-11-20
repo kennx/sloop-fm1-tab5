@@ -12,6 +12,8 @@
  *
  * 点击卡片发 CMD_SELECT_TRACK（cmd.c 的 cmd_select_track 同时写 selected_track 与
  * focus_track，即「设焦点轨 + 选轨」一次完成，本页不再重复 state_set_focus）。
+ * 控件回调与 console `TAP` 注入都只调用 tracks_select()（唯一共同路径），TAP 的
+ * 命中矩形由建卡同一组布局宏推导（无第二份坐标表）。
  *
  * 内存：文本/底色用静态共享 lv_style_t（与 page_step.c 同一纪律）；仍保留局部样式的只有
  * 四张卡的 pad_all 与四条电平条（main/indicator 的底色/圆角），量级固定且很小。
@@ -87,12 +89,34 @@ static void refresh(void)
     page_tracks_update(&st);
 }
 
-static void card_clicked_cb(lv_event_t *e)
+/* 卡选中（LVGL 上下文、调用方已持锁）：控件回调与 TAP 注入的唯一共同路径。 */
+static void tracks_select(uint8_t k)
 {
-    uint32_t k = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
     const edit_cmd_t cmd = {.type = CMD_SELECT_TRACK, .a = k};
     state_apply(&cmd); /* 选轨 + focus_track（见 cmd.c cmd_select_track） */
     refresh();
+}
+
+static void card_clicked_cb(lv_event_t *e)
+{
+    tracks_select((uint8_t)(uintptr_t)lv_event_get_user_data(e));
+}
+
+/* TAP hit-test：矩形由建卡所用的同一组宏（CARD_X0/Y/W/H/PITCH）推导。 */
+bool page_tracks_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    if (y < CARD_Y || y >= CARD_Y + CARD_H) return false;
+    for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
+        int32_t x0 = CARD_X0 + k * CARD_PITCH;
+        if (x < x0 || x >= x0 + CARD_W) continue;
+        tracks_select(k);
+        if (out != NULL) {
+            out->kind = SLOOP_TAP_TRACK_CARD;
+            out->a = k;
+        }
+        return true;
+    }
+    return false;
 }
 
 static void card_apply(uint8_t k, const card_view_t *cv, uint8_t prev_sel)

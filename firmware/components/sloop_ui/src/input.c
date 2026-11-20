@@ -284,7 +284,9 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PLAY_TOGGLE: act_play_toggle(); break;
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break;
     case ACT_PAGE_NEXT: {
-        /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁 */
+        /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
+         * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
+         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
         uint8_t page = sloop_ui_current_page();
         if (page < APP_STATE_PAGES) sloop_ui_request_page((uint8_t)((page + 1u) % APP_STATE_PAGES));
         break;
@@ -364,9 +366,7 @@ void sloop_ui_input_panic(void)
         released++;
     }
     state_set_layer(0);
-    /* 撤销待执行切页：把邮箱设为当前页，定时器消费时因相同而 no-op */
-    uint8_t page = sloop_ui_current_page();
-    if (page < APP_STATE_PAGES) sloop_ui_request_page(page);
+    sloop_ui_cancel_pending_page(); /* 撤销待执行切页（专用清空，无读当前页竞态） */
     input_unlock();
     ESP_LOGW(TAG, "PANIC 释放 %u 个音符，层键/待切页已清", released);
 }

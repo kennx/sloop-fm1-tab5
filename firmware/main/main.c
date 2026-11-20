@@ -110,6 +110,10 @@ void app_main(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "UI 启动失败: %s（回退 bring-up 测试图）", esp_err_to_name(ret));
         app_display_draw_test_pattern();
+    } else {
+        /* UI 接管屏幕：关掉 bring-up 触摸准星与坐标日志（会盖住生产页面/截图）；
+         * DI-10 的幽灵按压事件仍可能到达，不在本任务修 */
+        app_display_touch_feedback_enable(false);
     }
 
     while (1) {

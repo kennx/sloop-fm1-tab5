@@ -9,6 +9,8 @@
  *
  * 按钮回调发 EditCmd（CMD_PLAY/STOP、CMD_SET_BPM）走状态层 state_apply，
  * 不直接碰引擎；BPM 单步 ±1（长按连发按 brief 为本任务可选项，未做）。
+ * 控件回调与 console `TAP` 注入都只调用 transport_{play,stop,bpm_step}()（唯一共同
+ * 路径）；TAP 的命中矩形取自建按钮的同一组 TRANSPORT_* 几何宏。
  */
 #include "theme.h"
 
@@ -16,6 +18,20 @@
 
 #include "lvgl.h"
 #include "sloop_state.h"
+
+#define TRANSPORT_PLAY_X  48
+#define TRANSPORT_PLAY_Y  48
+#define TRANSPORT_PLAY_W  320
+#define TRANSPORT_PLAY_H  180
+#define TRANSPORT_STOP_X  400
+#define TRANSPORT_STOP_Y  48
+#define TRANSPORT_STOP_W  320
+#define TRANSPORT_STOP_H  180
+#define TRANSPORT_BPM_MINUS_X 860
+#define TRANSPORT_BPM_PLUS_X  1000
+#define TRANSPORT_BPM_Y       140
+#define TRANSPORT_BPM_W       100
+#define TRANSPORT_BPM_H       100
 
 static lv_obj_t *s_status_label;
 static lv_obj_t *s_step_label;
@@ -58,25 +74,23 @@ static void refresh(void)
     page_transport_update(&st);
 }
 
-static void play_clicked_cb(lv_event_t *e)
+/* 动作函数（LVGL 上下文、调用方已持锁）：控件点击回调与 TAP 注入的唯一共同路径。 */
+static void transport_play(void)
 {
-    (void)e;
     const edit_cmd_t cmd = {.type = CMD_PLAY};
     state_apply(&cmd);
     refresh();
 }
 
-static void stop_clicked_cb(lv_event_t *e)
+static void transport_stop(void)
 {
-    (void)e;
     const edit_cmd_t cmd = {.type = CMD_STOP};
     state_apply(&cmd);
     refresh();
 }
 
-static void bpm_clicked_cb(lv_event_t *e)
+static void transport_bpm_step(int delta)
 {
-    int delta = (int)(intptr_t)lv_event_get_user_data(e);
     app_state_t st;
     state_get_copy(&st);
     int32_t bpm = (int32_t)st.core.bpm + delta;
@@ -86,10 +100,68 @@ static void bpm_clicked_cb(lv_event_t *e)
     refresh();
 }
 
+static void play_clicked_cb(lv_event_t *e)
+{
+    (void)e;
+    transport_play();
+}
+
+static void stop_clicked_cb(lv_event_t *e)
+{
+    (void)e;
+    transport_stop();
+}
+
+static void bpm_clicked_cb(lv_event_t *e)
+{
+    transport_bpm_step((int)(intptr_t)lv_event_get_user_data(e));
+}
+
+/* TAP hit-test 表：坐标/尺寸取自上面建按钮的同一组宏（无第二份数字）。
+ * 矩形互不重叠；命中后调用与控件回调相同的动作函数。 */
+typedef struct {
+    int16_t x, y, w, h;
+    uint8_t kind; /* sloop_tap_kind_t */
+    int8_t v;     /* BPM 步进方向 */
+} transport_hit_t;
+
+static const transport_hit_t k_hits[] = {
+    {TRANSPORT_PLAY_X, TRANSPORT_PLAY_Y, TRANSPORT_PLAY_W, TRANSPORT_PLAY_H,
+     SLOOP_TAP_TRANSPORT_PLAY, 0},
+    {TRANSPORT_STOP_X, TRANSPORT_STOP_Y, TRANSPORT_STOP_W, TRANSPORT_STOP_H,
+     SLOOP_TAP_TRANSPORT_STOP, 0},
+    {TRANSPORT_BPM_MINUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
+     SLOOP_TAP_TRANSPORT_BPM, -1},
+    {TRANSPORT_BPM_PLUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
+     SLOOP_TAP_TRANSPORT_BPM, 1},
+};
+
+bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    for (size_t i = 0; i < sizeof(k_hits) / sizeof(k_hits[0]); i++) {
+        const transport_hit_t *hit = &k_hits[i];
+        if (x < hit->x || x >= hit->x + hit->w || y < hit->y || y >= hit->y + hit->h) continue;
+        switch (hit->kind) {
+        case SLOOP_TAP_TRANSPORT_PLAY: transport_play(); break;
+        case SLOOP_TAP_TRANSPORT_STOP: transport_stop(); break;
+        case SLOOP_TAP_TRANSPORT_BPM: transport_bpm_step(hit->v); break;
+        default: return false;
+        }
+        if (out != NULL) {
+            out->kind = (sloop_tap_kind_t)hit->kind;
+            out->v = hit->v;
+        }
+        return true;
+    }
+    return false;
+}
+
 void page_transport_create(lv_obj_t *parent)
 {
-    make_button(parent, 48, 48, 320, 180, ui_track_color(1), "PLAY", play_clicked_cb, NULL);
-    make_button(parent, 400, 48, 320, 180, ui_track_color(3), "STOP", stop_clicked_cb, NULL);
+    make_button(parent, TRANSPORT_PLAY_X, TRANSPORT_PLAY_Y, TRANSPORT_PLAY_W, TRANSPORT_PLAY_H,
+                ui_track_color(1), "PLAY", play_clicked_cb, NULL);
+    make_button(parent, TRANSPORT_STOP_X, TRANSPORT_STOP_Y, TRANSPORT_STOP_W, TRANSPORT_STOP_H,
+                ui_track_color(3), "STOP", stop_clicked_cb, NULL);
 
     s_status_label = lv_label_create(parent);
     lv_label_set_text(s_status_label, "STOPPED");
@@ -117,8 +189,10 @@ void page_transport_create(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_bpm_value, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(s_bpm_value, lv_color_hex(UI_TEXT), 0);
 
-    make_button(parent, 860, 140, 100, 100, UI_PANEL_HI, "-", bpm_clicked_cb, (void *)(intptr_t)-1);
-    make_button(parent, 1000, 140, 100, 100, UI_PANEL_HI, "+", bpm_clicked_cb, (void *)(intptr_t)1);
+    make_button(parent, TRANSPORT_BPM_MINUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
+                UI_PANEL_HI, "-", bpm_clicked_cb, (void *)(intptr_t)-1);
+    make_button(parent, TRANSPORT_BPM_PLUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
+                UI_PANEL_HI, "+", bpm_clicked_cb, (void *)(intptr_t)1);
 }
 
 void page_transport_update(const app_state_t *st)

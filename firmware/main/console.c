@@ -15,6 +15,9 @@
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
  *    均值/最大，µs）与输入任务栈余量；KEY PANIC 全停（释放已按下音符、清层键与
  *    待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *  - TAP：触摸注入 TAP <x> <y>（屏幕绝对坐标，含页签条），经
+ *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
+ *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -550,6 +553,64 @@ static int key_command(int argc, char **argv)
     return 1;
 }
 
+/* TAP（触摸注入）：TAP <x> <y>，屏幕绝对坐标（含页签条，与触摸 indev 同口径）。
+ * 按当前页 hit-test 表派发与控件回调相同的动作函数（ADR-005：EditCmd 层等价，
+ * 不声称原始指针事件等价）。命中打印动作与参数；未命中打印
+ * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。 */
+static int tap_command(int argc, char **argv)
+{
+    long x = 0, y = 0;
+    bool args_ok = argc == 3;
+    if (args_ok) {
+        char *end = NULL;
+        x = strtol(argv[1], &end, 10);
+        args_ok = end != argv[1] && *end == '\0' && x >= 0 && x < 1280;
+    }
+    if (args_ok) {
+        char *end = NULL;
+        y = strtol(argv[2], &end, 10);
+        args_ok = end != argv[2] && *end == '\0' && y >= 0 && y < 720;
+    }
+    if (!args_ok) {
+        printf("用法: TAP <x=0..1279> <y=0..719>（屏幕绝对坐标，含 72px 页签条；按当前页 hit-test 表）\n");
+        return 1;
+    }
+
+    sloop_tap_result_t r;
+    bool hit = sloop_ui_input_tap((int16_t)x, (int16_t)y, &r);
+    unsigned page = (unsigned)sloop_ui_current_page();
+    if (!hit) {
+        printf("TAP miss %ld,%ld page=%u\n", x, y, page);
+        return 1;
+    }
+    switch (r.kind) {
+    case SLOOP_TAP_STEP_CELL:
+        printf("TAP %ld,%ld page=%u -> STEP track=%u step=%u CMD_TOGGLE_STEP\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b);
+        break;
+    case SLOOP_TAP_STEP_DRUM:
+        printf("TAP %ld,%ld page=%u -> STEP drum step=%u read-only\n", x, y, page, (unsigned)r.b);
+        break;
+    case SLOOP_TAP_TRACK_CARD:
+        printf("TAP %ld,%ld page=%u -> TRACKS select track=%u CMD_SELECT_TRACK\n", x, y, page,
+               (unsigned)r.a);
+        break;
+    case SLOOP_TAP_TRANSPORT_PLAY:
+        printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_PLAY\n", x, y, page);
+        break;
+    case SLOOP_TAP_TRANSPORT_STOP:
+        printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_STOP\n", x, y, page);
+        break;
+    case SLOOP_TAP_TRANSPORT_BPM:
+        printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_SET_BPM delta=%+d\n", x, y, page, (int)r.v);
+        break;
+    default:
+        printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
+        break;
+    }
+    return 0;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -649,6 +710,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&key_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 KEY 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t tap_cmd = {
+        .command = "TAP",
+        .help = "触摸注入：TAP <x> <y> 按当前页 hit-test 表派发（与控件回调同一动作函数）",
+        .hint = "<x=0..1279> <y=0..719>",
+        .func = &tap_command,
+    };
+    ret = esp_console_cmd_register(&tap_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 TAP 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
