@@ -286,6 +286,13 @@ static int selftest_health(const res_t *r)
  * 两个符号落进了别的段，memcpy 会把无辜内存卷进来） */
 #define SELFTEST_REGION_MAX (4u * 1024u * 1024u)
 
+/* vendored regress.c 里 exactly 7 条 J_CHECK（声音判定：peak/dc/free/tail/tail_dc/
+ * over+near/vmax）。PASS 要求全量跑的 checks 恰好等于它——只断言 check_fail==0 的话，
+ * 上游用例表若静默丢掉检查（改名/改 kind），0 条检查也会「通过」。单例模式被
+ * selector 过滤掉全部 J_CHECK，故 expected_checks=0（汇总行打印该值）。
+ * golden/regress 升级导致数量变化时同步改这里。 */
+#define SELFTEST_EXPECTED_CHECKS 7u
+
 static esp_err_t selftest_region_init(selftest_region_t *region, uint8_t *first, uint8_t *last)
 {
     uint8_t *lo = first < last ? first : last;
@@ -332,6 +339,11 @@ static esp_err_t core_status = ESP_ERR_INVALID_STATE;
  * 持锁窗口都是短操作（编辑为状态写，渲染为 ≤ HALF_FRAMES 帧的量化渲染），
  * 优先级继承保证 console（低优先级）持锁时音频任务不会被无限阻塞。 */
 static SemaphoreHandle_t s_engine_lock;
+
+/* 诊断模式（sloop_core_diag_freeze）：冻结快照 + 标志。放在 .noinit —— selftest_restore()
+ * 会把组件 data/bss 恢复到 init 快照，普通静态标志会在自检一开始就被回滚成 false。 */
+static sloop_core_snapshot_t s_frozen_snap __attribute__((section(".noinit")));
+static volatile bool s_frozen __attribute__((section(".noinit")));
 
 static inline void engine_lock(void)
 {
@@ -387,7 +399,7 @@ void sloop_core_render(int32_t *block, uint32_t frames)
 
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
 {
-    if (k >= NPART || engine >= NENGINES) return;
+    if (k >= NPART || engine >= NENGINES || s_frozen) return;
     engine_lock();
     track_t *t = &trk[k];
     if (t->eng_req != engine || t->preset != preset) sound_change(t);
@@ -398,7 +410,7 @@ void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
 
 void sloop_core_note(uint32_t track, uint32_t note, bool on)
 {
-    if (track >= NTRK || note > 127) return;
+    if (track >= NTRK || note > 127 || s_frozen) return;
     engine_lock();
     if (on) input_on(&trk[track], note, 100);
     else input_off(&trk[track], note);
@@ -407,7 +419,7 @@ void sloop_core_note(uint32_t track, uint32_t note, bool on)
 
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity)
 {
-    if (kit >= DSU_N || lane >= DRUM_LANES) return;
+    if (kit >= DSU_N || lane >= DRUM_LANES || s_frozen) return;
     engine_lock();
     int16_t old = TDRUM->p[P_E0];
     TDRUM->p[P_E0] = (int16_t)(DRUM_SYN + kit);
@@ -418,6 +430,7 @@ void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity)
 
 void sloop_core_play(bool on)
 {
+    if (s_frozen) return;
     engine_lock();
     transport_req = on ? 1 : 2;
     engine_unlock();
@@ -437,10 +450,9 @@ uint32_t sloop_core_frames(void)
 /* 只读快照 / 单步读写 / 全局参数写（语义与字段映射见 sloop_core.h）。
  * 与其它会改变引擎状态的 API 共用 s_engine_lock；窗口长度取 LEN 的合法区间，
  * 播放头按「模 len」给（停止时为 0）。 */
-void sloop_core_read(sloop_core_snapshot_t *out)
+/* 填一份快照（调用方持引擎锁或处于冻结态） */
+static void snapshot_fill(sloop_core_snapshot_t *out)
 {
-    if (out == NULL) return;
-    engine_lock();
     memset(out, 0, sizeof(*out));
     out->playing = song.playing != 0;
     out->bpm = (uint16_t)clamp(song.g[G_BPM], GP[G_BPM].min, GP[G_BPM].max);
@@ -482,6 +494,24 @@ void sloop_core_read(sloop_core_snapshot_t *out)
             if (rat > out->dstep[i].rat) out->dstep[i].rat = rat;
         }
     }
+}
+
+void sloop_core_read(sloop_core_snapshot_t *out)
+{
+    if (out == NULL) return;
+    if (s_frozen) {
+        *out = s_frozen_snap;
+        return;
+    }
+    engine_lock();
+    /* 取到锁后再查一次：冻结在持锁时置位，故这里要么在冻结前完成，要么看到标志
+     * 直接返回缓存——任何读者都不可能长时间卡在锁上（见 sloop_core_diag_freeze）。 */
+    if (s_frozen) {
+        engine_unlock();
+        *out = s_frozen_snap;
+        return;
+    }
+    snapshot_fill(out);
     engine_unlock();
 }
 
@@ -489,7 +519,7 @@ void sloop_core_read_step(uint32_t track, uint32_t idx, sloop_step_t *out)
 {
     if (out == NULL) return;
     memset(out, 0, sizeof(*out));
-    if (track >= NPART || idx >= NSTEP) return;
+    if (track >= NPART || idx >= NSTEP || s_frozen) return; /* 冻结态：不取锁，返回全零 */
     engine_lock();
     const track_t *t = &trk[track];
     const step_t *s = &t->step[idx];
@@ -507,7 +537,7 @@ void sloop_core_read_step(uint32_t track, uint32_t idx, sloop_step_t *out)
 
 void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
 {
-    if (in == NULL || track >= NPART || idx >= NSTEP) return;
+    if (in == NULL || track >= NPART || idx >= NSTEP || s_frozen) return;
     engine_lock();
     track_t *t = &trk[track];
     step_t *s = &t->step[idx];
@@ -526,10 +556,30 @@ void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
 
 void sloop_core_set_global(uint32_t id, int16_t value)
 {
-    if (id >= G_COUNT) return;
+    if (id >= G_COUNT || s_frozen) return;
     engine_lock();
     song.g[id] = (int16_t)clamp(value, GP[id].min, GP[id].max);
     engine_unlock();
+}
+
+/* 诊断模式开关（console `ENG SELFTEST` 前后调用，见 sloop_core.h）：
+ *  - freeze(true)：持引擎锁取一份快照后置位。置位后 read 直接返回该快照、
+ *    read_step 返回全零、所有写 API 直接丢弃——UI 定时器与 input 任务都不再取
+ *    引擎锁，自检可以整段持锁而不制造长时间等待者（本 FreeRTOS SMP 端口在长时
+ *    持锁 + 高优先级等待者下会触发跨核 yield 风暴，见 ADR-007）。
+ *  - freeze(false)：清位（引擎状态已由 selftest 恢复到 init 快照，下一次 sync 对齐）。
+ * 标志与快照放在 .noinit：selftest_restore() 会覆盖组件 data/bss，普通静态会被
+ * 快照回滚掉（这是首版实现被「还原」掉的根因）。 */
+void sloop_core_diag_freeze(bool on)
+{
+    if (on) {
+        engine_lock();
+        snapshot_fill(&s_frozen_snap);
+        s_frozen = true;
+        engine_unlock();
+        return;
+    }
+    s_frozen = false;
 }
 
 int sloop_core_selftest(const char *case_name)
@@ -538,8 +588,17 @@ int sloop_core_selftest(const char *case_name)
         printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
-    UBaseType_t console_priority = uxTaskPriorityGet(NULL);
-    vTaskPrioritySet(NULL, 0);
+    /* 整段持引擎锁（restore → jobs → 结束 restore）：快照恢复会覆盖引擎状态，而
+     * UI 定时器每 30ms 调 sloop_core_read、input 任务会 sloop_core_note/write_step
+     * ——不持锁就是「活写者 + 快照回滚」的数据竞争（写者可能把半个用例的状态带进
+     * 下一个用例，或读方看到回滚中途）。
+     * 调用方（console 的 ENG SELFTEST）在调用前后进入/退出诊断模式：暂停 30ms UI
+     * 定时器并挂起 input 任务（sloop_ui_diag_enter/leave），因此本锁的等待者只有
+     * 音频任务（已按设计停流）——没有长时持锁 + 高优先级等待者的组合，就不会触发
+     * 该 FreeRTOS SMP 端口的跨核 yield 风暴（vPortYield busy-wait；阶段 3 收口的
+     * 既有固件在 UI live 时跑全量 SELFTEST 即因此卡死刷 task_wdt，见 ADR-007）。
+     * 诊断模式期间 UI 冻结、键盘编辑不落地，见 sloop_core.h。 */
+    engine_lock();
     selftest_restore();
     ctl.selector = case_name;
     ctl.fork_count = 0;
@@ -552,8 +611,11 @@ int sloop_core_selftest(const char *case_name)
 
     kv_t *golden = heap_caps_calloc(MAXJ, sizeof(*golden), MALLOC_CAP_SPIRAM);
     uint32_t ng = golden != NULL ? load_kv("tests/golden.txt", golden, MAXJ) : 0;
-    /* golden 条目数（不含 repeat）= 全量跑应覆盖的用例数；单例模式应恰好命中 1 条 */
+    /* golden 条目数（不含 repeat）= 全量跑应覆盖的用例数；单例模式应恰好命中 1 条。
+     * 声音检查（J_CHECK）同理：全量模式必须恰为 SELFTEST_EXPECTED_CHECKS 条，
+     * 单例模式被 selector 过滤掉（0 条），故 expected_checks 随模式取值。 */
     uint32_t expected = case_name != NULL ? (kv_get(golden, ng, case_name) != NULL ? 1u : 0u) : ng;
+    uint32_t expected_checks = case_name != NULL ? 0u : SELFTEST_EXPECTED_CHECKS;
     uint32_t cases = 0, identical = 0, mismatch = 0, health_fail = 0, checks = 0, check_fail = 0;
     for (uint32_t i = 0; i < nj; i++) {
         job_t *j = &J[i];
@@ -588,20 +650,22 @@ int sloop_core_selftest(const char *case_name)
             }
         }
     }
-    /* PASS 的五个条件：覆盖数（cases==expected）、逐例同源、健康、7 项声音检查、
-     * repeat 确定性。main() 的返回值单独打印（它的汇总行也放行到串口），但不作为
-     * 条件：设备侧刻意不跑 J_CPU 批量（成本测量是 host 侧信息），被跳过的 job 没有
-     * res_t，上游 run_jobs 按自己的 `got != sizeof(res_t)` 记为崩溃，故 main_rc 恒为
-     * 非 0；设备有意义的计数（hash/health/checks/确定性）在这里逐项重算并判定。 */
+    /* PASS 的五个条件：覆盖数（cases==expected）、逐例同源、健康、声音检查
+     * （checks == expected_checks：全量恰 7 条、单例 0 条）且全过、repeat 确定性。
+     * main() 的返回值单独打印（它的
+     * 汇总行也放行到串口），但不作为条件：设备侧刻意不跑 J_CPU 批量（成本测量是
+     * host 侧信息），被跳过的 job 没有 res_t，上游 run_jobs 按自己的
+     * `got != sizeof(res_t)` 记为崩溃，故 main_rc 恒为非 0；设备有意义的计数
+     * （hash/health/checks/确定性）在这里逐项重算并判定。 */
     int pass = golden != NULL && ng > 0 && expected > 0 && cases == expected && mismatch == 0 && health_fail == 0 &&
-               check_fail == 0 && deterministic;
-    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u deterministic=%d expected=%u main_rc=%d result=%s\n",
+               checks == expected_checks && check_fail == 0 && deterministic;
+    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u deterministic=%d expected=%u expected_checks=%u main_rc=%d result=%s\n",
            (unsigned)cases, (unsigned)identical, (unsigned)mismatch, (unsigned)health_fail,
-           (unsigned)checks, (unsigned)check_fail, deterministic, (unsigned)expected, main_rc,
-           pass ? "PASS" : "FAIL");
+           (unsigned)checks, (unsigned)check_fail, deterministic, (unsigned)expected,
+           (unsigned)expected_checks, main_rc, pass ? "PASS" : "FAIL");
     heap_caps_free(golden);
     selftest_restore();
     nj = 0;
-    vTaskPrioritySet(NULL, console_priority);
+    engine_unlock();
     return pass ? 0 : 1;
 }

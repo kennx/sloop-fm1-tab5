@@ -8,9 +8,12 @@
 
 /* 线程/所有权规则：sloop_core_render 与所有改变引擎状态的 API（track/note/hit/
  * play/set_global/write_step）以及只读的 read/read_step 共享内部互斥锁，可从
- * 不同任务调用；不得在 ISR 中调用。selftest 与音频
- * 流互斥（流式期间返回 busy）。注意 selftest 会把引擎恢复到 sloop_core_init
- * 快照并丢弃运行期编辑——阶段 3 UI 接管状态后，这条对用户可见。 */
+ * 不同任务调用；不得在 ISR 中调用。selftest 与音频流互斥（流式期间返回 busy）。
+ * 诊断模式（sloop_core_diag_freeze，console `ENG SELFTEST` 用）：冻结后 read 返回
+ * 冻结快照、read_step 返回全零、写 API 直接丢弃（均不取锁），selftest 因此可整段持
+ * 引擎锁而不制造等待者——UI 在自检期间停在最后一帧、键盘编辑不落地，结束后下一拍
+ * 自动对齐。selftest 开始/结束各恢复一次 init 快照，会丢弃运行期编辑——阶段 3 UI
+ * 接管状态后，这条对用户可见。 */
 #define SLOOP_CORE_NENGINES 12u
 #define SLOOP_CORE_P_COUNT  71u
 #define SLOOP_CORE_G_COUNT  50u
@@ -65,5 +68,13 @@ void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
  * 不要用它执行 GO/动作全局（G_LOAD/G_SAVE/G_CLRSEQ/G_INITSND/G_NEWPRJ/G_ENGSEL/
  * G_INFO 等）——上游这些是瞬时的 UI 按钮/查询，写 song.g[] 只会改值、不执行动作。 */
 void sloop_core_set_global(uint32_t id, int16_t value);
+
+/* 诊断模式（console `ENG SELFTEST` 前后调用）：freeze(true) 先持锁取一份快照再置位，
+ * 之后 read 返回该冻结快照、read_step 返回全零、所有改变引擎状态的 API 直接丢弃
+ * （不取锁、不阻塞）；freeze(false) 清位。效果 = 自检期间 UI 冻结在最后一帧、
+ * 键盘编辑不落地，而 UI/输入任务不会在引擎锁上等待——selftest 因此可以整段持锁
+ * 跑快照/用例而不制造长时等待（该 FreeRTOS SMP 端口在长时持锁 + 高优先级等待者
+ * 下会触发跨核 yield 风暴，见 ADR-007）。须与 selftest 成对使用；不得在 ISR 调用。 */
+void sloop_core_diag_freeze(bool on);
 
 #endif
