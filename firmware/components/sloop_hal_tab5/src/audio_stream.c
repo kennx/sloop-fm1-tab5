@@ -10,8 +10,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define AUDIO_RATE 44100u
-#define AUDIO_HALF_FRAMES 256u
+/* 速率/块尺寸单一来源在 sloop_hal.h；与引擎 SLOOP_CORE_RATE/FRAMES 的相等性由
+ * selftest.c 的静态断言（两个头都可见的 TU）兜底，避免此处再复制一份数字。 */
+#define AUDIO_RATE SLOOP_HAL_AUDIO_RATE
+#define AUDIO_HALF_FRAMES SLOOP_HAL_AUDIO_FRAMES
 #define AUDIO_OUT_VOL 70
 #define AUDIO_TASK_STACK 4096u
 #define AUDIO_TASK_PRIORITY 5u
@@ -51,20 +53,27 @@ esp_err_t sloop_hal_audio_max_all(void)
 esp_err_t sloop_hal_audio_init(void)
 {
     if (codec != NULL) return ESP_OK;
-    codec = bsp_audio_codec_speaker_init();
-    if (codec == NULL) return ESP_FAIL;
+    esp_codec_dev_handle_t dev = bsp_audio_codec_speaker_init();
+    if (dev == NULL) return ESP_FAIL;
 
     esp_codec_dev_sample_info_t format = {
         .sample_rate = AUDIO_RATE,
         .channel = 2,
         .bits_per_sample = 16,
     };
-    if (esp_codec_dev_open(codec, &format) != 0) return ESP_FAIL;
-    if (esp_codec_dev_set_out_vol(codec, AUDIO_OUT_VOL) != 0) return ESP_FAIL;
-    esp_err_t ret = sloop_hal_audio_max_all();
-    if (ret != ESP_OK) return ret;
+    /* 任何一步失败都关掉句柄再返回：否则句柄残留会让下次 init 在顶部守卫直接
+     * ESP_OK，start 在未打开的 codec 上跑渲染任务（TRIG 报 OK 而 xrun 攀升）。 */
+    if (esp_codec_dev_open(dev, &format) != 0) goto fail;
+    if (esp_codec_dev_set_out_vol(dev, AUDIO_OUT_VOL) != 0) goto fail;
+    if (sloop_hal_audio_max_all() != ESP_OK) goto fail;
+    codec = dev;
     ESP_LOGI(TAG, "codec 44100Hz/2ch/16bit ready");
     return ESP_OK;
+
+fail:
+    esp_codec_dev_close(dev);
+    ESP_LOGE(TAG, "codec 初始化失败，句柄已关闭（下次调用重试）");
+    return ESP_FAIL;
 }
 
 esp_codec_dev_handle_t sloop_hal_audio_codec(void)
@@ -80,6 +89,13 @@ uint32_t sloop_hal_audio_xruns(void)
 bool sloop_hal_audio_streaming(void)
 {
     return audio_task != NULL;
+}
+
+/* 音频任务栈历史最小余量（字节）；无任务时 0。任务永不 panic 的前提是余量够用，
+ * 由 ENG PERF 打印、按预设实测（ANALOG/FM6/PHYS）。 */
+uint32_t sloop_hal_audio_stack_high_water(void)
+{
+    return audio_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(audio_task) : 0;
 }
 
 static void audio_task_run(void *arg)
