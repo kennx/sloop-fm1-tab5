@@ -269,6 +269,8 @@ STEP_CELL_A = (267, 208)
 STEP_CELL_B = (486, 332)
 # 卡 2：x=CARD_X0+2*(CARD_W+16)+CARD_W/2=24+624+148；y=72+CARD_Y+CARD_H/2=72+40+235
 TRACKS_CARD2 = (796, 347)
+# 卡距：page_tracks.c CARD_PITCH = CARD_W + 16 = 312（soak 循环选卡按此换算）
+TRACKS_CARD_PITCH = 312
 
 
 def ensure_stopped(s: Session) -> None:
