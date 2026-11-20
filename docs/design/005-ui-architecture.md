@@ -23,3 +23,4 @@ A。UI 组件 `sloop_ui`（LVGL 四屏 + 页签 + InputManager）；状态组件
 
 - 阶段 4 全页面在此架构上扩展（页面路由+控件复用）；阶段 5 将 `state_apply` 的执行端换成 FM-1 会话即可复用 UI。
 - 引擎保持单例+互斥；UI 输入路径增加 input 任务（≤20ms 延迟目标）。
+- 阶段 3 MVP 的选轨与逐轨 mute/solo 暂由状态层持有（引擎暂无写入口）：音频效果与串口断言局限见 `docs/deferred-issues.md` DI-9（串口用 `STATE SNAP`，不能用 `ENG SNAP`）；引擎写入落地后删除该特例。
