@@ -65,7 +65,18 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 `KEY <code> <down|up>`（console）与物理键盘同入口 `sloop_ui_input_key()`；code 十进制或
 `0x` 十六进制，取值 0..0x7F（tab5_keyboard 事件码）。`KEY` 每条打印 `elapsed_us`（命令入口
 → 派发返回，含 state_apply 与 PLAY 指示），`KEY STATS [RESET]` 打印累计均值/最大。
-InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll()` 5ms 轮询，每批 8 条。
+InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll()` 每批 8 条。
+
+**轮询周期 = tick 地板**（阶段 4 P4-0 Task 2）：周期写成 5ms 意图（`INPUT_POLL_MS`），
+实际取 `INPUT_POLL_TICKS = max(1 tick, pdMS_TO_TICKS(5))`。本工程 `CONFIG_FREERTOS_HZ=100`
+（`firmware/sdkconfig`）→ `pdMS_TO_TICKS(5) == 0`，因此**生效周期 = 1 tick = 10ms**；
+启动日志按实际值打印 `轮询 10ms（1 tick @100Hz）`。零 tick 的 `vTaskDelay(0)` 只 yield
+不阻塞，会让 input 任务退化为全速自旋并制造跨核 yield IPI 风暴（DI-11 的真因，见 ADR-007）。
+
+**端到端延迟预算**（人测口径）：≤10ms 轮询 + 派发 ≈0.5ms（`KEY STATS` 均值；note-on 最大
+≈1.4ms）+ 音频块 5.8ms（`HALF_FRAMES` 256 @44.1kHz）≈ **≤16.3ms 最坏情况**，仍在
+「键→发声/动作 ≤20ms」的机器门禁（console 入口口径）之内。听感上的最终裁决仍是人工项
+（DI-4 全键人测 + 演奏手感），覆盖端到端延迟而不只是 console 入口耗时。
 
 ### 切页的确定性（Task 7 评审裁定）
 
@@ -94,3 +105,7 @@ InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll(
   仅 183–187µs）；邮箱化后 100 次 note-on 派发均值 ≈0.51ms、p95 ≈0.68ms、max ≈1.37ms（note-off max 1.32ms）。
   层提示与键盘操作共用状态层，联动模式（阶段 5）可复用。
 - 阶段 4 需在层内补齐完整键位子集（FX 27 垫、SEQ 步进、八度切换等）。
+- 轮询周期随 tick 频率变化（`INPUT_POLL_TICKS`）：若将来把 `CONFIG_FREERTOS_HZ` 提到
+  1000，生效周期自动回到 5ms；启动日志与本节口径需按实测值复核。
+- 演奏手感/延迟的人测项覆盖**端到端**（键→轮询→派发→音频块），不只 console 入口的
+  `elapsed_us`；`KEY STATS` 的均值/最大值只是机器侧代理指标。
