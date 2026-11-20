@@ -415,10 +415,20 @@ int sloop_core_selftest(const char *case_name)
                    (unsigned)j->r.over, (unsigned)j->r.near, j->crashed);
         }
     }
-    int pass = cases > 0 && mismatch == 0 && health_fail == 0 && check_fail == 0 && golden != NULL;
-    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u result=%s\n",
+    int deterministic = 1;
+    if (case_name == NULL) {
+        deterministic = 0;
+        for (uint32_t i = 0; i < nj; i++) {
+            if (strcmp(J[i].name, "repeat") == 0) {
+                deterministic = !J[i].crashed && J[i].r.hash == J[0].r.hash;
+                break;
+            }
+        }
+    }
+    int pass = cases > 0 && mismatch == 0 && health_fail == 0 && check_fail == 0 && deterministic && golden != NULL;
+    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u deterministic=%d result=%s\n",
            (unsigned)cases, (unsigned)identical, (unsigned)mismatch, (unsigned)health_fail,
-           (unsigned)checks, (unsigned)check_fail, pass ? "PASS" : "FAIL");
+           (unsigned)checks, (unsigned)check_fail, deterministic, pass ? "PASS" : "FAIL");
     heap_caps_free(golden);
     selftest_restore();
     nj = 0;
