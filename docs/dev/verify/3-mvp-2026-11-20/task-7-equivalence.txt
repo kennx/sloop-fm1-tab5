@@ -1,0 +1,62 @@
+# Task 7 等价性结构核对（TAP vs 控件回调）
+# 口径：物理触摸 = LVGL hit-test → LV_EVENT_CLICKED → 回调；TAP = 矩形表 → 同一动作函数。
+# 等价在 EditCmd 层；不声称原始指针事件等价。以下命令核对「每页只有一处 EditCmd 发放点，
+# 且该处同时被回调与 TAP 调用」。
+
+$ grep -n "CMD_TOGGLE_STEP\|state_set_focus" firmware/components/sloop_ui/src/page_step.c
+14: * 不发 CMD_TOGGLE_STEP、也不改焦点（焦点轨由合成轨行决定），只写状态行
+19: * 点击：合成轨先 state_set_focus()（UI 局部态）再 state_apply(CMD_TOGGLE_STEP)，
+140:        /* 鼓轨只读：MVP 不发 CMD_TOGGLE_STEP（阶段 4 接 DRUM_STEP），也不改焦点——
+145:        state_set_focus(r, c); /* UI 局部态：焦点轨/步 */
+146:        const edit_cmd_t cmd = {.type = CMD_TOGGLE_STEP, .a = r, .b = c};
+
+$ grep -n "CMD_SELECT_TRACK" firmware/components/sloop_ui/src/page_tracks.c
+13: * 点击卡片发 CMD_SELECT_TRACK（cmd.c 的 cmd_select_track 同时写 selected_track 与
+95:    const edit_cmd_t cmd = {.type = CMD_SELECT_TRACK, .a = k};
+
+$ grep -n "CMD_PLAY\|CMD_STOP\|CMD_SET_BPM" firmware/components/sloop_ui/src/page_transport.c
+10: * 按钮回调发 EditCmd（CMD_PLAY/STOP、CMD_SET_BPM）走状态层 state_apply，
+80:    const edit_cmd_t cmd = {.type = CMD_PLAY};
+87:    const edit_cmd_t cmd = {.type = CMD_STOP};
+98:    const edit_cmd_t cmd = {.type = CMD_SET_BPM, .v = (uint16_t)bpm};
+
+$ grep -n "step_activate\|cell_clicked_cb\|page_step_tap" firmware/components/sloop_ui/src/page_step.c
+21: * 控件回调与 console `TAP` 注入都只调用 step_activate()（唯一共同路径），
+137:static void step_activate(uint8_t r, uint8_t c)
+155:static void cell_clicked_cb(lv_event_t *e)
+158:    step_activate((uint8_t)(id / APP_STATE_STEPS), (uint8_t)(id % APP_STATE_STEPS));
+164:bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+172:            step_activate(r, c);
+229:            lv_obj_add_event_cb(cell, cell_clicked_cb, LV_EVENT_CLICKED,
+
+$ grep -n "tracks_select\|card_clicked_cb\|page_tracks_tap" firmware/components/sloop_ui/src/page_tracks.c
+15: * 控件回调与 console `TAP` 注入都只调用 tracks_select()（唯一共同路径），TAP 的
+93:static void tracks_select(uint8_t k)
+100:static void card_clicked_cb(lv_event_t *e)
+102:    tracks_select((uint8_t)(uintptr_t)lv_event_get_user_data(e));
+106:bool page_tracks_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+112:        tracks_select(k);
+156:        lv_obj_add_event_cb(card, card_clicked_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)k);
+
+$ grep -n "transport_play\|transport_stop\|transport_bpm_step\|_clicked_cb\|page_transport_tap" firmware/components/sloop_ui/src/page_transport.c
+78:static void transport_play(void)
+85:static void transport_stop(void)
+92:static void transport_bpm_step(int delta)
+103:static void play_clicked_cb(lv_event_t *e)
+106:    transport_play();
+109:static void stop_clicked_cb(lv_event_t *e)
+112:    transport_stop();
+115:static void bpm_clicked_cb(lv_event_t *e)
+117:    transport_bpm_step((int)(intptr_t)lv_event_get_user_data(e));
+139:bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+145:        case SLOOP_TAP_TRANSPORT_PLAY: transport_play(); break;
+146:        case SLOOP_TAP_TRANSPORT_STOP: transport_stop(); break;
+147:        case SLOOP_TAP_TRANSPORT_BPM: transport_bpm_step(hit->v); break;
+162:                ui_track_color(1), "PLAY", play_clicked_cb, NULL);
+164:                ui_track_color(3), "STOP", stop_clicked_cb, NULL);
+193:                UI_PANEL_HI, "-", bpm_clicked_cb, (void *)(intptr_t)-1);
+195:                UI_PANEL_HI, "+", bpm_clicked_cb, (void *)(intptr_t)1);
+
+# 读法：CMD_* 在每页各出现一次（注释行除外），位于动作函数体内；动作函数被『控件回调』与
+# 『page_*_tap』同时调用。故 TAP 与控件路径产生的 edit_cmd_t 序列由同一段代码唯一决定。
+# 运行期佐证见 task-7-tap-transcript.log 与 task-7-{transport,step_edit,tracks}.log。

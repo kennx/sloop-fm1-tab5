@@ -53,7 +53,7 @@ sloop-fm1-tab5/
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（当前: bring-up 自检 + ENG 引擎命令/音频流；待: 双模式调度）
-│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地）；sloop_state（AppState/EditCmd 状态层，纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页签，四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×16 步格编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入，见 ADR-006）；【规划】editor_proto / usb_fm1
+│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地）；sloop_state（AppState/EditCmd 状态层，纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页签，四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×16 步格编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005）；【规划】editor_proto / usb_fm1
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + FATFS storage 0x7F0000 + NVS，无 OTA A/B，回滚=重烧；见 docs/design/002 §3 P1-1）
@@ -65,6 +65,7 @@ sloop-fm1-tab5/
 │   ├── host-test.sh               #    上游 host 生成头 + golden/DSP 回归门禁
 │   ├── device-selftest.py         #    串口 ENG SELFTEST → PC 对 golden.txt 严格比对
 │   ├── verify.sh                  #    一键验证：构建→烧录→等启动→截屏
+│   ├── inject/                    #    注入脚本（transport.sh/step_edit.sh/tracks.sh + inject.py）：UI 切页→TAP/KEY→STATE/ENG 断言→SCR 截屏（§5.4.1）
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
 ├── third_party/                   # 第三方源码与完整性清单
 │   ├── sloop-fm1/                 #    vendored 上游 SLOOP 2.8.5（bac9c05）精简子树，只读
@@ -99,9 +100,10 @@ sloop-fm1-tab5/
 | `scripts/host-test.sh` | 强制刷新 4 个生成头并运行上游 host golden/DSP 回归子集；禁止基线更新模式 |
 | `scripts/state-test.sh` | `sloop_state` 状态层 host 单测（gcc + stub 引擎，`-DHOST_TEST`）；打印 PASS/FAIL，失败退出码非 0 |
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 运行设备 `ENG SELFTEST`，逐用例与 host `golden.txt` 比对；脚本先自动 `ENG AUDIO OFF`（固件开机即流式，否则自检被拒）、结束后恢复 `ENG AUDIO ON`；也支持 `--compare LOG` 离线复核 |
+| `scripts/inject/{transport,step_edit,tracks}.sh [PORT]` | 注入场景脚本（pyserial）：`UI` 切页 → `TAP`/`KEY` 注入 → `STATE`/`ENG` 断言 → `SCR` 截屏；产物 `firmware/build/verify/inject-<场景>-<时间戳>.{log,png}`（原始回显日志 + 截图）。场景逻辑在 `scripts/inject/inject.py`，见 §5.4.1 |
 | `scripts/verify.sh [PORT]` | 一键验证：构建 → 烧录 → 等待启动 → 截屏到 `firmware/build/verify/` |
 
-- Python 依赖（screenshot.py）：`pip install -r scripts/requirements.txt`（pyserial + Pillow；numpy 可选，加速 RGB565 解码）。
+- Python 依赖（screenshot.py / inject.py）：`pip install -r scripts/requirements.txt`（pyserial + Pillow；numpy 可选，加速 RGB565 解码）。
 - `flash.sh` 接受 `--clean` 但**忽略**之（构建清理统一走 `build.sh --clean`）；`verify.sh` 不接受额外参数。
 - 工程目录可用 `SLOOP_TAB5_PROJECT` 环境变量覆盖（默认 `<repo>/firmware`）；工程未初始化时脚本会明确报错退出。
 
@@ -126,7 +128,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 导出帧为**旋转后的横屏逻辑帧**（1280×720）：面板物理为竖扫 720×1280，固件发送前已按 `firmware/main/display.c` 的旋转几何旋出横屏帧——PC 侧拿到的即屏幕所见帧，无需再旋转。
 
-固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。协议字段后续如扩展（如 `SCR <page>` 指定页面），须同步更新本节与 `scripts/screenshot.py`。
+固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。**截屏前的页面选择用 console `UI <play|tracks|step|transport>`**（同步切页，成功后会作废待执行的异步切页），`SCR` 不再需要页面参数；接入触摸/键盘注入见 §5.4.1。协议字段后续如扩展，须同步更新本节与 `scripts/screenshot.py`。
 
 ### 5.4 UI 视觉验证标准（涉及 UI 的改动必做）
 
@@ -136,7 +138,22 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
    - 布局与该屏设计一致（如 TRACKS 屏四轨着色 蓝/绿/黄/橙，文本可读）；
    - 与改动预期状态一致（选中态、层级页面、弹窗等）。
 3. 结论写入任务报告与 verification-log；**失败截图同样晋升入库**（文件名加 `-fail`）供对比修复。
-4. 多页面/多状态验证：待 UI 页面路由落地后，扩展 `SCR <page>` 或串口按键注入参数化截屏（届时更新本节）。
+4. 多页面/多状态验证：用 `UI <page>` 切页 + `TAP`/`KEY` 注入（§5.4.1），不必扩展 `SCR` 参数。
+
+#### 5.4.1 注入约定（console → 屏幕状态 → 断言 → 截屏）
+
+注入以「console 命令 → 与物理输入同层的动作函数 → 状态层 → 渲染」为准，脚本化验证一律走这条链路：
+
+| 命令 | 语义 |
+|---|---|
+| `UI <play\|tracks\|step\|transport>` | **同步**切页（内部取 LVGL 锁；成功后作废待执行的异步切页邮箱，回显页即落地页）；无参打印当前页 |
+| `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态） |
+| `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006） |
+
+- 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
+- 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值）。
+- 场景脚本：`scripts/inject/{transport,step_edit,tracks}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复运行（先读基线、结束时复位），退出码 0 才算通过。
+- **transcript 必须是原始回显**：串口字节逐字节写日志，不裁剪、不手改、不摘述；只允许 `# [inject] ...` 前缀的工具注记（非固件输出），SCR 的二进制帧体不入日志。日志与截图落 `firmware/build/verify/`，门禁证据按 §5.4(1) 晋升。
 
 ### 5.5 验证门禁（任务完成的定义）
 
@@ -151,6 +168,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段保留/MUTE-SOLO/快照同步） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
+| 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 三条场景脚本对真机各跑一遍，退出码均 0（`UI`/`TAP`/`KEY` 回显断言 + `STATE`/`ENG` 快照断言 + 截屏像素抽检）；未命中路径打印 `TAP miss ...` 且不改状态 |
 
 > **已知豁免**：kconfig 重新生成后的首个 configure pass 会出现一对 CMake 提示（`build.cmake:631` 警告 + `Missing kconfig option. Re-run the build process...`），紧接的第二次构建即消失——这是 IDF 已知行为，门禁按第二次构建的输出判定。
 

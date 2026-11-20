@@ -67,6 +67,19 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 → 派发返回，含 state_apply 与 PLAY 指示），`KEY STATS [RESET]` 打印累计均值/最大。
 InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll()` 5ms 轮询，每批 8 条。
 
+### 切页的确定性（Task 7 评审裁定）
+
+输入路径不取 LVGL 锁，切页走 `sloop_ui_request_page()` 邮箱，由 30ms UI 定时器执行：
+
+- **一拍一页**：tab 的目标页按「当前页 + 1」计算，邮箱只保留最后一次请求——同一 30ms
+  周期内的 N 次 tab 只前进一页（不是 N 页）。需要一次跨多页请用 console `UI`（同步切页）。
+- **同步 `UI` 作废异步邮箱**：`sloop_ui_switch_page()` 在 LVGL 锁内先
+  `sloop_ui_cancel_pending_page()` 再切页，避免「tab 刚记下目标页 → console 同步切到 X →
+  下一拍被旧请求切走」；回显页即落地页。
+- **`KEY PANIC` 用专用清空**：撤销待切页走同一个 `sloop_ui_cancel_pending_page()`，
+  不再「读当前页再请求同页」——后者在切页进行中会读到旧页而漏撤销。
+- 定时器已消费的请求无法回滚（页面已经切了）；PANIC 只撤销**尚未执行**的请求。
+
 ### 层提示
 
 页签条右侧（`SLOOP` 标题左侧）显示 `LAYER FX|EDIT|SEL|GLO`（多层层键叠加时并列），

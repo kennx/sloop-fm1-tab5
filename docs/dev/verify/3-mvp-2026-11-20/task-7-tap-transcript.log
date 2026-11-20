@@ -1,0 +1,137 @@
+
+sloop>  # [inject] Task 7 手工 TAP 覆盖会话开始（原始回显）
+UI
+UI page=play (0)
+sloop>  TAP 100 100
+TAP miss 100,100 page=0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI step
+UI page=step (2)
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 1 5
+ENG STEP k=1 i=5 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=0 note=60,0,0,0 vel=100 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 120 600
+I (15151) sloop_ui: 鼓轨步 0 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
+TAP 120,600 page=2 -> STEP drum step=0 read-only
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 120 646
+TAP miss 120,646 page=2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI transport
+UI page=transport (3)
+sloop>  TAP 208 168
+TAP 208,168 page=3 -> TRANSPORT CMD_PLAY
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 560 168
+TAP 560,168 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 1050 250
+TAP 1050,250 page=3 -> TRANSPORT CMD_SET_BPM delta=+1
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=91 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 910 250
+TAP 910,250 page=3 -> TRANSPORT CMD_SET_BPM delta=-1
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 480 45
+TAP miss 480,45 page=3
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 260
+TAP 172,260 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  TAP 800 260
+TAP 800,260 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=5 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 640 260
+TAP miss 640,260 page=1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=78
+sloop>  UI play
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=78
+sloop>  KEY PANIC
+W (18301) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  UI
+UI page=play (0)
+sloop>  UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=41
+sloop>  KEY STATS
+KEY STATS count=3 mean_us=65 max_us=78 input_stack_free=3752
+sloop>  UI
+UI page=tracks (1)
+sloop>  UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=80
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=16
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=15
+sloop>  UI
+UI page=tracks (1)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=78
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=86
+sloop>  UI
+UI page=transport (3)
+sloop>  UI play
+UI page=play (0)
+sloop>  # [inject] 会话结束 failures=0
