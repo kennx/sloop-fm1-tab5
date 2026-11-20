@@ -1,0 +1,30 @@
+# Task 4 fix 轮证据（控制器代执，Ruling 5；2026-11-20，提交 ea2f03b）
+
+## 背景
+配额中断使子代理不可用；Task 4 终审 2 项 Important（跨任务状态竞争 / TRIG 先验参）
+由控制器会话实现并完整跑门禁。独立 scoped re-review（3a6272a..ea2f03b）判定：
+两项均 ADDRESSED，无新 Critical/Important；本文件保存当时设备侧证据（re-review 建议补存）。
+
+## 设备侧 micro-测试（/dev/ttyACM0，串口 transcript 原文）
+1) 非法 TRIG 不启流：
+```
+ENG TRIG                -> 用法: ENG INFO|...|TRIG <synth|drum> <a> <b>|PERF  (exit 1)
+ENG TRIG synth 0 200    -> 用法: ENG TRIG synth <track=0..2> <note=0..127> | drum <kit=0..3> <lane=0..15>  (exit 1)
+AUD TONE 440 300        -> AUD TONE 完成（证明未启流，流未占用 codec）
+```
+2) 合法 TRIG 启流 + 流式期间并发编辑：
+```
+ENG TRIG synth 0 60     -> stream started, half=256 frames; xrun=0 OK
+ENG TRIG drum 0 3  ×6   -> 6/6 OK, xrun=0（互斥锁下渲染与编辑并发无异常）
+```
+3) 流式期间 selftest 拒绝：
+```
+ENG SELFTEST 00_808_BOOM -> cases=0 result=FAIL reason=busy_or_uninitialized
+```
+
+## 全量回归（锁修复后终版，post-fix）
+```
+ENG SELFTEST -> cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS  (316 s)
+```
+单例抽验：preset/ANALOG/00_808_BOOM 与 preset/SAMPLE/00_GRAND_PNO 均 identical=1 PASS。
+host-test.sh：ALL HOST TESTS PASSED (subset)；manifest 233/233 OK。

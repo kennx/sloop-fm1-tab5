@@ -301,7 +301,7 @@ static esp_err_t core_status = ESP_ERR_INVALID_STATE;
 /* 引擎状态锁：上游引擎在 FM-1 上是单线程（输入中断写 volatile 输入结构、音频
  * ISR 渲染）。Tab5 上渲染在音频任务、编辑（TRIG/TRACK）在 console 任务——所有
  * 会改变引擎状态的 API 与 sloop_core_render 共用此锁（所有权规则见 sloop_core.h）。
- * 持锁窗口都是短操作（编辑为状态写，渲染为 ≤ H A L F_FRAMES 帧的量化渲染），
+ * 持锁窗口都是短操作（编辑为状态写，渲染为 ≤ HALF_FRAMES 帧的量化渲染），
  * 优先级继承保证 console（低优先级）持锁时音频任务不会被无限阻塞。 */
 static SemaphoreHandle_t s_engine_lock;
 
