@@ -11,6 +11,8 @@ foreach(header felucca_tables.h felucca_samples.h felucca_drumkits.h felucca_fm6
 endforeach()
 
 set(SLOOP_GOLDEN_TXT "${SLOOP_UPSTREAM_DIR}/tests/golden.txt")
+# golden.txt 变化后必须重新配置，golden.inc 才会重生成（否则设备侧仍是旧哈希表）
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SLOOP_GOLDEN_TXT}")
 file(READ "${SLOOP_GOLDEN_TXT}" SLOOP_GOLDEN_HEX HEX)
 string(REGEX REPLACE "(..)" "0x\\1," SLOOP_GOLDEN_BYTES "${SLOOP_GOLDEN_HEX}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/golden.inc"
