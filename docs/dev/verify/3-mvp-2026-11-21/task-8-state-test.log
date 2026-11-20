@@ -1,0 +1,11 @@
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+PASS k=4 MUTE/SOLO 轨位翻转
+PASS k=5 ERASE_NOTE 删除聚焦步音符（RMW/字段随移）
+PASS k=6 state_get_copy 反映 cmd 与 sync
+PASS k=7 越界参数忽略
+
+7 passed, 0 failed
+STATE TEST PASSED

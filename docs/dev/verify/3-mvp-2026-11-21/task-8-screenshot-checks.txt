@@ -1,0 +1,23 @@
+# Task 8 截屏像素抽检（screenshot.py --check；锚点沿用 Task 4 PLAY 5 锚点）
+# 采集：2026-11-21，受测固件 2065a68
+
+## PLAY（task-8-play.png）—— 第 1 次：soak 结束后直接采集，1/5 失败
+# soak 的选轨循环最后停在卡 1（轨 1），PLAY 页音符指示框为轨绿；锚点 (60,282) 按轨蓝写死
+[失败] (60,282) 实测 (56,160,72) ≠ 期望 (56,120,216)（容差 16）→ 是探针锚点前提不满足，非渲染缺陷
+
+## PLAY（task-8-play.png）—— 第 2 次：TAP 卡 0 归一选轨后采集
+UI tracks → TAP 172,347（TRACKS select track=0 CMD_SELECT_TRACK）→ UI play
+  [通过] (900,36) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 16）
+  [通过] (40,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [通过] (640,690) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [通过] (60,282) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [通过] (1090,270) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 16）
+像素抽检 5/5 项通过
+SHA256 bde48cc8a3b7ffe0317356222282b7ba8d5a88a244ace7fd741e28c366be5cf2
+  → 与 Task 6 证据 `3-mvp-2026-11-20/task-6-play.png`（bde48cc8…）逐字节相同（跨会话渲染确定性）
+
+## TRACKS / STEP / TRANSPORT（注入脚本内抽样，见 task-8-{tracks,step_edit,transport}.log）
+TRACKS task-8-tracks-sel3.png      5/5（选中描边 6px / 选中底 / 未选中底 / 页签 / 卡缝）
+STEP   task-8-step-two-on.png      5/5（两轨亮格色 / 空位 / 焦点框 / 页签）
+TRANSPORT task-8-transport.png     4/4（PLAY/STOP 按钮底 / 页签 / 背景）
+STEP 播放头 task-8-step-playhead-{a,b}.png：4 行×2 帧列号与 ENG SNAP pos 模 16 一致，区域计数过

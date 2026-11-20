@@ -1,0 +1,18 @@
+
+sloop>  ENG INFO
+ENG INFO init=ESP_OK rate=44100 frames=256 NENGINES=12 P_COUNT=71 G_COUNT=50
+sloop>  ENG MEM
+ENG MEM internal_free=113887 internal_min=98612 psram_free=30128928 psram_min=30063388
+sloop>  ENG MEM
+ENG MEM internal_free=113887 internal_min=98612 psram_free=30128928 psram_min=30063388
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3196 min_free_since_boot_internal=98612 min_free_since_boot_psram=30063388
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG AUDIO
+ENG AUDIO streaming=1 xrun=0
+sloop>  

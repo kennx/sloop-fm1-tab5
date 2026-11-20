@@ -30,6 +30,7 @@
 | `task-7-screenshot-checks.txt` | 三条脚本的 stdout：全部回显断言 + 像素抽检（页签/按钮底/格色/焦点框/选中卡底/卡缝/播放头区域计数） |
 | `task-7-crosshair.txt` + `task-7-crosshair-play.png` | 准星关闭：启动日志两行（就绪→OFF），TAP 之后 PLAY 截屏与 Task 6 证据**逐字节相同**（`bde48cc8…`），准星特征色像素 0 |
 | `task-7-crosshair-session.log` | 准星核验会话的原始回显 |
+| `task-7-step_edit-run2.log` / `task-7-step-two-on-run2.png`、`task-7-tracks-run2.log` / `task-7-tracks-sel3-run2.png` | Task 8 收口补档：Task 7 会话里后续两次运行的原始回显与截屏（当时留在抓取暂存区未晋升，`build.sh --clean` 前抢救入档；内容为同一脚本的再次运行，`-step-two-on-run2` 与主证据同为 `fd14f09c…`，`-tracks-sel3-run2` 与主证据同为 `b0a188cf…`） |
 
 ## C. 现场限制
 
