@@ -10,8 +10,12 @@
 原始串口输出逐字节写入日志（不裁剪、不后编辑）。日志里唯一非固件字节是
 `# [inject] ...` 前缀的工具注记（标记截屏位置等）；SCR 的 1.8MB 二进制帧体不入日志。
 
+截屏传输失败（DI-5：帧数据超时/短帧/坏尾）时与 `scripts/screenshot.py` 同源处理：
+esptool 硬复位 → 等 console 提示符 → 重开串口 → 场景从头重跑（复位把页面/走带
+状态清回基线，重跑才能让断言与截图同源），默认最多 3 次。
+
 用法（一般经三条脚本调用）：
-    python3 scripts/inject/inject.py --scenario transport --port /dev/ttyACM0
+    python3 scripts/inject/inject.py --scenario transport --port /dev/ttyACM0 [--retry 3]
 产物（默认 $SLOOP_TAB5_PROJECT/build/verify/，可用 --out-dir 覆盖）：
     inject-<scenario>-<时间戳>.log        串口原始回显 + 工具注记
     inject-<scenario>-<时间戳>-<标签>.png 截屏
@@ -36,6 +40,10 @@ BAUD = 115200
 
 class InjectError(RuntimeError):
     pass
+
+
+class ScenarioRestart(Exception):
+    """截屏传输失败已复位设备——场景从头重跑（复位后页面/走带状态已回基线）。"""
 
 
 def require_deps() -> None:
@@ -116,17 +124,29 @@ def read_response(ser, timeout: float) -> str:
 
 
 class Session:
-    """一条串口会话：命令发送、断言、截屏；所有 PASS/FAIL 都打印到 stdout。"""
+    """一条串口会话：命令发送、断言、截屏；所有 PASS/FAIL 都打印到 stdout。
 
-    def __init__(self, ser: LoggedSerial, out_dir: Path, stamp: str, scenario: str,
-                 timeout: float = 3.0):
-        self.ser = ser
+    截屏传输失败（DI-5）时经 esptool 复位设备并重开串口，当前场景从头重跑
+    （复位把页面/走带状态清回基线，重跑才能保证断言与截图同源）。
+    """
+
+    def __init__(self, port: str, log_path: Path, out_dir: Path, stamp: str, scenario: str,
+                 timeout: float = 3.0, retries: int = shot.DEFAULT_RETRIES):
+        self.port = port
+        self.log_path = log_path
         self.out_dir = out_dir
         self.stamp = stamp
         self.scenario = scenario
         self.timeout = timeout
+        self.retries = retries
+        self.resets = 0
         self.last = ""
         self.failures = 0
+        self.ser = self._open()
+
+    def _open(self) -> LoggedSerial:
+        import serial
+        return LoggedSerial(serial.Serial(self.port, BAUD, timeout=0.05), self.log_path)
 
     # ---- 打印 ----
     def ok(self, text: str) -> None:
@@ -183,23 +203,34 @@ class Session:
         return int(m.group(1))
 
     # ---- 截屏与像素抽检 ----
+    def _reset_and_reopen(self) -> None:
+        self.ser.close()  # 关日志 + 关端口，esptool 才能进入 bootloader
+        try:
+            shot.reset_device(self.port, BAUD)
+        except shot.ResetError as e:
+            raise InjectError(f"复位失败，无法从截屏传输停滞恢复: {e}") from None
+        self.ser = self._open()
+        self.wait_ready()
+
     def capture(self, label: str, timeout: float = 25.0):
         out = self.out_dir / f"inject-{self.scenario}-{self.stamp}-{label}.png"
         self.ser.note(f"SCR 截屏 -> {out.name}")
         self.ser.write(b"SCR\n")
         self.ser.flush()
         try:
-            w, h, fmt, ln = shot.read_header(self.ser, timeout)
-            self.ser.silent = True
-            data = shot.read_exact(self.ser, ln, timeout)
-            self.ser.silent = False
-            self.ser.timeout = 1.0
-            tail = self.ser.readline().decode(errors="replace").strip()
-        except (TimeoutError, ValueError) as e:
-            self.ser.silent = False
+            w, h, fmt, data = shot.read_frame(
+                self.ser, timeout, lambda on: setattr(self.ser, "silent", on))
+        except shot.FirmwareError as e:
             raise InjectError(f"截屏 {label} 失败: {e}") from None
-        if tail != "SCR OK":
-            raise InjectError(f"截屏 {label} 尾标记异常: {tail!r}")
+        except shot.TransferError as e:
+            if self.resets >= self.retries:
+                raise InjectError(
+                    f"截屏 {label} 失败（已复位重试 {self.resets} 次）: {e}") from None
+            self.resets += 1
+            self.ser.note(f"截屏 {label} 传输失败（{e}）；esptool 复位后场景重跑"
+                          f"（第 {self.resets}/{self.retries} 次重试）")
+            self._reset_and_reopen()
+            raise ScenarioRestart(f"截屏 {label} 传输失败，设备已复位") from None
         img = shot.rgb565_to_rgb(data, w, h) if fmt == "rgb565" else shot.rgb888_to_rgb(data, w, h)
         img.save(out)
         print(f"  [SHOT] {out}  ({w}x{h} {fmt})")
@@ -454,10 +485,12 @@ def main() -> None:
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
     ap.add_argument("--timeout", type=float, default=3.0, help="单条命令响应超时秒数（默认 3）")
+    ap.add_argument("--retry", type=int, default=shot.DEFAULT_RETRIES, metavar="N",
+                    help="截屏传输失败时经 esptool 复位后场景重跑的次数（默认 "
+                         f"{shot.DEFAULT_RETRIES}；0 = 不重试）")
     args = ap.parse_args()
 
     require_deps()
-    import serial
 
     if args.out_dir:
         out_dir = Path(args.out_dir)
@@ -468,26 +501,35 @@ def main() -> None:
 
     stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
     log_path = out_dir / f"inject-{args.scenario}-{stamp}.log"
-    raw = serial.Serial(args.port, BAUD, timeout=0.05)
-    ser = LoggedSerial(raw, log_path)
-    s = Session(ser, out_dir, stamp, args.scenario, timeout=args.timeout)
+    s = Session(args.port, log_path, out_dir, stamp, args.scenario,
+                timeout=args.timeout, retries=args.retry)
 
     print(f"== inject {args.scenario} @ {args.port}")
     print(f"   串口原始日志: {log_path}")
     try:
         s.wait_ready()
-        ser.note(f"场景 {args.scenario} 开始")
-        SCENARIOS[args.scenario](s)
-        ser.note(f"场景 {args.scenario} 结束 failures={s.failures}")
+        run = 0
+        while True:
+            retry_note = "" if run == 0 else f"（第 {run + 1} 轮：复位后重跑）"
+            s.ser.note(f"场景 {args.scenario} 开始{retry_note}")
+            try:
+                SCENARIOS[args.scenario](s)
+            except ScenarioRestart as e:
+                print(f"  [RETRY] {e}（{run + 1}/{args.retry}），场景从头重跑")
+                run += 1
+                continue
+            s.ser.note(f"场景 {args.scenario} 结束 failures={s.failures}")
+            break
     except InjectError as e:
-        ser.note(f"场景 {args.scenario} 异常终止: {e}")
+        s.ser.note(f"场景 {args.scenario} 异常终止: {e}")
         sys.exit(f"[FAIL] {args.scenario}: {e}")
     finally:
-        ser.close()
+        s.ser.close()
 
     if s.failures:
         sys.exit(f"[FAIL] {args.scenario}: {s.failures} 项断言/抽检未通过（见上）")
-    print(f"[PASS] {args.scenario}: 全部断言与像素抽检通过")
+    print(f"[PASS] {args.scenario}: 全部断言与像素抽检通过"
+          + (f"（截屏复位重试 {s.resets} 次）" if s.resets else ""))
 
 
 if __name__ == "__main__":
