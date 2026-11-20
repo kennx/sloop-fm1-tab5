@@ -48,7 +48,7 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping）
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
