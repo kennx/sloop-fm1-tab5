@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Vendor only the engine/host/tests/tools, protocol reference, README, and all
-# license/copyright/credits/attribution files. Upstream docs, built site output,
-# Documentation/site content, sample WAVs, and git metadata are excluded;
-# license files are always retained. Task 5 fetches CC0 audio separately.
-# The default channel is SSH because GitHub HTTPS is unavailable on this machine.
+# Vendor only the engine/host/tests/tools, protocol reference, README, CC0 sample
+# WAVs (required for golden fidelity), and all license/copyright/credits/attribution
+# files. Upstream docs, built site output, and git metadata are excluded; license
+# files are always retained. The default channel is SSH because GitHub HTTPS is
+# unavailable on this machine.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -88,7 +88,7 @@ copy_path() {
 }
 
 for path in \
-    firmware/src firmware/hal firmware/host tests tools \
+    firmware/src firmware/hal firmware/host tests tools assets/samples-cc0 \
     web/EDITOR_PROTOCOL.md README.md LICENSE LICENSES; do
     copy_path "$path"
 done
