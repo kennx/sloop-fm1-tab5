@@ -241,14 +241,15 @@ static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
 static int eng_perf(void)
 {
     if (sloop_hal_audio_streaming()) {
-        printf("ENG PERF streaming=1 xrun=%u min_free_internal=%u min_free_psram=%u\n",
+        printf("ENG PERF streaming=1 xrun=%u audio_stack_free=%u min_free_since_boot_internal=%u min_free_since_boot_psram=%u\n",
                (unsigned)sloop_hal_audio_xruns(),
+               (unsigned)sloop_hal_audio_stack_high_water(),
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
         return 0;
     }
     const uint32_t blocks = 100;
-    const int64_t budget_us = (int64_t)ENG_SMOKE_FRAMES * 1000000 / 44100;
+    const int64_t budget_us = (int64_t)ENG_SMOKE_FRAMES * 1000000 / sloop_core_rate();
     uint64_t cycles_sum = 0, us_sum = 0;
     uint32_t cycles_max = 0, us_max = 0;
     for (uint32_t i = 0; i < blocks; i++) {
@@ -264,7 +265,7 @@ static int eng_perf(void)
     }
     uint32_t cycles_mean = (uint32_t)(cycles_sum / blocks);
     uint32_t us_mean = (uint32_t)(us_sum / blocks);
-    printf("ENG PERF blocks=%u cycles_mean=%u cycles_max=%u us_mean=%u us_max=%u budget_us=%lld duty_mean=%.2f%% duty_max=%.2f%% xrun=%u min_free_internal=%u min_free_psram=%u\n",
+    printf("ENG PERF blocks=%u cycles_mean=%u cycles_max=%u us_mean=%u us_max=%u budget_us=%lld duty_mean=%.2f%% duty_max=%.2f%% xrun=%u min_free_since_boot_internal=%u min_free_since_boot_psram=%u\n",
            (unsigned)blocks, (unsigned)cycles_mean, (unsigned)cycles_max, (unsigned)us_mean,
            (unsigned)us_max, (long long)budget_us, (double)us_mean * 100.0 / budget_us,
            (double)us_max * 100.0 / budget_us, (unsigned)sloop_hal_audio_xruns(),
@@ -283,6 +284,11 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "smoke") == 0) {
+        /* 渲染与音频流互斥（流式时 SMOKE 的块会与渲染任务抢同一引擎锁/状态） */
+        if (sloop_hal_audio_streaming()) {
+            printf("ENG SMOKE FAIL busy: audio streaming\n");
+            return 1;
+        }
         if (sloop_core_status() != ESP_OK || sloop_core_frames() != ENG_SMOKE_FRAMES) {
             printf("ENG SMOKE FAIL init=%s frames=%u\n", esp_err_to_name(sloop_core_status()),
                    (unsigned)sloop_core_frames());
@@ -309,6 +315,10 @@ static int eng_command(int argc, char **argv)
         if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
             !eng_uint(argv[4], 255, &preset)) {
             printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>\n");
+            return 1;
+        }
+        if (sloop_core_status() != ESP_OK) {
+            printf("ENG TRACK FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
             return 1;
         }
         sloop_core_track(k, engine, preset);
