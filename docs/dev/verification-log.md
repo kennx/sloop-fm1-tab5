@@ -27,3 +27,4 @@
 > 证据相对路径均以 `docs/dev/verify/` 为根；SHA256 为 16 位前缀，全值见 `1-bringup-2026-11-19/SHA256SUMS`。
 > 「提交号」列＝**受测固件提交**（如 8f8e01b=键盘代码、70b75ed=触摸代码、0f6fbf5=阶段 1 终版）；证据晋升与登记本身发生在其后的 docs 提交（44254a2 及终审修复提交），两列所指不同属正常。
 | 2026-11-20 | 阶段 2 / P2-5 | 样本资产与许可 | ✅ 通过（机器侧） | ea2f03b | `2-engine-2026-11-20/task-5-assets.txt` | CC0 资产随树（283,212B / 8 集）；task-5 真机 SAMPLE 触发 OK；人耳确认 ⏳ |
+| 2026-11-20 | 阶段 2 / P2-6 | 阶段收口全门禁 | ✅ 通过（机器侧） | ea2f03b | `2-engine-2026-11-20/task-6-final-gates.txt` | 终版复跑：selftest 182/182 identical、checks=7、deterministic=1；host-test 全绿；verify.sh 绿；manifest 233/233；PERF 均值 9.44%/峰 11.73%/xrun=0；人耳项 ⏳ |

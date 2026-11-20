@@ -1,0 +1,22 @@
+# P2-6 阶段 2 收口门禁（2026-11-20，终版树 ea2f03b + docs）
+
+## 固件
+- build.sh ×2：第二遍零新增警告（kconfig 首 pass 豁免对，AGENTS §5.5）。
+- verify.sh：构建 + 烧录 + 截屏一键绿；esptool `Hash of data verified` ×3；启动无 fatal/abort/backtrace。
+- 截屏（无 UI 改动，回归级）：screenshot-20261120-174646.png 生成成功。
+
+## 引擎等价（终版复跑，post-lock-fix）
+- `ENG SELFTEST`（无参，全量）：`cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS`（316s，串口 transcript 逐字如上）。
+- 同源机制：设备编译上游 tests/regress.c 本体（含 fork/pipe 模拟 shim），golden.txt 机械嵌入；comparator（scripts/device-selftest.py）对不匹配/缺例/空集一律 FAIL，无容差放行路径。
+
+## host 基线
+- scripts/host-test.sh：`ALL HOST TESTS PASSED (subset)`（生成头强制刷新；182 golden 0 changed/0 gone）。
+- third_party manifest：233/233 OK（只读约束成立）。
+
+## 性能（P2-6 基线，Task 4 实测口径）
+- `ENG PERF`：均值 9.44%、最大 11.73%（静默渲染占 256 帧块预算 5.8ms 的比例），xrun=0（idle 与流式各测）。
+- FM-1 对照：pi32v2 双核 120MHz → P4 双核 360MHz（单核先行，D8）；余量充足，加载态占空比留待阶段 3/4 soak 复核。
+
+## 资产（P2-5）
+- CC0 随树：SMP_DATA 283,212 B / SMP_NSETS 8；rodata 内嵌可行（D4 无 FATFS 降级）。
+- 人耳待办（收尾清单）：合成轨/鼓/SAMPLE 预置听音。
