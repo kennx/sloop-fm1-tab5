@@ -1,0 +1,23 @@
+# Task 7 触摸准星关闭（crosshair disabled after UI start）
+# 受测固件：9395250（构建时工作树含未提交文档 → App version 9395250-dirty）
+
+## 启动日志（task-7-boot-log.txt 节选）
+I (3081) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+I (4451) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+## 行为口径
+- app_display_init() → app_display_touch_feedback_start()：准星对象 + 30ms 轮询定时器（bring-up 路径保留）。
+- sloop_ui_start() 成功 → main.c 调 app_display_touch_feedback_enable(false)：置位开关并立即隐藏准星；
+  定时器早退（不再绘制、不再输出坐标日志）。UI 启动失败（回退测试图）时不关闭。
+- DI-10（幽灵按压）不在本次修复：indev 事件仍可能到达，只是没有可视反馈（见 docs/deferred-issues.md）。
+
+## 截屏核验（TAP 注入之后）
+$ UI tracks; TAP 172 260（选回轨 0）; UI play; SCR -> task-7-crosshair-play.png
+准星特征色（RGB565 位扩展后各通道 ≥(245,250,245)）像素数: 0
+与阶段 3 Task 6 证据（准星尚未关闭的固件）逐字节比对：
+  bde48cc8a3b7ffe0317356222282b7ba8d5a88a244ace7fd741e28c366be5cf2  task-7-crosshair-play.png
+  bde48cc8a3b7ffe0317356222282b7ba8d5a88a244ace7fd741e28c366be5cf2  docs/dev/verify/3-mvp-2026-11-20/task-6-play.png
+结论：PLAY 页截屏与 Task 6 逐字节相同 → 准星未绘制、布局无回归（TAP 之后取帧）。
+
+## 会话语义日志（原始回显 + 工具注记）
+见 task-7-crosshair-session.log。

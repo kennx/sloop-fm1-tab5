@@ -1,0 +1,12 @@
+
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 260
+TAP 172,260 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  # [inject] SCR 截屏 -> inject-crosshair-crosshair-play-after-tap.png
+SCR
+I (105091) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK

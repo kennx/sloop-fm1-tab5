@@ -1,0 +1,49 @@
+# Task 7 构建/烧录/回归门禁（阶段 3，2026-11-20/21）
+# 受测固件提交：9395250（feat(main): 串口注入 KEY/TAP/UI 与脚本化截屏序列）
+# 构建时工作树含未提交的文档改动 → 启动日志 App version 显示 9395250-dirty；固件代码即 9395250。
+
+## 1. build 1: scripts/build.sh --clean -> exit 0
+-- IDF_TARGET is not set, guessed 'esp32p4' from sdkconfig '/home/kenn/projects/sloop-fm1-tab5/firmware/sdkconfig'
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+  Missing kconfig option.  Re-run the build process...
+sloop_fm1_tab5.bin binary size 0x16ff70 bytes. Smallest app partition is 0x800000 bytes. 0x690090 bytes (82%) free.
+Project build complete. To flash, run:
+编译警告数（warning:）: 0（仅 §5.5 豁免的 kconfig CMake 提示对）
+
+## 2. build 2: scripts/build.sh -> exit 0（门禁判定按本次）
+编译警告数（warning:）: 0
+编译错误数: 0
+sloop_fm1_tab5.bin binary size 0x16ff70 bytes. Smallest app partition is 0x800000 bytes. 0x690090 bytes (82%) free.
+Project build complete. To flash, run:
+
+## 3. flash: scripts/flash.sh /dev/ttyACM0 -> exit 0
+Hash of data verified 次数: 3（bootloader/partition/app 三段）
+Hash of data verified.
+Wrote 1507184 bytes (904450 compressed) at 0x00010000 in 5.8 seconds (effective 2081.4 kbit/s)...
+
+## 4. 启动自证（task-7-boot-log.txt 节选）
+I (1395) app_init: Project name:     sloop_fm1_tab5
+I (1395) app_init: App version:      9395250-dirty
+I (3081) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+I (4081) sloop_tab5: keyboard: OK (0x6D)
+I (4141) sloop_tab5: UI 启动前内部堆剩余 119279 字节
+I (4211) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119279 字节
+I (4451) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
+I (4451) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+fatal/abort/backtrace/task_wdt: 0 处
+
+## 5. host-test: scripts/host-test.sh -> exit 0
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (12 notes), 0 crashes; 4.9 s
+ALL HOST TESTS PASSED (subset)
+
+## 6. state-test: scripts/state-test.sh -> exit 0
+7 passed, 0 failed
+STATE TEST PASSED
+
+## 7. screenshot --selftest
+自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、像素抽检）
+selftest OK
+
+## 8. third_party manifest
+OK 文件数: 233 / 233；树状态: 0 个改动（0=未改）

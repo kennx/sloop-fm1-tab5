@@ -20,9 +20,15 @@
  * - 四角白色 L 形标记（臂长 32px、边宽 8px）验证无裁切；左上角标记与
  *   白色彩条同色不可辨，该角裁切判定依赖白条自身贴边。
  *
+ * 阶段 3 起本测试图不再是开机画面：sloop_ui 成功后清空控件树接管屏幕，
+ * 失败时由 app_display_draw_test_pattern() 重画本图兜底。
+ *
  * 触摸反馈（Task 5）：30ms 轮询触摸 indev，按下时把 lv_layer_top 上的
  * 白色十字准星（臂 32px、线宽 2px）移到触点并限流输出坐标日志
  * （位移 ≥8px 才记录）；松开后准星留在最后位置，便于截屏核对。
+ * Task 7 起该反馈只在 bring-up 路径有效：sloop_ui 启动成功后由 main.c 调
+ * app_display_touch_feedback_enable(false) 关闭（准星会盖在生产页面上、被当作
+ * 缺陷；DI-10 的幽灵按压事件仍可能到达，见 docs/deferred-issues.md）。
  */
 #include "display.h"
 
@@ -116,6 +122,19 @@ static void draw_test_pattern(void)
     make_rect(scr, 1272, 688, 8, 32, 0xFFFFFF);
 }
 
+/* UI 启动失败时的回退入口（main.c 调用）：清掉可能残留的半成品控件树后重画
+ * bring-up 测试图，保证屏幕不空白。 */
+void app_display_draw_test_pattern(void)
+{
+    if (!bsp_display_lock(1000)) {
+        ESP_LOGE(TAG, "测试图回退放弃：LVGL 锁超时");
+        return;
+    }
+    lv_obj_clean(lv_screen_active());
+    draw_test_pattern();
+    bsp_display_unlock();
+}
+
 /* ==================== 触摸反馈（Task 5：十字准星 + 坐标日志） ==================== */
 
 /* 准星几何：两条正交白色细条组成十字，臂长 32px、线宽 2px */
@@ -126,6 +145,7 @@ static lv_obj_t *s_cross_h;          /* 准星横条（lv_layer_top 上） */
 static lv_obj_t *s_cross_v;          /* 准星竖条（lv_layer_top 上） */
 static int32_t s_last_log_x = -1000; /* 上次日志坐标，屏外初值保证首按必记录 */
 static int32_t s_last_log_y = -1000;
+static bool s_feedback_enabled = true; /* UI 接管屏幕后由 main.c 置 false */
 
 static lv_indev_t *touch_indev_init(lv_display_t *disp)
 {
@@ -157,7 +177,7 @@ static lv_indev_t *touch_indev_init(lv_display_t *disp)
 static void touch_feedback_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
-    if (s_touch_indev == NULL || s_cross_h == NULL) {
+    if (!s_feedback_enabled || s_touch_indev == NULL || s_cross_h == NULL) {
         return;
     }
     if (lv_indev_get_state(s_touch_indev) != LV_INDEV_STATE_PRESSED) {
@@ -199,6 +219,20 @@ void app_display_touch_feedback_start(void)
     bsp_display_unlock();
 
     ESP_LOGI(TAG, "触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流");
+}
+
+/* UI 接管屏幕后关闭准星与坐标日志（Task 7）：准星画在 lv_layer_top 上，会盖住
+ * 生产页面并出现在截图里。仅供阶段 1 bring-up 路径保留；DI-10（幽灵按压）不在
+ * 此处修复——indev 事件照常到达，只是不再有可见反馈。 */
+void app_display_touch_feedback_enable(bool on)
+{
+    s_feedback_enabled = on;
+    if (!on && s_cross_h != NULL && bsp_display_lock(1000)) {
+        lv_obj_set_hidden(s_cross_h, true);
+        lv_obj_set_hidden(s_cross_v, true);
+        bsp_display_unlock();
+    }
+    ESP_LOGI(TAG, "触摸反馈 %s（准星 + 坐标日志）", on ? "ON" : "OFF");
 }
 
 esp_err_t app_display_init(void)

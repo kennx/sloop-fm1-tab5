@@ -1,0 +1,42 @@
+== PLAY 页：无可点控件
+  [PASS] UI 查询
+  [PASS] PLAY 页 TAP
+== STEP 页：格切换 / 鼓轨只读 / 表外未命中
+  [PASS] UI step
+  [PASS] 点 (0,2)
+  [PASS] ENG STEP 0 2
+  [PASS] 再点 (0,2)
+  [PASS] ENG STEP 0 2（灭）
+  [PASS] 点 (1,5)
+  [PASS] STATE SNAP
+  [PASS] 鼓轨格
+  [PASS] STATE SNAP（鼓轨不改焦点）
+  [PASS] 行间缝
+== TRANSPORT 页：PLAY/STOP/BPM
+  [PASS] UI transport
+  [PASS] PLAY
+  [PASS] playing
+  [PASS] STOP
+  [PASS] playing
+  [PASS] BPM +
+  [PASS] bpm=91
+  [PASS] BPM -
+  [PASS] bpm=90
+  [PASS] TRANSPORT 表外（页签条下沿 y<120）
+== TRACKS 页：选卡 / 卡缝未命中
+  [PASS] UI tracks
+  [PASS] 卡 0
+  [PASS] 卡 2
+  [PASS] STATE SNAP
+  [PASS] 卡缝
+== 切页确定性
+  [PASS] tab（异步请求 tracks）
+  [PASS] UI play（同步切页作废邮箱）
+  [PASS] ≥6 tick 后页面不变
+  流水回显: KEY 0x20 down | KEY 0x20 down tab elapsed_us=78
+  [PASS] tab+PANIC 同 tick：待切页被撤销
+  流水回显: KEY 0x20 down | KEY 0x20 down tab elapsed_us=41
+  [PASS] 对照（无 PANIC）：tab 生效
+  [PASS] 同 tick 三连 tab：只前进一页
+  [PASS] 分两次（间隔 >1 tick）：再前进两页
+[PASS] manual transcript 断言 failures=0

@@ -1,0 +1,47 @@
+
+sloop>  # [inject] 场景 transport 开始
+UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 1050 262
+TAP 1050,262 page=3 -> TRANSPORT CMD_SET_BPM delta=+1
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=91 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 910 262
+TAP 910,262 page=3 -> TRANSPORT CMD_SET_BPM delta=-1
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-002159-transport.png
+SCR
+I (33431) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+# [inject] 场景 transport 异常终止: 截屏 transport 失败: 读取帧数据超时：已收 208800/1843200 字节

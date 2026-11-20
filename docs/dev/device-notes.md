@@ -50,6 +50,9 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 | 2026-11-19 | 显示点亮（git 211bee5）：ST7121 探测正常，横屏 1280×720 测试图绘制成功 |
 | 2026-11-19 | 阶段 1 bring-up 机器侧收口（git 0f6fbf5）：分区表直读核对、键盘 0x6D+FW 0x01、ES8388 44.1kHz 出声自检、SCR 截屏+像素抽检闭环全绿；人测项（DI-4 键矩阵/触摸校准/听音）待办 |
 | 2026-11-19 | 阶段 1 听音人测无声 → 定位 es8388 输出音量初始化缺口（见 §5）→ 修复（4278509）→ 人测出声 |
+| 2026-11-20 | 阶段 2 引擎上机：设备/host 182/182 同源 golden 哈希全等；PERF 静默均值 9.44%/最大 11.73%、xrun=0；CC0 资产 283KB/8 集；ENG SELFTEST/TRACK/TRIG/PERF/INFO/SMOKE 命令就位（feat/sloop-core） |
+| 2026-11-20 | 阶段 3 Task 2（DI-8）：音频流可停启（`ENG AUDIO ON/OFF`），开机即启流；SELFTEST/AUD TONE/离线 PERF 需先停流（见 §6） |
+| 2026-11-21 | 阶段 3 收口（`feat/mvp-ui` → dev）：全门禁复跑（构建/烧录/启动/host-test/state-test/三条注入脚本）+ 30min soak；SCR 传输在连续串口开合会话后出现一次降速停滞（DI-5 复发，RTS 复位自愈，见 §8） |
 
 ## 5. ES8388 无声排障取证（2026-11-19，阶段 1 听音人测）
 
@@ -61,4 +64,32 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 结论：板级功放输入路径需要显式初始化输出音量；开机态固化为四路 0x21（`audio_tone_init` 板级修正）。
 - 未决：决定性寄存器（L1 还是 L2、0x21 是否必要）未二分（DI-6）；耳机通路未单独人测。
 - 附录：`esp_codec_dev_read_reg` 对 es8388 不透传（恒失败），读寄存器须走裸 I2C（BSP 总线句柄 + 0x10 从地址）。
-| 2026-11-20 | 阶段 2 引擎上机：设备/host 182/182 同源 golden 哈希全等；PERF 静默均值 9.44%/最大 11.73%、xrun=0；CC0 资产 283KB/8 集；ENG SELFTEST/TRACK/TRIG/PERF/INFO/SMOKE 命令就位（feat/sloop-core） |
+
+## 6. 音频流所有权与启停（DI-8，2026-11-20 解决）
+
+- 开机序列末尾（`main.c`，`sloop_core_init` 成功后）直接 `sloop_hal_audio_start(sloop_core_render)` 启流；失败只记 ERROR 不阻断（`ENG AUDIO ON` 可重试）。
+- `ENG AUDIO OFF` → `sloop_hal_audio_stop()`：置停止请求，任务在写块收尾后跳出循环、自挂起，stop 再 `vTaskDelete` 并置句柄 NULL；**codec 保持打开**（`AUD TONE` 立即可用）。不可直接删阻塞在 codec 写里的任务——会丢失 I2S 驱动锁（实测 AUD TONE 报 `channel is not enabled`）。无参数打印 `streaming=`/`xrun=`；无任务时 stop 幂等返回 ESP_OK。
+- 流式期间 `ENG SELFTEST` 拒绝行带 `hint=ENG AUDIO OFF`（拒绝语义不变）；停流后 `ENG SELFTEST`（含单例）、`AUD TONE`、离线 `ENG PERF` 恢复正常。
+- 流式期间 `ENG SMOKE` 同样被拒（`ENG SMOKE FAIL busy: audio streaming`，无 OFF 提示）；`ENG PERF` 在流式时只打印 xrun/栈余量分支，离线 100 块基线也需 `ENG AUDIO OFF` 后才可测。
+- 停流不复位引擎运行期编辑（`sloop_core` 无「恢复 init 快照」入口）：普通 `ENG AUDIO OFF` 后 `ENG SNAP`/注音仍看到停流前的状态；而 `ENG SELFTEST` 自身在开始时 `selftest_restore()` 到初始快照、结束时再恢复一次，故自检会抹掉运行期编辑（自检语义，非 stop 副作用）。
+- `xrun` 为累计计数，停/启不清零。
+- 脚本化自检：`scripts/device-selftest.py` 自动 `ENG AUDIO OFF` → 跑 SELFTEST → 恢复 `ENG AUDIO ON`（见 AGENTS §5.1/§5.5）。
+
+## 7. 触摸幽灵按压（2026-11-20，阶段 3 Task 5 采集现场发现）
+
+- 现象：空闲采集期间触摸面板间歇上报「幽灵按压」，日志形如 `sloop_display: touch (690,22)`（落在页签条），
+  后果是页面被意外切换、STEP 网格格被意外翻转（`ENG STEP` 可复现到非预期格变 n=1）。同期 Tab5 Keyboard
+  也出现 `INT=1`、`pending=32`（队列灌满）的异常读数，两者是否有共同电源/接地原因未查。
+- 影响：任何「注入 + 截屏」类证据采集（Task 7 的 `TAP` 注入、后续 soak）都可能被幽灵输入污染，**断言必须复核
+  终态**（例如 Task 5 用 48 步全量 dump 复核只有预期格在响）。
+- 规避（仅验证时）：scratch 构型用 `lv_indev_enable(touch_indev,false)` 关掉触摸 indev 再采集（Task 5 已用，开关已撤除）。
+  真值排查方向：读触摸控制器原始坐标/INT 波形（`bsp_touch_new` 句柄 + 裸 I2C），以及检查排线/接地。
+- 状态：未定性为固件缺陷（触摸驱动 Task 1 已验证四角坐标）；Task 7 触摸注入 + 人测时一并复核。
+
+## 8. SCR 帧传输降速/停滞（DI-5 复发观测，2026-11-21 阶段 3 收口）
+
+- 现象：Task 8 门禁采集时，在连续多次「串口开→关」的会话（`ENG MEM` 采样 → `device-selftest.py` → `inject/transport.sh`）之后，transport 脚本的首张截屏在 **208800/1843200** 字节处超时；随后直接读串口可见设备**仍在发帧**，速率约 **8.4KB/s**（5s 连续读 41,941B；正常会话约 1MB/s，全帧 ~2s），无 `ESP-ROM` 重启痕迹、无 panic/WDT；console 任务被 SCR 写循环占住（新命令无响应）。
+- 处置：RTS 硬复位后同一脚本 48.8s 跑完（含 3 张 1.8MB 截屏，像素抽检全过），随后 step_edit/tracks 连续通过。与 DI-5「USB 状态相关、硬复位自愈」一致。
+- 证据：`docs/dev/verify/3-mvp-2026-11-21/task-8-transport-scr-stall-fail.{log,txt}`；速率测量命令见 Task 8 报告。
+- 未定性：降速根因（疑似 USB-Serial-JTAG TX 侧或主机 IN 调度退化）；未加自动重试（避免掩盖固件问题），DI-5 保持在册并升级优先级。
+

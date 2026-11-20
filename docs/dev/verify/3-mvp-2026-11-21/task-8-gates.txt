@@ -1,0 +1,79 @@
+# Task 8 全门禁（阶段 3 收口最后一次全量复跑）
+# 受测固件：2065a68（构建时工作树干净；启动日志 App version: 2065a68 自证）
+# 采集：2026-11-21 00:18–00:24 CST，Tab5 USB-C → /dev/ttyACM0（PLAY 截屏与 30min soak 的采集时间见 task-8-readme.md）
+
+## 1. 构建（AGENTS §5.5「固件代码」）
+
+$ scripts/build.sh --clean        # 退出码 0，全量日志 task-8-build-clean.log
+  CMake Warning at tools/cmake/build.cmake:631 + "Missing kconfig option. Re-run the build process..."
+    → §5.5 已知豁免（kconfig 重新生成后的首个 configure pass，紧接第二次构建消失）
+  编译警告/错误：0（grep -c "warning:" = 0）
+  sloop_fm1_tab5.bin binary size 0x16ffa0 bytes. Smallest app partition is 0x800000 bytes.
+  0x690060 bytes (82%) free.
+
+$ scripts/build.sh                # 退出码 0，日志 task-8-build-incremental.log
+  CMake 提示：0；编译警告/错误：0；Project build complete.
+
+## 2. 烧录 + 启动（AGENTS §5.5「固件代码（烧录验证）」）
+
+$ scripts/flash.sh                # 退出码 0，日志 task-8-flash.log
+  Hash of data verified. ×3（bootloader / partition-table / app）
+
+RTS 复位后的启动日志（task-8-boot-log.txt）：
+  I (1395) app_init: App version:      2065a68
+  I (4081) sloop_tab5: keyboard: OK (0x6D)
+  I (4111) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+  I (4141) sloop_audio_stream: stream started, half=256 frames
+  I (4141) sloop_tab5: UI 启动前内部堆剩余 119279 字节
+  I (4201) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119279 字节
+  I (4421) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
+  I (4431) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+  fatal / abort / Backtrace / task_wdt：0
+
+## 3. 回归与工具门禁
+
+$ scripts/host-test.sh            # 退出码 0，日志 task-8-host-test.log
+  regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks
+           failed, 0 CPU entries over budget (9 notes), 0 crashes
+  ALL HOST TESTS PASSED (subset)
+
+$ scripts/state-test.sh           # 退出码 0，日志 task-8-state-test.log
+  7 passed, 0 failed / STATE TEST PASSED
+
+$ python3 scripts/screenshot.py --selftest   # 退出码 0，日志 task-8-screenshot-selftest.log
+  自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、
+  SCR ERR 快速失败、像素抽检）/ selftest OK
+
+$ bash scripts/inject/transport.sh /dev/ttyACM0   # 退出码 0，task-8-transport.log + PNG
+$ bash scripts/inject/step_edit.sh /dev/ttyACM0   # 退出码 0，task-8-step_edit.log + PNG
+$ bash scripts/inject/tracks.sh /dev/ttyACM0      # 退出码 0，task-8-tracks.log + PNG
+  三条场景全部断言与像素抽检通过（stdout 摘要 task-8-{transport,step_edit,tracks}-run.txt）。
+  注：transport 首次运行在截屏帧传输处失败（DI-5 复发，见 task-8-transport-scr-stall-fail.*），
+  RTS 硬复位后重跑通过；本次失败与 TAP 注入无关（截屏之前的 TAP 断言全部 PASS）。
+
+## 4. 引擎诊断（机器侧）
+
+$ ENG INFO
+  ENG INFO init=ESP_OK rate=44100 frames=256 NENGINES=12 P_COUNT=71 G_COUNT=50
+
+$ ENG MEM（idle，流式播放中）
+  ENG MEM internal_free=113887 internal_min=98612 psram_free=30128928 psram_min=30063388
+  → 内存门禁 idle 内部堆 ≥60KB：通过（113.9KB；min_since_boot 96.3KB 为启动期最低水位）
+  → 原始 transcript：task-8-mem-transcript.log
+
+$ ENG PERF（流式）
+  ENG PERF streaming=1 xrun=0 audio_stack_free=3196 min_free_since_boot_internal=98612 ...
+
+$ ENG AUDIO OFF → ENG SELFTEST preset/ANALOG/00_808_BOOM → ENG AUDIO ON
+  （scripts/device-selftest.py 自动停流/恢复，日志 task-8-selftest-case.log）
+  preset/ANALOG/00_808_BOOM 0b447c66765e1780
+  ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0
+               deterministic=1 expected=1 main_rc=1 result=PASS
+  SELFTEST COMPARE identical=1 mismatch=0 missing=0 extra=0 result=PASS
+  main_rc=1 为单例模式刻意跳过 J_CPU 批量后上游 run_jobs 的记账口径（阶段 2 已定论）。
+  全量 182/182 同源等价沿用阶段 2 post-fix 证据（本阶段未改 DSP/引擎代码）。
+
+## 5. third_party 完整性
+
+$ (cd third_party && sha256sum -c MANIFEST.sha256)
+  233/233 OK（树未被本次任务改动）

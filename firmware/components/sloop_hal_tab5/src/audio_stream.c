@@ -17,11 +17,16 @@
 #define AUDIO_OUT_VOL 70
 #define AUDIO_TASK_STACK 4096u
 #define AUDIO_TASK_PRIORITY 5u
+/* 协作停流等待上限：正常一次写块 ≤ 数十 ms（DMA 节流），1s 只有任务卡死在
+ * codec 写时才触发兜底强删 */
+#define AUDIO_STOP_TIMEOUT_MS 1000
 
 static const char *TAG = "sloop_audio_stream";
 static esp_codec_dev_handle_t codec;
 static i2c_master_dev_handle_t codec_i2c;
 static TaskHandle_t audio_task;
+static volatile bool audio_running;     /* 任务存活且尚未退出渲染循环（start 置位；任务退出循环/被删时清除） */
+static volatile bool stop_requested;
 static sloop_hal_render_fn_t render_fn;
 static int32_t render_buf[2][AUDIO_HALF_FRAMES * 2u];
 static int16_t output_buf[2][AUDIO_HALF_FRAMES * 2u];
@@ -103,7 +108,7 @@ static void audio_task_run(void *arg)
     (void)arg;
     uint32_t half = 0;
     const int64_t budget_us = (int64_t)AUDIO_HALF_FRAMES * 1000000 / AUDIO_RATE;
-    while (1) {
+    while (!stop_requested) {
         int64_t started = esp_timer_get_time();
         render_fn(render_buf[half], AUDIO_HALF_FRAMES);
         int64_t render_us = esp_timer_get_time() - started;
@@ -119,16 +124,59 @@ static void audio_task_run(void *arg)
         }
         half ^= 1u;
     }
+    /* 退出写路径（i2s 驱动的 binary 信号量已归还）后清除运行标志并自挂起：
+     * 由 stop 的 vTaskDelete 收尾，避免终止阻塞在写里的任务而丢失 I2S 驱动锁 */
+    audio_running = false;
+    vTaskSuspend(NULL);
 }
 
 esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render)
 {
     if (codec == NULL || render == NULL) return ESP_ERR_INVALID_STATE;
     if (audio_task != NULL) return ESP_OK;
+    stop_requested = false;
     render_fn = render;
+    audio_running = true;
     if (xTaskCreate(audio_task_run, "sloop_audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIORITY, &audio_task) != pdPASS) {
+        audio_running = false;
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(TAG, "stream started, half=%u frames", (unsigned)AUDIO_HALF_FRAMES);
+    return ESP_OK;
+}
+
+/* 停流（DI-8）：置停止请求 → 等任务跳出渲染循环（写块收尾、I2S 驱动锁归还）
+ * → vTaskDelete → 句柄置 NULL；codec 保持打开（AUD TONE 仍可用）。
+ * 不可直接 vTaskDelete 阻塞在 esp_codec_dev_write 里的任务：那会把 i2s_channel
+ * 的 binary 信号量永久留在被删任务手里（实测 AUD TONE 报 "channel is not
+ * enabled"）。缓冲与 render_fn 均为 static，无任务局部对象。
+ * 调用上下文：console REPL（ENG TRIG/ENG AUDIO）是启停的常规上下文；main.c 开机
+ * 序列另调一次 start，与 console 首条命令之间只有数十 ms 启动窗口，故 start/stop
+ * 未加锁（该窗口内的并发启停未防护；正常时序下 start 在首条命令前已返回）。 */
+esp_err_t sloop_hal_audio_stop(void)
+{
+    if (audio_task == NULL) return ESP_OK;
+    stop_requested = true;
+    /* 1 tick = 10ms（CONFIG_FREERTOS_HZ=100）；用 esp_timer 定时限，避免
+     * pdMS_TO_TICKS(小于 1 tick) 归零导致立即判超时 */
+    const int64_t deadline = esp_timer_get_time() + (int64_t)AUDIO_STOP_TIMEOUT_MS * 1000;
+    while (audio_running && esp_timer_get_time() < deadline) {
+        vTaskDelay(1);
+    }
+    const bool forced = audio_running;
+    if (forced) {
+        /* 任务卡在 codec 写里不返回（DMA 停摆）时的兜底；I2S 驱动锁可能随任务
+         * 丢失，此路径后 AUD TONE 需复位设备才能恢复 */
+        ESP_LOGW(TAG, "stop timeout: force delete, I2S 驱动锁可能丢失");
+    }
+    vTaskDelete(audio_task);   /* 任务此时已自挂起，或（超时兜底）仍在写里 */
+    audio_running = false;     /* 任务已删除：正常路径由任务自身清除，强制路径这里补 */
+    audio_task = NULL;
+    stop_requested = false;
+    if (forced) {
+        ESP_LOGE(TAG, "stream force-stopped, codec 保持打开但 I2S 驱动可能已损坏（需复位设备）");
+    } else {
+        ESP_LOGI(TAG, "stream stopped, codec 保持打开");
+    }
     return ESP_OK;
 }

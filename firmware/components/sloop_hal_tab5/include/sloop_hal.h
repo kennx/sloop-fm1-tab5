@@ -21,6 +21,7 @@ esp_err_t sloop_hal_init(void);
 uint8_t *sloop_hal_user_samples(void);
 esp_err_t sloop_hal_audio_init(void);
 esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render);
+esp_err_t sloop_hal_audio_stop(void);
 esp_codec_dev_handle_t sloop_hal_audio_codec(void);
 esp_err_t sloop_hal_audio_max_all(void);
 uint32_t sloop_hal_audio_xruns(void);

@@ -1,0 +1,23 @@
+KEY 0x42 down
+I (21994) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=868
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=92
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=19
+sloop>  KEY 0x42 up
+I (22024) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=1518
+sloop>  KEY 0x42 down
+I (22034) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=1505
+sloop>  KEY 0x42 up
+I (22034) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=627
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  

@@ -1,0 +1,72 @@
+# Task 7 三条注入脚本的运行断言与像素抽检（脚本 stdout，原始输出）
+# 命令：bash scripts/inject/<scenario>.sh /dev/ttyACM0（受测固件 9395250）
+
+===== transport.sh
+== inject transport @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-000707.log
+  [PASS] UI transport
+  [PASS] TAP STOP
+  [PASS] STATE SNAP playing = 0
+  [PASS] TAP PLAY
+  [PASS] STATE SNAP playing = 1
+  [PASS] TAP BPM +
+  [PASS] STATE SNAP bpm（+1） = 91
+  [PASS] TAP BPM -
+  [PASS] STATE SNAP bpm（回到基值） = 90
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-000707-transport.png  (1280x720 rgb565)
+  [PASS] PLAY 按钮底: (108,210) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] STOP 按钮底: (460,210) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 16）
+  [PASS] 页签选中（TRANSPORT）: (590,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 页面背景: (640,690) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [PASS] UI step
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-000707-step-playhead-a.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-000707-step-playhead-b.png  (1280x720 rgb565)
+  [PASS] 播放头描边: 区域 (88, 156, 1256, 632) 内 (224, 176, 40)±16 像素 6024（阈值 ≥100）
+  [PASS] 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 行 0: 帧 A 列 [1]（pos=1）/ 帧 B 列 [0]（pos=0）
+  [PASS] 行 1: 帧 A 列 [1]（pos=1）/ 帧 B 列 [0]（pos=0）
+  [PASS] 行 2: 帧 A 列 [1]（pos=1）/ 帧 B 列 [0]（pos=0）
+  [PASS] 行 3: 帧 A 列 [1]（pos=1）/ 帧 B 列 [0]（pos=0）
+  [PASS] 引擎 step_pos 两帧间变化 1 -> 0（16 列环绕，按模计）
+  [PASS] TAP STOP（复位）
+  [PASS] STATE SNAP playing（复位） = 0
+[PASS] transport: 全部断言与像素抽检通过
+
+===== step_edit.sh
+== inject step_edit @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-000756.log
+  [PASS] UI step
+  [PASS] TAP 点灭 track=1 step=5
+  [PASS] ENG STEP 1 5 n = 0
+  [PASS] TAP track=0 step=2
+  [PASS] ENG STEP 0 2 n = 1
+  [PASS] ENG STEP 0 2 time（NOTE） = 0
+  [PASS] TAP track=1 step=5
+  [PASS] ENG STEP 1 5 n = 1
+  [PASS] ENG STEP 1 5 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track = 1
+  [PASS] STATE SNAP focus_step = 5
+  [PASS] TAP 表外 miss
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-000756-step-two-on.png  (1280x720 rgb565)
+  [PASS] 轨 0 步 2 亮格: (267,208) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [PASS] 轨 1 步 5 亮格: (486,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] 轨 0 步 3 空位: (340,208) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] 焦点框（轨 1 步 5 左描边）: (454,332) 实测 (240,244,248) ≈ 期望 (240,244,248)（容差 10）
+  [PASS] 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+[PASS] step_edit: 全部断言与像素抽检通过
+
+===== tracks.sh
+== inject tracks @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261121-000812.log
+  [PASS] UI tracks
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track = 2
+  [PASS] STATE SNAP focus_track = 2
+  [PASS] TAP 卡缝 miss
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261121-000812-tracks-sel3.png  (1280x720 rgb565)
+  [PASS] 卡 2 选中描边（6px）: (644,347) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡 2 选中底: (800,552) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
+  [PASS] 卡 0 未选中底: (304,552) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
+  [PASS] 页签选中（TRACKS）: (230,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡间缝背景: (640,260) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+[PASS] tracks: 全部断言与像素抽检通过

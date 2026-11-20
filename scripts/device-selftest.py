@@ -5,6 +5,11 @@ Usage:
     python3 scripts/device-selftest.py /dev/ttyACM0 [--case NAME] [--output LOG]
     python3 scripts/device-selftest.py --compare LOG
 
+The firmware streams engine audio from boot (DI-8) and ENG SELFTEST is refused
+while streaming. The device path therefore sends ENG AUDIO OFF before the run and
+restores ENG AUDIO ON afterwards, so the device ends in product state.
+--compare only re-checks a saved transcript and never touches the device.
+
 A hash mismatch is always a failure. The error-vector/SNR channel is a separate
 analysis step; this comparator never applies a tolerance or silently accepts one.
 """
@@ -91,6 +96,32 @@ def compare(lines, golden_path=GOLDEN, case=None):
     return 0 if ok else 1
 
 
+def send_command(ser, command):
+    ser.write((command + "\n").encode())
+    ser.flush()
+
+
+def read_line(ser):
+    raw = ser.readline()
+    return raw.decode(errors="replace").strip() if raw else ""
+
+
+def set_streaming(ser, on, timeout=10):
+    """切 ENG AUDIO ON|OFF 并等待回执（打印读到的一切）。切不动只告警。"""
+    send_command(ser, f"ENG AUDIO {'ON' if on else 'OFF'}")
+    want = f"ENG AUDIO streaming={1 if on else 0}"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        line = read_line(ser)
+        if not line:
+            continue
+        print(line, flush=True)
+        if want in line:
+            return True
+    print(f"警告: ENG AUDIO {'ON' if on else 'OFF'} 未在 {timeout}s 内确认", file=sys.stderr)
+    return False
+
+
 def run_serial(port, case, output, timeout):
     try:
         import serial
@@ -101,21 +132,24 @@ def run_serial(port, case, output, timeout):
     with serial.Serial(port, 115200, timeout=1) as ser:
         time.sleep(5)
         ser.reset_input_buffer()
-        ser.write((command + "\n").encode())
-        ser.flush()
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            raw = ser.readline()
-            if not raw:
-                continue
-            line = raw.decode(errors="replace").strip()
-            if line:
+        try:
+            # 固件开机即启流（DI-8），流式时 SELFTEST 会被拒绝：先停流
+            set_streaming(ser, False)
+            send_command(ser, command)
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                line = read_line(ser)
+                if not line:
+                    continue
                 print(line, flush=True)
                 lines.append(line)
-            if SUMMARY.match(line):
-                break
-        else:
-            raise TimeoutError(f"等待 ENG SELFTEST 汇总超时（{timeout}s）")
+                if SUMMARY.match(line):
+                    break
+            else:
+                raise TimeoutError(f"等待 ENG SELFTEST 汇总超时（{timeout}s）")
+        finally:
+            # 无论自检成败都恢复产品态（流式）；恢复失败只告警，不改 PASS/FAIL 语义
+            set_streaming(ser, True)
     if not any(SUMMARY.match(line) for line in lines):
         raise RuntimeError("未收到 ENG SELFTEST 汇总")
     if output:
@@ -124,7 +158,9 @@ def run_serial(port, case, output, timeout):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="运行设备 ENG SELFTEST 并与 host golden 比对"
+                    "（先自动 ENG AUDIO OFF，结束后恢复 ENG AUDIO ON）")
     parser.add_argument("port", nargs="?")
     parser.add_argument("--case")
     parser.add_argument("--output")
