@@ -6,6 +6,9 @@
 
 #include "esp_err.h"
 
+/* 线程/所有权规则：sloop_core_render 与所有改变引擎状态的 API（track/note/hit/
+ * play）共享内部互斥锁，可从不同任务调用；不得在 ISR 中调用。selftest 与音频
+ * 流互斥（流式期间返回 busy）。 */
 #define SLOOP_CORE_NENGINES 12u
 #define SLOOP_CORE_P_COUNT  71u
 #define SLOOP_CORE_G_COUNT  50u

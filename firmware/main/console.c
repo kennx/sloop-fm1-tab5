@@ -316,6 +316,16 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 5 && strcasecmp(argv[1], "trig") == 0) {
+        /* 先验参、后启流：参数错误不得启流（否则本会话 AUD TONE/离线 PERF 被永久占用） */
+        uint32_t a = 0, b = 0;
+        bool is_synth = strcasecmp(argv[2], "synth") == 0 && eng_uint(argv[3], 2, &a) &&
+                        eng_uint(argv[4], 127, &b);
+        bool is_drum = !is_synth && strcasecmp(argv[2], "drum") == 0 && eng_uint(argv[3], 3, &a) &&
+                       eng_uint(argv[4], 15, &b);
+        if (!is_synth && !is_drum) {
+            printf("用法: ENG TRIG synth <track=0..2> <note=0..127> | drum <kit=0..3> <lane=0..15>\n");
+            return 1;
+        }
         if (sloop_core_status() != ESP_OK) {
             printf("ENG TRIG FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
             return 1;
@@ -325,8 +335,7 @@ static int eng_command(int argc, char **argv)
             printf("ENG TRIG FAIL audio=%s\n", esp_err_to_name(ret));
             return 1;
         }
-        uint32_t a, b;
-        if (strcasecmp(argv[2], "synth") == 0 && eng_uint(argv[3], 2, &a) && eng_uint(argv[4], 127, &b)) {
+        if (is_synth) {
             sloop_core_note(a, b, true);
             vTaskDelay(pdMS_TO_TICKS(500));
             sloop_core_note(a, b, false);
@@ -334,15 +343,11 @@ static int eng_command(int argc, char **argv)
                    (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
             return 0;
         }
-        if (strcasecmp(argv[2], "drum") == 0 && eng_uint(argv[3], 3, &a) && eng_uint(argv[4], 15, &b)) {
-            sloop_core_hit(a, b, 100);
-            vTaskDelay(pdMS_TO_TICKS(100));
-            printf("ENG TRIG drum kit=%u lane=%u velocity=100 xrun=%u OK\n",
-                   (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
-            return 0;
-        }
-        printf("用法: ENG TRIG synth <track=0..2> <note=0..127> | drum <kit=0..3> <lane=0..15>\n");
-        return 1;
+        sloop_core_hit(a, b, 100);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        printf("ENG TRIG drum kit=%u lane=%u velocity=100 xrun=%u OK\n",
+               (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
+        return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
     printf("用法: ENG INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF\n");

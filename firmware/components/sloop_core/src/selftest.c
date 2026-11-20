@@ -9,6 +9,7 @@
 
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sloop_hal.h"
 
@@ -297,6 +298,23 @@ _Static_assert(SLOOP_CORE_G_COUNT == G_COUNT, "G_COUNT drifted from the public s
 
 static esp_err_t core_status = ESP_ERR_INVALID_STATE;
 
+/* 引擎状态锁：上游引擎在 FM-1 上是单线程（输入中断写 volatile 输入结构、音频
+ * ISR 渲染）。Tab5 上渲染在音频任务、编辑（TRIG/TRACK）在 console 任务——所有
+ * 会改变引擎状态的 API 与 sloop_core_render 共用此锁（所有权规则见 sloop_core.h）。
+ * 持锁窗口都是短操作（编辑为状态写，渲染为 ≤ H A L F_FRAMES 帧的量化渲染），
+ * 优先级继承保证 console（低优先级）持锁时音频任务不会被无限阻塞。 */
+static SemaphoreHandle_t s_engine_lock;
+
+static inline void engine_lock(void)
+{
+    if (s_engine_lock != NULL) xSemaphoreTake(s_engine_lock, portMAX_DELAY);
+}
+
+static inline void engine_unlock(void)
+{
+    if (s_engine_lock != NULL) xSemaphoreGive(s_engine_lock);
+}
+
 esp_err_t sloop_core_init(void)
 {
     core_status = sloop_hal_init();
@@ -312,6 +330,13 @@ esp_err_t sloop_core_init(void)
     dsu_defaults();
     fm6_init();
     memset(&ctl, 0, sizeof(ctl));
+    if (s_engine_lock == NULL) {
+        s_engine_lock = xSemaphoreCreateMutex();
+        if (s_engine_lock == NULL) {
+            core_status = ESP_ERR_NO_MEM;
+            return core_status;
+        }
+    }
     core_status = selftest_snapshot_init();
     return core_status;
 }
@@ -323,41 +348,51 @@ esp_err_t sloop_core_status(void)
 
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
+    engine_lock();
     fm6_poll();
     for (uint32_t b = 0; b < frames; b += CTL) {
         uint32_t n = frames - b < CTL ? frames - b : CTL;
         mix_block(block + 2u * b, n);
     }
+    engine_unlock();
 }
 
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
 {
     if (k >= NPART || engine >= NENGINES) return;
+    engine_lock();
     track_t *t = &trk[k];
     if (t->eng_req != engine || t->preset != preset) sound_change(t);
     t->eng_req = (uint8_t)engine;
     t->preset = (uint8_t)preset;
+    engine_unlock();
 }
 
 void sloop_core_note(uint32_t track, uint32_t note, bool on)
 {
     if (track >= NTRK || note > 127) return;
+    engine_lock();
     if (on) input_on(&trk[track], note, 100);
     else input_off(&trk[track], note);
+    engine_unlock();
 }
 
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity)
 {
     if (kit >= DSU_N || lane >= DRUM_LANES) return;
+    engine_lock();
     int16_t old = TDRUM->p[P_E0];
     TDRUM->p[P_E0] = (int16_t)(DRUM_SYN + kit);
     drum_on(LANE_NOTE[lane], (uint8_t)clamp(velocity, 1, 127));
     TDRUM->p[P_E0] = old;
+    engine_unlock();
 }
 
 void sloop_core_play(bool on)
 {
+    engine_lock();
     transport_req = on ? 1 : 2;
+    engine_unlock();
 }
 
 uint32_t sloop_core_rate(void)
