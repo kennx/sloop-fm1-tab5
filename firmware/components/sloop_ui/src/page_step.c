@@ -10,7 +10,8 @@
  * - 底部提示 (24, 606) 16pt。
  *
  * 渲染口径：格「亮」= state_step_is_on()（n>0 且 time==NOTE，与状态层切换同一判定，
- * TIE/REST 的步不算亮）；鼓轨（第 4 行）只展示引擎快照 dstep[i].on 的聚合，点击
+ * TIE/REST 的步不算亮）；列号 ≥ 本轨 LEN 的格用暗色（dim）表示「播放不经过」，
+ * 仍可点（编辑不改语义）；鼓轨（第 4 行）只展示引擎快照 dstep[i].on 的聚合，点击
  * 不发 CMD_TOGGLE_STEP、也不改焦点（焦点轨由合成轨行决定），只写状态行
  * "DRUM EDIT = PHASE 4"。
  * 高亮：播放中当前步（step_pos[r]，仅当 <16 列）描边 UI_ACCENT 5px；焦点格
@@ -21,11 +22,12 @@
  * 控件回调与 console `TAP` 注入都只调用 step_activate()（唯一共同路径），
  * TAP 的命中矩形由建格同一组布局宏推导（无第二份坐标表）。
  *
- * 内存：75 个格/标签对象共用静态 lv_style_t（格底 5 种 + 高亮 3 种 + 文本 6 种），
- * 每对象一份局部样式会把 LVGL 池（约 58KB）吃穿；状态变化用 lv_obj_replace_style
+ * 内存：75 个格/标签对象共用静态 lv_style_t（格底 10 种 = 亮/暗 × 空/四轨色 +
+ * 高亮 3 种 + 文本 6 种），每对象一份局部样式会把 LVGL 池（约 58KB）吃穿；
+ * 状态变化用 lv_obj_replace_style
  * 换共享样式指针，不分配新样式。仍用局部样式的只有顶栏/状态行两个单例标签
  * （改色/对齐/宽度），量级固定。脏检查：每格缓存 1 字节（bit0 亮 / bit1..2 高亮
- * 种类），变化才换样式。
+ * 种类 / bit3 列 ≥ LEN 的暗色），变化才换样式。
  */
 #include "theme.h"
 
@@ -56,7 +58,9 @@ static lv_obj_t *s_header;
 static lv_obj_t *s_status;
 
 static lv_style_t s_st_cell_off;
+static lv_style_t s_st_cell_off_dim;                       /* 列 ≥ LEN：更暗一档 */
 static lv_style_t s_st_cell_on[APP_STATE_TRACKS];
+static lv_style_t s_st_cell_on_dim[APP_STATE_TRACKS];      /* 列 ≥ LEN 的亮格 */
 static lv_style_t s_st_hl_none;
 static lv_style_t s_st_hl_playhead;
 static lv_style_t s_st_hl_focus;
@@ -89,11 +93,23 @@ static void border_style(lv_style_t *st, uint32_t color, int32_t width)
     lv_style_set_border_width(st, width);
 }
 
+/* 列 ≥ LEN 的暗色：亮格取轨色 45%，空格的底色由 UI_PANEL_HI 落到更暗一档 */
+#define DIM_PCT 45u
+static uint32_t dim_color(uint32_t c)
+{
+    uint32_t r = ((c >> 16) & 0xFFu) * DIM_PCT / 100u;
+    uint32_t g = ((c >> 8) & 0xFFu) * DIM_PCT / 100u;
+    uint32_t b = (c & 0xFFu) * DIM_PCT / 100u;
+    return (r << 16) | (g << 8) | b;
+}
+
 static void styles_init(void)
 {
     cell_shape_style(&s_st_cell_off, UI_PANEL_HI);
+    cell_shape_style(&s_st_cell_off_dim, dim_color(UI_PANEL_HI));
     for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
         cell_shape_style(&s_st_cell_on[k], ui_track_color(k));
+        cell_shape_style(&s_st_cell_on_dim[k], dim_color(ui_track_color(k)));
     }
     border_style(&s_st_hl_none, UI_BG, 0); /* 不画边框；基样式已是 0，保留换样式空位 */
     border_style(&s_st_hl_playhead, UI_ACCENT, 5);
@@ -117,6 +133,19 @@ static lv_style_t *hl_style(uint8_t hl)
     if (hl == HL_PLAYHEAD) return &s_st_hl_playhead;
     if (hl == HL_FOCUS) return &s_st_hl_focus;
     return &s_st_hl_none;
+}
+
+/* 格状态字节：bit0 亮、bit1..2 高亮种类、bit3 暗（列 ≥ LEN）。 */
+#define CELL_ON  0x01u
+#define CELL_HL  0x06u
+#define CELL_DIM 0x08u
+
+static lv_style_t *base_style(uint8_t r, uint8_t state)
+{
+    bool on = (state & CELL_ON) != 0;
+    bool dim = (state & CELL_DIM) != 0;
+    if (on) return dim ? &s_st_cell_on_dim[r] : &s_st_cell_on[r];
+    return dim ? &s_st_cell_off_dim : &s_st_cell_off;
 }
 
 static void refresh(void)
@@ -185,12 +214,12 @@ bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 static void cell_apply(uint8_t r, uint8_t c, uint8_t old_state, uint8_t state)
 {
     lv_obj_t *cell = s_cells[r][c];
-    lv_style_t *old_base = (old_state & 1u) ? &s_st_cell_on[r] : &s_st_cell_off;
-    lv_style_t *new_base = (state & 1u) ? &s_st_cell_on[r] : &s_st_cell_off;
+    lv_style_t *old_base = base_style(r, old_state);
+    lv_style_t *new_base = base_style(r, state);
     if (old_base != new_base) lv_obj_replace_style(cell, old_base, new_base, 0);
 
-    lv_style_t *old_hl = hl_style((uint8_t)((old_state >> 1) & 3u));
-    lv_style_t *new_hl = hl_style((uint8_t)((state >> 1) & 3u));
+    lv_style_t *old_hl = hl_style((uint8_t)((old_state & CELL_HL) >> 1));
+    lv_style_t *new_hl = hl_style((uint8_t)((state & CELL_HL) >> 1));
     if (old_hl != new_hl) lv_obj_replace_style(cell, old_hl, new_hl, 0);
 }
 
@@ -243,7 +272,7 @@ void page_step_create(lv_obj_t *parent)
     }
 
     lv_obj_t *hint = lv_label_create(parent);
-    lv_label_set_text(hint, "TAP = TOGGLE ON/OFF    DRUM ROW = READ ONLY (LEN > 16 NOT SHOWN)");
+    lv_label_set_text(hint, "TAP = TOGGLE ON/OFF    DIM = BEYOND LEN    DRUM ROW = READ ONLY (LEN > 16 NOT SHOWN)");
     lv_obj_add_style(hint, &s_st_hint, 0);
     lv_obj_set_pos(hint, 24, 606);
 }
@@ -273,6 +302,9 @@ void page_step_update(const app_state_t *st)
         /* 停止时不显示播放头（快照 step_pos 停止时为 0，画在 0 列会误导） */
         int8_t playhead = st->core.playing ? (int8_t)st->core.step_pos[r] : -1;
         if (playhead >= (int8_t)APP_STATE_STEPS) playhead = -1; /* 超出 16 列视窗 */
+        /* 列 ≥ 本轨 LEN 的格暗显（dim）：LEN 之外播放不经过，编辑仍可点 */
+        uint8_t len = st->core.trk[r].len;
+        if (len < 1u) len = 1u;
         for (uint8_t c = 0; c < APP_STATE_STEPS; c++) {
             bool on;
             if (r == APP_STATE_TRACKS - 1) {
@@ -286,7 +318,7 @@ void page_step_update(const app_state_t *st)
             } else if (r == ft && c == fs) {
                 hl = HL_FOCUS;
             }
-            uint8_t want = (uint8_t)((on ? 1u : 0u) | (hl << 1));
+            uint8_t want = (uint8_t)((on ? CELL_ON : 0u) | (hl << 1) | (c >= len ? CELL_DIM : 0u));
             if (want == s_cell_state[r][c]) continue;
             cell_apply(r, c, s_cell_state[r][c], want);
             s_cell_state[r][c] = want;

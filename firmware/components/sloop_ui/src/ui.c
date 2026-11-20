@@ -299,32 +299,32 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     }
 }
 
-bool sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     if (out != NULL) *out = (sloop_tap_result_t){0};
-    if (!s_started) return false;
+    if (!s_started) return SLOOP_TAP_RESULT_NOT_STARTED;
     if (!bsp_display_lock(1000)) {
-        ESP_LOGW(TAG, "TAP 注入失败: LVGL 锁超时");
-        return false;
+        ESP_LOGW(TAG, "TAP 注入失败: LVGL 锁超时（未派发）");
+        return SLOOP_TAP_RESULT_LOCK_TIMEOUT;
     }
     bool hit = page_tap(s_page, x, y, out);
     bsp_display_unlock();
-    return hit;
+    return hit ? SLOOP_TAP_RESULT_OK : SLOOP_TAP_RESULT_MISS;
 }
 
-void sloop_ui_switch_page(uint8_t page)
+esp_err_t sloop_ui_switch_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES) {
         ESP_LOGW(TAG, "切页忽略: 非法页 %u", (unsigned)page);
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
     if (!s_started) {
         ESP_LOGW(TAG, "切页忽略: UI 未启动");
-        return;
+        return ESP_ERR_INVALID_STATE;
     }
     if (!bsp_display_lock(1000)) {
         ESP_LOGW(TAG, "切页 %u 失败: LVGL 锁超时", (unsigned)page);
-        return;
+        return ESP_ERR_TIMEOUT;
     }
     /* 同步切页作废异步请求：否则紧邻的一次 tab/esc 会让定时器下一拍把页面切走
      * （console `UI` 的成功回显必须代表落地页）。清邮箱与 show_page 都在
@@ -332,6 +332,7 @@ void sloop_ui_switch_page(uint8_t page)
     sloop_ui_cancel_pending_page();
     show_page(page);
     bsp_display_unlock();
+    return ESP_OK;
 }
 
 void sloop_ui_cancel_pending_page(void)

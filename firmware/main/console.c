@@ -17,7 +17,9 @@
  *    待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
  *  - TAP：触摸注入 TAP <x> <y>（屏幕绝对坐标，含页签条），经
  *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
- *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"。
+ *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
+ *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"（两者都返回非零，令牌不同，
+ *    脚本不得把锁超时误判为正常 miss）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -253,7 +255,9 @@ static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
 
 static int eng_perf(void)
 {
-    /* 流式占空比预算 = 引擎块时长（256/44100 ≈ 5.8ms）；离线分支用 ENG_SMOKE_FRAMES 的预算 */
+    /* 流式占空比预算 = 引擎块时长（256/44100 = 5804µs）；离线分支用 ENG_SMOKE_FRAMES 的预算。
+     * 流式分支的 render_* 由 sloop_hal_audio_render_stats 给出，窗口 = 本次启流
+     * （start 清零），首块含冷缓存开销计入 max。 */
     const int64_t stream_budget_us = (int64_t)SLOOP_CORE_FRAMES * 1000000 / sloop_core_rate();
     if (sloop_hal_audio_streaming()) {
         uint32_t mean_us = 0, max_us = 0, blocks = 0;
@@ -362,7 +366,13 @@ static int eng_command(int argc, char **argv)
         return nonzero ? 0 : 1;
     }
     if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "selftest") == 0) {
-        return sloop_core_selftest(argc == 3 ? argv[2] : NULL) == 0 ? 0 : 1;
+        /* 诊断模式：冻结引擎快照读 + 丢弃引擎写（UI 停在最后一帧、键盘编辑不落地），
+         * 自检因此可整段持引擎锁而不产生长时间等待者——阶段 3 固件在 UI live 时
+         * 直接跑全量 SELFTEST 会在该 FreeRTOS SMP 端口卡死刷 task_wdt（见 ADR-007）。 */
+        sloop_core_diag_freeze(true);
+        int rc = sloop_core_selftest(argc == 3 ? argv[2] : NULL);
+        sloop_core_diag_freeze(false);
+        return rc == 0 ? 0 : 1;
     }
     if (argc == 5 && strcasecmp(argv[1], "track") == 0) {
         uint32_t k, engine, preset;
@@ -498,7 +508,16 @@ static int ui_command(int argc, char **argv)
     if (argc == 2) {
         for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
             if (strcasecmp(argv[1], names[i]) != 0) continue;
-            sloop_ui_switch_page(i);
+            esp_err_t ret = sloop_ui_switch_page(i);
+            if (ret == ESP_ERR_TIMEOUT) {
+                /* 与 miss 区分：锁超时没有落地，脚本的 miss/页断言不得误判为通过 */
+                printf("UI ERR lock_timeout\n");
+                return 1;
+            }
+            if (ret != ESP_OK) {
+                printf("UI ERR not_started (want=%s)\n", names[i]);
+                return 1;
+            }
             uint8_t page = sloop_ui_current_page();
             if (page != i) {
                 printf("UI ERR not_started (want=%s)\n", names[i]);
@@ -589,10 +608,14 @@ static int tap_command(int argc, char **argv)
     }
 
     sloop_tap_result_t r;
-    bool hit = sloop_ui_input_tap((int16_t)x, (int16_t)y, &r);
+    sloop_tap_result_status_t status = sloop_ui_input_tap((int16_t)x, (int16_t)y, &r);
     unsigned page = (unsigned)sloop_ui_current_page();
-    if (!hit) {
-        /* UI 未启动时 current_page 为 0xFF（sloop_ui.h），按不可用打印 */
+    if (status == SLOOP_TAP_RESULT_LOCK_TIMEOUT) {
+        /* 锁超时 = 没派发：单独的错误令牌，避免被脚本的 miss 断言当成「正常未命中」 */
+        printf("TAP ERR lvgl_lock_timeout\n");
+        return 1;
+    }
+    if (status != SLOOP_TAP_RESULT_OK) {
         if (page == 0xFF) {
             printf("TAP miss %ld,%ld page=n/a\n", x, y);
         } else {

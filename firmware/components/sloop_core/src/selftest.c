@@ -369,6 +369,8 @@ esp_err_t sloop_core_init(void)
     }
     dsu_defaults();
     fm6_init();
+    /* .noinit：冷启动内容未定义，必须显式清诊断冻结标志（否则写 API 可能全被丢弃） */
+    s_frozen = false;
     memset(&ctl, 0, sizeof(ctl));
     if (s_engine_lock == NULL) {
         s_engine_lock = xSemaphoreCreateMutex();

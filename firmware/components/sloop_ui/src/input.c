@@ -195,14 +195,14 @@ static void act_note(uint8_t code, int8_t offset, bool down)
         s_note_track[code] = track;
         /* state_apply 已返回：此刻不持 state/引擎锁（sloop_ui.h 的契约） */
         sloop_ui_flash_note(note);
-        ESP_LOGI(TAG, "note on track=%u note=%u", (unsigned)track, (unsigned)note);
+        ESP_LOGD(TAG, "note on track=%u note=%u", (unsigned)track, (unsigned)note);
     } else {
         if (!s_note_on[code]) return;
         s_note_on[code] = false;
         const edit_cmd_t cmd = { .type = CMD_NOTE_OFF, .a = s_note_track[code],
                                  .v = s_note_val[code] };
         state_apply(&cmd);
-        ESP_LOGI(TAG, "note off track=%u note=%u", (unsigned)s_note_track[code],
+        ESP_LOGD(TAG, "note off track=%u note=%u", (unsigned)s_note_track[code],
                  (unsigned)s_note_val[code]);
     }
 }
@@ -235,7 +235,8 @@ static void act_focus(bool step_axis, int8_t delta)
     state_set_focus(track, step);
 }
 
-/* EDIT 层：删除聚焦步里所有该音级的音符（按音级匹配，跨八度；命令按精确音符）。 */
+/* EDIT 层：删除聚焦步里所有该音级的音符（按音级匹配，跨八度；命令按精确音符）。
+ * 步号在派发时解析（命令显式携带，状态层不读焦点）。 */
 static void act_erase(int8_t pitch_class)
 {
     app_state_t st;
@@ -249,9 +250,9 @@ static void act_erase(int8_t pitch_class)
     for (uint8_t j = 0; j < n; j++) {
         uint8_t note = st.core.step[k][i].note[j];
         if (note == 0 || (int8_t)(note % 12u) != pitch_class) continue;
-        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = note };
+        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = i, .v = note };
         state_apply(&cmd);
-        ESP_LOGI(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)i,
+        ESP_LOGD(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)i,
                  (unsigned)note);
     }
 }
@@ -263,7 +264,7 @@ static void act_layer(uint8_t bit, bool down)
     uint8_t mask = down ? (uint8_t)(st.layer_held | bit) : (uint8_t)(st.layer_held & ~bit);
     if (mask == st.layer_held) return;
     state_set_layer(mask);
-    ESP_LOGI(TAG, "layer %s 0x%02X", down ? "down" : "up", (unsigned)mask);
+    ESP_LOGD(TAG, "layer %s 0x%02X", down ? "down" : "up", (unsigned)mask);
 }
 
 static void dispatch(const key_binding_t *b, bool down)

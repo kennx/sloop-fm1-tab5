@@ -2,8 +2,8 @@
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 四屏框架）
  *
  * 单容器屏 + 顶部页签 PLAY|TRACKS|STEP|TRANSPORT：页对象只创建一次，
- * 切页只改显隐（不销毁重建）。本任务实现 PLAY/TRANSPORT，TRACKS/STEP 为
- * 占位页（Task 5 扩展）。
+ * 切页只改显隐（不销毁重建）。四页均已落地——PLAY/TRACKS/STEP/TRANSPORT
+ * （page_play/page_tracks/page_step/page_transport）。
  *
  * 线程：所有 LVGL 调用在 bsp_display_lock 内（esp_lvgl_port 递归锁，与
  * display.c 同一纪律）；UI 定时器 30ms 运行在 LVGL 任务里（已持锁）。
@@ -19,9 +19,11 @@
  * 成功时接管控件树（清掉 bring-up 测试图）；失败时调用方回退 app_display_draw_test_pattern()。 */
 esp_err_t sloop_ui_start(void);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t）。越界忽略。
- * 可从任意任务调用（内部加锁）；UI 未启动时静默返回。 */
-void sloop_ui_switch_page(uint8_t page);
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t）。
+ * 可从任意任务调用（内部加锁）。返回：ESP_OK = 已落地；ESP_ERR_INVALID_ARG =
+ * 非法页；ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
+ * （**未切页**，与成功明确区分，console `UI` 据此打印 `UI ERR lock_timeout`）。 */
+esp_err_t sloop_ui_switch_page(uint8_t page);
 
 /* 请求切页（异步）：只记目标页，30ms UI 定时器在 LVGL 上下文执行。可从任意任务
  * 调用、不取任何锁；输入层（esc/tab）用它避免在输入路径上等 LVGL 锁。
@@ -52,7 +54,9 @@ void sloop_ui_cancel_pending_page(void);
 /* TAP 注入（console `TAP <x> <y>`）：坐标 = 屏幕绝对坐标（含页签条，与触摸 indev
  * 同口径）。按当前页 hit-test 表命中矩形，执行与控件回调**相同的动作函数**
  * （EditCmd 层等价，见 ADR-005；不声称原始指针事件等价）。
- * 命中返回 true 并把动作/参数填进 out（out 可为 NULL）；未命中返回 false，不改状态。
+ * 返回值区分三条路径：OK（命中，动作/参数填进 out，out 可为 NULL）、MISS（矩形
+ * 表未命中，不改状态）、LOCK_TIMEOUT（未派发——console 打印
+ * `TAP ERR lvgl_lock_timeout`，脚本不得把它与正常 miss 混判）。
  * 内部取 LVGL 锁（命中后要改控件文本/立即刷新），仅 console 注入路径调用。 */
 typedef enum {
     SLOOP_TAP_MISS = 0,
@@ -70,8 +74,16 @@ typedef struct {
     int16_t v;
 } sloop_tap_result_t;
 
-bool sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+typedef enum {
+    SLOOP_TAP_RESULT_OK = 0,
+    SLOOP_TAP_RESULT_MISS,        /* 矩形表未命中（正常未命中，不改状态） */
+    SLOOP_TAP_RESULT_NOT_STARTED, /* UI 未启动 */
+    SLOOP_TAP_RESULT_LOCK_TIMEOUT /* LVGL 锁超时：未派发 */
+} sloop_tap_result_status_t;
+
+sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
 /* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
+
 
