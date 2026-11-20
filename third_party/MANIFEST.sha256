@@ -1,6 +1,8 @@
+10badc64d36b6d6fb1a27fa6e58dfc18475e3bd5412d9f42fca7cae08efcc289  sloop-fm1/assets/fonts/Terminus-LICENSE.txt
 4536deb5a142c48954062f1b6007a1ba55848af66b35d007ad508fb574c43b9a  sloop-fm1/assets/hiphop-pack/CREDITS.txt
 81461e108313ef6fbda38fefc3851685d68db4b5397647536a4f6c9f58031118  sloop-fm1/assets/samples-cc0/ATTRIBUTION.txt
 8d54ace4773911b596a2a9421af1e4fcec5cd0ca3396ac3511c2c839f582e2bf  sloop-fm1/assets/samples-cc0/CREDITS.txt
+242ea3b0915e1f58cbf14ecafd4eee2733565a44e3b2629036d965168a2b0b19  sloop-fm1/docs/webapp/editor/FUKIAI-LICENSE.txt
 1917870bd802de9134d33335efbcf886b296705dff06688925fd7325589c0c1a  sloop-fm1/firmware/hal/fm1_adc.h
 22351440699748546e932098e3016c618d6137dd0ae34557e08a107641d4e62e  sloop-fm1/firmware/hal/fm1_audio.h
 46c533a0926ba9298ae36705f857ed609a61b95511ba7f0d1800857b4760dd73  sloop-fm1/firmware/hal/fm1_cc.h
@@ -188,3 +190,4 @@ b4500741f30e42ee4759abc064ee2ea4b365099e53d47a338e96819a86457ec1  sloop-fm1/tool
 6c5993f9b441a717a07867ba4a44060107830aa961b89a8934484425906c3ad1  sloop-fm1/tools/wasm_shim/mem.c
 1fcacf769230d49e8a7e4a90d11cc1e3b37bf1773b90887127e74b6daa9878ec  sloop-fm1/tools/wasm_shim/string.h
 24cb1a3009633ff24e7b9d5cee68f2f521022e5580d7de4d42ed4e34e0908f25  sloop-fm1/web/EDITOR_PROTOCOL.md
+242ea3b0915e1f58cbf14ecafd4eee2733565a44e3b2629036d965168a2b0b19  sloop-fm1/web/FUKIAI-LICENSE.txt

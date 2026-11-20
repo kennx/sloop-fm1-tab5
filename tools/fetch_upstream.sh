@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Vendor only the engine/host/tests/tools, protocol reference, README, and all
 # license/copyright/credits/attribution files. Upstream docs, built site output,
-# sample WAVs, and git metadata are intentionally excluded; Task 5 fetches CC0 audio.
+# Documentation/site content, sample WAVs, and git metadata are excluded;
+# license files are always retained. Task 5 fetches CC0 audio separately.
 # The default channel is SSH because GitHub HTTPS is unavailable on this machine.
 set -euo pipefail
 
@@ -95,7 +96,7 @@ done
 while IFS= read -r path; do
     base=${path##*/}
     case "${base,,}" in
-        licens*|copying*|copyright*|credit*|notice*|attribution*)
+        *licens*|*copying*|*copyright*|*credit*|*notice*|*attribution*)
             copy_path "$path"
             ;;
     esac
