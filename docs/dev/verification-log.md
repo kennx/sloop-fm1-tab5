@@ -16,6 +16,7 @@
 | 2026-11-19 | 阶段 1 / P1-6 | AUD TONE 音频（机器侧） | ✅ 通过（机器侧） | 0f6fbf5 | `1-bringup-2026-11-19/console-transcript.txt` + `boot-log-excerpt.txt` | ES8388 codec 44100Hz/2ch/16bit 打开 rc=0；`AUD TONE 440 1500` 命令往返成功（播放中→完成） |
 | 2026-11-19 | 阶段 1 / P1-6 | AUD TONE 听音（人测） | ✅ 通过（人测，先失败后修复） | 4278509 | （人耳确认，无文件证据；寄存器取证见 device-notes §5） | **首测无声**（默认态）；systematic-debugging 定位根因 = es8388 驱动初始化把 LOUT2/ROUT2 音量写 0 + out_vol(70)→-11dB；四路输出音量 0x21 + DAC 0dB 后**人测出声**；修复（开机默认即实证出声态）后复测出声。音高精度未细究（本次以出声为判据），阶段 2 音频调优时复核。决定性寄存器未二分 → DI-6 |
 | 2026-11-19 | 阶段 1 / Task 8 | §5.5 scripts 门禁（selftest） | ✅ 通过 | 0f6fbf5 | `1-bringup-2026-11-19/build-gates.txt`（门禁 4 段） | `screenshot.py --selftest` 6 组断言通过；系统 python3 与 IDF venv python3.14 双跑均退出码 0 |
+| 2026-11-20 | 阶段 2 / P2-2 | host-test.sh 门禁生效 | ✅ 通过 | 0fef6c2 | `2-engine-2026-11-20/host-baseline.txt` SHA256 b53adae15ca289cb296463871177e57c3498735cb20771e7d4927428c5b52ae5 | 完整 CC0 资产随树（修复 e3b7a32，manifest 233/233 OK）；host-test.sh 连跑两次退出码 0，每次 182 golden 0 changed/0 gone、0 health/voice/crash，末行 ALL HOST TESTS PASSED (subset)；golden SHA256 189c9a0c…，未启用更新模式 |
 
 > 证据相对路径均以 `docs/dev/verify/` 为根；SHA256 为 16 位前缀，全值见 `1-bringup-2026-11-19/SHA256SUMS`。
 > 「提交号」列＝**受测固件提交**（如 8f8e01b=键盘代码、70b75ed=触摸代码、0f6fbf5=阶段 1 终版）；证据晋升与登记本身发生在其后的 docs 提交（44254a2 及终审修复提交），两列所指不同属正常。
