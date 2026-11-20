@@ -152,7 +152,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值）。
-- 场景脚本：`scripts/inject/{transport,step_edit,tracks}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复运行（先读基线、结束时复位），退出码 0 才算通过。
+- 场景脚本：`scripts/inject/{transport,step_edit,tracks}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复（幂等，必要时先归一基线），退出码 0 才算通过。
 - **transcript 必须是原始回显**：串口字节逐字节写日志，不裁剪、不手改、不摘述；只允许 `# [inject] ...` 前缀的工具注记（非固件输出），SCR 的二进制帧体不入日志。日志与截图落 `firmware/build/verify/`，门禁证据按 §5.4(1) 晋升。
 
 ### 5.5 验证门禁（任务完成的定义）

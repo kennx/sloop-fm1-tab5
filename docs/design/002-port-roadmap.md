@@ -94,7 +94,7 @@
 | P3-2 UI 架构 ADR | UI 用 LVGL（BSP esp_lvgl_port）；决策：1280×720 原生重排版（推荐，参考 Sloop Go 屏设）vs 240×240 放大兼容；页面路由对应 SLOOP 层级；视觉规范（四轨主题色 蓝/绿/黄/橙 等） | ADR 落档 |
 | P3-3 MVP 四屏 | PLAY（kit 信息 + 演奏触发指示）、TRACKS（四轨选择着色）、STEP（步进网格编辑）、TRANSPORT（播放/停/BPM） | 每屏截屏过 §5.4 |
 | P3-4 状态模型 | AppState 快照 + 编辑命令归一抽象（本地引擎执行；阶段 5 同一抽象直发 FM-1） | 状态层单测（host 可跑）+ 设备行为 |
-| P3-5 串口输入注入 | console `KEY <code>` / `TAP <x> <y>` 与 `SCR` 组合，UI 状态可脚本复现；同步更新 AGENTS §5.3/§5.4 与 screenshot.py（含 §5.4 预留的 `SCR <page>` 参数化一并评估） | 注入脚本驱动的截屏序列 |
+| P3-5 串口输入注入 | console `KEY <code>` / `TAP <x> <y>` 与 `SCR` 组合，UI 状态可脚本复现；同步更新 AGENTS §5.3/§5.4 与 screenshot.py（含 §5.4 预留的 `SCR <page>` 参数化一并评估） | 注入脚本驱动的截屏序列。`SCR <page>` 已评估**未采纳**：`UI <page>` 同步切页（回显即落地页）+ 无参 `SCR` 已覆盖全部验证场景，新增参数只会让截屏协议多一条路径（Task 7/8 实证） |
 
 **完成判据**：
 1. 端到端人工试玩：选 kit → Tab5 Keyboard 演奏出声 → 步进写入 → 循环播放（听感正确、无爆音卡顿）；
