@@ -69,7 +69,10 @@ esp_err_t sloop_core_status(void)
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
     fm6_poll();
-    mix_block(block, frames);
+    for (uint32_t b = 0; b < frames; b += CTL) {
+        uint32_t n = frames - b < CTL ? frames - b : CTL;
+        mix_block(block + 2u * b, n);
+    }
 }
 
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)

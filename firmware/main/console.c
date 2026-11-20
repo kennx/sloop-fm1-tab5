@@ -6,7 +6,7 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎骨架入口（ENG INFO 初始化结果与核心常量）。
+ *  - ENG：SLOOP 引擎诊断（INFO 初始化结果/常量；SMOKE 两次 256 帧渲染与哈希）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -209,18 +209,53 @@ static int aud_command(int argc, char **argv)
     return 0;
 }
 
+#define ENG_SMOKE_FRAMES 256u
+static int32_t eng_smoke_on[ENG_SMOKE_FRAMES * 2u];
+static int32_t eng_smoke_off[ENG_SMOKE_FRAMES * 2u];
+
+static uint64_t eng_smoke_hash(const int32_t *samples)
+{
+    uint64_t hash = 1469598103934665603ULL;
+    for (uint32_t i = 0; i < ENG_SMOKE_FRAMES * 2u; i++) {
+        uint32_t value = (uint32_t)samples[i];
+        for (uint32_t b = 0; b < 4; b++) {
+            hash ^= (value >> (b * 8u)) & 0xFFu;
+            hash *= 1099511628211ULL;
+        }
+    }
+    return hash;
+}
+
 static int eng_command(int argc, char **argv)
 {
-    if (argc != 2 || strcasecmp(argv[1], "info") != 0) {
-        printf("用法: ENG INFO\n");
-        return 1;
+    if (argc == 2 && strcasecmp(argv[1], "info") == 0) {
+        printf("ENG INFO init=%s rate=%u frames=%u NENGINES=%u P_COUNT=%u G_COUNT=%u\n",
+               esp_err_to_name(sloop_core_status()), (unsigned)sloop_core_rate(),
+               (unsigned)sloop_core_frames(), (unsigned)SLOOP_CORE_NENGINES,
+               (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_G_COUNT);
+        return 0;
     }
-
-    printf("ENG INFO init=%s rate=%u frames=%u NENGINES=%u P_COUNT=%u G_COUNT=%u\n",
-           esp_err_to_name(sloop_core_status()), (unsigned)sloop_core_rate(),
-           (unsigned)sloop_core_frames(), (unsigned)SLOOP_CORE_NENGINES,
-           (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_G_COUNT);
-    return 0;
+    if (argc == 2 && strcasecmp(argv[1], "smoke") == 0) {
+        if (sloop_core_status() != ESP_OK || sloop_core_frames() != ENG_SMOKE_FRAMES) {
+            printf("ENG SMOKE FAIL init=%s frames=%u\n", esp_err_to_name(sloop_core_status()),
+                   (unsigned)sloop_core_frames());
+            return 1;
+        }
+        sloop_core_track(0, 0, 0);
+        sloop_core_note(0, 60, true);
+        sloop_core_render(eng_smoke_on, ENG_SMOKE_FRAMES);
+        uint32_t nonzero = 0;
+        for (uint32_t i = 0; i < ENG_SMOKE_FRAMES * 2u; i++) nonzero += eng_smoke_on[i] != 0;
+        sloop_core_note(0, 60, false);
+        sloop_core_render(eng_smoke_off, ENG_SMOKE_FRAMES);
+        printf("ENG SMOKE frames=%u on_hash=%016llx off_hash=%016llx nonzero=%u result=%s\n",
+               (unsigned)ENG_SMOKE_FRAMES, (unsigned long long)eng_smoke_hash(eng_smoke_on),
+               (unsigned long long)eng_smoke_hash(eng_smoke_off), (unsigned)nonzero,
+               nonzero ? "PASS" : "FAIL");
+        return nonzero ? 0 : 1;
+    }
+    printf("用法: ENG INFO|SMOKE\n");
+    return 1;
 }
 
 esp_err_t app_console_init(void)
@@ -278,8 +313,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎状态；ENG INFO 打印初始化结果与核心常量",
-        .hint = "INFO",
+        .help = "SLOOP 引擎诊断；INFO 打印常量，SMOKE 渲染两次 256 帧并输出 FNV-1a/非零样本数",
+        .hint = "INFO|SMOKE",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);

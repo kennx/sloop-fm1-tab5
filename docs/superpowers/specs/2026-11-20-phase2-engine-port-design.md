@@ -113,7 +113,7 @@ firmware/components/
 
 ```c
 esp_err_t sloop_core_init(void);                       /* 复刻 preview_init + 后端挂接 */
-void sloop_core_render(int32_t *block, uint32_t frames); /* = mix_block，音频任务调用 */
+void sloop_core_render(int32_t *block, uint32_t frames); /* fm6_poll 后按 CTL=32 量子循环调用 mix_block，输出指针前进 2*b */
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset); /* = preview_track：选轨引擎/预置 */
 void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
@@ -131,6 +131,9 @@ Tab5 链接适配由 `sloop_core/linker.lf` 把上游 `.pool`/`.lowram` 零初�
 容纳约 260KiB `.pool`、其余核心状态与 320KiB 用户槽），`SMP_USER_XIP` 直接指向该 RAM。
 
 `ENG SELFTEST` 不走此 API——它把 regress.c 用例驱动作为独立 TU 编入（与 host 同源），保证 host/device 跑的是同一份判定代码。
+
+`ENG SMOKE` 是轻量常驻诊断：轨道 0 选引擎/预置 0，note 60 开/关各渲染一次 256 帧，
+打印两个缓冲的 FNV-1a 64 哈希与 note-on 非零样本数；`nonzero>0` 才返回 PASS。
 
 ### 4.2 D2（本地编辑入口）记录
 
