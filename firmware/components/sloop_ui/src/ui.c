@@ -3,7 +3,8 @@
  *
  * 布局：页签条 y∈[0,72)（bg UI_PANEL，选中页签 UI_ACCENT），页面区
  * y∈[72,720)。四个页对象创建一次，切页只改 LV_OBJ_FLAG_HIDDEN（不重建，
- * 避免每次切页重新分配 LVGL 对象/丢失焦点）。
+ * 避免每次切页重新分配 LVGL 对象/丢失焦点）：PLAY（page_play.c）/ TRACKS
+ * （page_tracks.c）/ STEP（page_step.c）/ TRANSPORT（page_transport.c）。
  *
  * 线程纪律：所有 LVGL 调用在 bsp_display_lock 内——公共入口自行加锁，
  * 页签回调与 30ms 定时器运行在 LVGL 任务上下文中（esp_lvgl_port 的
@@ -104,15 +105,6 @@ static void create_tab_bar(lv_obj_t *root)
     lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -24, 22);
 }
 
-static void create_placeholder_page(lv_obj_t *page)
-{
-    lv_obj_t *label = lv_label_create(page);
-    lv_label_set_text(label, "TODO");
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(label, lv_color_hex(UI_TEXT_DIM), 0);
-    lv_obj_center(label);
-}
-
 static void create_pages(lv_obj_t *root)
 {
     for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
@@ -123,8 +115,8 @@ static void create_pages(lv_obj_t *root)
         s_pages[i] = page;
     }
     page_play_create(s_pages[APP_PAGE_PLAY]);
-    create_placeholder_page(s_pages[APP_PAGE_TRACKS]);  /* Task 5 */
-    create_placeholder_page(s_pages[APP_PAGE_STEP]);    /* Task 5 */
+    page_tracks_create(s_pages[APP_PAGE_TRACKS]);
+    page_step_create(s_pages[APP_PAGE_STEP]);
     page_transport_create(s_pages[APP_PAGE_TRANSPORT]);
 }
 
@@ -136,6 +128,8 @@ static void ui_timer_cb(lv_timer_t *timer)
     app_state_t st;
     state_get_copy(&st);
     page_play_update(&st);
+    page_tracks_update(&st);
+    page_step_update(&st);
     page_transport_update(&st);
 }
 
@@ -186,8 +180,13 @@ esp_err_t sloop_ui_start(void)
     s_started = true;
     bsp_display_unlock();
 
-    ESP_LOGI(TAG, "UI 就绪: %u 页 @%dx%d, 内部堆剩余 %u 字节", (unsigned)APP_STATE_PAGES,
-             UI_W, UI_H, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    /* LVGL 对象走内置 TLSF 池（CONFIG_LV_USE_STDLIB_MALLOC=0），池耗尽会静默
+     * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打一次占用。 */
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    ESP_LOGI(TAG, "UI 就绪: %u 页 @%dx%d, LVGL 池已用 %u/%u 字节, 内部堆剩余 %u 字节",
+             (unsigned)APP_STATE_PAGES, UI_W, UI_H, (unsigned)(mon.total_size - mon.free_size),
+             (unsigned)mon.total_size, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     return ESP_OK;
 }
 

@@ -43,8 +43,8 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
 
     sloop_step_t st;
     sloop_core_read_step(track, idx, &st);
-    /* 「有音」与上游 sp_on 同口径（seq.c）：time == NOTE 且 n > 0；TIE/REST 都算空 */
-    bool on = st.n > 0 && st.time == STATE_ST_NOTE;
+    /* 「有音」与上游 sp_on 同口径（seq.c）；判定与 UI 共用 state_step_is_on() */
+    bool on = state_step_is_on(st.n, st.time);
     if (!on) {
         memset(st.note, 0, sizeof(st.note));
         st.note[0] = s->last_note != 0 ? s->last_note : APP_STATE_NOTE_DEFAULT;

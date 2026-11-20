@@ -1,6 +1,7 @@
 #ifndef SLOOP_STATE_H
 #define SLOOP_STATE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "sloop_core.h"
@@ -36,9 +37,11 @@ typedef enum {
  *  CMD_PLAY/STOP     （STOP = play(false)）
  *  CMD_SELECT_TRACK  a=track(0..3)：选中轨（与 CMD_SET_TRACK 等价）
  *  CMD_SET_TRACK     a=track(0..3)：选中轨（控制方裁定：SET_TRACK 的语义即选轨）
- *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空（n==0）→ 开：写 last_note
+ *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空 → 开：写 last_note
  *                    （无则 60）、n=1/vel=100/time=NOTE/flags=0；开→关：n=0/
  *                    time=REST。均 read-modify-write，保留 lvl/rat/micro/fill。
+ *                    「空/开」判定见 state_step_is_on()：n>0 且 time==NOTE；
+ *                    n>0 但 time 为 TIE/REST 的步算空（切换 → 开，不是 → 关）。
  *                    鼓轨（track 3）MVP 只读，忽略。
  *  CMD_SET_BPM       v 钳位到 40..240（上游 params.c 的 GP[G_BPM]）后写 G_BPM
  *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位 */
@@ -60,6 +63,14 @@ typedef struct {
 typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
 } app_page_t;
+
+/* 「有音」判定，与上游 seq.c 的 sp_on 同口径：n>0 且 time==NOTE（ST_NOTE=0）；
+ * n>0 但 time 为 TIE/REST 的步算「空」。状态层的步切换与 STEP 网格渲染共用本
+ * 判定，两侧口径不得各写一份。 */
+static inline bool state_step_is_on(uint8_t n, uint8_t time)
+{
+    return n > 0 && time == 0;
+}
 
 /* 初始化（设备上同时建互斥；须在引擎 init 之后、任何 apply/read 之前调用）。 */
 void state_init(void);

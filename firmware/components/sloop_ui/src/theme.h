@@ -20,10 +20,11 @@
 /* 配色 */
 #define UI_BG       0x101418 /* 全局背景（页面区） */
 #define UI_PANEL    0x1B2026 /* 页签条/面板底 */
-#define UI_PANEL_HI 0x242B33 /* 未选中页签/次级按钮 */
+#define UI_PANEL_HI 0x242B33 /* 未选中页签/次级按钮/空步格 */
+#define UI_PANEL_SEL 0x2C3540 /* 选中态的卡片底（比 UI_PANEL 亮一档） */
 #define UI_TEXT     0xF2F5F8 /* 主文本 */
 #define UI_TEXT_DIM 0x8A949E /* 次级文本 */
-#define UI_ACCENT   0xE0B32A /* 选中页签（强调色） */
+#define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
 
 /* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72） */
 #define UI_TAB_X0  16
@@ -39,11 +40,16 @@ static inline uint32_t ui_track_color(uint8_t k)
     return colors[k < APP_STATE_TRACKS ? k : 0];
 }
 
-/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。
- * TRACKS/STEP 页本任务为占位内容，Task 5 在此扩展。 */
+/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。 */
 void page_play_create(lv_obj_t *parent);
 void page_play_update(const app_state_t *st);
 void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock */
+
+void page_tracks_create(lv_obj_t *parent);
+void page_tracks_update(const app_state_t *st);
+
+void page_step_create(lv_obj_t *parent);
+void page_step_update(const app_state_t *st);
 
 void page_transport_create(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
