@@ -15,5 +15,5 @@
   [PASS] ENG mute k0 restored: got 0 want 0
   [PASS] ENG solo k0 restored: got 0 want 0
   [PASS] ENG sel restored: got 0 want 0
-TRANSCRIPT firmware/build/verify/di9-mute-solo-20261121-055904.log
+TRANSCRIPT firmware/build/verify/di9-mute-solo-20261121-060149.log
 RESULT PASS

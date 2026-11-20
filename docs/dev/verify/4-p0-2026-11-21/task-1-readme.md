@@ -1,8 +1,8 @@
 # 阶段 4 P4-0 Task 1 证据：DI-9 mute/solo/selected 引擎写路径
 
-> 受测固件：Task 1 代码提交 **68d2a07**（启动日志 `App version: b9cb435`——版本串取
-> 构建时 HEAD，即紧随其后的证据提交；代码内容与 68d2a07 相同）。
-> 采集机时：2026-11-21 05:50–06:00 CST；Tab5 USB-C → `/dev/ttyACM0`。
+> 受测固件：代码提交 **68d2a07**（启动日志 `App version: bbbc82e`——版本串取 clean
+> 构建时的 HEAD，即本次证据提交；其代码与 68d2a07 相同）。
+> 采集机时：2026-11-21 05:50–06:03 CST；Tab5 USB-C → `/dev/ttyACM0`。
 > 登记见 `docs/dev/verification-log.md`；本目录 `SHA256SUMS` 覆盖全部文件（除自身）。
 
 ## 1. 门禁结果
@@ -41,5 +41,6 @@
 ## 3. 备注
 
 - 设备证据（flash/boot/transcript/selftest）均在最终 `build.sh --clean` + 增量构建之后
-  重烧重采，镜像即受测提交源码所构建；`Hash of data verified` ×3 与启动日志自证。
+  重烧重采（构建时工作树干净），镜像即受测提交源码所构建；`Hash of data verified` ×3
+  与启动日志 `App version` 自证。
 - `task-1-boot-log.txt` 末尾的 `# [di9] boot capture end` 为采集工具注记。

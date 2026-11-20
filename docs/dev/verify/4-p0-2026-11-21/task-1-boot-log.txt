@@ -1,7 +1,7 @@
 ESP-ROM:esp32p4-eco2-20240710
 Build:Jul 10 2024
 rst:0x17 (CHIP_USB_UART_RESET),boot:0x20c (SPI_FAST_FLASH_BOOT)
-Core0 Saved PC:0x4ff0027a
+Core0 Saved PC:0x4ff0bad0
 Core1 Saved PC:0x4ff038ce
 SPI mode:DIO, clock div:1
 load:0x4ff33ce0,len:0x1664
@@ -9,7 +9,7 @@ load:0x4ff29ed0,len:0xe24
 load:0x4ff2cbd0,len:0x3548
 entry 0x4ff29eda
 I (8) boot: ESP-IDF v5.5.5 2nd stage bootloader
-I (8) boot: compile time Nov 21 2026 05:56:45
+I (8) boot: compile time Nov 21 2026 06:01:17
 I (9) boot: Multicore bootloader
 I (10) boot: chip revision: v1.3
 I (10) boot: efuse block revision: v0.3
@@ -26,10 +26,10 @@ I (14) boot:  3 storage          Unknown data     01 81 00810000 007f0000
 I (16) boot: End of partition table
 I (16) esp_image: segment 0: paddr=00010020 vaddr=400d0020 size=89c94h (564372) map
 I (96) esp_image: segment 1: paddr=00099cbc vaddr=30100000 size=0007ch (   124) load
-I (98) esp_image: segment 2: paddr=00099d40 vaddr=4ff00000 size=062d8h ( 25304) load
+I (97) esp_image: segment 2: paddr=00099d40 vaddr=4ff00000 size=062d8h ( 25304) load
 I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 size=cbe78h (835192) map
-I (221) esp_image: segment 4: paddr=0016bea0 vaddr=4ff062d8 size=10010h ( 65552) load
-I (233) esp_image: segment 5: paddr=0017beb8 vaddr=4ff16300 size=046c4h ( 18116) load
+I (220) esp_image: segment 4: paddr=0016bea0 vaddr=4ff062d8 size=10010h ( 65552) load
+I (232) esp_image: segment 5: paddr=0017beb8 vaddr=4ff16300 size=046c4h ( 18116) load
 I (237) esp_image: segment 6: paddr=00180584 vaddr=50108080 size=00020h (    32) load
 I (243) boot: Loaded app from partition at offset 0x10000
 I (243) boot: Disabling RNG early entropy source...
@@ -38,13 +38,13 @@ I (249) hex_psram: Latency      : 0x01 (Fixed)
 I (249) hex_psram: DriveStr.    : 0x00 (25 Ohm)
 I (250) hex_psram: dev id       : 0x03 (generation 4)
 I (250) hex_psram: density      : 0x07 (256 Mbit)
-I (251) hex_psram: good-die     : 0x06 (Pass)
+I (250) hex_psram: good-die     : 0x06 (Pass)
 I (251) hex_psram: SRF          : 0x02 (Slow Refresh)
 I (251) hex_psram: BurstType    : 0x00 ( Wrap)
-I (252) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (251) hex_psram: BurstLen     : 0x03 (2048 Byte)
 I (252) hex_psram: BitMode      : 0x01 (X16 Mode)
 I (252) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
-I (253) hex_psram: DriveStrength: 0x00 (1/1)
+I (252) hex_psram: DriveStrength: 0x00 (1/1)
 I (253) MSPI Timing: Enter psram timing tuning
 I (427) esp_psram: Found 32MB PSRAM device
 I (427) esp_psram: Speed: 200MHz
@@ -55,9 +55,9 @@ I (1394) cpu_start: Pro cpu start user code
 I (1394) cpu_start: cpu freq: 360000000 Hz
 I (1395) app_init: Application information:
 I (1395) app_init: Project name:     sloop_fm1_tab5
-I (1395) app_init: App version:      b9cb435
-I (1395) app_init: Compile time:     Nov 21 2026 05:58:01
-I (1395) app_init: ELF file SHA256:  3609e0122...
+I (1395) app_init: App version:      bbbc82e
+I (1395) app_init: Compile time:     Nov 21 2026 06:00:30
+I (1396) app_init: ELF file SHA256:  d6749d92b...
 I (1396) app_init: ESP-IDF:          v5.5.5
 I (1396) efuse_init: Min chip rev:     v1.0
 I (1396) efuse_init: Max chip rev:     v1.99 
@@ -68,7 +68,7 @@ I (1397) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
 I (1397) heap_init: At 4FF9B6C0 len 00004940 (18 KiB): RAM
 I (1398) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
 I (1398) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
-I (1399) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1398) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
 I (1400) spi_flash: detected chip: generic
 I (1400) spi_flash: flash io: dio
 I (1400) sleep_gpio: Configure to isolate all GPIO pins in sleep state
@@ -104,7 +104,7 @@ On Windows, try using Windows Terminal or Putty instead.
 sloop>  I (4082) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
 I (4082) sloop_tab5: keyboard: OK (0x6D)
 W (4082) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
-W (4092) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4082) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
 I (4102) I2S_IF: Paired data: 0x4ff3fb44, current mode: playback, paired in_enable: 0, paired out_enable: 0
 I (4102) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
 I (4102) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
