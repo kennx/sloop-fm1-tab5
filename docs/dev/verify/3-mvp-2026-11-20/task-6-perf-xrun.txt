@@ -1,0 +1,11 @@
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3148 min_free_since_boot_internal=98892 min_free_since_boot_psram=30128964
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG MEM
+ENG MEM internal_free=114555 internal_min=98892 psram_free=30128964 psram_min=30128964
+sloop>  

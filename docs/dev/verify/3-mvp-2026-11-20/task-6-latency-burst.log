@@ -1,0 +1,409 @@
+KEY STATS RESET
+KEY STATS reset
+sloop>  KEY 0x42 down
+I (13591) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=20718
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=69
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=95
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=17
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=16
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=16
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=13
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=16
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=13
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=16
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=15
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=14
+sloop>  KEY STATS
+KEY STATS count=100 mean_us=222 max_us=20718
+sloop>  KEY 0x42 up
+I (25271) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=577
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=13
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=16
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=16
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=16
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=20
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=15
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=16
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=16
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=14
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=13
+sloop>  KEY STATS
+KEY STATS count=200 mean_us=121 max_us=20718
+sloop>  

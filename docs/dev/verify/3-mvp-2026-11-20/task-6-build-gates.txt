@@ -1,0 +1,43 @@
+# Task 6 门禁日志摘录（2026-11-20，受测固件 66b86f8，clean 树构建）
+
+## 0. 受测提交
+$ git rev-parse --short HEAD  ->  66b86f8
+$ git status --porcelain  ->  （空，clean；docs/dev/verify 证据除外）
+
+## 1. build.sh --clean + build.sh（两遍）
+== build 1 (--clean) 2026-11-20T22:39:21+08:00 HEAD=66b86f8
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+  Missing kconfig option.  Re-run the build process...
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+sloop_fm1_tab5.bin binary size 0x16f360 bytes. Smallest app partition is 0x800000 bytes. 0x690ca0 bytes (82%) free.
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+EXIT=0
+== build 2 2026-11-20T22:43:22+08:00
+sloop_fm1_tab5.bin binary size 0x16f360 bytes. Smallest app partition is 0x800000 bytes. 0x690ca0 bytes (82%) free.
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+EXIT=0
+
+## 2. 警告/错误计数（两遍合计）
+warning: 0  error: 0
+（首遍的 kconfig CMake 提示对属 AGENTS §5.5 已知豁免；第二遍无 CMake 提示）
+
+## 3. host 回归（scripts/host-test.sh）
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (9 notes), 0 crashes; 4.8 s
+ALL HOST TESTS PASSED (subset)
+
+## 4. 状态层单测（scripts/state-test.sh）
+7 passed, 0 failed（新增 ERASE_NOTE 用例 k=5）
+
+## 5. manifest
+third_party MANIFEST.sha256: 233/233 OK（树未改动）
+
+## 6. 烧录
+esptool: 三段 Hash of data verified（bootloader/partition-table/app 0x10000）；Done
+
+## 7. 启动
+I (1394) app_init: App version:      66b86f8
+I (4071) sloop_tab5: keyboard: OK (0x6D)
+I (4201) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119407 字节
+I (4421) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
