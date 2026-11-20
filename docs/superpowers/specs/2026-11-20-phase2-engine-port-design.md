@@ -119,8 +119,16 @@ void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);
 uint32_t sloop_core_rate(void);   /* FS */
-uint32_t sloop_core_frames(void); /* CTL/HALF_FRAMES 对齐后的块长 */
+uint32_t sloop_core_frames(void); /* Tab5 音频半缓冲粒度：HALF_FRAMES（256）；核心控制量子仍为 CTL=32 */
 ```
+
+设备骨架另暴露 `sloop_core_status()` 供 `ENG INFO` 读取启动初始化结果；公开计数宏
+`SLOOP_CORE_NENGINES/P_COUNT/G_COUNT` 在组合 TU 内以 `_Static_assert` 与上游枚举核对，
+避免 console 直接包含上游 `core.h`。
+
+Tab5 链接适配由 `sloop_core/linker.lf` 把上游 `.pool`/`.lowram` 零初始化 DSP 缓冲映射到
+`dram0_bss`；4×80KiB 用户采样槽由 `sloop_hal_tab5` 在 PSRAM 堆分配（内部 DRAM 不足以同时
+容纳约 260KiB `.pool`、其余核心状态与 320KiB 用户槽），`SMP_USER_XIP` 直接指向该 RAM。
 
 `ENG SELFTEST` 不走此 API——它把 regress.c 用例驱动作为独立 TU 编入（与 host 同源），保证 host/device 跑的是同一份判定代码。
 

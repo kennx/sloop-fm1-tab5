@@ -1,12 +1,12 @@
 /*
- * sloop-fm1-tab5 — bring-up 自检入口（阶段 1）
+ * sloop-fm1-tab5 — 应用入口（阶段 1 bring-up + 阶段 2 引擎骨架）
  *
  * 阶段 1 平台 bring-up 已落地（2026-11-19，机器侧门禁全绿）：MIPI-DSI 显示与
- * 测试图（display.c）、console SCR/KB/AUD 命令（console.c，AGENTS §5.3）、
+ * 测试图（display.c）、console SCR/KB/AUD/ENG 命令（console.c，AGENTS §5.3）、
  * Tab5 Keyboard 驱动（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50，
  * FW 0x01）、ES8388 扬声器正弦自检（audio_tone.c，44.1kHz/2ch/16bit）。
  * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
- * 下一阶段：阶段 2 sloop_core 引擎移植（docs/design/002-port-roadmap.md §4）。
+ * 阶段 2 已接入 sloop_core 组合 TU 与 sloop_hal_tab5 RAM 存储骨架；音频流待 Task 4。
  */
 #include "audio_tone.h"
 #include "console.h"
@@ -18,6 +18,8 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sloop_core.h"
+#include "sloop_hal.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_tab5";
@@ -69,6 +71,18 @@ void app_main(void)
     ret = audio_tone_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "音频初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    ret = sloop_hal_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "SLOOP HAL 初始化失败: %s", esp_err_to_name(ret));
+    }
+    ret = sloop_core_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "SLOOP 引擎初始化失败: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "SLOOP 引擎初始化完成: rate=%u frames=%u",
+                 (unsigned)sloop_core_rate(), (unsigned)sloop_core_frames());
     }
 
     while (1) {

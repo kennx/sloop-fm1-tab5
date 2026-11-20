@@ -1,0 +1,13 @@
+[sections:sloop_pool]
+entries:
+    .pool
+    .lowram
+
+[scheme:sloop_core]
+entries:
+    sloop_pool -> dram0_bss
+
+[mapping:sloop_core]
+archive: libsloop_core.a
+entries:
+    * (sloop_core)

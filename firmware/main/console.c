@@ -6,6 +6,7 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
+ *  - ENG：SLOOP 引擎骨架入口（ENG INFO 初始化结果与核心常量）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -31,6 +32,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sloop_core.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_console";
@@ -207,6 +209,20 @@ static int aud_command(int argc, char **argv)
     return 0;
 }
 
+static int eng_command(int argc, char **argv)
+{
+    if (argc != 2 || strcasecmp(argv[1], "info") != 0) {
+        printf("用法: ENG INFO\n");
+        return 1;
+    }
+
+    printf("ENG INFO init=%s rate=%u frames=%u NENGINES=%u P_COUNT=%u G_COUNT=%u\n",
+           esp_err_to_name(sloop_core_status()), (unsigned)sloop_core_rate(),
+           (unsigned)sloop_core_frames(), (unsigned)SLOOP_CORE_NENGINES,
+           (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_G_COUNT);
+    return 0;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -221,7 +237,7 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* 先注册命令后启动 REPL（SCR/KB/AUD） */
+    /* 先注册命令后启动 REPL（SCR/KB/AUD/ENG） */
     const esp_console_cmd_t scr_cmd = {
         .command = "SCR",
         .help = "导出帧缓冲（AGENTS §5.3 截屏协议，screenshot.py 对端）",
@@ -257,6 +273,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&aud_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 AUD 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t eng_cmd = {
+        .command = "ENG",
+        .help = "SLOOP 引擎状态；ENG INFO 打印初始化结果与核心常量",
+        .hint = "INFO",
+        .func = &eng_command,
+    };
+    ret = esp_console_cmd_register(&eng_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 ENG 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
