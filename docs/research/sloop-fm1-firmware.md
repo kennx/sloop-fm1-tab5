@@ -2,6 +2,7 @@
 
 > 用途：sloop-fm1-tab5 项目上游固件参考
 > 调研日期：2026-11-19 ｜ 上游版本：SLOOP 2.8.5（commit bac9c05）
+> 复核：2026-11-20 main HEAD=bac9c05 无漂移（`git ls-remote` SSH）
 > 仓库：<https://github.com/isod89/sloop-fm1> ｜ 许可：**GPL-3.0**（衍生移植必须同样 GPL-3.0 开源）
 > 上游文档：[README.md](https://github.com/isod89/sloop-fm1/blob/main/README.md)（功能/操作）、[SLOOP.md]（手册，98KB）、[GUIDE.md]（指南，132KB）、[BUILDING.md]（构建）、[DUALCORE.md]（双核）、[RAM.md]（内存）
 

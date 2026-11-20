@@ -37,7 +37,7 @@
 ```
 third_party/sloop-fm1/                 # 新建（Task 1）：vendored 上游子树 + LICENSE 族，只读
 third_party/MANIFEST.sha256            # 新建（Task 1）：完整性清单
-tools/fetch_upstream.sh                # 新建（Task 1）：固定 commit 抓取 + 校验（镜像/代理参数）
+tools/fetch_upstream.sh                # 新建（Task 1）：固定 commit 抓取 + 校验（默认 SSH，支持镜像参数）
 scripts/host-test.sh                   # 新建（Task 2）：host 基线门禁（生成头 + 子集编译运行）
 firmware/components/
 ├── sloop_core/                        # 新建（Task 3）
@@ -70,11 +70,11 @@ docs/{design,research,dev}…            # 各任务按 AGENTS §6 同步
 
 **Interfaces:**
 - Produces: `third_party/sloop-fm1/`（至少含 `firmware/src/`、`firmware/hal/`、`firmware/host/`、`tests/`、`tools/`（gen_*/sampleio/gen_waves/fetch_cc0）、`web/EDITOR_PROTOCOL.md`、`LICENSE`+`LICENSES/`+许可/CREDITS 文件）；pin `bac9c05ea7627449405aa10e48da21d75b6c8c56`。
-- Produces（常量，Task 3/4 消费）：`FS`、`CTL`、`HALF_FRAMES`、`NSTEP`、`NENGINES`、`P_COUNT`、`G_COUNT`、`SMP_USER_SIZE` 的实际值（从 third_party `firmware/src/core.h` 提取）。
+- Produces（常量，Task 3/4 消费）：`FS=44100`、`CTL=32`、`HALF_FRAMES=256`、`NSTEP=64`、`NENGINES=12`（默认 `FELUCCA_SLICE=0`）、`P_COUNT=71`、`G_COUNT=50`、`SMP_USER_SIZE=0x14000`（81920 字节）。除 `CTL` 来自 `tools/gen_tables.py`、`SMP_USER_SIZE` 来自 `eng_sample.c` 外，其余定义均在 vendored `core.h`。
 
 - [ ] **Step 1: 确立取源通道**
 
-本机直连 GitHub 已实证失败。依序尝试：(a) `git clone --depth 1 https://gitclone.com/github.com/isod89/sloop-fm1 /tmp/upstream`（或 `https://ghproxy.net/https://github.com/...` 镜像）；(b) 用户代理（`https_proxy` 环境变量若存在则用）；(c) 兜底：经 GitHub MCP `get_file_contents` 逐文件导出（慢，只取上述子树清单）。把可用通道写进 fetch 脚本注释。
+上游取源默认使用已实证可用的 SSH：`git ls-remote git@github.com:isod89/sloop-fm1.git HEAD` 返回 bac9c05；HTTPS git/curl 不通的问题由 SSH 规避。fetch 脚本以 SSH 为默认通道，保留 `--mirror`/`--ref` 作为备选通道与升级参数。
 
 - [ ] **Step 2: 实现 `tools/fetch_upstream.sh`**
 
@@ -92,7 +92,7 @@ Run: `git status --short third_party/` → 仅新增，无后续改动（此后�
 
 - [ ] **Step 5: 常量提取与文档回写**
 
-从 `third_party/sloop-fm1/firmware/src/core.h` 提取 §Produces 常量值，回写 spec §2.4 常量表与本计划 Task 3/4 中的 `__CTL__`/`__HALF_FRAMES__` 占位（实际替换为数值）。`docs/research/sloop-fm1-firmware.md` 头部加一行：2026-11-20 复核 main HEAD=bac9c05 无漂移（GitHub API）。
+从 vendored 树提取 §Produces 常量值，回写 spec §2.4 常量表与本计划 Task 1 Produces（本计划无字面 `__CTL__`/`__HALF_FRAMES__` 占位）。`docs/research/sloop-fm1-firmware.md` 头部加一行：2026-11-20 复核 main HEAD=bac9c05 无漂移（git ls-remote SSH）。
 
 - [ ] **Step 6: Commit**
 

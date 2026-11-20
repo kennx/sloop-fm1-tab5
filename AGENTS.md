@@ -64,7 +64,11 @@ sloop-fm1-tab5/
 │   ├── screenshot.py              #    串口请求帧缓冲 → PNG（协议见 §5.3）
 │   ├── verify.sh                  #    一键验证：构建→烧录→等启动→截屏
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
-└── tools/                         # 【规划】其他辅助脚本（抓取上游、生成、测试）
+├── third_party/                   # 第三方源码与完整性清单
+│   ├── sloop-fm1/                 #    vendored 上游 SLOOP 2.8.5（bac9c05）精简子树，只读
+│   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
+└── tools/                         # 其他辅助脚本
+    └── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
 ```
 
 规划中的目录在建立时于本节同步更新；`【规划】`标记表示尚未落地。
