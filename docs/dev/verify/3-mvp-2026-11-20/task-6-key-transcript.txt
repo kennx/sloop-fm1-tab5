@@ -7,9 +7,9 @@ I (1394) cpu_start: Pro cpu start user code
 I (1394) cpu_start: cpu freq: 360000000 Hz
 I (1394) app_init: Application information:
 I (1394) app_init: Project name:     sloop_fm1_tab5
-I (1394) app_init: App version:      66b86f8
-I (1395) app_init: Compile time:     Nov 20 2026 22:42:20
-I (1395) app_init: ELF file SHA256:  8ded3d892...
+I (1394) app_init: App version:      bb6f193
+I (1395) app_init: Compile time:     Nov 20 2026 23:12:24
+I (1395) app_init: ELF file SHA256:  d4a98030d...
 I (1395) app_init: ESP-IDF:          v5.5.5
 I (1395) efuse_init: Min chip rev:     v1.0
 I (1395) efuse_init: Max chip rev:     v1.99 
@@ -23,7 +23,7 @@ I (1397) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
 I (1398) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
 I (1399) spi_flash: detected chip: generic
 I (1399) spi_flash: flash io: dio
-I (1399) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1400) sleep_gpio: Configure to isolate all GPIO pins in sleep state
 I (1400) sleep_gpio: Enable automatic switching of GPIO sleep configuration
 I (1401) main_task: Started on CPU0
 I (1401) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
@@ -53,21 +53,21 @@ Your terminal application does not support escape sequences.
 Line editing and history features are disabled.
 
 On Windows, try using Windows Terminal or Putty instead.
-sloop>  I (4071) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
-I (4071) sloop_tab5: keyboard: OK (0x6D)
-W (4071) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
-W (4071) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
-I (4091) I2S_IF: Paired data: 0x4ff3fb44, current mode: playback, paired in_enable: 0, paired out_enable: 0
-I (4091) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
-I (4091) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
-I (4101) ES8388: Start on mode:2
-I (4101) Adev_Codec: Open codec device OK
-I (4101) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
-I (4121) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
-I (4131) sloop_audio_stream: stream started, half=256 frames
-I (4131) sloop_tab5: UI 启动前内部堆剩余 119407 字节
-I (4201) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119407 字节
-I (4441) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
+sloop>  I (4081) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4081) sloop_tab5: keyboard: OK (0x6D)
+W (4081) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4081) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4101) I2S_IF: Paired data: 0x4ff3fb44, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4101) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4101) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4111) ES8388: Start on mode:2
+I (4111) Adev_Codec: Open codec device OK
+I (4111) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4131) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4141) sloop_audio_stream: stream started, half=256 frames
+I (4141) sloop_tab5: UI 启动前内部堆剩余 119407 字节
+I (4211) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119407 字节
+I (4451) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
 STATE SNAP
 STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
 STATE SNAP trk k=0 mute=0 solo=0
@@ -76,7 +76,7 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x42 down
 I (6111) sloop_input: note on track=0 note=48
-KEY 0x42 down z elapsed_us=22316
+KEY 0x42 down z elapsed_us=645
 sloop>  STATE SNAP
 STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0
 STATE SNAP trk k=0 mute=0 solo=0
@@ -85,65 +85,83 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x42 up
 I (8711) sloop_input: note off track=0 note=48
-KEY 0x42 up z elapsed_us=665
+KEY 0x42 up z elapsed_us=738
+sloop>  KEY 0x44 down
+I (10021) sloop_input: note on track=0 note=52
+KEY 0x44 down c elapsed_us=570
+sloop>  KEY 0x31 down
+I (11321) sloop_input: layer down 0x02
+KEY 0x31 down Aa elapsed_us=727
+sloop>  KEY 0x44 up
+I (12621) sloop_input: note off track=0 note=52
+KEY 0x44 up c elapsed_us=960
+sloop>  KEY 0x31 up
+I (13921) sloop_input: layer up 0x00
+KEY 0x31 up Aa elapsed_us=568
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=52 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x41 down
-I (10021) sloop_input: layer down 0x08
-KEY 0x41 down alt elapsed_us=377
+I (16521) sloop_input: layer down 0x08
+KEY 0x41 down alt elapsed_us=417
 sloop>  KEY 0x01 down
-KEY 0x01 down 1 elapsed_us=62
+KEY 0x01 down 1 elapsed_us=45
 sloop>  KEY 0x01 up
-KEY 0x01 up 1 elapsed_us=11
+KEY 0x01 up 1 elapsed_us=12
 sloop>  KEY 0x05 down
 KEY 0x05 down 5 elapsed_us=21
 sloop>  KEY 0x05 up
-KEY 0x05 up 5 elapsed_us=11
+KEY 0x05 up 5 elapsed_us=12
 sloop>  KEY 0x41 up
-I (16531) sloop_input: layer up 0x00
-KEY 0x41 up alt elapsed_us=522
+I (23031) sloop_input: layer up 0x00
+KEY 0x41 up alt elapsed_us=391
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=52 bpm=90 playing=0
 STATE SNAP trk k=0 mute=1 solo=1
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x40 down
-I (19131) sloop_input: layer down 0x04
-KEY 0x40 down ctrl elapsed_us=391
+I (25641) sloop_input: layer down 0x04
+KEY 0x40 down ctrl elapsed_us=561
 sloop>  KEY 0x03 down
-KEY 0x03 down 3 elapsed_us=73
+KEY 0x03 down 3 elapsed_us=47
 sloop>  KEY 0x03 up
-KEY 0x03 up 3 elapsed_us=55
+KEY 0x03 up 3 elapsed_us=49
 sloop>  KEY 0x40 up
-I (23041) sloop_input: layer up 0x00
-KEY 0x40 up ctrl elapsed_us=589
+I (29541) sloop_input: layer up 0x00
+KEY 0x40 up ctrl elapsed_us=557
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0
+STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=52 bpm=90 playing=0
 STATE SNAP trk k=0 mute=1 solo=1
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x4D down
-KEY 0x4D down space elapsed_us=77
+KEY 0x4D down space elapsed_us=73
 sloop>  KEY 0x4D up
-KEY 0x4D up space elapsed_us=19
+KEY 0x4D up space elapsed_us=20
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=52 bpm=90 playing=1
 STATE SNAP trk k=0 mute=1 solo=1
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x4D down
-KEY 0x4D down space elapsed_us=45
+KEY 0x4D down space elapsed_us=35
 sloop>  KEY 0x4D up
-KEY 0x4D up space elapsed_us=15
+KEY 0x4D up space elapsed_us=14
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0
+STATE SNAP page=0 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=52 bpm=90 playing=0
 STATE SNAP trk k=0 mute=1 solo=1
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=33
+KEY 0x4C down right elapsed_us=31
 sloop>  KEY 0x4C up
 KEY 0x4C up right elapsed_us=15
 sloop>  KEY 0x4B down
@@ -151,27 +169,31 @@ KEY 0x4B down down elapsed_us=26
 sloop>  KEY 0x4B up
 KEY 0x4B up down elapsed_us=15
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=1 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0
+STATE SNAP page=0 focus_track=0 focus_step=1 layer_held=0x00 selected_track=2 last_note=52 bpm=90 playing=0
 STATE SNAP trk k=0 mute=1 solo=1
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  KEY 0x00 down
-KEY 0x00 down esc elapsed_us=7662
+KEY 0x00 down esc elapsed_us=288
 sloop>  KEY 0x00 up
 KEY 0x00 up esc elapsed_us=58
 sloop>  UI
 UI page=play (0)
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=174648
+KEY 0x20 down tab elapsed_us=176603
 sloop>  KEY 0x20 up
-KEY 0x20 up tab elapsed_us=54
+KEY 0x20 up tab elapsed_us=56
 sloop>  UI
 UI page=tracks (1)
 sloop>  KEY 0x81 down
 用法: KEY <code=十进制|0xhex> <down|up> | KEY STATS [RESET]
 code = tab5_keyboard 事件码 (row<<4|col)：sym=0x30 Aa=0x31 ctrl=0x40 alt=0x41 z=0x42 space=0x4D esc=0x00 tab=0x20
 Command returned non-zero error code: 0x1 (ERROR)
+sloop>  KEY 0x42 sideways
+用法: KEY <code=十进制|0xhex> <down|up> | KEY STATS [RESET]
+code = tab5_keyboard 事件码 (row<<4|col)：sym=0x30 Aa=0x31 ctrl=0x40 alt=0x41 z=0x42 space=0x4D esc=0x00 tab=0x20
+Command returned non-zero error code: 0x1 (ERROR)
 sloop>  KEY STATS
-KEY STATS count=24 mean_us=8656 max_us=174648
+KEY STATS count=28 mean_us=6555 max_us=176603
 sloop>  

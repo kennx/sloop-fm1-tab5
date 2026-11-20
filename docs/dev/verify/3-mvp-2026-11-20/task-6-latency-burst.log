@@ -1,409 +1,605 @@
 KEY STATS RESET
 KEY STATS reset
 sloop>  KEY 0x42 down
-I (13591) sloop_input: note on track=0 note=48
-KEY 0x42 down z elapsed_us=20718
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=69
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=95
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=17
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=16
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=16
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=13
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=16
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=13
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=16
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=15
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=14
-sloop>  KEY STATS
-KEY STATS count=100 mean_us=222 max_us=20718
+I (59941) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=812
 sloop>  KEY 0x42 up
-I (25271) sloop_input: note off track=0 note=48
+I (60071) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=745
+sloop>  KEY 0x42 down
+I (60191) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=451
+sloop>  KEY 0x42 up
+I (60311) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=421
+sloop>  KEY 0x42 down
+I (60431) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (60551) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=404
+sloop>  KEY 0x42 down
+I (60671) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=569
+sloop>  KEY 0x42 up
+I (60791) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=630
+sloop>  KEY 0x42 down
+I (60911) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=420
+sloop>  KEY 0x42 up
+I (61031) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (61151) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=616
+sloop>  KEY 0x42 up
+I (61271) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (61391) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=613
+sloop>  KEY 0x42 up
+I (61511) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=597
+sloop>  KEY 0x42 down
+I (61631) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=565
+sloop>  KEY 0x42 up
+I (61751) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=406
+sloop>  KEY 0x42 down
+I (61871) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=421
+sloop>  KEY 0x42 up
+I (61991) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=1559
+sloop>  KEY 0x42 down
+I (62121) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=571
+sloop>  KEY 0x42 up
+I (62241) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (62361) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (62481) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (62601) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=414
+sloop>  KEY 0x42 up
+I (62721) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (62841) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=619
+sloop>  KEY 0x42 up
+I (62961) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=535
+sloop>  KEY 0x42 down
+I (63081) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=418
+sloop>  KEY 0x42 up
+I (63201) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=411
+sloop>  KEY 0x42 down
+I (63321) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=420
+sloop>  KEY 0x42 up
+I (63441) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=406
+sloop>  KEY 0x42 down
+I (63561) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=419
+sloop>  KEY 0x42 up
+I (63681) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=552
+sloop>  KEY 0x42 down
+I (63801) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=409
+sloop>  KEY 0x42 up
+I (63921) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=405
+sloop>  KEY 0x42 down
+I (64041) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=419
+sloop>  KEY 0x42 up
+I (64171) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (64291) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=422
+sloop>  KEY 0x42 up
+I (64411) sloop_input: note off track=2 note=48
 KEY 0x42 up z elapsed_us=577
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=13
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=16
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=16
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=16
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=20
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=15
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=16
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=16
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=14
-sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=13
+sloop>  KEY 0x42 down
+I (64531) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=551
+sloop>  KEY 0x42 up
+I (64651) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=528
+sloop>  KEY 0x42 down
+I (64771) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=625
+sloop>  KEY 0x42 up
+I (64891) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=640
+sloop>  KEY 0x42 down
+I (65011) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (65131) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (65251) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=412
+sloop>  KEY 0x42 up
+I (65371) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=521
+sloop>  KEY 0x42 down
+I (65491) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=411
+sloop>  KEY 0x42 up
+I (65611) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=406
+sloop>  KEY 0x42 down
+I (65731) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (65851) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (65971) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=631
+sloop>  KEY 0x42 up
+I (66091) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=568
+sloop>  KEY 0x42 down
+I (66211) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (66341) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=607
+sloop>  KEY 0x42 down
+I (66461) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=610
+sloop>  KEY 0x42 up
+I (66581) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (66701) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=419
+sloop>  KEY 0x42 up
+I (66821) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=403
+sloop>  KEY 0x42 down
+I (66941) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=420
+sloop>  KEY 0x42 up
+I (67061) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=400
+sloop>  KEY 0x42 down
+I (67181) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=411
+sloop>  KEY 0x42 up
+I (67301) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=593
+sloop>  KEY 0x42 down
+I (67421) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=418
+sloop>  KEY 0x42 up
+I (67541) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=409
+sloop>  KEY 0x42 down
+I (67661) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (67791) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=403
+sloop>  KEY 0x42 down
+I (67911) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=628
+sloop>  KEY 0x42 up
+I (68031) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=615
+sloop>  KEY 0x42 down
+I (68151) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=592
+sloop>  KEY 0x42 up
+I (68271) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=415
+sloop>  KEY 0x42 down
+I (68391) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=414
+sloop>  KEY 0x42 up
+I (68511) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=401
+sloop>  KEY 0x42 down
+I (68631) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=652
+sloop>  KEY 0x42 up
+I (68751) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=592
+sloop>  KEY 0x42 down
+I (68871) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=606
+sloop>  KEY 0x42 up
+I (68991) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=411
+sloop>  KEY 0x42 down
+I (69111) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=413
+sloop>  KEY 0x42 up
+I (69231) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=411
+sloop>  KEY 0x42 down
+I (69351) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=418
+sloop>  KEY 0x42 up
+I (69471) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=409
+sloop>  KEY 0x42 down
+I (69591) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=420
+sloop>  KEY 0x42 up
+I (69711) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=583
+sloop>  KEY 0x42 down
+I (69831) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=422
+sloop>  KEY 0x42 up
+I (69961) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=640
+sloop>  KEY 0x42 down
+I (70081) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=590
+sloop>  KEY 0x42 up
+I (70201) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=398
+sloop>  KEY 0x42 down
+I (70321) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=599
+sloop>  KEY 0x42 up
+I (70441) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=544
+sloop>  KEY 0x42 down
+I (70561) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (70681) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (70801) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=581
+sloop>  KEY 0x42 up
+I (70921) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=586
+sloop>  KEY 0x42 down
+I (71041) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=587
+sloop>  KEY 0x42 up
+I (71161) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (71281) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=613
+sloop>  KEY 0x42 up
+I (71401) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (71521) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=414
+sloop>  KEY 0x42 up
+I (71651) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=539
+sloop>  KEY 0x42 down
+I (71771) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (71891) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=414
+sloop>  KEY 0x42 down
+I (72011) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=418
+sloop>  KEY 0x42 up
+I (72131) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=584
+sloop>  KEY 0x42 down
+I (72251) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=692
+sloop>  KEY 0x42 up
+I (72371) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (72491) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=411
+sloop>  KEY 0x42 up
+I (72611) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (72731) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (72851) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=594
+sloop>  KEY 0x42 down
+I (72971) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=424
+sloop>  KEY 0x42 up
+I (73091) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=403
+sloop>  KEY 0x42 down
+I (73221) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=413
+sloop>  KEY 0x42 up
+I (73341) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=405
+sloop>  KEY 0x42 down
+I (73461) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=412
+sloop>  KEY 0x42 up
+I (73581) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=643
+sloop>  KEY 0x42 down
+I (73701) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=578
+sloop>  KEY 0x42 up
+I (73821) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (73941) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=564
+sloop>  KEY 0x42 up
+I (74061) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=570
+sloop>  KEY 0x42 down
+I (74181) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=413
+sloop>  KEY 0x42 up
+I (74301) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=660
+sloop>  KEY 0x42 down
+I (74421) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=582
+sloop>  KEY 0x42 up
+I (74541) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=623
+sloop>  KEY 0x42 down
+I (74661) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (74781) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=406
+sloop>  KEY 0x42 down
+I (74901) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=412
+sloop>  KEY 0x42 up
+I (75021) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=578
+sloop>  KEY 0x42 down
+I (75151) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=623
+sloop>  KEY 0x42 up
+I (75271) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (75391) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=421
+sloop>  KEY 0x42 up
+I (75511) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=404
+sloop>  KEY 0x42 down
+I (75631) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (75751) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=401
+sloop>  KEY 0x42 down
+I (75871) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=670
+sloop>  KEY 0x42 up
+I (75991) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (76111) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=424
+sloop>  KEY 0x42 up
+I (76231) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=413
+sloop>  KEY 0x42 down
+I (76351) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=428
+sloop>  KEY 0x42 up
+I (76471) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (76601) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=639
+sloop>  KEY 0x42 up
+I (76721) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (76841) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=634
+sloop>  KEY 0x42 up
+I (76961) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=403
+sloop>  KEY 0x42 down
+I (77081) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (77201) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=563
+sloop>  KEY 0x42 down
+I (77321) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=421
+sloop>  KEY 0x42 up
+I (77441) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (77561) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (77681) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=693
+sloop>  KEY 0x42 down
+I (77801) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=613
+sloop>  KEY 0x42 up
+I (77921) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=405
+sloop>  KEY 0x42 down
+I (78041) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=589
+sloop>  KEY 0x42 up
+I (78161) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=412
+sloop>  KEY 0x42 down
+I (78291) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=620
+sloop>  KEY 0x42 up
+I (78411) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=597
+sloop>  KEY 0x42 down
+I (78531) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=422
+sloop>  KEY 0x42 up
+I (78651) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=409
+sloop>  KEY 0x42 down
+I (78771) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (78891) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=401
+sloop>  KEY 0x42 down
+I (79011) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=422
+sloop>  KEY 0x42 up
+I (79131) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=402
+sloop>  KEY 0x42 down
+I (79251) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=419
+sloop>  KEY 0x42 up
+I (79371) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=410
+sloop>  KEY 0x42 down
+I (79491) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=414
+sloop>  KEY 0x42 up
+I (79611) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=404
+sloop>  KEY 0x42 down
+I (79731) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=677
+sloop>  KEY 0x42 up
+I (79851) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (79971) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (80091) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=592
+sloop>  KEY 0x42 down
+I (80211) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=627
+sloop>  KEY 0x42 up
+I (80331) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=616
+sloop>  KEY 0x42 down
+I (80451) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=597
+sloop>  KEY 0x42 up
+I (80571) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=567
+sloop>  KEY 0x42 down
+I (80691) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=425
+sloop>  KEY 0x42 up
+I (80821) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=690
+sloop>  KEY 0x42 down
+I (80941) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=581
+sloop>  KEY 0x42 up
+I (81061) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=415
+sloop>  KEY 0x42 down
+I (81181) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=427
+sloop>  KEY 0x42 up
+I (81301) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=404
+sloop>  KEY 0x42 down
+I (81421) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=424
+sloop>  KEY 0x42 up
+I (81541) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=581
+sloop>  KEY 0x42 down
+I (81661) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=645
+sloop>  KEY 0x42 up
+I (81781) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=409
+sloop>  KEY 0x42 down
+I (81901) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=419
+sloop>  KEY 0x42 up
+I (82021) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=400
+sloop>  KEY 0x42 down
+I (82141) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=415
+sloop>  KEY 0x42 up
+I (82261) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=404
+sloop>  KEY 0x42 down
+I (82381) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=411
+sloop>  KEY 0x42 up
+I (82501) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=402
+sloop>  KEY 0x42 down
+I (82621) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=418
+sloop>  KEY 0x42 up
+I (82741) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=409
+sloop>  KEY 0x42 down
+I (82871) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=1309
+sloop>  KEY 0x42 up
+I (82991) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=609
+sloop>  KEY 0x42 down
+I (83111) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=567
+sloop>  KEY 0x42 up
+I (83231) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=408
+sloop>  KEY 0x42 down
+I (83351) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=652
+sloop>  KEY 0x42 up
+I (83471) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=405
+sloop>  KEY 0x42 down
+I (83591) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=417
+sloop>  KEY 0x42 up
+I (83711) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=392
+sloop>  KEY 0x42 down
+I (83831) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=606
+sloop>  KEY 0x42 up
+I (83951) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=663
 sloop>  KEY STATS
-KEY STATS count=200 mean_us=121 max_us=20718
+KEY STATS count=200 mean_us=496 max_us=1559
 sloop>  
