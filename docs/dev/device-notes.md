@@ -93,3 +93,22 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 证据：`docs/dev/verify/3-mvp-2026-11-21/task-8-transport-scr-stall-fail.log`（原始串口回显；同目录 `task-8-transport-run.txt` 是复位后复跑通过的 stdout 断言摘要，不是失败证据）；速率测量命令见 Task 8 报告。
 - 未定性：降速根因（疑似 USB-Serial-JTAG TX 侧或主机 IN 调度退化）；未加自动重试（避免掩盖固件问题），DI-5 保持在册并升级优先级。
 
+### 8.1 处置：脚本级复位重试（2026-11-21 阶段 4 P4-0 Task 3，DI-5 硬化）
+
+- 复发升级：P4-0 Task 2 取证后又连续 3 次命中（全量 SELFTEST 后首张截屏 1.66–1.68MB/1.84MB 超时），且本任务实施时设备正处于停滞态（首次探测在 1,687,552/1,843,200 字节超时）——升级条件「无人值守批量截屏纳入常规流程」已触发。
+- 落地：`scripts/screenshot.py --retry N`（默认 3；`0` = 旧行为）。传输层失败（帧头/帧数据/尾标记超时、短帧、坏尾、读 OSError）→
+  `esptool --chip esp32p4 -p PORT -b 460800 --after hard_reset flash_id`（只读，不写 flash）→ 轮询 console 提示符
+  `sloop>`（实测启动 ~4.1–4.6s）→ 重开串口重试；耗尽后非零退出并把已收字节写 `<out>-fail.bin` 留证。
+  固件明确报错（`SCR ERR`）与端口打开失败**不重试**（快速失败语义不变，避免掩盖固件问题）。
+  `scripts/inject/inject.py` 复用同一 `read_frame`/复位路径：截屏失败 → 复位 → 重开串口 → 场景从头重跑
+  （复位清空页面/走带状态，只有重跑才能让断言与截图同源）。
+- 复位手段实测结论：**纯 pyserial 翻转 RTS/DTR 不能复位 USB-Serial/JTAG**（esptool 的
+  `HardReset`/`USBJTAGSerialReset` 序列逐字节复刻后仍无启动日志；健康态与停滞态各试一次）。
+  必须让 esptool 走 bootloader 接入（默认 `--before default_reset` 即 USB-JTAG 复位序列）再 `--after hard_reset`。
+  esptool 定位顺序：`$SLOOP_ESPTOOL` > PATH（`esptool`/`esptool.py`）> `$IDF_PYTHON_ENV_PATH` > `~/.espressif/python_env/idf5.5*`。
+- 验证：离线 `--selftest` 覆盖「首轮短帧→复位→次轮成功」与「重试耗尽→失败证据」；真机 20 连拍全过（见
+  `docs/dev/verify/4-p0-2026-11-21/task-3-scr-batch20.log`）；两次强制中断（直连 harness + inject）均由复位重试恢复。
+- 残余：**降速根因仍未定位**（USB-Serial-JTAG TX 或主机 IN 调度退化的嫌疑不变）。DI-5 已删除（无人值守
+  可靠性问题由自动重试解决）；若后续出现「重试后仍失败」「停滞波及非截屏串口命令」或「需要固件侧修 USB-JTAG
+  TX」，按新问题重新登记，并以 `-fail.bin` 与当时的 `dmesg`/USB 拓扑为起点取证。
+
