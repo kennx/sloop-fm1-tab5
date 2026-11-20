@@ -6,7 +6,7 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SMOKE、同源 SELFTEST、TRACK/TRIG 与 PERF）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG 与 PERF）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -359,8 +359,37 @@ static int eng_command(int argc, char **argv)
                (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
         return 0;
     }
+    if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
+        /* 只读快照（阶段 3 状态层同源）：后续任务的注入断言直接解析这些行 */
+        sloop_core_snapshot_t s;
+        sloop_core_read(&s);
+        printf("ENG SNAP playing=%u bpm=%u sel=%u pos=%u,%u,%u,%u\n", (unsigned)s.playing,
+               (unsigned)s.bpm, (unsigned)s.selected_track, (unsigned)s.step_pos[0],
+               (unsigned)s.step_pos[1], (unsigned)s.step_pos[2], (unsigned)s.step_pos[3]);
+        for (uint32_t k = 0; k < 4; k++) {
+            printf("ENG SNAP trk k=%u engine=%u preset=%u level=%u mute=%u armed=%u solo=%u len=%u div=%u\n",
+                   (unsigned)k, (unsigned)s.trk[k].engine, (unsigned)s.trk[k].preset,
+                   (unsigned)s.trk[k].level, (unsigned)s.trk[k].mute, (unsigned)s.trk[k].armed,
+                   (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div);
+        }
+        return 0;
+    }
+    if (argc == 4 && strcasecmp(argv[1], "step") == 0) {
+        uint32_t k, idx;
+        if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], 63, &idx)) {
+            printf("用法: ENG STEP <track=0..2> <idx=0..63>\n");
+            return 1;
+        }
+        sloop_step_t st;
+        sloop_core_read_step(k, idx, &st);
+        printf("ENG STEP k=%u i=%u n=%u note=%u,%u,%u,%u vel=%u time=%u flags=%u lvl=%u rat=%u micro=%d fill=%u\n",
+               (unsigned)k, (unsigned)idx, (unsigned)st.n, (unsigned)st.note[0], (unsigned)st.note[1],
+               (unsigned)st.note[2], (unsigned)st.note[3], (unsigned)st.vel, (unsigned)st.time,
+               (unsigned)st.flags, (unsigned)st.lvl, (unsigned)st.rat, (int)st.micro, (unsigned)st.fill);
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF\n");
     return 1;
 }
 

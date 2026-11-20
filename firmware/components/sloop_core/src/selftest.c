@@ -433,6 +433,105 @@ uint32_t sloop_core_frames(void)
     return HALF_FRAMES;
 }
 
+/* --------------------------------------------------- 快照与步读写 --- */
+/* 只读快照 / 单步读写 / 全局参数写（语义与字段映射见 sloop_core.h）。
+ * 与其它会改变引擎状态的 API 共用 s_engine_lock；窗口长度取 LEN 的合法区间，
+ * 播放头按「模 len」给（停止时为 0）。 */
+void sloop_core_read(sloop_core_snapshot_t *out)
+{
+    if (out == NULL) return;
+    engine_lock();
+    memset(out, 0, sizeof(*out));
+    out->playing = song.playing != 0;
+    out->bpm = (uint16_t)clamp(song.g[G_BPM], GP[G_BPM].min, GP[G_BPM].max);
+    out->selected_track = song.sel < NTRK ? song.sel : 0;
+    for (uint32_t k = 0; k < NTRK; k++) {
+        const track_t *t = &trk[k];
+        uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP);
+        /* engine 取 eng_req（UI 要求的引擎；预设淡出期间 engine 仍是旧的） */
+        out->trk[k].engine = t->eng_req;
+        out->trk[k].preset = t->preset;
+        out->trk[k].level = (uint8_t)clamp(t->p[P_LEVEL], 0, 127);
+        out->trk[k].mute = t->p[P_MUTE] != 0;
+        out->trk[k].armed = (song.rec >> k) & 1u;
+        out->trk[k].solo = (song.solo >> k) & 1u;
+        out->trk[k].len = (uint8_t)len;
+        out->trk[k].div = (uint8_t)clamp(t->p[P_SDIV], TP[P_SDIV].min, TP[P_SDIV].max);
+        out->step_pos[k] = (uint8_t)(song.playing ? t->seq_idx % len : 0u);
+    }
+    for (uint32_t k = 0; k < NPART; k++) {
+        for (uint32_t i = 0; i < 16; i++) {
+            const step_t *s = &trk[k].step[i];
+            out->step[k][i].n = s->n;
+            memcpy(out->step[k][i].note, s->note, sizeof(out->step[k][i].note));
+            out->step[k][i].vel = s->vel;
+            out->step[k][i].time = s->time;
+            out->step[k][i].flags = s->flags;
+        }
+    }
+    /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
+    for (uint32_t i = 0; i < 16; i++) {
+        const dstep_t *d = &TDRUM->dstep[i];
+        uint32_t on = (uint32_t)(d->on[0] | d->on[1]);
+        out->dstep[i].on = on != 0;
+        for (uint32_t lane = 0; lane < DRUM_LANES; lane++) {
+            if (!((on >> lane) & 1u)) continue;
+            uint8_t lvl = (d->lvl[lane / 4u] >> (2u * (lane % 4u))) & 3u;
+            uint8_t rat = (d->rat[lane / 4u] >> (2u * (lane % 4u))) & 3u;
+            if (lvl > out->dstep[i].lvl) out->dstep[i].lvl = lvl;
+            if (rat > out->dstep[i].rat) out->dstep[i].rat = rat;
+        }
+    }
+    engine_unlock();
+}
+
+void sloop_core_read_step(uint32_t track, uint32_t idx, sloop_step_t *out)
+{
+    if (out == NULL) return;
+    memset(out, 0, sizeof(*out));
+    if (track >= NPART || idx >= NSTEP) return;
+    engine_lock();
+    const track_t *t = &trk[track];
+    const step_t *s = &t->step[idx];
+    out->n = s->n;
+    memcpy(out->note, s->note, sizeof(out->note));
+    out->vel = s->vel;
+    out->time = s->time;
+    out->flags = s->flags;
+    out->lvl = s->lvl;
+    out->rat = s->rat;
+    out->micro = t->micro[idx];
+    out->fill = (uint8_t)((t->fill[idx / 4u] >> (2u * (idx % 4u))) & 3u);
+    engine_unlock();
+}
+
+void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
+{
+    if (in == NULL || track >= NPART || idx >= NSTEP) return;
+    engine_lock();
+    track_t *t = &trk[track];
+    step_t *s = &t->step[idx];
+    s->n = in->n > 4u ? 4u : in->n;      /* 上游按 n<=4 解读（POLY），超出部分引擎不会读 */
+    memcpy(s->note, in->note, sizeof(s->note));
+    s->vel = in->vel;
+    s->time = in->time;
+    s->flags = in->flags;
+    s->lvl = in->lvl;                    /* 每音符 2bit 打包，原样保留 */
+    s->rat = in->rat;
+    t->micro[idx] = (int8_t)clamp(in->micro, MICRO_MIN, MICRO_MAX);
+    uint32_t sh = 2u * (idx % 4u);
+    t->fill[idx / 4u] = (uint8_t)((t->fill[idx / 4u] & ~(3u << sh)) | ((uint32_t)(in->fill & 3u) << sh));
+    engine_unlock();
+}
+
+void sloop_core_set_global(uint32_t id, int16_t value)
+{
+    if (id >= G_COUNT) return;
+    engine_lock();
+    song.g[id] = (int16_t)clamp(value, GP[id].min, GP[id].max);
+    engine_unlock();
+}
+
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
