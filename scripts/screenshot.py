@@ -10,16 +10,19 @@
 固件失败时改回 "SCR ERR <原因>\\n"，脚本立即报错退出（不等超时）。
 固件未注册 SCR 命令时会超时——按传输失败处理（复位重试后仍失败则报错并提示检查 SCR）。
 
-传输失败（帧数据超时/短帧/尾标记缺失）时（DI-5 硬化）：经 esptool 硬复位设备
-（`--after hard_reset`）→ 等 console 提示符 → 重试，默认共 3 次重试；超限非零退出并把
-已收到的字节存为 `<out>-fail.bin` 留证。`--retry 0` 退回单次尝试的旧行为。
+传输失败（帧数据超时/短帧/坏尾/长度与分辨率不符）时（重试硬化，原 DI-5）：经 esptool
+硬复位设备（`--after hard_reset`）→ 等 console 提示符 → 重试，默认重试 3 次（共 4 次尝试）；
+超限非零退出并把已收字节存为 `<out>-fail.bin`（无帧数据时存 `<out>-fail.txt` 记录错误）留证。
+`--retry 0` 退回单次尝试的旧行为。
 纯 pyserial 翻转 RTS 对 USB-Serial/JTAG 无效（实测），故复位必须走 esptool；
 若 esptool 不在 PATH，可用 `SLOOP_ESPTOOL=/path/to/esptool` 指定。
 
 用法:
-    python3 scripts/screenshot.py PORT [OUT.png] [--timeout 20] [--baud 115200]
+    python3 scripts/screenshot.py PORT [OUT.png] [--timeout 30] [--baud 115200]
                                     [--retry 3] [--check X,Y,R,G,B[,TOL]] ...
     python3 scripts/screenshot.py --selftest          # 离线自测（无需设备）
+--timeout 默认 30s（单阶段）：实测整帧 1.8MB 传输 16.4–17.8s，20s 只有约 12% 余量，
+易把正常但偏慢的传输误判为停滞。
 --check 像素抽检: 校验截屏 (X,Y) 处像素 ≈ (R,G,B)（各通道差 ≤ TOL，默认 16，容忍
 RGB565 位扩展误差）；可多次给出，全部通过退出码 0，任一失败打印实测/期望并退出码 1。
 抽检锚点见 firmware/main/display.c 文件头的 bring-up 测试图布局。
@@ -108,7 +111,10 @@ def read_header(ser, timeout: float):
             _, w, h, fmt, ln = text.split()
             if fmt not in ("rgb565", "rgb888"):
                 raise FirmwareError(f"不支持的像素格式: {fmt}")
-            return int(w), int(h), fmt, int(ln)
+            try:
+                return int(w), int(h), fmt, int(ln)
+            except ValueError:
+                raise FirmwareError(f"响应头数值非法: {text!r}") from None
         if text:  # 透传固件侧其他输出，便于诊断
             print(f"  [fw] {text}", file=sys.stderr)
     raise TransferError("等待 SCR 响应头超时")
@@ -253,33 +259,37 @@ def find_esptool() -> list[str] | None:
 
 
 def wait_boot(port: str, baud: int, timeout: float = BOOT_TIMEOUT) -> float:
-    """等待 console 提示符（sloop>）；返回等待秒数，超时抛 ResetError。"""
+    """等待 console 提示符（sloop>）；返回等待秒数，超时抛 ResetError。
+
+    复位后端口可能短暂重新枚举：打开/读写遇到 OSError 时回到打开循环重试，
+    直到 timeout 截止。
+    """
     require("serial", "pyserial")
     import serial
 
     started = time.monotonic()
     deadline = started + timeout
-    ser = None
-    while ser is None:  # 复位后端口可能短暂重新枚举
+    buf = bytearray()
+    while time.monotonic() < deadline:
         try:
             ser = serial.Serial(port, baud, timeout=0.05)
         except OSError:
-            if time.monotonic() >= deadline:
-                raise ResetError(f"复位后 {timeout:.0f}s 内无法重新打开串口 {port}") from None
             time.sleep(0.2)
-    buf = bytearray()
-    try:
-        while time.monotonic() < deadline:
-            ser.write(b"\n")
-            ser.flush()
-            chunk = ser.read(256)
-            if chunk:
-                buf.extend(chunk)
-            i = buf.rfind(CONSOLE_PROMPT)
-            if i >= 0 and buf[i + len(CONSOLE_PROMPT):].strip() == b"":
-                return time.monotonic() - started
-    finally:
-        ser.close()
+            continue
+        try:
+            while time.monotonic() < deadline:
+                ser.write(b"\n")
+                ser.flush()
+                chunk = ser.read(256)
+                if chunk:
+                    buf.extend(chunk)
+                i = buf.rfind(CONSOLE_PROMPT)
+                if i >= 0 and buf[i + len(CONSOLE_PROMPT):].strip() == b"":
+                    return time.monotonic() - started
+        except OSError:  # 重新枚举/端口掉线：关掉重开
+            time.sleep(0.2)
+        finally:
+            ser.close()
     raise ResetError(f"复位后 {timeout:.0f}s 内未等到 console 提示符（已收 {len(buf)} 字节）")
 
 
@@ -310,13 +320,33 @@ def reset_device(port: str, baud: int) -> None:
     print(f"  设备已重启，console 就绪（{elapsed:.1f}s）")
 
 
-def _save_fail_evidence(out: str, partial: bytes) -> Path | None:
-    if not partial:
-        return None
-    path = Path(out).with_name(Path(out).stem + "-fail.bin")
-    path.write_bytes(partial)
-    print(f"  失败证据: {path}（已收 {len(partial)} 字节）")
+def save_fail_evidence(out: str, partial: bytes, error, attempts: int) -> Path:
+    """把失败证据落到 out 同目录并返回路径。
+
+    有已收字节 → `<stem>-fail.bin`（原始字节，便于分析停滞位置）；
+    一字节未收（如帧头超时）→ `<stem>-fail.txt`（记录最终错误与尝试次数），
+    保证任何耗尽路径都留有一份可引用的证据。
+    """
+    stem = Path(out).stem
+    if partial:
+        path = Path(out).with_name(stem + "-fail.bin")
+        path.write_bytes(partial)
+        detail = f"已收 {len(partial)} 字节"
+    else:
+        path = Path(out).with_name(stem + "-fail.txt")
+        path.write_text(f"{attempts} 次尝试均失败：{error}\n", encoding="utf-8")
+        detail = "无帧数据，记录错误"
+    print(f"  失败证据: {path}（{detail}）")
     return path
+
+
+def best_effort_reset(port: str, baud: int) -> None:
+    """尽力复位一次（失败只打印）：让批量任务从可用状态继续，不掩盖主错误。"""
+    print("  尝试复位设备以恢复状态（best effort）")
+    try:
+        reset_device(port, baud)
+    except ResetError as e:
+        print(f"  复位失败（已忽略）: {e}")
 
 
 def capture_with_retry(port: str, out: str, baud: int, timeout: float,
@@ -333,10 +363,11 @@ def capture_with_retry(port: str, out: str, baud: int, timeout: float,
             img = capture(port, out, baud, timeout)
         except TransferError as e:
             if attempt > retries:
-                fail_path = _save_fail_evidence(out, e.partial)
+                fail_path = save_fail_evidence(out, e.partial, e, attempt)
+                best_effort_reset(port, baud)
                 raise CaptureError(
                     f"截屏失败（共 {attempt} 次尝试，重试上限 {retries}）: {e}\n"
-                    f"提示: DI-5 传输停滞通常经复位即恢复；连续失败请查固件 SCR 实现与串口"
+                    f"提示: 传输停滞通常经复位即恢复；连续失败请查固件 SCR 实现与串口"
                     f"（{port}）是否为设备 console 口",
                     attempt, fail_path) from e
             print(f"  [retry {attempt}/{retries}] 传输失败: {e} → 复位设备后重试")
@@ -355,8 +386,9 @@ def main() -> None:
                     help="输出 PNG 路径（默认 $SLOOP_TAB5_PROJECT/build/verify/screenshot-<时间戳>.png）")
     ap.add_argument("--baud", type=int, default=115200,
                     help="波特率（USB Serial/JTAG 下不影响实际速率，默认 115200）")
-    ap.add_argument("--timeout", type=float, default=20.0,
-                    help="单阶段超时秒数（帧头/帧数据/尾标记各自计时，默认 20）")
+    ap.add_argument("--timeout", type=float, default=30.0,
+                    help="单阶段超时秒数（帧头/帧数据/尾标记各自计时，默认 30："
+                         "实测单帧 1.8MB 传输 16.4–17.8s，20s 仅约 12%% 余量）")
     ap.add_argument("--retry", type=int, default=DEFAULT_RETRIES, metavar="N",
                     help="传输失败（超时/短帧/坏尾）时经 esptool 复位设备后重试的次数，默认 "
                          f"{DEFAULT_RETRIES}；0 = 不重试（单次尝试，旧行为）")
@@ -487,17 +519,19 @@ def _capture_checks() -> None:
     mod = sys.modules[__name__]
 
     def with_fakes(payloads, fn):
-        """按尝试顺序回放假串口；reset_device 记录为 resets 列表（不碰真硬件）。"""
+        """按尝试顺序回放假串口；复位动作记录为 (种类, port)，种类 ∈ retry/final。"""
         seq = list(payloads)
         resets = []
-        orig_open, orig_reset = mod._open_serial, mod.reset_device
+        orig_open, orig_reset, orig_final = (mod._open_serial, mod.reset_device,
+                                             mod.best_effort_reset)
         mod._open_serial = lambda port, baud: _FakeSerial(seq.pop(0) if len(seq) > 1 else seq[0])
-        mod.reset_device = lambda port, baud: resets.append(port)
+        mod.reset_device = lambda port, baud: resets.append(("retry", port))
+        mod.best_effort_reset = lambda port, baud: resets.append(("final", port))
         try:
             fn(resets)
         finally:
-            mod._open_serial = orig_open
-            mod.reset_device = orig_reset
+            mod._open_serial, mod.reset_device, mod.best_effort_reset = (
+                orig_open, orig_reset, orig_final)
 
     frame = struct.pack("<8H", *_W565)
     good = b"SCR 4 2 rgb565 16\n" + frame + b"SCR OK\n"
@@ -558,7 +592,7 @@ def _capture_checks() -> None:
                 img, used = capture_with_retry("/dev/null", out, 115200, 0.2, 3)
             log = buf.getvalue()
             _assert(used == 1, f"应记录 1 次重试（used={used}）")
-            _assert(len(resets) == 1, f"应复位 1 次（实际 {len(resets)}）")
+            _assert(resets == [("retry", "/dev/null")], f"应只做 1 次重试复位（实际 {resets}）")
             _assert("[retry 1/3]" in log, f"重试日志缺失: {log!r}")
             _assert([img.getpixel((x, y)) for y in range(2) for x in range(4)] == _EXP565,
                     "重试成功后的像素不符")
@@ -580,7 +614,8 @@ def _capture_checks() -> None:
                 _assert("2 次尝试" in str(e), f"错误信息应含尝试次数: {e}")
             else:
                 raise AssertionError("重试耗尽后应抛 CaptureError")
-            _assert(len(resets) == 1, f"应复位 1 次（实际 {len(resets)}）")
+            _assert([k for k, _ in resets] == ["retry", "final"],
+                    f"复位序列应为 retry→final（实际 {resets}）")
             _assert("[retry 1/1]" in buf.getvalue(), "重试日志缺失")
 
     with_fakes([short], retry_exhausted)
@@ -594,9 +629,52 @@ def _capture_checks() -> None:
                 _assert(e.attempts == 1, f"--retry 0 应只尝试 1 次（实际 {e.attempts}）")
             else:
                 raise AssertionError("--retry 0 时传输失败应直接抛 CaptureError")
-            _assert(not resets, "--retry 0 不应复位设备")
+            _assert([k for k, _ in resets] == ["final"],
+                    f"--retry 0 不应重试复位（只允许一次 best-effort 复位，实际 {resets}）")
 
     with_fakes([short], no_retry)
+
+    # 响应头数值非法（SCR a b rgb565 16）：干净 FirmwareError，不重试、不打 traceback
+    def malformed_header(resets) -> None:
+        try:
+            capture_with_retry("/dev/null", "/dev/null", 115200, 0.2, 3)
+        except FirmwareError as e:
+            _assert("响应头数值非法" in str(e), f"错误信息应说明响应头非法: {e}")
+        else:
+            raise AssertionError("响应头数值非法时应抛 FirmwareError")
+        _assert(not resets, "响应头非法不应复位重试")
+
+    with_fakes([b"SCR a b rgb565 16\n"], malformed_header)
+
+    # 零字节耗尽（一字节未收）：仍须落失败证据 `<out>-fail.txt`（记录错误 + 尝试次数）
+    def zero_byte_evidence(resets) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out = str(Path(td) / "void.png")
+            try:
+                capture_with_retry("/dev/null", out, 115200, 0.2, 0)
+            except CaptureError as e:
+                _assert(e.fail_path is not None, "零字节耗尽也应给出证据路径")
+                p = Path(e.fail_path)
+                _assert(p.suffix == ".txt", f"零字节证据应为 .txt（实际 {p.name}）")
+                text = p.read_text(encoding="utf-8")
+                _assert("1 次尝试均失败" in text and "响应头" in text,
+                        f"证据文本应含尝试次数与错误: {text!r}")
+            else:
+                raise AssertionError("零字节耗尽后应抛 CaptureError")
+            _assert([k for k, _ in resets] == ["final"],
+                    f"零字节耗尽只应做 best-effort 复位（实际 {resets}）")
+
+    with_fakes([b""], zero_byte_evidence)
+
+
+def _cli_checks() -> None:
+    """CLI 参数校验：--retry 负数必须被 argparse 拒绝（退出码 2，不产生 traceback）。"""
+    import subprocess
+
+    proc = subprocess.run([sys.executable, str(Path(__file__).resolve()), "/dev/null", "--retry", "-1"],
+                          capture_output=True, text=True, timeout=30)
+    _assert(proc.returncode == 2, f"--retry -1 退出码应为 2（实际 {proc.returncode}）")
+    _assert("--retry 不能为负" in proc.stderr, f"stderr 应含拒绝原因: {proc.stderr!r}")
 
 
 def _assert(cond: bool, msg: str) -> None:
@@ -622,8 +700,10 @@ def run_selftest() -> None:
     _decode_checks()
     _capture_checks()
     _check_pixel_checks()
-    print("自测断言 10 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、"
-          "SCR ERR 快速失败、像素抽检、首轮坏次轮好重试恢复、重试耗尽失败证据）")
+    _cli_checks()
+    print("自测断言全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、"
+          "SCR ERR 快速失败、响应头数值非法干净报错、像素抽检、首轮坏次轮好重试恢复、"
+          "重试耗尽失败证据（含零字节 -fail.txt）、--retry 0 单次尝试、--retry 负数拒绝）")
 
 
 if __name__ == "__main__":

@@ -224,8 +224,15 @@ class Session:
             raise InjectError(f"截屏 {label} 失败: {e}") from None
         except shot.TransferError as e:
             if self.resets >= self.retries:
+                fail_path = shot.save_fail_evidence(str(out), e.partial, e, self.resets + 1)
+                self.ser.note(f"截屏 {label} 失败（重试耗尽）；证据 {fail_path.name}；"
+                              f"做一次 best-effort 复位")
+                self.ser.close()
+                shot.best_effort_reset(self.port, BAUD)
+                self.ser = self._open()
                 raise InjectError(
-                    f"截屏 {label} 失败（已复位重试 {self.resets} 次）: {e}") from None
+                    f"截屏 {label} 失败（已复位重试 {self.resets} 次）: {e}\n"
+                    f"证据: {fail_path}") from None
             self.resets += 1
             self.ser.note(f"截屏 {label} 传输失败（{e}）；esptool 复位后场景重跑"
                           f"（第 {self.resets}/{self.retries} 次重试）")
@@ -491,6 +498,9 @@ def main() -> None:
     args = ap.parse_args()
 
     require_deps()
+
+    if args.retry < 0:
+        ap.error("--retry 不能为负")
 
     if args.out_dir:
         out_dir = Path(args.out_dir)

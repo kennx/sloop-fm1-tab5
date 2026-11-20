@@ -101,8 +101,10 @@ soak.py 冒烟（`--duration 120 --interval 60 --cycle 12`）**VERDICT: PASS**�
 
 `task-8-transport-scr-stall-fail.log`：transport 脚本首轮在截屏帧传输
 208800/1843200 字节处 PC 侧超时；直接读串口证实设备仍在发帧但速率约 8.4KB/s
-（正常 ≈1MB/s），无 panic/WDT。RTS 硬复位后同一脚本 48.8s 通过（见 §1 表格）。
-详细观测与处置见 `docs/deferred-issues.md` DI-5 与 `docs/dev/device-notes.md` §8。
+（正常 ≈1MB/s），无 panic/WDT。手工 esptool 硬复位（`--after hard_reset`，当次手段；脚本级
+自动重试见 `docs/dev/device-notes.md` §8.1）后同一脚本 48.8s 通过（见 §1 表格）。
+详细观测与处置见 `docs/deferred-issues.md` DI-5（已删除，见 `docs/dev/device-notes.md` §8.1）
+与 `docs/dev/device-notes.md` §8。
 
 ## 5. 文件索引
 

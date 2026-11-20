@@ -97,7 +97,7 @@ sloop-fm1-tab5/
 |---|---|
 | `scripts/build.sh [--clean] [idf.py 参数…]` | 构建 `firmware/`；自动探测 ESP-IDF 环境（已在 PATH 则直接用，否则尝试 `$ESP_IDF_EXPORT`、`~/esp/esp-idf/export.sh` 等常见位置） |
 | `scripts/flash.sh [PORT] [--monitor]` | 烧录；PORT 缺省自动探测（`/dev/ttyACM*` 优先，其次 `/dev/ttyUSB*`）；`--monitor` 烧录后进入串口监视 |
-| `scripts/screenshot.py PORT [OUT.png] [--retry N]` | 经串口发送 `SCR` 命令取帧缓冲，存为 PNG（默认输出 `$SLOOP_TAB5_PROJECT/build/verify/`；`--selftest` 离线自测，无需设备）。传输失败（超时/短帧/坏尾）时经 esptool 硬复位设备后重试，默认 `--retry 3`（`0`=单次尝试）；耗尽后非零退出并把已收字节存 `<out>-fail.bin`（DI-5 硬化，见 `docs/dev/device-notes.md` §8.1） |
+| `scripts/screenshot.py PORT [OUT.png] [--retry N]` | 经串口发送 `SCR` 命令取帧缓冲，存为 PNG（默认输出 `$SLOOP_TAB5_PROJECT/build/verify/`；`--selftest` 离线自测，无需设备）。传输失败（超时/短帧/坏尾/长度不符）时经 esptool 硬复位设备后重试，默认 `--retry 3`（`0`=单次尝试）；耗尽后非零退出并落失败证据（`<out>-fail.bin`，零字节时 `<out>-fail.txt`）——传输失败自动复位重试，见 `docs/dev/device-notes.md` §8.1 |
 | `scripts/host-test.sh` | 强制刷新 4 个生成头并运行上游 host golden/DSP 回归子集；禁止基线更新模式 |
 | `scripts/state-test.sh` | `sloop_state` 状态层 host 单测（gcc + stub 引擎，`-DHOST_TEST`）；打印 PASS/FAIL，失败退出码非 0 |
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 运行设备 `ENG SELFTEST`，逐用例与 host `golden.txt` 比对。**默认全量 182 例**（诊断期固件自动 quiesce UI：暂停 30ms 定时器、输入丢弃、引擎读写冻结，跑完恢复——UI live 开机即可跑全量门禁）；`--case NAME` 走旧单例口径。脚本先自动 `ENG AUDIO OFF`（固件开机即流式，否则自检被拒）、结束后恢复 `ENG AUDIO ON`；也支持 `--compare LOG` 离线复核（默认按全量 182 例校验，旧单例日志需配 `--case NAME`） |
