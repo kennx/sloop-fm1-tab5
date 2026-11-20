@@ -44,5 +44,7 @@ LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部
 ## 后果
 
 - 阶段 4 全页面在此架构上扩展（页面路由+控件复用）；阶段 5 将 `state_apply` 的执行端换成 FM-1 会话即可复用 UI。
-- 引擎保持单例+互斥；UI 输入路径增加 input 任务（≤20ms 延迟目标）。
+- 引擎保持单例+互斥；UI 输入路径的 input 任务已落地（`sloop_ui/src/input.c`：5ms 轮询
+  `tab5_kb_poll`，优先级 4，层模型见 ADR-006）；串口 `KEY <code> <down|up>` 与物理同入口，
+  实测派发延迟（含 state_apply）均值 ≈0.03ms、最大 ≈2.6ms（Task 6，见 verification-log）。
 - 阶段 3 MVP 的选轨与逐轨 mute/solo 暂由状态层持有（引擎暂无写入口）：音频效果与串口断言局限见 `docs/deferred-issues.md` DI-9（串口用 `STATE SNAP`，不能用 `ENG SNAP`）；引擎写入落地后删除该特例。
