@@ -26,10 +26,9 @@ void sloop_ui_switch_page(uint8_t page);
 /* 当前页；UI 未启动返回 0xFF。 */
 uint8_t sloop_ui_current_page(void);
 
-/* 音符触发指示（PLAY 页大号指示）：点亮 120ms 后由 UI 定时器熄灭。
- * 约束：调用方不得持 state/引擎锁（本函数内部取 LVGL 锁——与那两把锁构成
- * 成环风险的唯一路径）；LVGL 锁 100ms 超时时静默丢弃指示（音符照常发声）。
- * 输入层（input.c）在 state_apply 返回之后调用。 */
+/* 音符触发指示（PLAY 页大号指示）：把音符交给 30ms UI 定时器点亮，120ms 后熄灭。
+ * 契约：不取 LVGL/state/引擎锁——可从任意任务调用（输入任务、console 注入）；
+ * 只保留最新一个音符（无队列、无阻塞），点亮最多延迟一拍 UI（30ms）。 */
 void sloop_ui_flash_note(uint8_t note);
 
 /* InputManager 入口（input.c）：code = tab5_keyboard 事件码（row<<4|col），

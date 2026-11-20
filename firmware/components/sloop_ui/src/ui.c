@@ -25,6 +25,7 @@
 #include "bsp/m5stack_tab5.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "lvgl.h"
 #include "sloop_state.h"
 #include "theme.h"
@@ -39,6 +40,11 @@ static lv_obj_t *s_pages[APP_STATE_PAGES];
 static lv_obj_t *s_layer_hint;
 static uint8_t s_layer_shown = 0xFF; /* 脏检查（0xFF = 尚未刷新） */
 static lv_timer_t *s_timer;
+
+/* 音符指示邮箱：输入层只写、30ms 定时器消费（见 sloop_ui_flash_note） */
+static portMUX_TYPE s_flash_mux = portMUX_INITIALIZER_UNLOCKED;
+static uint8_t s_flash_note_pending;
+static bool s_flash_has_pending;
 static uint8_t s_page;
 static bool s_started;
 
@@ -164,7 +170,7 @@ static void create_pages(lv_obj_t *root)
     page_transport_create(s_pages[APP_PAGE_TRANSPORT]);
 }
 
-/* LVGL 任务上下文（持锁）：先同步引擎真值，再刷新各页（脏检查在页内） */
+/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新各页 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
@@ -172,6 +178,16 @@ static void ui_timer_cb(lv_timer_t *timer)
     app_state_t st;
     state_get_copy(&st);
     update_layer_hint(st.layer_held);
+
+    bool flash = false;
+    uint8_t note = 0;
+    portENTER_CRITICAL(&s_flash_mux);
+    flash = s_flash_has_pending;
+    note = s_flash_note_pending;
+    s_flash_has_pending = false;
+    portEXIT_CRITICAL(&s_flash_mux);
+    if (flash) page_play_flash(note);
+
     page_play_update(&st);
     page_tracks_update(&st);
     page_step_update(&st);
@@ -268,11 +284,10 @@ uint8_t sloop_ui_current_page(void)
 
 void sloop_ui_flash_note(uint8_t note)
 {
-    if (!s_started) return;
-    if (!bsp_display_lock(100)) {
-        ESP_LOGW(TAG, "音符指示丢弃: LVGL 锁超时");
-        return;
-    }
-    page_play_flash(note);
-    bsp_display_unlock();
+    /* 只入邮箱，不取任何锁（CRITICAL 区仅两条赋值）：输入任务/console 调用不会
+     * 被 LVGL 渲染的帧等待拖住；定时器下一拍（≤30ms）点亮，连续触发保留最新一个。 */
+    portENTER_CRITICAL(&s_flash_mux);
+    s_flash_note_pending = note;
+    s_flash_has_pending = true;
+    portEXIT_CRITICAL(&s_flash_mux);
 }
