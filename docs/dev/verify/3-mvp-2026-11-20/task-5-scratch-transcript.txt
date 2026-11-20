@@ -1,7 +1,7 @@
-===== Task 5 scratch injection run =====
+===== Task 5 scratch injection run (on fix commit, review re-capture) =====
 $ UI TOUCH OFF
 UI TOUCH OFF
-W (4653) sloop_display: SCRATCH 触摸 indev OFF
+W (4660) sloop_display: SCRATCH 触摸 indev OFF
 UI TOUCH OFF
 $ UI
 UI
@@ -200,13 +200,20 @@ card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 status_band non-bg pixels: 217
+$ STATE SNAP
+STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
 $ UI TAP step 3 7
 UI TAP step 3 7
-I (94703) sloop_ui: 鼓轨步 7 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
+I (94490) sloop_ui: 鼓轨步 7 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
 UI TAP step row=3 col=7
 $ STATE SNAP
 STATE SNAP
-STATE SNAP page=2 focus_track=3 focus_step=7 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP page=2 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -234,6 +241,7 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+ASSERT drum tap 不改焦点: before=('0', '3') after=('0', '3') -> PASS
 $ screenshot t5-scratch-step-drum-msg -> rc=0
   帧缓冲: 1280x720 rgb565 (1843200 字节)
 已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-drum-msg.png
@@ -243,10 +251,10 @@ $ screenshot t5-scratch-step-drum-msg -> rc=0
 像素抽检 3/3 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-drum-msg.png (1280, 720)
 grid (rows T1..DRM; ()=focus border; []=playhead border):
-  .   B   B   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   B   B (.)   .   .   .   .   .   .   .   .   .   .   .   .
   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
-  .   .   .   O   .   O   . (.)   .   .   .   .   .   .   .   .
+  .   .   .   O   .   O   .   .   .   .   .   .   .   .   .   .
 card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
 card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
@@ -269,7 +277,7 @@ grid (rows T1..DRM; ()=focus border; []=playhead border):
   .   B   B [.]   .   .   .   .   .   .   .   .   .   .   .   .
   .   .   . [.]   .   .   .   .   .   .   .   .   .   .   .   .
   .   .   . [.]   .   .   .   .   .   .   .   .   .   .   .   .
-  .   .   . [O]   .   O   . (.)   .   .   .   .   .   .   .   .
+  .   .   . [O]   .   O   .   .   .   .   .   .   .   .   .   .
 card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
 card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
@@ -277,10 +285,10 @@ card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 status_band non-bg pixels: 1054
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-playhead-b.png (1280, 720)
 grid (rows T1..DRM; ()=focus border; []=playhead border):
-  .   B   B   .   .   .   .   . [.]   .   .   .   .   .   .   .
-  .   .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .
-  .   .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .
-  .   .   .   O   .   O   . (.) [.]   .   .   .   .   .   .   .
+  .   B   B (.)   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   O   .   O   . [.]   .   .   .   .   .   .   .   .
 card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
 card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
@@ -288,14 +296,14 @@ card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
 status_band non-bg pixels: 1054
 $ STATE SNAP
 STATE SNAP
-STATE SNAP page=2 focus_track=3 focus_step=7 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP page=2 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 $ ENG MEM
 ENG MEM
-ENG MEM internal_free=119499 internal_min=99252 psram_free=30129000 psram_min=28261220
+ENG MEM internal_free=119495 internal_min=99252 psram_free=30129000 psram_min=28261220
 -- step dump (after run)
 $ ENG STEP 0 0
 ENG STEP 0 0
@@ -443,6 +451,6 @@ ENG STEP 2 15
 ENG STEP k=2 i=15 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 $ UI TOUCH ON
 UI TOUCH ON
-W (154983) sloop_display: SCRATCH 触摸 indev ON
+W (155820) sloop_display: SCRATCH 触摸 indev ON
 UI TOUCH ON
 ===== done =====

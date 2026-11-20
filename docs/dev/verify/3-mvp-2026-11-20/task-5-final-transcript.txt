@@ -4,7 +4,7 @@ UI
 UI page=play (0)
 $ ENG MEM
 ENG MEM
-ENG MEM internal_free=119559 internal_min=99252 psram_free=30129000 psram_min=28261220
+ENG MEM internal_free=119815 internal_min=99252 psram_free=30129000 psram_min=30129000
 $ UI tracks
 UI tracks
 UI page=tracks (1)
@@ -81,7 +81,7 @@ UI step
 UI page=step (2)
 $ ENG MEM
 ENG MEM
-ENG MEM internal_free=119539 internal_min=99252 psram_free=30129000 psram_min=28261220
+ENG MEM internal_free=119619 internal_min=99252 psram_free=30129000 psram_min=28261220
 $ STATE SNAP
 STATE SNAP
 STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0

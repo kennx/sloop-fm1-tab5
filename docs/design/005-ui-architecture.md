@@ -36,7 +36,7 @@ LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部
   `CMD_TOGGLE_STEP`（鼓轨第 4 行只读，展示 `dstep[i].on` 聚合，点击写状态行提示不发命令）。
 - **LVGL 内存纪律**：对象共用静态 `lv_style_t`（不给对象加局部样式）+ 卡片内文本合并，把 64KB 内置
   TLSF 池占用从首版的 ≈97%（文本重分配即可能失败）压到 ≈68%；池扩容到 96KB 会撑爆内部 RAM（实测
-  链接期 `.bss` 溢出），故不走改配置路线。`sloop_ui_start()` 就绪行固定打印池占用。
+  链接期 `.bss` 溢出），故不走改配置路线。`sloop_ui_start()` 就绪行固定打印池占用，且该采样（`lv_mem_monitor`）在 `bsp_display_lock` 内执行——30ms 定时器此时已创建，无锁遍历 TLSF 池会读到撕裂的块结构。
 
 ## 后果
 

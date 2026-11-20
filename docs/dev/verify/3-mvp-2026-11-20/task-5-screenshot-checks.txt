@@ -1,8 +1,8 @@
-# Task 5 截屏抽检与会话内网格判读（screenshot.py --check + PIL 区域分析）
-# 采集：2026-11-20 ｜ A=final 固件 094c270（scratch 注入已撤除）；B=scratch 构型（点击注入，见 task-5-readme.md）
-# 网格判读：. 空 / B G Y O = 蓝/绿/黄/橙亮格 / (x) 焦点描边 / [x] 播放头描边；非 STEP 页的网格行不适用（已标注）
+# Task 5 截屏抽检与会话内网格/卡片判读（screenshot.py --check + PIL 区域分析）
+# 采集：2026-11-20 ｜ A=终版固件 1e2d5bc（评审修复版，scratch 注入已撤除）；B=scratch 构型（点击注入，见 task-5-scratch-note.md）
+# 判读记号：. 空 / B G Y O = 蓝/绿/黄/橙亮格 / (x) 焦点描边 / [x] 播放头描边；判读按图所属页面标注（TRACKS 图看卡片、STEP 图看网格）
 
-## A. final 构型（094c270）
+## A. 终版构型（1e2d5bc）
 $ UI
 $ ENG MEM
 $ UI tracks
@@ -15,7 +15,7 @@ $ screenshot task5-tracks-sel1 -> rc=0
   [通过] (280,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
 像素抽检 5/5 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-tracks-sel1.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
+网格判读：本图非 STEP 页，不适用（看下方卡片判读）
 card0: outline(x-4)=(56, 120, 216) bg=(40, 52, 64) -> SEL
 card1: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
 card2: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
@@ -31,11 +31,12 @@ $ screenshot task5-step-empty -> rc=0
   [通过] (400,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
 像素抽检 5/5 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-step-empty.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  (.)   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 0
 $ UI play
 $ screenshot task5-play-regress -> rc=0
@@ -48,7 +49,7 @@ $ UI step
 $ ENG MEM
 $ STATE SNAP
 
-## B. scratch 构型（UI TAP / STATE PLAY / ENG DRUMSTEP / ENG STEPW 临时命令）
+## B. scratch 构型（UI TAP / STATE PLAY / ENG DRUMSTEP / ENG STEPW 临时命令；provenance 见 task-5-scratch-note.md）
 $ UI TOUCH OFF
 $ UI
 $ UI tracks
@@ -60,7 +61,7 @@ $ screenshot t5-scratch-tracks-sel1 -> rc=0
   [通过] (280,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
 像素抽检 5/5 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-tracks-sel1.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
+网格判读：本图非 STEP 页，不适用（看下方卡片判读）
 card0: outline(x-4)=(56, 120, 216) bg=(40, 52, 64) -> SEL
 card1: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
 card2: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
@@ -75,7 +76,7 @@ $ screenshot t5-scratch-tracks-sel4 -> rc=0
   [通过] (304,552) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 8）
 像素抽检 4/4 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-tracks-sel4.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
+网格判读：本图非 STEP 页，不适用（看下方卡片判读）
 card0: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
 card1: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
 card2: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
@@ -98,11 +99,12 @@ $ screenshot t5-scratch-step-two-on -> rc=0
   [通过] (235,208) 实测 (240,244,248) ≈ 期望 (242,245,248)（容差 10）
 像素抽检 5/5 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-two-on.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B (B)   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 213
 $ UI TAP step 0 3
 $ ENG STEP 0 3
@@ -114,11 +116,12 @@ $ screenshot t5-scratch-step-tie -> rc=0
   [通过] (413,332) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
 像素抽检 1/1 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-tie.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B   B (.)   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 217
 $ ENG STEPW 1 4 0 2
 $ ENG STEP 1 4
@@ -131,44 +134,50 @@ $ screenshot t5-scratch-step-drum -> rc=0
   [通过] (413,580) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
 像素抽检 3/3 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-drum.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B   B (.)   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   O   .   O   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 217
+$ STATE SNAP
 $ UI TAP step 3 7
 $ STATE SNAP
 $ ENG SNAP
+ASSERT drum tap 不改焦点: before=('0', '3') after=('0', '3') -> PASS
 $ screenshot t5-scratch-step-drum-msg -> rc=0
   [通过] (340,580) 实测 (224,104,24) ≈ 期望 (224,106,27)（容差 16）
   [通过] (413,580) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
   [通过] (194,208) 实测 (56,120,216) ≈ 期望 (59,123,216)（容差 16）
 像素抽检 3/3 项通过
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-step-drum-msg.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B   B (.)   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   O   .   O   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 1054
 $ STATE PLAY
 $ screenshot t5-scratch-playhead-a -> rc=0
 $ screenshot t5-scratch-playhead-b -> rc=0
 $ STATE STOP
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-playhead-a.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B   B [.]   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   . [.]   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   . [.]   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   . [O]   .   O   .   .   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 1054
 == /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/t5-scratch-playhead-b.png (1280, 720)
-[非 STEP 页，网格判读不适用] grid (rows T1..DRM; ()=focus border; []=playhead border):
-card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
-card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
-card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+网格判读（. 空 / B G Y O 亮格 / (x) 焦点描边 / [x] 播放头描边）：
+  .   B   B (.)   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   . [.]   .   .   .   .   .   .   .   .
+  .   .   .   O   .   O   . [.]   .   .   .   .   .   .   .   .
+卡片判读：本图非 TRACKS 页，不适用
 status_band non-bg pixels: 1054
 $ STATE SNAP
 $ ENG MEM

@@ -1,8 +1,9 @@
 # 阶段 3 / Task 5 证据（TRACKS + STEP 两屏，步编辑闭环）
 
-日期：2026-11-20 ｜ 受测固件提交：`094c270`（`feat(components/sloop_ui): TRACKS 与 STEP 页（步格编辑闭环）`）
+日期：2026-11-20 ｜ 受测固件提交：`1e2d5bc`（评审修复版：`lv_mem_monitor` 移入锁内 + 文案/焦点清理；首版为 `094c270` = `feat(components/sloop_ui): TRACKS 与 STEP 页（步格编辑闭环）`）
+三轮采集的 A 组 PNG 逐字节相同（渲染与锁修复无关）；scratch 组中 `step-drum-msg`/`playhead-a`/`playhead-b` 因「鼓轨点击不再改焦点」而重采，见 `task-5-scratch-note.md`。
 
-## A. 终版构型（094c270，scratch 注入已撤除，clean 树构建 + 烧录）
+## A. 终版构型（1e2d5bc，scratch 注入已撤除，clean 树构建 + 烧录）
 
 | 文件 | 内容 |
 |---|---|
