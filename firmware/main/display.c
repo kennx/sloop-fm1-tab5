@@ -20,6 +20,9 @@
  * - 四角白色 L 形标记（臂长 32px、边宽 8px）验证无裁切；左上角标记与
  *   白色彩条同色不可辨，该角裁切判定依赖白条自身贴边。
  *
+ * 阶段 3 起本测试图不再是开机画面：sloop_ui 成功后清空控件树接管屏幕，
+ * 失败时由 app_display_draw_test_pattern() 重画本图兜底。
+ *
  * 触摸反馈（Task 5）：30ms 轮询触摸 indev，按下时把 lv_layer_top 上的
  * 白色十字准星（臂 32px、线宽 2px）移到触点并限流输出坐标日志
  * （位移 ≥8px 才记录）；松开后准星留在最后位置，便于截屏核对。
@@ -114,6 +117,19 @@ static void draw_test_pattern(void)
     make_rect(scr, 0, 688, 8, 32, 0xFFFFFF);
     make_rect(scr, 1248, 712, 32, 8, 0xFFFFFF);
     make_rect(scr, 1272, 688, 8, 32, 0xFFFFFF);
+}
+
+/* UI 启动失败时的回退入口（main.c 调用）：清掉可能残留的半成品控件树后重画
+ * bring-up 测试图，保证屏幕不空白。 */
+void app_display_draw_test_pattern(void)
+{
+    if (!bsp_display_lock(1000)) {
+        ESP_LOGE(TAG, "测试图回退放弃：LVGL 锁超时");
+        return;
+    }
+    lv_obj_clean(lv_screen_active());
+    draw_test_pattern();
+    bsp_display_unlock();
 }
 
 /* ==================== 触摸反馈（Task 5：十字准星 + 坐标日志） ==================== */

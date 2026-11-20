@@ -1,5 +1,5 @@
 /*
- * sloop-fm1-tab5 — 应用入口（阶段 1 bring-up + 阶段 2 引擎骨架）
+ * sloop-fm1-tab5 — 应用入口（阶段 1 bring-up + 阶段 2 引擎 + 阶段 3 UI）
  *
  * 阶段 1 平台 bring-up 已落地（2026-11-19，机器侧门禁全绿）：MIPI-DSI 显示与
  * 测试图（display.c）、console SCR/KB/AUD/ENG 命令（console.c，AGENTS §5.3）、
@@ -8,6 +8,8 @@
  * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
  * 阶段 2 已接入 sloop_core 同源自测组合 TU、RAM 存储与 ES8388 引擎音频流
  * （阶段 3 起开机即启流，ENG AUDIO ON|OFF 可停启，DI-8）。
+ * 阶段 3 起 sloop_ui（LVGL 四屏框架）在引擎/状态层就绪后接管屏幕；启动失败
+ * 回退 bring-up 测试图（app_display_draw_test_pattern）并记 ERROR。
  */
 #include "audio_tone.h"
 #include "console.h"
@@ -15,6 +17,7 @@
 #include "esp_chip_info.h"
 #include "esp_err.h"
 #include "esp_flash.h"
+#include "esp_heap_caps.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -22,6 +25,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_ui.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_tab5";
@@ -82,9 +86,11 @@ void app_main(void)
     ret = sloop_core_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "SLOOP 引擎初始化失败: %s", esp_err_to_name(ret));
-    } else {
-        /* AppState 初值取自引擎快照（UI/输入层从阶段 3 Task 4 起使用） */
-        state_init();
+    }
+    /* AppState 须在 UI 的任何读/写之前初始化（sloop_state.h 的前置条件）：引擎
+     * 成功路径取引擎快照，失败路径取全零快照——UI 仍可渲染；state_init 幂等。 */
+    state_init();
+    if (ret == ESP_OK) {
         ESP_LOGI(TAG, "SLOOP 引擎初始化完成: rate=%u frames=%u",
                  (unsigned)sloop_core_rate(), (unsigned)sloop_core_frames());
         /* 开机即启流（阶段 3 音频所有权，DI-8）：UI 渲染与音频并行；诊断命令
@@ -94,6 +100,16 @@ void app_main(void)
             ESP_LOGE(TAG, "音频流启动失败: %s（引擎静默，ENG AUDIO ON 可重试）",
                      esp_err_to_name(audio_ret));
         }
+    }
+
+    /* 阶段 3 UI：状态层就绪后接管屏幕（单容器屏 + 四页签）。失败回退 bring-up
+     * 测试图并记 ERROR——不留空白屏；UI 成功时测试图不再是开机画面。 */
+    ESP_LOGI(TAG, "UI 启动前内部堆剩余 %u 字节",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    ret = sloop_ui_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "UI 启动失败: %s（回退 bring-up 测试图）", esp_err_to_name(ret));
+        app_display_draw_test_pattern();
     }
 
     while (1) {

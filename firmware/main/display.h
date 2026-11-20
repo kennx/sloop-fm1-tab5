@@ -14,3 +14,4 @@
 esp_err_t app_display_init(void);                /* 组装 DPI panel + LVGL；成功后内部持有 panel 句柄 */
 esp_lcd_panel_handle_t app_display_panel(void);  /* 供 console SCR 取帧缓冲（Task 3 消费） */
 void app_display_touch_feedback_start(void);     /* 触摸十字准星 + 坐标日志（Task 5；init 成功路径内部已调用） */
+void app_display_draw_test_pattern(void);        /* UI 启动失败时的回退：清屏重画 bring-up 测试图 */

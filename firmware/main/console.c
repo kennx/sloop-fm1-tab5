@@ -6,10 +6,11 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF
- *    与 AUDIO ON|OFF 音频流启停，DI-8）。
- *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键与状态层持有的
- *    选轨/mute/solo；引擎真值看 ENG SNAP）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF、
+ *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
+ *    与状态层持有的选轨/mute/solo；引擎真值看 ENG SNAP）。
+ *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -40,6 +41,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_ui.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_console";
@@ -428,8 +430,17 @@ static int eng_command(int argc, char **argv)
                (unsigned)st.flags, (unsigned)st.lvl, (unsigned)st.rat, (int)st.micro, (unsigned)st.fill);
         return 0;
     }
+    if (argc == 2 && strcasecmp(argv[1], "mem") == 0) {
+        /* 阶段 3 内存门禁：UI 起来后的 idle 内部堆须 ≥60KB（spec §4） */
+        printf("ENG MEM internal_free=%u internal_min=%u psram_free=%u psram_min=%u\n",
+               (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+               (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+               (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+               (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|AUDIO [ON|OFF]\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]\n");
     return 1;
 }
 
@@ -440,9 +451,10 @@ static int state_command(int argc, char **argv)
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
         app_state_t st;
         state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
-               (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note);
+               (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
+               (unsigned)st.core.bpm, (unsigned)st.core.playing);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -450,6 +462,37 @@ static int state_command(int argc, char **argv)
         return 0;
     }
     printf("用法: STATE SNAP（AppState 页面/焦点/层键与状态层持有的选轨/mute/solo；引擎真值见 ENG SNAP）\n");
+    return 1;
+}
+
+/* UI 切页（注入用）：UI <play|tracks|step|transport>；无参打印当前页。
+ * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。 */
+static int ui_command(int argc, char **argv)
+{
+    static const char *const names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
+    if (argc == 1) {
+        uint8_t page = sloop_ui_current_page();
+        if (page >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+        return 0;
+    }
+    if (argc == 2) {
+        for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+            if (strcasecmp(argv[1], names[i]) != 0) continue;
+            sloop_ui_switch_page(i);
+            uint8_t page = sloop_ui_current_page();
+            if (page != i) {
+                printf("UI ERR not_started (want=%s)\n", names[i]);
+                return 1;
+            }
+            printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+            return 0;
+        }
+    }
+    printf("用法: UI <play|tracks|step|transport>（无参打印当前页）\n");
     return 1;
 }
 
@@ -468,7 +511,7 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* 先注册命令后启动 REPL（SCR/KB/AUD/ENG） */
+    /* 先注册命令后启动 REPL（SCR/KB/AUD/ENG/STATE/UI） */
     const esp_console_cmd_t scr_cmd = {
         .command = "SCR",
         .help = "导出帧缓冲（AGENTS §5.3 截屏协议，screenshot.py 对端）",
@@ -509,8 +552,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF/AUDIO",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|AUDIO [ON|OFF]",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF/MEM/AUDIO",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);
@@ -528,6 +571,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&state_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 STATE 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t ui_cmd = {
+        .command = "UI",
+        .help = "UI 切页/查询当前页（sloop_ui 四屏框架）",
+        .hint = "<play|tracks|step|transport>",
+        .func = &ui_command,
+    };
+    ret = esp_console_cmd_register(&ui_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 UI 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
