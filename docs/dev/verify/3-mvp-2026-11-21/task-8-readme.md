@@ -15,7 +15,7 @@
 | 引擎/DSP 回归 | ✅ `ALL HOST TESTS PASSED (subset)`；182 golden 0 changed/0 gone | `task-8-host-test.log` |
 | 状态层单测 | ✅ 7 passed | `task-8-state-test.log` |
 | scripts 工具 | ✅ `--selftest` 7 组 | `task-8-screenshot-selftest.log` |
-| 注入脚本 ×3（真机） | ✅ 三条各退出码 0（断言 + 像素抽检） | `task-8-{transport,step_edit,tracks}.log` + PNG + `-run.txt` |
+| 注入脚本 ×3（真机） | ✅ 三条各退出码 0（断言 + 像素抽检） | `task-8-{transport,step_edit,tracks}.log` + PNG + `-run.txt`（stdout 断言摘要） |
 | 内存门禁（idle 内部堆 ≥60KB） | ✅ `internal_free=113887`（min_since_boot 98612） | `task-8-mem-transcript.log` |
 | 设备 SELFTEST 单例 | ✅ `preset/ANALOG/00_808_BOOM 0b447c66765e1780` identical=1 | `task-8-selftest-case.log` |
 | 阶段收口 soak（30min） | ✅（见 §3） | `task-8-soak.log`、`task-8-soak-summary.txt` |
@@ -78,10 +78,28 @@
   非退化趋势——均值在 30min 内平稳，最大值为累计值只增不减）。
 - 未覆盖：soak 不含 SCR 截屏（避免 DI-5 干扰与 1.8MB×N 带宽），截屏矩阵由 §2 独立采集。
 
+### 3.1 占空比（评审修复轮补测，2026-11-21）
+
+30min soak 时 `ENG PERF` 流式分支尚无占空比字段（判据「占空比不劣化」未量化）。
+评审修复轮在 `sloop_hal_audio_render_stats()`（音频任务每块更新 mean/max/blocks）
+基础上，让 `ENG PERF` 流式分支按块预算 5805µs 打印 `duty_mean/duty_max`，并补测：
+
+| 场景 | render_mean_us | duty_mean | duty_max | 证据 |
+|---|---|---|---|---|
+| 阶段 2 静默渲染基线（离线 100 块） | 548 | 9.44% | 11.73% | `2-engine-2026-11-20/task-4-audio-perf.log` |
+| UI live，idle（启动后） | 548 → 538 | 9.44% → 9.27% | 52.60% | `task-8-fix-render-duty.txt` |
+| UI live + 播放 + 每 12s 步/选轨/切页/音符（2min 冒烟） | 574 → 589 | 9.89 → 10.03 → 10.15% | 68.87 → 74.62% | `task-8-soak-mini-summary.txt` |
+
+判定：`duty_mean ≤ 2× 基线 = 18.88%`（`scripts/soak.py` DUTY_MAX_PCT）。实测最坏 10.15%
+（1.08× 基线；更早一次同构 2min 冒烟 11.16%，1.18×），无劣化；`duty_max` 为启动首块与状态写后的块级峰值（<100%，未超预算，xrun=0）。
+soak.py 冒烟（`--duration 120 --interval 60 --cycle 12`）**VERDICT: PASS**，同时验证了
+新的内部堆判据（HEAP_FLOOR/HEAP_NET_FLOOR/HEAP_JITTER）、internal_min 判定与
+「KEY 事件计数增量 == 期望」断言。
+
 
 ## 4. 失败证据（DI-5 复发）
 
-`task-8-transport-scr-stall-fail.{log,txt}`：transport 脚本首轮在截屏帧传输
+`task-8-transport-scr-stall-fail.log`：transport 脚本首轮在截屏帧传输
 208800/1843200 字节处 PC 侧超时；直接读串口证实设备仍在发帧但速率约 8.4KB/s
 （正常 ≈1MB/s），无 panic/WDT。RTS 硬复位后同一脚本 48.8s 通过（见 §1 表格）。
 详细观测与处置见 `docs/deferred-issues.md` DI-5 与 `docs/dev/device-notes.md` §8。
@@ -94,6 +112,8 @@
   `task-8-screenshot-selftest.log`
 - 注入：`task-8-{transport,step_edit,tracks}.log`（原始串口回显）、`*-run.txt`（断言摘要）、
   `task-8-{transport,step-two-on,tracks-sel3,step-playhead-a,step-playhead-b}.png`
-- soak：`task-8-soak.log`、`task-8-soak-summary.txt`
+- soak：`task-8-soak.log`、`task-8-soak-summary.txt`（30min，2026-11-21 00:25）
+- 评审修复轮：`task-8-fix-build-gates.txt`（构建/烧录/启动 + 回归）、`task-8-fix-boot-log.txt`、
+  `task-8-fix-render-duty.txt`（占空比补测）、`task-8-soak-mini.log`、`task-8-soak-mini-summary.txt`
 - 截屏抽检记录：`task-8-screenshot-checks.txt`（PLAY 两次尝试 + 三脚本抽样口径）
-- 失败：`task-8-transport-scr-stall-fail.{log,txt}`
+- 失败：`task-8-transport-scr-stall-fail.log`（原始回显；首轮 stdout 未单独留档）

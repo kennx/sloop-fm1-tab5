@@ -1,0 +1,555 @@
+
+sloop>  # [inject] soak 开始 duration=120s interval=60s
+ENG AUDIO
+ENG AUDIO streaming=1 xrun=0
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  ENG MEM
+ENG MEM internal_free=114143 internal_min=98764 psram_free=30128928 psram_min=30128928
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3132 render_blocks=104722 render_mean_us=574 render_max_us=3997 duty_mean=9.89% duty_max=68.87% min_free_since_boot_internal=98764 min_free_since_boot_psram=30128928
+sloop>  KEY STATS
+KEY STATS count=40 mean_us=926 max_us=6802 input_stack_free=3752
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (613702) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=749
+sloop>  KEY 0x42 up
+I (613802) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=832
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (625232) sloop_input: note on track=1 note=48
+KEY 0x42 down z elapsed_us=756
+sloop>  KEY 0x42 up
+I (625332) sloop_input: note off track=1 note=48
+KEY 0x42 up z elapsed_us=813
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (637262) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=715
+sloop>  KEY 0x42 up
+I (637372) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=806
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (649282) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=726
+sloop>  KEY 0x42 up
+I (649372) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=809
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (661322) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=722
+sloop>  KEY 0x42 up
+I (661392) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=814
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG MEM
+ENG MEM internal_free=114135 internal_min=98764 psram_free=30128928 psram_min=30128928
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3132 render_blocks=115061 render_mean_us=582 render_max_us=4106 duty_mean=10.03% duty_max=70.74% min_free_since_boot_internal=98764 min_free_since_boot_psram=30128928
+sloop>  KEY STATS
+KEY STATS count=50 mean_us=895 max_us=6802 input_stack_free=3752
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (673822) sloop_input: note on track=1 note=48
+KEY 0x42 down z elapsed_us=725
+sloop>  KEY 0x42 up
+I (673932) sloop_input: note off track=1 note=48
+KEY 0x42 up z elapsed_us=807
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (685262) sloop_input: note on track=2 note=48
+KEY 0x42 down z elapsed_us=795
+sloop>  KEY 0x42 up
+I (685342) sloop_input: note off track=2 note=48
+KEY 0x42 up z elapsed_us=824
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (697262) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=740
+sloop>  KEY 0x42 up
+I (697372) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=820
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=3 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (709252) sloop_input: note on track=0 note=48
+KEY 0x42 down z elapsed_us=750
+sloop>  KEY 0x42 up
+I (709382) sloop_input: note off track=0 note=48
+KEY 0x42 up z elapsed_us=809
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x42 down
+I (721322) sloop_input: note on track=1 note=48
+KEY 0x42 down z elapsed_us=729
+sloop>  KEY 0x42 up
+I (721412) sloop_input: note off track=1 note=48
+KEY 0x42 up z elapsed_us=829
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG MEM
+ENG MEM internal_free=114135 internal_min=98764 psram_free=30128928 psram_min=30128928
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3132 render_blocks=125395 render_mean_us=589 render_max_us=4331 duty_mean=10.15% duty_max=74.62% min_free_since_boot_internal=98764 min_free_since_boot_psram=30128928
+sloop>  KEY STATS
+KEY STATS count=60 mean_us=876 max_us=6802 input_stack_free=3752
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=1
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  # [inject] soak 结束 cycles=10 samples=3 failures=0 problems=0

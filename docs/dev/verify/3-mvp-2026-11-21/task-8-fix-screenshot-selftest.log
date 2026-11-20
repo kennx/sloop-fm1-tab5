@@ -1,0 +1,6 @@
+  [fw] boot noise line
+  帧缓冲: 4x2 rgb565 (16 字节)
+已保存: /tmp/tmpw3wh36ep/out.png
+  帧缓冲: 4x2 rgb565 (16 字节)
+自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、像素抽检）
+selftest OK

@@ -48,7 +48,7 @@ $ bash scripts/inject/transport.sh /dev/ttyACM0   # 退出码 0，task-8-transpo
 $ bash scripts/inject/step_edit.sh /dev/ttyACM0   # 退出码 0，task-8-step_edit.log + PNG
 $ bash scripts/inject/tracks.sh /dev/ttyACM0      # 退出码 0，task-8-tracks.log + PNG
   三条场景全部断言与像素抽检通过（stdout 摘要 task-8-{transport,step_edit,tracks}-run.txt）。
-  注：transport 首次运行在截屏帧传输处失败（DI-5 复发，见 task-8-transport-scr-stall-fail.*），
+  注：transport 首次运行在截屏帧传输处失败（DI-5 复发，见 task-8-transport-scr-stall-fail.log），
   RTS 硬复位后重跑通过；本次失败与 TAP 注入无关（截屏之前的 TAP 断言全部 PASS）。
 
 ## 4. 引擎诊断（机器侧）
@@ -71,6 +71,9 @@ $ ENG AUDIO OFF → ENG SELFTEST preset/ANALOG/00_808_BOOM → ENG AUDIO ON
                deterministic=1 expected=1 main_rc=1 result=PASS
   SELFTEST COMPARE identical=1 mismatch=0 missing=0 extra=0 result=PASS
   main_rc=1 为单例模式刻意跳过 J_CPU 批量后上游 run_jobs 的记账口径（阶段 2 已定论）。
+  同一次输出的 `1 health failures / 7 voice / routing checks failed / 339 crashes` 也是过滤模式的产物：
+  未选中的 job 由 shim 返回 1，被上游 run_jobs 记为 crash；权威判据是设备汇总行
+  `cases=1 identical=1 mismatch=0 health_fail=0 check_fail=0 result=PASS`。
   全量 182/182 同源等价沿用阶段 2 post-fix 证据（本阶段未改 DSP/引擎代码）。
 
 ## 5. third_party 完整性

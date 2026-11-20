@@ -1,0 +1,36 @@
+# Task 8 评审修复轮门禁（渲染占空比埋点 + soak 判定硬化）
+# 受测树：e005bf1 + 未提交的固件/脚本修复（启动日志 App version: e005bf1-dirty；
+# 固件修复的正式提交见本轮 fix 提交，代码内容与受测树一致）
+# 采集：2026-11-21 01:2x CST，Tab5 USB-C → /dev/ttyACM0
+
+## 构建（改动文件：components/sloop_hal_tab5/{include/sloop_hal.h,src/audio_stream.c}、
+##       main/console.c）
+$ scripts/build.sh     # 退出码 0，编译警告/错误 0（增量构建，19.9KB 日志）
+$ scripts/build.sh     # 退出码 0，编译警告/错误 0，CMake 提示 0（第二遍）
+
+## 烧录 + 启动
+$ scripts/flash.sh     # 退出码 0，三段 Hash of data verified
+启动日志（task-8-fix-boot-log.txt）：
+  I (1395) app_init: App version:      e005bf1-dirty
+  I (4082) sloop_tab5: keyboard: OK (0x6D)
+  I (4212) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40532/59632 字节, 内部堆剩余 119275 字节
+  I (4452) sloop_input: InputManager 就绪：55 条映射，轮询 5ms，任务优先级 4
+  fatal / abort / Backtrace / task_wdt：0
+
+## ENG PERF（流式分支新增占空比字段）
+ENG PERF streaming=1 xrun=0 audio_stack_free=3180 render_blocks=1348 render_mean_us=548
+         render_max_us=3053 duty_mean=9.44% duty_max=52.60% min_free_since_boot_internal=98764 ...
+详见 task-8-fix-render-duty.txt。
+
+## soak 冒烟（scripts/soak.py 判定硬化后）
+$ python3 scripts/soak.py /dev/ttyACM0 --duration 120 --interval 60 --cycle 12
+  退出码 0，VERDICT: PASS（3 次采样；internal_free 114143→114135B、internal_min 98764B；xrun=0；
+  duty_mean 9.89→10.03→10.15%，上限 18.88%；KEY 事件计数增量断言 10/10、10/10 通过；
+  判定新增「全程非增 + 净下降 ≥2KB」与 duty 门限后不再误报短程抖动）
+  证据：task-8-soak-mini.log、task-8-soak-mini-summary.txt
+
+## 回归（未改引擎/DSP；仍复跑）
+$ scripts/host-test.sh        # ALL HOST TESTS PASSED (subset)，182 golden 0 changed/0 gone
+$ scripts/state-test.sh       # 7 passed
+$ python3 scripts/screenshot.py --selftest   # 7 组通过
+$ (cd third_party && sha256sum -c MANIFEST.sha256)   # 233/233 OK

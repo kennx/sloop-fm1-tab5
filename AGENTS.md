@@ -102,7 +102,7 @@ sloop-fm1-tab5/
 | `scripts/state-test.sh` | `sloop_state` 状态层 host 单测（gcc + stub 引擎，`-DHOST_TEST`）；打印 PASS/FAIL，失败退出码非 0 |
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 运行设备 `ENG SELFTEST`，逐用例与 host `golden.txt` 比对；脚本先自动 `ENG AUDIO OFF`（固件开机即流式，否则自检被拒）、结束后恢复 `ENG AUDIO ON`；也支持 `--compare LOG` 离线复核 |
 | `scripts/inject/{transport,step_edit,tracks}.sh [PORT]` | 注入场景脚本（pyserial）：`UI` 切页 → `TAP`/`KEY` 注入 → `STATE`/`ENG` 断言 → `SCR` 截屏；产物 `firmware/build/verify/inject-<场景>-<时间戳>.{log,png}`（原始回显日志 + 截图）。场景逻辑在 `scripts/inject/inject.py`，见 §5.4.1 |
-| `scripts/soak.py PORT [--duration 1800] [--interval 300] [--cycle 12]` | 稳定性 soak：保持 TRANSPORT 页播放中，循环「步编辑 → 选轨/切页 → 键盘音符」，每 `--interval` 秒采样 `ENG MEM`/`ENG PERF`/`KEY STATS` 并核验切页确定性；产物 `firmware/build/verify/soak-<时间戳>.log`（原始回显）+ `soak-summary-<时间戳>.txt`（采样表 + 判定）。判定：内部堆非单调下降且 ≥60KB、streaming=1 且 xrun=0、音频栈余量 ≥2KB、日志无 panic/WDT、时长 ≥1800s；退出码 0 = 通过 |
+| `scripts/soak.py PORT [--duration 1800] [--interval 300] [--cycle 12]` | 稳定性 soak：保持 TRANSPORT 页播放中，循环「步编辑 → 选轨/切页 → 键盘音符」，每 `--interval` 秒采样 `ENG MEM`/`ENG PERF`/`KEY STATS` 并核验切页确定性；产物 `firmware/build/verify/soak-<时间戳>.log`（原始回显）+ `soak-summary-<时间戳>.txt`（采样表 + 判定）。判定：internal_free 与 internal_min ≥60KB、采样首末差 ≥-8KB、连续 3 个采样非增累计下滑 ≤2KB、streaming=1 且 xrun=0、流式占空比 duty_mean ≤ 2× 阶段 2 基线 9.44%（=18.88%）、音频栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT、实测时长 ≥--duration；退出码 0 = 通过 |
 | `scripts/verify.sh [PORT]` | 一键验证：构建 → 烧录 → 等待启动 → 截屏到 `firmware/build/verify/` |
 
 - Python 依赖（screenshot.py / inject.py / soak.py）：`pip install -r scripts/requirements.txt`（pyserial + Pillow；numpy 可选，加速 RGB565 解码）。
@@ -168,7 +168,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
 | 引擎/DSP 相关 | `scripts/host-test.sh` 通过；设备等价改动另跑 `scripts/device-selftest.py` 严格哈希比对（脚本自动停流/恢复；手动时先 `ENG AUDIO OFF`，跑完 `ENG AUDIO ON` 恢复——固件开机即流式，流式时 SELFTEST 会被拒） |
 | 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段保留/MUTE-SOLO/快照同步） |
-| 阶段收口 soak | `scripts/soak.py PORT`（阶段 3 口径 30min）退出码 0：内部堆非单调下降且 ≥60KB、streaming=1 且 xrun=0、音频任务栈余量 ≥2KB、日志无 panic/WDT；soak 摘要晋升并在 verification-log 登记（阶段 4 长时 soak 沿用同一口径，时长按阶段判据） |
+| 阶段收口 soak | `scripts/soak.py PORT --duration 1800`（阶段 3 口径 30min）退出码 0：internal_free/internal_min ≥60KB、首末差 ≥-8KB、连续 3 采样非增下滑 ≤2KB（HEAP_JITTER）、streaming=1 且 xrun=0、duty_mean ≤2× 阶段 2 静默渲染基线 9.44%（=18.88%，`ENG PERF` 流式分支口径）、音频任务栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT；soak 摘要晋升并在 verification-log 登记（阶段 4 长时 soak 沿用同一口径，时长按阶段判据） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
 | 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 三条场景脚本对真机各跑一遍，退出码均 0（`UI`/`TAP`/`KEY` 回显断言 + `STATE`/`ENG` 快照断言 + 截屏像素抽检）；未命中路径打印 `TAP miss ...` 且不改状态 |
