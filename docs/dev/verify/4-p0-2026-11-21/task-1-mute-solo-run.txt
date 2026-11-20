@@ -1,0 +1,19 @@
+  [PASS] baseline STATE mute k0: got 0 want 0
+  [PASS] baseline ENG mute k0: got 0 want 0
+  [PASS] baseline ENG sel: got 0 want 0
+  [PASS] STATE mute k0 after Alt+1: got 1 want 1
+  [PASS] ENG mute k0 after Alt+1: got 1 want 1
+  [PASS] STATE mute k1 untouched: got 0 want 0
+  [PASS] STATE selected_track after Ctrl+2: got 1 want 1
+  [PASS] ENG sel after Ctrl+2: got 1 want 1
+  [PASS] STATE solo k0 after Alt+5: got 1 want 1
+  [PASS] ENG solo k0 after Alt+5: got 1 want 1
+  [PASS] ENG mute k0 still 1 (sync keeps engine truth): got 1 want 1
+  [PASS] STATE mute k0 restored: got 0 want 0
+  [PASS] STATE solo k0 restored: got 0 want 0
+  [PASS] STATE selected_track restored: got 0 want 0
+  [PASS] ENG mute k0 restored: got 0 want 0
+  [PASS] ENG solo k0 restored: got 0 want 0
+  [PASS] ENG sel restored: got 0 want 0
+TRANSCRIPT firmware/build/verify/di9-mute-solo-20261121-055904.log
+RESULT PASS
