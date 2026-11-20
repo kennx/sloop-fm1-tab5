@@ -31,11 +31,15 @@ static sloop_hal_render_fn_t render_fn;
 static int32_t render_buf[2][AUDIO_HALF_FRAMES * 2u];
 static int16_t output_buf[2][AUDIO_HALF_FRAMES * 2u];
 static volatile uint32_t xruns;
-/* 渲染耗时统计（自开机累计；块数/和/峰值）。仅供诊断读取，读取方 console
+/* 渲染耗时统计（窗口 = 本次流会话：sloop_hal_audio_start 清零，故 ENG PERF 的
+ * duty_* 是「本次启流以来」而非自开机累计）。仅供诊断读取，读取方 console
  * 容忍单块级撕裂（均值误差 < 1 块）。 */
 static volatile uint32_t render_blocks;
 static volatile uint64_t render_us_sum;
 static volatile uint32_t render_us_max;
+/* 超时强删（DMA 停摆）后置位：I2S 驱动锁可能随被删任务丢失，此后拒绝再启流，
+ * 只有复位设备能恢复（sloop_hal_audio_stop 返回 ESP_ERR_INVALID_STATE）。 */
+static volatile bool broken;
 
 esp_err_t sloop_hal_audio_max_all(void)
 {
@@ -151,10 +155,19 @@ static void audio_task_run(void *arg)
 
 esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render)
 {
+    if (broken) {
+        ESP_LOGE(TAG, "拒绝启流：上次停流超时强删，I2S 驱动锁可能已丢失（需复位设备）");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (codec == NULL || render == NULL) return ESP_ERR_INVALID_STATE;
     if (audio_task != NULL) return ESP_OK;
     stop_requested = false;
     render_fn = render;
+    /* 统计窗口 = 本次流会话：任务尚未创建（无并发写者），start 前清零即可让
+     * duty_mean/duty_max 只覆盖本次开流之后的块。 */
+    render_blocks = 0;
+    render_us_sum = 0;
+    render_us_max = 0;
     audio_running = true;
     if (xTaskCreate(audio_task_run, "sloop_audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIORITY, &audio_task) != pdPASS) {
         audio_running = false;
@@ -169,6 +182,8 @@ esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render)
  * 不可直接 vTaskDelete 阻塞在 esp_codec_dev_write 里的任务：那会把 i2s_channel
  * 的 binary 信号量永久留在被删任务手里（实测 AUD TONE 报 "channel is not
  * enabled"）。缓冲与 render_fn 均为 static，无任务局部对象。
+ * 返回：正常停流 ESP_OK；超时强删返回 ESP_ERR_INVALID_STATE（同时置 broken，
+ * 后续 sloop_hal_audio_start 拒绝启流，需复位设备）。
  * 调用上下文：console REPL（ENG TRIG/ENG AUDIO）是启停的常规上下文；main.c 开机
  * 序列另调一次 start，与 console 首条命令之间只有数十 ms 启动窗口，故 start/stop
  * 未加锁（该窗口内的并发启停未防护；正常时序下 start 在首条命令前已返回）。 */
@@ -193,9 +208,10 @@ esp_err_t sloop_hal_audio_stop(void)
     audio_task = NULL;
     stop_requested = false;
     if (forced) {
+        broken = true;
         ESP_LOGE(TAG, "stream force-stopped, codec 保持打开但 I2S 驱动可能已损坏（需复位设备）");
-    } else {
-        ESP_LOGI(TAG, "stream stopped, codec 保持打开");
+        return ESP_ERR_INVALID_STATE;
     }
+    ESP_LOGI(TAG, "stream stopped, codec 保持打开");
     return ESP_OK;
 }
