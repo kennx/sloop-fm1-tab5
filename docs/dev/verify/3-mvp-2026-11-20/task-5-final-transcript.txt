@@ -1,0 +1,92 @@
+===== Task 5 final build (094c270) capture =====
+$ UI
+UI
+UI page=play (0)
+$ ENG MEM
+ENG MEM
+ENG MEM internal_free=119559 internal_min=99252 psram_free=30129000 psram_min=28261220
+$ UI tracks
+UI tracks
+UI page=tracks (1)
+$ STATE SNAP
+STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+$ screenshot task5-tracks-sel1 -> rc=0
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-tracks-sel1.png
+  [通过] (20,347) 实测 (56,120,216) ≈ 期望 (59,123,216)（容差 16）
+  [通过] (332,347) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [通过] (304,552) 实测 (40,52,64) ≈ 期望 (44,53,64)（容差 8）
+  [通过] (616,552) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 8）
+  [通过] (280,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
+像素抽检 5/5 项通过
+== /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-tracks-sel1.png (1280, 720)
+grid (rows T1..DRM; ()=focus border; []=playhead border):
+  ?   ?   ?   ? (?) (?)   ?   G   ?   ?   ?   ?   ? (?)   ?   ?
+  ?   ?   ?   ?   ?   ?   ?   G   ?   ?   ?   ?   ?   ?   ?   ?
+  ?   ?   ?   ?   ?   ?   ?   G   ?   ?   ?   ?   ?   ?   ?   ?
+  ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?   ?
+card0: outline(x-4)=(56, 120, 216) bg=(40, 52, 64) -> SEL
+card1: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
+card2: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
+card3: outline(x-4)=(16, 20, 24) bg=(24, 32, 32) -> off
+status_band non-bg pixels: 0
+$ UI step
+UI step
+UI page=step (2)
+$ STATE SNAP
+STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+$ screenshot task5-step-empty -> rc=0
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-step-empty.png
+  [通过] (121,208) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
+  [通过] (640,700) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [通过] (89,208) 实测 (240,244,248) ≈ 期望 (242,245,248)（容差 10）
+  [通过] (121,580) 实测 (32,40,48) ≈ 期望 (36,43,51)（容差 10）
+  [通过] (400,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
+像素抽检 5/5 项通过
+== /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-step-empty.png (1280, 720)
+grid (rows T1..DRM; ()=focus border; []=playhead border):
+(.)   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
+card0: outline(x-4)=(16, 20, 24) bg=(16, 20, 24) -> ??
+card1: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+card2: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+card3: outline(x-4)=(32, 40, 48) bg=(32, 40, 48) -> ??
+status_band non-bg pixels: 0
+$ UI play
+UI play
+UI page=play (0)
+$ screenshot task5-play-regress -> rc=0
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task5-play-regress.png
+  [通过] (104,36) 实测 (224,176,40) ≈ 期望 (224,179,42)（容差 16）
+  [通过] (760,36) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 16）
+  [通过] (640,400) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [通过] (1090,270) 实测 (24,32,32) ≈ 期望 (27,32,38)（容差 16）
+像素抽检 4/4 项通过
+$ UI step
+UI step
+UI page=step (2)
+$ ENG MEM
+ENG MEM
+ENG MEM internal_free=119539 internal_min=99252 psram_free=30129000 psram_min=28261220
+$ STATE SNAP
+STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+===== done =====

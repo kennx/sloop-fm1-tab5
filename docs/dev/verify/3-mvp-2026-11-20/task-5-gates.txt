@@ -1,0 +1,63 @@
+# Task 5 门禁日志摘录（2026-11-20，受测固件 094c270，clean 树构建）
+
+## 0. 受测提交与工作树
+$ git rev-parse --short HEAD  ->  094c270
+$ git status --porcelain  ->  （空，clean；仅 docs/dev/verify 未入库证据除外）
+
+## 1. 构建 ×2（scripts/build.sh --clean 然后 scripts/build.sh）
+$ scripts/build.sh --clean -> exit 0
+  compiler 'warning:' 计数 = 0
+  CMake 提示对（AGENTS §5.5 已豁免的 kconfig 首次 configure 提示）:
+    52:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+    66:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+    67:  Missing kconfig option.  Re-run the build process...
+
+$ scripts/build.sh -> exit 0
+  compiler 'warning:' 计数 = 0
+  'CMake Warning' 计数 = 0
+  7:sloop_fm1_tab5.bin binary size 0x16df60 bytes. Smallest app partition is 0x800000 bytes. 0x6920a0 bytes (82%) free.
+  10:Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+  14:Project build complete. To flash, run:
+
+## 2. 烧录（scripts/flash.sh）
+  'Hash of data verified' 次数 = 3
+  35:Wrote 23088 bytes (14349 compressed) at 0x00002000 in 0.2 seconds (effective 949.6 kbit/s)...
+  36:Hash of data verified.
+  93:Wrote 1498976 bytes (899846 compressed) at 0x00010000 in 5.9 seconds (effective 2043.4 kbit/s)...
+  94:Hash of data verified.
+  97:Wrote 3072 bytes (120 compressed) at 0x00008000 in 0.0 seconds (effective 1029.5 kbit/s)...
+  98:Hash of data verified.
+  101:Hard resetting via RTS pin...
+
+## 3. 启动日志（RTS 复位后 9s 抓取，全文见 task-5-boot-log.txt）
+  58:I (1394) app_init: App version:      094c270
+  105:I (4080) sloop_tab5: keyboard: OK (0x6D)
+  116:I (4140) sloop_tab5: UI 启动前内部堆剩余 119915 字节
+  117:I (4210) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40312/59660 字节, 内部堆剩余 119915 字节
+
+## 4. host-test.sh（上游 golden/DSP 回归）
+  10:== regression: golden renders, health, voices, CPU budget
+  56:regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (21 notes), 0 crashes; 5.3 s
+  439:ALL HOST TESTS PASSED (subset)
+
+## 5. state-test.sh（状态层 host 单测）
+$ scripts/state-test.sh -> exit 0
+  PASS k=1 SET_BPM 钳位 40..240 并落引擎
+  PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+  PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+  PASS k=4 MUTE/SOLO 轨位翻转
+  PASS k=5 state_get_copy 反映 cmd 与 sync
+  PASS k=6 越界参数忽略
+  
+  6 passed, 0 failed
+  STATE TEST PASSED
+
+## 6. screenshot.py --selftest（离线解码/协议自测）
+$ python3 scripts/screenshot.py --selftest -> exit 0
+    帧缓冲: 4x2 rgb565 (16 字节)
+  自测断言 7 组全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、像素抽检）
+  selftest OK
+
+## 7. third_party 完整性
+$ (cd third_party && sha256sum -c MANIFEST.sha256) -> exit 0
+  OK 条目 233 / 总条目 233（树未改动）

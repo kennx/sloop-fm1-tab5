@@ -73,3 +73,15 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 停流不复位引擎运行期编辑（`sloop_core` 无「恢复 init 快照」入口）：普通 `ENG AUDIO OFF` 后 `ENG SNAP`/注音仍看到停流前的状态；而 `ENG SELFTEST` 自身在开始时 `selftest_restore()` 到初始快照、结束时再恢复一次，故自检会抹掉运行期编辑（自检语义，非 stop 副作用）。
 - `xrun` 为累计计数，停/启不清零。
 - 脚本化自检：`scripts/device-selftest.py` 自动 `ENG AUDIO OFF` → 跑 SELFTEST → 恢复 `ENG AUDIO ON`（见 AGENTS §5.1/§5.5）。
+
+## 7. 触摸幽灵按压（2026-11-20，阶段 3 Task 5 采集现场发现）
+
+- 现象：空闲采集期间触摸面板间歇上报「幽灵按压」，日志形如 `sloop_display: touch (690,22)`（落在页签条），
+  后果是页面被意外切换、STEP 网格格被意外翻转（`ENG STEP` 可复现到非预期格变 n=1）。同期 Tab5 Keyboard
+  也出现 `INT=1`、`pending=32`（队列灌满）的异常读数，两者是否有共同电源/接地原因未查。
+- 影响：任何「注入 + 截屏」类证据采集（Task 7 的 `TAP` 注入、后续 soak）都可能被幽灵输入污染，**断言必须复核
+  终态**（例如 Task 5 用 48 步全量 dump 复核只有预期格在响）。
+- 规避（仅验证时）：scratch 构型用 `lv_indev_enable(touch_indev,false)` 关掉触摸 indev 再采集（Task 5 已用，开关已撤除）。
+  真值排查方向：读触摸控制器原始坐标/INT 波形（`bsp_touch_new` 句柄 + 裸 I2C），以及检查排线/接地。
+- 状态：未定性为固件缺陷（触摸驱动 Task 1 已验证四角坐标）；Task 7 触摸注入 + 人测时一并复核。
+

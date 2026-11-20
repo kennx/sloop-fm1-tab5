@@ -19,14 +19,24 @@
 
 A。UI 组件 `sloop_ui`（LVGL 四屏 + 页签 + InputManager）；状态组件 `sloop_state`（AppState + EditCmd，无 LVGL 依赖）；引擎补只读快照与全量步读写接口（spec §3.1）。渲染 = AppState 副本的纯函数式刷新（脏检查）。物理触摸经 LVGL 控件回调发 EditCmd；注入 `TAP` 走各屏 hit-test 表 → 同一 EditCmd（EditCmd 层等价，非原始指针事件）。
 
-## 落地状态（2026-11-20，阶段 3 Task 4）
+## 落地状态（2026-11-20，阶段 3 Task 4 / Task 5）
 
 `sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页对象创建一次、
 切页只改显隐）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
-console `UI <page>`。PLAY/TRANSPORT 两页功能完整（TRACK/ENGINE/PRESET、电平条、120ms 音符指示、
-PLAY/STOP、BPM ±1、步位置）；TRACKS/STEP 为占位页，Task 5 扩展。全部 LVGL 调用走
-`bsp_display_lock`（esp_lvgl_port 递归锁，页签回调/定时器已在 LVGL 任务上下文）；UI 启动失败回退
-bring-up 测试图。idle 内部堆门禁实测 ≈120.4KB（≥60KB）。
+console `UI <page>`。全部 LVGL 调用走 `bsp_display_lock`（esp_lvgl_port 递归锁，页签回调/定时器已在
+LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部堆门禁实测 ≈120.0KB（≥60KB）。
+
+四页均已落地（Task 4：PLAY/TRANSPORT；Task 5：TRACKS/STEP）：
+
+- **TRACKS**：四轨卡片横排，轨主题色 outline 描边（选中 6px + 亮底，未选中 3px），卡内
+  `TRACK n / ENG k PRE p / LEVEL v / MUTE x SOLO y` + 电平条；点击卡发 `CMD_SELECT_TRACK`
+  （`cmd_select_track` 同时写 `selected_track` 与 `focus_track`）。
+- **STEP**：4 行 × 16 步网格，行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
+  切换共用同一判定）；播放中当前步描 `UI_ACCENT`、焦点格描 `UI_TEXT`；点格 `state_set_focus()` +
+  `CMD_TOGGLE_STEP`（鼓轨第 4 行只读，展示 `dstep[i].on` 聚合，点击写状态行提示不发命令）。
+- **LVGL 内存纪律**：对象共用静态 `lv_style_t`（不给对象加局部样式）+ 卡片内文本合并，把 64KB 内置
+  TLSF 池占用从首版的 ≈97%（文本重分配即可能失败）压到 ≈68%；池扩容到 96KB 会撑爆内部 RAM（实测
+  链接期 `.bss` 溢出），故不走改配置路线。`sloop_ui_start()` 就绪行固定打印池占用。
 
 ## 后果
 
