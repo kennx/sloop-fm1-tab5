@@ -1,5 +1,6 @@
 idf_component_register(
-    SRCS "src/storage_ram.c"
+    SRCS "src/storage_ram.c" "src/audio_stream.c"
     INCLUDE_DIRS "include"
-    PRIV_REQUIRES heap
+    REQUIRES espressif__esp_codec_dev
+    PRIV_REQUIRES heap espressif__m5stack_tab5 driver esp_timer
 )

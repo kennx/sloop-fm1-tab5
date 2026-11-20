@@ -6,7 +6,7 @@
  * Tab5 Keyboard 驱动（components/tab5_keyboard，I2C 0x6D @ G0/G1 + INT G50，
  * FW 0x01）、ES8388 扬声器正弦自检（audio_tone.c，44.1kHz/2ch/16bit）。
  * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
- * 阶段 2 已接入 sloop_core 组合 TU 与 sloop_hal_tab5 RAM 存储骨架；音频流待 Task 4。
+ * 阶段 2 已接入 sloop_core 同源自测组合 TU、RAM 存储与 ES8388 引擎音频流。
  */
 #include "audio_tone.h"
 #include "console.h"

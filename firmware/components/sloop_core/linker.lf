@@ -10,4 +10,7 @@ entries:
 [mapping:sloop_core]
 archive: libsloop_core.a
 entries:
+    selftest (default);
+        data -> dram0_data ALIGN(4) SORT(name),
+        bss -> dram0_bss ALIGN(4) ALIGN(4, post) SURROUND(sloop_selftest_bss)
     * (sloop_core)

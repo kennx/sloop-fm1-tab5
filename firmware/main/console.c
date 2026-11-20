@@ -6,7 +6,7 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO 初始化结果/常量；SMOKE 两次 256 帧渲染与哈希）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SMOKE、同源 SELFTEST、TRACK/TRIG 与 PERF）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -27,12 +27,15 @@
 #include "driver/usb_serial_jtag_vfs.h"
 #include "esp_console.h"
 #include "esp_err.h"
+#include "esp_cpu.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sloop_core.h"
+#include "sloop_hal.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_console";
@@ -226,6 +229,50 @@ static uint64_t eng_smoke_hash(const int32_t *samples)
     return hash;
 }
 
+static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
+{
+    char *end = NULL;
+    unsigned long parsed = strtoul(text, &end, 0);
+    if (end == text || *end != '\0' || parsed > max) return false;
+    *value = (uint32_t)parsed;
+    return true;
+}
+
+static int eng_perf(void)
+{
+    if (sloop_hal_audio_streaming()) {
+        printf("ENG PERF streaming=1 xrun=%u min_free_internal=%u min_free_psram=%u\n",
+               (unsigned)sloop_hal_audio_xruns(),
+               (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+               (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+        return 0;
+    }
+    const uint32_t blocks = 100;
+    const int64_t budget_us = (int64_t)ENG_SMOKE_FRAMES * 1000000 / 44100;
+    uint64_t cycles_sum = 0, us_sum = 0;
+    uint32_t cycles_max = 0, us_max = 0;
+    for (uint32_t i = 0; i < blocks; i++) {
+        uint32_t c0 = esp_cpu_get_cycle_count();
+        int64_t t0 = esp_timer_get_time();
+        sloop_core_render(eng_smoke_on, ENG_SMOKE_FRAMES);
+        uint32_t cycles = esp_cpu_get_cycle_count() - c0;
+        uint32_t us = (uint32_t)(esp_timer_get_time() - t0);
+        cycles_sum += cycles;
+        us_sum += us;
+        if (cycles > cycles_max) cycles_max = cycles;
+        if (us > us_max) us_max = us;
+    }
+    uint32_t cycles_mean = (uint32_t)(cycles_sum / blocks);
+    uint32_t us_mean = (uint32_t)(us_sum / blocks);
+    printf("ENG PERF blocks=%u cycles_mean=%u cycles_max=%u us_mean=%u us_max=%u budget_us=%lld duty_mean=%.2f%% duty_max=%.2f%% xrun=%u min_free_internal=%u min_free_psram=%u\n",
+           (unsigned)blocks, (unsigned)cycles_mean, (unsigned)cycles_max, (unsigned)us_mean,
+           (unsigned)us_max, (long long)budget_us, (double)us_mean * 100.0 / budget_us,
+           (double)us_max * 100.0 / budget_us, (unsigned)sloop_hal_audio_xruns(),
+           (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+           (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+    return 0;
+}
+
 static int eng_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "info") == 0) {
@@ -254,7 +301,51 @@ static int eng_command(int argc, char **argv)
                nonzero ? "PASS" : "FAIL");
         return nonzero ? 0 : 1;
     }
-    printf("用法: ENG INFO|SMOKE\n");
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "selftest") == 0) {
+        return sloop_core_selftest(argc == 3 ? argv[2] : NULL) == 0 ? 0 : 1;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "track") == 0) {
+        uint32_t k, engine, preset;
+        if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
+            !eng_uint(argv[4], 255, &preset)) {
+            printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>\n");
+            return 1;
+        }
+        sloop_core_track(k, engine, preset);
+        printf("ENG TRACK k=%u engine=%u preset=%u OK\n", (unsigned)k, (unsigned)engine, (unsigned)preset);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "trig") == 0) {
+        if (sloop_core_status() != ESP_OK) {
+            printf("ENG TRIG FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
+            return 1;
+        }
+        esp_err_t ret = sloop_hal_audio_start(sloop_core_render);
+        if (ret != ESP_OK) {
+            printf("ENG TRIG FAIL audio=%s\n", esp_err_to_name(ret));
+            return 1;
+        }
+        uint32_t a, b;
+        if (strcasecmp(argv[2], "synth") == 0 && eng_uint(argv[3], 2, &a) && eng_uint(argv[4], 127, &b)) {
+            sloop_core_note(a, b, true);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            sloop_core_note(a, b, false);
+            printf("ENG TRIG synth track=%u note=%u duration_ms=500 xrun=%u OK\n",
+                   (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
+            return 0;
+        }
+        if (strcasecmp(argv[2], "drum") == 0 && eng_uint(argv[3], 3, &a) && eng_uint(argv[4], 15, &b)) {
+            sloop_core_hit(a, b, 100);
+            vTaskDelay(pdMS_TO_TICKS(100));
+            printf("ENG TRIG drum kit=%u lane=%u velocity=100 xrun=%u OK\n",
+                   (unsigned)a, (unsigned)b, (unsigned)sloop_hal_audio_xruns());
+            return 0;
+        }
+        printf("用法: ENG TRIG synth <track=0..2> <note=0..127> | drum <kit=0..3> <lane=0..15>\n");
+        return 1;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
+    printf("用法: ENG INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF\n");
     return 1;
 }
 
@@ -263,6 +354,7 @@ esp_err_t app_console_init(void)
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "sloop> ";
     repl_cfg.max_history_len = 16;
+    repl_cfg.task_stack_size = 16384;
 
     esp_console_dev_usb_serial_jtag_config_t dev_cfg = ESP_CONSOLE_DEV_USB_SERIAL_JTAG_CONFIG_DEFAULT();
     esp_console_repl_t *repl = NULL;
@@ -313,8 +405,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断；INFO 打印常量，SMOKE 渲染两次 256 帧并输出 FNV-1a/非零样本数",
-        .hint = "INFO|SMOKE",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);

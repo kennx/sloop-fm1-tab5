@@ -19,5 +19,6 @@ void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);
 uint32_t sloop_core_rate(void);
 uint32_t sloop_core_frames(void);
+int sloop_core_selftest(const char *case_name);
 
 #endif

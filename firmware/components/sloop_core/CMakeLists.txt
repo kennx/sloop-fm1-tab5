@@ -10,17 +10,34 @@ foreach(header felucca_tables.h felucca_samples.h felucca_drumkits.h felucca_fm6
     endif()
 endforeach()
 
+set(SLOOP_GOLDEN_TXT "${SLOOP_UPSTREAM_DIR}/tests/golden.txt")
+file(READ "${SLOOP_GOLDEN_TXT}" SLOOP_GOLDEN_HEX HEX)
+string(REGEX REPLACE "(..)" "0x\\1," SLOOP_GOLDEN_BYTES "${SLOOP_GOLDEN_HEX}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/golden.inc"
+    "static const uint8_t sloop_golden_txt[] = {${SLOOP_GOLDEN_BYTES}};\n")
+
 idf_component_register(
-    SRCS "src/sloop_core.c"
+    SRCS "src/selftest.c"
     INCLUDE_DIRS "include"
     LDFRAGMENTS "linker.lf"
-    PRIV_REQUIRES sloop_hal_tab5
+    PRIV_REQUIRES sloop_hal_tab5 heap
+)
+
+set_source_files_properties(src/selftest.c PROPERTIES COMPILE_OPTIONS "-Wno-format;-msmall-data-limit=0")
+
+# regress.c 的 512 项 job/golden/CPU 表不进内部 RAM；DSP 状态保持内部 RAM。
+add_custom_command(TARGET ${COMPONENT_LIB} POST_BUILD
+    COMMAND ${PYTHON} "${CMAKE_CURRENT_LIST_DIR}/../../../tools/move_regress_tables.py"
+        ${CMAKE_OBJDUMP} ${CMAKE_OBJCOPY} $<TARGET_FILE:${COMPONENT_LIB}>
+    COMMENT "Move regress bookkeeping tables to PSRAM"
 )
 
 target_include_directories(${COMPONENT_LIB} PRIVATE
     "${SLOOP_UPSTREAM_SRC_DIR}"
     "${SLOOP_UPSTREAM_HAL_DIR}"
     "${SLOOP_GENERATED_INCLUDE_DIR}"
+    "${SLOOP_UPSTREAM_DIR}/tests"
+    "${CMAKE_CURRENT_BINARY_DIR}"
 )
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -O2
