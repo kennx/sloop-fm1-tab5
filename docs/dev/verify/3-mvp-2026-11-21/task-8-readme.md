@@ -82,7 +82,7 @@
 
 30min soak 时 `ENG PERF` 流式分支尚无占空比字段（判据「占空比不劣化」未量化）。
 评审修复轮在 `sloop_hal_audio_render_stats()`（音频任务每块更新 mean/max/blocks）
-基础上，让 `ENG PERF` 流式分支按块预算 5805µs 打印 `duty_mean/duty_max`，并补测：
+基础上，让 `ENG PERF` 流式分支按块预算 5804µs 打印 `duty_mean/duty_max`，并补测：
 
 | 场景 | render_mean_us | duty_mean | duty_max | 证据 |
 |---|---|---|---|---|
@@ -91,7 +91,7 @@
 | UI live + 播放 + 每 12s 步/选轨/切页/音符（2min 冒烟） | 574 → 589 | 9.89 → 10.03 → 10.15% | 68.87 → 74.62% | `task-8-soak-mini-summary.txt` |
 
 判定：`duty_mean ≤ 2× 基线 = 18.88%`（`scripts/soak.py` DUTY_MAX_PCT）。实测最坏 10.15%
-（1.08× 基线；更早一次同构 2min 冒烟 11.16%，1.18×），无劣化；`duty_max` 为启动首块与状态写后的块级峰值（<100%，未超预算，xrun=0）。
+（1.08× 基线），无劣化；`duty_max` 为启动首块与状态写后的块级峰值（<100%，未超预算，xrun=0）。
 soak.py 冒烟（`--duration 120 --interval 60 --cycle 12`）**VERDICT: PASS**，同时验证了
 新的内部堆判据（HEAP_FLOOR/HEAP_NET_FLOOR/HEAP_JITTER）、internal_min 判定与
 「KEY 事件计数增量 == 期望」断言。

@@ -73,13 +73,13 @@ void state_apply(const edit_cmd_t *cmd);     /* 执行端=引擎（阶段 5 换�
 void state_sync_from_engine(void);           /* 拉取快照合并（UI 定时器调用） */
 void state_get_copy(app_state_t *out);       /* 互斥复制；UI 只读副本 */
 ```
-**并发规则**：唯一写者=input 任务（物理/注入事件 → `state_apply`）；UI 任务经 `state_get_copy` 读副本渲染；`state_apply` 与 `state_sync_from_engine` 互斥。延迟目标：键按下→出声 ≤20ms（input 任务优先级低于音频、高于 UI）。
+**并发规则**：写路径两条——input 任务的编辑写（物理/注入事件 → `state_apply`）与 UI 任务的局部态写（`state_set_page/focus/layer`）；UI 任务经 `state_get_copy` 读副本渲染；`state_apply` 与 `state_sync_from_engine` 互斥。延迟目标：键按下→出声 ≤20ms（input 任务优先级低于音频、高于 UI）。
 **MVP 层语义**（AppState 实现，不依赖上游 ui_layers/panel）：
-- EDIT 层：按住时按演奏键 → 从当前聚焦步删除该音（`read_step`→改→`write_step`）。
+- EDIT 层：按住时按演奏键 → 从当前聚焦步删除该音（`read_step`→改→`write_step`；命令显式携带步号，输入层在派发时解析焦点）。
 - GLO 层：按住时键 1–4 → 轨静音切换；5–8 → 独奏切换（`solo` 位）。
-- 步网格：空→开 写入 `last_note`（无则 60），n=1/vel=100/time=NOTE/flags=0；开→关 写 n=0/time=REST；均走 read-modify-write 保留 lvl/rat/micro/fill。
+- 步网格：新建音清空残留字段（空→开 写 `last_note`（无则 60），n=1/vel=100/time=NOTE/lvl=0/rat=0/flags=0）；删除对齐 upstream（开→关 与「删最后一个音」= 整步 `step_clear`（vel/lvl/rat/flags 清零、time=REST）并把其后 `n==0` 的 TIE 连缀折回 REST）；两种路径均 read-modify-write 保留 micro/fill（上游步表外字段）。
 - 鼓轨第 4 行：MVP **只读展示**（聚合 on/off），不做编辑（阶段 4 接 DRUM_STEP）。
-- 步进写入口径：**网格点按**（不含实时录音 pen；阶段 4 再定）。LEN/DIV：MVP 不改写，快照携带；播放头按 `step % len` 显示，超出 16 列的部分不显示（文档化限制）。
+- 步进写入口径：**网格点按**（不含实时录音 pen；阶段 4 再定）。LEN/DIV：MVP 不改写，快照携带；播放头按 `step % len` 显示，列 ≥ LEN 的格暗显（dim），超出 16 列的部分不显示（文档化限制）。
 
 ### 3.3 sloop_ui 四屏（视觉规范）
 

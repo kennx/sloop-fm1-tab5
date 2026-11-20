@@ -52,7 +52,7 @@ sloop-fm1-tab5/
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
-│   ├── main/                      #    应用入口（当前: bring-up 自检 + ENG 引擎命令/音频流；待: 双模式调度）
+│   ├── main/                      #    应用入口（显示/console/键盘/音频 bring-up + 开机启流 + sloop_state 初始化 + sloop_ui 启动（失败回退测试图）；待: 双模式调度）
 │   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地）；sloop_state（AppState/EditCmd 状态层，纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页签，四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×16 步格编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005）；【规划】editor_proto / usb_fm1
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
@@ -149,7 +149,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 命令 | 语义 |
 |---|---|
 | `UI <play\|tracks\|step\|transport>` | **同步**切页（内部取 LVGL 锁；成功后作废待执行的异步切页邮箱，回显页即落地页）；无参打印当前页 |
-| `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`） |
+| `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`）；LVGL 锁超时打印 `TAP ERR lvgl_lock_timeout`（**未派发**，与 miss 区分）。`UI` 的锁超时打印 `UI ERR lock_timeout` |
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006） |
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
@@ -166,8 +166,8 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 固件代码 | `scripts/build.sh` 退出码 0，且**不新增**编译警告/错误 |
 | 固件代码（烧录验证） | esptool 输出 `Hash of data verified`；启动日志无 fatal/abort/backtrace |
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
-| 引擎/DSP 相关 | `scripts/host-test.sh` 通过；设备等价改动另跑 `scripts/device-selftest.py` 严格哈希比对（脚本自动停流/恢复；手动时先 `ENG AUDIO OFF`，跑完 `ENG AUDIO ON` 恢复——固件开机即流式，流式时 SELFTEST 会被拒） |
-| 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段保留/MUTE-SOLO/快照同步） |
+| 引擎/DSP 相关 | `scripts/host-test.sh` 通过；设备等价改动另跑 `scripts/device-selftest.py` 严格哈希比对（脚本自动停流/恢复；手动时先 `ENG AUDIO OFF`，跑完 `ENG AUDIO ON` 恢复——固件开机即流式，流式时 SELFTEST 会被拒；SELFTEST 期间为诊断模式：引擎写被丢弃、UI 冻结，见 sloop_core.h 与 ADR-007） |
+| 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段清除与 TIE 连缀折叠/显式步号擦除/MUTE-SOLO/快照同步） |
 | 阶段收口 soak | `scripts/soak.py PORT --duration 1800`（阶段 3 口径 30min）退出码 0：internal_free/internal_min ≥60KB、首末差 ≥-8KB、连续 3 采样非增下滑 ≤2KB（HEAP_JITTER）、streaming=1 且 xrun=0、duty_mean ≤2× 阶段 2 静默渲染基线 9.44%（=18.88%，`ENG PERF` 流式分支口径）、音频任务栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT；soak 摘要晋升并在 verification-log 登记（阶段 4 长时 soak 沿用同一口径，时长按阶段判据） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
