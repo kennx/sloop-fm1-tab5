@@ -11,6 +11,7 @@
 #define STATE_BPM_MIN 40
 #define STATE_BPM_MAX 240
 #define STATE_ST_NOTE 0u
+#define STATE_ST_TIE 1u
 #define STATE_ST_REST 2u
 #define STATE_STEPS_MAX 64u
 #define STATE_SYNTH_TRACKS 3u /* read_step/write_step 只覆盖合成轨（鼓轨只读） */
@@ -37,6 +38,53 @@ static void cmd_select_track(app_state_t *s, uint32_t track)
     s->focus_track = (uint8_t)track;
 }
 
+static uint32_t state_track_len(const app_state_t *s, uint32_t track)
+{
+    uint32_t len = s->core.trk[track].len;
+    if (len < 1u || len > STATE_STEPS_MAX) len = STATE_STEPS_MAX;
+    return len;
+}
+
+/* 上游 step_clear()：清空整步（n/note[]/vel/lvl/rat/flags）并置 REST。上游的
+ * micro[]/fill[] 是步表外的独立数组（t->micro / t->fill），step_clear 不碰它们，
+ * 故这里也保留——「删除对齐 upstream」只对齐步内字段，微调/填充不丢。 */
+static void state_step_clear(sloop_step_t *st)
+{
+    memset(st->note, 0, sizeof(st->note));
+    st->n = 0;
+    st->vel = 0;
+    st->lvl = 0;
+    st->rat = 0;
+    st->flags = 0;
+    st->time = STATE_ST_REST;
+}
+
+static void state_snapshot_step(app_state_t *s, uint32_t track, uint32_t idx, const sloop_step_t *st)
+{
+    if (idx >= APP_STATE_STEPS) return; /* 快照只覆盖前 16 列视窗 */
+    s->core.step[track][idx].n = st->n;
+    memcpy(s->core.step[track][idx].note, st->note, sizeof(st->note));
+    s->core.step[track][idx].vel = st->vel;
+    s->core.step[track][idx].time = st->time;
+    s->core.step[track][idx].flags = st->flags;
+}
+
+/* 镜像上游 ui.c note_del() 最后一音的 note_span_set(t,i,1)：步被清掉后，其后承载
+ * 它的 TIE 连缀折回 REST。上游只折叠 n==0 的纯 TIE（带音符的旧格式 TIE 保留，
+ * 见 seq.c span_set 的 act[j]==1），遇到非 TIE 或带音符的 TIE 即停。 */
+static void state_tie_collapse(app_state_t *s, uint32_t track, uint32_t idx)
+{
+    uint32_t len = state_track_len(s, track);
+    for (uint32_t j = idx + 1u; j < len; j++) {
+        sloop_step_t nx;
+        sloop_core_read_step(track, j, &nx);
+        if (nx.time != STATE_ST_TIE || nx.n != 0u) break;
+        state_step_clear(&nx);
+        sloop_core_write_step(track, j, &nx);
+        state_snapshot_step(s, track, j, &nx);
+    }
+}
+
 static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
 {
     if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX) return;
@@ -46,25 +94,23 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
     /* 「有音」与上游 sp_on 同口径（seq.c）；判定与 UI 共用 state_step_is_on() */
     bool on = state_step_is_on(st.n, st.time);
     if (!on) {
+        /* 上游新步先 memset 再写音符：残留的 lvl/rat/flags 不得漏进新音 */
         memset(st.note, 0, sizeof(st.note));
         st.note[0] = s->last_note != 0 ? s->last_note : APP_STATE_NOTE_DEFAULT;
         st.n = 1;
         st.vel = APP_STATE_VEL_DEFAULT;
         st.time = STATE_ST_NOTE;
         st.flags = 0;
-    } else {
-        st.n = 0;
-        st.time = STATE_ST_REST;
+        st.lvl = 0;
+        st.rat = 0;
+        sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
+        state_snapshot_step(s, track, idx, &st);
+        return;
     }
-    sloop_core_write_step(track, idx, &st); /* lvl/rat/micro/fill 原样带回 */
-
-    if (idx < APP_STATE_STEPS) { /* 快照只覆盖前 16 列视窗 */
-        s->core.step[track][idx].n = st.n;
-        memcpy(s->core.step[track][idx].note, st.note, sizeof(st.note));
-        s->core.step[track][idx].vel = st.vel;
-        s->core.step[track][idx].time = st.time;
-        s->core.step[track][idx].flags = st.flags;
-    }
+    state_step_clear(&st);
+    sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
+    state_snapshot_step(s, track, idx, &st);
+    state_tie_collapse(s, track, idx);
 }
 
 /* 上游 step_t 的每音符 2bit 字段（lvl/rat）：删除第 k 个音符时把后面的前移
@@ -82,11 +128,11 @@ static uint8_t state_drop_cont(uint8_t flags, uint32_t k)
     return (uint8_t)((flags & ~(15u * 8u)) | c * 8u);
 }
 
-static void cmd_erase_note(app_state_t *s, uint32_t track, uint16_t note)
+static void cmd_erase_note(app_state_t *s, uint32_t track, uint32_t idx, uint16_t note)
 {
-    if (track >= STATE_SYNTH_TRACKS || note == 0 || note > STATE_NOTE_MAX) return;
-    uint32_t idx = s->focus_step;
-    if (idx >= STATE_STEPS_MAX) return;
+    if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX || note == 0 || note > STATE_NOTE_MAX) {
+        return;
+    }
 
     sloop_step_t st;
     sloop_core_read_step(track, idx, &st);
@@ -108,16 +154,17 @@ static void cmd_erase_note(app_state_t *s, uint32_t track, uint16_t note)
     if (!removed) return; /* 没有该音符：不写引擎（与越界同口径） */
 
     st.n = (uint8_t)n;
-    if (n == 0) st.time = STATE_ST_REST; /* 最后一个音符删除后步变空（REST） */
-    sloop_core_write_step(track, idx, &st); /* vel/micro/fill 原样带回 */
-
-    if (idx < APP_STATE_STEPS) { /* 快照只覆盖前 16 列视窗 */
-        s->core.step[track][idx].n = st.n;
-        memcpy(s->core.step[track][idx].note, st.note, sizeof(st.note));
-        s->core.step[track][idx].vel = st.vel;
-        s->core.step[track][idx].time = st.time;
-        s->core.step[track][idx].flags = st.flags;
+    if (n == 0) {
+        /* 最后一个音符删除：上游 note_del() 走 note_span_set(t,i,1) + step_clear
+         * ——整步清空（含 vel/lvl/rat/flags）并折叠其后的 TIE 连缀 */
+        state_step_clear(&st);
+        sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
+        state_snapshot_step(s, track, idx, &st);
+        state_tie_collapse(s, track, idx);
+        return;
     }
+    sloop_core_write_step(track, idx, &st); /* vel/micro/fill 原样带回 */
+    state_snapshot_step(s, track, idx, &st);
 }
 
 static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
@@ -153,7 +200,7 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SET_TRACK: cmd_select_track(s, cmd->a); break;
     case CMD_MUTE:
     case CMD_SOLO: cmd_track_mix(s, cmd->type, cmd->a); break;
-    case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, (uint16_t)cmd->b); break;
+    case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, cmd->b, cmd->v); break;
     default: break;
     }
     state_unlock();

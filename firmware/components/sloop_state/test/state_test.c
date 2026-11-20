@@ -122,14 +122,15 @@ static void case_toggle_step_empty(void)
     check_ll("无 last_note 默认 60", g_stub.step[1][1].note[0], 60);
 }
 
-/* ③ read-modify-write：lvl/rat/micro/fill 逐字段保留；开步清掉旧 note[1..3]；
- * 邻居 TIE 步逐字节不变；TIE（n>0 但 time≠NOTE）按上游 sp_on 口径算「空」。 */
+/* ③ read-modify-write：micro/fill 逐字段保留；开步清空残留步内字段（上游先 memset）；
+ * 关步整步清空（对齐上游 step_clear）；邻居步逐字节不变；TIE（n>0 但 time≠NOTE）
+ * 按上游 sp_on 口径算「空」。 */
 static void case_toggle_step_preserves(void)
 {
     stub_engine_reset();
     state_init();
 
-    /* 旧步：n=0（关）但 note[] 留着上次多音的音符——重新开步时必须只留 last_note */
+    /* 旧步：n=0（关）但 note[]/lvl/rat 留着上次多音的音符——重新开步时必须清掉 */
     sloop_step_t preset = { .n = 0, .note = { 60, 64, 0, 0 }, .vel = 0, .time = 2,
                             .flags = 0, .lvl = 0x0A, .rat = 0x05, .micro = -3, .fill = 2 };
     sloop_step_t neighbor = { .n = 2, .note = { 60, 64, 0, 0 }, .vel = 88, .time = 1,
@@ -154,18 +155,22 @@ static void case_toggle_step_preserves(void)
     check_ll("开清掉旧 note3", st->note[3], 0);
     check_ll("开 vel", st->vel, 100);
     check_ll("开 flags", st->flags, 0);
-    check_ll("开 lvl 保留", st->lvl, 0x0A);
-    check_ll("开 rat 保留", st->rat, 0x05);
+    check_ll("开清掉旧 lvl（上游新步 memset）", st->lvl, 0);
+    check_ll("开清掉旧 rat", st->rat, 0);
     check_ll("开 micro 保留", st->micro, -3);
     check_ll("开 fill 保留", st->fill, 2);
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
     CHECK(memcmp(&g_stub.step[0][6], &tie, sizeof(tie)) == 0);
 
+    /* 关：整步清空（上游 step_clear）——vel/lvl/rat/flags 一并归零，micro/fill 保留 */
     apply(CMD_TOGGLE_STEP, 0, 3, 0);
     check_ll("关 n", st->n, 0);
     check_ll("关 time", st->time, 2);
-    check_ll("关 lvl 保留", st->lvl, 0x0A);
-    check_ll("关 rat 保留", st->rat, 0x05);
+    check_ll("关 vel 清零", st->vel, 0);
+    check_ll("关 lvl 清零", st->lvl, 0);
+    check_ll("关 rat 清零", st->rat, 0);
+    check_ll("关 flags 清零", st->flags, 0);
+    check_ll("关 note1..3 清零", st->note[1] | st->note[2] | st->note[3], 0);
     check_ll("关 micro 保留", st->micro, -3);
     check_ll("关 fill 保留", st->fill, 2);
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
@@ -185,10 +190,58 @@ static void case_toggle_step_preserves(void)
     check_ll("TIE→开 time", ti->time, 0);
     check_ll("TIE→开 note0", ti->note[0], 60);
     check_ll("TIE→开 note1", ti->note[1], 0);
-    check_ll("TIE→开 lvl 保留", ti->lvl, 0x05);
-    check_ll("TIE→开 rat 保留", ti->rat, 0x02);
+    check_ll("TIE→开 lvl 清零", ti->lvl, 0);
+    check_ll("TIE→开 rat 清零", ti->rat, 0);
     check_ll("TIE→开 micro 保留", ti->micro, 1);
     check_ll("TIE→开 fill 保留", ti->fill, 1);
+}
+
+/* ③b 关步折叠 TIE 连缀（对齐上游 note_del 的 note_span_set(t,i,1)）：
+ * 其后 n==0 的 TIE 折回 REST，微调/填充保留；遇非 TIE 或带音符的 TIE 即停。 */
+static void case_toggle_step_tie_collapse(void)
+{
+    stub_engine_reset();
+    state_init();
+
+    sloop_step_t head = { .n = 1, .note = { 60, 0, 0, 0 }, .vel = 100, .time = 0,
+                          .flags = 0, .lvl = 0x02, .rat = 0x01, .micro = -1, .fill = 3 };
+    sloop_step_t tie_a = { .n = 0, .note = { 0 }, .vel = 0, .time = 1,
+                           .flags = 0, .lvl = 0, .rat = 0, .micro = 5, .fill = 2 };
+    sloop_step_t tie_b = tie_a;
+    tie_b.micro = -4;
+    /* 带音符的 TIE（旧格式）：上游保留，折叠必须在此停下 */
+    sloop_step_t tie_held = { .n = 1, .note = { 72, 0, 0, 0 }, .vel = 90, .time = 1,
+                              .flags = 0, .lvl = 0x01, .rat = 0, .micro = 2, .fill = 0 };
+    sloop_step_t rest_after = { .n = 0, .note = { 0 }, .vel = 0, .time = 2,
+                                .flags = 0, .lvl = 0, .rat = 0, .micro = 0, .fill = 0 };
+    g_stub.step[0][4] = head;
+    g_stub.step[0][5] = tie_a;
+    g_stub.step[0][6] = tie_b;
+    g_stub.step[0][7] = tie_held;
+    g_stub.step[0][8] = rest_after;
+
+    apply(CMD_TOGGLE_STEP, 0, 4, 0);
+    check_ll("关步 n", g_stub.step[0][4].n, 0);
+    check_ll("第一条 TIE 折回 REST", g_stub.step[0][5].time, 2);
+    check_ll("第一条 TIE n=0", g_stub.step[0][5].n, 0);
+    check_ll("第一条 TIE micro 保留", g_stub.step[0][5].micro, 5);
+    check_ll("第一条 TIE fill 保留", g_stub.step[0][5].fill, 2);
+    check_ll("第二条 TIE 折回 REST", g_stub.step[0][6].time, 2);
+    check_ll("第二条 TIE micro 保留", g_stub.step[0][6].micro, -4);
+    /* 带音符的 TIE 之后原样 */
+    CHECK(memcmp(&g_stub.step[0][7], &tie_held, sizeof(tie_held)) == 0);
+    CHECK(memcmp(&g_stub.step[0][8], &rest_after, sizeof(rest_after)) == 0);
+
+    /* 折叠窗口 = 本轨 LEN（stub 默认 16）：列 1..15 的连续 TIE 全折回，列 16 不动 */
+    sloop_step_t beyond = { .n = 0, .note = { 0 }, .vel = 0, .time = 1,
+                            .flags = 0, .lvl = 0, .rat = 0, .micro = 0, .fill = 0 };
+    g_stub.step[1][0] = head;
+    for (uint32_t j = 1; j < 16u; j++) g_stub.step[1][j] = tie_a;
+    g_stub.step[1][16] = beyond;
+    apply(CMD_TOGGLE_STEP, 1, 0, 0);
+    check_ll("LEN 内尾列 TIE 折回 REST", g_stub.step[1][15].time, 2);
+    check_ll("LEN 内链首 TIE 折回 REST", g_stub.step[1][1].time, 2);
+    check_ll("LEN 外 TIE 原样", g_stub.step[1][16].time, 1);
 }
 
 /* ④ MUTE/SOLO 翻转对应轨位，且跨 sync 保持（MVP 引擎无此写入口）。 */
@@ -286,9 +339,10 @@ static void case_copy_and_sync(void)
     check_ll("layer_held", s.layer_held, 3);
 }
 
-/* ⑥ ERASE_NOTE：read-modify-write 删除聚焦步的指定音符。其余音符前移，每音符
- * 字段（lvl/rat 的 2bit、flags 的 CONT 位）随之前移；最后一个音符删除后步转
- * REST；无匹配/越界一律不写引擎。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
+/* ⑥ ERASE_NOTE：read-modify-write 删除**显式步**（a=track b=step v=note）里的指定
+ * 音符；不读 focus_step。其余音符前移，每音符字段（lvl/rat 的 2bit、flags 的 CONT
+ * 位）随之前移；最后一个音符删除后整步清空并折叠 TIE 连缀（对齐上游）；无匹配/
+ * 越界一律不写引擎。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
 static void case_erase_note(void)
 {
     stub_engine_reset();
@@ -300,11 +354,12 @@ static void case_erase_note(void)
                            .flags = 0x01u | 0x08u, .lvl = 0x09, .rat = 0x06,
                            .micro = -2, .fill = 1 };
     g_stub.step[0][5] = chord;
-    state_set_focus(0, 5);
+    /* 焦点故意放在别的步：ERASE_NOTE 必须用命令里的显式步号 */
+    state_set_focus(0, 9);
 
     uint32_t reads0 = g_stub.read_step_calls;
     uint32_t writes0 = g_stub.write_step_calls;
-    apply(CMD_ERASE_NOTE, 0, 60, 0);
+    apply(CMD_ERASE_NOTE, 0, 5, 60);
     check_ll("RMW read_step ×1", g_stub.read_step_calls - reads0, 1);
     check_ll("RMW write_step ×1", g_stub.write_step_calls - writes0, 1);
     const sloop_step_t *st = &g_stub.step[0][5];
@@ -322,16 +377,27 @@ static void case_erase_note(void)
     check_ll("copy 步 n", s.core.step[0][5].n, 1);
     check_ll("copy 步 note0", s.core.step[0][5].note[0], 64);
 
-    /* 无匹配音符：连读都不用（不写引擎） */
+    /* 无匹配音符：不写引擎 */
     writes0 = g_stub.write_step_calls;
-    apply(CMD_ERASE_NOTE, 0, 60, 0);
+    apply(CMD_ERASE_NOTE, 0, 5, 60);
     check_ll("无匹配不写", g_stub.write_step_calls - writes0, 0);
 
-    /* 删除最后一个音符：步转 REST，n=0 */
-    apply(CMD_ERASE_NOTE, 0, 64, 0);
+    /* 删除最后一个音符：整步清空（vel/lvl/rat/flags=0、time=REST），TIE 连缀折叠 */
+    sloop_step_t tie = { .n = 0, .note = { 0 }, .vel = 0, .time = 1,
+                         .flags = 0, .lvl = 0, .rat = 0, .micro = 4, .fill = 2 };
+    g_stub.step[0][6] = tie;
+    apply(CMD_ERASE_NOTE, 0, 5, 64);
     check_ll("删末音后 n", st->n, 0);
     check_ll("删末音后 time=REST", st->time, 2);
     check_ll("删末音后 note0", st->note[0], 0);
+    check_ll("删末音后 vel 清零", st->vel, 0);
+    check_ll("删末音后 lvl 清零", st->lvl, 0);
+    check_ll("删末音后 rat 清零", st->rat, 0);
+    check_ll("删末音后 flags 清零", st->flags, 0);
+    check_ll("删末音后 micro 保留", st->micro, -2);
+    check_ll("删末音后 fill 保留", st->fill, 1);
+    check_ll("TIE 连缀折回 REST", g_stub.step[0][6].time, 2);
+    check_ll("TIE micro 保留", g_stub.step[0][6].micro, 4);
     state_get_copy(&s);
     check_ll("copy 步关", s.core.step[0][5].n, 0);
 
@@ -344,8 +410,7 @@ static void case_erase_note(void)
                           .rat = 0x27u /* k0=3 k1=1 k2=2 */,
                           .micro = 0, .fill = 0 };
     g_stub.step[1][2] = trio;
-    state_set_focus(1, 2);
-    apply(CMD_ERASE_NOTE, 1, 64, 0);
+    apply(CMD_ERASE_NOTE, 1, 2, 64);
     const sloop_step_t *trio_st = &g_stub.step[1][2];
     check_ll("中间音删后 n", trio_st->n, 2);
     check_ll("中间音删后 note0", trio_st->note[0], 60);
@@ -356,25 +421,26 @@ static void case_erase_note(void)
     check_ll("中间音删后 flags（ACCENT + 原 k2 的 CONT 移到 k1）", trio_st->flags, 0x11);
 
     /* 再删首音 60：67 前移为 k0，字段继续随移 */
-    apply(CMD_ERASE_NOTE, 1, 60, 0);
+    apply(CMD_ERASE_NOTE, 1, 2, 60);
     check_ll("删首音后 n", trio_st->n, 1);
     check_ll("删首音后 note0", trio_st->note[0], 67);
     check_ll("删首音后 lvl", trio_st->lvl, 0x03);
     check_ll("删首音后 rat", trio_st->rat, 0x02);
     check_ll("删首音后 flags（CONT 移到 k0）", trio_st->flags, 0x09);
 
-    /* 删最后一个音：步转 REST */
-    apply(CMD_ERASE_NOTE, 1, 67, 0);
+    /* 删最后一个音：步转 REST 并整步清空 */
+    apply(CMD_ERASE_NOTE, 1, 2, 67);
     check_ll("删末音后 n", trio_st->n, 0);
     check_ll("删末音后 time=REST", trio_st->time, 2);
+    check_ll("删末音后 vel 清零", trio_st->vel, 0);
 
-    /* 越界：鼓轨/note 0/note 128 不读不写 */
+    /* 越界：鼓轨/步号越界/note 0/note 128 不读不写 */
     reads0 = g_stub.read_step_calls;
     writes0 = g_stub.write_step_calls;
-    state_set_focus(3, 0);
-    apply(CMD_ERASE_NOTE, 3, 60, 0);
-    apply(CMD_ERASE_NOTE, 0, 0, 0);
-    apply(CMD_ERASE_NOTE, 0, 200, 0);
+    apply(CMD_ERASE_NOTE, 3, 0, 60);   /* 鼓轨 */
+    apply(CMD_ERASE_NOTE, 0, 64, 60);  /* 步号越界 */
+    apply(CMD_ERASE_NOTE, 0, 0, 0);    /* note 0 */
+    apply(CMD_ERASE_NOTE, 0, 0, 200);  /* note 越界 */
     check_ll("越界不读", g_stub.read_step_calls - reads0, 0);
     check_ll("越界不写", g_stub.write_step_calls - writes0, 0);
 }
@@ -418,6 +484,7 @@ int main(void)
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
     run("TOGGLE_STEP 空步↔关（last_note/默认 60）", case_toggle_step_empty);
     run("TOGGLE_STEP read-modify-write 保留字段", case_toggle_step_preserves);
+    run("TOGGLE_STEP 关步折叠 TIE 连缀", case_toggle_step_tie_collapse);
     run("MUTE/SOLO 轨位翻转", case_mute_solo);
     run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);

@@ -39,18 +39,23 @@ typedef enum {
  *  CMD_SELECT_TRACK  a=track(0..3)：选中轨（与 CMD_SET_TRACK 等价）；副作用：同时把
  *                    focus_track 设为该轨（TRACKS 卡片点击依赖它落地「设焦点轨 + 选轨」）
  *  CMD_SET_TRACK     a=track(0..3)：选中轨（控制方裁定：SET_TRACK 的语义即选轨）
- *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空 → 开：写 last_note
- *                    （无则 60）、n=1/vel=100/time=NOTE/flags=0；开→关：n=0/
- *                    time=REST。均 read-modify-write，保留 lvl/rat/micro/fill。
+ *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空 → 开：清空残留字段
+ *                    （note[]/lvl/rat/flags）后写 last_note（无则 60）、
+ *                    n=1/vel=100/time=NOTE；开→关：整步清空（n=0、
+ *                    note[]/vel/lvl/rat/flags=0、time=REST）并折叠其后的
+ *                    TIE 连缀（对齐上游 note_del：note_span_set(t,i,1) 把
+ *                    承载该音的 n==0 TIE 折回 REST，遇非 TIE / 带音符的 TIE 停）。
+ *                    两种路径均 read-modify-write，保留 micro/fill（上游步表外字段）。
  *                    「空/开」判定见 state_step_is_on()：n>0 且 time==NOTE；
  *                    n>0 但 time 为 TIE/REST 的步算空（切换 → 开，不是 → 关）。
  *                    鼓轨（track 3）MVP 只读，忽略。
  *  CMD_SET_BPM       v 钳位到 40..240（上游 params.c 的 GP[G_BPM]）后写 G_BPM
  *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位
- *  CMD_ERASE_NOTE    a=track(0..2) b=note(1..127)：从 focus_step 指向的步删除该音符
- *                    （步号取 AppState.focus_step，与 CMD_TOGGLE_STEP 显式带步号不同）。
+ *  CMD_ERASE_NOTE    a=track(0..2) b=step(0..63) v=note(1..127)：从**显式指定的步**
+ *                    删除该音符（步号由调用方在派发时解析，状态层不读 focus_step）。
  *                    read-modify-write：其余音符前移，每音符字段（lvl/rat 的 2bit、
- *                    flags 的 CONT 位）随之前移；最后一个音符删除后 n=0/time=REST。
+ *                    flags 的 CONT 位）随之前移；最后一个音符删除后整步清空并对齐
+ *                    上游折叠 TIE 连缀（同 CMD_TOGGLE_STEP 的关路径）。
  *                    步里没有该音符（或步已空）时不写引擎。鼓轨忽略。
  */
 typedef struct {
@@ -88,7 +93,8 @@ static inline bool state_step_is_on(uint8_t n, uint8_t time)
 
 /* 初始化（设备上同时建互斥；须在引擎 init 之后、任何 apply/read 之前调用）。 */
 void state_init(void);
-/* 执行一条编辑命令：引擎调用 + AppState 投影同步更新（唯一写者=input 任务）。 */
+/* 执行一条编辑命令：引擎调用 + AppState 投影同步更新。写路径有两条——input 任务
+ * 的编辑写（本函数）与 UI 任务的局部态写（state_set_*），都由内部互斥串行化。 */
 void state_apply(const edit_cmd_t *cmd);
 /* 从执行端拉取快照并合并（UI 定时器 30–60ms 调用）。 */
 void state_sync_from_engine(void);
