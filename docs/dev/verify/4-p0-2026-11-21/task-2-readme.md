@@ -3,7 +3,7 @@
 > 受测固件：代码提交 **fa5be79**（启动日志 `App version: f4f89ab`——版本串取 clean
 > 构建时的 HEAD＝本次证据的文档提交，其固件源文件与 fa5be79 逐字节一致；工作树干净）。
 > 本轮为评审修复重采（轮询 tick 地板口径 + 诊断期禁用触摸 indev + 原子丢弃计数）。
-> 采集机时：2026-11-21 07:35–07:52 CST；Tab5 USB-C → `/dev/ttyACM0`。
+> 采集机时：2026-11-21 07:16–07:26 CST；Tab5 USB-C → `/dev/ttyACM0`。
 > 登记见 `docs/dev/verification-log.md`；本目录 `SHA256SUMS` 覆盖全部文件（除自身）。
 
 ## 1. 结论
