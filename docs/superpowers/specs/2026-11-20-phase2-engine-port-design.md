@@ -81,7 +81,7 @@ Tab5 的 `sloop_core` 复刻此模式：一个 `sloop_core.c`（组合 TU）+ `t
 ### 2.5 golden 机制（tests/regress.c）
 
 - `tests/golden.txt`：每用例一行 `<用例名> <hash>`，hash 为渲染 int32 缓冲的 **FNV-1a 64**；含 `mix_4`（四轨混音）等；每引擎×预置、鼓 kit、声部模式、FX 发送全覆盖。
-- `tests/cpu_baseline.txt`：CPU 成本基线（+25% 容差）；`target_budget.txt` 依赖 FM-1 反汇编，**不搬**。
+- `tests/cpu_baseline.txt`：CPU 成本基线（+25% 容差）；`target_budget.txt` 文件随 tests 树入库，但其依赖 FM-1 反汇编的 **target_budget 用例/检查不在 `host-test.sh` 搬运范围**。
 - `ENG SELFTEST` 设计：设备侧复用 regress.c 的用例驱动与哈希生成（同一份 C 代码编进设备），逐用例输出 `name hash`，与 host 跑出的 `golden.txt` 对比；不一致时用例转误差通道（max|err|/SNR 对内嵌参考向量）。
 
 ### 2.6 初始化序列（preview_init 实证，设备复刻）
