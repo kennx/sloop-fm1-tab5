@@ -33,7 +33,9 @@ int sloop_core_selftest(const char *case_name);
  * TEMPO）；trk[k].len/div 是轨道的 LEN/DIV；step_pos[k] 是播放头（seq_idx 模
  * len，停止时 0）。step[][] 为前 16 列视窗，只覆盖三条合成轨；鼓轨（track 3）
  * 的步内容由 dstep[] 聚合给出，step[3] 恒为零（上游 step_t 与 dstep_t 是同一
- * union，按 step_t 解读鼓步无意义）。 */
+ * union，按 step_t 解读鼓步无意义）。鼓轨的 trk[3].engine/preset 同样无意义
+ * （上游对鼓轨报 NENGINES，它没有引擎与预设）；这里保留上游原值、不置零，
+ * 显示层按轨别决定是否使用。 */
 typedef struct {
     bool playing;
     uint16_t bpm;
@@ -47,8 +49,9 @@ void sloop_core_read(sloop_core_snapshot_t *out);
 
 /* 单步读写：完整上游 step_t 语义（n/note/vel/time/flags 原样，lvl/rat 为每音符
  * 2bit 打包），外加 micro（-32..31）与 fill（0..3）保留字段。读改写由调用方做；
- * write 是丢字段的全量写。鼓轨（track >= 3）不可用这个结构表达：read 返回全零，
- * write 忽略。越界（track/idx）同样忽略/返回全零。 */
+ * write 是不丢字段的全量写（调用方须把读到的 lvl/rat/micro/fill 原样带回）。
+ * 鼓轨（track >= 3）不可用这个结构表达：read 返回全零，write 忽略。越界
+ * （track/idx）同样忽略/返回全零。 */
 typedef struct {
     uint8_t n; uint8_t note[4]; uint8_t vel; uint8_t time; uint8_t flags;
     uint8_t lvl; uint8_t rat;
@@ -58,7 +61,9 @@ void sloop_core_read_step(uint32_t track, uint32_t idx, sloop_step_t *out);
 void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in);
 
 /* 全局参数写：按上游 GP[id] 的 min/max 钳位后写 song.g[id]（id 越界忽略）。
- * 走引擎锁；只写值，不做上游 UI 的联动副作用（如 G_BPM 的显示刷新不需要）。 */
+ * 走引擎锁；只写值，不做上游 UI 的联动副作用（如 G_BPM 的显示刷新不需要）。
+ * 不要用它执行 GO/动作全局（G_LOAD/G_SAVE/G_CLRSEQ/G_INITSND/G_NEWPRJ/G_ENGSEL/
+ * G_INFO 等）——上游这些是瞬时的 UI 按钮/查询，写 song.g[] 只会改值、不执行动作。 */
 void sloop_core_set_global(uint32_t id, int16_t value);
 
 #endif
