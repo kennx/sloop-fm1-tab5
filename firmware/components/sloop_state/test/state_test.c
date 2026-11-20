@@ -335,9 +335,13 @@ static void case_erase_note(void)
     state_get_copy(&s);
     check_ll("copy 步关", s.core.step[0][5].n, 0);
 
-    /* 三音和弦删中间音：note 60/64/67 → 60/67；lvl k1=3 前移为 k1 */
+    /* 三音和弦删中间音：note 60/64/67 → 60/67；每音符字段随移——
+     * lvl k0=1/k1=2/k2=3、rat k0=3/k1=1/k2=2、CONT 位在 k1（被删）与 k2（保留）上、
+     * accent 置位。断言非零邻居字段确实搬到了新位置（错位/漏拼则必失败）。 */
     sloop_step_t trio = { .n = 3, .note = { 60, 64, 67, 0 }, .vel = 90, .time = 0,
-                          .flags = 0x08u, .lvl = 0x0Cu /* k0=0 k1=3 k2=0 */, .rat = 0,
+                          .flags = 0x01u | 0x10u | 0x20u, /* ACCENT + CONT(1) + CONT(2) */
+                          .lvl = 0x39u /* k0=1 k1=2 k2=3 */,
+                          .rat = 0x27u /* k0=3 k1=1 k2=2 */,
                           .micro = 0, .fill = 0 };
     g_stub.step[1][2] = trio;
     state_set_focus(1, 2);
@@ -347,7 +351,22 @@ static void case_erase_note(void)
     check_ll("中间音删后 note0", trio_st->note[0], 60);
     check_ll("中间音删后 note1", trio_st->note[1], 67);
     check_ll("中间音删后 note2", trio_st->note[2], 0);
-    check_ll("中间音删后 lvl", trio_st->lvl, 0x00);
+    check_ll("中间音删后 lvl（k0=1 k1=3）", trio_st->lvl, 0x0D);
+    check_ll("中间音删后 rat（k0=3 k1=2）", trio_st->rat, 0x0B);
+    check_ll("中间音删后 flags（ACCENT + 原 k2 的 CONT 移到 k1）", trio_st->flags, 0x11);
+
+    /* 再删首音 60：67 前移为 k0，字段继续随移 */
+    apply(CMD_ERASE_NOTE, 1, 60, 0);
+    check_ll("删首音后 n", trio_st->n, 1);
+    check_ll("删首音后 note0", trio_st->note[0], 67);
+    check_ll("删首音后 lvl", trio_st->lvl, 0x03);
+    check_ll("删首音后 rat", trio_st->rat, 0x02);
+    check_ll("删首音后 flags（CONT 移到 k0）", trio_st->flags, 0x09);
+
+    /* 删最后一个音：步转 REST */
+    apply(CMD_ERASE_NOTE, 1, 67, 0);
+    check_ll("删末音后 n", trio_st->n, 0);
+    check_ll("删末音后 time=REST", trio_st->time, 2);
 
     /* 越界：鼓轨/note 0/note 128 不读不写 */
     reads0 = g_stub.read_step_calls;

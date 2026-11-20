@@ -16,8 +16,9 @@
  * docs/design/006-keyboard-mapping.md）。layer_held 写 AppState（state_set_layer）。
  * 演奏键只在「无层或仅 FX」时发声：EDIT/SEL/GLO 按住期间演奏键不弹音符。
  *
- * 锁纪律：本入口不持 state/引擎锁调用 LVGL（sloop_ui_flash_note/切页都在
- * state_apply 返回之后）；console 注入与 input 任务并发时由本地互斥串行。
+ * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
+ * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
+ * input 任务并发时由本地互斥串行。
  */
 #include <stdbool.h>
 #include <stddef.h>
@@ -153,6 +154,8 @@ static const key_binding_t k_bindings[] = {
 #define BINDING_COUNT (sizeof(k_bindings) / sizeof(k_bindings[0]))
 
 static SemaphoreHandle_t s_mutex;
+static TaskHandle_t s_task;
+static bool s_started;
 
 /* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响 */
 static bool s_note_on[128];
@@ -216,12 +219,18 @@ static void act_focus(bool step_axis, int8_t delta)
 {
     app_state_t st;
     state_get_copy(&st);
-    uint8_t track = st.focus_track < 3u ? st.focus_track : 0u;
+    uint8_t track = st.focus_track < APP_STATE_TRACKS ? st.focus_track : 0u;
     uint8_t step = st.focus_step < APP_STATE_STEPS ? st.focus_step : 0u;
     if (step_axis) {
+        /* 焦点的步轴移动不动轨：鼓轨（3）也可作为显示焦点保留下来 */
         step = (uint8_t)((step + APP_STATE_STEPS + delta) % APP_STATE_STEPS);
     } else {
-        track = (uint8_t)((track + 3u + delta) % 3u);
+        /* 轨轴只在三条合成轨间环绕；当前停在鼓轨时按方向进入 2 或 0 */
+        if (track >= 3u) {
+            track = delta < 0 ? 2u : 0u;
+        } else {
+            track = (uint8_t)((track + 3u + delta) % 3u);
+        }
     }
     state_set_focus(track, step);
 }
@@ -273,10 +282,11 @@ static void dispatch(const key_binding_t *b, bool down)
 
     switch (b->action) {
     case ACT_PLAY_TOGGLE: act_play_toggle(); break;
-    case ACT_PAGE_PLAY: sloop_ui_switch_page(APP_PAGE_PLAY); break;
+    case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break;
     case ACT_PAGE_NEXT: {
+        /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁 */
         uint8_t page = sloop_ui_current_page();
-        if (page < APP_STATE_PAGES) sloop_ui_switch_page((uint8_t)((page + 1u) % APP_STATE_PAGES));
+        if (page < APP_STATE_PAGES) sloop_ui_request_page((uint8_t)((page + 1u) % APP_STATE_PAGES));
         break;
     }
     case ACT_FOCUS_STEP: act_focus(true, b->param); break;
@@ -341,6 +351,26 @@ void sloop_ui_input_key(uint8_t code, bool down)
     input_unlock();
 }
 
+void sloop_ui_input_panic(void)
+{
+    input_lock();
+    unsigned released = 0;
+    for (unsigned code = 0; code < 128u; code++) {
+        if (!s_note_on[code]) continue;
+        s_note_on[code] = false;
+        const edit_cmd_t cmd = { .type = CMD_NOTE_OFF, .a = s_note_track[code],
+                                 .v = s_note_val[code] };
+        state_apply(&cmd);
+        released++;
+    }
+    state_set_layer(0);
+    /* 撤销待执行切页：把邮箱设为当前页，定时器消费时因相同而 no-op */
+    uint8_t page = sloop_ui_current_page();
+    if (page < APP_STATE_PAGES) sloop_ui_request_page(page);
+    input_unlock();
+    ESP_LOGW(TAG, "PANIC 释放 %u 个音符，层键/待切页已清", released);
+}
+
 static void input_task(void *arg)
 {
     (void)arg;
@@ -356,6 +386,7 @@ static void input_task(void *arg)
 
 esp_err_t input_start(void)
 {
+    if (s_started) return ESP_OK; /* 幂等：sloop_ui_start 重入/重复调用不建第二个任务 */
     if (s_mutex == NULL) {
         s_mutex = xSemaphoreCreateMutex();
         if (s_mutex == NULL) {
@@ -363,12 +394,18 @@ esp_err_t input_start(void)
             return ESP_ERR_NO_MEM;
         }
     }
-    if (xTaskCreate(input_task, "sloop_input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, NULL) !=
+    if (xTaskCreate(input_task, "sloop_input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, &s_task) !=
         pdPASS) {
         ESP_LOGE(TAG, "创建输入任务失败");
         return ESP_ERR_NO_MEM;
     }
+    s_started = true;
     ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums，任务优先级 %u",
              (unsigned)BINDING_COUNT, (unsigned)INPUT_POLL_MS, (unsigned)INPUT_TASK_PRIO);
     return ESP_OK;
+}
+
+uint32_t sloop_ui_input_stack_free(void)
+{
+    return s_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(s_task) : 0;
 }

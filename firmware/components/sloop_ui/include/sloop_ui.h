@@ -23,6 +23,11 @@ esp_err_t sloop_ui_start(void);
  * 可从任意任务调用（内部加锁）；UI 未启动时静默返回。 */
 void sloop_ui_switch_page(uint8_t page);
 
+/* 请求切页（异步）：只记目标页，30ms UI 定时器在 LVGL 上下文执行。可从任意任务
+ * 调用、不取任何锁；输入层（esc/tab）用它避免在输入路径上等 LVGL 锁。
+ * 越界忽略；连续请求保留最后一个。 */
+void sloop_ui_request_page(uint8_t page);
+
 /* 当前页；UI 未启动返回 0xFF。 */
 uint8_t sloop_ui_current_page(void);
 
@@ -35,4 +40,11 @@ void sloop_ui_flash_note(uint8_t note);
  * down = 按下/释放。物理键盘（input 任务 5ms 轮询）与 console `KEY` 注入共用；
  * 可从任意任务调用（内部互斥 + 状态层互斥），不得在 ISR 中调用。 */
 void sloop_ui_input_key(uint8_t code, bool down);
+
+/* 全停（console `KEY PANIC`）：释放输入层跟踪的所有已按下音符（逐条 note-off）、
+ * 清 layer_held、撤销待执行切页。可从任意任务调用，不取 LVGL 锁。 */
+void sloop_ui_input_panic(void);
+
+/* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
+uint32_t sloop_ui_input_stack_free(void);
 

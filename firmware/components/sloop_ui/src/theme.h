@@ -40,7 +40,8 @@ static inline uint32_t ui_track_color(uint8_t k)
     return colors[k < APP_STATE_TRACKS ? k : 0];
 }
 
-/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。 */void page_play_create(lv_obj_t *parent);
+/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。 */
+void page_play_create(lv_obj_t *parent);
 void page_play_update(const app_state_t *st);
 void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock */
 

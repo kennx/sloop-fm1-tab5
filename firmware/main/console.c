@@ -12,8 +12,9 @@
  *    与状态层持有的选轨/mute/solo；引擎真值看 ENG SNAP）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
- *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→state_apply
- *    返回，均值/最大，µs）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
+ *    均值/最大，µs）与输入任务栈余量；KEY PANIC 全停（释放已按下音符、清层键与
+ *    待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -509,9 +510,14 @@ static uint32_t s_key_us_max;
 static int key_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) {
-        printf("KEY STATS count=%u mean_us=%u max_us=%u\n", (unsigned)s_key_calls,
-               (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
-               (unsigned)s_key_us_max);
+        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u\n",
+               (unsigned)s_key_calls, (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
+               (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free());
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "panic") == 0) {
+        sloop_ui_input_panic();
+        printf("KEY PANIC OK（音符/层键/待切页已清）\n");
         return 0;
     }
     if (argc == 3 && strcasecmp(argv[1], "stats") == 0 && strcasecmp(argv[2], "reset") == 0) {
@@ -537,9 +543,10 @@ static int key_command(int argc, char **argv)
             return 0;
         }
     }
-    printf("用法: KEY <code=十进制|0xhex> <down|up> | KEY STATS [RESET]\n"
+    printf("用法: KEY <code=十进制|0xhex> <down|up> | KEY STATS [RESET] | KEY PANIC\n"
            "code = tab5_keyboard 事件码 (row<<4|col)：sym=0x30 Aa=0x31 ctrl=0x40 alt=0x41 "
-           "z=0x42 space=0x4D esc=0x00 tab=0x20\n");
+           "z=0x42 space=0x4D esc=0x00 tab=0x20\n"
+           "PANIC = 全停（释放已按下音符、清层键与待切页）\n");
     return 1;
 }
 
@@ -635,8 +642,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t key_cmd = {
         .command = "KEY",
-        .help = "键盘注入（与物理同入口）：KEY <code> <down|up>；KEY STATS [RESET] 打印注入延迟",
-        .hint = "<code> <down|up> | STATS [RESET]",
+        .help = "键盘注入（与物理同入口）：KEY <code> <down|up>；KEY STATS [RESET]；KEY PANIC 全停",
+        .hint = "<code> <down|up> | STATS [RESET] | PANIC",
         .func = &key_command,
     };
     ret = esp_console_cmd_register(&key_cmd);

@@ -45,6 +45,11 @@ static lv_timer_t *s_timer;
 static portMUX_TYPE s_flash_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_flash_note_pending;
 static bool s_flash_has_pending;
+
+/* 切页邮箱：输入层只记目标页、30ms 定时器执行（见 sloop_ui_request_page）。
+ * 0xFF = 无待执行切页。 */
+static portMUX_TYPE s_page_mux = portMUX_INITIALIZER_UNLOCKED;
+static uint8_t s_page_pending = 0xFF;
 static uint8_t s_page;
 static bool s_started;
 
@@ -188,6 +193,14 @@ static void ui_timer_cb(lv_timer_t *timer)
     portEXIT_CRITICAL(&s_flash_mux);
     if (flash) page_play_flash(note);
 
+    /* 待执行切页（输入/console 只记目标页，切页与渲染都在本任务上下文） */
+    uint8_t page = 0xFF;
+    portENTER_CRITICAL(&s_page_mux);
+    page = s_page_pending;
+    s_page_pending = 0xFF;
+    portEXIT_CRITICAL(&s_page_mux);
+    if (page < APP_STATE_PAGES && page != s_page) show_page(page);
+
     page_play_update(&st);
     page_tracks_update(&st);
     page_step_update(&st);
@@ -259,6 +272,14 @@ esp_err_t sloop_ui_start(void)
     return ESP_OK;
 }
 
+void sloop_ui_request_page(uint8_t page)
+{
+    if (page >= APP_STATE_PAGES) return;
+    portENTER_CRITICAL(&s_page_mux);
+    s_page_pending = page;
+    portEXIT_CRITICAL(&s_page_mux);
+}
+
 void sloop_ui_switch_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES) {
@@ -284,6 +305,7 @@ uint8_t sloop_ui_current_page(void)
 
 void sloop_ui_flash_note(uint8_t note)
 {
+    if (!s_started) return;
     /* 只入邮箱，不取任何锁（CRITICAL 区仅两条赋值）：输入任务/console 调用不会
      * 被 LVGL 渲染的帧等待拖住；定时器下一拍（≤30ms）点亮，连续触发保留最新一个。 */
     portENTER_CRITICAL(&s_flash_mux);
