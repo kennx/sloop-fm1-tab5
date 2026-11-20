@@ -20,3 +20,5 @@
 ## 资产（P2-5）
 - CC0 随树：SMP_DATA 283,212 B / SMP_NSETS 8；rodata 内嵌可行（D4 无 FATFS 降级）。
 - 人耳待办（收尾清单）：合成轨/鼓/SAMPLE 预置听音。
+
+> 补记（2026-11-20 终审修复轮）：上一行设备等价结论的**原始逐例 transcript** 在终审时缺失（本文件只有摘述，且现存 raw 日志早于锁修复 ea2f03b）。修复后已按当前固件全量复跑并留存 `task-6-selftest-full-postfix.log`（182 行 `name hash` + 汇总行），登记见 verification-log P2-6 修复轮行。
