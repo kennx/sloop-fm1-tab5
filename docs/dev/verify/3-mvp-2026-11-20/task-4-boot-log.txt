@@ -1,3 +1,4 @@
+I (1398) app_init: App version:      241016b
 I (1405) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
 I (1405) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
 I (1405) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
@@ -10,4 +11,4 @@ I (4115) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
 I (4135) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
 I (4145) sloop_audio_stream: stream started, half=256 frames
 I (4145) sloop_tab5: UI 启动前内部堆剩余 120619 字节
-I (4215) sloop_ui: UI 就绪: 4 页 @1280x720, 内部堆剩余 120619 字节
+I (4265) sloop_ui: UI 就绪: 4 页 @1280x720, 内部堆剩余 120619 字节
