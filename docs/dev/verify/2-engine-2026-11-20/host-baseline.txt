@@ -1,0 +1,78 @@
+P2-2 host correctness baseline
+Date: 2026-11-20
+Gate: scripts/host-test.sh
+Tested script commit: 0fef6c2e71554b81f11c46a14e63fe54e9fea986
+Asset vendoring fix: e3b7a32
+Upstream: isod89/sloop-fm1 bac9c05ea7627449405aa10e48da21d75b6c8c56 (SLOOP 2.8.5)
+Manifest: third_party/MANIFEST.sha256, 233 files; final sha256sum -c pass all OK
+
+Toolchain
+---------
+cc --version (first line): cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+CC default: cc (overridable through the CC environment variable)
+CFLAGS: -O2 -w -fwrapv -fno-strict-aliasing -ffp-contract=off -Ibuild/gen -Ifirmware/src
+Per-test link flags mirrored from upstream tests/run_tests.sh:
+  -lm: regress, hostsim, seq2_test, project_test, dsyn_test, drumkit_test, punch_test, soak_test
+  none: storage_test, upreset_test
+No selected test requires -Ifirmware/hal or additional -D flags.
+No fast-math flag is used. GOLDEN_UPDATE and BUDGET_UPDATE are explicitly unset by the gate.
+
+Golden identity
+---------------
+File: third_party/sloop-fm1/tests/golden.txt
+SHA256: 189c9a0c974bac6f088cdddb7f79296de646755a9dc1b60a7549a426b01bb4a5
+Asset configuration: upstream assets/samples-cc0 vendored in full; gen_samples output 8 sets, 49 zones, 283212 B ADPCM.
+The golden file was read-only in both passing runs; no baseline update mode was used.
+
+Subset
+------
+regress tests/golden.txt tests/cpu_baseline.txt
+hostsim 0 0 1 build/host/render.wav
+seq2_test
+project_test
+storage_test
+upreset_test
+dsyn_test
+drumkit_test build/host/drum-kits.wav build/host/drum-kits.txt
+punch_test build/host/punch-fx.wav
+soak_test 1 (SOAK_MIN default)
+
+Run summary
+-----------
+Run 1: scripts/host-test.sh -> exit 0
+  All four generators ran; samples: 8 sets, 49 zones, 283212 B ADPCM.
+  regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (9 notes), 0 crashes; 4.5 s
+  hostsim rendered build/host/render.wav and returned 0.
+  seq2_test, project_test, storage_test, upreset_test, dsyn_test, drumkit_test and punch_test returned 0.
+  soak: 1 min, 2079 events, peak 17994, max block 36.8 us, mean 3.13 us; tail 0
+  Final line: ALL HOST TESTS PASSED (subset)
+
+Run 2: scripts/host-test.sh -> exit 0
+  All four generators ran again; gen_samples used its input-hash cache and rewrote the same header: 8 sets, 49 zones, 283212 B ADPCM (cached).
+  regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (8 notes), 0 crashes; 4.4 s
+  hostsim rendered build/host/render.wav and returned 0.
+  seq2_test, project_test, storage_test, upreset_test, dsyn_test, drumkit_test and punch_test returned 0.
+  soak: 1 min, 2079 events, peak 17994, max block 40.2 us, mean 3.07 us; tail 0
+  Final line: ALL HOST TESTS PASSED (subset)
+
+Timed CPU notes vary between runs and are non-fatal by upstream regress design; golden hashes and health results are stable.
+
+Actual final tail (run 2)
+------------------------
+kills: low 60 Hz 0.003, high 9 kHz 0.003, mid 900 Hz 0.017 (1 kHz through KILL LOW 1.00)
+oct up: 440 Hz / 220 Hz power 7506.5, level 0.96
+auto-pan: 4 eighths of a beat hard left, 4 hard right (of 16)
+fade out: 0.252 at a beat, 0.0003 at two
+rewind: sound for 0.36 s, then silence
+freeze: held 1.04 then 1.03 of the dry level (right 0.99), 0.0007 2 s after release
+freeze held 30 s: the reverb's mean -325, -319, -315 (10 s each)
+quick switch KILL LOW -> MONO -> KILL MID over silence: peak 0
+black keys: KILL LOW / MID / HIGH, REWIND, OCT UP, FLANGER, AUTO-PAN, FREEZE, LOOP 8T, MONO, FADE OUT do what they say PASS
+punch-in FX: 27 effects change the mix while held, bounded, exact dry mix after release; FX-held keys pick effects, play and record nothing PASS
+== soak: 1 minute(s) of random live use
+soak: 1 min, 2079 events, peak 17994, max block 40.2 us, mean 3.07 us; tail 0
+soak: free takes 9, closed into a loop 0
+soak: random live use, bounded output, no hanging voices, idle after stop PASS
+ALL HOST TESTS PASSED (subset)
+
+Conclusion: PASS. The P2-2 host gate is repeatable and is the correctness baseline for subsequent engine work.

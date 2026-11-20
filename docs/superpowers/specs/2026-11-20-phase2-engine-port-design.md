@@ -1,7 +1,7 @@
 # 阶段 2：sloop_core 引擎移植设计规格（Phase-2 Spec）
 
 > 日期：2026-11-20 ｜ 状态：草案（待项目负责人评审）
-> 上游基线：**SLOOP 2.8.5（bac9c05ea7627449405aa10e48da21d75b6c8c56）**——2026-11-20 经 GitHub API 复核 main HEAD 未漂移，research 基线保持有效。
+> 上游基线：**SLOOP 2.8.5（bac9c05ea7627449405aa10e48da21d75b6c8c56）**——2026-11-20 经 `git ls-remote` SSH 复核 main HEAD 未漂移，research 基线保持有效。
 > 上位文档：`docs/superpowers/specs/2026-11-19-sloop-tab5-port-design.md`（总体设计，§5 架构/§6 决策表）；`docs/design/003-phase2-entry.md`（入口目标与核查清单）；`docs/design/002-port-roadmap.md` §4（任务与完成判据，权威）。
 > 本文所有「实证」结论来自 2026-11-20 对上游 bac9c05 源码的精读（经 GitHub MCP 取源），非调研摘要转述。
 
@@ -62,15 +62,26 @@ Tab5 的 `sloop_core` 复刻此模式：一个 `sloop_core.c`（组合 TU）+ `t
 ### 2.4 音频节拍与渲染 API
 
 - 渲染入口：`mix_block(int32_t *block, frames)`——一次渲染 `frames` 帧 **int32 交错 L/R**；有效幅度在 int16 范围（preview.c `clamp(block[i], -32768, 32767)` 实证）。
-- 采样率：`FS = 44100`（gen_samples 的 zone rate 字段 `sr/44100*65536` 与上游文档双重佐证）。
-- 块长：`CTL`（preview 渲染块）与 `HALF_FRAMES`（FM-1 半缓冲帧数）定义于 `core.h`——**具体值在 Task 1 引入后从 core.h 提取并回写本表**（host/device 共用同一常量，不存在转换）。
+- 核心常量（host/device 共用，不存在转换；枚举值经宿主 C 编译求值）：
+
+| 常量 | 值 | 含义 | 上游来源 |
+|---|---:|---|---|
+| `FS` | 44100 | 采样率（Hz） | `firmware/src/core.h:351` |
+| `CTL` | 32 | 控制/DSP 块长（帧） | `tools/gen_tables.py:14`（生成 `felucca_tables.h`） |
+| `HALF_FRAMES` | 256 | I2S 半缓冲帧数（44.1kHz 下约 5.8ms） | `firmware/src/core.h:16` |
+| `NSTEP` | 64 | 每轨步数 | `firmware/src/core.h:15` |
+| `NENGINES` | 12 | 默认引擎数（`FELUCCA_SLICE=0`） | `firmware/src/core.h:17,23` |
+| `P_COUNT` | 71 | 每轨参数数 | `firmware/src/core.h:48-75` |
+| `G_COUNT` | 50 | 全局参数数 | `firmware/src/core.h:77-109` |
+| `SMP_USER_SIZE` | 0x14000（81920 字节 / 80KiB） | 单个用户采样槽大小 | `firmware/src/eng_sample.c:46` |
+
 - FM-1 硬件节拍（`hal/fm1_audio.h`）：应用自有双半缓冲（int32 L/R 24-bit 左对齐），ISR 中 `fm1_audio_pending/ack_aux/free_half/ack_half` 填空闲半缓冲。
 - **Tab5 映射**：`sloop_hal_tab5` 持同形双半缓冲；I2S DMA 半完成回调（或音频任务等待可写）→ `mix_block` 填空闲半 → 格式转换（int32 → int16 交错，直接取值）→ `esp_codec_dev_write`（阶段 1 已实证 44.1kHz/2ch/16bit 通路）。
 
 ### 2.5 golden 机制（tests/regress.c）
 
 - `tests/golden.txt`：每用例一行 `<用例名> <hash>`，hash 为渲染 int32 缓冲的 **FNV-1a 64**；含 `mix_4`（四轨混音）等；每引擎×预置、鼓 kit、声部模式、FX 发送全覆盖。
-- `tests/cpu_baseline.txt`：CPU 成本基线（+25% 容差）；`target_budget.txt` 依赖 FM-1 反汇编，**不搬**。
+- `tests/cpu_baseline.txt`：CPU 成本基线（+25% 容差）；`target_budget.txt` 文件随 tests 树入库，但其依赖 FM-1 反汇编的 **target_budget 用例/检查不在 `host-test.sh` 搬运范围**。
 - `ENG SELFTEST` 设计：设备侧复用 regress.c 的用例驱动与哈希生成（同一份 C 代码编进设备），逐用例输出 `name hash`，与 host 跑出的 `golden.txt` 对比；不一致时用例转误差通道（max|err|/SNR 对内嵌参考向量）。
 
 ### 2.6 初始化序列（preview_init 实证，设备复刻）
@@ -79,10 +90,10 @@ G/P 参数默认值 → `steps_clear` ×4 轨 → `dsu_defaults()` → `fm6_init
 
 ## 3. 方案：D1 上游引入机制（定稿，详见 ADR-004）
 
-**采用 vendoring**：`third_party/sloop-fm1/`（完整上游树 @bac9c05，含 LICENSE/LICENSES/CREDITS），由 `tools/fetch_upstream.sh` 按固定 commit 抓取/校验（SHA 锁定 + 关键文件 SHA256 清单）；`firmware/components/sloop_core/` 只放组合 TU 与 Tab5 shim，经相对路径引用 third_party。
+**采用 vendoring**：`third_party/sloop-fm1/`（精简上游子树 @bac9c05，含 LICENSE/LICENSES/CREDITS/ATTRIBUTION），由 `tools/fetch_upstream.sh` 按固定 commit 抓取/校验（SHA 锁定 + 全部 vendored 文件 SHA256 清单）；`firmware/components/sloop_core/` 只放组合 TU 与 Tab5 shim，经相对路径引用 third_party。
 
 - 不选 submodule：构建不依赖 submodule init 状态与网络；GPL 对应源完整随仓；diff 跟随上游 = 重跑 fetch 脚本换 commit + git diff。
-- **取源通道风险（已实证）**：本机 `git clone`/`curl` 直连 GitHub 失败（TLS 中断）；GitHub MCP 与 harness FetchURL 可用。fetch 脚本须支持镜像/代理参数，MCP 逐文件导出为兜底通道（慢但可行）。Task 1 第一步先确立通道。
+- **取源通道（2026-11-20 复核）**：本机 HTTPS git/curl 直连 GitHub 失败（TLS 中断），SSH `git ls-remote` 与 clone 可用。fetch 脚本默认 SSH，并支持 `--mirror` 备用前缀；源码入库后的构建不依赖网络。
 
 ## 4. 组件设计
 
@@ -92,7 +103,7 @@ firmware/components/
 ├── sloop_core/
 │   ├── CMakeLists.txt            # 单 TU 编译；CFLAGS 对齐 §5 数值约定
 │   ├── include/sloop_core.h      # 对外 API（§4.1）
-│   └── src/sloop_core.c          # 组合 TU（复刻 preview.c 包含序，Tab5 stub）
+│   └── src/selftest.c            # 同一 TU 承载运行时 API 与原样 regress.c + Tab5/POSIX shim
 └── sloop_hal_tab5/
     ├── include/sloop_hal.h       # 音频流/存储/时间/日志后端接口
     └── src/{audio_stream.c, storage_fatfs.c, ...}
@@ -102,16 +113,29 @@ firmware/components/
 
 ```c
 esp_err_t sloop_core_init(void);                       /* 复刻 preview_init + 后端挂接 */
-void sloop_core_render(int32_t *block, uint32_t frames); /* = mix_block，音频任务调用 */
+void sloop_core_render(int32_t *block, uint32_t frames); /* fm6_poll 后按 CTL=32 量子循环调用 mix_block，输出指针前进 2*b */
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset); /* = preview_track：选轨引擎/预置 */
 void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);
 uint32_t sloop_core_rate(void);   /* FS */
-uint32_t sloop_core_frames(void); /* CTL/HALF_FRAMES 对齐后的块长 */
+uint32_t sloop_core_frames(void); /* Tab5 音频半缓冲粒度：HALF_FRAMES（256）；核心控制量子仍为 CTL=32 */
 ```
 
-`ENG SELFTEST` 不走此 API——它把 regress.c 用例驱动作为独立 TU 编入（与 host 同源），保证 host/device 跑的是同一份判定代码。
+设备骨架另暴露 `sloop_core_status()` 供 `ENG INFO` 读取启动初始化结果；公开计数宏
+`SLOOP_CORE_NENGINES/P_COUNT/G_COUNT` 在组合 TU 内以 `_Static_assert` 与上游枚举核对，
+避免 console 直接包含上游 `core.h`。
+
+Tab5 链接适配由 `sloop_core/linker.lf` 把上游 `.pool`/`.lowram` 零初始化 DSP 缓冲映射到
+`dram0_bss`；4×80KiB 用户采样槽由 `sloop_hal_tab5` 在 PSRAM 堆分配（内部 DRAM 不足以同时
+容纳约 260KiB `.pool`、其余核心状态与 320KiB 用户槽），`SMP_USER_XIP` 直接指向该 RAM。
+
+`ENG SELFTEST` full run 还要求上游 repeat 与首用例哈希一致（汇总 `deterministic=1`）。`ENG SELFTEST` 不调用上述运行时 API 来重建用例——它把 regress.c 用例驱动原样编入同一组件 TU，保证 host/device 跑同一份判定与哈希代码。运行时与自测共享一个引擎实例；初始化时保存 data/BSS 快照，每个用例前恢复，模拟 host 的 fork 隔离。512 项 job/golden/CPU 簿记表由 `tools/move_regress_tables.py` 在归档后重命名至 `.ext_ram.bss`，DSP 热状态仍在内部 RAM。`golden.txt` 由 CMake 直接读取 third_party 原文件并生成字节数组，PC 用 `scripts/device-selftest.py` 严格比对。
+
+`audio_stream.c` 是 ES8388 codec 唯一所有者：负责 BSP 初始化、44.1kHz/2ch/16bit open、`set_out_vol(70)` 与阶段 1 实证的 DAC/LOUT/ROUT 板级音量修正；`audio_tone` 仅通过 getter 复用句柄，流运行后拒绝并发 TONE。`ENG TRIG` 才启动双半缓冲音频任务；`ENG PERF` 在流运行时只读 xrun/heap，避免并发渲染同一引擎。
+
+`ENG SMOKE` 是轻量常驻诊断：轨道 0 选引擎/预置 0，note 60 开/关各渲染一次 256 帧，
+打印两个缓冲的 FNV-1a 64 哈希与 note-on 非零样本数；`nonzero>0` 才返回 PASS。
 
 ### 4.2 D2（本地编辑入口）记录
 
@@ -142,7 +166,7 @@ uint32_t sloop_core_frames(void); /* CTL/HALF_FRAMES 对齐后的块长 */
 
 | 风险 | 对策 |
 |---|---|
-| 取源通道不通（已实证本机直连失败） | fetch 脚本镜像/代理参数 + MCP 兜底；Task 1 首步确立通道 |
+| 取源通道不通（本机 HTTPS 已实证失败） | 默认 SSH 抓取（已实证可用）+ `--mirror` 备用前缀；源码入库后构建完全离线 |
 | 浮点分叉（RV32F fmadd 收缩） | §6.5 双侧 FP 约定 + 容差通道 |
 | 单 TU 体积（seq.c 160KB + fx.c 70KB + 全部引擎）编译慢/内存大 | 可接受（一次性成本）；`-O2` 与上游一致，不为编译速度降优化 |
 | SMP_DATA rodata 体积（含 CC0 全集时） | D4 已定义降级路径（FATFS）；P2-5 实测体积后定 |
@@ -151,6 +175,5 @@ uint32_t sloop_core_frames(void); /* CTL/HALF_FRAMES 对齐后的块长 */
 
 ## 8. 留给实施者
 
-1. Task 1 引入后：从 `core.h` 提取 `FS/CTL/HALF_FRAMES/NSTEP/NENGINES/P_COUNT/G_COUNT/SMP_USER_SIZE` 回写 §2.4 常量表与计划。
-2. `tests/regress.c` 的用例清单与哈希调用约定在 Task 2 精读该文件后固化进 `ENG SELFTEST`（机制已定为同源复用，无需预写细节）。
-3. CC0 资产体积实测与获取（P2-5）；D2 形式 ADR（阶段 3）。
+1. `tests/regress.c` 的用例清单与哈希调用约定在 Task 2 精读该文件后固化进 `ENG SELFTEST`（机制已定为同源复用，无需预写细节）。
+2. CC0 资产体积实测与获取（P2-5）；D2 形式 ADR（阶段 3）。

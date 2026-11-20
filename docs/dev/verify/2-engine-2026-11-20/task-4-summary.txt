@@ -1,0 +1,30 @@
+P2-4 ENG SELFTEST / TRIG / PERF verification summary (2026-11-20)
+
+Source and golden fidelity
+- Device selftest directly includes third_party/sloop-fm1/tests/regress.c; no case logic copied or rewritten.
+- golden.txt is read by CMake as HEX from the third_party original and emitted as a byte array in the build directory.
+- Host: scripts/host-test.sh -> 182 golden, 0 changed, 0 gone, 0 health/voice/crash; ALL HOST TESTS PASSED (subset).
+- Device: ENG SELFTEST -> cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS.
+- PC: scripts/device-selftest.py -> identical=182 mismatch=0 missing=0 extra=0 result=PASS.
+- No tolerance acceptance or error-vector analysis was needed. An intermediate 179/182 run exposed a snapshot-range isolation bug; the three UNISON cases were fixed by sorting sentinel-delimited initialized-data sections, then the full suite was rerun to 182/182.
+- third_party MANIFEST.sha256 verification: 233/233 OK; no tracked third_party changes.
+
+Build / boot / flash
+- scripts/build.sh twice: exit 0 both; second build has zero warning/error lines.
+- scripts/flash.sh /dev/ttyACM0: three Hash of data verified.
+- Final boot log: codec 44100Hz/2ch/16bit ready; engine init ESP_OK; no fatal/abort/backtrace/panic/task_wdt.
+
+Performance and audio
+- ENG PERF idle: blocks=100, cycles_mean=197223, cycles_max=245076, us_mean=548, us_max=681, budget_us=5804.
+- Duty: mean 9.44%, max 11.73%; xrun=0; min_free_internal=86092; min_free_psram=29407656.
+- AUD TONE 440 100: completed through the shared codec handle before stream startup.
+- ENG TRACK 0 0 0: OK.
+- ENG TRIG synth 0 60: note on, 500ms, note off, xrun=0, OK.
+- ENG TRIG drum 0 0: kit 0 lane 0 velocity 100, xrun=0, OK.
+- ENG PERF while streaming: xrun=0; no concurrent mix_block call from the console.
+- Human audible confirmation of synth and drum remains deferred to DI-7 / closeout.
+
+Evidence files
+- task-4-selftest-device.log / task-4-selftest-compare.log
+- task-4-audio-perf.log
+- task-4-build-1.log / task-4-build-2.log / task-4-flash.log / task-4-boot.log

@@ -1,8 +1,8 @@
 /*
  * sloop-fm1-tab5 — ES8388 扬声器正弦音自检（Phase 1 P1-6）
  *
- * audio_tone_init() 一次初始化 codec（句柄存 static 复用），
- * 之后可反复 audio_tone_play() 阻塞播放正弦纯音（AUD TONE 命令后端）。
+ * codec 由 sloop_hal_tab5/audio_stream.c 单一持有并初始化；
+ * audio_tone_play() 经共享句柄反复阻塞播放正弦纯音（AUD TONE 命令后端）。
  */
 #pragma once
 

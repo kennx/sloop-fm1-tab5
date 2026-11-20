@@ -16,62 +16,31 @@
 #include "esp_codec_dev.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "sloop_hal.h"
 
 static const char *TAG = "sloop_audio";
 
 #define AUDIO_TONE_SAMPLE_RATE (44100)
 #define AUDIO_TONE_FRAMES      (512)    /* 每写入块帧数（int16 交错立体声 2048B） */
 #define AUDIO_TONE_AMPLITUDE   (16000)  /* -6dBFS，防 NS4150B 削顶 */
-#define AUDIO_TONE_OUT_VOL     (70)     /* codec_dev 音量 0..100（默认 0 近乎静音） */
-
-static esp_codec_dev_handle_t s_spk_dev;
 
 /* 写入缓冲存 static：REPL 单任务调用，避免占用命令任务栈 */
 static int16_t s_block[AUDIO_TONE_FRAMES * 2];
 
 esp_err_t audio_tone_init(void)
 {
-    if (s_spk_dev != NULL) {
-        return ESP_OK;
-    }
-
-    s_spk_dev = bsp_audio_codec_speaker_init();
-    if (s_spk_dev == NULL) {
-        ESP_LOGE(TAG, "扬声器 codec 初始化失败（bsp_audio_codec_speaker_init 返回 NULL）");
-        return ESP_FAIL;
-    }
-
-    esp_codec_dev_sample_info_t fs = {
-        .sample_rate = AUDIO_TONE_SAMPLE_RATE,
-        .channel = 2,
-        .bits_per_sample = 16,
-    };
-    int rc = esp_codec_dev_open(s_spk_dev, &fs);
-    ESP_LOGI(TAG, "speaker codec open 44100Hz/2ch/16bit rc=%d", rc);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "codec 打开失败 rc=%d", rc);
-        return ESP_FAIL;
-    }
-
-    rc = esp_codec_dev_set_out_vol(s_spk_dev, AUDIO_TONE_OUT_VOL);
-    if (rc != 0) {
-        ESP_LOGE(TAG, "设置输出音量 %d 失败 rc=%d", AUDIO_TONE_OUT_VOL, rc);
-        return ESP_FAIL;
-    }
-
-    /* 板级修正（听音实证，2026-11-19）：esp_codec_dev 的 es8388 初始化把
-     * DACCONTROL26/27（LOUT2/ROUT2 音量）显式写 0（-33.5dB 近静音），且
-     * set_out_vol(70) 对应 DAC 数字音量 -11dB，实测无声；四路输出音量全写
-     * 0x21（最大）后扬声器出声。哪一路是功放输入未二分定位，四路全开
-     * 是实证安全态（AUD REG/PA/L2/MAX 排障命令保留供阶段 2 音频调优）。 */
-    audio_tone_max_all();
-    return ESP_OK;
+    return sloop_hal_audio_init();
 }
 
 esp_err_t audio_tone_play(uint32_t freq_hz, uint32_t duration_ms)
 {
-    if (s_spk_dev == NULL) {
-        ESP_LOGE(TAG, "codec 未初始化（audio_tone_init 未调用或失败）");
+    esp_codec_dev_handle_t spk_dev = sloop_hal_audio_codec();
+    if (spk_dev == NULL) {
+        ESP_LOGE(TAG, "codec 未初始化（sloop_hal_audio_init 未调用或失败）");
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (sloop_hal_audio_streaming()) {
+        ESP_LOGE(TAG, "引擎音频流运行中，拒绝并发 AUD TONE");
         return ESP_ERR_INVALID_STATE;
     }
     if (freq_hz == 0 || freq_hz > AUDIO_TONE_SAMPLE_RATE / 2) {
@@ -109,7 +78,7 @@ esp_err_t audio_tone_play(uint32_t freq_hz, uint32_t duration_ms)
                 phase -= two_pi;
             }
         }
-        int rc = esp_codec_dev_write(s_spk_dev, s_block, sizeof(s_block));
+        int rc = esp_codec_dev_write(spk_dev, s_block, sizeof(s_block));
         if (rc != 0) {
             ESP_LOGE(TAG, "codec 写入失败 rc=%d（已播 %lldms）", rc,
                      (long long)((esp_timer_get_time() - t0) / 1000));
@@ -202,26 +171,7 @@ esp_err_t audio_tone_set_l2vol(uint8_t val)
 /* AUD MAX 排障实验：一切输出路径音量全开（DAC 数字 0dB + L1/R1/L2/R2 全 0x21）*/
 esp_err_t audio_tone_max_all(void)
 {
-    static i2c_master_dev_handle_t dev;
-    if (dev == NULL) {
-        i2c_device_config_t cfg = {
-            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-            .device_address = 0x10,
-            .scl_speed_hz = 100000,
-        };
-        esp_err_t ret = i2c_master_bus_add_device(bsp_i2c_get_handle(), &cfg, &dev);
-        if (ret != ESP_OK) {
-            return ret;
-        }
-    }
-    static const uint8_t w[][2] = {
-        {0x1A, 0x00}, {0x1B, 0x00}, /* DAC 数字音量 0dB */
-        {0x2E, 0x21}, {0x2F, 0x21}, {0x30, 0x21}, {0x31, 0x21}, /* 四路输出全开 */
-    };
-    esp_err_t ret = ESP_OK;
-    for (unsigned i = 0; i < sizeof(w) / sizeof(w[0]); i++) {
-        ret |= i2c_master_transmit(dev, w[i], 2, 20);
-    }
+    esp_err_t ret = sloop_hal_audio_max_all();
     printf("MAX: DAC=0dB, L1/R1/L2/R2=0x21 %s\n", ret == ESP_OK ? "OK" : esp_err_to_name(ret));
     return ret;
 }

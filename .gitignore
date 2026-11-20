@@ -2,6 +2,8 @@
 # firmware/dependencies.lock 例外入库——锁定组件版本保证屏幕批次探测等 BSP 行为可复现）
 firmware/build/
 build/
+third_party/sloop-fm1/build/
+third_party/sloop-fm1/.git/
 firmware/sdkconfig
 sdkconfig.old
 sdkconfig.defaults.bak

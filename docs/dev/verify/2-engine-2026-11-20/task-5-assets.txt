@@ -1,0 +1,23 @@
+# P2-5 样本资产核验（2026-11-20，Task 5）
+
+## 资产来源与许可
+- 全部内置采样资产随上游树 vendored 于 third_party/sloop-fm1/assets/samples-cc0/
+  （上游已提交；tools/fetch_cc0.py 仅为从源重建工具，本机 https 通道不通，未使用）。
+- 许可：CC0 1.0（公有领域，可再分发）；出处 VSCO-2-CE / VCSL，
+  CREDITS/ATTRIBUTION 文件随树；结论登记 docs/dev/upstream-licenses.md 与 ADR-004。
+- 生成头由 scripts/host-test.sh 每次强制重生成（gen_samples 读取上述资产）。
+
+## 生成产物核验（felucca_samples.h）
+- SMP_DATA = 283,212 字节（IMA ADPCM blob）
+- SMP_NSETS = 8（PIANO/BASS/VIBES/HORNS/STRGS/FLUTE/SCRCH/PERC 完整 CC0 集）
+- 与 golden 的一致性：Task 4 设备/host 182/182 哈希全等——其中含 SAMPLE 预置与
+  GRAIN/鼓/mix 用例，即采样路径与上游逐样本一致。
+
+## 尺寸（Task 3 实测，含完整资产）
+- image +375,598 B；rodata +326,928 B（≈ SMP_DATA 283K + golden 7.7K + 引擎 rodata）；
+- DIRAM +274,400 B（引擎热态；余 121,066 B）；D4 结论：rodata 内嵌可行，无需 FATFS 降级。
+
+## 真机路径（2026-11-20 /dev/ttyACM0）
+- `ENG TRACK 0 4 0`（engine=4 即 SAMPLE，preset=0）→ OK
+- `ENG TRIG synth 0 60` → OK，xrun=0
+- 人耳确认 SAMPLE 预置出声：⏳ 收尾清单（机器侧已证触发与渲染无错）
