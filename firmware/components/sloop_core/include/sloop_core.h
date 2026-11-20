@@ -78,12 +78,18 @@ void sloop_core_set_mute(uint32_t k, bool mute);
 void sloop_core_set_solo(uint8_t mask);
 void sloop_core_select(uint32_t k);
 
-/* 诊断模式（console `ENG SELFTEST` 前后调用）：freeze(true) 先持锁取一份快照再置位，
- * 之后 read 返回该冻结快照、read_step 返回全零、所有改变引擎状态的 API 直接丢弃
- * （不取锁、不阻塞）；freeze(false) 清位。效果 = 自检期间 UI 冻结在最后一帧、
- * 键盘编辑不落地，而 UI/输入任务不会在引擎锁上等待——selftest 因此可以整段持锁
- * 跑快照/用例而不制造长时等待（该 FreeRTOS SMP 端口在长时持锁 + 高优先级等待者
- * 下会触发跨核 yield 风暴，见 ADR-007）。须与 selftest 成对使用；不得在 ISR 调用。 */
+/* 诊断模式（`ENG SELFTEST` 内部成对调用，不必由调用方执行）：freeze(true) 先持锁
+ * 取一份快照再置位，之后 read 返回该冻结快照、read_step 返回全零、所有改变引擎
+ * 状态的 API 直接丢弃（不取锁、不阻塞）；freeze(false) 清位。效果 = 自检期间 UI
+ * 冻结在最后一帧、键盘编辑不落地。freeze 只保证「置位后新到的调用不取锁/不写」；
+ * 全量自检另由 quiesce 钩子把 UI 定时器/LVGL 定时器/输入派发停掉（见下），保证
+ * 自检期间系统里没有其它引擎使用方（见 ADR-007）。不得在 ISR 调用。 */
 void sloop_core_diag_freeze(bool on);
+
+/* 诊断期静默钩子：sloop_ui 启动成功后注册 sloop_ui_quiesce（暂停 30ms UI 定时器与
+ * LVGL 定时器、输入任务阻塞丢弃事件）。sloop_core_selftest 在诊断期前后成对调用；
+ * 未注册（UI 未启动、host 自测）时为空操作。只保留一个钩子（后注册覆盖）；
+ * 不得在 ISR 调用。 */
+void sloop_core_diag_quiesce_hook(void (*hook)(bool on));
 
 #endif

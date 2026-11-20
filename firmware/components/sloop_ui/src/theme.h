@@ -67,3 +67,12 @@ bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
  * 在 LVGL 锁外调用（键盘驱动须已初始化）。 */
 esp_err_t input_start(void);
 
+/* 输入静默（诊断期，sloop_ui_quiesce 调用）：
+ *  - begin：置丢弃标志，并等 input 任务回到「批次之间」确认（最多 timeout_ms；
+ *    超时返回 false——在途批次可能仍未收尾）。无 input 任务时立即返回 true。
+ *  - end：清标志与计数，唤醒 input 任务并返回本轮丢弃的事件数（诊断日志用）。
+ *  - dropped：KEY STATS 回读（诊断期丢弃计数）。 */
+bool input_quiesce_begin(uint32_t timeout_ms);
+uint32_t input_quiesce_end(void);
+uint32_t input_quiesce_dropped(void);
+

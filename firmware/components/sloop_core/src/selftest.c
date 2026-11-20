@@ -344,6 +344,10 @@ static SemaphoreHandle_t s_engine_lock;
  * 会把组件 data/bss 恢复到 init 快照，普通静态标志会在自检一开始就被回滚成 false。 */
 static sloop_core_snapshot_t s_frozen_snap __attribute__((section(".noinit")));
 static volatile bool s_frozen __attribute__((section(".noinit")));
+/* 诊断期静默钩子（sloop_ui 启动后注册）。同样放 .noinit：注册发生在 sloop_core_init
+ * 的快照之后，普通静态会被 selftest_restore() 抹成 NULL——结束时 quiesce(false)
+ * 就永远不会执行，UI 定时器将永久停在暂停态。 */
+static void (*s_quiesce_hook)(bool on) __attribute__((section(".noinit")));
 
 static inline void engine_lock(void)
 {
@@ -371,6 +375,7 @@ esp_err_t sloop_core_init(void)
     fm6_init();
     /* .noinit：冷启动内容未定义，必须显式清诊断冻结标志（否则写 API 可能全被丢弃） */
     s_frozen = false;
+    s_quiesce_hook = NULL;
     memset(&ctl, 0, sizeof(ctl));
     if (s_engine_lock == NULL) {
         s_engine_lock = xSemaphoreCreateMutex();
@@ -588,11 +593,10 @@ void sloop_core_select(uint32_t k)
     engine_unlock();
 }
 
-/* 诊断模式开关（console `ENG SELFTEST` 前后调用，见 sloop_core.h）：
+/* 诊断模式开关（`ENG SELFTEST` 内部成对调用，见 sloop_core.h）：
  *  - freeze(true)：持引擎锁取一份快照后置位。置位后 read 直接返回该快照、
- *    read_step 返回全零、所有写 API 直接丢弃——UI 定时器与 input 任务都不再取
- *    引擎锁，自检可以整段持锁而不制造长时间等待者（本 FreeRTOS SMP 端口在长时
- *    持锁 + 高优先级等待者下会触发跨核 yield 风暴，见 ADR-007）。
+ *    read_step 返回全零、所有写 API 直接丢弃——UI/输入任务不再取引擎锁，自检的
+ *    快照恢复与用例运行因此没有并发写者/读者（见 ADR-007）。
  *  - freeze(false)：清位（引擎状态已由 selftest 恢复到 init 快照，下一次 sync 对齐）。
  * 标志与快照放在 .noinit：selftest_restore() 会覆盖组件 data/bss，普通静态会被
  * 快照回滚掉（这是首版实现被「还原」掉的根因）。 */
@@ -608,24 +612,33 @@ void sloop_core_diag_freeze(bool on)
     s_frozen = false;
 }
 
+void sloop_core_diag_quiesce_hook(void (*hook)(bool on))
+{
+    s_quiesce_hook = hook;
+}
+
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
         printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
-    /* 整段持引擎锁（restore → jobs → 结束 restore）：快照恢复会覆盖引擎状态，而
-     * UI 定时器每 30ms 调 sloop_core_read、input 任务会 sloop_core_note/write_step
-     * ——不持锁就是「活写者 + 快照回滚」的数据竞争（写者可能把半个用例的状态带进
-     * 下一个用例，或读方看到回滚中途）。
-     * 调用方（console 的 ENG SELFTEST）在调用前后执行 sloop_core_diag_freeze(true/false)：
-     * 冻结后 read 返回冻结快照、写 API 直接丢弃（都不取锁），因此本锁的等待者只剩
-     * 音频任务（已按设计停流）——没有长时持锁 + 高优先级等待者的组合，就不会触发
-     * 该 FreeRTOS SMP 端口的跨核 yield 风暴（vPortYield busy-wait；阶段 3 收口的既有
-     * 固件在 UI live 时跑 SELFTEST 即因此卡死刷 task_wdt，见 ADR-007）。
-     * 诊断模式期间 UI 停在最后一帧、键盘编辑不落地，见 sloop_core.h。 */
+    /* 诊断期（ADR-007）：静默 UI → 冻结引擎 → 跑用例 → 恢复，成对且只有一条出口。
+     * 1) quiesce：暂停 30ms UI 定时器与 LVGL 定时器、input 任务阻塞等恢复通知；
+     *    等 input 任务回到批次边界后才算静默生效——置标志时它可能正派发。
+     * 2) freeze：置位后 read/write 都不取锁（返回冻结快照/丢弃写），UI 停在最后一帧。
+     * 3) 用例之间不再整段持引擎锁：freeze 已保证「置位后无新写者/读者取锁」，自检
+     *    自己是唯一写者；restore 只在首尾各取一次短锁。长时间持锁 + 每次 job 后的
+     *    vTaskDelay 没有收益，只增加与其它核调度交错的面。
+     * 钩子未注册（UI 未启动/host）时 quiesce 为空操作。
+     * 注意：DI-11 卡死的真因不在持锁，而在 input 任务的轮询周期（CONFIG_FREERTOS_HZ=100
+     * 下 pdMS_TO_TICKS(5)==0 → vTaskDelay(0) 全速自旋 → 跨核 yield IPI 风暴），见 input.c
+     * 的 INPUT_POLL_TICKS 与本 ADR 的「DI-11 真因」小节。 */
+    if (s_quiesce_hook != NULL) s_quiesce_hook(true);
+    sloop_core_diag_freeze(true);
     engine_lock();
     selftest_restore();
+    engine_unlock();
     ctl.selector = case_name;
     ctl.fork_count = 0;
     ctl.recapture = 1;
@@ -690,8 +703,11 @@ int sloop_core_selftest(const char *case_name)
            (unsigned)checks, (unsigned)check_fail, deterministic, (unsigned)expected,
            (unsigned)expected_checks, main_rc, pass ? "PASS" : "FAIL");
     heap_caps_free(golden);
+    engine_lock();
     selftest_restore();
-    nj = 0;
     engine_unlock();
+    nj = 0;
+    sloop_core_diag_freeze(false);
+    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     return pass ? 0 : 1;
 }

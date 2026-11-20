@@ -54,9 +54,10 @@ void sloop_ui_cancel_pending_page(void);
 /* TAP 注入（console `TAP <x> <y>`）：坐标 = 屏幕绝对坐标（含页签条，与触摸 indev
  * 同口径）。按当前页 hit-test 表命中矩形，执行与控件回调**相同的动作函数**
  * （EditCmd 层等价，见 ADR-005；不声称原始指针事件等价）。
- * 返回值区分三条路径：OK（命中，动作/参数填进 out，out 可为 NULL）、MISS（矩形
+ * 返回值区分四条路径：OK（命中，动作/参数填进 out，out 可为 NULL）、MISS（矩形
  * 表未命中，不改状态）、LOCK_TIMEOUT（未派发——console 打印
- * `TAP ERR lvgl_lock_timeout`，脚本不得把它与正常 miss 混判）。
+ * `TAP ERR lvgl_lock_timeout`）、QUIESCED（诊断期静默，未派发——console 打印
+ * `TAP ERR quiesced`）。脚本不得把后两者与正常 miss 混判。
  * 内部取 LVGL 锁（命中后要改控件文本/立即刷新），仅 console 注入路径调用。 */
 typedef enum {
     SLOOP_TAP_MISS = 0,
@@ -78,12 +79,30 @@ typedef enum {
     SLOOP_TAP_RESULT_OK = 0,
     SLOOP_TAP_RESULT_MISS,        /* 矩形表未命中（正常未命中，不改状态） */
     SLOOP_TAP_RESULT_NOT_STARTED, /* UI 未启动 */
-    SLOOP_TAP_RESULT_LOCK_TIMEOUT /* LVGL 锁超时：未派发 */
+    SLOOP_TAP_RESULT_LOCK_TIMEOUT, /* LVGL 锁超时：未派发 */
+    SLOOP_TAP_RESULT_QUIESCED     /* 诊断期静默：未派发（console 打印 TAP ERR quiesced） */
 } sloop_tap_result_status_t;
 
 sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
 /* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
+
+/* 诊断期静默（`ENG SELFTEST` 全量运行期间；sloop_core_selftest 经
+ * sloop_core_diag_quiesce_hook 调用，console `UI QUIESCE <on|off>` 可用于复验）：
+ *  - on：先置输入丢弃标志并等 input 任务回到批次边界（≤50ms，超时记 WARN），
+ *    再在 LVGL 锁内暂停 30ms UI 定时器、`lvgl_port_stop()` 停 LVGL 的刷新/indev
+ *    定时器并作废待执行切页。此后键盘事件只被计数、KEY/TAP 注入被拒
+ *    （`SLOOP_TAP_RESULT_QUIESCED` / `KEY ERR quiesced`）。
+ *  - off：`lvgl_port_resume()` + 恢复 30ms 定时器（下一拍 state_sync + 四页刷新），
+ *    唤醒 input 任务并清零/打印本轮丢弃量。
+ * UI 未启动时为空操作；幂等。可从任意任务调用，不得在 ISR 中调用。 */
+void sloop_ui_quiesce(bool on);
+
+/* 当前是否处于诊断期静默（UI 未启动恒为 false）。 */
+bool sloop_ui_quiesced(void);
+
+/* 诊断期丢弃的键盘事件数（恢复后清零；KEY STATS 回读）。 */
+uint32_t sloop_ui_input_quiesce_dropped(void);
 
 

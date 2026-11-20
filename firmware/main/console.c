@@ -10,16 +10,18 @@
  *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
  *    与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
- *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
+ *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
+ *    手动复验诊断期静默（sloop_ui）。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
- *    均值/最大，µs）与输入任务栈余量；KEY PANIC 全停（释放已按下音符、清层键与
- *    待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *    均值/最大，µs）、输入任务栈余量与诊断期丢弃计数；KEY PANIC 全停（释放已按下
+ *    音符、清层键与待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *    诊断期静默（UI QUIESCE on / ENG SELFTEST 运行中）KEY 被丢弃并回 "KEY ERR quiesced"。
  *  - TAP：触摸注入 TAP <x> <y>（屏幕绝对坐标，含页签条），经
  *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
- *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"（两者都返回非零，令牌不同，
- *    脚本不得把锁超时误判为正常 miss）。
+ *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
+ *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -366,13 +368,9 @@ static int eng_command(int argc, char **argv)
         return nonzero ? 0 : 1;
     }
     if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "selftest") == 0) {
-        /* 诊断模式：冻结引擎快照读 + 丢弃引擎写（UI 停在最后一帧、键盘编辑不落地），
-         * 自检因此可整段持引擎锁而不产生长时间等待者——阶段 3 固件在 UI live 时
-         * 直接跑全量 SELFTEST 会在该 FreeRTOS SMP 端口卡死刷 task_wdt（见 ADR-007）。 */
-        sloop_core_diag_freeze(true);
-        int rc = sloop_core_selftest(argc == 3 ? argv[2] : NULL);
-        sloop_core_diag_freeze(false);
-        return rc == 0 ? 0 : 1;
+        /* 诊断模式（静默 UI + 冻结引擎读写）由 sloop_core_selftest 内部成对执行：
+         * 全量 182 例跑完后恢复 UI 定时器/输入与引擎读写。UI 未启动时静默为空操作。 */
+        return sloop_core_selftest(argc == 3 ? argv[2] : NULL) == 0 ? 0 : 1;
     }
     if (argc == 5 && strcasecmp(argv[1], "track") == 0) {
         uint32_t k, engine, preset;
@@ -492,7 +490,9 @@ static int state_command(int argc, char **argv)
 }
 
 /* UI 切页（注入用）：UI <play|tracks|step|transport>；无参打印当前页。
- * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。 */
+ * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
+ * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
+ * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。 */
 static int ui_command(int argc, char **argv)
 {
     static const char *const names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
@@ -503,6 +503,18 @@ static int ui_command(int argc, char **argv)
             return 1;
         }
         printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "quiesce") == 0 &&
+        (strcasecmp(argv[2], "on") == 0 || strcasecmp(argv[2], "off") == 0)) {
+        bool on = strcasecmp(argv[2], "on") == 0;
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        sloop_ui_quiesce(on);
+        printf("UI QUIESCE %s quiesced=%u\n", on ? "on" : "off",
+               (unsigned)sloop_ui_quiesced());
         return 0;
     }
     if (argc == 2) {
@@ -527,7 +539,7 @@ static int ui_command(int argc, char **argv)
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport>（无参打印当前页）\n");
+    printf("用法: UI <play|tracks|step|transport> | UI QUIESCE <on|off>（无参打印当前页）\n");
     return 1;
 }
 
@@ -541,9 +553,10 @@ static uint32_t s_key_us_max;
 static int key_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) {
-        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u\n",
+        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u quiesce_dropped=%u\n",
                (unsigned)s_key_calls, (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
-               (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free());
+               (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free(),
+               (unsigned)sloop_ui_input_quiesce_dropped());
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "panic") == 0) {
@@ -566,6 +579,12 @@ static int key_command(int argc, char **argv)
             int64_t t0 = esp_timer_get_time();
             sloop_ui_input_key((uint8_t)code, down);
             uint32_t us = (uint32_t)(esp_timer_get_time() - t0);
+            if (sloop_ui_quiesced()) {
+                /* 诊断期：与物理键盘同入口被丢弃（计数在 input 侧，KEY STATS
+                 * quiesce_dropped 可回读）；独立令牌与正常回显区分 */
+                printf("KEY ERR quiesced\n");
+                return 1;
+            }
             s_key_calls++;
             s_key_us_sum += us;
             if (us > s_key_us_max) s_key_us_max = us;
@@ -613,6 +632,11 @@ static int tap_command(int argc, char **argv)
     if (status == SLOOP_TAP_RESULT_LOCK_TIMEOUT) {
         /* 锁超时 = 没派发：单独的错误令牌，避免被脚本的 miss 断言当成「正常未命中」 */
         printf("TAP ERR lvgl_lock_timeout\n");
+        return 1;
+    }
+    if (status == SLOOP_TAP_RESULT_QUIESCED) {
+        /* 诊断期静默 = 没派发（与 miss/lock_timeout 分开） */
+        printf("TAP ERR quiesced\n");
         return 1;
     }
     if (status != SLOOP_TAP_RESULT_OK) {
@@ -731,8 +755,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
-        .help = "UI 切页/查询当前页（sloop_ui 四屏框架）",
-        .hint = "<play|tracks|step|transport>",
+        .help = "UI 切页/查询当前页/诊断期静默（sloop_ui 四屏框架）",
+        .hint = "<play|tracks|step|transport>|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

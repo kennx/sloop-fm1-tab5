@@ -2,13 +2,17 @@
 """Run ENG SELFTEST on Tab5 and compare its hashes with upstream golden.txt.
 
 Usage:
-    python3 scripts/device-selftest.py /dev/ttyACM0 [--case NAME] [--output LOG]
-    python3 scripts/device-selftest.py --compare LOG
+    python3 scripts/device-selftest.py /dev/ttyACM0 [--output LOG]
+    python3 scripts/device-selftest.py /dev/ttyACM0 --case NAME [--output LOG]
+    python3 scripts/device-selftest.py --compare LOG [--case NAME]
 
-The firmware streams engine audio from boot (DI-8) and ENG SELFTEST is refused
-while streaming. The device path therefore sends ENG AUDIO OFF before the run and
-restores ENG AUDIO ON afterwards, so the device ends in product state.
---compare only re-checks a saved transcript and never touches the device.
+Default is the FULL suite (182 cases): the firmware quiesces the UI for the
+diagnostic run (pauses the 30ms timer and the LVGL timers, drops input events,
+freezes engine reads/writes) and restores it afterwards, so a UI-live boot can
+run the whole gate. --case keeps the old single-case selector; the diagnostic
+mode (quiesce/freeze) applies the same way. The device path always wraps the run in ENG AUDIO OFF/ON, so the
+device ends in product state. --compare only re-checks a saved transcript and
+never touches the device.
 
 A hash mismatch is always a failure. The error-vector/SNR channel is a separate
 analysis step; this comparator never applies a tolerance or silently accepts one.
@@ -21,6 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "third_party/sloop-fm1/tests/golden.txt"
+FULL_CASES = 182  # golden 条目数（不含 repeat）；全量口径的覆盖数
 HASH_LINE = re.compile(r"^(\S+) ([0-9a-f]{16})$")
 SUMMARY = re.compile(r"^ENG SELFTEST cases=")
 SUMMARY_FIELD = re.compile(r"(\w+)=(\S+)")
@@ -85,6 +90,11 @@ def compare(lines, golden_path=GOLDEN, case=None):
             ok = False
         if "expected" in summary and summary.get("cases") != summary["expected"]:
             print(f"DEVICE SUMMARY cases={summary.get('cases')} expected={summary['expected']}")
+            ok = False
+        # 覆盖数口径：全量必须恰 182 例（少了说明用例表/选择器退化），单例恰 1 例
+        want_cases = 1 if case else FULL_CASES
+        if summary.get("cases") != str(want_cases):
+            print(f"DEVICE SUMMARY cases={summary.get('cases')} 期望 {want_cases}")
             ok = False
     else:
         print("DEVICE SUMMARY 缺失（日志中没有 ENG SELFTEST cases= 汇总行）")
@@ -159,12 +169,14 @@ def run_serial(port, case, output, timeout):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="运行设备 ENG SELFTEST 并与 host golden 比对"
-                    "（先自动 ENG AUDIO OFF，结束后恢复 ENG AUDIO ON）")
+        description="运行设备 ENG SELFTEST 并与 host golden 比对。默认跑全量 182 例"
+                    "（固件在诊断期静默 UI：暂停 UI 定时器/丢输入/冻结引擎，跑完恢复）；"
+                    "--case 走单例旧口径。设备路径先自动 ENG AUDIO OFF，结束后恢复 ENG AUDIO ON")
     parser.add_argument("port", nargs="?")
-    parser.add_argument("--case")
-    parser.add_argument("--output")
-    parser.add_argument("--timeout", type=float, default=900)
+    parser.add_argument("--case", help=f"只跑单个 use case（旧口径；默认全量 {FULL_CASES} 例）")
+    parser.add_argument("--output", help="把设备回显逐行存盘（原始 transcript）")
+    parser.add_argument("--timeout", type=float, default=900,
+                        help="等待汇总行的超时秒数（全量实测约 160s，默认 900）")
     parser.add_argument("--compare", metavar="LOG")
     args = parser.parse_args()
     if args.compare:

@@ -37,6 +37,11 @@ static const char *TAG = "sloop_input";
 #define INPUT_TASK_STACK 4096
 #define INPUT_TASK_PRIO  4 /* 低于音频任务（5），与键盘解码任务同级 */
 #define INPUT_POLL_MS    5
+/* tick 下限 1：CONFIG_FREERTOS_HZ=100 时 pdMS_TO_TICKS(5) 取整成 0，vTaskDelay(0)
+ * 只 yield 不阻塞——input 任务会退化成全速自旋，每秒数十万次跨核 yield IPI
+ * （esp_crosscore_int_send 的全局自旋锁），与 UI/DSP 并发时打死 FreeRTOS SMP
+ * 端口的 IPI 路径（vPortYield busy-wait、IDLE 饿死；DI-11 的真因）。 */
+#define INPUT_POLL_TICKS (pdMS_TO_TICKS(INPUT_POLL_MS) > 0 ? pdMS_TO_TICKS(INPUT_POLL_MS) : 1)
 #define INPUT_BATCH      8
 
 /* 演奏基音：低八度行（z 排）= C3，高八度行（q 排）= +12 半音（C4=60） */
@@ -156,6 +161,14 @@ static const key_binding_t k_bindings[] = {
 static SemaphoreHandle_t s_mutex;
 static TaskHandle_t s_task;
 static bool s_started;
+
+/* 诊断期静默（sloop_ui_quiesce）：标志置位后 input 任务只排空事件队列并计数，
+ * 不再派发（因此不碰 state/引擎锁）；console 注入经 sloop_ui_input_key 也被拦下。
+ * s_quiesce_ack 只在 input 任务回到「批次之间」时自增——quiesce 用它确认在途批次
+ * 已收尾（置标志时任务可能正派发一批事件，只等标志不够）。 */
+static volatile bool s_quiesce;
+static volatile uint32_t s_quiesce_ack;
+static volatile uint32_t s_quiesce_dropped;
 
 /* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响 */
 static bool s_note_on[128];
@@ -328,7 +341,18 @@ static const key_binding_t *find_binding(uint8_t code, uint8_t layers)
 void sloop_ui_input_key(uint8_t code, bool down)
 {
     if (code > 0x7F) return;
+    /* 诊断期：丢弃并计数（不派发 = 不碰 state/引擎锁）。批内竞态由 input 任务在
+     * 批次边界确认，见 input_quiesce_begin()。 */
+    if (s_quiesce) {
+        s_quiesce_dropped++;
+        return;
+    }
     input_lock();
+    if (s_quiesce) { /* 等锁期间进入静默（input 任务/另一注入者持有互斥） */
+        s_quiesce_dropped++;
+        input_unlock();
+        return;
+    }
     /* 释放先于层路由：按住演奏键期间再按层键（如 c 尚未松开就按 Aa）时，松开必须
      * 仍然按「演奏键释放」处理，否则会被 EDIT 层的同名条目吞掉、音符挂住。 */
     if (!down && s_note_on[code]) {
@@ -377,10 +401,22 @@ static void input_task(void *arg)
     tab5_kb_event_t ev[INPUT_BATCH];
     while (1) {
         int n = tab5_kb_poll(ev, INPUT_BATCH);
+        if (s_quiesce) {
+            s_quiesce_dropped += (uint32_t)n; /* 静默期：排空队列、不派发 */
+            s_quiesce_ack++;                  /* 已回到批次边界（不持任何锁/不占 I2C） */
+            /* 阻塞等恢复通知（input_quiesce_end）：诊断期不再每 5ms 轮询/yield */
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            /* 静默期积压的事件一律丢弃、不补发：诊断期 UI 已暂停，补发可能只有
+             * note-on 而 note-off 已被驱动 FIFO 覆盖 → 挂音 */
+            while ((n = tab5_kb_poll(ev, INPUT_BATCH)) > 0) {
+                s_quiesce_dropped += (uint32_t)n;
+            }
+            continue;
+        }
         for (int i = 0; i < n; i++) {
             sloop_ui_input_key(ev[i].code, ev[i].pressed);
         }
-        vTaskDelay(pdMS_TO_TICKS(INPUT_POLL_MS));
+        vTaskDelay(INPUT_POLL_TICKS);
     }
 }
 
@@ -400,12 +436,47 @@ esp_err_t input_start(void)
         return ESP_ERR_NO_MEM;
     }
     s_started = true;
-    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums，任务优先级 %u",
-             (unsigned)BINDING_COUNT, (unsigned)INPUT_POLL_MS, (unsigned)INPUT_TASK_PRIO);
+    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums（%u tick），任务优先级 %u",
+             (unsigned)BINDING_COUNT, (unsigned)INPUT_POLL_MS, (unsigned)INPUT_POLL_TICKS,
+             (unsigned)INPUT_TASK_PRIO);
     return ESP_OK;
 }
 
 uint32_t sloop_ui_input_stack_free(void)
 {
     return s_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(s_task) : 0;
+}
+
+bool input_quiesce_begin(uint32_t timeout_ms)
+{
+    if (s_task == NULL) {
+        s_quiesce = true; /* 无 input 任务（未启动/创建失败）：仅拦 console 注入 */
+        return true;
+    }
+    /* base 必须在置位前取：置位之后 input 任务才可能自增 ack */
+    uint32_t base = s_quiesce_ack;
+    s_quiesce = true;
+    TickType_t remaining = pdMS_TO_TICKS(timeout_ms);
+    TimeOut_t timeout;
+    vTaskSetTimeOutState(&timeout);
+    while (s_quiesce_ack == base) {
+        if (xTaskCheckForTimeOut(&timeout, &remaining) != pdFALSE) return false;
+        vTaskDelay(1);
+    }
+    return true;
+}
+
+uint32_t input_quiesce_end(void)
+{
+    s_quiesce = false;
+    s_quiesce_ack = 0;
+    if (s_task != NULL) xTaskNotifyGive(s_task); /* 唤醒静默期阻塞的 input 任务 */
+    uint32_t dropped = s_quiesce_dropped;
+    s_quiesce_dropped = 0; /* 恢复后清零计数（诊断期丢弃量只在本轮有意义） */
+    return dropped;
+}
+
+uint32_t input_quiesce_dropped(void)
+{
+    return s_quiesce_dropped;
 }

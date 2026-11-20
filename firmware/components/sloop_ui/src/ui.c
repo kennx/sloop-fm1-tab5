@@ -20,6 +20,11 @@
  * 与控件回调共用页内动作函数（EditCmd 层等价，ADR-005）；`UI <page>` 为同步切页，
  * 会先作废异步切页邮箱（sloop_ui_cancel_pending_page），保证回显页即落地页。
  * 异步切页按「一拍一页」：同一定时器周期内的多次 tab 只保留最后一次请求的目标页。
+ *
+ * 诊断期静默（sloop_ui_quiesce）：`ENG SELFTEST` 全量运行期间暂停 30ms 定时器与
+ * LVGL 定时器、让输入任务阻塞丢弃事件（TAP/KEY 注入被拒）——诊断期 UI 明确暂停，
+ * 不与自检并发（spec P4-0 口径）。结束后恢复定时器，下一拍重新 state_sync 并刷新
+ * 四页（ADR-007）。
  */
 #include "sloop_ui.h"
 
@@ -29,9 +34,11 @@
 
 #include "bsp/m5stack_tab5.h"
 #include "esp_heap_caps.h"
+#include "esp_lvgl_port.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "lvgl.h"
+#include "sloop_core.h"
 #include "sloop_state.h"
 #include "theme.h"
 
@@ -57,6 +64,7 @@ static portMUX_TYPE s_page_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_page_pending = 0xFF;
 static uint8_t s_page;
 static bool s_started;
+static bool s_quiesced;
 
 /* 无主题装饰的容器（root/页面/页签条共用） */
 static lv_obj_t *make_plain(lv_obj_t *parent)
@@ -258,6 +266,11 @@ esp_err_t sloop_ui_start(void)
 
     s_started = true;
 
+    /* 诊断期静默钩子：`ENG SELFTEST` 全量运行期间暂停本定时器与输入派发
+     * （UI 与自检共存，见 ADR-007 / DI-11）。注册在 selftest 的快照窗口之外
+     * （sloop_core 把指针放 .noinit），否则自检开始的快照回滚会把它抹掉。 */
+    sloop_core_diag_quiesce_hook(sloop_ui_quiesce);
+
     /* LVGL 对象走内置 TLSF 池（CONFIG_LV_USE_STDLIB_MALLOC=0），池耗尽会静默
      * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打一次占用。
      * 池遍历必须持 LVGL 锁：30ms 定时器已创建，LVGL 任务随时会分配文本/样式，
@@ -303,6 +316,7 @@ sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_res
 {
     if (out != NULL) *out = (sloop_tap_result_t){0};
     if (!s_started) return SLOOP_TAP_RESULT_NOT_STARTED;
+    if (s_quiesced) return SLOOP_TAP_RESULT_QUIESCED; /* 诊断期：不派发、不取锁 */
     if (!bsp_display_lock(1000)) {
         ESP_LOGW(TAG, "TAP 注入失败: LVGL 锁超时（未派发）");
         return SLOOP_TAP_RESULT_LOCK_TIMEOUT;
@@ -340,6 +354,58 @@ void sloop_ui_cancel_pending_page(void)
     portENTER_CRITICAL(&s_page_mux);
     s_page_pending = 0xFF;
     portEXIT_CRITICAL(&s_page_mux);
+}
+
+void sloop_ui_quiesce(bool on)
+{
+    if (!s_started) return; /* UI 未启动：空操作（selftest 的钩子也没注册到本函数） */
+    if (on == s_quiesced) return;
+    if (on) {
+        /* 顺序：先输入、后定时器。输入侧在定时器暂停前已不再派发，随后自检冻结
+         * 引擎跑用例时系统里没有其它引擎使用方（ADR-007）。 */
+        if (!input_quiesce_begin(50)) {
+            ESP_LOGW(TAG, "输入静默确认超时（50ms）：输入任务未在批次边界观察到标志");
+        }
+        s_quiesced = true;
+        if (!bsp_display_lock(1000)) {
+            ESP_LOGE(TAG, "诊断期静默：LVGL 锁超时，30ms 定时器未暂停（输入已静默）");
+            return;
+        }
+        sloop_ui_cancel_pending_page();
+        if (s_timer != NULL) lv_timer_pause(s_timer);
+        /* 光停自己的 30ms 定时器还不够：LVGL 任务仍会跑 indev 读（触摸 I2C）与
+         * 刷新定时器，每 1-30ms 醒一次。诊断期连 LVGL 定时器一起停（lvgl_port_stop
+         * 置 lv_timer_enable(false) 并停 tick），LVGL 任务转入 500ms 级休眠——
+         * 「诊断期 UI 暂停、不要求渲染与自检并发」（spec P4-0）。 */
+        esp_err_t stop_ret = lvgl_port_stop();
+        bsp_display_unlock();
+        ESP_LOGI(TAG, "诊断期静默 ON：UI 定时器暂停、LVGL 定时器%s、输入丢弃生效",
+                 stop_ret == ESP_OK ? "停用" : "停用失败");
+        return;
+    }
+
+    s_quiesced = false;
+    if (!bsp_display_lock(1000)) {
+        ESP_LOGE(TAG, "诊断期恢复：LVGL 锁超时，30ms 定时器未恢复（需复位）");
+    } else {
+        esp_err_t resume_ret = lvgl_port_resume(); /* 先恢复 LVGL 定时器（含刷新/indev） */
+        if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 四页刷新 */
+        bsp_display_unlock();
+        if (resume_ret != ESP_OK) ESP_LOGE(TAG, "诊断期恢复：LVGL 定时器恢复失败 %s", esp_err_to_name(resume_ret));
+    }
+    uint32_t dropped = input_quiesce_end();
+    ESP_LOGI(TAG, "诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 %u 条键盘事件）",
+             (unsigned)dropped);
+}
+
+bool sloop_ui_quiesced(void)
+{
+    return s_started && s_quiesced;
+}
+
+uint32_t sloop_ui_input_quiesce_dropped(void)
+{
+    return input_quiesce_dropped();
 }
 
 uint8_t sloop_ui_current_page(void)
