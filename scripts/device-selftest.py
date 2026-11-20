@@ -18,6 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "third_party/sloop-fm1/tests/golden.txt"
 HASH_LINE = re.compile(r"^(\S+) ([0-9a-f]{16})$")
 SUMMARY = re.compile(r"^ENG SELFTEST cases=")
+SUMMARY_FIELD = re.compile(r"(\w+)=(\S+)")
+
+
+def summary_fields(lines):
+    """最后一条 ENG SELFTEST 汇总行的 key=value 字段（旧固件可能缺少新字段）。"""
+    for line in reversed(lines):
+        if SUMMARY.match(line.strip()):
+            return dict(SUMMARY_FIELD.findall(line))
+    return {}
 
 
 def read_key_values(path):
@@ -56,8 +65,29 @@ def compare(lines, golden_path=GOLDEN, case=None):
     for name in extra:
         print(f"EXTRA {name} device={device[name]}")
     ok = not mismatches and not missing and not extra and bool(device)
+
+    # 设备侧汇总行是自检结论的权威（覆盖数/健康/结论）；旧日志缺少的新字段只在
+    # 出现时校验，保持对既有证据的兼容。main_rc 只随汇总行打印、不参与判定：设备
+    # 侧不跑 J_CPU 批量，上游会把跳过的 job 记为崩溃，main_rc 恒为非 0（见 selftest.c）。
+    summary = summary_fields(lines)
+    summary_note = ""
+    if summary:
+        summary_note = " ".join(f"{k}={v}" for k, v in summary.items())
+        if summary.get("result") != "PASS":
+            print(f"DEVICE SUMMARY result={summary.get('result')}")
+            ok = False
+        if summary.get("mismatch", "0") != "0":
+            ok = False
+        if "expected" in summary and summary.get("cases") != summary["expected"]:
+            print(f"DEVICE SUMMARY cases={summary.get('cases')} expected={summary['expected']}")
+            ok = False
+    else:
+        print("DEVICE SUMMARY 缺失（日志中没有 ENG SELFTEST cases= 汇总行）")
+        ok = False
     print(f"SELFTEST COMPARE identical={identical} mismatch={len(mismatches)} "
           f"missing={len(missing)} extra={len(extra)} result={'PASS' if ok else 'FAIL'}")
+    if summary_note:
+        print(f"DEVICE SUMMARY {summary_note}")
     return 0 if ok else 1
 
 

@@ -39,7 +39,7 @@ static void fm1_delay_ms(uint32_t ms) { ... }
 #include "../src/seq.c"
 ```
 
-Tab5 的 `sloop_core` 复刻此模式：一个 `sloop_core.c`（组合 TU）+ `tab5_*.h/c`（stub 后端）。**上游文件零修改**；所有平台差异在 stub 与包含顺序中表达。
+Tab5 的 `sloop_core` 复刻此模式：一个 `src/selftest.c`（组合 TU，实际落地文件名；同一 TU 还承载 Task 4 的同源自检与 fork/pipe 模拟 shim）+ `tab5_*.h/c`（stub 后端）。**上游文件零修改**；所有平台差异在 stub 与包含顺序中表达。
 
 ### 2.2 host 原生构建零障碍
 

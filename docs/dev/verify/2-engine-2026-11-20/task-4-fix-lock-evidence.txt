@@ -28,3 +28,5 @@ ENG SELFTEST -> cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_
 ```
 单例抽验：preset/ANALOG/00_808_BOOM 与 preset/SAMPLE/00_GRAND_PNO 均 identical=1 PASS。
 host-test.sh：ALL HOST TESTS PASSED (subset)；manifest 233/233 OK。
+
+> 补记（2026-11-20 终审修复轮）：本文件所述 `cases=182 identical=182 …（316 s）` 当时只有摘述、未留存原始 transcript。修复轮已用现行固件复跑全量并留存 `task-6-selftest-full-postfix.log`（含 182 行逐例 hash 与汇总行，`result=PASS`）。

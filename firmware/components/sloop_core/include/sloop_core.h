@@ -8,10 +8,13 @@
 
 /* 线程/所有权规则：sloop_core_render 与所有改变引擎状态的 API（track/note/hit/
  * play）共享内部互斥锁，可从不同任务调用；不得在 ISR 中调用。selftest 与音频
- * 流互斥（流式期间返回 busy）。 */
+ * 流互斥（流式期间返回 busy）。注意 selftest 会把引擎恢复到 sloop_core_init
+ * 快照并丢弃运行期编辑——阶段 3 UI 接管状态后，这条对用户可见。 */
 #define SLOOP_CORE_NENGINES 12u
 #define SLOOP_CORE_P_COUNT  71u
 #define SLOOP_CORE_G_COUNT  50u
+#define SLOOP_CORE_RATE     44100u
+#define SLOOP_CORE_FRAMES   256u
 
 esp_err_t sloop_core_init(void);
 esp_err_t sloop_core_status(void);

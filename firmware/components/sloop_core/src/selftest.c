@@ -29,7 +29,6 @@ typedef struct {
     const char *selector;
     selftest_region_t region[2];
     void *results;
-    uint8_t *crashed;
     uint8_t valid[512 / 8];
     uint32_t fork_count;
     uint32_t read_index;
@@ -107,6 +106,10 @@ static uint32_t selftest_data_begin __attribute__((section(".data.0_begin"))) = 
 #undef felucca_memcpy
 #undef felucca_memcmp
 #undef bootguard
+/* hostsim.c 顶部 `#define __attribute__(x)` 把属性清空（让 .pool/.lowram 缓冲落到
+ * .bss，host 侧没有这两段）；regress.c 包含它后该空宏仍在本 TU 生效，直到此处。
+ * 不清除的话下面 selftest_data_begin/end 的 section 属性被吞掉，两个哨兵落进普通
+ * .data/.bss（位置不再包住 selftest 段），快照窗口错位、SELFTEST 结果失真。 */
 #undef __attribute__
 
 static uint32_t selftest_data_end __attribute__((section(".data.z_end"))) = 0x99aabbccu;
@@ -115,8 +118,16 @@ extern uint8_t _sloop_selftest_bss_start, _sloop_selftest_bss_end;
 
 static int selftest_printf(const char *fmt, ...)
 {
-    (void)fmt;
-    return 0;
+    /* 静默上游诊断输出，唯独放行 regress.c main() 末尾的汇总行（含
+     * changed/gone、health、voice、CPU、crash 计数）：它是 main_rc 的唯一解释，
+     * 出错时设备侧必须看得到原因。哈希行与 ENG SELFTEST 汇总行由本文件另印，
+     * 格式不受影响（scripts/device-selftest.py 的解析面不变）。 */
+    if (strstr(fmt, "golden renders") == NULL) return 0;
+    va_list ap;
+    va_start(ap, fmt);
+    int result = vprintf(fmt, ap);
+    va_end(ap);
+    return result;
 }
 
 static FILE *selftest_fopen(const char *path, const char *mode)
@@ -230,14 +241,13 @@ static pid_t selftest_waitpid(pid_t pid, int *status, int options)
         return pid;
     }
     *status = 0;
-    if (ctl.read_index < MAXJ) {
-        res_t *results = ctl.results;
-        for (uint32_t i = 0; i < nj; i++) {
-            if ((ctl.valid[i / 8] & (1u << (i % 8))) != 0) {
-                J[i].r = results[i];
-                J[i].crashed = ctl.crashed[i];
-            }
-        }
+    /* 回填本次派发的 job 的结果（JOBS=1，read_index 只在完整交付时置位）。
+     * crashed 不在 shim 里判定：上游 run_jobs 随后用 `got != sizeof(res_t)` 自行
+     * 赋值，而本 shim 的 read 只在整块 res_t 交付时返回数据，语义与 host 一致。 */
+    res_t *results = ctl.results;
+    uint32_t index = ctl.read_index;
+    if (index < nj && index < MAXJ && (ctl.valid[index / 8] & (1u << (index % 8))) != 0) {
+        J[index].r = results[index];
     }
     vTaskDelay(1);
     return pid;
@@ -272,22 +282,35 @@ static int selftest_health(const res_t *r)
            r->free_s >= 0 && abs(r->tail_dc) <= LIM_TAIL_DC && r->tail_peak <= LIM_TAIL && r->vmax <= NVOICE;
 }
 
+/* 快照窗口的合理上限（DSP 状态 + 编辑表远小于 4MB；超出说明哨兵属性丢失、
+ * 两个符号落进了别的段，memcpy 会把无辜内存卷进来） */
+#define SELFTEST_REGION_MAX (4u * 1024u * 1024u)
+
+static esp_err_t selftest_region_init(selftest_region_t *region, uint8_t *first, uint8_t *last)
+{
+    uint8_t *lo = first < last ? first : last;
+    uint8_t *hi = first < last ? last : first;
+    if (hi <= lo + sizeof(uint32_t)) return ESP_ERR_INVALID_STATE;
+    region->start = lo;
+    region->size = (size_t)(hi - lo) + sizeof(uint32_t);
+    if (region->size > SELFTEST_REGION_MAX) return ESP_ERR_INVALID_STATE;
+    region->snapshot = heap_caps_malloc(region->size, MALLOC_CAP_SPIRAM);
+    return region->snapshot != NULL ? ESP_OK : ESP_ERR_NO_MEM;
+}
+
 static esp_err_t selftest_snapshot_init(void)
 {
-    uint8_t *data_first = (uint8_t *)&selftest_data_begin;
-    uint8_t *data_last = (uint8_t *)&selftest_data_end;
-    ctl.region[0].start = data_first < data_last ? data_first : data_last;
-    ctl.region[0].size = (size_t)(data_first < data_last ? data_last - data_first : data_first - data_last) +
-                         sizeof(uint32_t);
-    ctl.region[1].start = &_sloop_selftest_bss_start;
-    ctl.region[1].size = (size_t)(&_sloop_selftest_bss_end - &_sloop_selftest_bss_start);
-    for (uint32_t i = 0; i < 2; i++) {
-        ctl.region[i].snapshot = heap_caps_malloc(ctl.region[i].size, MALLOC_CAP_SPIRAM);
-        if (ctl.region[i].snapshot == NULL) return ESP_ERR_NO_MEM;
+    esp_err_t ret = selftest_region_init(&ctl.region[0], (uint8_t *)&selftest_data_begin,
+                                         (uint8_t *)&selftest_data_end);
+    if (ret != ESP_OK) return ret;
+    ret = selftest_region_init(&ctl.region[1], &_sloop_selftest_bss_start, &_sloop_selftest_bss_end);
+    if (ret != ESP_OK) {
+        heap_caps_free(ctl.region[0].snapshot);
+        ctl.region[0].snapshot = NULL;
+        return ret;
     }
     ctl.results = heap_caps_calloc(MAXJ, sizeof(res_t), MALLOC_CAP_SPIRAM);
-    ctl.crashed = heap_caps_calloc(MAXJ, 1, MALLOC_CAP_SPIRAM);
-    if (ctl.results == NULL || ctl.crashed == NULL) return ESP_ERR_NO_MEM;
+    if (ctl.results == NULL) return ESP_ERR_NO_MEM;
     selftest_capture();
     return ESP_OK;
 }
@@ -295,6 +318,11 @@ static esp_err_t selftest_snapshot_init(void)
 _Static_assert(SLOOP_CORE_NENGINES == NENGINES, "NENGINES drifted from the public smoke-test constant");
 _Static_assert(SLOOP_CORE_P_COUNT == P_COUNT, "P_COUNT drifted from the public smoke-test constant");
 _Static_assert(SLOOP_CORE_G_COUNT == G_COUNT, "G_COUNT drifted from the public smoke-test constant");
+/* 采样率/块尺寸的三处表述（引擎 FS/HALF_FRAMES、公开 API、HAL 音频流）必须一致 */
+_Static_assert(SLOOP_CORE_RATE == FS, "SLOOP_CORE_RATE drifted from the engine's FS");
+_Static_assert(SLOOP_CORE_FRAMES == HALF_FRAMES, "SLOOP_CORE_FRAMES drifted from the engine's HALF_FRAMES");
+_Static_assert(SLOOP_HAL_AUDIO_RATE == SLOOP_CORE_RATE, "HAL 音频流采样率与引擎不一致");
+_Static_assert(SLOOP_HAL_AUDIO_FRAMES == SLOOP_CORE_FRAMES, "HAL 音频流块尺寸与引擎不一致");
 
 static esp_err_t core_status = ESP_ERR_INVALID_STATE;
 
@@ -418,14 +446,15 @@ int sloop_core_selftest(const char *case_name)
     ctl.fork_count = 0;
     ctl.recapture = 1;
     memset(ctl.valid, 0, sizeof(ctl.valid));
-    memset(ctl.crashed, 0, MAXJ);
     nj = 0;
     char *argv[] = {"regress", "tests/golden.txt", "tests/cpu_baseline.txt"};
     printf("ENG SELFTEST BEGIN%s%s\n", case_name ? " " : "", case_name ? case_name : "");
-    main(3, argv);
+    int main_rc = main(3, argv);
 
     kv_t *golden = heap_caps_calloc(MAXJ, sizeof(*golden), MALLOC_CAP_SPIRAM);
     uint32_t ng = golden != NULL ? load_kv("tests/golden.txt", golden, MAXJ) : 0;
+    /* golden 条目数（不含 repeat）= 全量跑应覆盖的用例数；单例模式应恰好命中 1 条 */
+    uint32_t expected = case_name != NULL ? (kv_get(golden, ng, case_name) != NULL ? 1u : 0u) : ng;
     uint32_t cases = 0, identical = 0, mismatch = 0, health_fail = 0, checks = 0, check_fail = 0;
     for (uint32_t i = 0; i < nj; i++) {
         job_t *j = &J[i];
@@ -445,9 +474,9 @@ int sloop_core_selftest(const char *case_name)
         else mismatch++;
         if (j->crashed || !selftest_health(&j->r)) {
             health_fail++;
-            printf("ENG SELFTEST HEALTH %s peak=%d dc=%.1f free=%.2f tail=%d tail_dc=%d over=%u near=%u crashed=%d\n",
+            printf("ENG SELFTEST HEALTH %s peak=%d dc=%.1f free=%.2f tail=%d tail_dc=%d over=%u near=%u crashed=%d msg=%s\n",
                    j->name, (int)j->r.peak, j->r.dc, j->r.free_s, (int)j->r.tail_peak, (int)j->r.tail_dc,
-                   (unsigned)j->r.over, (unsigned)j->r.near, j->crashed);
+                   (unsigned)j->r.over, (unsigned)j->r.near, j->crashed, j->crashed ? "crashed" : j->r.msg);
         }
     }
     int deterministic = 1;
@@ -460,10 +489,17 @@ int sloop_core_selftest(const char *case_name)
             }
         }
     }
-    int pass = cases > 0 && mismatch == 0 && health_fail == 0 && check_fail == 0 && deterministic && golden != NULL;
-    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u deterministic=%d result=%s\n",
+    /* PASS 的五个条件：覆盖数（cases==expected）、逐例同源、健康、7 项声音检查、
+     * repeat 确定性。main() 的返回值单独打印（它的汇总行也放行到串口），但不作为
+     * 条件：设备侧刻意不跑 J_CPU 批量（成本测量是 host 侧信息），被跳过的 job 没有
+     * res_t，上游 run_jobs 按自己的 `got != sizeof(res_t)` 记为崩溃，故 main_rc 恒为
+     * 非 0；设备有意义的计数（hash/health/checks/确定性）在这里逐项重算并判定。 */
+    int pass = golden != NULL && ng > 0 && expected > 0 && cases == expected && mismatch == 0 && health_fail == 0 &&
+               check_fail == 0 && deterministic;
+    printf("ENG SELFTEST cases=%u identical=%u mismatch=%u health_fail=%u checks=%u check_fail=%u deterministic=%d expected=%u main_rc=%d result=%s\n",
            (unsigned)cases, (unsigned)identical, (unsigned)mismatch, (unsigned)health_fail,
-           (unsigned)checks, (unsigned)check_fail, deterministic, pass ? "PASS" : "FAIL");
+           (unsigned)checks, (unsigned)check_fail, deterministic, (unsigned)expected, main_rc,
+           pass ? "PASS" : "FAIL");
     heap_caps_free(golden);
     selftest_restore();
     nj = 0;

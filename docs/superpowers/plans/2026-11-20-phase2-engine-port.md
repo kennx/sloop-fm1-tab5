@@ -43,7 +43,7 @@ firmware/components/
 ├── sloop_core/                        # 新建（Task 3）
 │   ├── CMakeLists.txt
 │   ├── include/sloop_core.h           # 对外 API（spec §4.1）
-│   └── src/sloop_core.c               # 组合 TU（preview.c 包含序 + Tab5 stub）
+│   └── src/selftest.c                 # 组合 TU（preview.c 包含序 + Tab5 stub）+ 同源自检
 └── sloop_hal_tab5/                    # 新建（Task 3 骨架 / Task 4 音频流）
     ├── CMakeLists.txt
     ├── include/sloop_hal.h
@@ -133,7 +133,7 @@ Expected: 末行 `ALL HOST TESTS PASSED (subset)`，退出码 0。若 regress �
 ### Task 3: P2-3 sloop_core + sloop_hal_tab5 组件（交叉编译 + 骨架 ENG）
 
 **Files:**
-- Create: `firmware/components/sloop_core/{CMakeLists.txt,include/sloop_core.h,src/sloop_core.c}`
+- Create: `firmware/components/sloop_core/{CMakeLists.txt,include/sloop_core.h,src/selftest.c}`（实际落地：组合与 selftest 共用这一个 TU，文件名沿上游 tests/selftest 惯例）
 - Create: `firmware/components/sloop_hal_tab5/{CMakeLists.txt,include/sloop_hal.h,src/storage_ram.c}`（音频流在 Task 4）
 - Modify: `firmware/main/{main.c,console.c,CMakeLists.txt}`、`firmware/main/idf_component.yml`（如需）
 
@@ -152,14 +152,14 @@ uint32_t sloop_core_frames(void);
 ```
 - Produces（HAL）：`esp_err_t sloop_hal_init(void);`（本任务先挂 RAM 存储后端；音频在 Task 4）。
 
-- [ ] **Step 1: 写 `sloop_core.c` 组合 TU**
+- [ ] **Step 1: 写 `src/selftest.c` 组合 TU（同一 TU 还承载 Task 4 的同源自检）**
 
 复刻 spec §2.1 的 preview.c 包含序与 stub 清单（libc.c 宏替换 → 生成头 → SMP_USER_XIP（先指 RAM 槽，同 preview 的 4×0x14000）→ fm1_in/irq_off/on（空或临界区）→ core.h → engines/drums/params/voice/slicer → cpu1.h 四个单核 stub → fx.c → fm1_delay_ms（vTaskDelay）→ usb.c/midi_uart.c/seq.c）。包含路径经 CMake 指向 third_party（`../../../../third_party/sloop-fm1/firmware/src` 等，用 CMake 变量集中定义）。若编译暴露 preview.c 未覆盖的 FM-1 专属依赖（如 `fm1_lcd_hw`/`fm1_flash` 引用），在 shim 中以最小 stub 补齐并记录清单——**不改上游文件**。
 `sloop_core_init()` 复刻 preview_init 序列（spec §2.6）。
 
 - [ ] **Step 2: CMake 集成与 flags**
 
-`sloop_core/CMakeLists.txt`：`idf_component_register(SRCS src/sloop_core.c INCLUDE_DIRS include PRIV_REQUIRES sloop_hal_tab5)`；`target_compile_options(... PRIVATE -O2 -fwrapv -fno-strict-aliasing -ffp-contract=off -Wno-unused-function)`；包含 third_party src/hal 与生成头目录。**生成头来源**：Task 2 已在 third_party/build/gen 生成——固件构建直接引用该目录，并在组件 CMake 加注释「生成头由 scripts/host-test.sh / tools 生成，缺失时先跑 Task 2 Step 2 命令」（不引入 CMake 自定义命令跑 Python 的复杂度；缺失时报错信息指名解决路径）。
+`sloop_core/CMakeLists.txt`：`idf_component_register(SRCS src/selftest.c INCLUDE_DIRS include PRIV_REQUIRES sloop_hal_tab5)`；`target_compile_options(... PRIVATE -O2 -fwrapv -fno-strict-aliasing -ffp-contract=off -Wno-unused-function)`；包含 third_party src/hal 与生成头目录。**生成头来源**：Task 2 已在 third_party/build/gen 生成——固件构建直接引用该目录，并在组件 CMake 加注释「生成头由 scripts/host-test.sh / tools 生成，缺失时先跑 Task 2 Step 2 命令」（不引入 CMake 自定义命令跑 Python 的复杂度；缺失时报错信息指名解决路径）。
 
 - [ ] **Step 3: 骨架 ENG 命令 + 启动挂接**
 

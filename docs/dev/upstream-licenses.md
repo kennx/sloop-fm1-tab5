@@ -12,4 +12,4 @@
 - `assets/fonts/Terminus-LICENSE.txt`：Terminus 字体的 SIL OFL 1.1 许可文本；字体数据未随精简子树入库。
 - `web/FUKIAI-LICENSE.txt`、`docs/webapp/editor/FUKIAI-LICENSE.txt`：Fukiai 图标字体的 MIT 许可文本（两路径内容相同）；字体数据未随精简子树入库。
 
-DaisySP / Mutable Rings 物理建模代码的 MIT notice 保留在 `firmware/src/phys_dsp.c`、`firmware/src/phys_symp.c` 文件头，无独立 LICENSES 文本可另搬。CC0 WAV 不在本任务子树中，由 Task 5 通过 `tools/fetch_cc0.py` 获取；当前只入库其许可与出处文件。上游 `LICENSING.md` 所述 Hügelton Sample Pack 不进入 SLOOP 固件，本任务也未引入任何该包音频。
+DaisySP / Mutable Rings 物理建模代码的 MIT notice 保留在 `firmware/src/phys_dsp.c`、`firmware/src/phys_symp.c` 文件头，无独立 LICENSES 文本可另搬。CC0 WAV（`assets/samples-cc0/`）**自 e3b7a32 起已随树入库**（42 个文件，manifest 233 条），`tools/fetch_cc0.py` 仅作缺失时的重新获取手段。上游 `LICENSING.md` 所述 Hügelton Sample Pack 不进入 SLOOP 固件，本任务也未引入任何该包音频。

@@ -70,7 +70,8 @@ sloop-fm1-tab5/
 │   ├── sloop-fm1/                 #    vendored 上游 SLOOP 2.8.5（bac9c05）精简子树，只读
 │   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
 └── tools/                         # 其他辅助脚本
-    └── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
+    ├── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
+    └── move_regress_tables.py     #    构建后把 regress 簿记表（512 项 job/golden/CPU）从内部 RAM 移到 PSRAM
 ```
 
 规划中的目录在建立时于本节同步更新；`【规划】`标记表示尚未落地。

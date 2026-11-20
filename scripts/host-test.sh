@@ -56,6 +56,11 @@ run "user presets" "$OUT/upreset_test"
 compile dsyn_test tests/dsyn_test.c -lm
 run "drum synth and editor commands" "$OUT/dsyn_test"
 
+compile fm6_test tests/fm6_test.c -lm
+mkdir -p "$OUT/fm6-demo"
+run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos" \
+    "$OUT/fm6_test" "$OUT/fm6-demo"
+
 compile drumkit_test tests/drumkit_test.c -lm
 run "synthesised drum kits" \
     "$OUT/drumkit_test" "$OUT/drum-kits.wav" "$OUT/drum-kits.txt"
