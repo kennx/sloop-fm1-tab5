@@ -1,6 +1,7 @@
 /* sloop_state：AppState 容器、互斥、快照同步与复制（cmd.c 负责 EditCmd 分发）。 */
 #include "state_internal.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 #ifdef HOST_TEST
@@ -25,6 +26,7 @@ void state_unlock(void)
 #endif
 
 static app_state_t s_state;
+static bool s_inited;
 
 app_state_t *state_locked(void)
 {
@@ -34,10 +36,15 @@ app_state_t *state_locked(void)
 void state_init(void)
 {
 #ifndef HOST_TEST
+    /* 设备上只算一次：重复调用不得清掉 UI 正在用的 AppState（只补建互斥）。 */
+    if (s_inited) return;
     if (s_mutex == NULL) s_mutex = xSemaphoreCreateMutex();
+#else
+    /* host 单测每个用例都要一份干净的 AppState，重复调用等价于重置。 */
 #endif
     memset(&s_state, 0, sizeof(s_state));
     sloop_core_read(&s_state.core);
+    s_inited = true;
 }
 
 void state_get_copy(app_state_t *out)
@@ -51,7 +58,10 @@ void state_get_copy(app_state_t *out)
 void state_sync_from_engine(void)
 {
     sloop_core_snapshot_t snap;
-    sloop_core_read(&snap); /* 引擎锁内拷贝；状态锁在拷贝之后取，无嵌套 */
+    /* 先在状态锁外读引擎：若恰与 state_apply 交错，本次写入的投影最多被一份旧快照
+     * 覆盖一个 UI tick（30–60ms），下一次 sync 即自愈。反过来先取状态锁会把输入任务
+     * 堵在音频块持有的引擎锁后面（≈5.8ms/块），直接伤 ≤20ms 的按键延迟目标。 */
+    sloop_core_read(&snap);
 
     state_lock();
     /* 选轨与逐轨 mute/solo 暂无引擎写入口（sloop_core 只落了快照/步/全局写），

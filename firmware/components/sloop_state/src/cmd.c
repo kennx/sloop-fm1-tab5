@@ -20,7 +20,8 @@ static void cmd_note(app_state_t *s, uint32_t track, uint16_t note, bool on)
 {
     if (track >= APP_STATE_TRACKS || note > STATE_NOTE_MAX) return;
     sloop_core_note(track, note, on);
-    if (on) s->last_note = (uint8_t)note;
+    /* last_note 用 0 表示「还没弹过」：note 0 照常发声，但不记忆（见 sloop_state.h） */
+    if (on && note != 0) s->last_note = (uint8_t)note;
 }
 
 static void cmd_play(app_state_t *s, bool on)
@@ -42,7 +43,9 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
 
     sloop_step_t st;
     sloop_core_read_step(track, idx, &st);
-    if (st.n == 0) {
+    /* 「有音」与上游 sp_on 同口径（seq.c）：time == NOTE 且 n > 0；TIE/REST 都算空 */
+    bool on = st.n > 0 && st.time == STATE_ST_NOTE;
+    if (!on) {
         memset(st.note, 0, sizeof(st.note));
         st.note[0] = s->last_note != 0 ? s->last_note : APP_STATE_NOTE_DEFAULT;
         st.n = 1;

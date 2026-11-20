@@ -8,6 +8,8 @@
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF
  *    与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键与状态层持有的
+ *    选轨/mute/solo；引擎真值看 ENG SNAP）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -37,6 +39,7 @@
 #include "freertos/task.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
+#include "sloop_state.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_console";
@@ -430,6 +433,26 @@ static int eng_command(int argc, char **argv)
     return 1;
 }
 
+/* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
+ * 选轨/mute/solo 目前由状态层持有（引擎无写入口，DI-9），只能从这里的读取断言。 */
+static int state_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
+        app_state_t st;
+        state_get_copy(&st);
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u\n",
+               (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
+               (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note);
+        for (uint32_t k = 0; k < 4; k++) {
+            printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
+                   (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
+        }
+        return 0;
+    }
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键与状态层持有的选轨/mute/solo；引擎真值见 ENG SNAP）\n");
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -493,6 +516,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&eng_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 ENG 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t state_cmd = {
+        .command = "STATE",
+        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 由状态层持有；引擎真值见 ENG SNAP）",
+        .hint = "SNAP",
+        .func = &state_command,
+    };
+    ret = esp_console_cmd_register(&state_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 STATE 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

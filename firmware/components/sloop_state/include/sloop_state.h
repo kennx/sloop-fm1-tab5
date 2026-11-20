@@ -7,8 +7,9 @@
 
 /* 状态层（spec §3.2 / ADR-005）：AppState = 引擎投影（core 快照）+ UI 局部态。
  *
- * 并发规则：唯一写者 = input 任务（state_apply）；UI 任务只经 state_get_copy 读
- * 副本；state_apply/state_sync_from_engine/state_get_copy 由内部互斥锁串行化
+ * 并发规则：两条写路径——input 任务的编辑写（state_apply）与 UI 任务的局部态写
+ * （state_set_page/focus/layer）；UI 读一律经 state_get_copy 副本。
+ * state_apply/state_sync_from_engine/state_get_copy/state_set_* 由内部互斥锁串行化
  * （HOST_TEST 下为空实现，设备上为 FreeRTOS mutex）。所有函数不得在 ISR 中调用。
  *
  * 执行端：阶段 3 为本地引擎（src/cmd.c 调 sloop_core）；阶段 5 换成 FM-1 会话时
@@ -16,7 +17,8 @@
  *
  * MVP 约定（延迟项见 docs/deferred-issues.md DI-9）：选轨与逐轨 mute/solo 目前
  * 没有引擎写入口（sloop_core 只落了快照/步读写/全局写），由本层持有且 sync 不
- * 覆盖；因此它们的音频效果（真实静音/独奏）尚不生效，UI 状态一致。 */
+ * 覆盖；因此它们的音频效果（真实静音/独奏）尚不生效，UI 状态一致。串口观察这
+ * 三类值用 `STATE SNAP`（`ENG SNAP` 只有引擎真值）。 */
 
 #define APP_STATE_PAGES 4u      /* PLAY / TRACKS / STEP / TRANSPORT */
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
@@ -51,7 +53,7 @@ typedef struct {
     uint8_t page;               /* 当前页（app_page_t） */
     uint8_t focus_step;         /* STEP 页焦点步（0..15） */
     uint8_t focus_track;        /* 焦点轨（0..3） */
-    uint8_t last_note;          /* 最近演奏音（0 = 无） */
+    uint8_t last_note;          /* 最近演奏音；0 = 还没弹过（note 0 不记忆） */
     uint8_t layer_held;         /* 层键位掩码（位义由 InputManager 定义） */
 } app_state_t;
 
@@ -68,7 +70,8 @@ void state_sync_from_engine(void);
 /* 互斥复制一份当前 AppState；UI 只读副本。 */
 void state_get_copy(app_state_t *out);
 
-/* UI 局部态写入口（无 EditCmd 语义，不进引擎/远端）。 */
+/* UI 局部态写入口（UI 任务的写路径：无 EditCmd 语义，不进引擎/远端）。
+ * state_apply 是 input 任务的编辑写路径；两者都走内部互斥。 */
 void state_set_page(uint8_t page);
 void state_set_focus(uint8_t track, uint8_t step);
 void state_set_layer(uint8_t mask);

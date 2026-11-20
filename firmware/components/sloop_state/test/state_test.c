@@ -9,21 +9,23 @@
 static int g_failures;
 static int g_passed;
 static int g_case_failed;
+static int g_case_index; /* run() 的 1 起序号：失败行带 k，便于对上用例 */
 
 static void check_ll(const char *what, long long got, long long want)
 {
     if (got != want) {
-        printf("  FAIL %s: got %lld want %lld\n", what, got, want);
+        printf("  FAIL k=%d %s: got %lld want %lld\n", g_case_index, what, got, want);
         g_case_failed = 1;
     }
 }
 
-#define CHECK(expr)                                                    \
-    do {                                                               \
-        if (!(expr)) {                                                 \
-            printf("  FAIL %s:%d: %s\n", __func__, __LINE__, #expr);   \
-            g_case_failed = 1;                                         \
-        }                                                              \
+#define CHECK(expr)                                                              \
+    do {                                                                         \
+        if (!(expr)) {                                                           \
+            printf("  FAIL k=%d %s:%d: %s\n", g_case_index, __func__, __LINE__, \
+                   #expr);                                                       \
+            g_case_failed = 1;                                                   \
+        }                                                                        \
     } while (0)
 
 static void apply(edit_cmd_type_t type, uint32_t a, uint32_t b, uint16_t v)
@@ -35,12 +37,13 @@ static void apply(edit_cmd_type_t type, uint32_t a, uint32_t b, uint16_t v)
 static void run(const char *name, void (*fn)(void))
 {
     g_case_failed = 0;
+    g_case_index++;
     fn();
     if (g_case_failed) {
-        printf("FAIL %s\n", name);
+        printf("FAIL k=%d %s\n", g_case_index, name);
         g_failures++;
     } else {
-        printf("PASS %s\n", name);
+        printf("PASS k=%d %s\n", g_case_index, name);
         g_passed++;
     }
 }
@@ -81,7 +84,16 @@ static void case_toggle_step_empty(void)
     state_get_copy(&s);
     check_ll("last_note", s.last_note, 64);
 
+    /* note 0 照常发声但不记忆 last_note（0 是「还没弹过」哨兵） */
+    apply(CMD_NOTE_ON, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("note 0 不覆盖 last_note", s.last_note, 64);
+
+    uint32_t reads0 = g_stub.read_step_calls;
+    uint32_t writes0 = g_stub.write_step_calls;
     apply(CMD_TOGGLE_STEP, 0, 0, 0);
+    check_ll("RMW read_step ×1", g_stub.read_step_calls - reads0, 1);
+    check_ll("RMW write_step ×1", g_stub.write_step_calls - writes0, 1);
     const sloop_step_t *st = &g_stub.step[0][0];
     check_ll("空→开 n", st->n, 1);
     check_ll("空→开 note0=last_note", st->note[0], 64);
@@ -110,28 +122,44 @@ static void case_toggle_step_empty(void)
     check_ll("无 last_note 默认 60", g_stub.step[1][1].note[0], 60);
 }
 
-/* ③ read-modify-write：lvl/rat/micro/fill 逐字段保留；邻居 TIE 步逐字节不变。 */
+/* ③ read-modify-write：lvl/rat/micro/fill 逐字段保留；开步清掉旧 note[1..3]；
+ * 邻居 TIE 步逐字节不变；TIE（n>0 但 time≠NOTE）按上游 sp_on 口径算「空」。 */
 static void case_toggle_step_preserves(void)
 {
     stub_engine_reset();
     state_init();
 
-    sloop_step_t preset = { .n = 0, .vel = 0, .time = 2, .flags = 0,
-                            .lvl = 0x0A, .rat = 0x05, .micro = -3, .fill = 2 };
+    /* 旧步：n=0（关）但 note[] 留着上次多音的音符——重新开步时必须只留 last_note */
+    sloop_step_t preset = { .n = 0, .note = { 60, 64, 0, 0 }, .vel = 0, .time = 2,
+                            .flags = 0, .lvl = 0x0A, .rat = 0x05, .micro = -3, .fill = 2 };
     sloop_step_t neighbor = { .n = 2, .note = { 60, 64, 0, 0 }, .vel = 88, .time = 1,
                               .flags = 0x09, .lvl = 0x1B, .rat = 0x0E, .micro = 7, .fill = 3 };
+    sloop_step_t tie = { .n = 2, .note = { 60, 67, 0, 0 }, .vel = 90, .time = 1,
+                         .flags = 0x08, .lvl = 0x05, .rat = 0x02, .micro = 1, .fill = 1 };
     g_stub.step[0][3] = preset;
     g_stub.step[0][4] = neighbor;
+    g_stub.step[0][6] = tie;
 
+    uint32_t reads0 = g_stub.read_step_calls;
+    uint32_t writes0 = g_stub.write_step_calls;
     apply(CMD_TOGGLE_STEP, 0, 3, 0);
+    check_ll("RMW read_step ×1", g_stub.read_step_calls - reads0, 1);
+    check_ll("RMW write_step ×1", g_stub.write_step_calls - writes0, 1);
     const sloop_step_t *st = &g_stub.step[0][3];
     check_ll("开 n", st->n, 1);
     check_ll("开 time", st->time, 0);
+    check_ll("开 note0=默认 60", st->note[0], 60);
+    check_ll("开清掉旧 note1", st->note[1], 0);
+    check_ll("开清掉旧 note2", st->note[2], 0);
+    check_ll("开清掉旧 note3", st->note[3], 0);
+    check_ll("开 vel", st->vel, 100);
+    check_ll("开 flags", st->flags, 0);
     check_ll("开 lvl 保留", st->lvl, 0x0A);
     check_ll("开 rat 保留", st->rat, 0x05);
     check_ll("开 micro 保留", st->micro, -3);
     check_ll("开 fill 保留", st->fill, 2);
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
+    CHECK(memcmp(&g_stub.step[0][6], &tie, sizeof(tie)) == 0);
 
     apply(CMD_TOGGLE_STEP, 0, 3, 0);
     check_ll("关 n", st->n, 0);
@@ -141,6 +169,26 @@ static void case_toggle_step_preserves(void)
     check_ll("关 micro 保留", st->micro, -3);
     check_ll("关 fill 保留", st->fill, 2);
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
+
+    /* 再开一次：关步留下的 note[] 不得漏进新步 */
+    apply(CMD_TOGGLE_STEP, 0, 3, 0);
+    check_ll("再开 n", st->n, 1);
+    check_ll("再开 note0", st->note[0], 60);
+    check_ll("再开 note1", st->note[1], 0);
+    check_ll("再开 note2", st->note[2], 0);
+    check_ll("再开 note3", st->note[3], 0);
+
+    /* TIE 步（n>0, time=TIE）按上游 sp_on 不算「有音」：切换 → 开 */
+    apply(CMD_TOGGLE_STEP, 0, 6, 0);
+    const sloop_step_t *ti = &g_stub.step[0][6];
+    check_ll("TIE→开 n", ti->n, 1);
+    check_ll("TIE→开 time", ti->time, 0);
+    check_ll("TIE→开 note0", ti->note[0], 60);
+    check_ll("TIE→开 note1", ti->note[1], 0);
+    check_ll("TIE→开 lvl 保留", ti->lvl, 0x05);
+    check_ll("TIE→开 rat 保留", ti->rat, 0x02);
+    check_ll("TIE→开 micro 保留", ti->micro, 1);
+    check_ll("TIE→开 fill 保留", ti->fill, 1);
 }
 
 /* ④ MUTE/SOLO 翻转对应轨位，且跨 sync 保持（MVP 引擎无此写入口）。 */
@@ -251,6 +299,7 @@ static void case_bounds(void)
     check_ll("步越界不写", g_stub.write_step_calls, 0);
     apply(CMD_TOGGLE_STEP, 5, 0, 0);
     check_ll("轨越界不写", g_stub.write_step_calls, 0);
+    check_ll("越界 toggle 连读都不做", g_stub.read_step_calls, 0);
 
     apply(CMD_NOTE_ON, 4, 0, 60);
     apply(CMD_NOTE_ON, 0, 0, 200);

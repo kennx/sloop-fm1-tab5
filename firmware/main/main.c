@@ -21,6 +21,7 @@
 #include "freertos/task.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
+#include "sloop_state.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_tab5";
@@ -82,6 +83,8 @@ void app_main(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "SLOOP 引擎初始化失败: %s", esp_err_to_name(ret));
     } else {
+        /* AppState 初值取自引擎快照（UI/输入层从阶段 3 Task 4 起使用） */
+        state_init();
         ESP_LOGI(TAG, "SLOOP 引擎初始化完成: rate=%u frames=%u",
                  (unsigned)sloop_core_rate(), (unsigned)sloop_core_frames());
         /* 开机即启流（阶段 3 音频所有权，DI-8）：UI 渲染与音频并行；诊断命令
