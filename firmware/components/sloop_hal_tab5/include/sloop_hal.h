@@ -28,4 +28,10 @@ uint32_t sloop_hal_audio_xruns(void);
 bool sloop_hal_audio_streaming(void);
 uint32_t sloop_hal_audio_stack_high_water(void);
 
+/* 渲染耗时统计（自开机累计）：均值/峰值 µs 与渲染块数；任一出参可为 NULL。
+ * 由音频任务在每块渲染后更新（与 xrun 判定同一次测量），console `ENG PERF`
+ * 用它给出流式占空比（预算 = SLOOP_HAL_AUDIO_FRAMES / SLOOP_HAL_AUDIO_RATE）。
+ * 停流不清零（自开机口径），便于跨启停比较。 */
+void sloop_hal_audio_render_stats(uint32_t *mean_us, uint32_t *max_us, uint32_t *blocks);
+
 #endif

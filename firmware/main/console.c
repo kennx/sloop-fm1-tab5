@@ -253,10 +253,19 @@ static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
 
 static int eng_perf(void)
 {
+    /* 流式占空比预算 = 引擎块时长（256/44100 ≈ 5.8ms）；离线分支用 ENG_SMOKE_FRAMES 的预算 */
+    const int64_t stream_budget_us = (int64_t)SLOOP_CORE_FRAMES * 1000000 / sloop_core_rate();
     if (sloop_hal_audio_streaming()) {
-        printf("ENG PERF streaming=1 xrun=%u audio_stack_free=%u min_free_since_boot_internal=%u min_free_since_boot_psram=%u\n",
+        uint32_t mean_us = 0, max_us = 0, blocks = 0;
+        sloop_hal_audio_render_stats(&mean_us, &max_us, &blocks);
+        printf("ENG PERF streaming=1 xrun=%u audio_stack_free=%u render_blocks=%u "
+               "render_mean_us=%u render_max_us=%u duty_mean=%.2f%% duty_max=%.2f%% "
+               "min_free_since_boot_internal=%u min_free_since_boot_psram=%u\n",
                (unsigned)sloop_hal_audio_xruns(),
                (unsigned)sloop_hal_audio_stack_high_water(),
+               (unsigned)blocks, (unsigned)mean_us, (unsigned)max_us,
+               (double)mean_us * 100.0 / (double)stream_budget_us,
+               (double)max_us * 100.0 / (double)stream_budget_us,
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
         return 0;
@@ -557,7 +566,8 @@ static int key_command(int argc, char **argv)
  * 按当前页 hit-test 表派发与控件回调相同的动作函数（ADR-005：EditCmd 层等价，
  * 不声称原始指针事件等价）。命中打印动作与参数；未命中打印
  * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。坐标上界取 SCR_W/SCR_H
- * （与截屏帧同一屏幕几何；sloop_ui 未导出宽高）。 */
+ * （与截屏帧同一屏幕几何）。sloop_ui 未导出宽高，其私有 theme.h 的 UI_W/UI_H
+ * 即同值 1280×720；main 不跨组件包含 sloop_ui/src 的私有头，故此处沿用 SCR_W/SCR_H。 */
 static int tap_command(int argc, char **argv)
 {
     long x = 0, y = 0;

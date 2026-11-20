@@ -31,6 +31,11 @@ static sloop_hal_render_fn_t render_fn;
 static int32_t render_buf[2][AUDIO_HALF_FRAMES * 2u];
 static int16_t output_buf[2][AUDIO_HALF_FRAMES * 2u];
 static volatile uint32_t xruns;
+/* 渲染耗时统计（自开机累计；块数/和/峰值）。仅供诊断读取，读取方 console
+ * 容忍单块级撕裂（均值误差 < 1 块）。 */
+static volatile uint32_t render_blocks;
+static volatile uint64_t render_us_sum;
+static volatile uint32_t render_us_max;
 
 esp_err_t sloop_hal_audio_max_all(void)
 {
@@ -103,6 +108,17 @@ uint32_t sloop_hal_audio_stack_high_water(void)
     return audio_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(audio_task) : 0;
 }
 
+void sloop_hal_audio_render_stats(uint32_t *mean_us, uint32_t *max_us, uint32_t *blocks)
+{
+    /* 先读块数与和、后读峰值：任务并发写时最多把均值算得略高（不会低估成本） */
+    uint32_t blocks_now = render_blocks;
+    uint64_t sum = render_us_sum;
+    uint32_t max_now = render_us_max;
+    if (mean_us != NULL) *mean_us = blocks_now ? (uint32_t)(sum / blocks_now) : 0;
+    if (max_us != NULL) *max_us = max_now;
+    if (blocks != NULL) *blocks = blocks_now;
+}
+
 static void audio_task_run(void *arg)
 {
     (void)arg;
@@ -112,6 +128,9 @@ static void audio_task_run(void *arg)
         int64_t started = esp_timer_get_time();
         render_fn(render_buf[half], AUDIO_HALF_FRAMES);
         int64_t render_us = esp_timer_get_time() - started;
+        render_blocks++;
+        render_us_sum += (uint64_t)render_us;
+        if ((uint32_t)render_us > render_us_max) render_us_max = (uint32_t)render_us;
         if (render_us > budget_us) xruns++;
         for (uint32_t i = 0; i < AUDIO_HALF_FRAMES * 2u; i++) {
             int32_t sample = render_buf[half][i];
