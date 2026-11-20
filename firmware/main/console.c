@@ -556,7 +556,8 @@ static int key_command(int argc, char **argv)
 /* TAP（触摸注入）：TAP <x> <y>，屏幕绝对坐标（含页签条，与触摸 indev 同口径）。
  * 按当前页 hit-test 表派发与控件回调相同的动作函数（ADR-005：EditCmd 层等价，
  * 不声称原始指针事件等价）。命中打印动作与参数；未命中打印
- * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。 */
+ * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。坐标上界取 SCR_W/SCR_H
+ * （与截屏帧同一屏幕几何；sloop_ui 未导出宽高）。 */
 static int tap_command(int argc, char **argv)
 {
     long x = 0, y = 0;
@@ -564,15 +565,16 @@ static int tap_command(int argc, char **argv)
     if (args_ok) {
         char *end = NULL;
         x = strtol(argv[1], &end, 10);
-        args_ok = end != argv[1] && *end == '\0' && x >= 0 && x < 1280;
+        args_ok = end != argv[1] && *end == '\0' && x >= 0 && x < SCR_W;
     }
     if (args_ok) {
         char *end = NULL;
         y = strtol(argv[2], &end, 10);
-        args_ok = end != argv[2] && *end == '\0' && y >= 0 && y < 720;
+        args_ok = end != argv[2] && *end == '\0' && y >= 0 && y < SCR_H;
     }
     if (!args_ok) {
-        printf("用法: TAP <x=0..1279> <y=0..719>（屏幕绝对坐标，含 72px 页签条；按当前页 hit-test 表）\n");
+        printf("用法: TAP <x=0..%d> <y=0..%d>（屏幕绝对坐标，含 72px 页签条；按当前页 hit-test 表）\n",
+               SCR_W - 1, SCR_H - 1);
         return 1;
     }
 
@@ -580,7 +582,12 @@ static int tap_command(int argc, char **argv)
     bool hit = sloop_ui_input_tap((int16_t)x, (int16_t)y, &r);
     unsigned page = (unsigned)sloop_ui_current_page();
     if (!hit) {
-        printf("TAP miss %ld,%ld page=%u\n", x, y, page);
+        /* UI 未启动时 current_page 为 0xFF（sloop_ui.h），按不可用打印 */
+        if (page == 0xFF) {
+            printf("TAP miss %ld,%ld page=n/a\n", x, y);
+        } else {
+            printf("TAP miss %ld,%ld page=%u\n", x, y, page);
+        }
         return 1;
     }
     switch (r.kind) {
