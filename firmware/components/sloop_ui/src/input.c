@@ -317,6 +317,13 @@ void sloop_ui_input_key(uint8_t code, bool down)
 {
     if (code > 0x7F) return;
     input_lock();
+    /* 释放先于层路由：按住演奏键期间再按层键（如 c 尚未松开就按 Aa）时，松开必须
+     * 仍然按「演奏键释放」处理，否则会被 EDIT 层的同名条目吞掉、音符挂住。 */
+    if (!down && s_note_on[code]) {
+        act_note(code, 0, false);
+        input_unlock();
+        return;
+    }
     app_state_t st;
     state_get_copy(&st);
     const key_binding_t *b = find_binding(code, st.layer_held);
