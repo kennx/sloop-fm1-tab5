@@ -85,13 +85,13 @@
 | **触发条件** | Task 7 触摸 `TAP` 注入/人测若出现「脚本绿而手测红」或采集数据不稳定时；或 Task 8 soak 出现非预期状态跳变时。 |
 | **登记** | 2026-11-20（阶段 3 Task 5）；2026-11-21 阶段 3 收口：30min soak 全程 150 次切页 + 150 次选卡 + 150 次步格 TAP，无 `TAP miss`、无页面漂移、终态与注入动作一致（未观察到幽灵按压干扰，但只说明本次采集窗口无表现，根因仍未定性） |
 
-## DI-11: UI 运行期间跑全量 `ENG SELFTEST` 会卡死设备（FreeRTOS SMP 端口调度缺陷，已定性到 vPortYield）
+## DI-12: 全量 SELFTEST 诊断期单个 golden job 超 WDT 窗口会打一条 task_wdt（非卡死）
 
 | 项 | 内容 |
 |---|---|
-| **背景** | 2026-11-21 阶段 3 终审修复轮验证时发现：UI/输入任务运行中执行 `ENG SELFTEST`（无 `--case`，182 例全量）会在 BEGIN 后数秒内卡死——每 5s 刷 `task_wdt`（`IDLE0/IDLE1` 未喂狗），当前任务恒为 `sloop_input`，寄存器 PC 停在 `vPortYield` 的 busy-wait（`crosscore_int_ll_get_state(0) != 0`，`port.c:651`）与 `esp_crosscore_int_send` 的自旋锁上，自检不再推进、console 无响应（需硬复位）。**阶段 3 收口固件（c3f6b6a）同样复现**（未含本修复轮的引擎锁/冻结改动）→ 与本轮修复无关，是既有缺陷。单例自检（`device-selftest.py --case …`）稳定通过（多轮 0.6s 完成、哈希一致）。证据：本轮失败日志 `docs/dev/verify/3-mvp-2026-11-21/task-8-fix2-selftest-full-fail.log`（含 WDT 寄存器转储与栈地址解析：`input_task → vTaskDelay → vPortYield`）。 |
-| **影响面** | 仅设备侧诊断门：全量 182 例同源等价无法在 UI live 的固件上跑（门禁口径用单例 `--case`，全量等价沿用阶段 2 post-fix transcript）。不影响播放/编辑/soak/注入验证；触发后需硬复位（无数据丢失风险，编辑本就未持久化）。 |
-| **为何可延迟** | 单例自检保留（AGENTS §5.5 的引擎门禁口径），全量等价有阶段 2 原始 transcript 兜底；根因在 IDF 内核 RISC-V SMP 端口的 `vPortYield` busy-wait（`port.c` 的 `// TODO: IDF-8113`，硬编码 core 0），修复需升级 IDF 或改内核补丁，超出阶段 3 范围且会动全局构建（AGENTS §5.5 要求逐版本回归）。 |
-| **解决方向** | ① 升级 ESP-IDF（≥5.5.x 后续版本若修复 IDF-8113）后复跑全量自检；② 或给设备侧全量自检加前置守卫——实现在 UI/输入任务存在时**拒绝全量**（`result=FAIL reason=ui_live hint=stop UI`），避免用户撞上卡死；③ 排查是否与本机 v1.3 样片的 cache/中断门限差异有关（`docs/dev/device-notes.md` §1）。 |
-| **触发条件** | 下一次需要「UI live + 全量 182 例」设备等价证据时（阶段 4 若改动 DSP/引擎必须跑）；或 IDF 升级任务时顺带验证。 |
-| **登记** | 2026-11-21（阶段 3 终审修复轮，真机两轮复现 + 基线固件复现） |
+| **背景** | P4-0 Task 2 修复 DI-11 后，全量 182 例在 UI live 下通过（156.5s），但运行末尾仍打一条 `task_wdt`（`- IDLE0`、`CPU 0: console_repl`）：某个 golden job 连续占用 console 任务 >5s，IDLE0 在这段窗口内无法被调度喂狗。summary 在 WDT 后 ~1.3s 正常给出 `result=PASS`，设备无卡死。证据：`docs/dev/verify/4-p0-2026-11-21/task-2-selftest-full-uiquiesce.log` 第 142 行。 |
+| **影响面** | 仅诊断期日志噪声：引擎门禁判据（汇总行命中 cases/identical/mismatch/checks/result）不受影响。风险是读者把这条 WDT 与已删除的 DI-11 卡死混为一谈（两者形态不同：DI-11 是 console 无响应 + `sloop_input` 自旋）。 |
+| **为何可延迟** | 不影响判定与产品行为；单 job 的耗时由 vendored `regress.c` 决定，工程约定不改上游用例表。 |
+| **解决方向** | 若需彻底洁净：诊断期把 `esp_task_wdt` 超时临时调到 >最长 job（`esp_task_wdt_init`，结束后恢复 5s）；或在 shim 的 `selftest_read()/waitpid()` 之外给 job 内循环加喂狗钩子（需上游配合）。取舍：前者临时关闭 IDLE 看门狗，后者动上游。 |
+| **触发条件** | 若门禁脚本开始把「诊断期日志出现 task_wdt」判为失败，或需要无人值守采集洁净 transcript 时处理。 |
+| **登记** | 2026-11-21（P4-0 Task 2） |
