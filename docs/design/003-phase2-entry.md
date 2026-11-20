@@ -2,7 +2,8 @@
 
 > 状态：生效中 ｜ 制定日期：2026-11-19
 > 关联：`docs/design/002-port-roadmap.md` §4（阶段 2 任务表与完成判据，权威）；`docs/superpowers/specs/2026-11-19-sloop-tab5-port-design.md`（设计规格：§5 架构、§6 决策表 D1/D2/D8、§7 阶段 2 要点）
-> 性质：阶段 2 的**入口目标文档**——把 roadmap §4 的任务展开为开工前必须完成的目标/决策/核查清单。bite-sized 实施计划在开工时按 `docs/superpowers/plans/` 粒度另行制定。
+> 性质：阶段 2 的**入口目标文档**——把 roadmap §4 的任务展开为开工前必须完成的目标/决策/核查清单。
+> **下游产物（2026-11-20 已落地）**：阶段 2 spec `docs/superpowers/specs/2026-11-20-phase2-engine-port-design.md`、实施计划 `docs/superpowers/plans/2026-11-20-phase2-engine-port.md`、D1 ADR `docs/design/004-upstream-import.md`。§3 核查清单第 1/2/3/5 项已在 spec 编写过程中完成（上游复核无漂移、preview/run_tests/gen/regress 精读、D1 定稿、数值约定）；第 4 项 D2 已记录决定（精简词表，形式 ADR 随阶段 3）。
 
 ## 1. 阶段目标（一句话）
 
