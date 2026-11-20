@@ -405,6 +405,10 @@ static int eng_command(int argc, char **argv)
                    (unsigned)s.trk[k].level, (unsigned)s.trk[k].mute, (unsigned)s.trk[k].armed,
                    (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div);
         }
+        for (uint32_t i = 0; i < 16; i++) {
+            printf("ENG SNAP dstep i=%u on=%u lvl=%u rat=%u\n", (unsigned)i,
+                   (unsigned)s.dstep[i].on, (unsigned)s.dstep[i].lvl, (unsigned)s.dstep[i].rat);
+        }
         return 0;
     }
     if (argc == 4 && strcasecmp(argv[1], "step") == 0) {
