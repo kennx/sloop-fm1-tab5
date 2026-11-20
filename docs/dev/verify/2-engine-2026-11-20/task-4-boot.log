@@ -1,29 +1,29 @@
-I (208) esp_image: segment 4: paddr=00155dbc vaddr=4ff0a350 sizeI (414) esp_psram: Found 32MB PSRAM device
+I (208) esp_image: segment 4: paddr=00155e8c vaddr=4ff0a340 sizeI (414) esp_psram: Found 32MB PSRAM device
 I (415) esp_psram: Speed: 200MHz
-I (416) hex_psram: psram CS IO is dedicated
+I (415) hex_psram: psram CS IO is dedicated
 I (416) cpu_start: Multicore app
 I (1366) esp_psram: SPI SRAM memory test OK
-I (1382) cpu_start: Pro cpu start user code
-I (1382) cpu_start: cpu freq: 360000000 Hz
+I (1383) cpu_start: Pro cpu start user code
+I (1383) cpu_start: cpu freq: 360000000 Hz
 I (1383) app_init: Application information:
 I (1383) app_init: Project name:     sloop_fm1_tab5
-I (1383) app_init: App version:      3119186-dirty
-I (1383) app_init: Compile time:     Nov 20 2026 15:37:05
-I (1383) app_init: ELF file SHA256:  662d9d6a1...
+I (1384) app_init: App version:      463c832
+I (1384) app_init: Compile time:     Nov 20 2026 17:03:01
+I (1384) app_init: ELF file SHA256:  067352ef9...
 I (1384) app_init: ESP-IDF:          v5.5.5
 I (1384) efuse_init: Min chip rev:     v1.0
-I (1384) efuse_init: Max chip rev:     v1.99
-I (1384) efuse_init: Chip rev:         v1.3
+I (1385) efuse_init: Max chip rev:     v1.99
+I (1385) efuse_init: Chip rev:         v1.3
 I (1385) heap_init: Initializing. RAM available for dynamic allocation:
 I (1385) heap_init: At 4FF1F1E0 len 0001BDE0 (111 KiB): RETENT_RAM
-I (1385) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
-I (1385) heap_init: At 4FF9B630 len 000049D0 (18 KiB): RAM
+I (1386) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1386) heap_init: At 4FF9B630 len 000049D0 (18 KiB): RAM
 I (1386) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
 I (1386) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
 I (1387) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
 I (1388) spi_flash: detected chip: generic
 I (1388) spi_flash: flash io: dio
-I (1388) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1389) sleep_gpio: Configure to isolate all GPIO pins in sleep state
 I (1389) sleep_gpio: Enable automatic switching of GPIO sleep configuration
 I (1390) main_task: Started on CPU0
 I (1390) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations

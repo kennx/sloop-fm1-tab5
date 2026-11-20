@@ -130,7 +130,7 @@ Tab5 链接适配由 `sloop_core/linker.lf` 把上游 `.pool`/`.lowram` 零初�
 `dram0_bss`；4×80KiB 用户采样槽由 `sloop_hal_tab5` 在 PSRAM 堆分配（内部 DRAM 不足以同时
 容纳约 260KiB `.pool`、其余核心状态与 320KiB 用户槽），`SMP_USER_XIP` 直接指向该 RAM。
 
-`ENG SELFTEST` 不调用上述运行时 API 来重建用例——它把 regress.c 用例驱动原样编入同一组件 TU，保证 host/device 跑同一份判定与哈希代码。运行时与自测共享一个引擎实例；初始化时保存 data/BSS 快照，每个用例前恢复，模拟 host 的 fork 隔离。512 项 job/golden/CPU 簿记表由 `tools/move_regress_tables.py` 在归档后重命名至 `.ext_ram.bss`，DSP 热状态仍在内部 RAM。`golden.txt` 由 CMake 直接读取 third_party 原文件并生成字节数组，PC 用 `scripts/device-selftest.py` 严格比对。
+`ENG SELFTEST` full run 还要求上游 repeat 与首用例哈希一致（汇总 `deterministic=1`）。`ENG SELFTEST` 不调用上述运行时 API 来重建用例——它把 regress.c 用例驱动原样编入同一组件 TU，保证 host/device 跑同一份判定与哈希代码。运行时与自测共享一个引擎实例；初始化时保存 data/BSS 快照，每个用例前恢复，模拟 host 的 fork 隔离。512 项 job/golden/CPU 簿记表由 `tools/move_regress_tables.py` 在归档后重命名至 `.ext_ram.bss`，DSP 热状态仍在内部 RAM。`golden.txt` 由 CMake 直接读取 third_party 原文件并生成字节数组，PC 用 `scripts/device-selftest.py` 严格比对。
 
 `audio_stream.c` 是 ES8388 codec 唯一所有者：负责 BSP 初始化、44.1kHz/2ch/16bit open、`set_out_vol(70)` 与阶段 1 实证的 DAC/LOUT/ROUT 板级音量修正；`audio_tone` 仅通过 getter 复用句柄，流运行后拒绝并发 TONE。`ENG TRIG` 才启动双半缓冲音频任务；`ENG PERF` 在流运行时只读 xrun/heap，避免并发渲染同一引擎。
 

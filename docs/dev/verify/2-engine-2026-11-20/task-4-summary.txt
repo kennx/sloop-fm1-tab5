@@ -4,7 +4,7 @@ Source and golden fidelity
 - Device selftest directly includes third_party/sloop-fm1/tests/regress.c; no case logic copied or rewritten.
 - golden.txt is read by CMake as HEX from the third_party original and emitted as a byte array in the build directory.
 - Host: scripts/host-test.sh -> 182 golden, 0 changed, 0 gone, 0 health/voice/crash; ALL HOST TESTS PASSED (subset).
-- Device: ENG SELFTEST -> cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 result=PASS.
+- Device: ENG SELFTEST -> cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS.
 - PC: scripts/device-selftest.py -> identical=182 mismatch=0 missing=0 extra=0 result=PASS.
 - No tolerance acceptance or error-vector analysis was needed. An intermediate 179/182 run exposed a snapshot-range isolation bug; the three UNISON cases were fixed by sorting sentinel-delimited initialized-data sections, then the full suite was rerun to 182/182.
 - third_party MANIFEST.sha256 verification: 233/233 OK; no tracked third_party changes.
@@ -15,8 +15,8 @@ Build / boot / flash
 - Final boot log: codec 44100Hz/2ch/16bit ready; engine init ESP_OK; no fatal/abort/backtrace/panic/task_wdt.
 
 Performance and audio
-- ENG PERF idle: blocks=100, cycles_mean=197416, cycles_max=247183, us_mean=548, us_max=686, budget_us=5804.
-- Duty: mean 9.44%, max 11.82%; xrun=0; min_free_internal=100660; min_free_psram=30128556.
+- ENG PERF idle: blocks=100, cycles_mean=197223, cycles_max=245076, us_mean=548, us_max=681, budget_us=5804.
+- Duty: mean 9.44%, max 11.73%; xrun=0; min_free_internal=86092; min_free_psram=29407656.
 - AUD TONE 440 100: completed through the shared codec handle before stream startup.
 - ENG TRACK 0 0 0: OK.
 - ENG TRIG synth 0 60: note on, 500ms, note off, xrun=0, OK.

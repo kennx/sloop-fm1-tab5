@@ -4,7 +4,7 @@ Executing action: all (aliases: build)
 Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
 Executing "ninja all"...
 [1/4] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
-sloop_fm1_tab5.bin binary size 0x156410 bytes. Smallest app partition is 0x800000 bytes. 0x6a9bf0 bytes (83%) free.
+sloop_fm1_tab5.bin binary size 0x1564f0 bytes. Smallest app partition is 0x800000 bytes. 0x6a9b10 bytes (83%) free.
 [2/4] Performing build step for 'bootloader'
 [1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
 Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.

@@ -2,27 +2,27 @@
 ENG INFO
 ENG INFO init=ESP_OK rate=44100 frames=256 NENGINES=12 P_COUNT=71 G_COUNT=50
 >>> ENG SMOKE
-ENG SMOKE
+sloop>  ENG SMOKE
 ENG SMOKE frames=256 on_hash=7623977cf27501f3 off_hash=586303da713b280f nonzero=444 result=PASS
 >>> ENG PERF
-ENG PERF
-ENG PERF blocks=100 cycles_mean=197416 cycles_max=247183 us_mean=548 us_max=686 budget_us=5804 duty_mean=9.44% duty_max=11.82% xrun=0 min_free_internal=100660 min_free_psram=30128556
+sloop>  ENG PERF
+ENG PERF blocks=100 cycles_mean=197223 cycles_max=245076 us_mean=548 us_max=681 budget_us=5804 duty_mean=9.44% duty_max=11.73% xrun=0 min_free_internal=86092 min_free_psram=29407656
 >>> AUD TONE 440 100
 AUD TONE 440 100
 AUD TONE 440Hz 100ms 播放中...
-I (23807) sloop_audio: tone 440Hz 100ms 开始
-I (23917) sloop_audio: tone 结束
+I (380907) sloop_audio: tone 440Hz 100ms 开始
+I (381007) sloop_audio: tone 结束
 AUD TONE 完成
 >>> ENG TRACK 0 0 0
 ENG TRACK 0 0 0
 ENG TRACK k=0 engine=0 preset=0 OK
 >>> ENG TRIG synth 0 60
 ENG TRIG synth 0 60
-I (23917) sloop_audio_stream: stream started, half=256 frames
+I (381017) sloop_audio_stream: stream started, half=256 frames
 ENG TRIG synth track=0 note=60 duration_ms=500 xrun=0 OK
 >>> ENG TRIG drum 0 0
 ENG TRIG drum 0 0
 ENG TRIG drum kit=0 lane=0 velocity=100 xrun=0 OK
 >>> ENG PERF
 ENG PERF
-ENG PERF streaming=1 xrun=0 min_free_internal=100660 min_free_psram=30128556
+ENG PERF streaming=1 xrun=0 min_free_internal=81528 min_free_psram=29407656
