@@ -13,11 +13,11 @@
  * 点击卡片发 CMD_SELECT_TRACK（cmd.c 的 cmd_select_track 同时写 selected_track 与
  * focus_track，即「设焦点轨 + 选轨」一次完成，本页不再重复 state_set_focus）。
  *
- * 内存：文本/底色用静态共享 lv_style_t（与 page_step.c 同一纪律，不给对象加局部
- * 样式；LVGL 池 64KB 在内置 RAM）；每卡 4 个子对象（信息/编组文本合并）是把
- * 池占用压回安全区的必要取舍。脏检查：每卡缓存 (sel,engine,preset,level,mute,
- * solo) 六字节，memcmp 不等才重设文本/样式/电平条（每 30ms 无条件重设会让 LVGL
- * 持续失效重绘）。
+ * 内存：文本/底色用静态共享 lv_style_t（与 page_step.c 同一纪律）；仍保留局部样式的只有
+ * 四张卡的 pad_all 与四条电平条（main/indicator 的底色/圆角），量级固定且很小。
+ * LVGL 池 64KB 在内置 RAM；每卡 4 个子对象（信息/编组文本合并）是把池占用压回
+ * 安全区的必要取舍。脏检查：每卡缓存 (sel,engine,preset,level,mute,solo) 六字节，
+ * memcmp 不等才重设文本/样式/电平条（每 30ms 无条件重设会让 LVGL 持续失效重绘）。
  */
 #include "theme.h"
 

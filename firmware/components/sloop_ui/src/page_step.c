@@ -6,22 +6,24 @@
  * - 右上角状态行（点格后的反馈：T1 S2 / DRUM EDIT = PHASE 4）右对齐 (656, 14) 宽 600；
  * - 行标签 T1/T2/T3/DRM (24, 84 + r*124 + 42) 20pt 轨色；
  * - 格子 (r,c)：x = 88 + c*73, y = 84 + r*124, 67×104，圆角 10；
- * - 列号 1..16 每列中心 (x+26, 568) 16pt；
+ * - 列号只标 4 的倍数（4/8/12/16），各标在其所在列格的左侧 (x+24, 568) 16pt；
  * - 底部提示 (24, 606) 16pt。
  *
  * 渲染口径：格「亮」= state_step_is_on()（n>0 且 time==NOTE，与状态层切换同一判定，
  * TIE/REST 的步不算亮）；鼓轨（第 4 行）只展示引擎快照 dstep[i].on 的聚合，点击
- * 不发 CMD_TOGGLE_STEP，只写状态行 "DRUM EDIT = PHASE 4"。
+ * 不发 CMD_TOGGLE_STEP、也不改焦点（焦点轨由合成轨行决定），只写状态行
+ * "DRUM EDIT = PHASE 4"。
  * 高亮：播放中当前步（step_pos[r]，仅当 <16 列）描边 UI_ACCENT 5px；焦点格
  * （focus_track/focus_step）描边 UI_TEXT 3px；两者重叠时播放头优先。
  *
- * 点击：先 state_set_focus()（UI 局部态），合成轨再 state_apply(CMD_TOGGLE_STEP)，
+ * 点击：合成轨先 state_set_focus()（UI 局部态）再 state_apply(CMD_TOGGLE_STEP)，
  * 随后立即刷新本页一次（不等 30ms 定时器，切页/截屏不受 tick 时序影响）。
  *
  * 内存：75 个格/标签对象共用静态 lv_style_t（格底 5 种 + 高亮 3 种 + 文本 6 种），
- * 不给对象加局部样式——每对象一份局部样式会把 LVGL 池（约 58KB）吃穿；状态变化用
- * lv_obj_replace_style 换共享样式指针，不分配新样式。脏检查：每格缓存 1 字节
- * （bit0 亮 / bit1..2 高亮种类），变化才换样式。
+ * 每对象一份局部样式会把 LVGL 池（约 58KB）吃穿；状态变化用 lv_obj_replace_style
+ * 换共享样式指针，不分配新样式。仍用局部样式的只有顶栏/状态行两个单例标签
+ * （改色/对齐/宽度），量级固定。脏检查：每格缓存 1 字节（bit0 亮 / bit1..2 高亮
+ * 种类），变化才换样式。
  */
 #include "theme.h"
 
@@ -63,6 +65,9 @@ static lv_style_t s_st_hint;
 static struct {
     uint8_t track, step, len, div;
 } s_header_cache;
+/* 首帧强制刷新：缓存零值可能与 create 时的初始文案一致（如 len/div 恰好为 0），
+ * 不强制的话首个 tick 可能跳过刷新、把硬编码文案留在屏上。 */
+static bool s_header_dirty = true;
 
 static void cell_shape_style(lv_style_t *st, uint32_t bg)
 {
@@ -131,12 +136,13 @@ static void cell_clicked_cb(lv_event_t *e)
     uint8_t r = (uint8_t)(id / APP_STATE_STEPS);
     uint8_t c = (uint8_t)(id % APP_STATE_STEPS);
 
-    state_set_focus(r, c); /* UI 局部态：焦点轨/步 */
     if (r >= APP_STATE_TRACKS - 1) {
-        /* 鼓轨只读：MVP 不发 CMD_TOGGLE_STEP（阶段 4 接 DRUM_STEP） */
+        /* 鼓轨只读：MVP 不发 CMD_TOGGLE_STEP（阶段 4 接 DRUM_STEP），也不改焦点——
+         * 焦点轨跟着合成轨行走，点鼓轨不应把焦点留在不可编辑的行上 */
         ESP_LOGI(TAG, "鼓轨步 %u 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）", (unsigned)c);
         set_status("DRUM EDIT = PHASE 4", ui_track_color(APP_STATE_TRACKS - 1));
     } else {
+        state_set_focus(r, c); /* UI 局部态：焦点轨/步 */
         const edit_cmd_t cmd = {.type = CMD_TOGGLE_STEP, .a = r, .b = c};
         state_apply(&cmd);
         char buf[16];
@@ -219,8 +225,9 @@ void page_step_update(const app_state_t *st)
     uint8_t len = st->core.trk[ft].len;
     uint8_t div = st->core.trk[ft].div;
 
-    if (ft != s_header_cache.track || fs != s_header_cache.step || len != s_header_cache.len ||
-        div != s_header_cache.div) {
+    if (s_header_dirty || ft != s_header_cache.track || fs != s_header_cache.step ||
+        len != s_header_cache.len || div != s_header_cache.div) {
+        s_header_dirty = false;
         s_header_cache.track = ft;
         s_header_cache.step = fs;
         s_header_cache.len = len;

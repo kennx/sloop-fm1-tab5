@@ -10,7 +10,7 @@
  * 页签回调与 30ms 定时器运行在 LVGL 任务上下文中（esp_lvgl_port 的
  * lvgl_port_task 已持递归锁），不再重复加锁，与 display.c 的约定一致。
  * 定时器每 30ms 先 state_sync_from_engine() 拉引擎真值，再对各页做脏检查
- * 刷新（两页都刷新，切页时无需补刷）。
+ * 刷新（四页都刷新，切页时无需补刷）。
  */
 #include "sloop_ui.h"
 
@@ -178,15 +178,17 @@ esp_err_t sloop_ui_start(void)
     }
 
     s_started = true;
-    bsp_display_unlock();
 
     /* LVGL 对象走内置 TLSF 池（CONFIG_LV_USE_STDLIB_MALLOC=0），池耗尽会静默
-     * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打一次占用。 */
+     * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打一次占用。
+     * 池遍历必须持 LVGL 锁：30ms 定时器已创建，LVGL 任务随时会分配文本/样式，
+     * 无锁遍历会读到撕裂的池结构。 */
     lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
     ESP_LOGI(TAG, "UI 就绪: %u 页 @%dx%d, LVGL 池已用 %u/%u 字节, 内部堆剩余 %u 字节",
              (unsigned)APP_STATE_PAGES, UI_W, UI_H, (unsigned)(mon.total_size - mon.free_size),
              (unsigned)mon.total_size, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    bsp_display_unlock();
     return ESP_OK;
 }
 

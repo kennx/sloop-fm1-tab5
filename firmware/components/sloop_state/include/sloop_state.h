@@ -35,7 +35,8 @@ typedef enum {
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
  *  CMD_NOTE_ON/OFF   a=track(0..3) v=note(0..127)；NOTE_ON 同时更新 last_note
  *  CMD_PLAY/STOP     （STOP = play(false)）
- *  CMD_SELECT_TRACK  a=track(0..3)：选中轨（与 CMD_SET_TRACK 等价）
+ *  CMD_SELECT_TRACK  a=track(0..3)：选中轨（与 CMD_SET_TRACK 等价）；副作用：同时把
+ *                    focus_track 设为该轨（TRACKS 卡片点击依赖它落地「设焦点轨 + 选轨」）
  *  CMD_SET_TRACK     a=track(0..3)：选中轨（控制方裁定：SET_TRACK 的语义即选轨）
  *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空 → 开：写 last_note
  *                    （无则 60）、n=1/vel=100/time=NOTE/flags=0；开→关：n=0/
