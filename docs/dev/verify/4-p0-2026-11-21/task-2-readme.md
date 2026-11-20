@@ -1,21 +1,23 @@
 # 阶段 4 P4-0 Task 2 证据：DI-11 全量 SELFTEST 与 UI 共存（quiesce 流程）
 
-> 受测固件：代码提交 **4fcba99**（启动日志 `App version: 0304c45`——版本串取 clean
-> 构建时的 HEAD＝本次证据的文档提交，其固件源文件与 4fcba99 逐字节一致；工作树干净）。
-> 采集机时：2026-11-21 07:05–07:20 CST；Tab5 USB-C → `/dev/ttyACM0`。
+> 受测固件：代码提交 **fa5be79**（启动日志 `App version: f4f89ab`——版本串取 clean
+> 构建时的 HEAD＝本次证据的文档提交，其固件源文件与 fa5be79 逐字节一致；工作树干净）。
+> 本轮为评审修复重采（轮询 tick 地板口径 + 诊断期禁用触摸 indev + 原子丢弃计数）。
+> 采集机时：2026-11-21 07:35–07:52 CST；Tab5 USB-C → `/dev/ttyACM0`。
 > 登记见 `docs/dev/verification-log.md`；本目录 `SHA256SUMS` 覆盖全部文件（除自身）。
 
 ## 1. 结论
 
 全量 `ENG SELFTEST`（182 例）在 **UI live 的开机态**下通过，诊断期 UI/LVGL 定时器
-暂停、KEY/TAP 注入被拒，结束后 UI 恢复、走带/触发/内存全部正常。
+暂停、触摸 indev 与输入派发被禁用、KEY/TAP 注入被拒，结束后 UI 恢复、走带/触发/内存
+全部正常；恢复后的帧缓冲与既有 PLAY 证据逐字节一致（见 §3.1）。
 
 ```
 ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
 ```
 
-- 实测时长 **157.4s**（修复前 input 任务空转吃满一核时约 316s）。
-- 诊断期日志：`诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效` →
+- 实测时长 **157.2s**（修复前 input 任务空转吃满一核时约 316s）。
+- 诊断期日志：`诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效`（同拍 `lv_indev_enable(NULL,false)` 禁用触摸）→
   `ENG SELFTEST BEGIN` → … → `诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）`。
 
 ## 2. 门禁结果
@@ -24,10 +26,10 @@ ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fai
 |---|---|---|
 | 固件代码（构建 ×2，clean + 增量） | ✅ 退出码 0、编译警告 0；clean 首遍仅 §5.5 豁免的 kconfig 提示对，增量遍 0 提示 | `task-2-build-clean.log`、`task-2-build-incremental.log` |
 | 烧录验证 | ✅ `Hash of data verified` ×3 | `task-2-flash.log` |
-| 启动日志 | ✅ 无 fatal/abort/Backtrace/task_wdt；`App version: 0304c45`、`stream started`、`UI 就绪 4 页`、`InputManager 55 条映射，轮询 5ms（1 tick）` | `task-2-boot-log.txt` |
-| 引擎/DSP：全量 SELFTEST + UI live（quiesce 流程） | ✅ 182/182、checks=7、deterministic=1、result=PASS（157.4s） | `task-2-selftest-full-uiquiesce.log`（原始回显，`# [inject]` 前缀为工具注记） |
+| 启动日志 | ✅ 无 fatal/abort/Backtrace/task_wdt；`App version: f4f89ab`、`stream started`、`UI 就绪 4 页`、`InputManager 55 条映射，轮询 **10ms（1 tick @100Hz）**`（按 `configTICK_RATE_HZ` 计算的实际值） | `task-2-boot-log.txt` |
+| 引擎/DSP：全量 SELFTEST + UI live（quiesce 流程） | ✅ 182/182、checks=7、deterministic=1、result=PASS（157.2s） | `task-2-selftest-full-uiquiesce.log`（原始回显，`# [inject]` 前缀为工具注记） |
 | 门禁脚本 `device-selftest.py`（默认全量，fresh boot） | ✅ 退出码 0：`identical=182 missing=0 extra=0 result=PASS`；脚本自动 `ENG AUDIO OFF/ON` | `task-2-device-selftest.log`、`task-2-device-selftest-transcript.log` |
-| 诊断期注入拒绝 + 恢复 | ✅ `UI QUIESCE on` → `KEY ERR quiesced`（`KEY STATS quiesce_dropped=1`）、`TAP ERR quiesced`；`UI QUIESCE off` → KEY 正常、`UI page=play` | 同上 transcript 尾部 |
+| 诊断期注入拒绝 + 恢复 | ✅ `UI QUIESCE on` → `KEY ERR quiesced`（`KEY STATS quiesce_dropped=1`，原子计数）、`TAP ERR quiesced`；`UI QUIESCE off` → KEY 正常、`UI page=play`。**物理触摸**由 `lv_indev_enable(NULL,false)` 禁用（LVGL 在调用 read 回调前跳过，无法计数；本机无手指注入手段，属人测/硬件面） | 同上 transcript 尾部 + `task-2-play-after-resume.png` |
 | 回归与工具门禁 | ✅ host `ALL HOST TESTS PASSED (subset)`、182 golden 0 changed/0 gone；state-test 8 passed；`screenshot.py --selftest` 7 组；third_party manifest **233/233 OK** | `task-2-host-test.log`、`task-2-state-test.log`、`task-2-screenshot-selftest.log`、`task-2-manifest.txt` |
 
 ## 3. 运行中/运行后现场
@@ -36,7 +38,7 @@ ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fai
 按序执行——console 会话未受影响、无丢字节：
 
 ```
-KEY STATS count=2 mean_us=61 max_us=108 input_stack_free=3784 quiesce_dropped=0
+KEY STATS count=2 mean_us=70 max_us=122 input_stack_free=3784 quiesce_dropped=0
 UI page=play (0)
 ```
 
@@ -48,11 +50,22 @@ UI page=play (0)
 | `ENG SNAP` | sel=0、playing=0、四轨 engine=0 preset=0 len=16、dstep 全 0（自检结束 `selftest_restore()` 回到 init 快照） |
 | `ENG TRIG synth 0 60` | `duration_ms=500 xrun=0 OK`（音频流可重启，无 stuck note：随后 `KEY PANIC` 释放 0 个音符） |
 | `ENG MEM` | `internal_free=73507 internal_min=73500`（≥60KB 门限，余量 ≈11.8KB；含为 TRIG 启流后的占用） |
-| UI 响应 | `UI page=play (0)`；`UI QUIESCE off` 后 KEY 注入立即生效（`elapsed_us=81`） |
+| UI 响应 | `UI page=play (0)`；`UI QUIESCE off` 后 KEY 注入立即生效（`elapsed_us=103`） |
+
+### 3.1 恢复后重绘（截屏）
+
+在一次 `UI QUIESCE on` → `off`（与全量运行结束时同一恢复路径）之后截屏：
+`task-2-play-after-resume.png` SHA256 `bde48cc8a3b7ffe0…`，与阶段 3/4 既有 PLAY 基准
+证据（`3-mvp-2026-11-21/task-8-play.png` = `3-mvp-2026-11-20/task-4-play.png`）**逐字节
+相同**——恢复后 `state_sync` + 四页刷新把所有控件重绘回基准画面（无残留/错位）。
+
+> 局限：直接在 157s 全量运行后 `SCR` 截屏时命中已知的 DI-5 传输停滞
+> （收到 1.66–1.68MB / 1.84MB 后超时，三次重试一致），故改在同一恢复路径
+> （`UI QUIESCE on/off`）上取证；DI-5 与本任务无关，按条目升级规则另行处理。
 
 ## 4. 已知现象：诊断期一次 `task_wdt`
 
-transcript 第 142 行（`I (162672)`）有一条 `task_wdt`（`- IDLE0`、`CPU 0: console_repl`），发生在
+transcript 第 142 行（`E (162332)`）有一条 `task_wdt`（`- IDLE0`、`CPU 0: console_repl`），发生在
 运行末尾单个 golden job 连续占用 console 任务 >5s 时（运行仍在约 1.2s 后给出 PASS
 汇总）。它与 DI-11 的卡死形态不同：当前任务就是 console 本身、任务在推进、summary
 随后出现。登记为 DI-12（诊断期单 job 超 WDT 窗口，非卡死）。
@@ -64,7 +77,7 @@ transcript 第 142 行（`I (162672)`）有一条 `task_wdt`（`- IDLE0`、`CPU 
   `task_wdt` 刷屏，`CPU 1: sloop_input` / `PC 停在 vPortYield`，与 DI-11 记录一致。
   该证据推翻了「长时持锁 + 高优先级等待者」的旧归因。
 - `task-2-di11-wedge-history.log`：阶段 3 收口期的长时卡死原始回显（`/tmp` 留存件，
-  234 次 WDT 转储；固件版本串未记录 = 证据缺口）。阶段 3 目录
+  234 行 `task_wdt` 输出 = 39 次转储；固件版本串未记录 = 证据缺口）。阶段 3 目录
   `3-mvp-2026-11-21/task-8-fix2-selftest-full-fail.log` 是同一缺陷的另一份（含
   `ENG AUDIO OFF` / `BEGIN` 上下文）。
 - 基线固件（c3f6b6a）复现日志：`/tmp` 中**没有**独立留存件；该次复现只在 DI-11
@@ -80,6 +93,6 @@ transcript 第 142 行（`I (162672)`）有一条 `task_wdt`（`- IDLE0`、`CPU 
 4. 读 `input.c`：`vTaskDelay(pdMS_TO_TICKS(INPUT_POLL_MS))`，`INPUT_POLL_MS=5`，
    `CONFIG_FREERTOS_HZ=100` → **`pdMS_TO_TICKS(5)==0`** → input 任务全速自旋，
    每圈自发跨核 IPI。改为 tick 下限 1（10ms）后：单例压力连跑 **80/80 无 WDT**，
-   全量 182 例 157.4s PASS。
+   全量 182 例 157.2s PASS。
 5. 结论：DI-11 的根因是零 tick 延时（轮询周期），冻结/quiesce/短锁的价值是
    「诊断期快照一致 + UI 明确暂停」，不是回避持锁缺陷。
