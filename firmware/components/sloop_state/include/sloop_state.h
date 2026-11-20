@@ -16,10 +16,10 @@
  * 执行端：阶段 3 为本地引擎（src/cmd.c 调 sloop_core）；阶段 5 换成 FM-1 会话时
  * 只替换 cmd.c 的分发与 sync 的拉取来源，本接口不变。
  *
- * MVP 约定（延迟项见 docs/deferred-issues.md DI-9）：选轨与逐轨 mute/solo 目前
- * 没有引擎写入口（sloop_core 只落了快照/步读写/全局写），由本层持有且 sync 不
- * 覆盖；因此它们的音频效果（真实静音/独奏）尚不生效，UI 状态一致。串口观察这
- * 三类值用 `STATE SNAP`（`ENG SNAP` 只有引擎真值）。 */
+ * 选轨与逐轨 mute/solo 与其他字段一样是**引擎真值**：state_apply 经引擎写入口
+ * （sloop_core_select/set_mute/set_solo）落地后同写投影，state_sync_from_engine
+ * 整份覆盖、无状态层例外。串口 `STATE SNAP` 与 `ENG SNAP` 对这三类值同源，
+ * 音频效果即上游 trk_silent() 口径。 */
 
 #define APP_STATE_PAGES 4u      /* PLAY / TRACKS / STEP / TRANSPORT */
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
@@ -50,7 +50,7 @@ typedef enum {
  *                    n>0 但 time 为 TIE/REST 的步算空（切换 → 开，不是 → 关）。
  *                    鼓轨（track 3）MVP 只读，忽略。
  *  CMD_SET_BPM       v 钳位到 40..240（上游 params.c 的 GP[G_BPM]）后写 G_BPM
- *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位
+ *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位（solo 以整轨掩码写引擎）
  *  CMD_ERASE_NOTE    a=track(0..2) b=step(0..63) v=note(1..127)：从**显式指定的步**
  *                    删除该音符（步号由调用方在派发时解析，状态层不读 focus_step）。
  *                    read-modify-write：其余音符前移，每音符字段（lvl/rat 的 2bit、
@@ -65,7 +65,7 @@ typedef struct {
 } edit_cmd_t;
 
 typedef struct {
-    sloop_core_snapshot_t core; /* 引擎投影；selection/mute/solo 由本层持有（见上） */
+    sloop_core_snapshot_t core; /* 引擎投影（含 selection/mute/solo：均为引擎真值） */
     uint8_t page;               /* 当前页（app_page_t） */
     uint8_t focus_step;         /* STEP 页焦点步（0..15） */
     uint8_t focus_track;        /* 焦点轨（0..3） */

@@ -32,7 +32,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | FX 层 | Sym + 任意键 | MVP 无功能（只置位 + 页签条提示），阶段 4 接 27 垫 |
 | EDIT 层 | Aa + a 0x32 / b 0x46 / c 0x44 / d 0x34 / e 0x23 / f 0x35 / g 0x36 | 音名 A/B/C/D/E/F/G：按**音级**擦除聚焦步里的同名音（跨八度；命令 `CMD_ERASE_NOTE` 按精确音符，逐音符发） |
 | SEL 层 | Ctrl + 1..4（0x01..0x04） | 选轨 0..3（`CMD_SELECT_TRACK`，同时设焦点轨） |
-| GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；状态层持有，断言用 `STATE SNAP`，DI-9） |
+| GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；引擎写入口 `sloop_core_set_mute/set_solo`，`STATE SNAP`/`ENG SNAP` 同源） |
 | 走带 | space 0x4D | 播放/停止切换（`CMD_PLAY`/`CMD_STOP`）；enter 0x3D 未映射（原计划的 REC 占位在 MVP 移除） |
 | 页面 | esc 0x00=PLAY；tab 0x20=下一屏 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs） |
 | 焦点 | ← 0x4A / → 0x4C 移焦点步（0..15 环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` |

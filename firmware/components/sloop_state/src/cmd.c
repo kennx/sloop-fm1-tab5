@@ -34,6 +34,7 @@ static void cmd_play(app_state_t *s, bool on)
 static void cmd_select_track(app_state_t *s, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
+    sloop_core_select(track);
     s->core.selected_track = (uint8_t)track;
     s->focus_track = (uint8_t)track;
 }
@@ -179,9 +180,21 @@ static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
 static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
-    /* 引擎无 mute/solo 写入口：MVP 由本层持有（见 sloop_state.h 的 MVP 约定） */
-    if (type == CMD_MUTE) s->core.trk[track].mute ^= 1u;
-    else s->core.trk[track].solo ^= 1u;
+    if (type == CMD_MUTE) {
+        /* 翻转基于投影（= 上一次引擎真值），写进引擎后同写投影 */
+        bool mute = s->core.trk[track].mute == 0;
+        sloop_core_set_mute(track, mute);
+        s->core.trk[track].mute = mute ? 1u : 0u;
+        return;
+    }
+    /* solo 是整轨掩码：由投影的 4 位重组成当前掩码，翻转本轨后整掩码写回 */
+    uint8_t mask = 0;
+    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
+        if (s->core.trk[k].solo != 0) mask |= (uint8_t)(1u << k);
+    }
+    mask ^= (uint8_t)(1u << track);
+    sloop_core_set_solo(mask);
+    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
 }
 
 void state_apply(const edit_cmd_t *cmd)

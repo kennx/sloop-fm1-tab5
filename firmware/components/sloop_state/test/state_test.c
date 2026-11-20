@@ -244,34 +244,64 @@ static void case_toggle_step_tie_collapse(void)
     check_ll("LEN 外 TIE 原样", g_stub.step[1][16].time, 1);
 }
 
-/* ④ MUTE/SOLO 翻转对应轨位，且跨 sync 保持（MVP 引擎无此写入口）。 */
+/* ④ MUTE/SOLO 走引擎写入口：翻转对应轨位并落引擎；sync 取引擎真值（无状态层例外）。 */
 static void case_mute_solo(void)
 {
     stub_engine_reset();
     state_init();
     app_state_t s;
 
+    uint32_t mute0 = g_stub.set_mute_calls;
     apply(CMD_MUTE, 1, 0, 0);
+    check_ll("MUTE 落引擎 ×1", g_stub.set_mute_calls - mute0, 1);
+    check_ll("MUTE 引擎轨号", g_stub.last_mute.track, 1);
+    check_ll("MUTE 引擎值", g_stub.last_mute.mute, 1);
+    check_ll("MUTE 引擎快照", g_stub.snap.trk[1].mute, 1);
     state_get_copy(&s);
     check_ll("mute k=1", s.core.trk[1].mute, 1);
     check_ll("mute k=0 未变", s.core.trk[0].mute, 0);
+
     apply(CMD_MUTE, 1, 0, 0);
+    check_ll("MUTE 再切引擎值", g_stub.last_mute.mute, 0);
+    check_ll("MUTE 再切引擎快照", g_stub.snap.trk[1].mute, 0);
     state_get_copy(&s);
     check_ll("mute 再切", s.core.trk[1].mute, 0);
 
     apply(CMD_MUTE, 3, 0, 0);
+    check_ll("MUTE 鼓轨落引擎", g_stub.snap.trk[3].mute, 1);
+
+    uint32_t solo0 = g_stub.set_solo_calls;
     apply(CMD_SOLO, 2, 0, 0);
+    check_ll("SOLO 落引擎 ×1", g_stub.set_solo_calls - solo0, 1);
+    check_ll("SOLO 掩码", g_stub.last_solo_mask, 0x04);
+    check_ll("SOLO 引擎快照", g_stub.snap.trk[2].solo, 1);
     state_get_copy(&s);
-    check_ll("mute 鼓轨", s.core.trk[3].mute, 1);
     check_ll("solo k=2", s.core.trk[2].solo, 1);
+
+    /* 掩码是多轨真值：再独奏 k=0 时掩码 = 0x05，k=2 保持 */
+    apply(CMD_SOLO, 0, 0, 0);
+    check_ll("SOLO 掩码累积", g_stub.last_solo_mask, 0x05);
+    state_get_copy(&s);
+    check_ll("solo k=0", s.core.trk[0].solo, 1);
+    check_ll("solo k=2 保持", s.core.trk[2].solo, 1);
 
     state_sync_from_engine();
     state_get_copy(&s);
-    check_ll("sync 后 mute 保持", s.core.trk[3].mute, 1);
-    check_ll("sync 后 solo 保持", s.core.trk[2].solo, 1);
+    check_ll("sync 后 mute 来自引擎", s.core.trk[3].mute, 1);
+    check_ll("sync 后 solo 来自引擎", s.core.trk[2].solo, 1);
+    check_ll("sync 后 solo k=0", s.core.trk[0].solo, 1);
+
+    /* 引擎侧外部改动（阶段 5 FM-1 push / 直接编辑）经 sync 反映到 AppState：
+     * 若 sync 仍保留状态层例外，这里会看到旧值 0。 */
+    g_stub.snap.trk[1].mute = 1;
+    g_stub.snap.trk[1].solo = 1;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 采纳引擎 mute", s.core.trk[1].mute, 1);
+    check_ll("sync 采纳引擎 solo", s.core.trk[1].solo, 1);
 }
 
-/* ⑤ state_get_copy 反映最近 cmd；sync 取引擎真值并保持本层持有的选轨。 */
+/* ⑤ state_get_copy 反映最近 cmd；sync 取引擎真值（含选轨/mute/solo）。 */
 static void case_copy_and_sync(void)
 {
     stub_engine_reset();
@@ -298,16 +328,27 @@ static void case_copy_and_sync(void)
     check_ll("sync 后步窗", s.core.step[0][5].n, 1);
 
     apply(CMD_SET_TRACK, 3, 0, 0);
+    check_ll("SET_TRACK 落引擎", g_stub.last_select, 3);
     state_get_copy(&s);
     check_ll("SET_TRACK 选中", s.core.selected_track, 3);
     check_ll("SET_TRACK 焦点", s.focus_track, 3);
     state_sync_from_engine();
     state_get_copy(&s);
-    check_ll("sync 后选中保持", s.core.selected_track, 3);
+    check_ll("sync 后选中来自引擎", s.core.selected_track, 3);
 
+    uint32_t sel0 = g_stub.select_calls;
     apply(CMD_SELECT_TRACK, 1, 0, 0);
+    check_ll("SELECT_TRACK 落引擎 ×1", g_stub.select_calls - sel0, 1);
+    check_ll("SELECT_TRACK 引擎轨号", g_stub.last_select, 1);
+    check_ll("SELECT_TRACK 引擎快照", g_stub.snap.selected_track, 1);
     state_get_copy(&s);
     check_ll("SELECT_TRACK 选中", s.core.selected_track, 1);
+
+    /* 引擎侧外部改动经 sync 反映（状态层不再持有选轨） */
+    g_stub.snap.selected_track = 2;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 采纳引擎选轨", s.core.selected_track, 2);
 
     apply(CMD_PLAY, 0, 0, 0);
     check_ll("play 落引擎", g_stub.last_play, 1);
@@ -464,9 +505,12 @@ static void case_bounds(void)
     apply(CMD_NOTE_ON, 0, 0, 200);
     check_ll("note 越界不调引擎", g_stub.note_calls, 0);
 
+    uint32_t mix0 = g_stub.set_mute_calls + g_stub.set_solo_calls + g_stub.select_calls;
     apply(CMD_MUTE, 9, 0, 0);
     apply(CMD_SOLO, 9, 0, 0);
     apply(CMD_SET_TRACK, 7, 0, 0);
+    check_ll("越界混音命令不调引擎",
+             (long long)(g_stub.set_mute_calls + g_stub.set_solo_calls + g_stub.select_calls - mix0), 0);
     state_get_copy(&s);
     for (uint32_t k = 0; k < 4; k++) {
         check_ll("越界 mute 不改", s.core.trk[k].mute, 0);
@@ -485,7 +529,7 @@ int main(void)
     run("TOGGLE_STEP 空步↔关（last_note/默认 60）", case_toggle_step_empty);
     run("TOGGLE_STEP read-modify-write 保留字段", case_toggle_step_preserves);
     run("TOGGLE_STEP 关步折叠 TIE 连缀", case_toggle_step_tie_collapse);
-    run("MUTE/SOLO 轨位翻转", case_mute_solo);
+    run("MUTE/SOLO 引擎写入口与 sync 真值", case_mute_solo);
     run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);

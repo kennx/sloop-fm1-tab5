@@ -64,21 +64,9 @@ void state_sync_from_engine(void)
     sloop_core_read(&snap);
 
     state_lock();
-    /* 选轨与逐轨 mute/solo 暂无引擎写入口（sloop_core 只落了快照/步/全局写），
-     * 由本层持有，sync 不覆盖；其余字段取引擎真值（见 sloop_state.h 的 MVP 约定）。 */
-    uint8_t selected = s_state.core.selected_track;
-    uint8_t mute[APP_STATE_TRACKS];
-    uint8_t solo[APP_STATE_TRACKS];
-    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
-        mute[k] = s_state.core.trk[k].mute;
-        solo[k] = s_state.core.trk[k].solo;
-    }
+    /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
+     * set_mute/set_solo），本层不再持有，也不做任何例外保持。 */
     s_state.core = snap;
-    s_state.core.selected_track = selected;
-    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
-        s_state.core.trk[k].mute = mute[k];
-        s_state.core.trk[k].solo = solo[k];
-    }
     state_unlock();
 }
 

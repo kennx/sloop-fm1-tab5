@@ -74,18 +74,6 @@
 | **触发条件** | 阶段 2 里程碑「sloop_core 首版可听」合入 dev/main 前必须完成。 |
 | **登记** | 2026-11-20（P2-4） |
 
-## DI-9: MVP 的选轨 / mute / solo 无引擎写入口（由状态层持有）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | 阶段 3 Task 3（sloop_state）确认：Task 1 落地的 sloop_core 写 API 只覆盖步（`read_step/write_step`）与全局参数（`set_global`，只写 `song.g[]`）；选轨（`song.sel`）与逐轨 mute（`P_MUTE`）/solo（`song.solo`）没有写入口。AppState 按 brief 语义持有这三类值，`state_sync_from_engine` 对它们不取引擎快照（否则 30–60ms 的同步会覆盖掉刚做的编辑）。 |
-| **影响面** | 独立模式 MVP：TRACKS 页选轨高亮与 STEP 网格操作目标正确（state 驱动），但 GLO 层的静音/独奏只改 UI 状态，**音频不静音/不独奏**。串口断言同理：`ENG SNAP` 的 `sel=` **与 `trk ... mute=/solo=` 都打印引擎真值（恒为 0）**，不能用来验证这三类编辑；须改用 `STATE SNAP`（打印状态层持有的 selected_track 与逐轨 mute/solo）。EditCmd/UI 架构与后续阶段不受影响。 |
-| **为何可延迟** | MVP 其余闭环（步编辑/播放/BPM/演奏）不依赖它；spec §3.2 明确 MVP 层语义「由 AppState 实现」。补齐只需引擎侧三个小写入口 + cmd.c 改调。 |
-| **解决方向** | sloop_core 增 `sloop_core_select_track(uint32_t)` / `sloop_core_set_track_mute(uint32_t, bool)` / `sloop_core_set_track_solo(uint32_t, bool)`（走引擎锁，写 `song.sel` / `trk[k].p[P_MUTE]` / `song.solo` 位）；cmd.c 改调它们，并删除 `state.c` 的 sync 特例与 `sloop_state.h` 的 MVP 约定段。 |
-| **触发条件** | 阶段 4 做 GLO 静音/独奏的听感验证之前；或阶段 5 把选轨映射到编辑器协议 `TRACK` 命令之前。 |
-| **登记** | 2026-11-20（阶段 3 Task 3）；2026-11-21 阶段 3 收口复核：状态未变（MVP 仍由状态层持有），按触发条件留待阶段 4 前处理 |
-
-
 ## DI-10: 触摸面板幽灵按压污染冒烟采集（未定性）
 
 | 项 | 内容 |

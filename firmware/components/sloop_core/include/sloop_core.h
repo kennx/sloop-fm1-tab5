@@ -7,8 +7,9 @@
 #include "esp_err.h"
 
 /* 线程/所有权规则：sloop_core_render 与所有改变引擎状态的 API（track/note/hit/
- * play/set_global/write_step）以及只读的 read/read_step 共享内部互斥锁，可从
- * 不同任务调用；不得在 ISR 中调用。selftest 与音频流互斥（流式期间返回 busy）。
+ * play/set_global/write_step/set_mute/set_solo/select）以及只读的 read/read_step
+ * 共享内部互斥锁，可从不同任务调用；不得在 ISR 中调用。selftest 与音频流互斥
+ * （流式期间返回 busy）。
  * 诊断模式（sloop_core_diag_freeze，console `ENG SELFTEST` 用）：冻结后 read 返回
  * 冻结快照、read_step 返回全零、写 API 直接丢弃（均不取锁），selftest 因此可整段持
  * 引擎锁而不制造等待者——UI 在自检期间停在最后一帧、键盘编辑不落地，结束后下一拍
@@ -68,6 +69,14 @@ void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
  * 不要用它执行 GO/动作全局（G_LOAD/G_SAVE/G_CLRSEQ/G_INITSND/G_NEWPRJ/G_ENGSEL/
  * G_INFO 等）——上游这些是瞬时的 UI 按钮/查询，写 song.g[] 只会改值、不执行动作。 */
 void sloop_core_set_global(uint32_t id, int16_t value);
+
+/* 选轨 / 静音 / 独奏写（SEL/GLO 层的可听路径）：分别写 song.sel、trk[k].p[P_MUTE]
+ * （0/1，上游 N_ONOFF）与 song.solo（低 4 位独奏掩码）。走引擎锁，越界
+ * （k>=NTRK）与冻结态直接丢弃。听感口径是上游 trk_silent()：P_MUTE 置位，或
+ * 「有独奏且本位未置」即静音。 */
+void sloop_core_set_mute(uint32_t k, bool mute);
+void sloop_core_set_solo(uint8_t mask);
+void sloop_core_select(uint32_t k);
 
 /* 诊断模式（console `ENG SELFTEST` 前后调用）：freeze(true) 先持锁取一份快照再置位，
  * 之后 read 返回该冻结快照、read_step 返回全零、所有改变引擎状态的 API 直接丢弃

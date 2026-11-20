@@ -1,4 +1,4 @@
-/* host 单测的引擎替身：实现 sloop_state 调用的 6 个引擎函数并记录调用。
+/* host 单测的引擎替身：实现 sloop_state 调用的 9 个引擎函数并记录调用。
  * 快照/步表就是 stub 的状态，state_sync_from_engine 走真实的 sloop_core_read 路径。 */
 #ifndef STUB_ENGINE_H
 #define STUB_ENGINE_H
@@ -16,9 +16,13 @@ typedef struct {
     sloop_step_t step[STUB_ENGINE_TRACKS][STUB_ENGINE_STEPS]; /* read_step/write_step 后端 */
     uint32_t read_calls, read_step_calls, write_step_calls;
     uint32_t note_calls, play_calls, set_global_calls;
+    uint32_t set_mute_calls, set_solo_calls, select_calls;
     bool last_play;
     struct { uint32_t track, note; bool on; } last_note;
     struct { uint32_t id; int16_t value; } last_global;
+    struct { uint32_t track; bool mute; } last_mute;
+    uint8_t last_solo_mask;
+    uint32_t last_select;
 } stub_engine_t;
 
 extern stub_engine_t g_stub;

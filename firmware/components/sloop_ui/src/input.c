@@ -302,7 +302,6 @@ static void dispatch(const key_binding_t *b, bool down)
     }
     case ACT_MUTE:
     case ACT_SOLO: {
-        /* 状态层持有 mute/solo（DI-9，引擎暂无写入口）：串口断言用 STATE SNAP */
         const edit_cmd_t cmd = { .type = b->action == ACT_MUTE ? CMD_MUTE : CMD_SOLO,
                                  .a = (uint32_t)b->param };
         state_apply(&cmd);

@@ -9,7 +9,7 @@
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF、
  *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
- *    与状态层持有的选轨/mute/solo；引擎真值看 ENG SNAP）。
+ *    与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
@@ -471,7 +471,7 @@ static int eng_command(int argc, char **argv)
 }
 
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
- * 选轨/mute/solo 目前由状态层持有（引擎无写入口，DI-9），只能从这里的读取断言。 */
+ * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）。 */
 static int state_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
@@ -487,7 +487,7 @@ static int state_command(int argc, char **argv)
         }
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键与状态层持有的选轨/mute/solo；引擎真值见 ENG SNAP）\n");
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键与引擎真值的选轨/mute/solo；同 ENG SNAP）\n");
     return 1;
 }
 
@@ -719,7 +719,7 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 由状态层持有；引擎真值见 ENG SNAP）",
+        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源）",
         .hint = "SNAP",
         .func = &state_command,
     };

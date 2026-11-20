@@ -104,4 +104,4 @@ window_len}`，页面布局/hit-test/注入脚本都从它推导，再扩网格�
 - 引擎保持单例+互斥；UI 输入路径的 input 任务已落地（`sloop_ui/src/input.c`：5ms 轮询
   `tab5_kb_poll`，优先级 4，层模型见 ADR-006）；串口 `KEY <code> <down|up>` 与物理同入口，
   实测派发延迟（含 state_apply 与 PLAY 指示入队）均值 ≈0.51ms、note-on 最大 ≈1.37ms（note-off 最大 1.32ms；Task 6，见 verification-log）。切页走 `sloop_ui_request_page()` 邮箱（派发 22–72µs），输入路径不再等 LVGL 锁。
-- 阶段 3 MVP 的选轨与逐轨 mute/solo 暂由状态层持有（引擎暂无写入口）：音频效果与串口断言局限见 `docs/deferred-issues.md` DI-9（串口用 `STATE SNAP`，不能用 `ENG SNAP`）；引擎写入落地后删除该特例。
+- 阶段 3 遗留的「选轨与逐轨 mute/solo 由状态层持有」特例已在阶段 4 P4-0 Task 1 删除：引擎落地 `sloop_core_select/set_mute/set_solo`（`song.sel`/`P_MUTE`/`song.solo`），`state_sync_from_engine` 整份取引擎真值、无例外；`STATE SNAP` 与 `ENG SNAP` 对这三类值同源，音频效果即上游 `trk_silent()` 口径（听感人测仍为外部门禁）。

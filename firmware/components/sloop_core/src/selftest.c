@@ -564,6 +564,30 @@ void sloop_core_set_global(uint32_t id, int16_t value)
     engine_unlock();
 }
 
+void sloop_core_set_mute(uint32_t k, bool mute)
+{
+    if (k >= NTRK || s_frozen) return;
+    engine_lock();
+    trk[k].p[P_MUTE] = (int16_t)(mute ? 1 : 0); /* 上游 N_ONOFF：0/1 */
+    engine_unlock();
+}
+
+void sloop_core_set_solo(uint8_t mask)
+{
+    if (s_frozen) return;
+    engine_lock();
+    song.solo = (uint8_t)(mask & 0xFu); /* 每轨 1 位，低 NTRK 位 */
+    engine_unlock();
+}
+
+void sloop_core_select(uint32_t k)
+{
+    if (k >= NTRK || s_frozen) return;
+    engine_lock();
+    song.sel = (uint8_t)k;
+    engine_unlock();
+}
+
 /* 诊断模式开关（console `ENG SELFTEST` 前后调用，见 sloop_core.h）：
  *  - freeze(true)：持引擎锁取一份快照后置位。置位后 read 直接返回该快照、
  *    read_step 返回全零、所有写 API 直接丢弃——UI 定时器与 input 任务都不再取

@@ -71,3 +71,30 @@ void sloop_core_note(uint32_t track, uint32_t note, bool on)
     g_stub.last_note.note = note;
     g_stub.last_note.on = on;
 }
+
+/* 三个混音写入口：与真引擎同语义——写进快照后端，随后 state_sync_from_engine
+ * 经 sloop_core_read 读到的就是这些值（sync 不再有状态层例外可依赖）。 */
+void sloop_core_set_mute(uint32_t k, bool mute)
+{
+    g_stub.set_mute_calls++;
+    g_stub.last_mute.track = k;
+    g_stub.last_mute.mute = mute;
+    if (k >= 4u) return;
+    g_stub.snap.trk[k].mute = mute ? 1u : 0u;
+}
+
+void sloop_core_set_solo(uint8_t mask)
+{
+    g_stub.set_solo_calls++;
+    g_stub.last_solo_mask = mask;
+    mask &= 0x0Fu;
+    for (uint32_t k = 0; k < 4u; k++) g_stub.snap.trk[k].solo = (mask >> k) & 1u;
+}
+
+void sloop_core_select(uint32_t k)
+{
+    g_stub.select_calls++;
+    g_stub.last_select = k;
+    if (k >= 4u) return;
+    g_stub.snap.selected_track = (uint8_t)k;
+}
