@@ -15,32 +15,32 @@ regress: voices: LEGATO keeps its note: LEGATO part held its note through 868 vo
 regress: voices: UNISON keeps its note: UNISON part held its note through 875 voices taken from the others: lost in 0 blocks ok
 regress: voices: VOICE engine cap: VOICE engine, 8 keys: at most 4 voices in POLY, 4 in UNISON (cap 4); freed after release ok
 regress: routing: no hanging notes: 14135 random MIDI / key events on ch 1-3, 10, 5, 16 and the keys, track selection changing, 3 rounds: no gate left on, every voice free ok
-regress: CPU OVER BUDGET  cpu/DIGITAL/12_FM_BASS: 1545 over the idle mix (time), baseline 1107 (+40 %, limit +35 %) -- timed: a note, not a failure
-regress: CPU note  cpu/SAMPLE/01_UP_BASS: 42 (time), baseline 554 (-92 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/02_VIBES: -2 (time), baseline 594 (-100 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/03_HORN_STAB: -0 (time), baseline 252 (-100 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/04_STRING_STB: 91 (time), baseline 223 (-59 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/06_SCRATCH: 9 (time), baseline 210 (-96 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/07_GM_KIT: 7 (time), baseline 236 (-97 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/SAMPLE/10_DEEP_BASS: 72 (time), baseline 1125 (-94 %): faster? BUDGET_UPDATE=1 to keep it
-regress: CPU note  cpu/FM6/05_WOOD_BARS: 5 (time), baseline 284 (-98 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU OVER BUDGET  cpu/DIGITAL/12_FM_BASS: 1523 over the idle mix (time), baseline 1107 (+38 %, limit +35 %) -- timed: a note, not a failure
+regress: CPU note  cpu/SAMPLE/01_UP_BASS: 32 (time), baseline 554 (-94 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/02_VIBES: 25 (time), baseline 594 (-96 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/03_HORN_STAB: 3 (time), baseline 252 (-99 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/04_STRING_STB: 37 (time), baseline 223 (-83 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/06_SCRATCH: 4 (time), baseline 210 (-98 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/07_GM_KIT: -2 (time), baseline 236 (-101 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/10_DEEP_BASS: 8 (time), baseline 1125 (-99 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/FM6/05_WOOD_BARS: 13 (time), baseline 284 (-95 %): faster? BUDGET_UPDATE=1 to keep it
 regress: CPU: no instruction counter on this host: timed (best of three seconds, limit +35 %; CPU_VALGRIND=1 counts them exactly under callgrind)
 regress: CPU, one part with 8 notes held (VOICE 4), heaviest preset per engine (per mille / ns per sample):
-regress:   ANALOG   MONO BASS        2242 /1000   167.2 ns
-regress:   DIGITAL  FM BASS          2140 /1000   159.6 ns
-regress:   PHASE    CZ PAD           1910 /1000   142.5 ns
-regress:   LOFI     GAME LEAD        1602 /1000   119.5 ns
-regress:   SAMPLE   LOFI KEYS        1941 /1000   144.8 ns
-regress:   VOICE    TALKBOX          1831 /1000   136.6 ns
-regress:   TRIO     ACCORDION        2627 /1000   196.0 ns
-regress:   WHEEL    HOUSE ORGN       2493 /1000   186.0 ns
-regress:   GRAIN    PNO FREEZE       1555 /1000   116.0 ns
-regress:   FM6      BRASS SECT       2229 /1000   166.3 ns
-regress:   PHYS     BOWED MTL        2446 /1000   182.5 ns
-regress:   NOISE    RADIO            2539 /1000   189.5 ns
-regress:   idle                       595 /1000    44.4 ns
-regress:   idle_drums                1000 /1000    74.6 ns
-regress:   3parts_full_drums         2895 /1000   216.0 ns
+regress:   ANALOG   WOBBLE           2228 /1000   167.8 ns
+regress:   DIGITAL  FM BASS          2114 /1000   159.3 ns
+regress:   PHASE    CZ LEAD          1827 /1000   137.6 ns
+regress:   LOFI     GAME LEAD        1592 /1000   120.0 ns
+regress:   SAMPLE   LOFI KEYS        1994 /1000   150.2 ns
+regress:   VOICE    HARMONICA        1820 /1000   137.1 ns
+regress:   TRIO     SQR LEAD         2537 /1000   191.1 ns
+regress:   WHEEL    HOUSE ORGN       2431 /1000   183.1 ns
+regress:   GRAIN    HORN CLOUD       1557 /1000   117.2 ns
+regress:   FM6      SOFT PAD         2178 /1000   164.1 ns
+regress:   PHYS     GLASS BOWL       2389 /1000   180.0 ns
+regress:   NOISE    RADIO            2480 /1000   186.8 ns
+regress:   idle                       591 /1000    44.5 ns
+regress:   idle_drums                1000 /1000    75.3 ns
+regress:   3parts_full_drums         2910 /1000   219.2 ns
 regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (9 notes), 0 crashes; 4.7 s
 == DSP render (ANALOG preset 0)
 == sequencer 2.0
@@ -421,7 +421,7 @@ quick switch KILL LOW -> MONO -> KILL MID over silence: peak 0
 black keys: KILL LOW / MID / HIGH, REWIND, OCT UP, FLANGER, AUTO-PAN, FREEZE, LOOP 8T, MONO, FADE OUT do what they say PASS
 punch-in FX: 27 effects change the mix while held, bounded, exact dry mix after release; FX-held keys pick effects, play and record nothing PASS
 == soak: 1 minute(s) of random live use
-soak: 1 min, 2079 events, peak 17994, max block 94.1 us, mean 3.42 us; tail 0
+soak: 1 min, 2079 events, peak 17994, max block 45.2 us, mean 3.45 us; tail 0
 soak: free takes 9, closed into a loop 0
 soak: random live use, bounded output, no hanging voices, idle after stop PASS
 ALL HOST TESTS PASSED (subset)

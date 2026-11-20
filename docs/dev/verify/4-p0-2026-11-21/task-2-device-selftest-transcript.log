@@ -1,25 +1,25 @@
 sloop>  ENG SELFTEST
-I (11421) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+I (11432) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
 ENG SELFTEST BEGIN
-E (166631) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
-E (166631) task_wdt:  - IDLE0 (CPU 0)
-E (166631) task_wdt: Tasks currently running:
-E (166631) task_wdt: CPU 0: console_repl
-E (166631) task_wdt: CPU 1: IDLE1
-E (166631) task_wdt: Print CPU 0 (current core) registers
+E (167702) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (167702) task_wdt:  - IDLE0 (CPU 0)
+E (167702) task_wdt: Tasks currently running:
+E (167702) task_wdt: CPU 0: console_repl
+E (167702) task_wdt: CPU 1: IDLE1
+E (167702) task_wdt: Print CPU 0 (current core) registers
 Core  0 register dump:
-MEPC    : 0x40028c0c  RA      : 0x4002bc18  SP      : 0x4ff3e2b0  GP      : 0x4ff16b00
-TP      : 0x4ff3f280  T0      : 0x00008000  T1      : 0x400f1c4c  T2      : 0x00000014
-S0/FP   : 0x4ff63c94  S1      : 0x4ff63c14  A0      : 0x000083c4  A1      : 0x00000005
-A2      : 0x00000000  A3      : 0x4ff19d64  A4      : 0x4ff19d12  A5      : 0x000008ba
-A6      : 0x00000000  A7      : 0x00000058  S2      : 0x4ff63d94  S3      : 0x400f1000
-S4      : 0xffff8000  S5      : 0x00002d34  S6      : 0x00007fff  S7      : 0x4ff19d11
-S8      : 0x4ff19d10  S9      : 0x4ff19d14  S10     : 0x400f2000  S11     : 0x400f1000
-T3      : 0x4ff63e14  T4      : 0x000018b8  T5      : 0x00010000  T6      : 0xffff0000
+MEPC    : 0x40028c9c  RA      : 0x4002bc34  SP      : 0x4ff3e2b0  GP      : 0x4ff16b00
+TP      : 0x4ff3f280  T0      : 0x00008000  T1      : 0x400f1d2c  T2      : 0x0000005c
+S0/FP   : 0x4ff63cdc  S1      : 0x4ff63c5c  A0      : 0x000083c4  A1      : 0x00000017
+A2      : 0x00221000  A3      : 0x4ff19d10  A4      : 0x00221000  A5      : 0x00000221
+A6      : 0x00000000  A7      : 0x00000058  S2      : 0x4ff63ddc  S3      : 0x400f1000
+S4      : 0xffff8000  S5      : 0x00002d34  S6      : 0x00007fff  S7      : 0x4ff19d10
+S8      : 0x4ff19d10  S9      : 0x4ff19d10  S10     : 0x400f2000  S11     : 0x400f1000
+T3      : 0x4ff63e5c  T4      : 0x00004f70  T5      : 0x00010000  T6      : 0xffff0000
 MSTATUS : 0x00001888  MTVEC   : 0x4ff00003  MCAUSE  : 0xdeadc0de  MTVAL   : 0xdeadc0de
 MHARTID : 0x00000000
 Please enable CONFIG_ESP_SYSTEM_USE_FRAME_POINTER option to have a full backtrace.
-regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (0 notes), 158 crashes; 156.4 s
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (0 notes), 158 crashes; 157.4 s
 preset/ANALOG/00_808_BOOM 0b447c66765e1780
 preset/ANALOG/01_808_DIRTY 402ad42574c9a7ac
 preset/ANALOG/02_SUB_BASS e2923181844810dc

@@ -89,7 +89,7 @@
 
 | 项 | 内容 |
 |---|---|
-| **背景** | P4-0 Task 2 修复 DI-11 后，全量 182 例在 UI live 下通过（156.5s），但运行末尾仍打一条 `task_wdt`（`- IDLE0`、`CPU 0: console_repl`）：某个 golden job 连续占用 console 任务 >5s，IDLE0 在这段窗口内无法被调度喂狗。summary 在 WDT 后 ~1.3s 正常给出 `result=PASS`，设备无卡死。证据：`docs/dev/verify/4-p0-2026-11-21/task-2-selftest-full-uiquiesce.log` 第 142 行。 |
+| **背景** | P4-0 Task 2 修复 DI-11 后，全量 182 例在 UI live 下通过（157.4s），但运行末尾仍打一条 `task_wdt`（`- IDLE0`、`CPU 0: console_repl`）：某个 golden job 连续占用 console 任务 >5s，IDLE0 在这段窗口内无法被调度喂狗。summary 在 WDT 后 ~1.2s 正常给出 `result=PASS`，设备无卡死。证据：`docs/dev/verify/4-p0-2026-11-21/task-2-selftest-full-uiquiesce.log` 第 142 行。 |
 | **影响面** | 仅诊断期日志噪声：引擎门禁判据（汇总行命中 cases/identical/mismatch/checks/result）不受影响。风险是读者把这条 WDT 与已删除的 DI-11 卡死混为一谈（两者形态不同：DI-11 是 console 无响应 + `sloop_input` 自旋）。 |
 | **为何可延迟** | 不影响判定与产品行为；单 job 的耗时由 vendored `regress.c` 决定，工程约定不改上游用例表。 |
 | **解决方向** | 若需彻底洁净：诊断期把 `esp_task_wdt` 超时临时调到 >最长 job（`esp_task_wdt_init`，结束后恢复 5s）；或在 shim 的 `selftest_read()/waitpid()` 之外给 job 内循环加喂狗钩子（需上游配合）。取舍：前者临时关闭 IDLE 看门狗，后者动上游。 |
