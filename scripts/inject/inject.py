@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-五条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh）是本文的
-薄封装。每个场景：
+六条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh）
+是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -264,6 +264,14 @@ class Session:
         if m is None:
             raise InjectError(f"UI 回显缺少页号：{self.last!r}")
         return int(m.group(1))
+
+    # ---- 复位（断电语义） ----
+    def reboot(self) -> None:
+        """esptool 硬复位并等 console 就绪（只读 flash_id，不写 flash）：验证开机路径
+        （如 RAM 槽的开机 fetch）用。要赶在 init 之前发命令时不用它——见
+        store_early_load_probe（wait_boot 会把命令推迟到 init 之后）。"""
+        self.ser.note("复位设备（esptool flash_id --after hard_reset，不写 flash）")
+        self._reset_and_reopen()
 
     # ---- 截屏与像素抽检 ----
     def _reset_and_reopen(self) -> None:
@@ -1453,19 +1461,248 @@ def run_params(s: Session) -> None:
     s.expect(r"UI page=play \(0\)", "复位 UI play")
 
 
+# ---------------------------------------------------------------- STORE ---
+# 存储门禁（ADR-009 §5/§9）：工程 A–D 的「RAM 槽（PSRAM）+ flash」双层往返，以及
+# 开机 fetch。console 契约（main/console.c 的 STORE 命令族）：
+#   STORE STATS                 -> "STORE STATS ready=… base=… span=… map=… objects=… faults=… armed=…"
+#   STORE PROJ LIST             -> 每槽一行 "PROJ n EMPTY" / "PROJ n USED hash=XXXXXXXX"
+#   STORE PROJ SAVE|LOAD|ERASE n-> "PROJ n SAVED|LOADED hash=XXXXXXXX" / "PROJ n ERASED"
+#   STORE PROJ HASH n           -> "PROJ n HASH=XXXXXXXX"（只读 RAM 槽；空槽回 STORE ERR empty）
+#   STORE LIVEHASH              -> "LIVEHASH XXXXXXXX"（当前引擎状态的捕获 hash）
+#   错误统一 "STORE ERR <no_storage|playing|empty|invalid|save>"
+STORE_HASH8 = r"([0-9A-Fa-f]{8})"
+# 热复位早探的重对齐次数：主机侧可能晚于 init 才读到提示符（不是固件失败）
+STORE_WARM_ATTEMPTS = 5
+
+
+def store_expect(s: Session, pattern: str, label: str) -> re.Match:
+    """断言当前回显匹配 pattern；不匹配抛 InjectError（固件缺命令/回显改名时不得
+    静默通过，RED 阶段就是这条路径先炸）。"""
+    m = re.search(pattern, s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"{label}: 回显缺少 /{pattern}/（响应 {s.last.strip()!r}）")
+    s.ok(label)
+    return m
+
+
+def store_cmd(s: Session, cmd: str, pattern: str, label: str = "") -> re.Match:
+    s.cmd(cmd)
+    return store_expect(s, pattern, label or cmd)
+
+
+def store_hash(s: Session, cmd: str, pattern: str, label: str = "") -> int:
+    return int(store_cmd(s, cmd, pattern, label).group(1), 16)
+
+
+def store_bpm(s: Session) -> int:
+    s.cmd("STATE SNAP")
+    return s.snap_int(r"STATE SNAP global bpm=(-?\d+)")
+
+
+def store_bpm_settled(s: Session, want: int, timeout: float = 1.0, step: float = 0.05) -> bool:
+    """`PROJ LOAD` 之后等 AppState 的 g[] 投影对齐：LOAD 直接写引擎，`STATE SNAP` 读的是
+    状态层每 30ms 同步一次的投影——不能假定命令返回时已经过了下一拍。轮询到 want 或超时
+    （超时返回 False，由调用方判失败）。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        got = store_bpm(s)
+        if got == want:
+            return True
+        if time.monotonic() >= deadline:
+            print(f"  [NOTE] STATE SNAP bpm 轮询 {timeout:.1f}s 后仍为 {got}（期望 {want}）")
+            return False
+        time.sleep(step)
+
+
+def store_early_load_probe(s: Session, timeout: float = 20.0) -> str:
+    """热复位后的**早探**：console 一接受命令就发 `STORE PROJ LOAD 0`（不等 init 完成）。
+
+    `.noinit` 的哨兵/指针跨热复位存活，而 PSRAM 堆与 HAL 的 ready（.bss）是新的；若公共
+    API 只看哨兵，这一发就会拿着上一次会话的悬垂信号量取锁 → 挂死或崩溃。故这里复位后
+    **不调 wait_boot**（它会等到 boot 日志不再插行、天然错过 3.0s→4.1s 的窗口），而是
+    自己读串口，一看到 `sloop>` 就立刻发命令，读到「STORE 结果令牌」为止。
+
+    返回的原始回显里含 boot 日志，调用方按 `sloop_store: ready` 的位置判断这次命令是
+    落在 init 之前（窗口内）还是之后（主机侧迟到）。
+    """
+    s.ser.note("⑦ 早探：esptool 复位（不等提示符）→ 见到 sloop> 立即发 STORE PROJ LOAD 0")
+    s.ser.close()
+    try:
+        shot.esptool_reset(s.port, BAUD)
+    except shot.ResetError as e:
+        raise InjectError(f"⑦ 早探复位失败: {e}") from None
+    deadline = time.monotonic() + 5.0
+    while True:  # 复位后端口可能短暂重新枚举
+        try:
+            s.ser = s._open()
+            break
+        except InjectError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
+
+    needle = (b"STORE ERR", b"PROJ 0 ")
+    buf = bytearray()
+    sent = False
+    deadline = time.monotonic() + timeout
+    s.ser.timeout = 0.05
+    while time.monotonic() < deadline:
+        try:
+            chunk = s.ser.read(256)
+        except Exception:  # 重新枚举期间读失败：稍等再试
+            time.sleep(0.05)
+            continue
+        if chunk:
+            buf.extend(chunk)
+            if not sent and b"sloop>" in buf:
+                s.ser.write(b"STORE PROJ LOAD 0\n")
+                s.ser.flush()
+                sent = True
+            if sent and any(n in buf for n in needle):
+                break
+    s.last = buf.decode(errors="replace")
+    return s.last
+
+
+def store_warm_verdict(text: str):
+    """解析早探回显：(在 init 之前?, 结果令牌)。令牌 = 回显里最早出现的 STORE 结果行。"""
+    tokens = ("STORE ERR no_storage", "STORE ERR empty", "STORE ERR playing",
+              "STORE ERR invalid", "STORE ERR save", "PROJ 0 LOADED", "PROJ 0 SAVED")
+    hit = min(((text.find(t), t) for t in tokens if text.find(t) >= 0), default=None)
+    ready = text.find("sloop_store: ready")
+    if hit is None:
+        return (None, None)  # 没有结果令牌（挂死/崩溃）
+    in_window = ready < 0 or hit[0] < ready
+    return (in_window, hit[1])
+
+
+def run_store(s: Session) -> None:
+    """store 场景：工程 A–D 的 RAM 槽 + flash 双层往返 + 开机 fetch（brief Step 1）。
+
+    ① 归一：四槽 ERASE → LIST 全 EMPTY（脚本可重复）；
+    ② BPM 100 → LIVEHASH=h0 → SAVE 0 → HASH 0==h0（RAM 槽 hash 与捕获同源）；
+    ③ BPM 120 → LIVEHASH=h1≠h0（保存的确实是快照，不是活状态）；
+    ④ LOAD 0 → LIVEHASH==h0、STATE SNAP bpm 回 100；
+    ⑤ ERASE 0 → LIST EMPTY、LIVEHASH 不变（擦除只动存储，不动引擎）；
+    ⑥ 再 SAVE 0 → h2==h0（同一引擎状态 ⇒ 同一 hash，往返稳定）；
+    ⑦ esptool 硬复位 → **早探**（console 一接受命令就发 LOAD 0，必须回 STORE ERR
+       no_storage、绝不挂死：`.noinit` 哨兵跨热复位存活，而 HAL ready 在 .bss）→
+       LIST 仍 USED、**HASH 0==h2**（HASH 只读 RAM 槽、不走 flash 回落 ⇒ 这是「开机
+       fetch 填充了 RAM 槽」的证据）、LOAD 0 → LIVEHASH==h2（bpm 轮询等投影对齐）；
+    ⑧ 单例 ENG SELFTEST 之后 HASH 0 仍==h2（PSRAM 指针在 .noinit，自检 restore
+       不回滚——本任务最险的失效模式）。
+    """
+    ensure_stopped(s)
+    store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "STORE STATS ready=1")
+
+    s.ser.note("① 归一：四槽 ERASE + LIST 全 EMPTY")
+    for i in range(4):
+        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"① ERASE {i}")
+    s.cmd("STORE PROJ LIST")
+    for i in range(4):
+        store_expect(s, rf"^PROJ {i} EMPTY\r?$", f"① LIST PROJ {i} EMPTY")
+
+    s.ser.note("② BPM 100 → LIVEHASH h0 → SAVE 0")
+    store_cmd(s, "PARAM GLOBAL 0 100", r"^PARAM GLOBAL id=0 value=100 applied=100 ",
+              "② BPM=100")
+    (s.ok if store_bpm(s) == 100 else s.fail)("② STATE SNAP bpm=100")
+    h0 = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "② LIVEHASH h0")
+    # 保存前先归一 hash 非零（0 = 无效工程；捕获失败会静默「通过」后续相等断言）
+    (s.ok if h0 != 0 else s.fail)(f"② h0={h0:08X} 非零（捕获有效）")
+    store_cmd(s, "STORE PROJ SAVE 0", rf"^PROJ 0 SAVED hash={STORE_HASH8}\r?$", "② SAVE 0")
+    (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
+                        "② HASH 0（RAM 槽）") == h0 else s.fail)(f"② HASH 0 == h0={h0:08X}")
+
+    s.ser.note("③ BPM 120 → LIVEHASH h1 != h0")
+    store_cmd(s, "PARAM GLOBAL 0 120", r"^PARAM GLOBAL id=0 value=120 applied=120 ",
+              "③ BPM=120")
+    (s.ok if store_bpm(s) == 120 else s.fail)("③ STATE SNAP bpm=120")
+    h1 = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "③ LIVEHASH h1")
+    (s.ok if h1 != h0 else s.fail)(f"③ h1={h1:08X} != h0={h0:08X}")
+
+    s.ser.note("④ LOAD 0 → 引擎回到 h0（含 bpm）")
+    store_cmd(s, "STORE PROJ LOAD 0", rf"^PROJ 0 LOADED hash={STORE_HASH8}\r?$", "④ LOAD 0")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "④ LIVEHASH==h0") == h0 else s.fail)(
+        f"④ LIVEHASH 回到 h0={h0:08X}")
+    (s.ok if store_bpm_settled(s, 100) else s.fail)("④ STATE SNAP bpm=100（保存时的值）")
+
+    s.ser.note("⑤ ERASE 0 → LIST EMPTY、LIVEHASH 不变")
+    store_cmd(s, "STORE PROJ ERASE 0", r"^PROJ 0 ERASED\r?$", "⑤ ERASE 0")
+    s.cmd("STORE PROJ LIST")
+    for i in range(4):
+        store_expect(s, rf"^PROJ {i} EMPTY\r?$", f"⑤ LIST PROJ {i} EMPTY")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⑤ LIVEHASH 不变") == h0 else s.fail)("⑤ LIVEHASH 仍为 h0（擦除不动引擎）")
+
+    s.ser.note("⑥ 再 SAVE 0（为开机 fetch 用例留一个 USED 槽）")
+    h2 = store_hash(s, "STORE PROJ SAVE 0", rf"^PROJ 0 SAVED hash={STORE_HASH8}\r?$", "⑥ SAVE 0")
+    (s.ok if h2 == h0 else s.fail)(f"⑥ 再保存 hash h2={h2:08X} == h0={h0:08X}")
+
+    s.ser.note("⑦ 硬复位（不写 flash）→ 先在 console 一接受命令时早探 LOAD 0（热复位哨兵）")
+    early = False
+    for attempt in range(1, STORE_WARM_ATTEMPTS + 1):
+        text = store_early_load_probe(s)
+        in_window, token = store_warm_verdict(text)
+        s.ser.note(f"⑦ 早探 {attempt}/{STORE_WARM_ATTEMPTS}: in_window={in_window} "
+                   f"token={token!r} 回显={text.strip()[-400:]!r}")
+        if token is None:
+            raise InjectError(
+                "⑦ 热复位后早探 STORE PROJ LOAD 0 无结果令牌（挂死或崩溃？）："
+                f"{text.strip()[-400:]!r}")
+        if in_window and token == "STORE ERR no_storage":
+            early = True
+            s.ok(f"⑦ init 之前发 STORE PROJ LOAD 0 → {token}（第 {attempt} 次，窗口内）")
+            s.wait_ready(timeout=20.0)  # 等 boot 日志结束 + init 完成
+            break
+        if in_window:
+            s.fail(f"⑦ init 之前发 STORE PROJ LOAD 0 却回了 {token!r}（应为 STORE ERR no_storage）")
+            s.wait_ready(timeout=20.0)
+            break
+        print(f"  [NOTE] ⑦ 早探 {attempt}: 主机侧迟到（init 已完成，回 {token!r}），重新对齐")
+    if not early and s.failures == 0:
+        print(f"  [NOTE] ⑦ {STORE_WARM_ATTEMPTS} 次早探都没命中 init 之前的窗口"
+              "（测试前提未成立；不判固件失败，但本项无证据）")
+        s.wait_ready(timeout=20.0)
+
+    store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑦ 复位后 STORE STATS ready=1")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, rf"^PROJ 0 USED hash={STORE_HASH8}\r?$", "⑦ LIST PROJ 0 USED")
+    (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
+                        "⑦ HASH 0（RAM 槽开机 fetch）") == h2 else s.fail)(
+        f"⑦ HASH 0 == h2={h2:08X}")
+    store_cmd(s, "STORE PROJ LOAD 0", rf"^PROJ 0 LOADED hash={STORE_HASH8}\r?$", "⑦ LOAD 0")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⑦ LIVEHASH==h2") == h2 else s.fail)(
+        f"⑦ LIVEHASH 恢复 h2={h2:08X}")
+    (s.ok if store_bpm_settled(s, 100) else s.fail)("⑦ STATE SNAP bpm=100（工程内的值）")
+
+    s.ser.note("⑧ 诊断期 selftest 之后存储仍可用（.noinit 指针/RAM 槽不被 restore 回滚）")
+    s.cmd("ENG AUDIO OFF")
+    s.expect(r"ENG AUDIO streaming=0", "⑧ ENG AUDIO OFF")
+    s.cmd("ENG SELFTEST preset/ANALOG/00_808_BOOM", timeout=90)
+    store_expect(s, r"^ENG SELFTEST .*result=PASS\r?$", "⑧ 单例 selftest PASS")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⑧ ENG AUDIO ON")
+    (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
+                        "⑧ selftest 后 HASH 0（RAM 槽）") == h2 else s.fail)(
+        f"⑧ HASH 0 == h2={h2:08X}（自检 restore 未回滚存储指针与 RAM 槽）")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
     "step_edit": run_step_edit,
     "tracks": run_tracks,
     "nav": run_nav,
+    "store": run_store,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（四条 .sh 各对应一个）")
+                    help="注入场景（六条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")

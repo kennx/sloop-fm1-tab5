@@ -1,0 +1,220 @@
+
+sloop>  # [inject] 场景 store 开始
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  # [inject] ① 归一：四槽 ERASE + LIST 全 EMPTY
+STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE PROJ ERASE 1
+PROJ 1 ERASED
+sloop>  STORE PROJ ERASE 2
+PROJ 2 ERASED
+sloop>  STORE PROJ ERASE 3
+PROJ 3 ERASED
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  # [inject] ② BPM 100 → LIVEHASH h0 → SAVE 0
+PARAM GLOBAL 0 100
+PARAM GLOBAL id=0 value=100 applied=100 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STORE PROJ SAVE 0
+PROJ 0 SAVED hash=CCB3B3D7
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  # [inject] ③ BPM 120 → LIVEHASH h1 != h0
+PARAM GLOBAL 0 120
+PARAM GLOBAL id=0 value=120 applied=120 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=0
+sloop>  STORE LIVEHASH
+LIVEHASH CFF2701B
+sloop>  # [inject] ④ LOAD 0 → 引擎回到 h0（含 bpm）
+STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  # [inject] ⑤ ERASE 0 → LIST EMPTY、LIVEHASH 不变
+STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  # [inject] ⑥ 再 SAVE 0（为开机 fetch 用例留一个 USED 槽）
+STORE PROJ SAVE 0
+PROJ 0 SAVED hash=CCB3B3D7
+sloop>  # [inject] ⑦ 硬复位（不写 flash）→ 先在 console 一接受命令时早探 LOAD 0（热复位哨兵）
+# [inject] ⑦ 早探：esptool 复位（不等提示符）→ 见到 sloop> 立即发 STORE PROJ LOAD 0
+I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 sizeI (230) esp_image: segment 4: paddr=00173d04 vaddr=4ff03ba0 size=12dd4h ( 77268) load
+I (244) esp_image: segment 5: paddr=00186ae0 vaddr=4ff16980 size=047ach ( 18348) load
+I (249) esp_image: segment 6: paddr=0018b294 vaddr=50108080 size=00020h (    32) load
+I (255) boot: Loaded app from partition at offset 0x10000
+I (255) boot: Disabling RNG early entropy source...
+I (261) hex_psram: vendor id    : 0x0d (AP)
+I (261) hex_psram: Latency      : 0x01 (Fixed)
+I (261) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (262) hex_psram: dev id       : 0x03 (generation 4)
+I (262) hex_psram: density      : 0x07 (256 Mbit)
+I (262) hex_psram: good-die     : 0x06 (Pass)
+I (263) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (263) hex_psram: BurstType    : 0x00 ( Wrap)
+I (263) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (264) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (264) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (264) hex_psram: DriveStrength: 0x00 (1/1)
+I (265) MSPI Timing: Enter psram timing tuning
+I (439) esp_psram: Found 32MB PSRAM device
+I (439) esp_psram: Speed: 200MHz
+I (440) hex_psram: psram CS IO is dedicated
+I (440) cpu_start: Multicore app
+I (1390) esp_psram: SPI SRAM memory test OK
+I (1406) cpu_start: Pro cpu start user code
+I (1406) cpu_start: cpu freq: 360000000 Hz
+I (1407) app_init: Application information:
+I (1407) app_init: Project name:     sloop_fm1_tab5
+I (1407) app_init: App version:      f14e2af-dirty
+I (1407) app_init: Compile time:     Nov 21 2026 19:21:52
+I (1407) app_init: ELF file SHA256:  079c90542...
+I (1408) app_init: ESP-IDF:          v5.5.5
+I (1408) efuse_init: Min chip rev:     v1.0
+I (1408) efuse_init: Max chip rev:     v1.99 
+I (1408) efuse_init: Chip rev:         v1.3
+I (1409) heap_init: Initializing. RAM available for dynamic allocation:
+I (1409) heap_init: At 4FF20E40 len 0001A180 (104 KiB): RETENT_RAM
+I (1409) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1409) heap_init: At 4FF9C620 len 000039E0 (14 KiB): RAM
+I (1410) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1410) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1411) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1412) spi_flash: detected chip: generic
+I (1412) spi_flash: flash io: dio
+I (1412) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1413) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1414) main_task: Started on CPU0
+I (1414) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1414) main_task: Calling app_main()
+I (1414) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1414) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1414) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1414) LVGL: Starting LVGL task
+I (1414) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1924) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1924) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1924) st7123: version: 1.0.2
+I (2944) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2944) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2944) ST7123: Touch panel create success, version: 1.0.2
+I (2944) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3094) M5Stack Tab5: Setting LCD backlight: 100%
+I (3094) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3094) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  I (4094) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4094) sloop_tab5: keyboard: OK (0x6D)
+W (4094) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+STORE PROJ LOAD 0W (4104) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+STORE ERR no_storage
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  I (4114) I2# [inject] ⑦ 早探 1/5: in_window=True token='STORE ERR no_storage' 回显='ab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01\r\nI (4094) sloop_tab5: keyboard: OK (0x6D)\r\nW (4094) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512\r\nSTORE PROJ LOAD 0W (4104) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512\r\n\r\nSTORE ERR no_storage\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>  I (4114) I2'
+S_IF: Paired data: 0x4ff28344, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4114) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4114) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4124) ES8388: Start on mode:2
+I (4124) Adev_Codec: Open codec device OK
+I (4124) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4144) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x40170000 handle=1341783888 base=0x97000 span=0x68000
+I (4154) sloop_store: ready: slots=0x48344eec(15264B) stage=0x48348af0 v3=0x483444a8(2584B) base=0x97000 span=0x68000
+I (4154) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4154) sloop_audio_stream: stream started, half=256 frames
+I (4154) sloop_tab5: UI 启动前内部堆剩余 108895 字节
+I (4174) sloop_ui: 页面构建 page=PLAY(0) 池增量=2508B 预算=3072B 池剩余=47144B
+I (4174) sloop_ui: UI 就绪: 9 页注册/1 已建 @1280x720, LVGL 池已用 15716/62820 字节, 内部堆剩余 108895 字节
+I (4194) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4364) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  STORE PROJ LIST
+PROJ 0 USED hash=CCB3B3D7
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  # [inject] ⑧ 诊断期 selftest 之后存储仍可用（.noinit 指针/RAM 槽不被 restore 回滚）
+ENG AUDIO OFF
+I (5854) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (5954) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (6564) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (6664) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  # [inject] 场景 store 结束 failures=0

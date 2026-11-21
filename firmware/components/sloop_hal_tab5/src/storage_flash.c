@@ -125,6 +125,11 @@ uint32_t sloop_hal_storage_fault_taken(void)
     return atomic_load(&s_fault_taken);
 }
 
+bool sloop_hal_storage_fault_armed(void)
+{
+    return atomic_load(&s_fault_nth) != 0;
+}
+
 void sloop_hal_storage_fault_clear(void)
 {
     atomic_store(&s_fault_nth, 0u);

@@ -8,10 +8,12 @@
 #include <unistd.h>
 
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sloop_hal.h"
+#include "sloop_store.h"
 
 #include "golden.inc"
 
@@ -385,6 +387,14 @@ esp_err_t sloop_core_init(void)
         }
     }
     core_status = selftest_snapshot_init();
+    if (core_status != ESP_OK) return core_status;
+    /* 存储（P4-B，ADR-009 §5 启动顺序）：**工厂态快照之后**才做 PSRAM 槽/暂存 + 分区
+     * mmap + 四槽开机 fetch——顺序不可倒（否则自检基线会变成用户工程）。失败只告警：
+     * 引擎/音频照常，console STORE 报 no_storage、UI 显示 NO STORAGE。 */
+    esp_err_t store_ret = sloop_store_init();
+    if (store_ret != ESP_OK) {
+        ESP_LOGW("sloop_core", "存储初始化失败: %s（继续无存储运行）", esp_err_to_name(store_ret));
+    }
     return core_status;
 }
 
@@ -867,3 +877,7 @@ int sloop_core_selftest(const char *case_name)
     if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     return pass ? 0 : 1;
 }
+
+/* 存储层（P4-B）：上游 storage.c / project.c 的格式层与工程 A–D 双层存读，必须在
+ * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
+#include "store_tab5.c"

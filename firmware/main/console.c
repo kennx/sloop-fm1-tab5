@@ -34,11 +34,14 @@
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
  *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
  *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
- *  - STORE：存储诊断（P4-B，ADR-009）。STORE STATS 打印后端状态
- *    （ready/base/span/map/objects/faults）；STORE RAWTEST 对空闲逻辑扇区
+ *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
+ *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
  *    （破坏性）；STORE FAULT <nth> [half] | CLEAR 是 HAL 故障注入入口
  *    （计数只由 erase/prog 递增，arm 期间 read 失败但不计数，Task 8 消费）。
+ *    STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n 是工程 A–D 的存读诊断
+ *    （与 UI 命令同一套 sloop_store_*）；STORE LIVEHASH 打印当前引擎状态的捕获
+ *    hash（工程往返门禁）。错误统一回 "STORE ERR <no_storage|playing|empty|invalid|save>"。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -71,6 +74,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
 
@@ -1173,8 +1177,8 @@ static int tap_command(int argc, char **argv)
     return 0;
 }
 
-/* STORE：存储后端诊断（P4-B Task 2 只有后端状态 + 空闲扇区擦写自检；
- * 后续任务在同一 handler 里扩展 PROJ/PRESET/BANK/TEST）。 */
+/* STORE：存储与工程诊断（P4-B）：后端状态 + 空闲扇区擦写自检 + 故障注入 +
+ * 工程 A–D 的存/读/擦/hash（后续任务在同一 handler 里扩展 PRESET/BANK/TEST）。 */
 #define STORE_RAWTEST_OFF 0xFB000u /* 逻辑 flash-map 偏移：空闲扇区，sloopstore 内 0x64000 */
 #define STORE_RAWTEST_SECTOR 0x1000u
 #define STORE_RAWTEST_PATTERN 0x5Au
@@ -1182,10 +1186,12 @@ static int tap_command(int argc, char **argv)
 
 static int store_stats(void)
 {
-    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=0 faults=%u\n",
-           sloop_hal_storage_ready() ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
+    sloop_store_stats_t st;
+    sloop_store_stats(&st);
+    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=%u faults=%u armed=%u\n",
+           st.ready ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
            (unsigned)sloop_hal_storage_span(), (unsigned long)(uintptr_t)sloop_hal_storage_map(),
-           (unsigned)sloop_hal_storage_fault_taken());
+           (unsigned)st.objects_ok, (unsigned)st.faults_taken, (unsigned)st.faults_armed);
     return 0;
 }
 
@@ -1257,12 +1263,88 @@ static int store_fault(int argc, char **argv)
     return 1;
 }
 
+/* 工程 A–D（0..3）：RAM 槽（PSRAM）+ flash 双层。console 是诊断执行器（ADR-009 §3）：
+ * 与 UI 命令共用 sloop_store_* 与同一套锁，只是能把返回码变成脚本可断言的回显。
+ * 错误令牌：no_storage（未就绪）/playing（走带中）/empty（空槽）/invalid（槽号越界）/
+ * save（flash 擦写或回读校验失败）。 */
+static const char *store_err(esp_err_t err)
+{
+    if (!sloop_store_ready()) return "no_storage";
+    switch (err) {
+    case ESP_ERR_INVALID_STATE: return "playing";
+    case ESP_ERR_NOT_FOUND: return "empty";
+    case ESP_ERR_NOT_FINISHED: return "save";
+    default: return "invalid";
+    }
+}
+
+static int store_err_print(esp_err_t err)
+{
+    printf("STORE ERR %s\n", store_err(err));
+    return 1;
+}
+
+static int store_proj(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        for (uint32_t i = 0; i < SLOOP_STORE_PROJECTS; i++) {
+            if (sloop_store_project_used(i))
+                printf("PROJ %u USED hash=%08X\n", (unsigned)i, (unsigned)sloop_store_project_hash(i));
+            else
+                printf("PROJ %u EMPTY\n", (unsigned)i);
+        }
+        return 0;
+    }
+    if (argc != 4) {
+        printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）\n");
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_PROJECTS - 1u, &slot)) return store_err_print(ESP_ERR_INVALID_ARG);
+    esp_err_t err;
+    if (strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_project_save(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u SAVED hash=%08X\n", (unsigned)slot, (unsigned)sloop_store_project_hash(slot));
+        return 0;
+    }
+    if (strcasecmp(argv[2], "load") == 0) {
+        if ((err = sloop_store_project_load(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u LOADED hash=%08X\n", (unsigned)slot, (unsigned)sloop_store_live_hash());
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0) {
+        if ((err = sloop_store_project_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "hash") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        if (!sloop_store_project_used(slot)) return store_err_print(ESP_ERR_NOT_FOUND);
+        printf("PROJ %u HASH=%08X\n", (unsigned)slot, (unsigned)sloop_store_project_hash(slot));
+        return 0;
+    }
+    printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）\n");
+    return 1;
+}
+
+/* 工程往返门禁（spec §6.3）：当前引擎状态的捕获 hash，不写 flash */
+static int store_livehash(void)
+{
+    if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+    printf("LIVEHASH %08X\n", (unsigned)sloop_store_live_hash());
+    return 0;
+}
+
 static int store_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
     if (argc == 2 && strcasecmp(argv[1], "rawtest") == 0) return store_rawtest();
+    if (argc == 2 && strcasecmp(argv[1], "livehash") == 0) return store_livehash();
     if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
+           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n | STORE LIVEHASH | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;
@@ -1270,12 +1352,9 @@ static int store_command(int argc, char **argv)
 
 esp_err_t app_console_init(void)
 {
-    /* 存储后端开机初始化（分区 sloopstore + mmap，ADR-009）：幂等，Task 3 起
-     * sloop_store_init 再调为 no-op。失败不阻断启动，STORE 报 no_storage。 */
-    esp_err_t store_ret = sloop_hal_storage_init();
-    if (store_ret != ESP_OK) {
-        ESP_LOGE(TAG, "存储后端初始化失败: %s（STORE 将报 no_storage）", esp_err_to_name(store_ret));
-    }
+    /* 存储后端在 sloop_core_init → sloop_store_init 里初始化（ADR-009 §5 启动顺序：
+     * 工厂态快照之后才 fetch）；REPL 任务虽先起，但 STORE 命令经 sloop_store_* 的
+     * 「未初始化 → no_storage」门控，不会碰到未映射的分区。 */
 
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "sloop> ";
@@ -1403,9 +1482,10 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t store_cmd = {
         .command = "STORE",
-        .help = "存储诊断：STORE STATS 后端状态；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
+        .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
+                "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
                 "STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|LIVEHASH|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

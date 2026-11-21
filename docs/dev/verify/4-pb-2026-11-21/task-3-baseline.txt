@@ -1,0 +1,152 @@
+# P4-B Task 3 证据（feat/phase4b：存储核心 + 工程 A–D，RAM 槽 + flash 双层）
+# 日期: 2026-11-21（TDD RED → GREEN；最终证据在 clean 构建产物上重跑）
+# 受测固件: HEAD abf1dd6 + 本任务工作区（feat 提交号见 verification-log）
+
+== TDD RED（Step 1/2：先写测试，在未实现的固件上失败）==
+run: bash scripts/inject/store.sh /dev/ttyACM0 -> exit=1
+  [PASS] STORE STATS ready=1          （Task 2 的 STORE 只认 STATS/RAWTEST/FAULT）
+  [FAIL] store: ① ERASE 0: 回显缺少 /^PROJ 0 ERASED\r?$/（响应 'STORE PROJ ERASE 0 ... 用法: STORE STATS | STORE RAWTEST ...'）
+全文: task-3-store-red.txt（摘要）、task-3-store-red.log（串口原始回显）、task-3-store-red-run.txt
+
+== GREEN：构建（×2，零警告）==
+scripts/build.sh --clean  -> rc=0, warning=0, error=0（全文 task-3-build-clean.log；本次未改 Kconfig，无豁免提示对）
+scripts/build.sh（增量）  -> rc=0, warning=0, error=0（全文 task-3-build-incremental.log）
+
+== GREEN：烧录 + 启动 ==
+scripts/flash.sh /dev/ttyACM0 -> rc=0，"Hash of data verified" ×3（bootloader/partition-table/app）全文 task-3-flash.log
+boot（task-3-boot.log，idf.py monitor 硬复位，ANSI 已剥离）：
+  rst:0x17 (CHIP_USB_UART_RESET)；App version: abf1dd6-dirty
+  I (4149) sloop_store: ready: slots=0x48344eec(15264B) stage=0x48348af0 v3=0x483444a8(2584B) base=0x97000 span=0x68000
+  → 三个上游实体都在 PSRAM（0x48… 地址）；UI 启动前内部堆 109011B
+  无 fatal/abort/backtrace/panic/Guru Meditation/task_wdt
+
+== GREEN：store 场景（新注入脚本，×2，幂等）==
+bash scripts/inject/store.sh /dev/ttyACM0 -> exit=0，**47 PASS / 0 FAIL**（×2）
+  task-3-store-green1.txt / task-3-store-green2.txt（stdout）+ task-3-store-transcript1.log / -transcript2.log（串口原始回显）
+  两次 transcript 除日志时间戳外逐字节相同；h0=h2=CCB3B3D7（proj_capture 对引擎状态确定性）
+  断言链：
+    ① 四槽 ERASE + LIST 全 EMPTY（脚本可重复）
+    ② BPM 100 → LIVEHASH h0（非零）→ SAVE 0 → HASH 0 == h0
+    ③ BPM 120 → LIVEHASH h1=CFF2701B ≠ h0
+    ④ LOAD 0 → LIVEHASH == h0；STATE SNAP global bpm=100
+    ⑤ ERASE 0 → LIST EMPTY；LIVEHASH 仍 h0（擦除只动存储）
+    ⑥ 再 SAVE 0 → h2 == h0（同一引擎状态 ⇒ 同一 hash，往返稳定）
+    ⑦ esptool 硬复位（只读 flash_id、不写 flash）→ LIST PROJ 0 USED；**HASH 0 == h2**
+       （HASH 只读 RAM 槽、不回落到 flash ⇒ 四槽的开机 fetch 真的填了 RAM 槽）；
+       LOAD 0 → LIVEHASH == h2；bpm=100
+    ⑧ ENG AUDIO OFF → ENG SELFTEST preset/ANALOG/00_808_BOOM（PASS）→ ENG AUDIO ON →
+       HASH 0 仍 == h2（PSRAM 指针在 .noinit，自检 restore 不回滚——本任务最险的失效模式）
+  注：⑦ 的复位由 Session.reboot() 走 scripts/screenshot.py 的 reset_device
+      （esptool flash_id --after hard_reset），与截屏传输失败的重试路径同源。
+
+== GREEN：回归 ==
+python3 scripts/device-selftest.py /dev/ttyACM0 -> exit=0
+  SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS
+  DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS
+  （task-3-selftest.log；跑完后 store 场景仍可用见 ⑧）
+bash scripts/inject/nav.sh /dev/ttyACM0 -> exit=0，40 PASS / 0 FAIL（task-3-nav.log）
+scripts/host-test.sh -> rc=0，ALL HOST TESTS PASSED (subset)（task-3-host-test.log；未改 DSP）
+python3 scripts/screenshot.py --selftest -> rc=0（task-3-screenshot-selftest.log）
+third_party/MANIFEST.sha256 -> 233/233 OK（task-3-manifest.txt；vendored 零修改）
+
+== GREEN：内存与段归属（ADR-009 §7 门禁）==
+task-3-memory.txt（objdump -t / nm / 链接 map / ENG MEM 摘录）：
+  s_slot_ps/s_v3_ps/s_stage/s_store_lock/s_init_magic/s_ready → .noinit（各 4B / 1B）
+  main_scratch → .bss.main_scratch（0xF00 = 3,840B，内部 SRAM）
+  全库 nm 无 proj_slot / proj_v3_tmp / proj_tmp 实体（15,264B / 2,584B / 4,096B 都在 PSRAM）
+  .noinit 0x4ff1b12c..0x4ff1b820（0x6f4B）；自检快照 bss 区段 0x4ff50bf4 起（不重叠）
+ENG MEM（门禁 internal_free ≥ 61,440B）：
+  开机 109,011B（UI 起页前）/ 104,383B（capture 首条，UI 已起第 1 页）
+  九页全建 103,451B（task-3-mem.log，pool_free 2,712）
+  全量 182 例 SELFTEST 后 103,379B（task-3-store.log 末条）
+  与 Task 2 的 108,175B 相比 -3,792B ≈ main_scratch 3,840B（PSRAM 侧 +21,944B，32MB 池可忽略）
+  备注：当日早期一轮（nav 截图后同会话）曾读到 63,939B / internal_min 63,868B——仍 ≥ 门禁，
+  但该轮日志已被后续重跑覆盖，不作为门禁数字（门禁取上面三条留档值）。
+
+== 运行时回显摘录（task-3-store.log：python3 docs/dev/verify/4-pb-2026-11-21/task-3-store-capture.py）==
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=4 faults=0 armed=0   （四槽都有有效副本）
+STORE PROJ LIST → PROJ 0 USED hash=CCB3B3D7 / PROJ 1..3 EMPTY
+STORE PROJ SAVE 9 → STORE ERR invalid（越界槽，未写）
+STORE PROJ ERASE 2 → PROJ 2 ERASED；STORE PROJ HASH 2 / LOAD 2 → STORE ERR empty（空槽）
+STORE LIVEHASH → 复位后引擎是默认态，故与 HASH 0 不同（预期，不是缺陷）
+
+== 实现要点 ==
+- `src/store_tab5.c`（新增，由 selftest.c 末尾 include）：include 前 `#define proj_v3_tmp (*s_v3_ps)` /
+  `#define proj_slot (*s_slot_ps)` 让上游声明退化为指针；`#define PROJ_HOST 1` 编入 project.c 的格式层 +
+  proj_capture/proj_apply；自有 union 暂存 `proj_tmp`（4,096B：project_t / project_v5_t / raw）；
+  `ST_XIP_PTR`/`FM6_BANK_XIP` 走 mmap；`st_read/st_erase/st_prog` 转 HAL。
+  启动顺序（ADR-009 §5）：`selftest_snapshot_init()` → `sloop_store_init()`（PSRAM 分配 → HAL
+  init → 四槽 fetch），失败只 WARN（引擎/音频照常）。
+- 三个指针 + 存储锁 + ready 放 `.noinit`：selftest_restore() 会把本 TU 的 .data/.bss 回滚到 init
+  快照（快照在 store init 之前拍），普通静态指针会被抹成 NULL。`s_v3_ps` 用后置 section 属性重声明进
+  .noinit（上游该行没有属性）；`s_slot_ps` 继承上游 `proj_slot` 自带的 .noinit 属性。
+- 冷启动 .noinit 是垃圾，而 REPL 任务先于 sloop_core_init 启动：`s_init_magic = "SLOP"` 哨兵门控全部
+  API，未初始化一律按 no_storage 返回（不碰指针/信号量）。
+- 锁序（ADR-009 §3）：保存 = 引擎锁内 capture → 释放 → st_save（擦/写期间不持引擎锁）；加载 = 无锁
+  st_load+import → 引擎锁内 proj_apply + song.sel 钳位；`s_store_lock` 串行化所有存储动作（console/
+  UI/（后续）自动存档共用）；`STORE STATS` 的 objects 统计经 st_buf，故也持该锁。
+- `sloop_hal_storage_fault_armed()` 是本次对 HAL 的唯一新增（3 行；`STORE STATS` 的 armed 字段）。
+- console：`STORE STATS` 改用 `sloop_store_stats()`（保留原前缀，追加 armed=）；新增
+  `STORE PROJ LIST|SAVE|LOAD|ERASE|HASH`、`STORE LIVEHASH`；`app_console_init` 不再调 HAL init
+  （启动顺序归 sloop_store_init；REPL 先起但被哨兵门控）。
+
+== 已知偏差 / 后续 ==
+- shim 里 `user_of` 暂未落地：它依赖 `up_used()`/`UP_SLOTS`（upreset.c，预置任务才编入）。`param_kept`、
+  `TRK_DEF/trk_def_engine`、`ui_message/ui_say`、`ui.force`、`up_gen`、`sync_reload` 已按上游原样落地。
+- 自动存档（`OBJ_AUTOSAVE`：2.5s 空闲 / 20s 间隔 / hash 跳过）、预置银行 `up_boot`、
+  `fm6_bank_boot` 属后续任务（spec §4.2 启动顺序里位置已留好：store init 之后）。
+- `sloop_store_project_load` 只做 `proj_apply(all=1)` + `song.sel` 钳位（brief Step 5 口径）；上游
+  `project_apply` 的 transport_req/panic/`proj_foreign_parts`/sync_reload 属后续任务。
+
+==================================================================
+== Review 修复轮（R13/R14 + minors；受测固件 = 上面同一份 clean 构建产物 + 本轮源码）
+==================================================================
+
+-- R13（`.noinit` 跨热复位存活 → 悬垂信号量）：先 RED 后 GREEN --
+RED（修复前的固件，f14e2af 构建）：
+  bash scripts/inject/store.sh -> ①..⑥ 全 PASS，⑦ 早探**无结果令牌**：
+    assert failed: xQueueSemaphoreTake queue.c:1713 (pxQueue->uxItemSize == 0)
+    ... rst:0xc (SW_CPU_RESET)            ← 手持上一次会话的 s_store_lock 去取锁 → panic → 复位
+  证据：task-3fix-warm-red.log（串口原始回显）、task-3fix-warm-red-run.txt（stdout）
+  注：早探窗口 = console 开始接受命令（~3.09s）→ sloop_store init 完成（~4.15s），约 1.05s。
+      reset_device 的 wait_boot 要求提示符在缓冲区尾部，会被 boot 日志插行拖到 init 之后，
+      因此新增 `screenshot.esptool_reset()`（只复位、不等提示符）+ `Session.store_early_load_probe()`。
+GREEN（本轮）：
+  ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
+  原始回显里命令回显被 boot 日志插行（"STORE PRO   W (4103) i2s_common… J LOAD 0"），
+  响应 STORE ERR no_storage 出现在 `I (4153) sloop_store: ready …` 之前 ⇒ 确证「init 之前」
+  证据：task-3-store-transcript1.log / -transcript2.log（第 163 行 vs 第 174 行）
+修复内容：
+  - `store_slots_ok()` 删除；哨兵判定并入 `sloop_store_ready()`（哨兵 + s_ready + **HAL ready**
+    + 三个 PSRAM 指针），所有公共 API（含 load、used/hash/live_hash）只走这一道门；
+  - `s_init_magic` 声明为 `volatile`；
+  - 文件头/注释如实写明「热复位：.noinit 存活、HAL s_ready 在 .bss 为 false」。
+
+-- R14（load 的上游 project_apply 前置：停走带 + panic 全部轨）--
+`sloop_store_project_load` 在引擎锁内、`proj_apply` 之前设 `transport_req = 2`、
+`panic_req = (1u<<NTRK)-1`、`drum_mute = 0`、逐轨 `ex_off[k] = 0`（上游 project_apply 原样）。
+验证（task-3-capture-run.txt / task-3-store.log）：音频流活着时 `ENG TRIG synth 0 60`（xrun=1）
+→ `STORE PROJ LOAD 0` → `PROJ 0 LOADED hash=CCB3B3D7`、`LIVEHASH CCB3B3D7`、
+`STATE SNAP … bpm=100 playing=0`；不挂死、不改返回码。
+
+-- minors --
+1. `components/sloop_core/CMakeLists.txt` 去掉 `esp_partition`（只有 HAL 用它）。
+2. `STORE STATS objects=` 只数**非空提交**（`h.len != 0`）：本轮 `objects=1`（槽 0 有工程、
+   槽 2 被 ERASE 成 len=0 的空提交 ⇒ 不再计入；修复前同一状态会报 2）。
+3. verification-log 的「未改 Kconfig，无豁免提示对」已按实测改正：clean 首遍**确实**含
+   `CMake Warning .../build.cmake:631` + `project.cmake:765 Missing kconfig option…`，
+   增量遍 0 提示；门禁按第二遍判定。
+4. inject `store` 场景的 `STATE SNAP bpm` 断言改为轮询（≤1s / 50ms 步）：`store_bpm_settled()`。
+
+-- 本轮回归 --
+scripts/build.sh --clean -> rc=0，warning=0（首遍含 §5.5 豁免的 kconfig 提示对，见上）
+scripts/build.sh（增量）  -> rc=0，warning=0（0 提示）
+scripts/flash.sh          -> rc=0，Hash of data verified ×3
+bash scripts/inject/store.sh -> exit=0，**48 PASS / 0 FAIL**（×2；含 ⑦ 早探 + ⑧ selftest）
+python3 scripts/device-selftest.py -> cases=182 identical=182 mismatch=0 result=PASS
+  之后直接 `STORE PROJ LOAD 0` -> PROJ 0 LOADED hash=CCB3B3D7、LIVEHASH 同值、bpm=100
+  （task-3-postselftest-load.log）
+bash scripts/inject/nav.sh -> exit=0，40 PASS / 0 FAIL
+python3 scripts/screenshot.py --selftest -> rc=0（本轮改了 screenshot.py：抽出 esptool_reset）
+third_party/MANIFEST.sha256 -> 233/233 OK
+ENG MEM：开机 109,011B（boot 行）/ 104,383B（capture 首条）/ 九页全建 107,895B（门禁 ≥61,440B）

@@ -63,6 +63,7 @@ int sloop_hal_storage_prog(uint32_t off, const void *src, uint32_t n);
  * 计数只由写操作递增，读失败可见且不影响写序号定位）。命中后自动解除（nth=0）。 */
 void sloop_hal_storage_fault_arm(uint32_t nth, bool half);
 uint32_t sloop_hal_storage_fault_taken(void); /* 自 arm/clear 起命中次数 */
+bool sloop_hal_storage_fault_armed(void);     /* 是否已 arm 且尚未命中（STORE STATS 报告） */
 void sloop_hal_storage_fault_clear(void);
 
 #endif

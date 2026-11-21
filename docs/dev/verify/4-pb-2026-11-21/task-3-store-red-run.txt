@@ -1,0 +1,4 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-183943.log
+  [PASS] STORE STATS ready=1
+[FAIL] store: ① ERASE 0: 回显缺少 /^PROJ 0 ERASED$/（响应 'STORE PROJ ERASE 0\r\n用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'）
