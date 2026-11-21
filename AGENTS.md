@@ -53,7 +53,7 @@ sloop-fm1-tab5/
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（显示/console/键盘/音频 bring-up + 开机启流 + sloop_state 初始化 + sloop_ui 启动（失败回退测试图）；待: 双模式调度）
-│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地；`sloop_core_read_window` 按步窗基取 16 列快照；`sloop_core_desc` 投影上游参数描述符（`ENG DESC` 抽样，`scripts/desc-check.py`））；sloop_state（AppState/EditCmd 状态层 + `step_window_t` 步窗（`CMD_SET_WINDOW`/`step_window()`，窗口列投影，引擎步号绝对），纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页面注册表/懒建（`ui_page_t`，PLAY 启动即建、其余首次访问建，每页 est 预算与失败可见，ADR-008），四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×步窗（1..16 列，bank1..3 可编辑，绝对步号列/播放头映射）编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005；`UI MEM`/`UI FORCEFAIL`/`UI WINDOW` 见 §5.4.1）；【规划】editor_proto / usb_fm1
+│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地；`sloop_core_read_window` 按步窗基取 16 列快照；`sloop_core_desc` 投影上游参数描述符（`ENG DESC` 抽样，`scripts/desc-check.py`）；`sloop_core_set_params` 一次锁批量写参（与 desc 同源钳位）+ `sloop_core_read_params` 参数快照）；sloop_state（AppState/EditCmd 状态层 + `step_window_t` 步窗（`CMD_SET_WINDOW`/`step_window()`，窗口列投影，引擎步号绝对）+ 参数命令与投影（`CMD_SET_PARAM`/`CMD_SET_PARAM_BATCH`，`app_state_t.p[]/g[]`），纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页面注册表/懒建（`ui_page_t`，PLAY 启动即建、其余首次访问建，每页 est 预算与失败可见，ADR-008），四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×步窗（1..16 列，bank1..3 可编辑，绝对步号列/播放头映射）编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005；`UI MEM`/`UI FORCEFAIL`/`UI WINDOW`/`PARAM` 见 §5.4.1）；【规划】editor_proto / usb_fm1
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + FATFS storage 0x7F0000 + NVS，无 OTA A/B，回滚=重烧；见 docs/design/002 §3 P1-1）
@@ -155,6 +155,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006）；诊断期静默时打印 `KEY ERR quiesced`（丢弃并计数，`KEY STATS` 的 `quiesce_dropped` 可回读） |
 | `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与懒建的池水位（ADR-008）：`UI MEM` 打印池 used/free/total、注册/已建/失败页数、`sum_est`/`reserve` 与每页 `state`/`est`/`delta`（delta = 最近一次成功构建前后池 free 减少量，含块头开销，采样于首帧 update 前）；`UI FORCEFAIL` 强制该页构建失败：未建页挂起到下一次构建（回显 `state=unbuilt`），已建**当前页**删除并立即重建到失败态（注入当场消费，回显 `state=failed`），已建**非当前页**只删除控件回到未建态（回显 `state=unbuilt`，注入保持待命、下次访问时构建失败），用于验证「错误状态条 + ERROR 日志 + `UI ERR page_build <id>`」路径；`off` 只撤销尚未消费的注入，不重建已失败页（失败页在下次访问时重试） |
 | `UI WINDOW [<start> <len>]` | 写步窗（`sloop_state` 的 `step_window_t`，UI 局部态）：start 向下 16 对齐、0..48（bank = start/16），len 1..16；回显**落地值** `UI WINDOW bank=… start=… len=…`（无参打印当前窗口）。STEP 页列 c = 引擎绝对步 `start+c`，列数 = len，窗口外的格/列号隐藏且 TAP 命不中；注入脚本据此派生几何（`step_cell_xy`），不写死中心点。窗口是**持久状态**：脚本进入 STEP 前须归一到 `UI WINDOW 0 16`（step_edit/transport/nav/soak 均做） |
+| `PARAM <id> <value>` / `PARAM BATCH <id> <value> …` | 参数写诊断注入（选中轨，经状态层 `CMD_SET_PARAM`/`CMD_SET_PARAM_BATCH` → 引擎批量入口；与 UI 编辑同一路径）：value 接受任意 int16（钳位在引擎，回显 `applied` 为钳位结果 + `min`/`max`）；`PARAM BATCH` 每个 (id,value) 一对，一次命令一次引擎调用。id 在该轨上无描述符（`sloop_core_desc` 判定：鼓轨仅 `P_E0`=kit）回 `PARAM ERR track=… id=… reason=invalid_id` 且不写。写后立即回读，`STATE SNAP` 的 `param`/`global` 行即投影真值 |
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing/步窗 `window_bank/window_start/window_len`）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值，idx 为绝对步号 0..63）。
@@ -172,7 +173,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 固件代码（烧录验证） | esptool 输出 `Hash of data verified`；启动日志无 fatal/abort/backtrace |
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
 | 引擎/DSP 相关 | `scripts/host-test.sh` 通过；设备等价改动另跑 `scripts/device-selftest.py` **全量 182 例**严格哈希比对（脚本自动停流/恢复；手动时先 `ENG AUDIO OFF`，跑完 `ENG AUDIO ON` 恢复——固件开机即流式，流式时 SELFTEST 会被拒）。自检内部成对执行诊断期 quiesce（暂停 30ms UI 定时器与 LVGL 定时器、禁用触摸 indev、输入事件丢弃并计数、TAP/KEY 注入被拒）+ 引擎读写冻结，跑完全量后恢复，故 **UI live 的开机态即可跑**，无需停 UI；`--case` 单例仅用于定点排障，不作门禁口径。见 sloop_core.h、sloop_ui.h 与 ADR-007 |
-| 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段清除与 TIE 连缀折叠/显式步号擦除/MUTE-SOLO/快照同步） |
+| 状态层/EditCmd 相关 | `scripts/state-test.sh` 退出码 0（gcc + stub 引擎，覆盖钳位/步切换字段清除与 TIE 连缀折叠/显式步号擦除/MUTE-SOLO/快照同步/参数命令与批量投影） |
 | 描述符投影（`sloop_core_desc` / `ENG DESC`） | `scripts/desc-check.py [PORT]` 退出码 0：10 项正例 label/fmt/min/max/def/unit/enums/first/last 逐字段一致 + 4 条越界路径回 `ENG DESC ERR` |
 | 阶段收口 soak | `scripts/soak.py PORT --duration 1800`（阶段 3 口径 30min）退出码 0：internal_free/internal_min ≥60KB、首末差 ≥-8KB、连续 3 采样非增下滑 ≤2KB（HEAP_JITTER）、streaming=1 且 xrun=0、duty_mean ≤2× 阶段 2 静默渲染基线 9.44%（=18.88%，`ENG PERF` 流式分支口径）、音频任务栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT；soak 摘要晋升并在 verification-log 登记（阶段 4 长时 soak 沿用同一口径，时长按阶段判据） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |

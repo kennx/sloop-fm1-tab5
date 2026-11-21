@@ -1,0 +1,53 @@
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+PASS k=5 MUTE/SOLO 引擎写入口与 sync 真值
+PASS k=6 ERASE_NOTE 删除聚焦步音符（RMW/字段随移）
+PASS k=7 步窗抽象：默认/映射/投影/钳位
+PASS k=8 步窗 sync 与 SET_WINDOW 交错按新基重取
+  FAIL k=9 单 SET 一次引擎调用: got 0 want 1
+  FAIL k=9 单 SET 轨号: got 0 want 1
+  FAIL k=9 单 SET 对数: got 0 want 1
+  FAIL k=9 单 SET 原样下发 id: got 0 want 1
+  FAIL k=9 单 SET 原样下发值: got 0 want 50
+  FAIL k=9 单 SET 落引擎: got 0 want 50
+  FAIL k=9 投影 p[1]: got 0 want 50
+  FAIL k=9 钳位值仍原样下发: got 0 want 500
+  FAIL k=9 投影采纳引擎钳位: got 0 want 127
+  FAIL k=9 补码原样下发: got 0 want -1
+  FAIL k=9 越界 id 引擎忽略: got 0 want 1
+  FAIL k=9 越界 id 不改投影: got 0 want 127
+  FAIL k=9 鼓轨 P_E0 落引擎: got 0 want 3
+FAIL k=9 参数命令：单 SET 钳位/越界忽略
+  FAIL k=10 批量只一次引擎调用: got 0 want 1
+  FAIL k=10 批量轨号: got 0 want 1
+  FAIL k=10 批量对数: got 0 want 4
+  FAIL k=10 批量 id 保序 1: got 0 want 1
+  FAIL k=10 批量 id 保序 2: got 0 want 200
+  FAIL k=10 批量 id 保序 3: got 0 want 29
+  FAIL k=10 批量值保序 0: got 0 want 100
+  FAIL k=10 批量值保序 3: got 0 want 33
+  FAIL k=10 批量越界 id 逐条忽略: got 0 want 1
+  FAIL k=10 批量有效项落地 0: got 0 want 100
+  FAIL k=10 批量有效项落地 29: got 0 want 33
+  FAIL k=10 批量投影 p[0]: got 0 want 100
+  FAIL k=10 批量投影 p[29]: got 0 want 33
+  FAIL k=10 非选中轨值落引擎: got 0 want 7
+  FAIL k=10 非选中轨写入不动投影: got 0 want 100
+  FAIL k=10 超上限仍一次调用: got 0 want 1
+  FAIL k=10 超上限截断到 MAX: got 0 want 128
+FAIL k=10 参数批量：一次引擎调用/截断/空载荷
+  FAIL k=11 init 投影 g_bpm: got 0 want 90
+  FAIL k=11 sync 一次 read_params: got 0 want 1
+  FAIL k=11 sync 采纳引擎 p[0]: got 0 want 42
+  FAIL k=11 sync 采纳引擎 p[29]: got 0 want 12
+  FAIL k=11 sync 采纳引擎 g[1]: got 0 want 33
+  FAIL k=11 投影跟随选中轨: got 0 want 77
+FAIL k=11 参数投影：sync 采纳引擎真值/跟随选轨
+PASS k=12 state_get_copy 反映 cmd 与 sync
+PASS k=13 越界参数忽略
+
+10 passed, 3 failed
+STATE TEST FAILED

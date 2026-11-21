@@ -1,6 +1,6 @@
 # ADR-008: 页面懒建与 LVGL 池预算（阶段 4 参数页的前置框架）
 
-> 状态：已接受（阶段 4，P4-0 Task 4）｜ 日期：2026-11-21
+> 状态：已接受（阶段 4，P4-0 Task 4；Task 9 补 §7 参数写/读接口与状态层投影）｜ 日期：2026-11-21
 > 关联：ADR-005「阶段 4 容量决策」；AGENTS §5.4.1（console 注入约定）、§5.5（门禁）；
 > 代码：`firmware/components/sloop_ui/src/ui.c`、`include/sloop_ui.h`、`src/theme.h`、
 > `src/page_*.c`、`firmware/main/console.c`；证据：`docs/dev/verify/4-p0-2026-11-21/task-4-*`
@@ -161,6 +161,26 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 UI MEM pool_used=40124 pool_free=19648 pool_total=59772 registered=4 built=4 failed=0 sum_est=39424 reserve=20348
 UI MEM page id=2 title=STEP state=built est=24576 delta=21760
 ```
+
+### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
+
+参数页（Task 10）与后续预置加载的前置接口，逐字签名见 spec §4.1 与
+`sloop_core.h`/`sloop_state.h`：
+
+| 层 | 接口 | 语义 |
+|---|---|---|
+| 引擎 | `sloop_core_set_params(track, ids, values, n)` | **一次** `s_engine_lock` 应用 N 对；逐条钳位源与 `sloop_core_desc` 同源（`id < P_E0 → TP[id]`；`P_E0..P_E7`：合成轨 `ENGINES[eng_req]->edit[id-P_E0]`、鼓轨仅 `P_E0 → DRUM_KIT_DESC`）；无描述符的 id 逐条忽略**不中止整批**；越界 track/NULL/n=0/冻结态整批丢弃 |
+| 引擎 | `sloop_core_read_params(track, p, g)` | 一次锁拷出 `trk[track].p[P_COUNT]` + `song.g[G_COUNT]`（原始真值）；track 越界 p 全零；冻结态两者全零（与 `read_step` 同口径） |
+| 状态 | `CMD_SET_PARAM{a=track,b=id,v}` | 以 N=1 走批量入口；`v` 为 16 位补码（双极参数用 `(uint16_t)(int16_t)x`）；写后立即回读投影 |
+| 状态 | `CMD_SET_PARAM_BATCH{a=track,p,n}` | `p` = `sloop_param_pair_t{uint8_t id; int16_t v;}`（sizeof==4，静态断言）数组，**同步 apply**：数组只需在 `state_apply` 返回前有效；状态层解包到栈数组（上限 `APP_STATE_PARAM_BATCH_MAX`=128，超出截断并 `ESP_LOGW`）后**一次**引擎调用 |
+| 状态 | `app_state_t.p[]/g[]` | p = **选中轨**参数投影、g = 全局；`state_sync_from_engine` 与窗口快照同拍用一次 `read_params` 整份覆盖；非选中轨写入不改 p |
+
+- 钳位只在引擎一处（状态层不重复实现 desc 范围）；`PARAM` 的 id 合法性预判走
+  `sloop_core_desc`（只判存在性，不钳位）。
+- 投影跟着**选中轨**：参数页显示 p[] 时，选轨变化后下一拍 sync 换成新轨的值
+  （参数页的 update 只需按 `core.selected_track` 刷新标题）。
+- 设备诊断入口：console `PARAM <id> <value>` / `PARAM BATCH <id> <value> …`（选中轨；
+  回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）。
 
 ## 迁移与回归（不改渲染）
 
