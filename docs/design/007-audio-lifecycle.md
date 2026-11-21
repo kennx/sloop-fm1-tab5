@@ -47,7 +47,7 @@ A。落地形态：
     全部定时器（刷新/indev）——LVGL 任务转入 500ms 级休眠。此后物理键盘事件只计数，
     TAP/KEY 注入回 `TAP ERR quiesced` / `KEY ERR quiesced`（不派发）。
   - quiesce(off)：`lvgl_port_resume()` + `lv_timer_resume`（下一拍重新 `state_sync` 并
-    刷新四页），通知 input 任务恢复，清零并打印诊断期丢弃的事件数。
+    刷新已建页），通知 input 任务恢复，清零并打印诊断期丢弃的事件数。
   - 构型：`sloop_core` 不依赖 `sloop_ui`（依赖方向相反），只提供
     `sloop_core_diag_quiesce_hook()`；`sloop_ui_start()` 成功后注册 `sloop_ui_quiesce`。
     钩子指针与冻结标志同放 `.noinit`（注册发生在 init 快照之后，普通静态会被自检开头的
@@ -85,7 +85,7 @@ yield 风暴。**该归因不成立**：阶段 4 实测显示只加 quiesce（�
 
 - 成品固件的诊断门（SELFTEST/AUD TONE/离线 PERF/SMOKE）保留，但都需要先停流；脚本化路径已自动化。
 - 全量 SELFTEST（182 例）回到设备门禁口径：UI live 的开机态即可跑，诊断期间 UI 冻结/
-  输入被丢弃、结束后自动恢复（下一拍刷新四页）；单例 `--case` 仅用于定点排障。
+  输入被丢弃、结束后自动恢复（下一拍刷新已建页；懒建见 ADR-008）；单例 `--case` 仅用于定点排障。
 - 诊断期间 UI 显示停在最后一帧、键盘编辑不落账（既有冻结语义），这是「UI 共存」的
   定义——UI 存在且状态一致，但不要求渲染与自检并发。
 - 停流**不复位引擎运行期编辑**（无「恢复 init 快照」入口）：`ENG AUDIO OFF` 后 SNAP/注音仍是停流前状态；`ENG SELFTEST` 因自身开始/结束都 `selftest_restore()`，会抹掉运行期编辑。

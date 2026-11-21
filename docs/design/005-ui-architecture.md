@@ -21,8 +21,8 @@ A。UI 组件 `sloop_ui`（LVGL 四屏 + 页签 + InputManager）；状态组件
 
 ## 落地状态（2026-11-20，阶段 3 Task 4 / Task 5）
 
-`sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页对象创建一次、
-切页只改显隐）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
+`sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页面注册表
+`ui_page_t`，页对象首次访问时懒建、切页只改显隐，PLAY 启动即建——ADR-008）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
 console `UI <page>`。全部 LVGL 调用走 `bsp_display_lock`（esp_lvgl_port 递归锁，页签回调/定时器已在
 LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部堆门禁实测 ≈120.0KB（≥60KB）。
 
@@ -89,6 +89,20 @@ bring-up 的触摸十字准星画在 `lv_layer_top()`，会盖住生产页面并
 
 决策产出物：一张「页面 × 对象/字节预算」表 + 选型理由（写回本节）。在此之前若临时加页，
 须在 `sloop_ui_start()` 就绪行附池占用证据，并确认仍有余量。
+
+**决策（2026-11-21，阶段 4 P4-0 Task 4）：选 A（懒建 + 每页预算），落地为 ADR-008。**
+
+- 页面注册表 `ui_page_t` + `ui_page_register()`：页签由注册表派生；PLAY 启动即建
+  （开机非空白），其余页首次进入时建、离页不销毁。
+- 实测预算表（`UI MEM` 口径，池 free 减少量）：PLAY 2,492 / TRACKS 6,080 / STEP 21,760 /
+  TRANSPORT 3,744 B；est_bytes 分别为 3,072 / 7,168 / 24,576 / 4,608（合计 39,424 B，
+  < 池可用 63,120 B）。构建前 `free < est` 即拒绝。
+- 失败可见：构建失败 → 删除半成品 + ERROR 日志 + 页面区错误状态条 +
+  `UI ERR page_build <id>`（console），失败页下次访问重试；`UI FORCEFAIL <page>` 为验证注入。
+- 池仍为 64KB（`CONFIG_LV_MEM_SIZE=65536`）；96KB 的 `.bss` 溢出结论不变，扩池路线不重启。
+- 阶段 4 参数页沿用同一套：每页一个注册表条目 + 实测 est + `UI_BUILD_CHECK` 分配检查；
+  Σ est 逼近池总量时必须先做设计决策（拆页/共享/驱逐），详见 ADR-008。
+
 
 ## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记）
 

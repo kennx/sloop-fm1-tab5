@@ -48,12 +48,12 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages）
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       # 开发日志/环境/设备档案（device-notes.md、verification-log.md；门禁证据入 verify/）
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（显示/console/键盘/音频 bring-up + 开机启流 + sloop_state 初始化 + sloop_ui 启动（失败回退测试图）；待: 双模式调度）
-│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地）；sloop_state（AppState/EditCmd 状态层，纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页签，四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×16 步格编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005）；【规划】editor_proto / usb_fm1
+│   ├── components/                #    tab5_keyboard（键盘 I2C 驱动，已落地）；sloop_core / sloop_hal_tab5（引擎、同源 golden 自测、RAM 存储与 ES8388 音频流已落地）；sloop_state（AppState/EditCmd 状态层，纯 C，host 单测）；sloop_ui（LVGL 四屏框架 + 页面注册表/懒建（`ui_page_t`，PLAY 启动即建、其余首次访问建，每页 est 预算与失败可见，ADR-008），四页均已落地：PLAY/TRANSPORT 为只读呈现与走带、TRACKS 卡选轨、STEP 4×16 步格编辑闭环；InputManager 70 键映射/层模型/`KEY` 注入见 ADR-006；`TAP` hit-test 注入见 ADR-005；`UI MEM`/`UI FORCEFAIL` 见 §5.4.1）；【规划】editor_proto / usb_fm1
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + FATFS storage 0x7F0000 + NVS，无 OTA A/B，回滚=重烧；见 docs/design/002 §3 P1-1）
@@ -151,6 +151,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | `UI <play\|tracks\|step\|transport>` | **同步**切页（内部取 LVGL 锁；成功后作废待执行的异步切页邮箱，回显页即落地页）；无参打印当前页。`UI QUIESCE <on\|off>` 手动复验诊断期静默（暂停/恢复 30ms UI 定时器、LVGL 定时器、触摸 indev 与输入派发），与 `ENG SELFTEST` 内部同入口。注意手动 `on` 不是粘滞的：下一次 `ENG SELFTEST` 会自行 on→off 并在结束时恢复（等价于一次 `off`），自检结束后需重新手动 `on` 才能复验拒绝路径 |
 | `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`）；LVGL 锁超时打印 `TAP ERR lvgl_lock_timeout`、诊断期静默打印 `TAP ERR quiesced`（均**未派发**，与 miss 区分）。`UI` 的锁超时打印 `UI ERR lock_timeout` |
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006）；诊断期静默时打印 `KEY ERR quiesced`（丢弃并计数，`KEY STATS` 的 `quiesce_dropped` 可回读） |
+| `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与懒建的池水位（ADR-008）：`UI MEM` 打印池 used/free/total、注册/已建/失败页数、`sum_est`/`reserve` 与每页 `state`/`est`/`delta`（delta = 构建前后池 free 减少量，含块头开销）；`UI FORCEFAIL` 让该页下一次构建强制失败（一次性；对已建页则删除并立即重建到失败态），用于验证「错误状态条 + ERROR 日志 + `UI ERR page_build <id>`」路径，验证后下一次访问/`off` 即恢复 |
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值）。
