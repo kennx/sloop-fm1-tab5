@@ -1,0 +1,61 @@
+  [fw] SCR
+  [fw] I (3860430) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (3883100) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (3905500) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (3928770) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (3951920) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+== inject nav @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040.log
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] 基线：合成轨格 TAP（对照组）
+  [PASS] 基线：合成轨格再 TAP（落回原值）
+  [PASS] ① 页签缝 TAP miss
+  [PASS] ① STATE SNAP 前后一致
+  [PASS] ① ENG SNAP 前后一致
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040-nav-01-tabbar.png  (1280x720 rgb565)
+  [PASS] ① 页签缝底（页签条 UI_PANEL）: (196,36) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ① 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 焦点轨归一 = 2 = 2
+  [PASS] 焦点列归一 = 2 = 2
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040-nav-02-drum-before.png  (1280x720 rgb565)
+  [PASS] ② 状态行基线：蓝字（合成轨）78 / 橙字 0（期望蓝 ≥25、橙 0）
+  [PASS] ② 鼓轨 TAP read-only 回显
+  [PASS] ② 鼓轨 TAP 未发 CMD_TOGGLE_STEP
+  [PASS] ② STATE SNAP focus_track 不变 = 2
+  [PASS] ② STATE SNAP focus_step 不变 = 2
+  [PASS] ② STATE SNAP 前后一致
+  [PASS] ② ENG SNAP（无引擎写） 前后一致
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040-nav-03-drum-readonly.png  (1280x720 rgb565)
+  [PASS] ② 鼓格像素区 (305, 526, 375, 634) 点击前后逐字节相同（只读、不点亮）
+  [PASS] ② 状态行点击后：橙字 396 / 蓝字 0（期望 ≥25 / 0，DRUM EDIT = PHASE 4）
+  [PASS] ③ 起点 PLAY（对齐 1/5）
+  [PASS] ③ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ③ 前提成立：PANIC 执行时 tab 请求尚未被拍消费（批内 UI 仍 TRACKS）
+  [PASS] ③ 6 拍后仍 TRACKS（撤销待切页、无回跳）
+  [PASS] ③ 再 6 拍后仍 TRACKS
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040-nav-04-panic-final.png  (1280x720 rgb565)
+  [PASS] ③ 页签选中（TRACKS）: (230,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ③ PLAY 页签未选中: (40,36) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ④ 起点 PLAY（对齐 1/5）
+  [PASS] ④ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ④ 前提成立：批内 UI 仍 TRACKS，3 次按下之间无拍执行（时序下界余量 -36.5ms，仅作参考）
+  [PASS] ④ 3 次 tab 只前进一页（TRACKS→STEP）
+  [PASS] ④ 再 6 拍无第二次前进
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261121-104040-nav-05-tab3-final.png  (1280x720 rgb565)
+  [PASS] ④ 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ TRANSPORT 页签未选中: (590,36) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] 复位 UI play
+[PASS] nav: 全部断言与像素抽检通过
