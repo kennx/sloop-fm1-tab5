@@ -1,0 +1,17 @@
+  [fw] SCR
+  [fw] I (578128) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+== inject tracks @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261121-145027.log
+  [PASS] UI tracks
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track = 2
+  [PASS] STATE SNAP focus_track = 2
+  [PASS] TAP 卡缝 miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261121-145027-tracks-sel3.png  (1280x720 rgb565)
+  [PASS] 卡 2 选中描边（6px）: (644,347) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡 2 选中底: (800,552) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
+  [PASS] 卡 0 未选中底: (304,552) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
+  [PASS] 页签选中（TRACKS）: (146,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡间缝背景: (640,260) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+[PASS] tracks: 全部断言与像素抽检通过

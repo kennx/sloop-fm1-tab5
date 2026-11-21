@@ -1,0 +1,45 @@
+
+sloop>  UI fm6
+UI page=fm6 (7)
+sloop>  UI MEM
+UI MEM pool_used=55072 pool_free=2804 pool_total=57876 registered=9 built=9 failed=0 sum_est=56320 reserve=1556
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6040
+UI MEM page id=2 title=STEP state=built est=24064 delta=21836
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3788
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2856
+UI MEM page id=5 title=FX state=built est=3584 delta=2856
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2868
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2864
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
+sloop>  UI FORCEFAIL fm6
+E (1052118) sloop_ui: 页面构建失败 page=FM6(7) 原因=forced 池剩余=5608B 预算=3584B（UI ERR page_build 7）
+UI FORCEFAIL page=fm6 (7) on state=failed
+sloop>  UI MEM
+UI MEM pool_used=52632 pool_free=5556 pool_total=58188 registered=9 built=8 failed=1 sum_est=56320 reserve=1868
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6040
+UI MEM page id=2 title=STEP state=built est=24064 delta=21836
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3788
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2856
+UI MEM page id=5 title=FX state=built est=3584 delta=2856
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2868
+UI MEM page id=7 title=FM6 state=failed est=3584 delta=0
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
+sloop>  UI fm6
+I (1052478) sloop_ui: 页面构建 page=FM6(7) 池增量=2852B 预算=3584B 池剩余=2704B
+UI page=fm6 (7)
+sloop>  UI MEM
+UI MEM pool_used=55152 pool_free=2728 pool_total=57880 registered=9 built=9 failed=0 sum_est=56320 reserve=1560
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6040
+UI MEM page id=2 title=STEP state=built est=24064 delta=21836
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3788
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2856
+UI MEM page id=5 title=FX state=built est=3584 delta=2856
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2868
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2852
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
+sloop>  PARAM 63
+PARAM track=2 id=63 value=0 min=0 max=4
+sloop>  
