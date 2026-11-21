@@ -1,0 +1,37 @@
+# P4-B Task 2 证据（feat/phase4b：分区与 HAL 存储后端 + review fix round 1）
+# 日期: 2026-11-21T18:33:00+08:00（fix round 1 后重新采集）
+
+build: scripts/build.sh --clean -> exit=0, warnings=0, errors=0（全文 task-2-build.log run 1）
+build: scripts/build.sh（第二遍） -> exit=0, warnings=0, errors=0（全文 task-2-build.log run 2）
+partition-table: nvs 0x9000/0x6000 | phy_init 0xF000/0x1000 | factory app 0x10000/0x800000
+                 sloopstore data/0x99 0x810000/0x68000 | storage fat 0x878000/0x788000
+flash: scripts/flash.sh /dev/ttyACM0 -> exit=0, "Hash of data verified" x3（bootloader/partition-table/app）
+       全文 task-2-flash.log
+boot: task-2-boot.log（分区表含 sloopstore；"sloop_hal_store: sloopstore ready"；无 error/fatal/abort/backtrace/task_wdt）
+selftest: python3 scripts/device-selftest.py /dev/ttyACM0 -> exit=0
+  SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS
+  DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 result=PASS
+nav: bash scripts/inject/nav.sh /dev/ttyACM0 -> exit=0（全部断言与像素抽检通过）
+screenshot: python3 scripts/screenshot.py /dev/ttyACM0 docs/dev/verify/4-pb-2026-11-21/task-2-play.png -> exit=0
+cmp: task-2-cmp.txt（cmp exit=0 无输出；两图 sha256 均为 be9b21f492c062e2c07394fb8651bc883a6189747667cb4b4c8508a30640b8fa）
+store: task-2-store.log（Session.cmd 抓取；脚本 task-2-store-capture.py，仓库根目录
+       `python3 docs/dev/verify/4-pb-2026-11-21/task-2-store-capture.py`，串口 /dev/ttyACM0）
+  STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=0 faults=0
+  STORE RAWTEST PASS off=0xFB000 part_off=0x64000（逻辑偏移 0xFB000 = 分区内 0x64000）
+  ENG MEM internal_free=108175 internal_min=93144（开机空闲态，门禁 ≥61,440B）
+  ENG MEM internal_free=107915 internal_min=93056（全部故障用例后；-260B 为 console 历史缓冲）
+  R11/R12 故障注入计数语义（同一 transcript）：
+    STORE FAULT 1       -> armed nth=1 half=0；RAWTEST FAIL step=erase；STATS faults=1
+    STORE FAULT CLEAR   -> cleared taken=1；RAWTEST PASS
+    STORE FAULT 2       -> armed nth=2 half=0；RAWTEST FAIL step=prog（erase #1 成功、prog #2 命中）；
+                           STATS faults=1；CLEAR taken=1；RAWTEST PASS
+    STORE FAULT 2 half  -> armed nth=2 half=1；RAWTEST FAIL step=prog（半写路径）；STATS faults=1；
+                           CLEAR taken=1；RAWTEST PASS
+    STORE FAULT 19      -> armed nth=19；RAWTEST 共 18 次写（erase+16 prog+cleanup erase），写永不命中；
+                           verify 的 read 在 armed 期间返回 -1 -> FAIL step=verify；
+                           STATS faults=0（read 未消耗写序号）；CLEAR taken=0；RAWTEST PASS
+  STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=0 faults=0（收尾）
+notes: task-2-selftest.log 内含两处 task_wdt 打印（console_repl 持 CPU 跑 182 例回归期间 IDLE0 饥饿），
+       与 Task 0 基线 selftest 日志同形（.superpowers/sdd/.../task-0-selftest.log 同样 6 行 task_wdt），
+       非本任务引入；SELFTEST 判定 PASS。
+       本任务 HAL 运行期零堆分配（mmap 只占 MMU vaddr），RAWTEST/STATS/FAULT 无 heap 分配。

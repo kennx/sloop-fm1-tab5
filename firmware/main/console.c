@@ -34,6 +34,12 @@
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
  *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
  *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
+ *  - STORE：存储诊断（P4-B，ADR-009）。STORE STATS 打印后端状态
+ *    （ready/base/span/map/objects/faults）；STORE RAWTEST 对空闲逻辑扇区
+ *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
+ *    （破坏性）；STORE FAULT <nth> [half] | CLEAR 是 HAL 故障注入入口
+ *    （计数只由 erase/prog 递增，arm 期间 read 失败但不计数，Task 8 消费）。
+ *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -46,6 +52,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 #include "bsp/m5stack_tab5.h"
@@ -1166,8 +1173,110 @@ static int tap_command(int argc, char **argv)
     return 0;
 }
 
+/* STORE：存储后端诊断（P4-B Task 2 只有后端状态 + 空闲扇区擦写自检；
+ * 后续任务在同一 handler 里扩展 PROJ/PRESET/BANK/TEST）。 */
+#define STORE_RAWTEST_OFF 0xFB000u /* 逻辑 flash-map 偏移：空闲扇区，sloopstore 内 0x64000 */
+#define STORE_RAWTEST_SECTOR 0x1000u
+#define STORE_RAWTEST_PATTERN 0x5Au
+#define STORE_RAWTEST_CHUNK 256u
+
+static int store_stats(void)
+{
+    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=0 faults=%u\n",
+           sloop_hal_storage_ready() ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
+           (unsigned)sloop_hal_storage_span(), (unsigned long)(uintptr_t)sloop_hal_storage_map(),
+           (unsigned)sloop_hal_storage_fault_taken());
+    return 0;
+}
+
+/* 走 mmap 读回（与 Task 3 的 ST_XIP_PTR 同源）：顺带验证擦写后 cache 已失效 */
+static bool store_rawtest_verify(void)
+{
+    uint8_t buf[STORE_RAWTEST_CHUNK];
+    for (uint32_t off = 0; off < STORE_RAWTEST_SECTOR; off += sizeof buf) {
+        if (sloop_hal_storage_read(STORE_RAWTEST_OFF + off, buf, sizeof buf) != 0) return false;
+        for (uint32_t i = 0; i < sizeof buf; i++) {
+            if (buf[i] != STORE_RAWTEST_PATTERN) return false;
+        }
+    }
+    return true;
+}
+
+static int store_rawtest(void)
+{
+    if (!sloop_hal_storage_ready()) {
+        printf("STORE ERR no_storage\n");
+        return 1;
+    }
+
+    uint8_t pattern[STORE_RAWTEST_CHUNK];
+    memset(pattern, STORE_RAWTEST_PATTERN, sizeof pattern);
+
+    const char *step = NULL;
+    if (sloop_hal_storage_erase(STORE_RAWTEST_OFF) != 0) {
+        step = "erase";
+    }
+    for (uint32_t off = 0; step == NULL && off < STORE_RAWTEST_SECTOR; off += sizeof pattern) {
+        if (sloop_hal_storage_prog(STORE_RAWTEST_OFF + off, pattern, sizeof pattern) != 0) {
+            step = "prog";
+        }
+    }
+    if (step == NULL && !store_rawtest_verify()) step = "verify";
+    /* 无论成败都恢复空闲扇区（0xFF） */
+    if (sloop_hal_storage_erase(STORE_RAWTEST_OFF) != 0 && step == NULL) step = "cleanup";
+    if (step != NULL) {
+        printf("STORE RAWTEST FAIL off=0x%X step=%s\n", (unsigned)STORE_RAWTEST_OFF, step);
+        return 1;
+    }
+    printf("STORE RAWTEST PASS off=0x%X part_off=0x%X\n", (unsigned)STORE_RAWTEST_OFF,
+           (unsigned)(STORE_RAWTEST_OFF - sloop_hal_storage_base()));
+    return 0;
+}
+
+/* 故障注入（torn-write 套件入口，Task 8 消费）：计数只由 erase/prog 递增；
+ * arm 期间 read 返回 -1 但不消耗序号（spec §4.1「第 n 次写操作」）。 */
+static int store_fault(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "clear") == 0) {
+        uint32_t taken = sloop_hal_storage_fault_taken();
+        sloop_hal_storage_fault_clear();
+        printf("STORE FAULT cleared taken=%u\n", (unsigned)taken);
+        return 0;
+    }
+    uint32_t nth = 0;
+    bool half = false;
+    if ((argc == 3 || argc == 4) && eng_uint(argv[2], 9999, &nth) && nth >= 1) {
+        half = argc == 4 && strcasecmp(argv[3], "half") == 0;
+        if (argc == 3 || half) {
+            sloop_hal_storage_fault_arm(nth, half);
+            printf("STORE FAULT armed nth=%u half=%u\n", (unsigned)nth, half ? 1u : 0u);
+            return 0;
+        }
+    }
+    printf("用法: STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n");
+    return 1;
+}
+
+static int store_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
+    if (argc == 2 && strcasecmp(argv[1], "rawtest") == 0) return store_rawtest();
+    if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
+    printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
+           "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
+           (unsigned)STORE_RAWTEST_OFF);
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
+    /* 存储后端开机初始化（分区 sloopstore + mmap，ADR-009）：幂等，Task 3 起
+     * sloop_store_init 再调为 no-op。失败不阻断启动，STORE 报 no_storage。 */
+    esp_err_t store_ret = sloop_hal_storage_init();
+    if (store_ret != ESP_OK) {
+        ESP_LOGE(TAG, "存储后端初始化失败: %s（STORE 将报 no_storage）", esp_err_to_name(store_ret));
+    }
+
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "sloop> ";
     repl_cfg.max_history_len = 16;
@@ -1289,6 +1398,19 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&tap_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 TAP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t store_cmd = {
+        .command = "STORE",
+        .help = "存储诊断：STORE STATS 后端状态；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
+                "STORE FAULT <nth> [half]|CLEAR 故障注入",
+        .hint = "STATS|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
+        .func = &store_command,
+    };
+    ret = esp_console_cmd_register(&store_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 STORE 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
