@@ -166,3 +166,15 @@
 | **触发条件** | 任何新增「先 arm、后由另一条命令触发写」的注入场景；或自动存档阈值/任务周期调整让 tick 更容易插入命令之间。 |
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
+
+## DI-23: `store` 场景 ⑩ 的前置状态来自开机恢复的 autosave（人工改过设备会假红）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `scripts/inject/inject.py` 的 `store` 场景 ⓪ 是「esptool 硬复位」，复位后 autosave resume 把**上一轮 ⑪ 结束时的状态**装回引擎；⑩ 紧接着跑（在 ① 归一四槽之前），其中 ⑩c「按住 C ⇒ `ENG SNAP voices≥1`」依赖选中轨**未静音**（`P_MUTE` 是 `param_kept`，`ENG TRACK 0 0 0` 不会解锁），⑩f「foreign：图案保留（steps=1）」依赖轨 1 在捕获时恰有 1 个非空步。若在两次跑之间有人手工把设备改到别的工程（例如 `STORE PROJ LOAD 3` 一个 fixture，随后 AUTO ON 让它写进 autosave），⑩ 会以「voices=0」「steps=42」这类**与固件无关**的原因失败（Task 9 现场踩到：手工载入 FUN5 后 P_MUTE=40、轨 1 有 42 步）。 |
+| **影响面** | 只有 `store` 注入场景的 ⑩c/⑩f 两条前置断言；固件行为、其它场景与产品路径不受影响。失败是**响亮**的（断言红、exit≠0），不会假绿。 |
+| **为何可延迟** | 场景在自洽的历史上可重复（Task 6–9 每轮的起点都是上一轮 ⑪ 的产物，实测 run 2 起逐位稳定）；只有「人工改设备后直接跑门禁」这一种情况会红，且一眼能从断言值（mute/步数）看出不是固件问题。改断言需要先决定「⑩ 的起点应该由脚本自己造」还是「显式声明依赖 autosave」，属测试设计选择，适合与 Task 14 的门禁收口一起做。 |
+| **解决方向** | (a) ⓪ 之后、⑩ 之前显式归一：`PARAM 40 0`（P_MUTE=0）+ `PARAM 0 104`（P_LEVEL）+ 用 TAP 把轨 1 清成 0 步再建 1 步（或 `ENG TRACK 0 0 0` 之前先 `STORE PROJ LOAD 0` 载入已知工程）；(b) 把 ⑩f 的 `steps=1` 改成「与 `STORE PROJ SYNTH fmt1` 输出的轨 1 steps 相同」（同轮内相对比较，不假设历史）；(c) 只改 docstring 写清「起点 = 上一轮 ⑪ 的 autosave，人工改动后先 `STORE PROJ LOAD 0` 并等一次 autosave 写」。优先 (a)+(b)。 |
+| **触发条件** | 两次 `store.sh` 之间在设备上手工载入/编辑了工程（或跑了会改引擎状态的命令）且 autosave 已写入；或将来把 ⑩ 的用例拆到别的场景里跑。 |
+| **参考** | `scripts/inject/inject.py` 的 `run_store` ⓪/`run_store_engine` ⑩c/⑩f、`store_tab5.c` 的 `param_kept`（P_MUTE 不在 `apply_preset_to` 的覆盖范围）、`docs/dev/verify/4-pb-2026-11-21/task-9-*.txt` |
+| **登记** | 2026-11-22（P4-B Task 9 现场：手工 `STORE PROJ LOAD 3` FUN5 后 autosave 携带 P_MUTE=40 与 42 步，下一次 `store.sh` 在 ⑩c/⑩f 红；`STORE PROJ LOAD 0` + 等一次 autosave 写后恢复绿） |
