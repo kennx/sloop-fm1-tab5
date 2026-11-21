@@ -157,7 +157,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing/步窗 `window_bank/window_start/window_len`）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值，idx 为绝对步号 0..63）。
 - 场景脚本：`scripts/inject/{transport,step_edit,tracks,nav}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复（幂等，必要时先归一基线），退出码 0 才算通过。
-- **同拍语义（nav 场景）**：「同一 30ms UI tick」用一次性批写多行实现（`Session.cmd_batch`，行间无主机延迟；单条命令慢路径往返 ~50ms，逐条发送必然跨拍），并用批内追加的 `UI` 在设备侧自证前提——`KEY tab` 与 `KEY PANIC` 之间若被一拍插入，页面已前进，批内 `UI` 读数就会暴露；3×`KEY tab` 同理（批内 `UI` 仍是起点页 ⇒ 3 次按下之间无拍执行）。前提不成立记为工具侧「重新对齐」（日志注记，不判固件失败），最多 5 次；只有前提成立后的页面断言才计入 PASS/FAIL。锚点方法（单按 tab 并快速轮询到页翻转）见 `inject.py` 的 `nav_anchor`。
+- **同拍语义（nav 场景）**：「同一 30ms UI tick」用一次性批写多行实现（`Session.cmd_batch`，行间无主机延迟；单条命令慢路径往返 ~50ms，逐条发送必然跨拍），并用批内追加的 `UI` 在设备侧自证前提——`KEY tab` 与 `KEY PANIC` 之间若被一拍插入，页面已前进，批内 `UI` 读数就会暴露；3 组 `KEY tab` 按下/释放（down+up 配对，防「重复按下沿去抖」假通过）同理：批内 `UI` 仍是起点页 ⇒ 按下之间无拍执行。前提不成立记为工具侧「重新对齐」（日志注记，不判固件失败），最多 5 次；只有前提成立后的页面断言才计入 PASS/FAIL。锚点方法（单按 tab 并快速轮询到页翻转）见 `inject.py` 的 `nav_anchor`。
 - **transcript 必须是原始回显**：串口字节逐字节写日志，不裁剪、不手改、不摘述；只允许 `# [inject] ...` 前缀的工具注记（非固件输出），SCR 的二进制帧体不入日志。日志与截图落 `firmware/build/verify/`，门禁证据按 §5.4(1) 晋升。
 
 ### 5.5 验证门禁（任务完成的定义）

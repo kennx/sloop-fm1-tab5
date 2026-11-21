@@ -687,7 +687,7 @@ def run_tracks(s: Session) -> None:
 
 
 #
-# ---- ④ 导航回归（nav.sh）：四条导航行为的注入方法 ----
+# ---- nav 场景（导航回归）：四条导航行为的注入方法 ----
 #
 # 四条用例里有两条依赖「两条命令落在同一个 30ms UI tick 内」。单条 console 命令走
 # `cmd()` 的慢路径往返 ~50ms（read_response 的 read(256) 在无数据时阻塞到 timeout），
@@ -706,7 +706,8 @@ def run_tracks(s: Session) -> None:
 # - 前提不成立的重对齐最多 NAV_ATTEMPTS 次；耗尽即 FAIL（脚本不通过，不放宽断言）。
 
 UI_TICK_S = 0.030
-NAV_SETTLE_S = 0.5  # ≥6 个 30ms 拍（覆盖实测 ~270ms 拍迟滞，留余量）
+NAV_SETTLE_S = 1.0  # ≥6 个 30ms 拍；实测拍迟滞可达 ~270ms，观察窗留到 1s
+                     # （>1s 停摆时用例③的「仍 TRACKS」可能被误判为通过，故取 1s）
 NAV_ATTEMPTS = 5
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
 # 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
@@ -725,13 +726,19 @@ NAV_STATE_FIELDS = ("page", "focus_track", "focus_step", "layer_held", "selected
 
 
 def nav_state_fields(s: Session) -> dict:
-    """STATE SNAP 导航相关字段（AppState 首行逐字段）。"""
+    """STATE SNAP 导航相关字段（AppState 首行逐字段）。
+
+    11 个字段必须全部出现：缺字段（固件快照改名/丢字段）时不得以 None==None 静默
+    通过比较——直接 InjectError（脚本非零退出），与断言失败同口径暴露。"""
     s.cmd("STATE SNAP")
     m = re.search(r"^STATE SNAP (.*)$", s.last, re.MULTILINE)
     if m is None:
         raise InjectError("STATE SNAP 回显缺失")
     kv = dict(re.findall(r"(\w+)=(\S+)", m.group(1)))
-    return {k: kv.get(k) for k in NAV_STATE_FIELDS}
+    missing = [k for k in NAV_STATE_FIELDS if k not in kv]
+    if missing:
+        raise InjectError(f"STATE SNAP 缺少字段: {', '.join(missing)}")
+    return {k: kv[k] for k in NAV_STATE_FIELDS}
 
 
 def nav_eng_snapshot(s: Session) -> list:
@@ -806,15 +813,15 @@ def nav_last_page(s: Session) -> int:
 
 
 def run_nav(s: Session) -> None:
-    """④ 导航回归：阶段 3 评审点名的四条导航行为（阶段 4 路由重构最易静默破坏）。
+    """nav 场景：阶段 3 评审点名的四条导航行为（阶段 4 路由重构最易静默破坏）。
 
-    ① 页签条内、页签矩形外的 TAP → `TAP miss`，STATE/ENG 快照逐字段不变；
+    ① 页签缝与页签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
     ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
        焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
-       6 拍仍停在原页（撤销待切页，无回跳）；
-    ④ 同一 30ms 拍内 3 次 KEY tab：6 拍后只前进一页（ADR-006「一拍一页」），再 6
-       拍无第二次前进。
+       1s（≥6 拍）仍停在原页（撤销待切页，无回跳）；
+    ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
+       一页」），再 1s 无第二次前进。
     """
     ensure_stopped(s)
     ensure_window(s, 0, 16)
@@ -832,13 +839,20 @@ def run_nav(s: Session) -> None:
     s.cmd("TAP %d %d" % ctrl_xy)
     s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格再 TAP（落回原值）")
 
-    # ---------- ① 页签缝 TAP：miss 且状态/引擎不变 ----------
+    # ---------- ① 页签区 TAP：miss 且状态/引擎不变 ----------
+    # 两个点都必须在 TAP 路线上 miss：页签缝（页签条内、所有页签矩形外）与页签矩形
+    # 内部（PLAY 页签中心 104,36）。后者钉住「页签矩形被接进 TAP 路由」的回归——一旦
+    # 接进来，点页签会切页，与「TAP 只派发当前页控件」的约定冲突（切页走 UI/KEY tab）。
     gap_xy = tab_gap_xy(0)
-    s.ser.note(f"用例①：TAP 页签缝 {gap_xy[0]},{gap_xy[1]}（页签条内、所有页签矩形外）")
+    tab_xy = (UI_TAB_X0 + UI_TAB_W // 2, UI_TAB_Y + UI_TAB_H // 2)  # PLAY 页签中心
+    s.ser.note(f"用例①：TAP 页签缝 {gap_xy[0]},{gap_xy[1]} 与页签矩形内 "
+               f"{tab_xy[0]},{tab_xy[1]}（均须 miss）")
     st1 = nav_state_fields(s)
     eng1 = nav_eng_snapshot(s)
     s.cmd("TAP %d %d" % gap_xy)
     s.expect(rf"TAP miss {gap_xy[0]},{gap_xy[1]} page=2", "① 页签缝 TAP miss")
+    s.cmd("TAP %d %d" % tab_xy)
+    s.expect(rf"TAP miss {tab_xy[0]},{tab_xy[1]} page=2", "① 页签矩形内 TAP miss")
     nav_same(s, "① STATE SNAP", st1, nav_state_fields(s))
     nav_same(s, "① ENG SNAP", eng1, nav_eng_snapshot(s))
     img_step = s.capture("nav-01-tabbar")
@@ -923,7 +937,9 @@ def run_nav(s: Session) -> None:
         s.expect(r"UI page=play \(0\)", f"④ 起点 PLAY（对齐 {attempt}/{NAV_ATTEMPTS}）")
         anchor = nav_anchor(s, 0)
         s.expect(r"UI page=tracks \(1\)", f"④ 锚点单按 tab 前进一页（对齐 {attempt}）")
-        span = s.cmd_batch(["KEY 0x20 down"] * 3 + ["UI"])
+        # down/up 配对：若输入层将来对「重复按下沿」去抖，连续 3 个 down 会被合并成
+        # 1 次请求而假通过；3 组真实按下/释放仍须只前进一页。
+        span = s.cmd_batch(["KEY 0x20 down", "KEY 0x20 up"] * 3 + ["UI"])
         t_end = time.monotonic()
         mid = nav_last_page(s)
         margin = (anchor["lower"] + UI_TICK_S - t_end) * 1000.0
