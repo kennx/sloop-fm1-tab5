@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-三条场景脚本（transport.sh / step_edit.sh / tracks.sh）是本文的薄封装。每个场景：
+四条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh）是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -84,6 +84,10 @@ class LoggedSerial:
 
     def reset_input_buffer(self) -> None:
         self._ser.reset_input_buffer()
+
+    @property
+    def in_waiting(self) -> int:
+        return self._ser.in_waiting
 
     @property
     def timeout(self):
@@ -202,6 +206,56 @@ class Session:
         m = re.search(pattern, self.last, re.MULTILINE)
         if m is None:
             raise InjectError(f"STATE/ENG 快照缺少 {pattern!r}")
+        return int(m.group(1))
+
+    # ---- 快速命令（导航场景的 30ms tick 相位对齐；见 nav_anchor） ----
+    def _read_prompts(self, count: int, timeout: float) -> str:
+        """非阻塞轮询到 count 个 console 提示符；单次往返 ~1ms。
+
+        `read_response` 用 `read(256)`（pyserial 在无数据时阻塞到 timeout）——
+        每次调用 ~50ms，够不上 30ms tick 的对齐精度。这里用 in_waiting 轮询。"""
+        buf = bytearray()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            k = self.ser.in_waiting
+            if not k:
+                time.sleep(0.0003)
+                continue
+            buf.extend(self.ser.read(k))
+            if buf.count(b"sloop>") >= count and _prompt_at(buf):
+                return buf.decode(errors="replace")
+        raise TimeoutError(f"等待 {count} 个提示符超时（已收 {len(buf)} 字节）")
+
+    def cmd_fast(self, line: str, timeout: float = 2.0) -> None:
+        """同 cmd()，走 in_waiting 快速读取（~1ms 往返）。"""
+        self.ser.reset_input_buffer()
+        self.ser.write((line + "\n").encode())
+        self.ser.flush()
+        try:
+            self.last = self._read_prompts(1, timeout)
+        except TimeoutError as e:
+            raise InjectError(f"命令 {line!r} 无响应：{e}") from None
+
+    def cmd_batch(self, lines, timeout: float = 3.0) -> float:
+        """多行一次性写入（行间无主机延迟），读到 len(lines) 个提示符。
+        返回主机侧耗时 ms。回显行序即固件处理序：同 tick 用例靠它把多条命令压在
+        同一个 30ms UI 周期内（若逐条发送，每条 ~50ms 往返，必然跨拍）。"""
+        t0 = time.monotonic()
+        self.ser.reset_input_buffer()
+        self.ser.write(("\n".join(lines) + "\n").encode())
+        self.ser.flush()
+        try:
+            self.last = self._read_prompts(len(lines), timeout)
+        except TimeoutError as e:
+            raise InjectError(f"批量命令 {lines!r} 无响应：{e}") from None
+        return (time.monotonic() - t0) * 1000.0
+
+    def page_fast(self) -> int:
+        """UI 无参 → 当前页 id（快速路径）。"""
+        self.cmd_fast("UI")
+        m = re.search(r"UI page=\w+ \((\d+)\)", self.last)
+        if m is None:
+            raise InjectError(f"UI 回显缺少页号：{self.last!r}")
         return int(m.group(1))
 
     # ---- 截屏与像素抽检 ----
@@ -343,6 +397,18 @@ STEP_CELL_B = step_cell_xy(5, 1)
 TRACKS_CARD2 = (796, 347)
 # 卡距：page_tracks.c CARD_PITCH = CARD_W + 16 = 312（soak 循环选卡按此换算）
 TRACKS_CARD_PITCH = 312
+
+# 页签条（theme.h UI_TAB_X0/W/GAP/H/Y + ui.c 的页签建成）：页签 i 的 x 区间 =
+# UI_TAB_X0 + i*(UI_TAB_W+UI_TAB_GAP) .. +UI_TAB_W，y = UI_TAB_Y .. +UI_TAB_H。
+# nav 用例①取相邻页签之间 8px 缝的中心：在页签条内、却在所有页签矩形之外。
+UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 176, 8
+UI_TAB_Y, UI_TAB_H = 10, 52
+
+
+def tab_gap_xy(i: int) -> tuple:
+    """页签 i 与 i+1 之间缝隙的中心（屏幕绝对坐标）。"""
+    return (UI_TAB_X0 + (i + 1) * (UI_TAB_W + UI_TAB_GAP) - UI_TAB_GAP // 2,
+            UI_TAB_Y + UI_TAB_H // 2)
 
 
 def ensure_window(s: Session, start: int, window_len: int) -> int:
@@ -620,17 +686,289 @@ def run_tracks(s: Session) -> None:
     s.probe(img, "卡间缝背景", 640, 260, C_BG)
 
 
+#
+# ---- ④ 导航回归（nav.sh）：四条导航行为的注入方法 ----
+#
+# 四条用例里有两条依赖「两条命令落在同一个 30ms UI tick 内」。单条 console 命令走
+# `cmd()` 的慢路径往返 ~50ms（read_response 的 read(256) 在无数据时阻塞到 timeout），
+# 逐条发送必然跨拍；因此这两条用例一律**一次性写入多行**（cmd_batch：行间无主机
+# 延迟），再用 in_waiting 快速读取（~1ms）确认回显。
+#
+# 「同一拍」不能只靠时序猜：30ms 定时器的相位随机，且实测拍间隔偶有 ~200–270ms 的
+# 迟滞（LVGL 任务被渲染/刷新拖住）。因此：
+#
+# - 用例③ 用**批内第三条 `UI`** 在设备侧自证前提：tab 与 PANIC 之间若被一拍插入，
+#   页面在 PANIC 之前就已前进，批内 UI 立即读出新页——此时前提不成立，重新对齐
+#   （工具侧重试，日志注记），不算固件失败；只有「批内 UI 仍是原页（PANIC 执行时
+#   请求尚未被消费）+ 6 拍后无回跳」才判定 PANIC 撤销成功。
+# - 用例④ 同理：批内第四条 `UI` 仍是起点页 ⇒ press1..press3 之间没有拍执行过
+#   （任何一拍都会立即把页面推进一页），3 次请求因此压在同一个邮箱里。
+# - 前提不成立的重对齐最多 NAV_ATTEMPTS 次；耗尽即 FAIL（脚本不通过，不放宽断言）。
+
+UI_TICK_S = 0.030
+NAV_SETTLE_S = 0.5  # ≥6 个 30ms 拍（覆盖实测 ~270ms 拍迟滞，留余量）
+NAV_ATTEMPTS = 5
+# STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
+# 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
+NAV_STATUS_BOX = (1040, 82, 1258, 112)
+
+
+def count_region(img, box: tuple, rgb: tuple, tol: int) -> int:
+    """区域内与 rgb 各通道差 ≤ tol 的像素数（RGB565 量化后口径，同 probe_region）。"""
+    colors = img.crop(box).getcolors(maxcolors=1 << 20) or []
+    return sum(c for c, px in colors
+               if max(abs(px[0] - rgb[0]), abs(px[1] - rgb[1]), abs(px[2] - rgb[2])) <= tol)
+
+
+NAV_STATE_FIELDS = ("page", "focus_track", "focus_step", "layer_held", "selected_track",
+                    "last_note", "bpm", "playing", "window_bank", "window_start", "window_len")
+
+
+def nav_state_fields(s: Session) -> dict:
+    """STATE SNAP 导航相关字段（AppState 首行逐字段）。"""
+    s.cmd("STATE SNAP")
+    m = re.search(r"^STATE SNAP (.*)$", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError("STATE SNAP 回显缺失")
+    kv = dict(re.findall(r"(\w+)=(\S+)", m.group(1)))
+    return {k: kv.get(k) for k in NAV_STATE_FIELDS}
+
+
+def nav_eng_snapshot(s: Session) -> list:
+    """ENG SNAP 全量：首行（playing/bpm/sel/pos）+ 4 条 trk + 16 条 dstep。"""
+    s.cmd("ENG SNAP")
+    lines = [l for l in s.last.splitlines()
+             if l.startswith(("ENG SNAP playing=", "ENG SNAP trk ", "ENG SNAP dstep "))]
+    if len(lines) != 21:
+        raise InjectError(f"ENG SNAP 回显不完整（{len(lines)}/21 行）")
+    return lines
+
+
+def nav_same(s: Session, label: str, before, after) -> None:
+    """快照逐字段/逐行比对（导航用例的「不变」断言）。"""
+    if before == after:
+        s.ok(f"{label} 前后一致")
+        return
+    if isinstance(before, dict):
+        diff = [f"{k}: {before[k]} -> {after.get(k)}" for k in before
+                if before[k] != after.get(k)]
+    else:
+        diff = [f"{b} -> {a}" for b, a in zip(before, after) if b != a]
+        if len(before) != len(after):
+            diff.append(f"行数 {len(before)} -> {len(after)}")
+    s.fail(f"{label} 发生变化: " + "; ".join(diff))
+
+
+def nav_set_focus(s: Session, track: int, step: int) -> None:
+    """方向键把焦点归一到 (track, step)：焦点是 UI 局部态（state_set_focus），
+    ↑/↓ 在三条合成轨循环、←/→ 在窗口列循环，都不发引擎写。"""
+    s.cmd("STATE SNAP")
+    t0, s0 = s.snap_int(r"focus_track=(\d+)"), s.snap_int(r"focus_step=(\d+)")
+    for _ in range((track - t0) % 3):
+        s.cmd("KEY 0x4B down")
+        s.cmd("KEY 0x4B up")
+    for _ in range((step - s0) % 16):
+        s.cmd("KEY 0x4C down")
+        s.cmd("KEY 0x4C up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", track, f"焦点轨归一 = {track}")
+    s.expect_int(r"focus_step=(\d+)", step, f"焦点列归一 = {step}")
+
+
+def nav_anchor(s: Session, start_page: int) -> dict:
+    """单按 tab，快速轮询 UI 直到页翻转；返回 {"page", "lower", "detect"}。
+
+    lower = 最后一次「读到旧页」的主机时刻（初始为 tab 写入时刻）：旧页响应先于
+    翻转产生，故 lower ≤ 拍执行时刻，下一拍 ≥ lower + 30ms——批次只要在此之前
+    结束，批内命令就同属一个 30ms 周期。detect = 首次读到新页的时刻。"""
+    t_write = time.monotonic()
+    s.cmd_fast("KEY 0x20 down")  # tab 只在按下沿请求「当前页 + 1」（ADR-006）
+    lower = t_write
+    polls = 0
+    deadline = t_write + 2.0
+    while time.monotonic() < deadline:
+        page = s.page_fast()
+        now = time.monotonic()
+        polls += 1
+        if page != start_page:
+            return {"page": page, "lower": lower, "detect": now, "write": t_write,
+                    "polls": polls}
+        lower = now
+    raise InjectError(f"tab 按下后 2s 内页面未从 {start_page} 前进（UI tick 停摆？）")
+
+
+def nav_last_page(s: Session) -> int:
+    """回显里最后一次 `UI page=...` 的页号（批内 UI 用）。"""
+    found = re.findall(r"UI page=\w+ \((\d+)\)", s.last)
+    if not found:
+        raise InjectError(f"回显缺少 UI 页号：{s.last!r}")
+    return int(found[-1])
+
+
+def run_nav(s: Session) -> None:
+    """④ 导航回归：阶段 3 评审点名的四条导航行为（阶段 4 路由重构最易静默破坏）。
+
+    ① 页签条内、页签矩形外的 TAP → `TAP miss`，STATE/ENG 快照逐字段不变；
+    ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
+       焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
+    ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
+       6 拍仍停在原页（撤销待切页，无回跳）；
+    ④ 同一 30ms 拍内 3 次 KEY tab：6 拍后只前进一页（ADR-006「一拍一页」），再 6
+       拍无第二次前进。
+    """
+    ensure_stopped(s)
+    ensure_window(s, 0, 16)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    time.sleep(0.1)  # ≥3 拍：切页首帧刷新稳定
+
+    # 基线归一（所有截屏的确定性来源）：合成轨格 TAP 两次（落回原值，脚本可重复），
+    # 顺带把状态行从上一轮必然残留的 "DRUM EDIT = PHASE 4" 换成合成轨文本（蓝字）——
+    # 这样每次运行的状态行都从同一文本出发，PNG 跨运行逐字节一致；也让「鼓轨点击后
+    # 状态行变橙」在重复运行下仍可判定。第 2 列与用例②的目标焦点列一致，焦点只需换轨。
+    ctrl_xy = step_cell_xy(2, 0)
+    s.cmd("TAP %d %d" % ctrl_xy)
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格 TAP（对照组）")
+    s.cmd("TAP %d %d" % ctrl_xy)
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格再 TAP（落回原值）")
+
+    # ---------- ① 页签缝 TAP：miss 且状态/引擎不变 ----------
+    gap_xy = tab_gap_xy(0)
+    s.ser.note(f"用例①：TAP 页签缝 {gap_xy[0]},{gap_xy[1]}（页签条内、所有页签矩形外）")
+    st1 = nav_state_fields(s)
+    eng1 = nav_eng_snapshot(s)
+    s.cmd("TAP %d %d" % gap_xy)
+    s.expect(rf"TAP miss {gap_xy[0]},{gap_xy[1]} page=2", "① 页签缝 TAP miss")
+    nav_same(s, "① STATE SNAP", st1, nav_state_fields(s))
+    nav_same(s, "① ENG SNAP", eng1, nav_eng_snapshot(s))
+    img_step = s.capture("nav-01-tabbar")
+    s.probe(img_step, "① 页签缝底（页签条 UI_PANEL）", *gap_xy, C_PANEL, 10)
+    s.probe(img_step, "① 页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+
+    # ---------- ② STEP 鼓轨行只读 ----------
+    nav_set_focus(s, 2, 2)  # 非默认焦点：让「焦点不变」有判别力
+    drum_xy = step_cell_xy(3, 3)  # 行 3 = DRM，窗口列 3 = 绝对步 3
+    s.ser.note(f"用例②：TAP 鼓轨格 {drum_xy[0]},{drum_xy[1]}（DRM 行只读）")
+    st2 = nav_state_fields(s)
+    eng2 = nav_eng_snapshot(s)
+    img_before = s.capture("nav-02-drum-before")
+    blue_before = count_region(img_before, NAV_STATUS_BOX, C_BLUE, 16)
+    orange_before = count_region(img_before, NAV_STATUS_BOX, C_ORANGE, 16)
+    (s.ok if blue_before >= 25 and orange_before == 0 else s.fail)(
+        f"② 状态行基线：蓝字（合成轨）{blue_before} / 橙字 {orange_before}"
+        f"（期望蓝 ≥25、橙 0）")
+
+    s.cmd("TAP %d %d" % drum_xy)
+    s.expect(r"-> STEP drum step=3 read-only", "② 鼓轨 TAP read-only 回显")
+    (s.ok if "CMD_TOGGLE_STEP" not in s.last else s.fail)("② 鼓轨 TAP 未发 CMD_TOGGLE_STEP")
+    st2_after = nav_state_fields(s)
+    s.expect_int(r"focus_track=(\d+)", 2, "② STATE SNAP focus_track 不变")
+    s.expect_int(r"focus_step=(\d+)", 2, "② STATE SNAP focus_step 不变")
+    nav_same(s, "② STATE SNAP", st2, st2_after)
+    nav_same(s, "② ENG SNAP（无引擎写）", eng2, nav_eng_snapshot(s))
+
+    img_after = s.capture("nav-03-drum-readonly")
+    box = (drum_xy[0] - STEP_CELL_W // 2 - 2, drum_xy[1] - STEP_CELL_H // 2 - 2,
+           drum_xy[0] + STEP_CELL_W // 2 + 2, drum_xy[1] + STEP_CELL_H // 2 + 2)
+    same_cell = img_before.crop(box).tobytes() == img_after.crop(box).tobytes()
+    (s.ok if same_cell else s.fail)(
+        f"② 鼓格像素区 {box} 点击前后逐字节相同（只读、不点亮）" if same_cell
+        else f"② 鼓格像素区 {box} 点击后变化（鼓轨行不应可编辑）")
+    orange_after = count_region(img_after, NAV_STATUS_BOX, C_ORANGE, 16)
+    blue_after = count_region(img_after, NAV_STATUS_BOX, C_BLUE, 16)
+    (s.ok if orange_after >= 25 and blue_after == 0 else s.fail)(
+        f"② 状态行点击后：橙字 {orange_after} / 蓝字 {blue_after}"
+        f"（期望 ≥25 / 0，DRUM EDIT = PHASE 4）")
+
+    # ---------- ③ 同一拍：KEY tab + KEY PANIC ----------
+    premise = False
+    for attempt in range(1, NAV_ATTEMPTS + 1):
+        s.cmd_fast("UI play")
+        s.expect(r"UI page=play \(0\)", f"③ 起点 PLAY（对齐 {attempt}/{NAV_ATTEMPTS}）")
+        anchor = nav_anchor(s, 0)
+        s.expect(r"UI page=tracks \(1\)", f"③ 锚点单按 tab 前进一页（对齐 {attempt}）")
+        span = s.cmd_batch(["KEY 0x20 down", "KEY PANIC", "UI"])
+        t_end = time.monotonic()
+        mid = nav_last_page(s)
+        margin = (anchor["lower"] + UI_TICK_S - t_end) * 1000.0
+        s.ser.note(f"③ 对齐 {attempt}: 批次 {span:.1f}ms，锚点下界→批次结束余量 "
+                   f"{margin:.1f}ms（tab 写入→翻转 "
+                   f"{(anchor['detect'] - anchor['write']) * 1000:.1f}ms，下界→翻转 "
+                   f"{(anchor['detect'] - anchor['lower']) * 1000:.1f}ms，轮询 "
+                   f"{anchor['polls']} 次），批内 UI 页={mid}")
+        if mid != 1:
+            s.ser.note("③ 前提不成立：批内 UI 已前进 → 有拍插在 tab 与 PANIC 之间；重新对齐")
+            print(f"  [NOTE] ③ 对齐 {attempt}: 拍插在 tab/PANIC 之间（批内页={mid}），重新对齐")
+            continue
+        premise = True
+        break
+    if premise:
+        s.ok("③ 前提成立：PANIC 执行时 tab 请求尚未被拍消费（批内 UI 仍 TRACKS）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=tracks \(1\)", "③ 6 拍后仍 TRACKS（撤销待切页、无回跳）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=tracks \(1\)", "③ 再 6 拍后仍 TRACKS")
+        img = s.capture("nav-04-panic-final")
+        s.probe(img, "③ 页签选中（TRACKS）", *C_TAB_TRACKS, C_YELLOW)
+        s.probe(img, "③ PLAY 页签未选中", *C_TAB_PLAY, C_PANEL_HI, 10)
+    else:
+        s.fail(f"③ {NAV_ATTEMPTS} 次对齐都未能把 tab/PANIC 压进同一拍（测试前提不成立）")
+
+    # ---------- ④ 同一拍内 3 次 KEY tab：只前进一页 ----------
+    premise = False
+    for attempt in range(1, NAV_ATTEMPTS + 1):
+        s.cmd_fast("UI play")
+        s.expect(r"UI page=play \(0\)", f"④ 起点 PLAY（对齐 {attempt}/{NAV_ATTEMPTS}）")
+        anchor = nav_anchor(s, 0)
+        s.expect(r"UI page=tracks \(1\)", f"④ 锚点单按 tab 前进一页（对齐 {attempt}）")
+        span = s.cmd_batch(["KEY 0x20 down"] * 3 + ["UI"])
+        t_end = time.monotonic()
+        mid = nav_last_page(s)
+        margin = (anchor["lower"] + UI_TICK_S - t_end) * 1000.0
+        s.ser.note(f"④ 对齐 {attempt}: 批次 {span:.1f}ms，锚点下界→批次结束余量 {margin:.1f}ms"
+                   f"（tab 写入→翻转 {(anchor['detect'] - anchor['write']) * 1000:.1f}ms，"
+                   f"下界→翻转 {(anchor['detect'] - anchor['lower']) * 1000:.1f}ms，"
+                   f"轮询 {anchor['polls']} 次），批内 UI 页={mid}")
+        if mid != 1:
+            s.ser.note("④ 前提不成立：批内 UI 已前进 → 3 次按下之间夹了拍；重新对齐")
+            print(f"  [NOTE] ④ 对齐 {attempt}: 按下之间夹了拍（批内页={mid}），重新对齐")
+            continue
+        premise = True
+        break
+    if premise:
+        s.ok(f"④ 前提成立：批内 UI 仍 TRACKS，3 次按下之间无拍执行"
+             f"（时序下界余量 {margin:.1f}ms，仅作参考）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=step \(2\)", "④ 3 次 tab 只前进一页（TRACKS→STEP）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=step \(2\)", "④ 再 6 拍无第二次前进")
+        img = s.capture("nav-05-tab3-final")
+        s.probe(img, "④ 页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+        s.probe(img, "④ TRANSPORT 页签未选中", *C_TAB_TRANSPORT, C_PANEL_HI, 10)
+    else:
+        s.fail(f"④ {NAV_ATTEMPTS} 次对齐都未能把 3 次 tab 压进同一拍（测试前提不成立）")
+
+    # 复位：PLAY 页（脚本可重复运行）
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "复位 UI play")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "step_edit": run_step_edit,
     "tracks": run_tracks,
+    "nav": run_nav,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（三条 .sh 各对应一个）")
+                    help="注入场景（四条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")

@@ -65,7 +65,7 @@ sloop-fm1-tab5/
 │   ├── host-test.sh               #    上游 host 生成头 + golden/DSP 回归门禁
 │   ├── device-selftest.py         #    串口 ENG SELFTEST（默认全量 182 例）→ PC 对 golden.txt 严格比对
 │   ├── verify.sh                  #    一键验证：构建→烧录→等启动→截屏
-│   ├── inject/                    #    注入脚本（transport.sh/step_edit.sh/tracks.sh + inject.py）：UI 切页→TAP/KEY→STATE/ENG 断言→SCR 截屏（§5.4.1）
+│   ├── inject/                    #    注入脚本（transport.sh/step_edit.sh/tracks.sh/nav.sh + inject.py）：UI 切页→TAP/KEY→STATE/ENG 断言→SCR 截屏（§5.4.1）
 │   ├── soak.py                    #    稳定性能 soak：播放/步编辑/切页循环 + 每 5min ENG MEM/PERF 采样与判定（§5.5）
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
 ├── third_party/                   # 第三方源码与完整性清单
@@ -101,7 +101,7 @@ sloop-fm1-tab5/
 | `scripts/host-test.sh` | 强制刷新 4 个生成头并运行上游 host golden/DSP 回归子集；禁止基线更新模式 |
 | `scripts/state-test.sh` | `sloop_state` 状态层 host 单测（gcc + stub 引擎，`-DHOST_TEST`）；打印 PASS/FAIL，失败退出码非 0 |
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 运行设备 `ENG SELFTEST`，逐用例与 host `golden.txt` 比对。**默认全量 182 例**（诊断期固件自动 quiesce UI：暂停 30ms 定时器、输入丢弃、引擎读写冻结，跑完恢复——UI live 开机即可跑全量门禁）；`--case NAME` 走旧单例口径。脚本先自动 `ENG AUDIO OFF`（固件开机即流式，否则自检被拒）、结束后恢复 `ENG AUDIO ON`；也支持 `--compare LOG` 离线复核（默认按全量 182 例校验，旧单例日志需配 `--case NAME`） |
-| `scripts/inject/{transport,step_edit,tracks}.sh [PORT]` | 注入场景脚本（pyserial）：`UI` 切页（步窗场景另用 `UI WINDOW`）→ `TAP`/`KEY` 注入 → `STATE`/`ENG` 断言 → `SCR` 截屏；产物 `firmware/build/verify/inject-<场景>-<时间戳>.{log,png}`（原始回显日志 + 截图）。`step_edit` 覆盖窗口列编辑 + bank1 绝对步号（`ENG STEP 0 16`）+ `window_len=8` 隐藏列/命中 + 播放头窗口映射；STEP 坐标由页面布局宏派生（`step_cell_xy`），列语义对齐 `STATE SNAP` 的窗口。截屏传输失败时与 `screenshot.py` 同源复位重试（复位 → 重开串口 → 场景从头重跑，默认 3 次）。场景逻辑在 `scripts/inject/inject.py`，见 §5.4.1 |
+| `scripts/inject/{transport,step_edit,tracks,nav}.sh [PORT]` | 注入场景脚本（pyserial）：`UI` 切页（步窗场景另用 `UI WINDOW`）→ `TAP`/`KEY` 注入 → `STATE`/`ENG` 断言 → `SCR` 截屏；产物 `firmware/build/verify/inject-<场景>-<时间戳>.{log,png}`（原始回显日志 + 截图）。`step_edit` 覆盖窗口列编辑 + bank1 绝对步号（`ENG STEP 0 16`）+ `window_len=8` 隐藏列/命中 + 播放头窗口映射；STEP 坐标由页面布局宏派生（`step_cell_xy`），列语义对齐 `STATE SNAP` 的窗口。`nav` 覆盖四条导航行为：页签缝 TAP miss（状态/引擎不变）、STEP 鼓轨行只读（焦点不变、无引擎写、鼓格像素不变）、同拍 `KEY tab`+`KEY PANIC`（撤销待切页、无回跳）、同拍 3×`KEY tab`（只前进一页，ADR-006）；「同拍」用一次性批写多行 + 批内 `UI` 自证，见 §5.4.1。截屏传输失败时与 `screenshot.py` 同源复位重试（复位 → 重开串口 → 场景从头重跑，默认 3 次）。场景逻辑在 `scripts/inject/inject.py`，见 §5.4.1 |
 | `scripts/soak.py PORT [--duration 1800] [--interval 300] [--cycle 12]` | 稳定性 soak：保持 TRANSPORT 页播放中，循环「步编辑 → 选轨/切页 → 键盘音符」，每 `--interval` 秒采样 `ENG MEM`/`ENG PERF`/`KEY STATS` 并核验切页确定性；产物 `firmware/build/verify/soak-<时间戳>.log`（原始回显）+ `soak-summary-<时间戳>.txt`（采样表 + 判定）。判定：internal_free 与 internal_min ≥60KB、采样首末差 ≥-8KB、连续 3 个采样非增累计下滑 ≤2KB、streaming=1 且 xrun=0、流式占空比 duty_mean ≤ 2× 阶段 2 基线 9.44%（=18.88%）、音频栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT、实测时长 ≥--duration；退出码 0 = 通过 |
 | `scripts/verify.sh [PORT]` | 一键验证：构建 → 烧录 → 等待启动 → 截屏到 `firmware/build/verify/` |
 
@@ -152,11 +152,12 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`）；LVGL 锁超时打印 `TAP ERR lvgl_lock_timeout`、诊断期静默打印 `TAP ERR quiesced`（均**未派发**，与 miss 区分）。`UI` 的锁超时打印 `UI ERR lock_timeout`、目标页构建失败打印 `UI ERR page_build <id>`、页 id 合法但未注册打印 `UI ERR not_registered <id>`（三者与 miss/not_started 分开） |
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006）；诊断期静默时打印 `KEY ERR quiesced`（丢弃并计数，`KEY STATS` 的 `quiesce_dropped` 可回读） |
 | `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与懒建的池水位（ADR-008）：`UI MEM` 打印池 used/free/total、注册/已建/失败页数、`sum_est`/`reserve` 与每页 `state`/`est`/`delta`（delta = 最近一次成功构建前后池 free 减少量，含块头开销，采样于首帧 update 前）；`UI FORCEFAIL` 强制该页构建失败：未建页挂起到下一次构建（回显 `state=unbuilt`），已建页删除并立即重建到失败态（注入当场消费，回显 `state=failed`），用于验证「错误状态条 + ERROR 日志 + `UI ERR page_build <id>`」路径；`off` 只撤销尚未消费的注入，不重建已失败页（失败页在下次访问时重试） |
-| `UI WINDOW [<start> <len>]` | 写步窗（`sloop_state` 的 `step_window_t`，UI 局部态）：start 向下 16 对齐、0..48（bank = start/16），len 1..16；回显**落地值** `UI WINDOW bank=… start=… len=…`（无参打印当前窗口）。STEP 页列 c = 引擎绝对步 `start+c`，列数 = len，窗口外的格/列号隐藏且 TAP 命不中；注入脚本据此派生几何（`step_cell_xy`），不写死中心点。窗口是**持久状态**：脚本进入 STEP 前须归一到 `UI WINDOW 0 16`（step_edit/transport/soak 均做） |
+| `UI WINDOW [<start> <len>]` | 写步窗（`sloop_state` 的 `step_window_t`，UI 局部态）：start 向下 16 对齐、0..48（bank = start/16），len 1..16；回显**落地值** `UI WINDOW bank=… start=… len=…`（无参打印当前窗口）。STEP 页列 c = 引擎绝对步 `start+c`，列数 = len，窗口外的格/列号隐藏且 TAP 命不中；注入脚本据此派生几何（`step_cell_xy`），不写死中心点。窗口是**持久状态**：脚本进入 STEP 前须归一到 `UI WINDOW 0 16`（step_edit/transport/nav/soak 均做） |
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing/步窗 `window_bank/window_start/window_len`）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值，idx 为绝对步号 0..63）。
-- 场景脚本：`scripts/inject/{transport,step_edit,tracks}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复（幂等，必要时先归一基线），退出码 0 才算通过。
+- 场景脚本：`scripts/inject/{transport,step_edit,tracks,nav}.sh [PORT]`（场景逻辑集中在 `scripts/inject/inject.py`，pyserial + screenshot.py 的读取/解码路径）。脚本须可重复（幂等，必要时先归一基线），退出码 0 才算通过。
+- **同拍语义（nav 场景）**：「同一 30ms UI tick」用一次性批写多行实现（`Session.cmd_batch`，行间无主机延迟；单条命令慢路径往返 ~50ms，逐条发送必然跨拍），并用批内追加的 `UI` 在设备侧自证前提——`KEY tab` 与 `KEY PANIC` 之间若被一拍插入，页面已前进，批内 `UI` 读数就会暴露；3×`KEY tab` 同理（批内 `UI` 仍是起点页 ⇒ 3 次按下之间无拍执行）。前提不成立记为工具侧「重新对齐」（日志注记，不判固件失败），最多 5 次；只有前提成立后的页面断言才计入 PASS/FAIL。锚点方法（单按 tab 并快速轮询到页翻转）见 `inject.py` 的 `nav_anchor`。
 - **transcript 必须是原始回显**：串口字节逐字节写日志，不裁剪、不手改、不摘述；只允许 `# [inject] ...` 前缀的工具注记（非固件输出），SCR 的二进制帧体不入日志。日志与截图落 `firmware/build/verify/`，门禁证据按 §5.4(1) 晋升。
 
 ### 5.5 验证门禁（任务完成的定义）
@@ -173,7 +174,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 阶段收口 soak | `scripts/soak.py PORT --duration 1800`（阶段 3 口径 30min）退出码 0：internal_free/internal_min ≥60KB、首末差 ≥-8KB、连续 3 采样非增下滑 ≤2KB（HEAP_JITTER）、streaming=1 且 xrun=0、duty_mean ≤2× 阶段 2 静默渲染基线 9.44%（=18.88%，`ENG PERF` 流式分支口径）、音频任务栈余量 ≥2KB、KEY 事件计数增量 == 期望、日志无 panic/WDT；soak 摘要晋升并在 verification-log 登记（阶段 4 长时 soak 沿用同一口径，时长按阶段判据） |
 | 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测） |
-| 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 三条场景脚本对真机各跑一遍，退出码均 0（`UI`/`TAP`/`KEY` 回显断言 + `STATE`/`ENG` 快照断言 + 截屏像素抽检）；未命中路径打印 `TAP miss ...` 且不改状态 |
+| 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 四条场景脚本对真机各跑一遍，退出码均 0（`UI`/`TAP`/`KEY` 回显断言 + `STATE`/`ENG` 快照断言 + 截屏像素抽检）；未命中路径打印 `TAP miss ...` 且不改状态；`nav` 的同拍用例要求批内 `UI` 自证前提成立（否则重对齐，不放宽断言） |
 
 > **已知豁免**：kconfig 重新生成后的首个 configure pass 会出现一对 CMake 提示（`build.cmake:631` 警告 + `Missing kconfig option. Re-run the build process...`），紧接的第二次构建即消失——这是 IDF 已知行为，门禁按第二次构建的输出判定。
 
