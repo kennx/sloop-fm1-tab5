@@ -208,7 +208,8 @@ UI MEM page id=7 title=FM6 state=built est=3584 delta=2864
 UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 ```
 
-（Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未访问的页
+（示例为 Task 11 现场（STEP est 24,064）；P4-A 终审轮 STEP est 23,040 后 `sum_est` 55,296、`reserve` 相应变大——`reserve` 只是展示值，门禁见 §5。
+Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未访问的页
 `state=unbuilt` 且 `delta=0`。上面是九页全建后的现场输出。）
 
 ### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
