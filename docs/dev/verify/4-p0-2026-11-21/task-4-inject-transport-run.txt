@@ -1,0 +1,38 @@
+  [fw] SCR
+  [fw] I (105190) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (122300) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (138720) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+== inject transport @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-082841.log
+  [PASS] UI transport
+  [PASS] TAP STOP
+  [PASS] STATE SNAP playing = 0
+  [PASS] TAP PLAY
+  [PASS] STATE SNAP playing = 1
+  [PASS] TAP BPM +
+  [PASS] STATE SNAP bpm（+1） = 91
+  [PASS] TAP BPM -
+  [PASS] STATE SNAP bpm（回到基值） = 90
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-082841-transport.png  (1280x720 rgb565)
+  [PASS] PLAY 按钮底: (108,210) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] STOP 按钮底: (460,210) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 16）
+  [PASS] 页签选中（TRANSPORT）: (590,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 页面背景: (640,690) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [PASS] UI step
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-082841-step-playhead-a.png  (1280x720 rgb565)
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261121-082841-step-playhead-b.png  (1280x720 rgb565)
+  [PASS] 播放头描边: 区域 (88, 156, 1256, 632) 内 (224, 176, 40)±16 像素 6024（阈值 ≥100）
+  [PASS] 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 行 0: 帧 A 列 [10]（pos=9）/ 帧 B 列 [12]（pos=12）
+  [PASS] 行 1: 帧 A 列 [10]（pos=9）/ 帧 B 列 [12]（pos=12）
+  [PASS] 行 2: 帧 A 列 [10]（pos=9）/ 帧 B 列 [12]（pos=12）
+  [PASS] 行 3: 帧 A 列 [10]（pos=9）/ 帧 B 列 [12]（pos=12）
+  [PASS] 引擎 step_pos 两帧间变化 9 -> 12（16 列环绕，按模计）
+  [PASS] TAP STOP（复位）
+  [PASS] STATE SNAP playing（复位） = 0
+[PASS] transport: 全部断言与像素抽检通过
