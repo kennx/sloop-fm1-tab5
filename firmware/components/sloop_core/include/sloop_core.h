@@ -7,9 +7,9 @@
 #include "esp_err.h"
 
 /* 线程/所有权规则：sloop_core_render 与所有改变引擎状态的 API（track/note/hit/
- * play/set_global/write_step/set_mute/set_solo/select）以及只读的 read/read_step
- * 共享内部互斥锁，可从不同任务调用；不得在 ISR 中调用。selftest 与音频流互斥
- * （流式期间返回 busy）。
+ * play/set_global/set_params/write_step/set_mute/set_solo/select）以及只读的
+ * read/read_params/read_step 共享内部互斥锁，可从不同任务调用；不得在 ISR 中
+ * 调用。selftest 与音频流互斥（流式期间返回 busy）。
  * 诊断模式（sloop_core_diag_freeze，console `ENG SELFTEST` 用）：冻结标志置位后，
  * read 返回冻结快照、read_step 返回全零、写 API 直接丢弃（均不取锁）——新到的调用
  * 走冻结分支、不再取锁排队，诊断期不会有新的锁等待者；UI 在自检期间停在最后一帧、
@@ -79,6 +79,20 @@ void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
  * 不要用它执行 GO/动作全局（G_LOAD/G_SAVE/G_CLRSEQ/G_INITSND/G_NEWPRJ/G_ENGSEL/
  * G_INFO 等）——上游这些是瞬时的 UI 按钮/查询，写 song.g[] 只会改值、不执行动作。 */
 void sloop_core_set_global(uint32_t id, int16_t value);
+
+/* 批量参数写（阶段 4 P4-A，spec §4.1）：一次引擎锁内按顺序应用 n 对 (id, value)，
+ * 每条值按与 sloop_core_desc 同源的描述符钳位——id < P_E0 → TP[id]；P_E0..P_E7 →
+ * 合成轨（0..2）取 ENGINES[trk[track].eng_req]->edit[id - P_E0]，鼓轨（3）只有
+ * id == P_E0（= DRUM_KIT_DESC，即 kit）；其余 id 无描述符。无描述符的 id 逐条忽略、
+ * **不中止整批**（有效项照常落地；真值用 sloop_core_read_params 回读）。越界 track、
+ * NULL 数组、n == 0 与冻结态整批丢弃。不做上游 UI 的联动副作用，也不触发
+ * sound_change（换音色仍走 sloop_core_track）。不得在 ISR 调用。 */
+void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *values, uint32_t n);
+
+/* 参数快照：一次引擎锁内拷出 trk[track].p[P_COUNT] 与 song.g[G_COUNT]（原始引擎
+ * 真值，不重钳位）。p/g 可为 NULL（只取其一）。track 越界时 p 全零、g 照常；冻结态
+ * （诊断期）与 read_step 同口径：不取锁、两者全零。 */
+void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g);
 
 /* 参数描述符投影（阶段 4 P4-A，spec §4.1）：只读投影上游 params.c 的 `param_desc_t`
  * 与引擎 `edit[8]` 表，不新建描述符表（single source）。表为静态常量，不取引擎锁、

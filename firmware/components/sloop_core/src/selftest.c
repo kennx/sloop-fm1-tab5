@@ -600,6 +600,45 @@ void sloop_core_set_global(uint32_t id, int16_t value)
     engine_unlock();
 }
 
+/* ------------------------------------------------- 参数批量写/读 --- */
+/* 钳位描述符来源（与 sloop_core_desc 同源）：id < P_E0 → TP[id]；引擎槽 P_E0..P_E7
+ * → 合成轨取 ENGINES[eng_req]->edit[id-P_E0]、鼓轨只有 P_E0（DRUM_KIT_DESC = kit）。
+ * NULL = 该 id 在本轨上不可描述（逐条忽略）。上游 params.c 的 lock_desc()（音序器
+ * 参数锁）是同一张表；它取 t->engine（正在发声的引擎），这里取 eng_req——与
+ * sloop_core_desc/编辑器投影看到的是同一引擎槽（淡入淡出期间两者可能短暂不同，
+ * 取舍见 sloop_core.h 的批量写契约）。 */
+static const param_desc_t *param_desc_at(const track_t *t, uint32_t id)
+{
+    if (id < P_E0) return &TP[id];
+    if (id > P_E7) return NULL;
+    if (t == TDRUM) return id == P_E0 ? &DRUM_KIT_DESC : NULL;
+    return &ENGINES[t->eng_req % NENGINES]->edit[id - P_E0];
+}
+
+void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *values, uint32_t n)
+{
+    if (track >= NTRK || ids == NULL || values == NULL || n == 0u || s_frozen) return;
+    engine_lock();
+    track_t *t = &trk[track];
+    for (uint32_t i = 0; i < n; i++) {
+        const param_desc_t *d = param_desc_at(t, ids[i]);
+        if (d == NULL) continue; /* 无描述符：忽略该条，不中止整批 */
+        t->p[ids[i]] = (int16_t)clamp(values[i], d->min, d->max);
+    }
+    engine_unlock();
+}
+
+void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
+{
+    if (p != NULL) memset(p, 0, SLOOP_CORE_P_COUNT * sizeof(*p));
+    if (g != NULL) memset(g, 0, SLOOP_CORE_G_COUNT * sizeof(*g));
+    if (s_frozen) return; /* 冻结态：不取锁，返回全零（与 read_step 同口径） */
+    engine_lock();
+    if (p != NULL && track < NTRK) memcpy(p, trk[track].p, sizeof(trk[track].p));
+    if (g != NULL) memcpy(g, song.g, sizeof(song.g));
+    engine_unlock();
+}
+
 /* ------------------------------------------------- 描述符投影 --- */
 /* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
  * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
