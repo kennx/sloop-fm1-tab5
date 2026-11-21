@@ -91,9 +91,9 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-132733-nav-01-tabbar.png
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-135644-nav-01-tabbar.png
 SCR
-I (283208) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (279858) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 STATE SNAP
@@ -105,13 +105,13 @@ STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
 STATE SNAP global bpm=90 swing=0
 sloop>  KEY 0x4B down
-KEY 0x4B down down elapsed_us=108
+KEY 0x4B down down elapsed_us=106
 sloop>  KEY 0x4B up
-KEY 0x4B up down elapsed_us=64
+KEY 0x4B up down elapsed_us=59
 sloop>  KEY 0x4B down
-KEY 0x4B down down elapsed_us=48
+KEY 0x4B down down elapsed_us=46
 sloop>  KEY 0x4B up
-KEY 0x4B up down elapsed_us=69
+KEY 0x4B up down elapsed_us=59
 sloop>  STATE SNAP
 STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
@@ -151,13 +151,13 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-132733-nav-02-drum-before.png
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-135644-nav-02-drum-before.png
 SCR
-I (301878) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (298588) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 TAP 340 580
-I (319598) sloop_ui: 鼓轨步 3 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
+I (315568) sloop_ui: 鼓轨步 3 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
 TAP 340,580 page=2 -> STEP drum step=3 read-only
 sloop>  STATE SNAP
 STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
@@ -189,20 +189,30 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-132733-nav-03-drum-readonly.png
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-135644-nav-03-drum-readonly.png
 SCR
-I (320078) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (316048) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI play
 UI page=play (0)
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=144
+KEY 0x20 down tab elapsed_us=100
 sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
+sloop> UI
+UI page=play (0)
 sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -244,34 +254,6 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
-UI page=play (0)
-sloop> UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
-UI page=play (0)
 sloop>UI
 UI page=play (0)
 sloop>  UI
@@ -281,20 +263,6 @@ UI page=play (0)
 sloop>  UI
 UI page=play (0)
 sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -312,6 +280,12 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
 sloop>  UI
 UI page=play (0)
 sloop>  UI
@@ -323,6 +297,60 @@ UI page=play (0)
 sloop>  UI
 UI page=play (0)
 sloop>UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -337,26 +365,26 @@ UI page=play (0)
 sloop>  UI
 UI page=tracks (1)
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=332
+KEY 0x20 down tab elapsed_us=317
 sloop>  KEY PANIC
-W (337388) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+W (333998) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
 KEY PANIC OK（音符/层键/待切页已清）
 sloop>  UI
 UI page=tracks (1)
-sloop>  # [inject] ③ 对齐 1: 批次 15.9ms，锚点下界→批次结束余量 12.4ms（tab 写入→翻转 197.6ms，下界→翻转 1.5ms，轮询 69 次），批内 UI 页=1
+sloop>  # [inject] ③ 对齐 1: 批次 16.5ms，锚点下界→批次结束余量 12.1ms（tab 写入→翻转 204.2ms，下界→翻转 1.3ms，轮询 83 次），批内 UI 页=1
 UI
 UI page=tracks (1)
 sloop>  UI
 UI page=tracks (1)
-sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-132733-nav-04-panic-final.png
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-135644-nav-04-panic-final.png
 SCR
-I (339568) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (336178) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI play
 UI page=play (0)
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=92
+KEY 0x20 down tab elapsed_us=704
 sloop>  UI
 UI page=play (0)
 sloop>  UI
@@ -377,7 +405,7 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop>  UI
+sloop>UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -389,7 +417,11 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop> UI
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -398,6 +430,16 @@ UI page=play (0)
 sloop>  UI
 UI page=play (0)
 sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -435,28 +477,6 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop> UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>  UI
-UI page=play (0)
-sloop>UI
-UI page=play (0)
 sloop> UI
 UI page=play (0)
 sloop>  UI
@@ -473,17 +493,41 @@ sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop> UI
+sloop>  UI
+UI page=play (0)
+sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop> UI
+sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
-sloop>UI
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
 UI page=play (0)
 sloop>  UI
 UI page=play (0)
@@ -500,27 +544,27 @@ UI page=play (0)
 sloop>  UI
 UI page=tracks (1)
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=149
+KEY 0x20 down tab elapsed_us=100
 sloop>  KEY 0x20 up
-KEY 0x20 up tab elapsed_us=86
+KEY 0x20 up tab elapsed_us=76
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=104
+KEY 0x20 down tab elapsed_us=183
 sloop>  KEY 0x20 up
-KEY 0x20 up tab elapsed_us=82
+KEY 0x20 up tab elapsed_us=140
 sloop>  KEY 0x20 down
-KEY 0x20 down tab elapsed_us=144
+KEY 0x20 down tab elapsed_us=106
 sloop>  KEY 0x20 up
-KEY 0x20 up tab elapsed_us=124
+KEY 0x20 up tab elapsed_us=73
 sloop>  UI
 UI page=tracks (1)
-sloop>  # [inject] ④ 对齐 1: 批次 34.5ms，锚点下界→批次结束余量 -6.1ms（tab 写入→翻转 202.6ms，下界→翻转 1.6ms，轮询 71 次），批内 UI 页=1
+sloop>  # [inject] ④ 对齐 1: 批次 33.4ms，锚点下界→批次结束余量 -4.9ms（tab 写入→翻转 211.8ms，下界→翻转 1.5ms，轮询 79 次），批内 UI 页=1
 UI
 UI page=step (2)
 sloop>  UI
 UI page=step (2)
-sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-132733-nav-05-tab3-final.png
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-135644-nav-05-tab3-final.png
 SCR
-I (359288) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (356108) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI play

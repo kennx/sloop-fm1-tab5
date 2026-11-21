@@ -43,9 +43,9 @@ STATE SNAP global bpm=90 swing=0
 sloop>  TAP 1 700
 TAP miss 1,700 page=2
 Command returned non-zero error code: 0x1 (ERROR)
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-132558-step-two-on.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-135509-step-two-on.png
 SCR
-I (187458) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (184308) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 16 16
@@ -72,9 +72,9 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
 STATE SNAP global bpm=90 swing=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-132558-step-bank1.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-135509-step-bank1.png
 SCR
-I (205918) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (202758) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 0 8
@@ -96,9 +96,9 @@ sloop>  TAP 632 332
 TAP 632,332 page=2 -> STEP track=1 step=7 CMD_TOGGLE_STEP
 sloop>  ENG STEP 1 7
 ENG STEP k=1 i=7 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-132558-step-len8.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-135509-step-len8.png
 SCR
-I (224758) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (221488) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 TAP 632 332
@@ -135,9 +135,9 @@ STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
 STATE SNAP global bpm=90 swing=0
 sloop>  UI step
 UI page=step (2)
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-132558-step-bank0-playhead.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-135509-step-bank0-playhead.png
 SCR
-I (244338) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (241008) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 16 16
@@ -150,9 +150,9 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
 STATE SNAP global bpm=90 swing=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-132558-step-bank1-no-playhead.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-135509-step-bank1-no-playhead.png
 SCR
-I (263528) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (260608) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport

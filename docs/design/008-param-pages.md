@@ -91,7 +91,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | GLOBAL | 2,848 B | 3,584 B | +26% | 8 旋钮（单对象自绘）+ 页眉 + 2 个 ± 按钮（Task 10） |
 | FX | 2,860 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
 | ANALOG | 2,864 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,864） |
-| **合计** | **40,892 B** | **50,176 B** | — | 七页全建后 free 9,284 B / total 58,592 B（Task 10 `UI MEM`，同次输出） |
+| **合计** | **42,648 B** | **50,176 B** | — | 七页全建后 free 9,284 B / total 58,592 B（Task 10 `UI MEM`，同次输出；各行 delta 取自不同次构建，采样时刻见脚注） |
 
 > 2026-11-21 P4-0 Task 5（步窗）后复测：STEP 首次构建 `池增量=21832B 预算=24576B`
 > （列号改为单行绝对步号后 TLSF 分配序变化，对象数不变；delta ≤ est 仍成立），
@@ -230,15 +230,33 @@ UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
 - **预算决策**：不用 `lv_arc`+`lv_label`。实测 662B/旋钮/页（lv_arc 的 bg/indicator
   绘图描述符 + 3 个样式部件），8 槽页 6.6KB；七页全建的中间态会把 STEP 的
   24,576B 预算拒绝（free 23,304B）。单对象自绘约 300B/旋钮，页 delta 2.85KB。
-- 触摸：按下/拖动按**角度**设值（扫角 135°..405° = 270°，底部 90° 死区就近取端；
-  内圈 50px 不响应）；按下同时设焦点。焦点态 = 指示弧/名称用 UI_ACCENT。
+- **触摸语义（相对拖拽，不是 lv_arc 的绝对角度）**：
+  - `PRESSED`：设焦点 + 记录**锚点角度与锚点值**，**不改值**（轻按不会跳值）；
+  - `PRESSING`：相对锚点的角度差 → 值差（整圈扫角 270° = 整个值域，
+    `knob_drag_value` 四舍五入并钳位）。拖回锚点角度即回原值；跨越底部死区时
+    角度差取短路径（`knob_angle_delta`，(-180,180]）；
+  - 只响应半径 **55..95px** 的环带（环线中心 73、线宽 14）：中心与盒角不产生跳变；
+  - `RELEASED`/`PRESS_LOST` 清锚点。焦点态 = 指示弧/名称用 UI_ACCENT。
 - 细调：页眉右侧 `−`/`+` 按钮（80×40，作用于**焦点槽**，±1 原始单位）；键盘 ↑/↓
   同一动作。焦点槽是 UI 局部态（`s_focus[页]`，临界区保护），按页保持。
 - TAP 注入（`page_params_tap`）：旋钮命中只设焦点 → `-> PARAM slot=n focus`；
   `−`/`+` 命中走与控件回调相同的动作函数 → `-> PARAM slot=n id=.. delta=±1 value=..`
   （value = 写后回读的钳位结果）；不可编辑页 → `-> PARAM slot=n locked`。
+- 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`）：用相对旋钮中心的
+  合成坐标走**与物理触摸相同**的 `handle_pressed`/`handle_pressing` 路径（press =
+  焦点+锚点；drag = 相对拖拽），回显 `value` 或 `ignored (ring band)`。用于在无
+  手指/无触摸注入的环境里机器验证「回调接线 + 相对拖拽」；物理手感仍需人测（DI-16）。
+  实现约束：`knob_create()` 显式接收 `user/on_change/on_focus`（早期版本内部 memset
+  会把调用方先设的字段清掉，物理触摸因此完全失效——这类接线错误 TAP 注入看不见，
+  所以必须有直连控件事件的调试入口）。
 - 键盘路由（`input.c` + `sloop_ui_param_*`）：参数页上 ←/→ 移动焦点（跳过空槽、
-  环绕）、↑/↓ 调值 ±1；只写状态层，不取 LVGL 锁（控件由 30ms 定时器刷新）。
+  环绕）、↑/↓ 调值 ±1；只写状态层，不取 LVGL 锁。
+- **刷新时延口径**：键盘/± 路径只写状态层，控件重绘在**下一个 30ms UI tick**
+  （≤30ms + 渲染一帧）；拖拽路径在事件回调内直接下发并立即刷新本页（同一帧）。
+  计划文档里的「≤16ms/步」指输入轮询/事件派发预算，不是参数页重绘时延。
+- 纯数学/格式化拆到 `knob_math.{h,c}`（无 LVGL）：弧线映射、角度差、相对拖拽、
+  环带、格式化；host 单测 `scripts/knob-test.sh`（table-driven，含格式化表）——
+  这是旋钮逻辑的机读门禁，UI 接线错误另由 `UI KNOB` 直连事件验证。
 
 #### 8.3 值路径与格式化
 
@@ -251,14 +269,20 @@ UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
 |---|---|---|
 | F_ENUM | `enums[v-min]` + desc.unit | WAVE `SAW`；CLICK `OFF` |
 | F_PCT | `(v*100 + max/2)/max` + `%` | SUS 90 → `71%` |
-| F_BIPCT | `±v*100/64` + `%` | PAN 0 → `+0%` |
-| F_DB | 0 = `OFF`；`-56 + 0.5v dB`（上游 LEVEL_DB_X10） | LVL 104 → `-4.0dB` |
-| F_TIME | `10·1.0752^v` (0.1ms) → ms/s | ATK 10 → `2.1ms`（ATK 0 = `1.0ms`） |
-| F_CUTOFF | `30·1.0507^v` Hz → Hz/kHz | CUT 90 → `2.6kHz` |
-| F_LFOHZ | `5·1.0483^v` (0.01Hz) → Hz | RATE 60 → `...Hz` |
-| F_SEMI / F_BPM / F_NOTE / F_ONOFF / F_STEPS / F_SWING / F_FILT | 上游 param_format 同口径 | `+2st` / `90BPM` / `C` / `ON` / `16STEP` / `50` / `LP100%` |
+| F_BIPCT | `v*100/64` + `%`（仅 v>0 加 `+`） | PAN 0 → `0%`；+32 → `+50%` |
+| F_DB | 0 = `OFF`；其余 `LEVEL_DB_X10[v]`（上游表） | LVL 104 → `-4.0dB` |
+| F_TIME | `TIME_MS_X10[v]`（上游表）：<10ms 1 位小数 / <1s 整数 ms / <10s 2 位小数 s / 其余 1 位小数 s | ATK 10 → `2.1ms`；127 → `10.0s` |
+| F_CUTOFF | `CUTOFF_HZ[v]`（上游表）→ Hz/kHz | CUT 90 → `2.6kHz` |
+| F_LFOHZ | `LFO_HZ_X100[v]`（上游表）→ Hz | RATE 60 → `1.18Hz` |
+| F_SEMI / F_BPM / F_NOTE / F_ONOFF / F_STEPS / F_SWING / F_FILT | 上游 param_format 同口径（SEMI 仅 v>0 加 `+`） | `0st`/`+2st` / `90BPM` / `C` / `ON` / `16STEP` / `50` / `LP50%` |
 | F_INT（含 0 终止 names）与未知 fmt | 原始整数（+ desc.unit） | DTN 10 → `10ct` |
 
+- F_TIME/F_CUTOFF/F_LFOHZ/F_DB **直接用上游生成表**（`third_party/sloop-fm1/build/gen/
+  felucca_tables.h` 的 TIME_MS_X10/CUTOFF_HZ/LFO_HZ_X100/LEVEL_DB_X10，由
+  tools/gen_tables.py 生成），不做指数近似；`knob_math.c` 通过 `-I` 引用该表头
+  （sloop_ui 的 CMake 在表头缺失时 FATAL_ERROR，与 sloop_core 同口径）。host 单测
+  `scripts/knob-test.sh` 用同一表头，格式化表逐项断言（含秒档 1.89s/10.0s——早期
+  实现把 ms10/1000 当秒，≥1s 的值大 10 倍，已由该测试钉住）。
 - `fmt` 的上游编码由 `sloop_core.h` 的 `sloop_desc_fmt_t` 镜像，`selftest.c` 静态
   断言与 `F_*` 逐项一致（换上游版本编译期暴露）。单位只由 fmt 决定（desc.unit 只
   用于 F_INT/F_ENUM），不额外加 fmt 不隐含的后缀。
@@ -278,8 +302,10 @@ UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
 
 - 七页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B；七页全建 free 9,284B）。
 - 验证入口：`scripts/inject/params.sh`（TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
-  `STATE SNAP` 断言、切页保值、池水位、三页截屏 + 像素抽检）；`UI FORCEFAIL global`
-  复验参数页的失败可见性与重建（重建后引擎真值不变）。
+  `STATE SNAP` 断言；**`UI KNOB` press/drag 证明触摸回调接线与相对拖拽**——按下不改值、
+  +90° 改 +67（BPM range 200）、拖回锚点回原值、中心/环带外被忽略；切页保值、池水位、
+  三页截屏 + 像素抽检）；`scripts/knob-test.sh`（旋钮纯函数 + 格式化表 host 单测）；
+  `UI FORCEFAIL global` 复验参数页的失败可见性与重建（重建后引擎真值不变）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）
 

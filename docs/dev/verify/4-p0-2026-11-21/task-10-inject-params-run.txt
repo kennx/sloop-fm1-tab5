@@ -1,11 +1,11 @@
   [fw] SCR
-  [fw] I (379408) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+  [fw] I (378268) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
   [fw] SCR
-  [fw] I (398858) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+  [fw] I (398108) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
   [fw] SCR
-  [fw] I (420248) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+  [fw] I (419268) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 == inject params @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-132908.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-135820.log
   [PASS] UI tracks（归一选轨）
   [PASS] TAP 卡 0
   [PASS] STATE SNAP selected_track=0 = 0
@@ -19,8 +19,22 @@
   [PASS] PARAM GLOBAL 0（回到基线）: PARAM GLOBAL 0 → 90（期望 90）
   [PASS] 键盘 ↑×2（SWING）: PARAM GLOBAL 1 → 2（期望 2）
   [PASS] 键盘 ↓×2（SWING 回基线）: PARAM GLOBAL 1 → 0（期望 0）
+  [PASS] UI KNOB slot=0 press (0,-73) value=90
+  [PASS] 按下不改值（PARAM GLOBAL 0）: PARAM GLOBAL 0 → 90（期望 90）
+  [PASS] UI KNOB slot=0 drag (73,0) value=157
+  [PASS] 相对拖拽改值（引擎真值）: PARAM GLOBAL 0 → 157（期望 157）
+  [PASS] STATE SNAP bpm（拖拽后） = 157
+  [PASS] UI KNOB slot=0 drag (0,-73) value=90
+  [PASS] 拖回锚点（值回基线）: PARAM GLOBAL 0 → 90（期望 90）
+  [PASS] UI KNOB slot=0 press (0,0) 环带外
+  [PASS] UI KNOB slot=0 drag (73,0) 环带外
+  [PASS] 中心按下后拖拽被忽略（值不变）: PARAM GLOBAL 0 → 90（期望 90）
+  [PASS] UI KNOB slot=0 press (0,-73) value=90
+  [PASS] UI KNOB slot=0 drag (0,-40) 环带外
+  [PASS] 环带外拖动被忽略（值不变）: PARAM GLOBAL 0 → 90（期望 90）
+  [PASS] TAP 旋钮 1 复位焦点
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-132908-params-global.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-135820-params-global.png  (1280x720 rgb565)
   [PASS] 页签选中（GLOBAL）: (656,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] PLAY 页签未选中: (24,36) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
@@ -39,10 +53,10 @@
   [PASS] 键盘 ↑（FX ATK）: PARAM 1 → 11（期望 11）
   [PASS] 键盘 ↓（FX ATK 回基线）: PARAM 1 → 10（期望 10）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-132908-params-fx.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-135820-params-fx.png  (1280x720 rgb565)
   [PASS] 页签选中（FX）: (814,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
-  [PASS] 旋钮 6 数值文本（PAN）: 区域 (732, 512, 864, 544) 内 (144, 148, 160)±16 像素 299（阈值 ≥30）
+  [PASS] 旋钮 6 数值文本（PAN）: 区域 (732, 512, 864, 544) 内 (144, 148, 160)±16 像素 283（阈值 ≥30）
   [PASS] UI analog
   [PASS] TAP 旋钮 0（WAVE）设焦点
   [PASS] TAP +（ANALOG WAVE）
@@ -57,7 +71,7 @@
   [PASS] 切页往返后 CUT 保持（引擎真值重读）: PARAM 67 → 1（期望 1）
   [PASS] ANALOG CUT 回基线: PARAM 67 → 0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-132908-params-analog.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261121-135820-params-analog.png  (1280x720 rgb565)
   [PASS] 页签选中（ANALOG）: (972,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 4 弧线底（行 1 环顶）: (166,454) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）

@@ -50,9 +50,9 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
 STATE SNAP global bpm=90 swing=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-132459-transport.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-135410-transport.png
 SCR
-I (128198) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (125748) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 0 16
@@ -68,7 +68,7 @@ STATE SNAP global bpm=90 swing=0
 sloop>  UI step
 UI page=step (2)
 sloop>  ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=2 pos=5,5,5,5
+ENG SNAP playing=1 bpm=90 sel=2 pos=1,1,1,1
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -89,13 +89,13 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-132459-step-playhead-a.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-135410-step-playhead-a.png
 SCR
-I (147188) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (144238) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=2 pos=7,7,7,7
+ENG SNAP playing=1 bpm=90 sel=2 pos=6,6,6,6
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -116,9 +116,9 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-132459-step-playhead-b.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-135410-step-playhead-b.png
 SCR
-I (166328) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (163668) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport

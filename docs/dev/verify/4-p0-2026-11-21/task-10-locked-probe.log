@@ -2,28 +2,6 @@
 sloop>  
 sloop>  ENG TRACK 1 1 0
 ENG TRACK k=1 engine=1 preset=0 OK
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
-ENG SNAP trk k=1 engine=1 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
-ENG SNAP dstep i=0 on=0 lvl=0 rat=0
-ENG SNAP dstep i=1 on=0 lvl=0 rat=0
-ENG SNAP dstep i=2 on=0 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=0 lvl=0 rat=0
-ENG SNAP dstep i=6 on=0 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=0 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=0 lvl=0 rat=0
-ENG SNAP dstep i=13 on=0 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  UI tracks
 UI page=tracks (1)
 sloop>  TAP 484 347
@@ -39,7 +17,7 @@ STATE SNAP global bpm=90 swing=0
 sloop>  UI analog
 UI page=analog (6)
 sloop>  TAP 1224 94
-TAP 1224,94 page=6 -> PARAM slot=2 locked (engine page N/A)
+TAP 1224,94 page=6 -> PARAM slot=3 locked (engine page N/A)
 sloop>  PARAM 67
 PARAM track=1 id=67 value=0 min=0 max=127
 sloop>  

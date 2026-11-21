@@ -15,9 +15,9 @@ STATE SNAP global bpm=90 swing=0
 sloop>  TAP 640 260
 TAP miss 640,260 page=1
 Command returned non-zero error code: 0x1 (ERROR)
-sloop>  # [inject] SCR 截屏 -> inject-tracks-20261121-132440-tracks-sel3.png
+sloop>  # [inject] SCR 截屏 -> inject-tracks-20261121-135353-tracks-sel3.png
 SCR
-I (109258) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+I (107458) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 # [inject] 场景 tracks 结束 failures=0

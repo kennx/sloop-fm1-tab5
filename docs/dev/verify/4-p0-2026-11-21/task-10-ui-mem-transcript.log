@@ -8,7 +8,7 @@ UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0
 UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
 sloop>  UI global
-I (45928) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2848B 预算=3584B 池剩余=45952B
+I (44658) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2848B 预算=3584B 池剩余=45952B
 UI page=global (4)
 sloop>  UI MEM
 UI MEM pool_used=16648 pool_free=46000 pool_total=62648 registered=7 built=2 failed=0 sum_est=50176 reserve=12472
@@ -20,7 +20,7 @@ UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
 UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
 sloop>  UI fx
-I (46268) sloop_ui: 页面构建 page=FX(5) 池增量=2860B 预算=3584B 池剩余=43140B
+I (44988) sloop_ui: 页面构建 page=FX(5) 池增量=2860B 预算=3584B 池剩余=43140B
 UI page=fx (5)
 sloop>  UI MEM
 UI MEM pool_used=19124 pool_free=43184 pool_total=62308 registered=7 built=3 failed=0 sum_est=50176 reserve=12132
@@ -32,7 +32,7 @@ UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
 UI MEM page id=5 title=FX state=built est=3584 delta=2860
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
 sloop>  UI analog
-I (46608) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2864B 预算=3584B 池剩余=40320B
+I (45328) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2864B 预算=3584B 池剩余=40320B
 UI page=analog (6)
 sloop>  UI MEM
 UI MEM pool_used=21612 pool_free=40360 pool_total=61972 registered=7 built=4 failed=0 sum_est=50176 reserve=11796
@@ -46,13 +46,13 @@ UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
 sloop>  UI play
 UI page=play (0)
 sloop>  UI tracks
-I (47108) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6128B 预算=7168B 池剩余=34232B
+I (45818) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6128B 预算=7168B 池剩余=34232B
 UI page=tracks (1)
 sloop>  UI step
-I (47338) sloop_ui: 页面构建 page=STEP(2) 池增量=21816B 预算=24576B 池剩余=12516B
+I (46058) sloop_ui: 页面构建 page=STEP(2) 池增量=21816B 预算=24576B 池剩余=12516B
 UI page=step (2)
 sloop>  UI transport
-I (47578) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3748B 预算=4608B 池剩余=9148B
+I (46288) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3748B 预算=4608B 池剩余=9148B
 UI page=transport (3)
 sloop>  UI fx
 UI page=fx (5)

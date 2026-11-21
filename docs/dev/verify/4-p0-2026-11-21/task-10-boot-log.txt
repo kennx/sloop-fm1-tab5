@@ -1,5 +1,5 @@
 I (11) boot: ESP-IDF v5.5.5 2nd stage bootloader
-I (11) boot: compile time Nov 21 2026 13:22:20
+I (11) boot: compile time Nov 21 2026 13:51:32
 I (12) boot: Multicore bootloader
 I (13) boot: chip revision: v1.3
 I (13) boot: efuse block revision: v0.3
@@ -14,21 +14,21 @@ I (16) boot:  1 phy_init         RF data          01 01 0000f000 00001000
 I (17) boot:  2 factory          factory app      00 00 00010000 00800000
 I (17) boot:  3 storage          Unknown data     01 81 00810000 007f0000
 I (18) boot: End of partition table
-I (19) esp_image: segment 0: paddr=00010020 vaddr=400e0020 size=8b0ach (569516) map
-I (100) esp_image: segment 1: paddr=0009b0d4 vaddr=30100000 size=0007ch (   124) load
-I (101) esp_image: segment 2: paddr=0009b158 vaddr=4ff00000 size=04ec0h ( 20160) load
-I (106) esp_image: segment 3: paddr=000a0020 vaddr=40000020 size=d0150h (852304) map
-I (226) esp_image: segment 4: paddr=00170178 vaddr=4ff04ec0 size=11428h ( 70696) load
-I (238) esp_image: segment 5: paddr=001815a8 vaddr=4ff16300 size=046d4h ( 18132) load
-I (243) esp_image: segment 6: paddr=00185c84 vaddr=50108080 size=00020h (    32) load
+I (19) esp_image: segment 0: paddr=00010020 vaddr=400e0020 size=8b80ch (571404) map
+I (100) esp_image: segment 1: paddr=0009b834 vaddr=30100000 size=0007ch (   124) load
+I (101) esp_image: segment 2: paddr=0009b8b8 vaddr=4ff00000 size=04760h ( 18272) load
+I (106) esp_image: segment 3: paddr=000a0020 vaddr=40000020 size=d071ch (853788) map
+I (226) esp_image: segment 4: paddr=00170744 vaddr=4ff04760 size=11b88h ( 72584) load
+I (239) esp_image: segment 5: paddr=001822d4 vaddr=4ff16300 size=046d4h ( 18132) load
+I (243) esp_image: segment 6: paddr=001869b0 vaddr=50108080 size=00020h (    32) load
 I (249) boot: Loaded app from partition at offset 0x10000
-I (249) boot: Disabling RNG early entropy source...
+I (250) boot: Disabling RNG early entropy source...
 I (255) hex_psram: vendor id    : 0x0d (AP)
 I (255) hex_psram: Latency      : 0x01 (Fixed)
-I (255) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (256) hex_psram: DriveStr.    : 0x00 (25 Ohm)
 I (256) hex_psram: dev id       : 0x03 (generation 4)
 I (256) hex_psram: density      : 0x07 (256 Mbit)
-I (256) hex_psram: good-die     : 0x06 (Pass)
+I (257) hex_psram: good-die     : 0x06 (Pass)
 I (257) hex_psram: SRF          : 0x02 (Slow Refresh)
 I (257) hex_psram: BurstType    : 0x00 ( Wrap)
 I (258) hex_psram: BurstLen     : 0x03 (2048 Byte)
@@ -37,32 +37,32 @@ I (258) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
 I (259) hex_psram: DriveStrength: 0x00 (1/1)
 I (259) MSPI Timing: Enter psram timing tuning
 I (433) esp_psram: Found 32MB PSRAM device
-I (433) esp_psram: Speed: 200MHz
-I (434) hex_psram: psram CS IO is dedicated
-I (434) cpu_start: Multicore app
-I (1384) esp_psram: SPI SRAM memory test OK
+I (434) esp_psram: Speed: 200MHz
+I (435) hex_psram: psram CS IO is dedicated
+I (435) cpu_start: Multicore app
+I (1385) esp_psram: SPI SRAM memory test OK
 I (1401) cpu_start: Pro cpu start user code
 I (1401) cpu_start: cpu freq: 360000000 Hz
-I (1401) app_init: Application information:
-I (1401) app_init: Project name:     sloop_fm1_tab5
-I (1401) app_init: App version:      aaed100-dirty
-I (1401) app_init: Compile time:     Nov 21 2026 13:21:32
-I (1402) app_init: ELF file SHA256:  fe1495cca...
-I (1402) app_init: ESP-IDF:          v5.5.5
-I (1402) efuse_init: Min chip rev:     v1.0
-I (1402) efuse_init: Max chip rev:     v1.99 
-I (1402) efuse_init: Chip rev:         v1.3
+I (1402) app_init: Application information:
+I (1402) app_init: Project name:     sloop_fm1_tab5
+I (1402) app_init: App version:      23bfbd8
+I (1402) app_init: Compile time:     Nov 21 2026 13:50:39
+I (1402) app_init: ELF file SHA256:  ae2dedca1...
+I (1403) app_init: ESP-IDF:          v5.5.5
+I (1403) efuse_init: Min chip rev:     v1.0
+I (1403) efuse_init: Max chip rev:     v1.99 
+I (1403) efuse_init: Chip rev:         v1.3
 I (1403) heap_init: Initializing. RAM available for dynamic allocation:
-I (1403) heap_init: At 4FF20210 len 0001ADB0 (107 KiB): RETENT_RAM
-I (1403) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1404) heap_init: At 4FF202D0 len 0001ACF0 (107 KiB): RETENT_RAM
+I (1404) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
 I (1404) heap_init: At 4FF9B6F0 len 00004910 (18 KiB): RAM
-I (1404) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
-I (1404) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1405) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1405) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
 I (1405) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
 I (1406) spi_flash: detected chip: generic
-I (1406) spi_flash: flash io: dio
+I (1407) spi_flash: flash io: dio
 I (1407) sleep_gpio: Configure to isolate all GPIO pins in sleep state
-I (1407) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1408) sleep_gpio: Enable automatic switching of GPIO sleep configuration
 I (1408) main_task: Started on CPU0
 I (1408) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
 I (1408) main_task: Calling app_main()
@@ -100,8 +100,8 @@ On Windows, try using Windows Terminal or Putty instead.
 sloop>  I (4088) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
 I (4088) sloop_tab5: keyboard: OK (0x6D)
 W (4088) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
-W (4088) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
-I (4108) I2S_IF: Paired data: 0x4ff3fb44, current mode: playback, paired in_enable: 0, paired out_enable: 0
+W (4098) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4108) I2S_IF: Paired data: 0x4ff3fb10, current mode: playback, paired in_enable: 0, paired out_enable: 0
 I (4108) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
 I (4108) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
 I (4118) ES8388: Start on mode:2
@@ -109,8 +109,8 @@ I (4118) Adev_Codec: Open codec device OK
 I (4118) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
 I (4138) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
 I (4148) sloop_audio_stream: stream started, half=256 frames
-I (4148) sloop_tab5: UI 启动前内部堆剩余 116715 字节
+I (4148) sloop_tab5: UI 启动前内部堆剩余 116483 字节
 I (4158) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=48576B
-I (4158) sloop_ui: UI 就绪: 7 页注册/1 已建 @1280x720, LVGL 池已用 14404/62940 字节, 内部堆剩余 116715 字节
+I (4158) sloop_ui: UI 就绪: 7 页注册/1 已建 @1280x720, LVGL 池已用 14404/62940 字节, 内部堆剩余 116483 字节
 I (4268) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
 I (4358) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
