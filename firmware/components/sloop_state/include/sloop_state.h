@@ -19,13 +19,33 @@
  * 选轨与逐轨 mute/solo 与其他字段一样是**引擎真值**：state_apply 经引擎写入口
  * （sloop_core_select/set_mute/set_solo）落地后同写投影，state_sync_from_engine
  * 整份覆盖、无状态层例外。串口 `STATE SNAP` 与 `ENG SNAP` 对这三类值同源，
- * 音频效果即上游 trk_silent() 口径。 */
+ * 音频效果即上游 trk_silent() 口径。
+ *
+ * 参数投影 p[]/g[]：p 是**选中轨**的 trk[].p[P_COUNT] 投影、g 是 song.g[G_COUNT]
+ * （引擎真值，不重钳位）。state_sync_from_engine 用一次 sloop_core_read_params 与
+ * 窗口快照同拍整份覆盖；参数写入命令（CMD_SET_PARAM*）落地后立即回读一次——UI
+ * 不直接调引擎。选轨变化后 p[] 在下一拍 sync 换成新选中轨（参数页按此显示）。
+ */
 
 #define APP_STATE_PAGES 4u      /* PLAY / TRACKS / STEP / TRANSPORT */
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
 #define APP_STATE_VEL_DEFAULT 100u
+/* CMD_SET_PARAM_BATCH 单次最多应用的对数（超出部分忽略并告警）。同时是状态层
+ * 解包栈缓冲的上限：128 对 = 384B 临时栈（id 128B + 值 256B）。 */
+#define APP_STATE_PARAM_BATCH_MAX 128u
+
+/* CMD_SET_PARAM_BATCH 的载荷元素：小 POD，字段即引擎批量 API 的 (id, value)。
+ * 自然对齐布局，sizeof == 4（id 1B + 1B 填充 + int16 2B；host/xtensa 一致，静态
+ * 断言保证）；不要按字节流（编辑器协议 U35/pack7）解读本结构。
+ * 生命周期：**同步 apply 语义**——数组只需在 state_apply() 返回前有效，状态层在
+ * 同一调用内解包并下发引擎，不保存指针。 */
+typedef struct {
+    uint8_t id;
+    int16_t v;
+} sloop_param_pair_t;
+_Static_assert(sizeof(sloop_param_pair_t) == 4, "sloop_param_pair_t layout drifted");
 
 /* 步窗（UI 局部态，非引擎真值）：引擎步号恒为绝对索引 0..63；STEP 网格的列 c
  * 显示/编辑引擎步 window_start + c。window_start 16 对齐（0/16/32/48），
@@ -45,7 +65,7 @@ static inline uint8_t step_window_abs(const step_window_t *win, uint8_t col)
 typedef enum {
     CMD_NOTE_ON, CMD_NOTE_OFF, CMD_PLAY, CMD_STOP, CMD_SELECT_TRACK,
     CMD_TOGGLE_STEP, CMD_SET_BPM, CMD_SET_TRACK, CMD_MUTE, CMD_SOLO,
-    CMD_ERASE_NOTE, CMD_SET_WINDOW,
+    CMD_ERASE_NOTE, CMD_SET_WINDOW, CMD_SET_PARAM, CMD_SET_PARAM_BATCH,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
@@ -76,17 +96,29 @@ typedef enum {
  *                    立即重取窗口列投影。start 向下对齐到 16 的倍数、钳位到 0..48；
  *                    bank = start/16；len 钳位到 1..APP_STATE_STEPS；focus_step 被夹到
  *                    窗口内（隐藏列不可聚焦）。引擎不感知本命令（引擎步号恒为绝对）。
+ *  CMD_SET_PARAM     a=track(0..3) b=id(0..P_COUNT-1) v=值。值按 16 位补码解读
+ *                    （双极参数如 P_PAN 用 (uint16_t)(int16_t)-1 表达 -1）。经批量
+ *                    写入口以 N=1 下发，钳位由引擎按描述符做；不可描述的 id 由引擎
+ *                    逐条忽略。投影 p[]/g[] 随即回读引擎真值（钳位后的值）。
+ *  CMD_SET_PARAM_BATCH a=track(0..3) p=sloop_param_pair_t 数组 n=元素数：一次
+ *                    sloop_core_set_params 下发（真批量，参数页/预置加载用）；
+ *                    n > APP_STATE_PARAM_BATCH_MAX 时只应用前 MAX 条（设备侧告警）。
+ *                    数组只在 state_apply 返回前有效（同步 apply 语义）。
  */
 typedef struct {
     edit_cmd_type_t type;
     uint32_t a, b;
     uint16_t v;
+    const void *p; /* CMD_SET_PARAM_BATCH：sloop_param_pair_t 数组（仅 apply 期间有效） */
+    uint32_t n;    /* CMD_SET_PARAM_BATCH：元素个数 */
 } edit_cmd_t;
 
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
     step_window_t window;       /* 步窗（UI 局部态；默认 {0,0,16}） */
+    int16_t p[SLOOP_CORE_P_COUNT]; /* 选中轨参数投影（引擎真值，sync/参数命令回读） */
+    int16_t g[SLOOP_CORE_G_COUNT]; /* 全局参数投影（上一次 sync 的 song.g[]） */
     uint8_t page;               /* 当前页（app_page_t） */
     uint8_t focus_step;         /* STEP 页焦点列（0..window_len-1） */
     uint8_t focus_track;        /* 焦点轨（0..3） */

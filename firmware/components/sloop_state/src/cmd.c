@@ -4,6 +4,14 @@
 
 #include <string.h>
 
+#ifdef HOST_TEST
+#define state_warn(...) ((void)0) /* host 单测无日志后端（告警路径由设备证据覆盖） */
+#else
+#include "esp_log.h"
+static const char *TAG = "sloop_state";
+#define state_warn(...) ESP_LOGW(TAG, __VA_ARGS__)
+#endif
+
 /* 上游常量镜像（本组件不包含上游 core.h：host 单测不编译上游源码）：
  * core.h 的 enum { G_BPM, ... } → G_BPM = 0；params.c 的 GP[G_BPM] 范围 40..240；
  * core.h 的 enum { ST_NOTE, ST_TIE, ST_REST }；NSTEP = 步表长度 64。 */
@@ -180,6 +188,7 @@ static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
     if (v > STATE_BPM_MAX) v = STATE_BPM_MAX;
     sloop_core_set_global(STATE_G_BPM, (int16_t)v);
     s->core.bpm = (uint16_t)v;
+    s->g[STATE_G_BPM] = (int16_t)v; /* 全局投影同源（与 core.bpm 同一钳位） */
 }
 
 /* 步窗（UI 局部态）：引擎不感知。start 向下对齐 16 并钳位到 0..48，bank 由
@@ -220,6 +229,50 @@ static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
     for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
 }
 
+/* 参数投影回读：p[] 恒为选中轨、g[] 为全局（一次引擎锁，参数命令落地后立即对齐
+ * 引擎真值——含引擎钳位）。写非选中轨时 p[] 仍读选中轨，因此不会被别人的值污染。 */
+static void state_refresh_params(app_state_t *s)
+{
+    sloop_core_read_params(s->core.selected_track, s->p, s->g);
+}
+
+/* 单值参数：以批量入口 N=1 下发（钳位与越界判定只在引擎一处）。v 是 uint16——
+ * 双极参数按 16 位补码解读（见 sloop_state.h 的 CMD_SET_PARAM 契约）。 */
+static void cmd_set_param(app_state_t *s, uint32_t track, uint32_t id, uint16_t value)
+{
+    if (track >= APP_STATE_TRACKS) return;
+    if (id > 0xFFu) { /* 引擎批量 API 的 id 是 uint8：无法表达，忽略（不写） */
+        state_warn("参数 id=%u 超出 uint8，忽略（track=%u）", (unsigned)id, (unsigned)track);
+        return;
+    }
+    uint8_t pid = (uint8_t)id;
+    int16_t v = (int16_t)value;
+    sloop_core_set_params(track, &pid, &v, 1u);
+    state_refresh_params(s);
+}
+
+/* 批量参数：解包 POD 到两个栈数组（引擎 API 是 ids/values 双数组），一次引擎调用
+ * 下发；超过 APP_STATE_PARAM_BATCH_MAX 的尾部丢弃并告警。载荷指针只在本次 apply
+ * 内使用（同步 apply 语义，见 sloop_state.h）。 */
+static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, uint32_t n)
+{
+    if (track >= APP_STATE_TRACKS || p == NULL || n == 0u) return;
+    if (n > APP_STATE_PARAM_BATCH_MAX) {
+        state_warn("参数批量 %u 对超过上限 %u，只应用前 %u 对", (unsigned)n,
+                   (unsigned)APP_STATE_PARAM_BATCH_MAX, (unsigned)APP_STATE_PARAM_BATCH_MAX);
+        n = APP_STATE_PARAM_BATCH_MAX;
+    }
+    const sloop_param_pair_t *pairs = p;
+    uint8_t ids[APP_STATE_PARAM_BATCH_MAX];
+    int16_t values[APP_STATE_PARAM_BATCH_MAX];
+    for (uint32_t i = 0; i < n; i++) {
+        ids[i] = pairs[i].id;
+        values[i] = pairs[i].v;
+    }
+    sloop_core_set_params(track, ids, values, n);
+    state_refresh_params(s);
+}
+
 void state_apply(const edit_cmd_t *cmd)
 {
     if (cmd == NULL) return;
@@ -238,6 +291,8 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SOLO: cmd_track_mix(s, cmd->type, cmd->a); break;
     case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, cmd->b, cmd->v); break;
     case CMD_SET_WINDOW: cmd_set_window(s, cmd->b, cmd->v); break;
+    case CMD_SET_PARAM: cmd_set_param(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_SET_PARAM_BATCH: cmd_set_param_batch(s, cmd->a, cmd->p, cmd->n); break;
     default: break;
     }
     state_unlock();

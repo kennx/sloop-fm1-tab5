@@ -44,6 +44,8 @@ void state_init(void)
 #endif
     memset(&s_state, 0, sizeof(s_state));
     sloop_core_read(&s_state.core);
+    /* 参数投影与 core 同拍初化（p = 选中轨，g = 全局） */
+    sloop_core_read_params(s_state.core.selected_track, s_state.p, s_state.g);
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -83,6 +85,11 @@ void state_sync_from_engine(void)
         /* snapshot 的 step[][]/dstep[] 是窗口列投影（基 = win.window_start）。
          * 窗口快照在同一把引擎锁里取完 16 列（不是逐列 read_step），取锁次数仍为 1。 */
         sloop_core_read_window(win.window_start, &snap);
+        /* 参数投影同拍取（第二次短锁）：p 的轨别取快照里的选中轨，与 core 一致；
+         * 不逐项读 71+50 个参数。写回前与窗口一起复核。 */
+        int16_t param_p[SLOOP_CORE_P_COUNT];
+        int16_t param_g[SLOOP_CORE_G_COUNT];
+        sloop_core_read_params(snap.selected_track, param_p, param_g);
 
         state_lock();
         if (s_state.window.window_start == win.window_start) {
@@ -90,6 +97,8 @@ void state_sync_from_engine(void)
              * set_mute/set_solo），本层不再持有，也不做任何例外保持。窗口本身不被 sync
              * 改写；窗口基与快照基一致才写回（否则按新窗口重取）。 */
             s_state.core = snap;
+            memcpy(s_state.p, param_p, sizeof(param_p));
+            memcpy(s_state.g, param_g, sizeof(param_g));
             state_unlock();
             return;
         }

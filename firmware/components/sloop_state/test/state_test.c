@@ -34,6 +34,12 @@ static void apply(edit_cmd_type_t type, uint32_t a, uint32_t b, uint16_t v)
     state_apply(&cmd);
 }
 
+static void apply_param_batch(uint32_t track, const sloop_param_pair_t *pairs, uint32_t n)
+{
+    edit_cmd_t cmd = { .type = CMD_SET_PARAM_BATCH, .a = track, .p = pairs, .n = n };
+    state_apply(&cmd);
+}
+
 static void run(const char *name, void (*fn)(void))
 {
     g_case_failed = 0;
@@ -625,6 +631,146 @@ static void case_window_sync_race(void)
     check_ll("交错：旧基内容未混入（列 5 空）", s.core.step[0][5].n, 0);
 }
 
+/* ⑧ 参数命令：单 SET 以批量入口（N=1）原样下发、钳位由引擎做；BATCH N 对只一次
+ * 引擎调用且入参保序；越界 id 逐条忽略、不中止整批；track/p/n 越界整条丢弃。
+ * stub 的范围表是简化模拟（0..127；P_E0=63 的 kit 槽 0..3），真实描述符范围由
+ * 设备 PARAM/ENG DESC 门禁覆盖。 */
+static void case_set_param(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* p[] 是**选中轨**投影：先选轨 1，后续写轨 1 */
+    apply(CMD_SET_TRACK, 1, 0, 0);
+
+    apply(CMD_SET_PARAM, 1, 1, 50);
+    check_ll("单 SET 一次引擎调用", g_stub.set_params_calls, 1);
+    check_ll("单 SET 轨号", g_stub.last_params_track, 1);
+    check_ll("单 SET 对数", g_stub.last_params_n, 1);
+    check_ll("单 SET 原样下发 id", g_stub.last_param_ids[0], 1);
+    check_ll("单 SET 原样下发值", g_stub.last_param_values[0], 50);
+    check_ll("单 SET 落引擎", g_stub.param[1][1], 50);
+    state_get_copy(&s);
+    check_ll("投影 p[1]", s.p[1], 50);
+
+    /* 状态层不钳位：值原样进引擎，投影回读引擎钳位后的真值 */
+    apply(CMD_SET_PARAM, 1, 1, 500);
+    check_ll("钳位值仍原样下发", g_stub.last_param_values[0], 500);
+    state_get_copy(&s);
+    check_ll("投影采纳引擎钳位", s.p[1], 127);
+
+    /* v 是 uint16：双极值以 16 位补码下发，引擎按 int16 解读 */
+    apply(CMD_SET_PARAM, 1, 5, (uint16_t)(int16_t)-1);
+    check_ll("补码原样下发", g_stub.last_param_values[0], -1);
+
+    /* 不可描述的 id：引擎逐条忽略，投影不动 */
+    uint32_t invalid0 = g_stub.invalid_param_ids;
+    apply(CMD_SET_PARAM, 1, 200, 7);
+    check_ll("越界 id 引擎忽略", g_stub.invalid_param_ids - invalid0, 1);
+    state_get_copy(&s);
+    check_ll("越界 id 不改投影", s.p[1], 127);
+
+    /* 批量入口的 id 是 uint8：>255 的 id 无法表达，不调引擎 */
+    uint32_t calls0 = g_stub.set_params_calls;
+    apply(CMD_SET_PARAM, 1, 999, 7);
+    check_ll("id>255 不调引擎", g_stub.set_params_calls - calls0, 0);
+
+    /* 越界轨丢弃 */
+    apply(CMD_SET_PARAM, 4, 0, 10);
+    check_ll("越界轨不调引擎", g_stub.set_params_calls - calls0, 0);
+
+    /* 鼓轨 P_E0 = kit：状态层不区分轨别，钳位由引擎（这里 stub 模拟 0..3） */
+    apply(CMD_SET_PARAM, 3, 63, 99);
+    check_ll("鼓轨 P_E0 落引擎", g_stub.param[3][63], 3);
+}
+
+/* ⑨ 批量参数：真批量（一次引擎调用）+ 截断/空载荷/非选中轨语义。 */
+static void case_set_param_batch(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_TRACK, 1, 0, 0); /* p[] 是选中轨投影：选轨 1 */
+
+    const sloop_param_pair_t pairs[] = {
+        { .id = 0, .v = 100 }, { .id = 1, .v = 20 }, { .id = 200, .v = 5 }, { .id = 29, .v = 33 },
+    };
+    uint32_t calls0 = g_stub.set_params_calls;
+    apply_param_batch(1, pairs, 4);
+    check_ll("批量只一次引擎调用", g_stub.set_params_calls - calls0, 1);
+    check_ll("批量轨号", g_stub.last_params_track, 1);
+    check_ll("批量对数", g_stub.last_params_n, 4);
+    check_ll("批量 id 保序 0", g_stub.last_param_ids[0], 0);
+    check_ll("批量 id 保序 1", g_stub.last_param_ids[1], 1);
+    check_ll("批量 id 保序 2", g_stub.last_param_ids[2], 200);
+    check_ll("批量 id 保序 3", g_stub.last_param_ids[3], 29);
+    check_ll("批量值保序 0", g_stub.last_param_values[0], 100);
+    check_ll("批量值保序 3", g_stub.last_param_values[3], 33);
+    check_ll("批量越界 id 逐条忽略", g_stub.invalid_param_ids, 1);
+    check_ll("批量有效项落地 0", g_stub.param[1][0], 100);
+    check_ll("批量有效项落地 29", g_stub.param[1][29], 33);
+    state_get_copy(&s);
+    check_ll("批量投影 p[0]", s.p[0], 100);
+    check_ll("批量投影 p[29]", s.p[29], 33);
+
+    /* 写非选中轨：引擎落地，但 p[]（选中轨投影）不动 */
+    const sloop_param_pair_t other[] = { { .id = 0, .v = 7 } };
+    apply_param_batch(2, other, 1);
+    check_ll("非选中轨值落引擎", g_stub.param[2][0], 7);
+    state_get_copy(&s);
+    check_ll("非选中轨写入不动投影", s.p[0], 100);
+
+    /* 超上限：只应用前 APP_STATE_PARAM_BATCH_MAX 条（其余忽略 + 设备侧告警） */
+    static sloop_param_pair_t big[APP_STATE_PARAM_BATCH_MAX + 1u];
+    for (uint32_t i = 0; i < APP_STATE_PARAM_BATCH_MAX + 1u; i++) {
+        big[i].id = 1;
+        big[i].v = (int16_t)i;
+    }
+    calls0 = g_stub.set_params_calls;
+    apply_param_batch(0, big, APP_STATE_PARAM_BATCH_MAX + 1u);
+    check_ll("超上限仍一次调用", g_stub.set_params_calls - calls0, 1);
+    check_ll("超上限截断到 MAX", g_stub.last_params_n, APP_STATE_PARAM_BATCH_MAX);
+
+    /* 空载荷 / n=0 / 越界轨：整条丢弃 */
+    calls0 = g_stub.set_params_calls;
+    apply_param_batch(0, NULL, 4);
+    apply_param_batch(0, pairs, 0);
+    apply_param_batch(4, pairs, 1);
+    check_ll("空/越界载荷不调引擎", g_stub.set_params_calls - calls0, 0);
+}
+
+/* ⑩ 参数投影：sync 一次 read_params 采纳引擎真值（外部改动）；p 跟随选中轨。 */
+static void case_param_projection_sync(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_get_copy(&s);
+    check_ll("init 投影 g_bpm", s.g[0], 90);
+
+    stub_engine_set_param(0, 0, 42);
+    stub_engine_set_param(0, 29, 12);
+    stub_engine_set_global(1, 33);
+    uint32_t rp0 = g_stub.read_params_calls;
+    state_sync_from_engine();
+    check_ll("sync 一次 read_params", g_stub.read_params_calls - rp0, 1);
+    state_get_copy(&s);
+    check_ll("sync 采纳引擎 p[0]", s.p[0], 42);
+    check_ll("sync 采纳引擎 p[29]", s.p[29], 12);
+    check_ll("sync 采纳引擎 g[1]", s.g[1], 33);
+
+    /* 引擎侧外部改选轨 + 轨 2 参数：sync 后投影 p 换成轨 2 的值 */
+    g_stub.snap.selected_track = 2;
+    stub_engine_set_param(2, 1, 77);
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 后选中轨 2", s.core.selected_track, 2);
+    check_ll("投影跟随选中轨", s.p[1], 77);
+}
+
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
 static void case_bounds(void)
 {
@@ -672,6 +818,9 @@ int main(void)
     run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
     run("步窗抽象：默认/映射/投影/钳位", case_step_window);
     run("步窗 sync 与 SET_WINDOW 交错按新基重取", case_window_sync_race);
+    run("参数命令：单 SET 钳位/越界忽略", case_set_param);
+    run("参数批量：一次引擎调用/截断/空载荷", case_set_param_batch);
+    run("参数投影：sync 采纳引擎真值/跟随选轨", case_param_projection_sync);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);
 
