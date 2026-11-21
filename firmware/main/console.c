@@ -9,7 +9,11 @@
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、DESC
  *    描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
- *    bpm/playing 与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
+ *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
+ *    的抽样字段；与 ENG SNAP 同源）。
+ *  - PARAM：参数写诊断注入（阶段 4 P4-A）：PARAM <id> <value> 经状态层
+ *    CMD_SET_PARAM 写选中轨（钳位在引擎，回显 applied），PARAM BATCH <id> <value> …
+ *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
@@ -507,8 +511,17 @@ static int eng_command(int argc, char **argv)
     return 1;
 }
 
+/* 上游 P_* 与 G_* 枚举镜像（仅诊断回显用；数值与 params.c 的枚举顺序一致，漂移会被
+ * ENG DESC/PARAM 与设备断言暴露）。P_E0 = P_COUNT - 8：TP 表末尾 8 个引擎槽的起点。 */
+enum {
+    CONSOLE_P_LEVEL = 0, CONSOLE_P_ATK = 1, CONSOLE_P_DEC = 2, CONSOLE_P_SUS = 3,
+    CONSOLE_P_REL = 4, CONSOLE_P_SLEN = 29, CONSOLE_P_MUTE = 40,
+    CONSOLE_G_BPM = 0, CONSOLE_G_SWING = 1,
+};
+
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
- * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）。 */
+ * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
+ * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。 */
 static int state_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
@@ -523,9 +536,103 @@ static int state_command(int argc, char **argv)
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
         }
+        printf("STATE SNAP param trk=%u level=%d atk=%d dec=%d sus=%d rel=%d slen=%d mute=%d\n",
+               (unsigned)st.core.selected_track, (int)st.p[CONSOLE_P_LEVEL], (int)st.p[CONSOLE_P_ATK],
+               (int)st.p[CONSOLE_P_DEC], (int)st.p[CONSOLE_P_SUS], (int)st.p[CONSOLE_P_REL],
+               (int)st.p[CONSOLE_P_SLEN], (int)st.p[CONSOLE_P_MUTE]);
+        printf("STATE SNAP global bpm=%d swing=%d\n", (int)st.g[CONSOLE_G_BPM],
+               (int)st.g[CONSOLE_G_SWING]);
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗与引擎真值的选轨/mute/solo；同 ENG SNAP）\n");
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、引擎真值的选轨/mute/solo 与参数投影；同 ENG SNAP）\n");
+    return 1;
+}
+
+/* PARAM 诊断注入（阶段 4 P4-A Task 9 的设备断言入口）：走与 UI 编辑相同的状态层
+ * 路径（CMD_SET_PARAM / CMD_SET_PARAM_BATCH → sloop_core_set_params），写完回读
+ * 引擎真值。id 合法性按 desc 契约预判（TRACK scope 覆盖 id < P_E0；P_E0..P_E7 是
+ * 引擎槽：鼓轨用哨兵 SLOOP_CORE_NENGINES）——钳位不在本层做，引擎按同一描述符
+ * 钳位，回显的 applied 即钳位结果。value 接受任意 int16。 */
+static bool param_parse_value(const char *text, int16_t *value)
+{
+    char *end = NULL;
+    long parsed = strtol(text, &end, 0);
+    if (end == text || *end != '\0' || parsed < INT16_MIN || parsed > INT16_MAX) return false;
+    *value = (int16_t)parsed;
+    return true;
+}
+
+static bool param_id_valid(uint32_t engine, uint32_t id, sloop_desc_t *desc)
+{
+    const uint32_t p_e0 = SLOOP_CORE_P_COUNT - 8u; /* 上游 P_E0（8 个引擎槽的起点） */
+    if (id < p_e0) return sloop_core_desc(SLOOP_DESC_TRACK, 0, id, desc);
+    if (id >= SLOOP_CORE_P_COUNT) return false;
+    return sloop_core_desc(SLOOP_DESC_ENGINE, engine, id - p_e0, desc);
+}
+
+static int param_command(int argc, char **argv)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap); /* 选中轨与引擎号（鼓轨 = 哨兵）取自引擎真值 */
+    uint32_t track = snap.selected_track < APP_STATE_TRACKS ? snap.selected_track : 0;
+    uint32_t engine = track == 3u ? SLOOP_CORE_NENGINES : snap.trk[track].engine;
+    int16_t p[SLOOP_CORE_P_COUNT], g[SLOOP_CORE_G_COUNT];
+
+    if (argc == 3 && strcasecmp(argv[1], "batch") != 0) {
+        uint32_t id;
+        int16_t value;
+        sloop_desc_t d;
+        if (!eng_uint(argv[1], 0xFFFFu, &id) || !param_parse_value(argv[2], &value)) {
+            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...\n");
+            return 1;
+        }
+        if (!param_id_valid(engine, id, &d)) {
+            printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+            return 1;
+        }
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM, .a = track, .b = id, .v = (uint16_t)value };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        printf("PARAM track=%u id=%u value=%d applied=%d min=%d max=%d\n", (unsigned)track,
+               (unsigned)id, (int)value, (int)p[id], (int)d.min, (int)d.max);
+        return 0;
+    }
+    if (argc >= 4 && strcasecmp(argv[1], "batch") == 0 && ((argc - 2) % 2) == 0) {
+        uint32_t n = (uint32_t)(argc - 2) / 2u;
+        sloop_param_pair_t pairs[APP_STATE_PARAM_BATCH_MAX];
+        sloop_desc_t d;
+        if (n > APP_STATE_PARAM_BATCH_MAX) {
+            printf("PARAM ERR n=%u reason=too_many max=%u\n", (unsigned)n,
+                   (unsigned)APP_STATE_PARAM_BATCH_MAX);
+            return 1;
+        }
+        for (uint32_t i = 0; i < n; i++) {
+            uint32_t id;
+            int16_t value;
+            if (!eng_uint(argv[2 + 2u * i], 0xFFFFu, &id) ||
+                !param_parse_value(argv[3 + 2u * i], &value)) {
+                printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...\n");
+                return 1;
+            }
+            if (!param_id_valid(engine, id, &d)) {
+                printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+                return 1;
+            }
+            pairs[i].id = (uint8_t)id;
+            pairs[i].v = value;
+        }
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM_BATCH, .a = track, .p = pairs, .n = n };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        printf("PARAM BATCH track=%u n=%u", (unsigned)track, (unsigned)n);
+        for (uint32_t i = 0; i < n; i++) {
+            printf(" id=%u value=%d applied=%d", (unsigned)pairs[i].id, (int)pairs[i].v,
+                   (int)p[pairs[i].id]);
+        }
+        printf("\n");
+        return 0;
+    }
+    printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...（选中轨，经状态层参数命令；钳位在引擎）\n");
     return 1;
 }
 
@@ -925,13 +1032,25 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源）",
+        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源；含参数投影）",
         .hint = "SNAP",
         .func = &state_command,
     };
     ret = esp_console_cmd_register(&state_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 STATE 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t param_cmd = {
+        .command = "PARAM",
+        .help = "参数写诊断：PARAM <id> <value> 经状态层写选中轨；PARAM BATCH <id> <value> ... 真批量",
+        .hint = "<id> <value> | BATCH <id> <value> ...",
+        .func = &param_command,
+    };
+    ret = esp_console_cmd_register(&param_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 PARAM 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
