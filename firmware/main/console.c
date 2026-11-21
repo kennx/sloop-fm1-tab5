@@ -11,7 +11,9 @@
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
  *    与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
- *    手动复验诊断期静默（sloop_ui）。
+ *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
+ *    实测 delta）；FORCEFAIL <page> [on|off] 一次性强制该页下次构建失败
+ *    （验证失败可见性，ADR-008）。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
  *    均值/最大，µs）、输入任务栈余量与诊断期丢弃计数；KEY PANIC 全停（释放已按下
@@ -492,17 +494,98 @@ static int state_command(int argc, char **argv)
 /* UI 切页（注入用）：UI <play|tracks|step|transport>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
- * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。 */
+ * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
+ * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
+ * UI FORCEFAIL <page> [on|off]：一次性强制该页下次构建失败（验证失败可见性）。 */
+static const char *const k_page_names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
+
+/* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
+static bool ui_parse_page(const char *arg, uint8_t *out)
+{
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (strcasecmp(arg, k_page_names[i]) == 0) {
+            *out = i;
+            return true;
+        }
+    }
+    char *end = NULL;
+    unsigned long v = strtoul(arg, &end, 10);
+    if (end == arg || *end != '\0' || v >= APP_STATE_PAGES) return false;
+    *out = (uint8_t)v;
+    return true;
+}
+
+static int ui_mem_dump(void)
+{
+    sloop_ui_pool_stats_t ps;
+    esp_err_t ret = sloop_ui_page_pool_stats(&ps);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        printf("UI ERR not_started\n");
+        return 1;
+    }
+    if (ret == ESP_ERR_TIMEOUT) {
+        printf("UI ERR lock_timeout\n");
+        return 1;
+    }
+    if (ret != ESP_OK) {
+        printf("UI ERR mem (%s)\n", esp_err_to_name(ret));
+        return 1;
+    }
+    static const char *const states[] = {"unbuilt", "built", "failed"};
+    uint32_t sum_est = 0;
+    for (uint8_t i = 0; i < ps.registered; i++) sum_est += ps.pages[i].est_bytes;
+    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d\n",
+           (unsigned)ps.pool_used, (unsigned)ps.pool_free, (unsigned)ps.pool_total,
+           (unsigned)ps.registered, (unsigned)ps.built, (unsigned)ps.failed, (unsigned)sum_est,
+           (int)(ps.pool_total - sum_est));
+    for (uint8_t i = 0; i < ps.registered; i++) {
+        const sloop_ui_page_stat_t *p = &ps.pages[i];
+        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d\n", (unsigned)p->id,
+               p->title, states[p->state < 3 ? p->state : 0], (unsigned)p->est_bytes,
+               (int)p->delta_bytes);
+    }
+    return 0;
+}
+
 static int ui_command(int argc, char **argv)
 {
-    static const char *const names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
     if (argc == 1) {
         uint8_t page = sloop_ui_current_page();
         if (page >= APP_STATE_PAGES) {
             printf("UI ERR not_started\n");
             return 1;
         }
-        printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+        printf("UI page=%s (%u)\n", k_page_names[page], (unsigned)page);
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
+        uint8_t page = 0;
+        if (!ui_parse_page(argv[2], &page)) {
+            printf("UI ERR page (want=play|tracks|step|transport|0..%u)\n",
+                   (unsigned)(APP_STATE_PAGES - 1));
+            return 1;
+        }
+        bool on = argc == 3 || strcasecmp(argv[3], "on") == 0;
+        if (argc == 4 && !on && strcasecmp(argv[3], "off") != 0) {
+            printf("用法: UI FORCEFAIL <page> [on|off]\n");
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_force_page_build_failure(page, on);
+        if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+            return 1;
+        }
+        if (ret != ESP_OK) {
+            printf("UI ERR forcefail (%s)\n", esp_err_to_name(ret));
+            return 1;
+        }
+        printf("UI FORCEFAIL page=%s (%u) armed=%u\n", k_page_names[page], (unsigned)page,
+               (unsigned)on);
         return 0;
     }
     if (argc == 3 && strcasecmp(argv[1], "quiesce") == 0 &&
@@ -519,27 +602,33 @@ static int ui_command(int argc, char **argv)
     }
     if (argc == 2) {
         for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-            if (strcasecmp(argv[1], names[i]) != 0) continue;
+            if (strcasecmp(argv[1], k_page_names[i]) != 0) continue;
             esp_err_t ret = sloop_ui_switch_page(i);
             if (ret == ESP_ERR_TIMEOUT) {
                 /* 与 miss 区分：锁超时没有落地，脚本的 miss/页断言不得误判为通过 */
                 printf("UI ERR lock_timeout\n");
                 return 1;
             }
+            if (ret == ESP_ERR_NO_MEM) {
+                /* 目标页构建失败：页面已切到错误状态条（可见），与「未启动」区分 */
+                printf("UI ERR page_build %u\n", (unsigned)i);
+                return 1;
+            }
             if (ret != ESP_OK) {
-                printf("UI ERR not_started (want=%s)\n", names[i]);
+                printf("UI ERR not_started (want=%s)\n", k_page_names[i]);
                 return 1;
             }
             uint8_t page = sloop_ui_current_page();
             if (page != i) {
-                printf("UI ERR not_started (want=%s)\n", names[i]);
+                printf("UI ERR not_started (want=%s)\n", k_page_names[i]);
                 return 1;
             }
-            printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+            printf("UI page=%s (%u)\n", k_page_names[page], (unsigned)page);
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport> | UI QUIESCE <on|off>（无参打印当前页）\n");
+    printf("用法: UI <play|tracks|step|transport> | UI MEM | UI FORCEFAIL <page> [on|off] | "
+           "UI QUIESCE <on|off>（无参打印当前页）\n");
     return 1;
 }
 
@@ -755,8 +844,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
-        .help = "UI 切页/查询当前页/诊断期静默（sloop_ui 四屏框架）",
-        .hint = "<play|tracks|step|transport>|QUIESCE <on|off>",
+        .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
+        .hint = "<play|tracks|step|transport>|MEM|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

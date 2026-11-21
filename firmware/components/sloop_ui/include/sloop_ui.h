@@ -1,9 +1,12 @@
 /*
- * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 四屏框架）
+ * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 四屏框架 + 页面注册表）
  *
- * 单容器屏 + 顶部页签 PLAY|TRACKS|STEP|TRANSPORT：页对象只创建一次，
- * 切页只改显隐（不销毁重建）。四页均已落地——PLAY/TRACKS/STEP/TRANSPORT
- * （page_play/page_tracks/page_step/page_transport）。
+ * 单容器屏 + 顶部页签 PLAY|TRACKS|STEP|TRANSPORT：页签由页面注册表（ADR-008）
+ * 派生，页面**首次访问时构建**，之后保留（不销毁）。PLAY 在
+ * sloop_ui_start() 内立即构建，保证开机首帧非空白；TRACKS/STEP/TRANSPORT
+ * 在首次进入时构建并把 LVGL 池增量记入日志/`UI MEM`。
+ * 构建失败（控件分配失败/预算不足）显示状态条错误文本 + ERROR 日志，
+ * 同步切页返回 ESP_ERR_NO_MEM（console 打印 `UI ERR page_build <id>`）。
  *
  * 线程：所有 LVGL 调用在 bsp_display_lock 内（esp_lvgl_port 递归锁，与
  * display.c 同一纪律）；UI 定时器 30ms 运行在 LVGL 任务里（已持锁）。
@@ -14,15 +17,72 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "lvgl.h"
+#include "sloop_state.h"
 
-/* 创建页签 + 四屏对象并注册 30ms UI 定时器；须在 state_init() 与显示初始化之后调用。
- * 成功时接管控件树（清掉 bring-up 测试图）；失败时调用方回退 app_display_draw_test_pattern()。 */
+/* 页面注册表条目（ADR-008）。注册顺序 = 页签顺序；id 为 app_page_t（< APP_STATE_PAGES）。
+ * build：在 parent 内建本页控件，成功返回 parent，任一控件分配失败返回 NULL
+ *        （页内用 theme.h 的 UI_BUILD_CHECK 逐个检查）。
+ * update：只对该页已建控件做脏检查刷新（未建页不会被调用）。
+ * est_bytes：构建前预算门槛——LVGL 池剩余低于该值直接拒绝构建（失败可见，不冒险
+ *        半途分配失败）。数值来源见 `docs/design/008-param-pages.md` 的实测表。 */
+typedef struct {
+    uint8_t id;
+    const char *title;
+    lv_obj_t *(*build)(lv_obj_t *parent);
+    void (*update)(const app_state_t *st);
+    uint32_t est_bytes;
+} ui_page_t;
+
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有四页）。
+ * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
+ * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
+ * （注册表满）；ESP_ERR_INVALID_STATE（UI 已启动）。 */
+esp_err_t ui_page_register(const ui_page_t *page);
+
+typedef enum {
+    SLOOP_UI_PAGE_UNBUILT = 0, /* 尚未进入过（懒建） */
+    SLOOP_UI_PAGE_BUILT = 1,   /* 已建，控件保留 */
+    SLOOP_UI_PAGE_FAILED = 2,  /* 上次构建失败（下次访问重试） */
+} sloop_ui_page_state_t;
+
+typedef struct {
+    uint8_t id;
+    const char *title;
+    uint8_t state;         /* sloop_ui_page_state_t */
+    uint32_t est_bytes;    /* 预算（注册表） */
+    int32_t delta_bytes;   /* 首次成功构建实测的池 free 减少量（含块头）；0 = 未建/失败 */
+} sloop_ui_page_stat_t;
+
+typedef struct {
+    uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
+    uint8_t registered, built, failed;
+    sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
+} sloop_ui_pool_stats_t;
+
+/* 注册表/池水位统计（console `UI MEM`）：内部取 LVGL 锁调 lv_mem_monitor。
+ * 返回 ESP_ERR_INVALID_ARG（out=NULL）、ESP_ERR_INVALID_STATE（UI 未启动）、
+ * ESP_ERR_TIMEOUT（LVGL 锁超时）。 */
+esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out);
+
+/* 调试注入（console `UI FORCEFAIL <page>`）：让该页的**下一次**构建强制失败
+ * （一次性，构建尝试后自动解除），用于验证失败可见性路径；
+ * `UI FORCEFAIL <page> off` 可撤销尚未消费的注入。
+ * 返回 ESP_ERR_INVALID_ARG / ESP_ERR_INVALID_STATE / ESP_ERR_TIMEOUT。 */
+esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
+
+/* 创建页签 + 页面注册表并注册 30ms UI 定时器；PLAY 页立即构建（开机非空白），
+ * 其余页首次访问时构建（ADR-008）。须在 state_init() 与显示初始化之后调用。
+ * 成功时接管控件树（清掉 bring-up 测试图）；框架级失败（根容器/页签/定时器建不出）
+ * 返回错误，调用方回退 app_display_draw_test_pattern()。单页构建失败不算框架失败：
+ * 错误状态条留在屏上，本函数仍返回 ESP_OK。 */
 esp_err_t sloop_ui_start(void);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t）。
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t），首次进入时构建该页。
  * 可从任意任务调用（内部加锁）。返回：ESP_OK = 已落地；ESP_ERR_INVALID_ARG =
  * 非法页；ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
- * （**未切页**，与成功明确区分，console `UI` 据此打印 `UI ERR lock_timeout`）。 */
+ * （**未切页**，console `UI` 据此打印 `UI ERR lock_timeout`）；ESP_ERR_NO_MEM =
+ * 目标页构建失败（页面已切到错误状态条，console 打印 `UI ERR page_build <id>`）。 */
 esp_err_t sloop_ui_switch_page(uint8_t page);
 
 /* 请求切页（异步）：只记目标页，30ms UI 定时器在 LVGL 上下文执行。可从任意任务

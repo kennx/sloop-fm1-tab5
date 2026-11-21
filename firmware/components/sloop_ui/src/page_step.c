@@ -223,17 +223,22 @@ static void cell_apply(uint8_t r, uint8_t c, uint8_t old_state, uint8_t state)
     if (old_hl != new_hl) lv_obj_replace_style(cell, old_hl, new_hl, 0);
 }
 
-void page_step_create(lv_obj_t *parent)
+lv_obj_t *page_step_build(lv_obj_t *parent)
 {
     styles_init();
+    /* 懒建重试时控件是全新的：复位格子脏检查缓存与首帧强制刷新 */
+    memset(s_cell_state, 0, sizeof(s_cell_state));
+    s_header_dirty = true;
 
     s_header = lv_label_create(parent);
+    UI_BUILD_CHECK(s_header);
     lv_label_set_text(s_header, "TRACK 1   STEP 0   LEN 16   DIV 1");
     lv_obj_set_style_text_font(s_header, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_header, lv_color_hex(ui_track_color(0)), 0);
     lv_obj_set_pos(s_header, 24, 14);
 
     s_status = lv_label_create(parent);
+    UI_BUILD_CHECK(s_status);
     lv_label_set_text(s_status, "");
     lv_obj_set_width(s_status, 600);
     lv_obj_set_style_text_align(s_status, LV_TEXT_ALIGN_RIGHT, 0);
@@ -243,12 +248,14 @@ void page_step_create(lv_obj_t *parent)
     static const char *const row_names[APP_STATE_TRACKS] = {"T1", "T2", "T3", "DRM"};
     for (uint8_t r = 0; r < APP_STATE_TRACKS; r++) {
         lv_obj_t *row_label = lv_label_create(parent);
+        UI_BUILD_CHECK(row_label);
         lv_label_set_text(row_label, row_names[r]);
         lv_obj_add_style(row_label, &s_st_row[r], 0);
         lv_obj_set_pos(row_label, 24, GRID_Y0 + r * ROW_PITCH + 42);
 
         for (uint8_t c = 0; c < APP_STATE_STEPS; c++) {
             lv_obj_t *cell = lv_obj_create(parent);
+            UI_BUILD_CHECK(cell);
             lv_obj_remove_style_all(cell);
             lv_obj_set_scrollable(cell, false);
             lv_obj_set_pos(cell, GRID_X0 + c * CELL_STEP_X, GRID_Y0 + r * ROW_PITCH);
@@ -265,6 +272,7 @@ void page_step_create(lv_obj_t *parent)
             char buf[4];
             snprintf(buf, sizeof(buf), "%u", (unsigned)(c + 1));
             lv_obj_t *num = lv_label_create(parent);
+            UI_BUILD_CHECK(num);
             lv_label_set_text(num, buf);
             lv_obj_add_style(num, &s_st_num, 0);
             lv_obj_set_pos(num, GRID_X0 + c * CELL_STEP_X + 24, 568);
@@ -272,9 +280,11 @@ void page_step_create(lv_obj_t *parent)
     }
 
     lv_obj_t *hint = lv_label_create(parent);
+    UI_BUILD_CHECK(hint);
     lv_label_set_text(hint, "TAP = TOGGLE ON/OFF    DIM = BEYOND LEN    DRUM ROW = READ ONLY (LEN > 16 NOT SHOWN)");
     lv_obj_add_style(hint, &s_st_hint, 0);
     lv_obj_set_pos(hint, 24, 606);
+    return parent;
 }
 
 void page_step_update(const app_state_t *st)

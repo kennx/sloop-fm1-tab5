@@ -26,6 +26,7 @@
 #define UI_TEXT     0xF2F5F8 /* 主文本 */
 #define UI_TEXT_DIM 0x8A949E /* 次级文本 */
 #define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
+#define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
 /* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72） */
 #define UI_TAB_X0  16
@@ -41,19 +42,25 @@ static inline uint32_t ui_track_color(uint8_t k)
     return colors[k < APP_STATE_TRACKS ? k : 0];
 }
 
-/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。 */
-void page_play_create(lv_obj_t *parent);
+/* 页面构建函数（懒建，ADR-008）：在 parent 内建本页控件，成功返回 parent；
+ * 任一控件分配失败（LVGL 池耗尽）返回 NULL——由 ui.c 显示错误状态条并记 ERROR，
+ * 绝不留静默空白页。每页用 UI_BUILD_CHECK() 逐个检查分配结果。
+ * 同一页可能因失败后重试而再次调用：build 必须复位本页脏检查缓存。 */
+lv_obj_t *page_play_build(lv_obj_t *parent);
 void page_play_update(const app_state_t *st);
-void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock */
+void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock；PLAY 未建时不调用 */
 
-void page_tracks_create(lv_obj_t *parent);
+lv_obj_t *page_tracks_build(lv_obj_t *parent);
 void page_tracks_update(const app_state_t *st);
 
-void page_step_create(lv_obj_t *parent);
+lv_obj_t *page_step_build(lv_obj_t *parent);
 void page_step_update(const app_state_t *st);
 
-void page_transport_create(lv_obj_t *parent);
+lv_obj_t *page_transport_build(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
+
+/* 构建期分配检查：NULL 即中止本页构建（半成品容器由 ui.c 删除回收） */
+#define UI_BUILD_CHECK(obj) do { if ((obj) == NULL) return NULL; } while (0)
 
 /* hit-test（console `TAP` 注入）：坐标为页面区相对坐标（调用方已扣 UI_TAB_BAR_H）。
  * 命中：调用与控件事件回调**相同**的动作函数并填 out，返回 true；未命中返回 false。

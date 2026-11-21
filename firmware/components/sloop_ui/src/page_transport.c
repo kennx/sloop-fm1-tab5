@@ -48,6 +48,7 @@ static lv_obj_t *make_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w, 
                              uint32_t color, const char *text, lv_event_cb_t cb, void *user_data)
 {
     lv_obj_t *btn = lv_button_create(parent);
+    if (btn == NULL) return NULL;
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, h);
     lv_obj_set_style_radius(btn, 16, 0);
@@ -60,6 +61,7 @@ static lv_obj_t *make_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w, 
     }
 
     lv_obj_t *label = lv_label_create(btn);
+    if (label == NULL) return NULL;
     lv_label_set_text(label, text);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(label, lv_color_hex(UI_TEXT), 0);
@@ -156,32 +158,47 @@ bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
     return false;
 }
 
-void page_transport_create(lv_obj_t *parent)
+lv_obj_t *page_transport_build(lv_obj_t *parent)
 {
-    make_button(parent, TRANSPORT_PLAY_X, TRANSPORT_PLAY_Y, TRANSPORT_PLAY_W, TRANSPORT_PLAY_H,
-                ui_track_color(1), "PLAY", play_clicked_cb, NULL);
-    make_button(parent, TRANSPORT_STOP_X, TRANSPORT_STOP_Y, TRANSPORT_STOP_W, TRANSPORT_STOP_H,
-                ui_track_color(3), "STOP", stop_clicked_cb, NULL);
+    /* 懒建重试时控件是全新的：复位脏检查缓存 */
+    s_playing = -1;
+    s_bpm = -1;
+    s_step_track = -1;
+    s_step_pos = -1;
+    s_step_len = -1;
+
+    if (make_button(parent, TRANSPORT_PLAY_X, TRANSPORT_PLAY_Y, TRANSPORT_PLAY_W,
+                    TRANSPORT_PLAY_H, ui_track_color(1), "PLAY", play_clicked_cb, NULL) == NULL) {
+        return NULL;
+    }
+    if (make_button(parent, TRANSPORT_STOP_X, TRANSPORT_STOP_Y, TRANSPORT_STOP_W,
+                    TRANSPORT_STOP_H, ui_track_color(3), "STOP", stop_clicked_cb, NULL) == NULL) {
+        return NULL;
+    }
 
     s_status_label = lv_label_create(parent);
+    UI_BUILD_CHECK(s_status_label);
     lv_label_set_text(s_status_label, "STOPPED");
     lv_obj_set_style_text_font(s_status_label, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_set_pos(s_status_label, 48, 264);
 
     s_step_label = lv_label_create(parent);
+    UI_BUILD_CHECK(s_step_label);
     lv_label_set_text(s_step_label, "TRACK 1   STEP 0 / 16");
     lv_obj_set_style_text_font(s_step_label, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_step_label, lv_color_hex(ui_track_color(0)), 0);
     lv_obj_set_pos(s_step_label, 48, 320);
 
     lv_obj_t *bpm_caption = lv_label_create(parent);
+    UI_BUILD_CHECK(bpm_caption);
     lv_label_set_text(bpm_caption, "BPM");
     lv_obj_set_style_text_font(bpm_caption, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(bpm_caption, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_set_pos(bpm_caption, 900, 40);
 
     s_bpm_value = lv_label_create(parent);
+    UI_BUILD_CHECK(s_bpm_value);
     lv_label_set_text(s_bpm_value, "0");
     lv_obj_set_pos(s_bpm_value, 880, 72);
     lv_obj_set_size(s_bpm_value, 140, 40);
@@ -189,10 +206,17 @@ void page_transport_create(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_bpm_value, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(s_bpm_value, lv_color_hex(UI_TEXT), 0);
 
-    make_button(parent, TRANSPORT_BPM_MINUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
-                UI_PANEL_HI, "-", bpm_clicked_cb, (void *)(intptr_t)-1);
-    make_button(parent, TRANSPORT_BPM_PLUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W, TRANSPORT_BPM_H,
-                UI_PANEL_HI, "+", bpm_clicked_cb, (void *)(intptr_t)1);
+    if (make_button(parent, TRANSPORT_BPM_MINUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W,
+                    TRANSPORT_BPM_H, UI_PANEL_HI, "-", bpm_clicked_cb,
+                    (void *)(intptr_t)-1) == NULL) {
+        return NULL;
+    }
+    if (make_button(parent, TRANSPORT_BPM_PLUS_X, TRANSPORT_BPM_Y, TRANSPORT_BPM_W,
+                    TRANSPORT_BPM_H, UI_PANEL_HI, "+", bpm_clicked_cb,
+                    (void *)(intptr_t)1) == NULL) {
+        return NULL;
+    }
+    return parent;
 }
 
 void page_transport_update(const app_state_t *st)

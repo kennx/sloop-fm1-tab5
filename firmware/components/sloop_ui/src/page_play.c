@@ -52,27 +52,38 @@ static void flash_clear(void)
     s_flash_active = false;
 }
 
-void page_play_create(lv_obj_t *parent)
+lv_obj_t *page_play_build(lv_obj_t *parent)
 {
+    /* 懒建重试时控件是全新的：复位脏检查缓存与音符指示状态 */
+    s_track = -1;
+    s_engine = -1;
+    s_preset = -1;
+    s_level = -1;
+    s_flash_active = false;
+
     s_track_label = lv_label_create(parent);
+    UI_BUILD_CHECK(s_track_label);
     lv_label_set_text(s_track_label, "TRACK 1");
     lv_obj_set_style_text_font(s_track_label, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(s_track_label, lv_color_hex(ui_track_color(0)), 0);
     lv_obj_set_pos(s_track_label, 48, 24);
 
     s_engine_label = lv_label_create(parent);
+    UI_BUILD_CHECK(s_engine_label);
     lv_label_set_text(s_engine_label, "ENGINE 0   PRESET 0");
     lv_obj_set_style_text_font(s_engine_label, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_engine_label, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_set_pos(s_engine_label, 48, 74);
 
     lv_obj_t *level_caption = lv_label_create(parent);
+    UI_BUILD_CHECK(level_caption);
     lv_label_set_text(level_caption, "LEVEL");
     lv_obj_set_style_text_font(level_caption, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(level_caption, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_set_pos(level_caption, 48, 164);
 
     s_level_bar = lv_bar_create(parent);
+    UI_BUILD_CHECK(s_level_bar);
     lv_obj_set_pos(s_level_bar, 48, 192);
     lv_obj_set_size(s_level_bar, 800, 36);
     lv_bar_set_range(s_level_bar, 0, 127);
@@ -85,12 +96,14 @@ void page_play_create(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(s_level_bar, LV_OPA_COVER, LV_PART_INDICATOR);
 
     s_level_value = lv_label_create(parent);
+    UI_BUILD_CHECK(s_level_value);
     lv_label_set_text(s_level_value, "0");
     lv_obj_set_style_text_font(s_level_value, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_level_value, lv_color_hex(UI_TEXT), 0);
     lv_obj_set_pos(s_level_value, 864, 196);
 
     s_flash_box = lv_obj_create(parent);
+    UI_BUILD_CHECK(s_flash_box);
     lv_obj_set_scrollable(s_flash_box, false);
     lv_obj_set_pos(s_flash_box, 940, 48);
     lv_obj_set_size(s_flash_box, 300, 300);
@@ -102,18 +115,21 @@ void page_play_create(lv_obj_t *parent)
     lv_obj_set_style_pad_all(s_flash_box, 0, 0);
 
     s_flash_label = lv_label_create(s_flash_box);
+    UI_BUILD_CHECK(s_flash_label);
     lv_label_set_text(s_flash_label, "--");
     lv_obj_set_style_text_font(s_flash_label, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(s_flash_label, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_center(s_flash_label);
 
     lv_obj_t *note_caption = lv_label_create(parent);
+    UI_BUILD_CHECK(note_caption);
     lv_label_set_text(note_caption, "NOTE");
     lv_obj_set_width(note_caption, 300);
     lv_obj_set_style_text_align(note_caption, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_font(note_caption, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(note_caption, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_set_pos(note_caption, 940, 356);
+    return parent;
 }
 
 void page_play_update(const app_state_t *st)

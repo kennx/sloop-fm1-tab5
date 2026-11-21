@@ -1,30 +1,40 @@
 /*
- * sloop_ui — 单容器屏 + 顶部页签 + 30ms 状态同步/页面刷新
+ * sloop_ui — 页面注册表 + 懒建（ADR-008）+ 顶部页签 + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72)（bg UI_PANEL，选中页签 UI_ACCENT），页面区
- * y∈[72,720)。四个页对象创建一次，切页只改 LV_OBJ_FLAG_HIDDEN（不重建，
- * 避免每次切页重新分配 LVGL 对象/丢失焦点）：PLAY（page_play.c）/ TRACKS
- * （page_tracks.c）/ STEP（page_step.c）/ TRANSPORT（page_transport.c）。
+ * y∈[72,720)。页签由页面注册表派生（注册顺序 = 页签顺序），每页控件在**首次
+ * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），之后只改
+ * LV_OBJ_FLAG_HIDDEN（已建页不销毁，受每页 est_bytes 预算保护）：PLAY
+ * （page_play.c）/ TRACKS（page_tracks.c）/ STEP（page_step.c）/ TRANSPORT
+ * （page_transport.c）。
+ *
+ * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
+ * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
+ * 并在页面区显示错误状态条（`PAGE <TITLE> BUILD FAILED` + `UI ERR page_build <id>`）。
+ * 同步切页把构建失败上报为 ESP_ERR_NO_MEM（console 打印 `UI ERR page_build <id>`）。
+ * 失败页下次访问重试；`UI FORCEFAIL <page>` 可一次性强制失败（验证用）。
+ * 池增量进日志与 `UI MEM`（sloop_ui_page_pool_stats）。
  *
  * 线程纪律：所有 LVGL 调用在 bsp_display_lock 内——公共入口自行加锁，
  * 页签回调与 30ms 定时器运行在 LVGL 任务上下文中（esp_lvgl_port 的
  * lvgl_port_task 已持递归锁），不再重复加锁，与 display.c 的约定一致。
- * 定时器每 30ms 先 state_sync_from_engine() 拉引擎真值，再对各页做脏检查
- * 刷新（四页都刷新，切页时无需补刷）。
+ * 定时器每 30ms 先 state_sync_from_engine() 拉引擎真值，再对**已建**页做脏检查
+ * 刷新（未建/构建失败的页不刷新；切换时立即刷新一次，不等下一拍）。
  *
  * InputManager（input.c）在 sloop_ui_start 末尾启动：按 tick 地板轮询 Tab5 Keyboard
  * 事件（100Hz tick 下 10ms）→ 层模型 → EditCmd；页签条右侧的 LAYER 提示由本文件的定时器按
  * state.layer_held 刷新。
  *
  * 注入（console）：`TAP <x> <y>` 经 sloop_ui_input_tap() 按当前页 hit-test 表派发，
- * 与控件回调共用页内动作函数（EditCmd 层等价，ADR-005）；`UI <page>` 为同步切页，
- * 会先作废异步切页邮箱（sloop_ui_cancel_pending_page），保证回显页即落地页。
- * 异步切页按「一拍一页」：同一定时器周期内的多次 tab 只保留最后一次请求的目标页。
+ * 与控件回调共用页内动作函数（EditCmd 层等价，ADR-005）；当前页未建/构建失败时
+ * 一律 miss（不派发）。`UI <page>` 为同步切页，会先作废异步切页邮箱
+ * （sloop_ui_cancel_pending_page），保证回显页即落地页。异步切页按「一拍一页」：
+ * 同一定时器周期内的多次 tab 只保留最后一次请求的目标页。
  *
  * 诊断期静默（sloop_ui_quiesce）：`ENG SELFTEST` 全量运行期间暂停 30ms 定时器与
  * LVGL 定时器、让输入任务阻塞丢弃事件（TAP/KEY 注入被拒）——诊断期 UI 明确暂停，
  * 不与自检并发（spec P4-0 口径）。结束后恢复定时器，下一拍重新 state_sync 并刷新
- * 四页（ADR-007）。
+ * 已建页（ADR-007）。
  */
 #include "sloop_ui.h"
 
@@ -44,11 +54,29 @@
 
 static const char *TAG = "sloop_ui";
 
-static const char *const k_tab_names[APP_STATE_PAGES] = {"PLAY", "TRACKS", "STEP", "TRANSPORT"};
+/* 内置页面注册表（ADR-008）：注册顺序 = 页签顺序。est_bytes 为构建前预算门槛
+ * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 13–23% 余量、512 对齐
+ * （ADR-008 预算表）；各页 est 之和必须小于 LVGL 池总量，否则后建的页可能永远
+ * 被预算拒绝。 */
+static const ui_page_t k_builtin_pages[] = {
+    {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
+    {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
+    {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 24576},
+    {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
+};
 
-static lv_obj_t *s_tabs[APP_STATE_PAGES];
+static const ui_page_t *s_registry[APP_STATE_PAGES];
+static uint8_t s_reg_count;
+
+static lv_obj_t *s_root;
+static lv_obj_t *s_tabs[APP_STATE_PAGES];       /* 按注册（页签）顺序 */
 static lv_obj_t *s_tab_labels[APP_STATE_PAGES];
-static lv_obj_t *s_pages[APP_STATE_PAGES];
+static lv_obj_t *s_page_obj[APP_STATE_PAGES];   /* 按页 id 索引；NULL = 未建/失败 */
+static uint8_t s_page_state[APP_STATE_PAGES];   /* sloop_ui_page_state_t */
+static int32_t s_page_delta[APP_STATE_PAGES];   /* 首次成功构建的池 free 减少量（字节） */
+static const char *s_page_fail_reason[APP_STATE_PAGES]; /* 最近一次构建失败原因 */
+static bool s_forcefail[APP_STATE_PAGES];       /* UI FORCEFAIL：一次性注入 */
+static lv_obj_t *s_page_error;                  /* 构建失败状态条（页面区居中） */
 static lv_obj_t *s_layer_hint;
 static uint8_t s_layer_shown = 0xFF; /* 脏检查（0xFF = 尚未刷新） */
 static lv_timer_t *s_timer;
@@ -76,53 +104,167 @@ static lv_obj_t *make_plain(lv_obj_t *parent)
     return obj;
 }
 
+/* 注册表查找：页 id → 注册下标；未注册返回 -1 */
+static int registry_index(uint8_t page)
+{
+    for (uint8_t i = 0; i < s_reg_count; i++) {
+        if (s_registry[i]->id == page) return (int)i;
+    }
+    return -1;
+}
+
+/* 页 id → 注册表条目；未注册返回 NULL */
+static const ui_page_t *page_def(uint8_t page)
+{
+    int idx = registry_index(page);
+    return idx < 0 ? NULL : s_registry[idx];
+}
+
 static void set_tab_selected(uint8_t page)
 {
-    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-        bool selected = i == page;
+    for (uint8_t i = 0; i < s_reg_count; i++) {
+        bool selected = s_registry[i]->id == page;
         lv_obj_set_style_bg_color(s_tabs[i], lv_color_hex(selected ? UI_ACCENT : UI_PANEL_HI), 0);
         lv_obj_set_style_text_color(s_tab_labels[i], lv_color_hex(selected ? UI_BG : UI_TEXT_DIM), 0);
     }
 }
 
-/* LVGL 上下文内调用（页签回调或已持锁的公共入口） */
-static void show_page(uint8_t page)
+/* 错误状态条：构建失败的可见出口，不留静默空白页（ADR-008） */
+static void show_page_error(uint8_t page, const char *reason)
 {
-    if (page >= APP_STATE_PAGES) return;
+    const ui_page_t *def = page_def(page);
+    if (s_page_error == NULL) return;
+    lv_label_set_text_fmt(s_page_error, "%s PAGE BUILD FAILED\nUI ERR page_build %u (%s)",
+                          def != NULL ? def->title : "?", (unsigned)page,
+                          reason != NULL ? reason : "unknown");
+    lv_obj_set_hidden(s_page_error, false);
+    lv_obj_move_foreground(s_page_error);
+}
+
+/* 懒建（ADR-008）：未建页首次访问时构建；已建返回 ESP_OK；失败返回
+ * ESP_ERR_NO_MEM（错误状态条已显示、ERROR 已记）。调用方已持 LVGL 锁。 */
+static esp_err_t ensure_page_built(uint8_t page)
+{
+    if (page >= APP_STATE_PAGES) return ESP_ERR_INVALID_ARG;
+    const ui_page_t *def = page_def(page);
+    if (def == NULL) return ESP_ERR_INVALID_ARG;
+    if (s_page_state[page] == SLOOP_UI_PAGE_BUILT) return ESP_OK;
+
+    lv_mem_monitor_t mon_before;
+    lv_mem_monitor(&mon_before);
+    uint32_t free_before = (uint32_t)mon_before.free_size;
+
+    const char *reason = NULL;
+    lv_obj_t *obj = NULL;
+    if (s_forcefail[page]) {
+        s_forcefail[page] = false; /* 一次性注入：本次失败后自动解除 */
+        reason = "forced";
+    } else if (mon_before.free_size < def->est_bytes) {
+        /* 预算门槛：剩余不足该页预算就拒绝，不冒险半途分配失败（碎片化池） */
+        reason = "budget";
+    } else {
+        obj = make_plain(s_root);
+        if (obj == NULL) {
+            reason = "root";
+        } else {
+            lv_obj_set_pos(obj, 0, UI_TAB_BAR_H);
+            lv_obj_set_size(obj, UI_W, UI_H - UI_TAB_BAR_H);
+            lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, 0);
+            if (def->build(obj) == NULL) reason = "build"; /* 页内控件分配失败 */
+        }
+    }
+
+    if (reason != NULL) {
+        if (obj != NULL) lv_obj_delete(obj); /* 回收半成品：失败页不占池 */
+        s_page_obj[page] = NULL;
+        s_page_state[page] = SLOOP_UI_PAGE_FAILED;
+        s_page_fail_reason[page] = reason;
+        ESP_LOGE(TAG, "页面构建失败 page=%s(%u) 原因=%s 池剩余=%uB 预算=%uB（UI ERR page_build %u）",
+                 def->title, (unsigned)page, reason, (unsigned)mon_before.free_size,
+                 (unsigned)def->est_bytes, (unsigned)page);
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_page_obj[page] = obj;
+    s_page_state[page] = SLOOP_UI_PAGE_BUILT;
+    s_page_fail_reason[page] = NULL;
+    lv_mem_monitor_t mon_after;
+    lv_mem_monitor(&mon_after);
+    /* delta 取池 free_size 的减少量（含 TLSF 块头开销）；lv_mem_monitor 的
+     * total_size 不含块头，用 total-free 差会低估每次分配的元数据 */
+    int32_t delta = (int32_t)free_before - (int32_t)mon_after.free_size;
+    s_page_delta[page] = delta;
+    ESP_LOGI(TAG, "页面构建 page=%s(%u) 池增量=%dB 预算=%uB 池剩余=%uB", def->title,
+             (unsigned)page, (int)delta, (unsigned)def->est_bytes,
+             (unsigned)mon_after.free_size);
+
+    /* 立即按当前状态刷新一次：首帧不等 30ms 定时器（切页/截屏时序确定） */
+    app_state_t st;
+    state_get_copy(&st);
+    def->update(&st);
+    return ESP_OK;
+}
+
+/* LVGL 上下文内调用（页签回调或已持锁的公共入口）。返回构建失败时的
+ * ESP_ERR_NO_MEM（页面已切到错误状态条），其余 ESP_OK。 */
+static esp_err_t show_page(uint8_t page)
+{
+    if (page >= APP_STATE_PAGES || page_def(page) == NULL) return ESP_ERR_INVALID_ARG;
+    esp_err_t ret = ensure_page_built(page);
     for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-        lv_obj_set_hidden(s_pages[i], i != page);
+        if (s_page_obj[i] != NULL) lv_obj_set_hidden(s_page_obj[i], i != page);
+    }
+    if (ret == ESP_OK) {
+        if (s_page_error != NULL) lv_obj_set_hidden(s_page_error, true);
+    } else {
+        show_page_error(page, s_page_fail_reason[page]);
     }
     set_tab_selected(page);
     s_page = page;
     state_set_page(page); /* 页面是 UI 局部态（sloop_state 的 UI 写路径） */
+    return ret;
 }
 
 static void tab_clicked_cb(lv_event_t *e)
 {
-    show_page((uint8_t)(uintptr_t)lv_event_get_user_data(e));
+    /* 失败页的构建错误已由 show_page 记 ERROR/显示状态条；异步路径无回显通道 */
+    (void)show_page((uint8_t)(uintptr_t)lv_event_get_user_data(e));
 }
 
-static void create_tab_bar(lv_obj_t *root)
+static bool create_tab_bar(void)
 {
-    lv_obj_t *bar = make_plain(root);
+    lv_obj_t *bar = make_plain(s_root);
+    if (bar == NULL) return false;
     lv_obj_set_pos(bar, 0, 0);
     lv_obj_set_size(bar, UI_W, UI_TAB_BAR_H);
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+    /* 页签宽度：4 页时保持 UI_TAB_W（像素与阶段 3 一致）；注册页更多时按可用
+     * 宽度收窄，避免溢出到 SLOOP 标题/层提示区 */
+    int32_t tab_w = UI_TAB_W;
+    if (s_reg_count > 0) {
+        int32_t fit = (UI_W - 2 * UI_TAB_X0 - (int32_t)(s_reg_count - 1) * UI_TAB_GAP) /
+                      (int32_t)s_reg_count;
+        if (fit < tab_w) tab_w = fit;
+    }
+
+    for (uint8_t i = 0; i < s_reg_count; i++) {
         lv_obj_t *btn = lv_button_create(bar);
-        lv_obj_set_pos(btn, UI_TAB_X0 + i * (UI_TAB_W + UI_TAB_GAP), UI_TAB_Y);
-        lv_obj_set_size(btn, UI_TAB_W, UI_TAB_H);
+        if (btn == NULL) return false;
+        lv_obj_set_pos(btn, UI_TAB_X0 + i * (tab_w + UI_TAB_GAP), UI_TAB_Y);
+        lv_obj_set_size(btn, tab_w, UI_TAB_H);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_border_width(btn, 0, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, lv_color_hex(UI_PANEL_HI), 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-        lv_obj_add_event_cb(btn, tab_clicked_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)i);
+        lv_obj_add_event_cb(btn, tab_clicked_cb, LV_EVENT_CLICKED,
+                            (void *)(uintptr_t)s_registry[i]->id);
 
         lv_obj_t *label = lv_label_create(btn);
-        lv_label_set_text(label, k_tab_names[i]);
+        if (label == NULL) return false;
+        lv_label_set_text(label, s_registry[i]->title);
         lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
         lv_obj_set_style_text_color(label, lv_color_hex(UI_TEXT_DIM), 0);
         lv_obj_center(label);
@@ -132,6 +274,7 @@ static void create_tab_bar(lv_obj_t *root)
     }
 
     lv_obj_t *title = lv_label_create(bar);
+    if (title == NULL) return false;
     lv_label_set_text(title, "SLOOP");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(UI_TEXT_DIM), 0);
@@ -140,10 +283,53 @@ static void create_tab_bar(lv_obj_t *root)
     /* 层键提示（InputManager 写 layer_held，30ms 定时器刷新）：按住 Sym/Aa/Ctrl/Alt
      * 时在页签条右侧显示 LAYER FX/EDIT/SEL/GLO */
     s_layer_hint = lv_label_create(bar);
+    if (s_layer_hint == NULL) return false;
     lv_label_set_text(s_layer_hint, "");
     lv_obj_set_style_text_font(s_layer_hint, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_layer_hint, lv_color_hex(UI_TEXT_DIM), 0);
     lv_obj_align(s_layer_hint, LV_ALIGN_TOP_RIGHT, -110, 22);
+    return true;
+}
+
+/* 构建失败状态条：页面区居中、默认隐藏（正常页面像素不受影响） */
+static bool create_page_error_label(void)
+{
+    s_page_error = lv_label_create(s_root);
+    if (s_page_error == NULL) return false;
+    lv_label_set_text(s_page_error, "");
+    lv_obj_set_width(s_page_error, UI_W);
+    lv_obj_set_style_text_align(s_page_error, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(s_page_error, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_color(s_page_error, lv_color_hex(UI_ERROR), 0);
+    lv_obj_set_pos(s_page_error, 0, UI_TAB_BAR_H + (UI_H - UI_TAB_BAR_H) / 2 - 40);
+    lv_obj_set_hidden(s_page_error, true);
+    return true;
+}
+
+static void register_builtin_pages(void)
+{
+    s_reg_count = 0;
+    for (size_t i = 0; i < sizeof(k_builtin_pages) / sizeof(k_builtin_pages[0]); i++) {
+        esp_err_t ret = ui_page_register(&k_builtin_pages[i]);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "内置页注册失败 id=%u: %s", (unsigned)k_builtin_pages[i].id,
+                     esp_err_to_name(ret));
+        }
+    }
+}
+
+esp_err_t ui_page_register(const ui_page_t *page)
+{
+    if (page == NULL || page->title == NULL || page->build == NULL || page->update == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (page->id >= APP_STATE_PAGES) return ESP_ERR_INVALID_ARG;
+    if (s_started) return ESP_ERR_INVALID_STATE;
+    if (s_reg_count >= APP_STATE_PAGES) return ESP_ERR_NO_MEM;
+    if (page_def(page->id) != NULL) return ESP_ERR_INVALID_ARG;
+    s_registry[s_reg_count] = page;
+    s_reg_count++;
+    return ESP_OK;
 }
 
 static void update_layer_hint(uint8_t layer)
@@ -174,22 +360,7 @@ static void update_layer_hint(uint8_t layer)
                                 lv_color_hex(layer != 0 ? UI_ACCENT : UI_TEXT_DIM), 0);
 }
 
-static void create_pages(lv_obj_t *root)
-{
-    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-        lv_obj_t *page = make_plain(root);
-        lv_obj_set_pos(page, 0, UI_TAB_BAR_H);
-        lv_obj_set_size(page, UI_W, UI_H - UI_TAB_BAR_H);
-        lv_obj_set_style_bg_opa(page, LV_OPA_TRANSP, 0);
-        s_pages[i] = page;
-    }
-    page_play_create(s_pages[APP_PAGE_PLAY]);
-    page_tracks_create(s_pages[APP_PAGE_TRACKS]);
-    page_step_create(s_pages[APP_PAGE_STEP]);
-    page_transport_create(s_pages[APP_PAGE_TRANSPORT]);
-}
-
-/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新各页 */
+/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
@@ -205,7 +376,8 @@ static void ui_timer_cb(lv_timer_t *timer)
     note = s_flash_note_pending;
     s_flash_has_pending = false;
     portEXIT_CRITICAL(&s_flash_mux);
-    if (flash) page_play_flash(note);
+    /* 未建/构建失败的 PLAY 页没有指示控件可点亮（失败页下次访问重试） */
+    if (flash && s_page_state[APP_PAGE_PLAY] == SLOOP_UI_PAGE_BUILT) page_play_flash(note);
 
     /* 待执行切页（输入/console 只记目标页，切页与渲染都在本任务上下文） */
     uint8_t page = 0xFF;
@@ -213,12 +385,14 @@ static void ui_timer_cb(lv_timer_t *timer)
     page = s_page_pending;
     s_page_pending = 0xFF;
     portEXIT_CRITICAL(&s_page_mux);
-    if (page < APP_STATE_PAGES && page != s_page) show_page(page);
+    if (page < APP_STATE_PAGES && page != s_page) (void)show_page(page);
 
-    page_play_update(&st);
-    page_tracks_update(&st);
-    page_step_update(&st);
-    page_transport_update(&st);
+    /* 只刷新已建页：懒建页在 ensure_page_built 里已按最新状态刷过首帧 */
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (s_page_state[i] != SLOOP_UI_PAGE_BUILT) continue;
+        const ui_page_t *def = page_def(i);
+        if (def != NULL) def->update(&st);
+    }
 }
 
 esp_err_t sloop_ui_start(void)
@@ -229,37 +403,51 @@ esp_err_t sloop_ui_start(void)
         return ESP_ERR_TIMEOUT;
     }
 
+    /* 注册表在每次启动尝试时重建（框架失败后重试不会重复注册） */
+    register_builtin_pages();
+    memset(s_page_obj, 0, sizeof(s_page_obj));
+    memset(s_page_state, 0, sizeof(s_page_state));
+    memset(s_page_delta, 0, sizeof(s_page_delta));
+    memset(s_forcefail, 0, sizeof(s_forcefail));
+    memset(s_page_fail_reason, 0, sizeof(s_page_fail_reason));
+    s_page_error = NULL;
+    s_layer_hint = NULL;
+
     lv_obj_t *scr = lv_screen_active();
     lv_obj_clean(scr); /* 移除 bring-up 测试图；失败回退由调用方重画 */
     lv_obj_set_style_bg_color(scr, lv_color_hex(UI_BG), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(scr, 0, 0);
 
-    lv_obj_t *root = make_plain(scr);
-    if (root != NULL) {
-        lv_obj_set_pos(root, 0, 0);
-        lv_obj_set_size(root, UI_W, UI_H);
-        lv_obj_set_style_bg_color(root, lv_color_hex(UI_BG), 0);
-        lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-
-        create_tab_bar(root);
-        create_pages(root);
+    bool ok = false;
+    s_root = make_plain(scr);
+    if (s_root != NULL) {
+        lv_obj_set_pos(s_root, 0, 0);
+        lv_obj_set_size(s_root, UI_W, UI_H);
+        lv_obj_set_style_bg_color(s_root, lv_color_hex(UI_BG), 0);
+        lv_obj_set_style_bg_opa(s_root, LV_OPA_COVER, 0);
+        ok = create_tab_bar() && create_page_error_label();
     }
 
-    bool ok = root != NULL;
-    for (uint8_t i = 0; ok && i < APP_STATE_PAGES; i++) ok = s_pages[i] != NULL;
     if (ok) {
-        show_page(APP_PAGE_PLAY);
+        /* PLAY 启动即建：保证开机首帧非空白；其余页首次访问时懒建（ADR-008）。
+         * 单页构建失败不算框架失败——错误状态条已显示，UI 仍可用。 */
+        esp_err_t page_ret = show_page(APP_PAGE_PLAY);
+        if (page_ret != ESP_OK) {
+            ESP_LOGE(TAG, "PLAY 页启动构建失败（错误状态条已显示）: %s",
+                     esp_err_to_name(page_ret));
+        }
         s_timer = lv_timer_create(ui_timer_cb, 30, NULL);
         ok = s_timer != NULL;
     }
     if (!ok) {
-        /* 部分对象创建失败（内存不足）：清空控件树，交调用方回退测试图 */
+        /* 框架级对象创建失败（内存不足）：清空控件树，交调用方回退测试图 */
         if (s_timer != NULL) {
             lv_timer_delete(s_timer);
             s_timer = NULL;
         }
         lv_obj_clean(scr);
+        s_root = NULL;
         bsp_display_unlock();
         ESP_LOGE(TAG, "UI 对象创建失败（LVGL 内存不足）");
         return ESP_ERR_NO_MEM;
@@ -273,14 +461,19 @@ esp_err_t sloop_ui_start(void)
     sloop_core_diag_quiesce_hook(sloop_ui_quiesce);
 
     /* LVGL 对象走内置 TLSF 池（CONFIG_LV_USE_STDLIB_MALLOC=0），池耗尽会静默
-     * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打一次占用。
-     * 池遍历必须持 LVGL 锁：30ms 定时器已创建，LVGL 任务随时会分配文本/样式，
-     * 无锁遍历会读到撕裂的池结构。 */
+     * 建不出对象——STEP 网格 64 格是这个池的最大用户，就绪行打注册/已建页数与
+     * 池占用（懒建另在每页构建时打增量）。池遍历必须持 LVGL 锁：30ms 定时器已
+     * 创建，LVGL 任务随时会分配文本/样式，无锁遍历会读到撕裂的池结构。 */
     lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
-    ESP_LOGI(TAG, "UI 就绪: %u 页 @%dx%d, LVGL 池已用 %u/%u 字节, 内部堆剩余 %u 字节",
-             (unsigned)APP_STATE_PAGES, UI_W, UI_H, (unsigned)(mon.total_size - mon.free_size),
-             (unsigned)mon.total_size, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    uint8_t built = 0;
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (s_page_state[i] == SLOOP_UI_PAGE_BUILT) built++;
+    }
+    ESP_LOGI(TAG, "UI 就绪: %u 页注册/%u 已建 @%dx%d, LVGL 池已用 %u/%u 字节, 内部堆剩余 %u 字节",
+             (unsigned)s_reg_count, (unsigned)built, UI_W, UI_H,
+             (unsigned)(mon.total_size - mon.free_size), (unsigned)mon.total_size,
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     bsp_display_unlock();
 
     /* 输入任务在 LVGL 锁外启动（面板就绪后）；失败只丢键盘输入，不影响 UI */
@@ -322,7 +515,11 @@ sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_res
         ESP_LOGW(TAG, "TAP 注入失败: LVGL 锁超时（未派发）");
         return SLOOP_TAP_RESULT_LOCK_TIMEOUT;
     }
-    bool hit = page_tap(s_page, x, y, out);
+    /* 未建/构建失败的页没有控件可派发：一律 miss，不碰页内静态控件指针 */
+    bool hit = false;
+    if (s_page < APP_STATE_PAGES && s_page_state[s_page] == SLOOP_UI_PAGE_BUILT) {
+        hit = page_tap(s_page, x, y, out);
+    }
     bsp_display_unlock();
     return hit ? SLOOP_TAP_RESULT_OK : SLOOP_TAP_RESULT_MISS;
 }
@@ -345,9 +542,9 @@ esp_err_t sloop_ui_switch_page(uint8_t page)
      * （console `UI` 的成功回显必须代表落地页）。清邮箱与 show_page 都在
      * LVGL 锁内，定时器无法插入；清空之后新的 request 属于更新的一次请求，保留。 */
     sloop_ui_cancel_pending_page();
-    show_page(page);
+    esp_err_t ret = show_page(page);
     bsp_display_unlock();
-    return ESP_OK;
+    return ret;
 }
 
 void sloop_ui_cancel_pending_page(void)
@@ -401,7 +598,7 @@ void sloop_ui_quiesce(bool on)
             s_indev_disabled = false;
         }
         esp_err_t resume_ret = lvgl_port_resume(); /* 先恢复 LVGL 定时器（含刷新/indev） */
-        if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 四页刷新 */
+        if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 已建页刷新 */
         bsp_display_unlock();
         if (resume_ret != ESP_OK) ESP_LOGE(TAG, "诊断期恢复：LVGL 定时器恢复失败 %s", esp_err_to_name(resume_ret));
     }
@@ -435,3 +632,53 @@ void sloop_ui_flash_note(uint8_t note)
     s_flash_has_pending = true;
     portEXIT_CRITICAL(&s_flash_mux);
 }
+
+esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out)
+{
+    if (out == NULL) return ESP_ERR_INVALID_ARG;
+    memset(out, 0, sizeof(*out));
+    if (!s_started) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    out->pool_total = (uint32_t)mon.total_size;
+    out->pool_free = (uint32_t)mon.free_size;
+    out->pool_used = (uint32_t)(mon.total_size - mon.free_size);
+    out->registered = s_reg_count;
+    for (uint8_t i = 0; i < s_reg_count; i++) {
+        const ui_page_t *def = s_registry[i];
+        sloop_ui_page_stat_t *stat = &out->pages[i];
+        stat->id = def->id;
+        stat->title = def->title;
+        stat->state = s_page_state[def->id];
+        stat->est_bytes = def->est_bytes;
+        stat->delta_bytes = s_page_delta[def->id];
+        if (stat->state == SLOOP_UI_PAGE_BUILT) {
+            out->built++;
+        } else if (stat->state == SLOOP_UI_PAGE_FAILED) {
+            out->failed++;
+        }
+    }
+    bsp_display_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on)
+{
+    if (!s_started) return ESP_ERR_INVALID_STATE;
+    if (page >= APP_STATE_PAGES || page_def(page) == NULL) return ESP_ERR_INVALID_ARG;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    s_forcefail[page] = on;
+    if (on && s_page_state[page] == SLOOP_UI_PAGE_BUILT) {
+        /* 已建页也走一遍失败路径：删掉控件、回到未建，当前页立即重建（强制失败 →
+         * 错误状态条可见）；否则下次访问时重建并失败。调试注入专用。 */
+        lv_obj_delete(s_page_obj[page]);
+        s_page_obj[page] = NULL;
+        s_page_state[page] = SLOOP_UI_PAGE_UNBUILT;
+        s_page_delta[page] = 0;
+        if (s_page == page) (void)show_page(page);
+    }
+    bsp_display_unlock();
+    return ESP_OK;
+}
+
