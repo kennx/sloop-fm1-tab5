@@ -212,6 +212,11 @@ static void case_format(void)
     expect_str("DB 1", &d, 1, "-56dB");
     expect_str("DB 104", &d, 104, "-4.0dB");
     expect_str("DB 127", &d, 127, "7.5dB");
+    /* 负数且 |db10| < 一个显示单位（|v| < 10）：整数分频得 ip=0，符号必须单独补。
+     * LEVEL_DB_X10[111] = -5 → "-0.5dB"（上游 fmt_fix 输出 "-.5"；这里同值、
+     * 补前导 0 以便读数）；[110] = -10 是边界（ip=-1，走常规负号）。 */
+    expect_str("DB 111（-0.5dB，次单位负）", &d, 111, "-0.5dB");
+    expect_str("DB 110（-1.0dB 边界）", &d, 110, "-1.0dB");
 
     /* F_SEMI：仅 v>0 加 '+' */
     d = mk(SLOOP_DESC_FMT_SEMI, -24, 24, NULL, 0, NULL);

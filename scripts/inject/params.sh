@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# params.sh — 参数页注入：GLOBAL/FX/ANALOG 的旋钮页构建、TAP ± / 键盘编辑、池水位、截屏
+# params.sh — 参数页注入：GLOBAL/FX/ANALOG/FM6/SAMPLE 五页的旋钮页构建、TAP ± /
+# 键盘编辑、UI KNOB 触摸路径、九页池水位、截屏
 # 用法: bash scripts/inject/params.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 params 场景里；本脚本只是入口。
-# 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-params-<时间戳>.log + 三张 PNG。
+# 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-params-<时间戳>.log + 八张 PNG
+# （global/fx/analog/fm6/fm6-alg/fm6-locked/sample/sample-set）。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../env.sh

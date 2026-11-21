@@ -60,19 +60,22 @@ int16_t knob_drag_value(const sloop_desc_t *d, int16_t anchor, int32_t delta_deg
 /* ------------------------------------------------------------ 格式化 --- */
 /* 与上游 param_format 同表同算法（params.c）；TIME/CUTOFF/LFO/DB 用生成表，
  * 不用指数近似。定点小数按上游 libc.c 的 fmt_fix **截断**（不是 printf 的
- * 四舍五入）：先整数分频再拼小数位，例如 ms10=18862 显示 "1.88s"（不是 1.89）。 */
+ * 四舍五入）：先整数分频再拼小数位，例如 ms10=18862 显示 "1.88s"（不是 1.89）。
+ * 负数的整数部分为 0（|v| < 一个显示单位）时符号要单独补：|v|=5、1 位小数
+ * 上游给 "-.5"，这里给 "-0.5"（同值、可读）——不补就丢成 "0.5"。 */
 static void format_fixed(char *buf, size_t n, int32_t v, int decimals)
 {
     int32_t scale = decimals == 2 ? 100 : decimals == 1 ? 10 : 1;
     int32_t ip = v / scale;
     int32_t frac = v % scale;
     if (frac < 0) frac = -frac;
+    const char *sign = v < 0 && ip == 0 ? "-" : "";
     if (decimals == 2) {
-        snprintf(buf, n, "%d.%02d", (int)ip, (int)frac);
+        snprintf(buf, n, "%s%d.%02d", sign, (int)ip, (int)frac);
     } else if (decimals == 1) {
-        snprintf(buf, n, "%d.%d", (int)ip, (int)frac);
+        snprintf(buf, n, "%s%d.%d", sign, (int)ip, (int)frac);
     } else {
-        snprintf(buf, n, "%d", (int)ip);
+        snprintf(buf, n, "%s%d", sign, (int)ip);
     }
 }
 

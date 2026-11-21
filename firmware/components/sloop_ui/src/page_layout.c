@@ -83,8 +83,10 @@ enum {
       SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E4), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E5),     \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E6), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E7))     \
     X(4, APP_PAGE_SAMPLE, "SAMPLE", 3072,                                                     \
-      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E0), SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E1), \
-      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E2), SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E3), \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E0),                                            \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E1),                                            \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E2),                                            \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E3),                                            \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E4), EMPTY_SLOT,                                \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E6), EMPTY_SLOT)
 

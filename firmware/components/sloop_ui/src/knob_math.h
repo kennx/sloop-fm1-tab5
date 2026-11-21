@@ -17,7 +17,8 @@
  *   定点小数与上游 libc.c 的 fmt_fix 同口径：**截断**（先整数分频再拼小数位），
  *   不是 printf 的四舍五入——例如 TIME 104（18,862）显示 1.88s、CUTOFF 90
  *   （2,568）显示 2.5kHz。
- *   F_DB            v<=0 = OFF；LEVEL_DB_X10[v]（>-10.0dB 1 位小数，其余整数）
+ *   F_DB            v<=0 = OFF；LEVEL_DB_X10[v]（>-10.0dB 1 位小数，其余整数；
+ *                   |db10|<10 的负数补符号：raw 111 → -0.5dB）
  *   F_SEMI          ±n st（仅 v>0 加 '+'）
  *   F_BPM/F_NOTE/F_ONOFF/F_STEPS/F_SWING/F_FILT   同上游
  *   F_INT（含 0 终止 names）与未知 fmt              原始整数（+desc.unit）
