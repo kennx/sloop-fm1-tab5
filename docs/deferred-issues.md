@@ -95,3 +95,14 @@
 | **解决方向** | ① 构建末尾做「文本哨兵」：每页把首个标签设成已知串再 `lv_label_get_text()` 比对（失败即当作构建失败删除半成品）；错误状态条自身也属同一类：`UI_ERROR` 文本缓冲分配失败时只剩 ERROR 日志 + console 令牌（画面为无控件页面区，非静默成功；标签对象都建不出时回退 bring-up 测试图），见 ADR-008 §4；② 或在 `theme.h` 提供 `UI_BUILD_TEXT(label, str)` 宏，把「set + 回读非空」合并成一处纪律；③ 诊断期可临时把 `LV_LOG_LEVEL` 调到 INFO 观察 `couldn't allocate memory` 日志。选型须在第一个参数页落地时一并决定（可写入 ADR-008 修订或新 ADR）。 |
 | **触发条件** | 第一个参数页落地时；或出现「页面控件在但文本缺失」/`UI MEM` 的 free 低于单页 est 的现象时立即升级处理。 |
 | **登记** | 2026-11-21（P4-0 Task 4，ADR-008 §4 已记录该边界） |
+
+## DI-14: `scripts/soak.py` 与 `inject.Session` 签名漂移，脚本当前无法启动
+
+| 项 | 内容 |
+|---|---|
+| **背景** | DI-5 硬化（Task 3，提交 `f960276`/`d60a6a0`）把 `inject.Session` 改成**自己打开串口**（`Session(port, log_path, out_dir, stamp, scenario, …)`），但 `scripts/soak.py` 仍按旧签名调用：`ser = inject.LoggedSerial(...)` + `inject.Session(ser, out_dir, stamp, "soak", timeout=3.0)`。实测（2026-11-21 P4-0 Task 5 顺带回归）立即 `TypeError: Session.__init__() missing 1 required positional argument: 'scenario'`，soak 一次采样都跑不到。 |
+| **影响面** | 阶段收口 soak 门禁（AGENTS §5.5 阶段收口 30min、阶段 4 长时 soak）当前不可执行；不影响固件行为与其它三条注入脚本（它们走 `.sh` 入口，签名正确）。 |
+| **为何可延迟** | 阶段 3 收口的 soak 证据已在 `3-mvp-2026-11-21` 入库；P4-0 各任务不把 soak 作为门禁；修复是脚本级小改（无固件参与）。 |
+| **解决方向** | 让 `soak.py` 走与 `inject.py` 相同的会话构造：`Session(args.port, log_path, out_dir, stamp, "soak")`（由 Session 建 `LoggedSerial`），删除本地 `LoggedSerial` 构造；顺带补一条「soak 前置 `UI WINDOW 0 16`」（Task 5 已加，随修复生效）与 `--duration` 短跑冒烟（如 60s）进 CI/门禁记录。 |
+| **触发条件** | 阶段 4 收口 / dev→main 合并前必须修复（§5.5 阶段收口 soak 是强制门禁）；或任何人需要重跑 soak 时。 |
+| **登记** | 2026-11-21（P4-0 Task 5 回归时发现，属 Task 3 评审遗留） |
