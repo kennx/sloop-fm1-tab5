@@ -104,13 +104,31 @@ bring-up 的触摸十字准星画在 `lv_layer_top()`，会盖住生产页面并
   Σ est 逼近池总量时必须先做设计决策（拆页/共享/驱逐），详见 ADR-008。
 
 
-## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记）
+## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记；同日 P4-0 Task 5 落地）
 
 STEP 网格目前固定 16 列（`APP_STATE_STEPS`），快照只带前 16 列。阶段 4 一旦支持
 bank/滚动或 LEN > 16 的编辑，必须**先**在状态层与快照引入一次 `{bank, window_start,
 window_len}`，页面布局/hit-test/注入脚本都从它推导，再扩网格列数；禁止在页面里
 各自再加一套列偏移。网格渲染须同时把列 ≥ 每轨 `len` 的格暗显（阶段 3 已落地该 dim
 位，阶段 4 沿用同一判定）。
+
+**落地（2026-11-21，P4-0 Task 5）**：
+
+- `step_window_t { uint8_t bank, window_start, window_len; }` 由 `sloop_state` 持有
+  （UI 局部态，非引擎真值），默认 `{0,0,16}`；`CMD_SET_WINDOW{a=bank(冗余), b=start,
+  v=len}` 写、`step_window()` 读。start 16 对齐、0..48（bank = start/16），len 1..16，
+  focus_step 夹在窗口内。引擎步号**恒为绝对索引**（命令携带绝对值；`step_window_abs()`
+  是「窗口列→绝对步」的唯一映射函数）。
+- 快照的 `step[k][c]` / `dstep[c]` 是**窗口列投影**：`state_sync_from_engine` 调
+  `sloop_core_read_window(window_start, &snap)`，一次引擎锁内取 16 列（每拍取锁次数
+  仍为 1，不逐列 `read_step`）；`CMD_SET_WINDOW` 落窗时立即重取一份投影，避免下一拍
+  之前显示旧 bank 的格。
+- STEP 页列数 = `window_len`，窗口外的格与列号标签隐藏（TAP 命不中）；列号/顶栏
+  `STEP`/`WIN a..b` 均用绝对步号；播放头把绝对 `step_pos` 映射进窗口，窗口外不显示
+  （不留残留描边）；dim 仍按「绝对步 ≥ 本轨 LEN」判定。
+- 注入几何由 `page_step.c` 的布局宏派生（`step_cell_xy`），列语义对齐 `STATE SNAP`
+  的 `window_start/window_len`；console `UI WINDOW [<start> <len>]` 为落窗入口。
+  `soak.py` 与 `step_edit.sh` 在进入 STEP 前归一到默认窗口（窗口是持久 UI 状态）。
 
 ## 后果
 

@@ -1,0 +1,82 @@
+/tmp/task5-red/test/state_test.c: In function ‘case_step_window’:
+/tmp/task5-red/test/state_test.c:498:5: error: unknown type name ‘step_window_t’
+  498 |     step_window_t w;
+      |     ^~~~~~~~~~~~~
+/tmp/task5-red/test/state_test.c:500:5: error: implicit declaration of function ‘step_window’; did you mean ‘case_step_window’? [-Wimplicit-function-declaration]
+  500 |     step_window(&w);
+      |     ^~~~~~~~~~~
+      |     case_step_window
+/tmp/task5-red/test/state_test.c:501:28: error: request for member ‘bank’ in something not a structure or union
+  501 |     check_ll("默认 bank", w.bank, 0);
+      |                            ^
+/tmp/task5-red/test/state_test.c:502:29: error: request for member ‘window_start’ in something not a structure or union
+  502 |     check_ll("默认 start", w.window_start, 0);
+      |                             ^
+/tmp/task5-red/test/state_test.c:503:27: error: request for member ‘window_len’ in something not a structure or union
+  503 |     check_ll("默认 len", w.window_len, 16);
+      |                           ^
+/tmp/task5-red/test/state_test.c:504:33: error: implicit declaration of function ‘step_window_abs’ [-Wimplicit-function-declaration]
+  504 |     check_ll("列 0 → 绝对步 0", step_window_abs(&w, 0), 0);
+      |                                 ^~~~~~~~~~~~~~~
+/tmp/task5-red/test/state_test.c:510:12: error: ‘stub_engine_t’ has no member named ‘dstep’; did you mean ‘step’?
+  510 |     g_stub.dstep[16].on = 1;
+      |            ^~~~~
+      |            step
+/tmp/task5-red/test/state_test.c:511:12: error: ‘stub_engine_t’ has no member named ‘dstep’; did you mean ‘step’?
+  511 |     g_stub.dstep[17].on = 1;
+      |            ^~~~~
+      |            step
+/tmp/task5-red/test/state_test.c:513:11: error: ‘CMD_SET_WINDOW’ undeclared (first use in this function)
+  513 |     apply(CMD_SET_WINDOW, 1, 16, 16); /* a=bank（冗余，由 start 派生） b=start v=len */
+      |           ^~~~~~~~~~~~~~
+/tmp/task5-red/test/state_test.c:513:11: note: each undeclared identifier is reported only once for each function it appears in
+/tmp/task5-red/test/state_test.c:515:28: error: request for member ‘bank’ in something not a structure or union
+  515 |     check_ll("窗口 bank", w.bank, 1);
+      |                            ^
+/tmp/task5-red/test/state_test.c:516:29: error: request for member ‘window_start’ in something not a structure or union
+  516 |     check_ll("窗口 start", w.window_start, 16);
+      |                             ^
+/tmp/task5-red/test/state_test.c:517:27: error: request for member ‘window_len’ in something not a structure or union
+  517 |     check_ll("窗口 len", w.window_len, 16);
+      |                           ^
+/tmp/task5-red/test/state_test.c:521:36: error: ‘app_state_t’ has no member named ‘window’
+  521 |     check_ll("copy window start", s.window.window_start, 16);
+      |                                    ^
+/tmp/task5-red/test/state_test.c:522:34: error: ‘app_state_t’ has no member named ‘window’
+  522 |     check_ll("copy window len", s.window.window_len, 16);
+      |                                  ^
+/tmp/task5-red/test/state_test.c:547:27: error: ‘stub_engine_t’ has no member named ‘read_window_calls’; did you mean ‘read_step_calls’?
+  547 |     uint32_t rw0 = g_stub.read_window_calls;
+      |                           ^~~~~~~~~~~~~~~~~
+      |                           read_step_calls
+/tmp/task5-red/test/state_test.c:549:44: error: ‘stub_engine_t’ has no member named ‘read_window_calls’; did you mean ‘read_step_calls’?
+  549 |     check_ll("sync 用一次窗口快照", g_stub.read_window_calls - rw0, 1);
+      |                                            ^~~~~~~~~~~~~~~~~
+      |                                            read_step_calls
+/tmp/task5-red/test/state_test.c:554:38: error: ‘app_state_t’ has no member named ‘window’
+  554 |     check_ll("sync 不改窗口 start", s.window.window_start, 16);
+      |                                      ^
+/tmp/task5-red/test/state_test.c:555:36: error: ‘app_state_t’ has no member named ‘window’
+  555 |     check_ll("sync 不改窗口 len", s.window.window_len, 16);
+      |                                    ^
+/tmp/task5-red/test/state_test.c:560:33: error: request for member ‘window_start’ in something not a structure or union
+  560 |     check_ll("start 向下对齐", w.window_start, 16);
+      |                                 ^
+/tmp/task5-red/test/state_test.c:561:49: error: request for member ‘bank’ in something not a structure or union
+  561 |     check_ll("bank 由 start 派生（a 被忽略）", w.bank, 1);
+      |                                                 ^
+/tmp/task5-red/test/state_test.c:564:32: error: request for member ‘window_start’ in something not a structure or union
+  564 |     check_ll("start 上限 48", w.window_start, 48);
+      |                                ^
+/tmp/task5-red/test/state_test.c:565:30: error: request for member ‘bank’ in something not a structure or union
+  565 |     check_ll("bank 上限 3", w.bank, 3);
+      |                              ^
+/tmp/task5-red/test/state_test.c:571:24: error: request for member ‘window_len’ in something not a structure or union
+  571 |     check_ll("len 8", w.window_len, 8);
+      |                        ^
+/tmp/task5-red/test/state_test.c:581:29: error: request for member ‘window_len’ in something not a structure or union
+  581 |     check_ll("len 下限 1", w.window_len, 1);
+      |                             ^
+/tmp/task5-red/test/state_test.c:584:30: error: request for member ‘window_len’ in something not a structure or union
+  584 |     check_ll("len 上限 16", w.window_len, 16);
+      |                              ^
