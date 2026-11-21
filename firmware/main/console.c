@@ -60,6 +60,10 @@
  *    槽 n，GET/LIVE 打印 128B packed 记录的 hex；行格式 "B<k> USED|EMPTY" 末尾
  *    "BANK COUNT used=n total=27"；PTCH = 8 + n（< 8 是工厂槽）。播放中 PUT/ERASE 回
  *    "STORE ERR playing"；空槽 GET 回 empty；选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"。
+ *    STORE TEST 是设备侧 torn-write 套件（ADR-009 §3；**破坏性**：占用 OBJ_SETTINGS，
+ *    套件只快照/恢复该对象的 **payload**——settings 的 side record（副本扇区 64..255，
+ *    P4-E 的主题/收藏）不被保存，跑一次即清掉；需停走带）：六场景全过回
+ *    "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1583,11 +1587,31 @@ static int store_bank(int argc, char **argv)
     return 1;
 }
 
+/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后只快照/恢复
+ * 它的 payload；settings 的 side record（扇区 64..255，P4-E 主题/收藏）不会被恢复）。
+ * 六场景全部通过回 `STORE TEST PASS 6/6`；失败回 `STORE TEST FAIL <name>`（不打印其它
+ * 令牌，脚本按这两个前缀断言）。未就绪/走带中沿用 `STORE ERR <no_storage|playing>`。 */
+static int store_test_cmd(void)
+{
+    sloop_store_test_t r;
+    esp_err_t err = sloop_store_test(&r);
+    if (err == ESP_OK) {
+        printf("STORE TEST PASS %u/%u\n", (unsigned)r.passed, (unsigned)r.cases);
+        return 0;
+    }
+    if (r.fail_case != NULL) {
+        printf("STORE TEST FAIL %s\n", r.fail_case);
+        return 1;
+    }
+    return store_err_print(err);
+}
+
 static int store_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
     if (argc == 2 && strcasecmp(argv[1], "rawtest") == 0) return store_rawtest();
     if (argc == 2 && strcasecmp(argv[1], "livehash") == 0) return store_livehash();
+    if (argc == 2 && strcasecmp(argv[1], "test") == 0) return store_test_cmd();
     if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
@@ -1609,7 +1633,9 @@ static int store_command(int argc, char **argv)
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
            "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
-           "STORE AUTO <on|off> | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
+           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，只快照/恢复 "
+           "payload；settings side record 不保） | "
+           "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;
 }
@@ -1750,8 +1776,10 @@ esp_err_t app_console_init(void)
                 "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
                 "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n（FM6 银行 27 槽，PTCH = 8 + n）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
+                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，只快照/恢复 payload，"
+                "settings side record 不保，需停走带）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

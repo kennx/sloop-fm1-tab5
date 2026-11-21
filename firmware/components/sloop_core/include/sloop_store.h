@@ -105,6 +105,36 @@ esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed);
 esp_err_t sloop_store_bank_erase(uint32_t slot);
 void sloop_store_bank_current(uint8_t *packed);
 
+/* 设备侧 torn-write 故障注入套件（**测试专用**；ADR-009 §3「掉电不破坏旧副本」）。
+ * 对象 = `OBJ_SETTINGS`（P4-B 不写设置，P4-E 才用）：套件先 `st_load` 快照当前
+ * payload，六个场景结束后先 `sloop_hal_storage_fault_clear()`、再用 `st_save` 恢复。
+ * **破坏性**：运行期间该对象的内容被反复覆盖（跨掉电无保证；不是用户路径）。
+ * **只快照/恢复 payload（`st_load` 的 len 字节）**：settings 的 **side record**（副本扇区
+ * 偏移 64..255，`storage.c` 的 `ST_SIDE_OFF/ST_SIDE_MAX`，由上游 2.7 的 `st_save3` 随副本
+ * 提交；P4-E 计划把主题/收藏放这里）**不被保存**——场景的扇区擦除会把它清掉。P4-B
+ * 没有任何 side record 写入者（不可达）；**P4-E 给 settings 写 side record 时必须把快照
+ * 扩展成整扇区**（或 `st_side_load` 读回后随 `st_save3` 重写），否则跑一次 `STORE TEST`
+ * 会静默丢主题/收藏（ADR-009 §3/§8 的 R26）。
+ * 六个场景（每个都自己归一、自己断言前提；失败场景还必须命中预期写操作——读回
+ * 扇区指纹区分 erase 与 prog，只数 faults_taken 分不出来）：
+ *   1 三次提交 → 载入 seq 大者：v2 在 B（copy 1）胜、v3 回 A（copy 0）胜；
+ *   2 擦除失败 → 写失败 → 旧副本（B，v2 的字节）完整可读；
+ *   3 payload 半写 → 写失败 → 旧副本完整可读；
+ *   4 头写失败 → 写失败 → 旧副本完整可读；
+ *   5 写后破坏 payload → 载入报错（CRC 拒绝），不返回坏数据；
+ *   6 `st_save(obj, NULL, 0)` → 对象为空（len=0）。
+ * 全程持存储锁（自动存档 tick 的 trylock 会跳过，不与套件交错）。`out`：cases = 场景
+ * 总数（6）、passed = 通过数、fail_case = 第一个失败场景名（全过为 NULL；快照恢复
+ * 失败为 "restore-settings"）。返回：ESP_OK 全过；ESP_ERR_NOT_FINISHED 有场景失败；
+ * ESP_ERR_INVALID_STATE 未就绪/走带中（out->cases 已填、passed=0）；out==NULL 为
+ * ESP_ERR_INVALID_ARG。不得在 ISR 调用。 */
+typedef struct {
+    uint32_t cases;        /* 场景总数（6） */
+    uint32_t passed;       /* 通过数（0..cases） */
+    const char *fail_case; /* 第一个失败场景名；NULL = 全过 */
+} sloop_store_test_t;
+esp_err_t sloop_store_test(sloop_store_test_t *out);
+
 /* 自动存档与上电恢复（上游 `project.c` 的 autosave_tick/autosave_resume，语义照抄）：
  * 条件全满足才把当前工作工程写进 `OBJ_AUTOSAVE`——非播放（`!song.playing &&
  * !transport_req`）、无输入 ≥2.5s、距上次保存 ≥20s、无发声（合成/鼓 voice 均 inactive）、

@@ -2041,6 +2041,9 @@ def run_store(s: Session) -> None:
        PTCH=11 读回槽 3 的字节 → ERASE/空槽/越界/播放与鼓轨拒绝。本段全程
        `STORE AUTO OFF`（它改了轨 1 的引擎；AUTO 开着会把它写进 autosave 漂进下一轮），
        结束时槽 3/4/5 已擦除。
+    ⑬ 设备侧 torn-write 套件（run_store_torn，最后跑）：显式 HAL 故障探针（`FAULT 1`
+       + `PROJ ERASE 3` ⇒ `STORE ERR save`、`STORE STATS faults=1 armed=0`）→
+       `STORE TEST` 六场景 PASS 6/6（两次）→ 播放中拒绝 → 停止后仍 PASS。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
        引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
@@ -2172,6 +2175,7 @@ def run_store(s: Session) -> None:
     run_store_presets(s)
     run_store_autosave(s)
     run_store_bank(s)
+    run_store_torn(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -2805,6 +2809,92 @@ def run_store_bank(s: Session) -> None:
     store_cmd(s, "STORE BANK PUT 3", r"^STORE ERR drum\r?$", "⑫ 鼓轨 PUT → STORE ERR drum")
     store_cmd(s, "STORE BANK LIVE", r"^STORE ERR drum\r?$", "⑫ 鼓轨 LIVE → STORE ERR drum")
     select_track(s, 0)
+
+
+def store_test_diag(s: Session, tag: str) -> None:
+    """`STORE TEST` 的内部诊断（Task 8 评审 minor 1/2）：seq 的双向胜者（copy1→copy0）与
+    三个 arm 场景的故障分类/胜出副本。缺任一行即失败。"""
+    store_expect(s, r"sloop_store: STORE TEST seq: v2 winner=copy1 seq=2 ok=1; "
+                    r"v3 winner=copy0 seq=3 ok=1",
+                 f"{tag} seq 双向（v2→copy1、v3→copy0）")
+    for case, op in (("erase-fail", "erase"), ("half-write", "prog-payload"),
+                     ("header-fail", "prog-header")):
+        store_expect(s, rf"sloop_store: STORE TEST {case}: faults=1 armed=0 op={op} "
+                        r"survivor=copy1",
+                     f"{tag} {case}: faults=1 op={op} survivor=copy1")
+
+
+def run_store_torn(s: Session) -> None:
+    """⑬ 设备侧 torn-write 故障注入套件（Task 8）：`STORE TEST` 的六场景。
+
+    对象 = OBJ_SETTINGS（P4-B 不写设置；套件内部 `st_load` 快照 / `st_save` 恢复——
+    **破坏性**诊断，console 帮助里写明）。六个场景全部由固件断言（返回
+    `STORE TEST PASS 6/6` / `STORE TEST FAIL <name>`），脚本断言结果令牌与「故障真的
+    走到 HAL」，不让套件自证：
+
+    ① **HAL 故障探针**（脚本可见的 `STORE STATS` 证据）：槽 3 是诊断槽（⑩f 已擦成空
+       对象）→ `STORE FAULT 1` → `STORE PROJ ERASE 3`。erase 是 `st_save` 的第一次写
+       操作 ⇒ 命中故障 ⇒ `STORE ERR save`；`STORE STATS` 的 `faults=1 armed=0` 证明
+       命中一次且自动解除（故障不会漏到后续命令）；槽 3 仍 EMPTY（被拒的擦除没落盘）；
+       `STORE FAULT CLEAR` 回 `cleared taken=1`（计数器看到的命中次数）。
+    ② `STORE TEST` ⇒ `STORE TEST PASS 6/6`；`STORE STATS` 的 faults=0 armed=0（套件
+       结束必须 `fault_clear`，否则下一次写命令会被残留注入打坏）。
+    ③ 再跑一次 ⇒ 仍 PASS 6/6（套件结束恢复了设置对象，场景可重复）。
+    ④ 播放中 `STORE TEST` ⇒ `STORE ERR playing`（与其它写 API 同一走带守卫；守卫在取
+       锁/快照**之前**，故这次拒绝不消费故障、也碰不到设置对象），停止后再跑 ⇒ PASS 6/6。
+       收口 LIST 槽 3 仍 EMPTY。
+
+    另外断言套件的内部诊断日志（Task 8 评审 minor 2）：`seq` 的**双向**判定
+    （v2 在 copy1 胜、v3 回 copy0 胜——不是「永远偏好 B」）与三个 arm 场景的
+    `faults=1 op=<erase|prog-payload|prog-header> survivor=copy1`。这些是套件内部断言的
+    可读投影：日志缺行 = 断言消失，不能只靠代码。
+    """
+    s.ser.note("⑬ 设备侧 torn-write 套件：HAL 故障探针 + STORE TEST 六场景")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑬ STORE AUTO OFF")
+    ensure_stopped(s)
+    s.cmd("STORE STATS")
+    store_expect(s, r"^STORE STATS ready=1 .*faults=0 armed=0 ",
+                 "⑬ 起点 STORE STATS faults=0 armed=0（无残留注入）")
+
+    s.ser.note("⑬a HAL 故障探针：FAULT 1 命中擦除 ⇒ STORE ERR save、STATS faults=1 armed=0")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑬a 归一 ERASE 3（诊断槽为空）")
+    store_cmd(s, "STORE FAULT 1", r"^STORE FAULT armed nth=1 half=0\r?$", "⑬a STORE FAULT 1")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^STORE ERR save\r?$",
+              "⑬a 擦除命中故障 → STORE ERR save（第一次写操作）")
+    s.cmd("STORE STATS")
+    store_expect(s, r"^STORE STATS ready=1 .*faults=1 armed=0 ",
+                 "⑬a STORE STATS faults=1 armed=0（命中一次并自动解除）")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑬a LIST 槽 3 仍 EMPTY（被拒的擦除没落盘）")
+    store_cmd(s, "STORE FAULT CLEAR", r"^STORE FAULT cleared taken=1\r?$",
+              "⑬a FAULT CLEAR cleared taken=1")
+
+    s.ser.note("⑬b STORE TEST ⇒ PASS 6/6；套件清故障（faults=0 armed=0）")
+    store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$", "⑬b STORE TEST PASS 6/6")
+    store_test_diag(s, "⑬b")
+    s.cmd("STORE STATS")
+    store_expect(s, r"^STORE STATS ready=1 .*faults=0 armed=0 ",
+                 "⑬b 套件结束 STORE STATS faults=0 armed=0（fault_clear）")
+
+    s.ser.note("⑬c 再跑一次 ⇒ 仍 PASS 6/6（快照恢复后场景可重复）")
+    store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$", "⑬c STORE TEST 第二轮 PASS 6/6")
+
+    s.ser.note("⑬d 播放守卫：PLAY 中 STORE TEST ⇒ playing；停止后仍 PASS 6/6")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑬d UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑬d TAP PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑬d STATE SNAP playing=1")
+    store_cmd(s, "STORE TEST", r"^STORE ERR playing\r?$", "⑬d 播放中 STORE TEST → STORE ERR playing")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑬d TAP STOP")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑬d STATE SNAP playing=0")
+    store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$",
+              "⑬d 停止后 STORE TEST PASS 6/6（播放中的拒绝早于取锁/快照，套件仍可跑）")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑬d 收口 LIST 槽 3 EMPTY")
 
 
 SCENARIOS = {

@@ -24,6 +24,9 @@
 #   ⑫ FM6 银行 27 槽：live patch → PUT/GET 往返（字节一致）→ LIST → 自检后紧跟 PUT（写路径
 #      必须重扫 .bss 的 used 位，DI-18）→ 硬复位后仍 USED → PTCH=11 轮询 LIVE 到槽 3 的字节 +
 #      ENG TRIG 出声 → ERASE/空槽/越界/播放与鼓轨拒绝
+#   ⑬ 设备侧 torn-write 套件：STORE FAULT 1 + PROJ ERASE 3 的 HAL 探针（STORE ERR save、
+#      STORE STATS faults=1 armed=0）→ STORE TEST 六场景 PASS 6/6（两次）→ 播放中拒绝 →
+#      停止后仍 PASS（对象 = OBJ_SETTINGS，套件内部快照/恢复；破坏性诊断）
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

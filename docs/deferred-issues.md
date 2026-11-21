@@ -142,3 +142,27 @@
 | **触发条件** | 用户在设备上跑过 `ENG SELFTEST`（含 `device-selftest.py` 门禁）之后继续使用并掉电重启；或 P4-E 处理「自检/会话」语义时一并解决。 |
 | **参考** | ADR-009 §5（自动存档阈值与启动顺序）、ADR-009 §8（`.bss` 快照窗口与 bank 入口重扫、R24 裁决）、`docs/dev/verify/4-pb-2026-11-21/task-7-mutation-probe.txt`（变异探针：删掉入口重扫后 selftest 之后的写丢同银行其它槽）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
 | **登记** | 2026-11-21（P4-B Task 6 落地时按代码推导确认；Task 6 评审 R21 修正措辞——不声称设备实测）；2026-11-22 Task 7 评审 R25 补入「FM6 读取钩子同批回滚」一项（标题与影响面扩为两级症状） |
+
+## DI-21: `STORE TEST` 场景 ⑤ 的 1 字节 prog 依赖未加密分区（flash encryption 下会响亮失败）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | Task 8 的 torn-write 套件用 `sloop_hal_storage_prog(a + ST_PAYLOAD_OFF, &zero, 1)` 把当前副本 payload 的首字节改成 0x00（NOR prog 只能 1→0），制造「头合法、CRC 失配」的损坏。ESP-IDF 的 `esp_partition_write` 在**未加密**数据分区上允许任意偏移/长度（本机实测 `STORE TEST PASS 6/6`）；打开 flash encryption 后加密写按 16/32 字节块处理，未对齐/非整块的写会被拒绝或断言，场景 ⑤ 会返回失败 ⇒ `STORE TEST FAIL corrupt`。 |
+| **影响面** | 只有诊断套件（`STORE TEST`），且仅在启用 flash encryption 的构建上。失败是**响亮**的（`corrupt` 场景 FAIL，不是假绿），不影响用户数据路径；但会挡住整条 torn-write 门禁。 |
+| **为何可延迟** | P4-B–E 的 `partitions.csv`/`sdkconfig` 均未启用 flash encryption；这是「未来构建开关」的兼容性问题，不是当前缺陷。 |
+| **解决方向** | (a) 把损坏写改成对齐的整块（如从 `ST_PAYLOAD_OFF` 起写 16 字节、内容取反原值的位与），保持 1→0 语义；(b) 或在 `sloop_store_test` 入口检查 `esp_flash_encryption_enabled()` 并跳过场景 ⑤（同时把 `cases` 降为 5、console 打印明确令牌，不能静默少跑）；(c) 或者改用 `st_erase` + 重写成不同内容来制造 CRC 失配（但会失去「只坏 payload、头仍合法」的精确性）。优先 (a)。 |
+| **触发条件** | 任何启用 flash encryption（或安全启动配套的加密分区）的构建/发布前必须解决；否则 `STORE TEST` 在该构建上必然红。 |
+| **参考** | `firmware/components/sloop_core/src/store_tab5.c` 的 `store_test_corrupt`、`sloop_hal_storage_prog`（`storage_flash.c`）、ESP-IDF `esp_partition_write` 的加密对齐要求、`docs/dev/verify/4-pb-2026-11-21/task-8-store-green1.txt`（未加密实测 PASS） |
+| **登记** | 2026-11-22（P4-B Task 8 评审 minor 4a） |
+
+## DI-22: `STORE FAULT` / `STORE RAWTEST` 不持 `s_store_lock`（autosave tick 可消费 arm）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `STORE FAULT <nth> [half]` 只写 HAL 的原子计数（`sloop_hal_storage_fault_arm`），`STORE RAWTEST` 直接调 `sloop_hal_storage_erase/prog`；两者都不取 `s_store_lock`。若 `STORE AUTO` 为 ON 且 1s 自动存档任务在「arm」与「目标写命令」之间命中门限，tick 的 `st_save(OBJ_AUTOSAVE)` 会消耗这次 arm（成为第 nth 次写），目标命令就在没有故障的情况下执行——脚本会以为测了掉电窗口，其实没有。 |
+| **影响面** | 仅诊断/注入路径：`scripts/inject/store.sh` 的 ⑬a 与 HAL 探针在每一步前都先 `STORE AUTO OFF`（且套件入口自己 `fault_clear`），所以当前门禁不受影响；风险是**未来新脚本忘记关 AUTO** 时静默测错。用户路径不使用 `STORE FAULT`（非用户命令），无产品影响。 |
+| **为何可延迟** | ①所有现有注入脚本在 arm 前显式 `STORE AUTO OFF`（AGENTS §5.1 已写）；②`STORE TEST` 内部 arm+目标写都在同一把 `s_store_lock` 内完成，天然不受 tick 影响；③加锁方案会改变 console 诊断语义（`STORE FAULT` 是「跨命令」的预置动作，单次加锁无法覆盖 arm 与后续命令之间的窗口），需要先把「故障作用域」设计清楚。 |
+| **解决方向** | (a) 引入显式的故障作用域：`STORE FAULT ARM` 后禁止 autosave（或把 `s_busy`/`s_auto_on` 临时置 0），由 `STORE FAULT CLEAR`/超时解除；(b) 或让 HAL 在 `s_busy` 时不消费 arm（把 tick 的写排除在计数外）；(c) 或在 `STORE RAWTEST`/`STORE FAULT` 帮助与回显里强制提示「先 `STORE AUTO OFF`」并在 arm 时检查 `s_auto_on`（回显警告/拒绝）。优先 (a) 或 (c)。 |
+| **触发条件** | 任何新增「先 arm、后由另一条命令触发写」的注入场景；或自动存档阈值/任务周期调整让 tick 更容易插入命令之间。 |
+| **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
+| **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |

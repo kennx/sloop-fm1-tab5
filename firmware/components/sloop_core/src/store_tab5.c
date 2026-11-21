@@ -1095,3 +1095,305 @@ static void autosave_task(void *arg)
         sloop_store_autosave_tick((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
     }
 }
+
+/* ------------------------------------------------ 设备 torn-write 套件（Task 8） --- */
+/* ADR-009 §3 的「掉电不破坏旧副本」变成机器判据。对象 = OBJ_SETTINGS：P4-B 不写设置
+ * （P4-E 才用），故它是唯一「有 storage 对象语义、但没有当前用户数据」的目标；套件开始
+ * st_load 快照、结束 fault_clear + st_save 恢复（**破坏性**诊断，console 帮助里写明）。
+ *
+ * **快照只覆盖 payload**（`st_load` 的 len 字节），不覆盖 settings 的 side record（副本
+ * 扇区偏移 64..255，`storage.c` 的 `ST_SIDE_OFF/ST_SIDE_MAX`，P4-E 的主题/收藏计划落
+ * 这里）：场景的擦除会清掉它。P4-B 没有 side record 的写入者（不可达）；P4-E 接线时必须
+ * 把快照扩为整扇区（详见 sloop_store.h 的契约与 ADR-009 §3/§8 的 R26）。
+ *
+ * HAL 契约（storage_flash.c）给测试带来一个必须处理的前提：**arm 期间 read 也失败**
+ * （读不消耗写序号）。于是 st_save 开头的 st_current 看不到任何有效副本 ⇒ cur=-1 ⇒
+ * 写目标恒为 copy A、seq 从 0 起算。若当前副本恰好在 A，失败的擦除就会把「旧副本」一起
+ * 毁掉——测试变成在验一个被自己毁掉的对象。故每个失败场景先 wipe 两个扇区，再按
+ * v1→A、v2→B 提交（wipe 后第一次提交 cur=-1 落 A，第二次 cur=0 落 B），arm 之前断言
+ * v2 已逐字节读回；之后失败的写只碰 A，B 里的 v2 才是「旧副本仍可读」。
+ *
+ * 每个 arm 场景还断言故障命中的是**预期写操作**：faults_taken 只说明「某一次写失败」，
+ * 分不出 erase 与 prog。故逐场景读回 A 扇区的原始字节（不经过头校验——失败时扇区可能
+ * 只有半个 payload）：
+ *   - erase 失败：A 的头+payload 与 arm 前逐字节相同（扇区没被擦）；
+ *   - payload 半写：A 的头是擦除态（erase 成功、提交记录没写）、payload 前 32B = 新值、
+ *     其余 0xFF（prog 只落了 n/2）；
+ *   - 头写失败：A 的 payload 完整 = 新值、头是擦除态（erase+prog 成功、最后一步失败）。
+ * 这样「旧副本仍可读」不会因为新旧值恰好相同而假绿：三个版本逐字节不同（下面显式断言）。
+ */
+#define ST_TEST_LEN 64u /* 场景 payload 长度（一个 prog 块的一半落在 0..63） */
+
+typedef struct {
+    const char *name;
+    bool (*fn)(void);
+} store_test_case_t;
+
+/* 递增模式，首字节 = 版本号（v + i）：0x11..0x50，不含 0xFF（擦除态可区分） */
+static void store_test_payload(uint8_t *p, uint8_t v)
+{
+    for (uint32_t i = 0; i < ST_TEST_LEN; i++) p[i] = (uint8_t)(v + i);
+}
+
+static bool store_test_wipe(void)
+{
+    return sloop_hal_storage_erase(st_sector(OBJ_SETTINGS, 0)) == 0 &&
+           sloop_hal_storage_erase(st_sector(OBJ_SETTINGS, 1)) == 0;
+}
+
+static bool store_test_save(const uint8_t *p)
+{
+    return st_save(OBJ_SETTINGS, p, ST_TEST_LEN) == 0;
+}
+
+/* 「读回」= st_load 的长度与 64 字节（这几个场景里对象都是 64B） */
+static bool store_test_reads(const uint8_t *want)
+{
+    uint8_t got[ST_TEST_LEN];
+    int n = st_load(OBJ_SETTINGS, got, sizeof got);
+    return n == (int)ST_TEST_LEN && memcmp(got, want, sizeof got) == 0;
+}
+
+static bool store_test_raw(uint32_t off, void *dst, uint32_t n)
+{
+    return sloop_hal_storage_read(off, dst, n) == 0;
+}
+
+static bool store_test_ff(const void *p, uint32_t n)
+{
+    const uint8_t *b = p;
+    for (uint32_t i = 0; i < n; i++)
+        if (b[i] != 0xFFu) return false;
+    return true;
+}
+
+/* 失败场景的公共前提：wipe → v1→A → v2→B → v2 逐字节可读，且当前副本确实是 B、seq 2。
+ * 前提任何一条不成立都判失败（不靠「碰巧相同」的缓冲，也不在错误的副本上做失败注入）。 */
+static bool store_test_two_commits(const uint8_t *v1, const uint8_t *v2)
+{
+    st_hdr_t h;
+    if (memcmp(v1, v2, ST_TEST_LEN) == 0) return false; /* 新旧必须可区分 */
+    if (!store_test_wipe() || !store_test_save(v1) || !store_test_save(v2)) return false;
+    if (!store_test_reads(v2)) return false;
+    return st_current(OBJ_SETTINGS, &h) == 1 && h.seq == 2u && h.len == ST_TEST_LEN;
+}
+
+/* 失败之后：胜出的副本必须是 B（copy 1）且逐字节 = v2——不是 A 上的 v1、也不是新值 v3。
+ * 这是「旧副本仍可读」的判据本身：copy 下标把「碰巧读到同一份缓冲」排除掉。
+ * 返回 copy 下标（0/1）；不满足返回 -1（供断言与诊断日志共用）。 */
+static int store_test_old_copy(const uint8_t *v2)
+{
+    st_hdr_t h;
+    int c = st_current(OBJ_SETTINGS, &h);
+    if (c != 1 || h.len != ST_TEST_LEN || memcmp(st_buf, v2, ST_TEST_LEN) != 0) return -1;
+    return c;
+}
+
+static const char *store_test_copy_name(int c)
+{
+    return c == 0 ? "copy0" : c == 1 ? "copy1" : "none";
+}
+
+/* 每场景一行可 triage 的诊断日志：故障分类（erase / prog-*）、faults 计数、胜出副本。 */
+static void store_test_log(const char *name, const char *op, uint32_t faults, bool armed, int survivor)
+{
+    ESP_LOGI(TAG, "STORE TEST %s: faults=%u armed=%d op=%s survivor=%s", name, (unsigned)faults,
+             armed ? 1 : 0, op, store_test_copy_name(survivor));
+}
+
+/* ① 三次提交取 seq 大者：擦净（无有效副本）→ v1（A, seq 1）→ v2（B, seq 2）⇒
+ * 读回 v2；再写 v3 回 A（seq 3）⇒ 读回 v3。两个方向都覆盖（不是「永远偏好 B」）：
+ * 第二次提交必须让 copy 1 胜，第三次必须让 copy 0 胜——A 只在 seq 更高时赢。 */
+static bool store_test_seq(void)
+{
+    uint8_t v1[ST_TEST_LEN], v2[ST_TEST_LEN], v3[ST_TEST_LEN], got[ST_TEST_LEN];
+    st_hdr_t h;
+    int w2, w3;
+    store_test_payload(v1, 0x11);
+    store_test_payload(v2, 0x22);
+    store_test_payload(v3, 0x33);
+    if (!store_test_wipe()) return false;
+    if (st_load(OBJ_SETTINGS, got, sizeof got) >= 0) return false; /* 擦净：没有有效副本 */
+    if (!store_test_save(v1) || !store_test_reads(v1)) return false;
+    if (!store_test_save(v2) || !store_test_reads(v2)) return false;
+    w2 = st_current(OBJ_SETTINGS, &h);
+    bool ok2 = w2 == 1 && h.seq == 2u && h.len == ST_TEST_LEN;
+    if (!ok2 || !store_test_save(v3) || !store_test_reads(v3)) {
+        ESP_LOGI(TAG, "STORE TEST seq: v2 winner=%s ok=%d v3=skipped", store_test_copy_name(w2),
+                 ok2 ? 1 : 0);
+        return false;
+    }
+    w3 = st_current(OBJ_SETTINGS, &h);
+    bool ok3 = w3 == 0 && h.seq == 3u && h.len == ST_TEST_LEN;
+    ESP_LOGI(TAG, "STORE TEST seq: v2 winner=%s seq=2 ok=%d; v3 winner=%s seq=3 ok=%d",
+             store_test_copy_name(w2), ok2 ? 1 : 0, store_test_copy_name(w3), ok3 ? 1 : 0);
+    return ok2 && ok3;
+}
+
+/* ② 擦除失败（第 1 次写）⇒ v3 写失败 ⇒ v2 仍完整可读；A 扇区一个字节都没动。 */
+static bool store_test_erase_fail(void)
+{
+    uint8_t v1[ST_TEST_LEN], v2[ST_TEST_LEN], v3[ST_TEST_LEN];
+    uint8_t before[sizeof(st_hdr_t) + ST_TEST_LEN], after[sizeof before];
+    const uint32_t a = st_sector(OBJ_SETTINGS, 0);
+    store_test_payload(v1, 0x31);
+    store_test_payload(v2, 0x32);
+    store_test_payload(v3, 0x33);
+    if (!store_test_two_commits(v1, v2)) return false;
+    if (memcmp(v2, v3, ST_TEST_LEN) == 0) return false; /* 旧副本的字节必须可区分 */
+    if (!store_test_raw(a, before, sizeof(st_hdr_t)) ||
+        !store_test_raw(a + ST_PAYLOAD_OFF, before + sizeof(st_hdr_t), ST_TEST_LEN))
+        return false;
+    sloop_hal_storage_fault_arm(1, false);
+    int rc = st_save(OBJ_SETTINGS, v3, ST_TEST_LEN);
+    uint32_t faults = sloop_hal_storage_fault_taken();
+    bool armed = sloop_hal_storage_fault_armed();
+    bool untouched = store_test_raw(a, after, sizeof(st_hdr_t)) &&
+                     store_test_raw(a + ST_PAYLOAD_OFF, after + sizeof(st_hdr_t), ST_TEST_LEN) &&
+                     memcmp(before, after, sizeof before) == 0;
+    int survivor = store_test_old_copy(v2);
+    store_test_log("erase-fail", "erase", faults, armed, survivor);
+    /* 故障命中 erase 的判据：A 扇区头+payload 与 arm 前逐字节相同（擦没发生）。 */
+    return rc != 0 && faults == 1u && !armed && untouched && survivor == 1;
+}
+
+/* ③ payload 半写（第 2 次写 = prog 命中 half）⇒ v3 写失败 ⇒ v2 仍完整可读；
+ * A 的头是擦除态、payload 前 32B = v3、后 32B 仍是 0xFF。 */
+static bool store_test_half_write(void)
+{
+    uint8_t v1[ST_TEST_LEN], v2[ST_TEST_LEN], v3[ST_TEST_LEN];
+    uint8_t hdr[sizeof(st_hdr_t)], pay[ST_TEST_LEN];
+    const uint32_t a = st_sector(OBJ_SETTINGS, 0);
+    store_test_payload(v1, 0x41);
+    store_test_payload(v2, 0x42);
+    store_test_payload(v3, 0x43);
+    if (!store_test_two_commits(v1, v2)) return false;
+    if (memcmp(v2, v3, ST_TEST_LEN) == 0) return false;
+    sloop_hal_storage_fault_arm(2, true);
+    int rc = st_save(OBJ_SETTINGS, v3, ST_TEST_LEN);
+    uint32_t faults = sloop_hal_storage_fault_taken();
+    bool armed = sloop_hal_storage_fault_armed();
+    bool saw = store_test_raw(a, hdr, sizeof hdr) &&
+               store_test_raw(a + ST_PAYLOAD_OFF, pay, sizeof pay);
+    bool hdr_ff = saw && store_test_ff(hdr, sizeof hdr);
+    bool pay_half = saw && memcmp(pay, v3, ST_TEST_LEN / 2u) == 0 &&
+                    store_test_ff(pay + ST_TEST_LEN / 2u, ST_TEST_LEN / 2u);
+    int survivor = store_test_old_copy(v2);
+    store_test_log("half-write", "prog-payload", faults, armed, survivor);
+    /* 故障命中 payload prog 的判据：头擦除态（erase 已跑）+ payload 恰好半个新值。 */
+    return rc != 0 && faults == 1u && !armed && hdr_ff && pay_half && survivor == 1;
+}
+
+/* ④ 头写失败（第 3 次写 = 提交记录）⇒ v3 写失败 ⇒ v2 仍完整可读；
+ * A 的 payload 完整 = v3、头是擦除态（st_head 拒绝：没有提交记录）。 */
+static bool store_test_header_fail(void)
+{
+    uint8_t v1[ST_TEST_LEN], v2[ST_TEST_LEN], v3[ST_TEST_LEN];
+    uint8_t hdr[sizeof(st_hdr_t)], pay[ST_TEST_LEN];
+    const uint32_t a = st_sector(OBJ_SETTINGS, 0);
+    st_hdr_t h;
+    store_test_payload(v1, 0x51);
+    store_test_payload(v2, 0x52);
+    store_test_payload(v3, 0x53);
+    if (!store_test_two_commits(v1, v2)) return false;
+    if (memcmp(v2, v3, ST_TEST_LEN) == 0) return false;
+    sloop_hal_storage_fault_arm(3, false);
+    int rc = st_save(OBJ_SETTINGS, v3, ST_TEST_LEN);
+    uint32_t faults = sloop_hal_storage_fault_taken();
+    bool armed = sloop_hal_storage_fault_armed();
+    bool saw = store_test_raw(a, hdr, sizeof hdr) &&
+               store_test_raw(a + ST_PAYLOAD_OFF, pay, sizeof pay);
+    bool hdr_ff = saw && store_test_ff(hdr, sizeof hdr);
+    bool pay_full = saw && memcmp(pay, v3, ST_TEST_LEN) == 0;
+    int survivor = store_test_old_copy(v2);
+    store_test_log("header-fail", "prog-header", faults, armed, survivor);
+    /* 故障命中头 prog 的判据：payload 完整但头擦除态（erase+prog 都成功）。 */
+    return rc != 0 && faults == 1u && !armed && hdr_ff && pay_full &&
+           st_head(OBJ_SETTINGS, 0, &h) != 0 && survivor == 1;
+}
+
+/* ⑤ 写后破坏 payload：头仍合法、CRC 失配 ⇒ st_load 报错（-1），不返回坏数据。
+ * 唯一有效副本在 A（wipe 后只有一次提交），B 无提交记录 ⇒ 没有更旧的副本可回退。 */
+static bool store_test_corrupt(void)
+{
+    uint8_t v4[ST_TEST_LEN], got[ST_TEST_LEN];
+    const uint8_t zero = 0x00u;
+    const uint32_t a = st_sector(OBJ_SETTINGS, 0);
+    st_hdr_t h;
+    store_test_payload(v4, 0x61);
+    if (!store_test_wipe() || !store_test_save(v4) || !store_test_reads(v4)) return false;
+    if (st_head(OBJ_SETTINGS, 0, &h) != 0 || h.len != ST_TEST_LEN) return false;
+    if (st_head(OBJ_SETTINGS, 1, &h) == 0) return false; /* B 不得有副本可掩盖 */
+    /* prog 只能把 1 写成 0：首字节改成 0x00（v4[0] = 0x61），CRC 必失配 */
+    if (sloop_hal_storage_prog(a + ST_PAYLOAD_OFF, &zero, 1) != 0) return false;
+    if (st_body(OBJ_SETTINGS, 0, &h) == 0) return false; /* CRC 必须拒绝 */
+    return st_load(OBJ_SETTINGS, got, sizeof got) == -1;
+}
+
+/* ⑥ 擦除提交（st_save(obj, NULL, 0)）⇒ 对象为空（len=0，上游「无对象」语义）。 */
+static bool store_test_empty_commit(void)
+{
+    uint8_t v5[ST_TEST_LEN], one;
+    st_hdr_t h;
+    store_test_payload(v5, 0x71);
+    if (!store_test_wipe() || !store_test_save(v5) || !store_test_reads(v5)) return false;
+    if (st_save(OBJ_SETTINGS, NULL, 0) != 0) return false;
+    if (st_load(OBJ_SETTINGS, &one, 1) != 0) return false;
+    return st_current(OBJ_SETTINGS, &h) >= 0 && h.len == 0u;
+}
+
+static const store_test_case_t STORE_TEST_CASES[] = {
+    {"seq", store_test_seq},
+    {"erase-fail", store_test_erase_fail},
+    {"half-write", store_test_half_write},
+    {"header-fail", store_test_header_fail},
+    {"corrupt", store_test_corrupt},
+    {"empty-commit", store_test_empty_commit},
+};
+
+/* 快照恢复的断言：当前副本的 payload 与快照逐字节相同；快照无效（n < 0）⇒ 空对象。 */
+static bool store_test_settings_match(const uint8_t *want, int len)
+{
+    st_hdr_t h;
+    if (st_current(OBJ_SETTINGS, &h) < 0) return false;
+    if (len < 0) return h.len == 0;
+    return (int)h.len == len && (len == 0 || memcmp(st_buf, want, (uint32_t)len) == 0);
+}
+
+esp_err_t sloop_store_test(sloop_store_test_t *out)
+{
+    if (out == NULL) return ESP_ERR_INVALID_ARG;
+    memset(out, 0, sizeof *out);
+    out->cases = (uint32_t)(sizeof STORE_TEST_CASES / sizeof STORE_TEST_CASES[0]);
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE; /* 与其它写 API 同一走带守卫 */
+
+    store_lock(); /* 全程持锁：自动存档 tick 的 trylock 会跳过（s_busy/Fault 不交错） */
+    sloop_hal_storage_fault_clear(); /* console 可能留下未命中的 arm：read 会失败 */
+    /* 快照进 proj_tmp（PSRAM 4,096B）：本函数持存储锁，没有别的使用者；st_save 也从
+     * 这里拷回 st_buf。快照无效（n < 0）时恢复成空对象（语义 = 没有设置）。 */
+    int snap = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+
+    for (uint32_t i = 0; i < out->cases; i++) {
+        sloop_hal_storage_fault_clear(); /* 上一场景未命中的注入不得带进来 */
+        if (!STORE_TEST_CASES[i].fn()) {
+            out->fail_case = STORE_TEST_CASES[i].name;
+            ESP_LOGE(TAG, "STORE TEST %s FAIL", STORE_TEST_CASES[i].name);
+            break;
+        }
+        out->passed++;
+        ESP_LOGI(TAG, "STORE TEST %s ok", STORE_TEST_CASES[i].name);
+    }
+    sloop_hal_storage_fault_clear();
+
+    int rc = st_save(OBJ_SETTINGS, snap >= 0 ? (const void *)proj_tmp.raw : NULL,
+                     snap >= 0 ? (uint32_t)snap : 0u);
+    bool restored = rc == 0 && store_test_settings_match(proj_tmp.raw, snap);
+    store_unlock();
+    if (!restored) {
+        ESP_LOGE(TAG, "STORE TEST restore-settings FAIL rc=%d snap=%d", rc, snap);
+        if (out->fail_case == NULL) out->fail_case = "restore-settings";
+    }
+    if (out->fail_case != NULL) return ESP_ERR_NOT_FINISHED;
+    return ESP_OK;
+}

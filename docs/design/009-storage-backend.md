@@ -147,6 +147,27 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   副本可读；③payload 半写失败 → 旧副本可读；④头写失败 → 旧副本可读；⑤回读校验失败 →
   报错不报 `SAVED`；⑥擦除提交（`len=0`）→ 对象为空。故障注入在 HAL 层（第 n 次
   erase/prog 失败；`half` 只写一半），不修改上游逻辑。
+  - **落地要点（Task 8）**：HAL 的 arm 期间**读也失败**（不消耗写序号）⇒ `st_save` 开头的
+    `st_current` 看不到有效副本、写目标恒为 copy A、seq 从 0 起算。故每个失败场景先
+    `sloop_hal_storage_erase` 擦净两个扇区，再按 v1→A（cur=-1）、v2→B（cur=0）提交，arm
+    前断言 v2 逐字节可读——旧副本先在 B，失败写才只碰 A。若省掉这一步，当前副本在 A 时
+    失败的擦除会把「旧副本」一起毁掉，测试变成验一个被自己毁掉的对象。
+  - **故障命中的操作必须可判**：`faults_taken` 只说明某次写失败，分不出 erase 与 prog。
+    故 arm 后读回目标扇区的**原始字节**（失败时扇区可能只有半个 payload，不能走头校验）：
+    erase 失败 ⇒ A 的头+payload 与 arm 前逐字节相同；payload 半写 ⇒ A 的头为擦除态、payload
+    前 32B = 新值其余 0xFF；头写失败 ⇒ payload 完整、头为擦除态。三个版本逐字节不同，
+    「旧副本可读」的断言不给新旧值相同的假绿。
+  - 全程持 `s_store_lock`（自动存档 tick 的 trylock 跳过），结束后先 `fault_clear` 再恢复快照
+    （快照无效 ⇒ 写空对象）；未就绪/走带中回 `ESP_ERR_INVALID_STATE`（console
+    `STORE ERR no_storage|playing`）。快照恢复失败以 `fail_case = "restore-settings"` 归入
+    失败（不静默）。
+  - **快照只覆盖 payload（评审 R26，已知限制）**：`st_load` 只搬对象的 `len` 字节，**不
+    包含 settings 的 side record**——上游 2.7 的侧记录写在副本扇区偏移 64..255
+    （`ST_SIDE_OFF=64`、`ST_SIDE_MAX=192`；`st_save3` 在 payload 之后、提交头之前写入，随
+    副本提交；`st_side_load` 读当前副本），P4-E 计划把主题/收藏放在这里。`STORE TEST`
+    的擦除会清掉它。P4-B 没有 side record 的写入者（不可达）；**P4-E 给 settings 写
+    side record 时必须把快照扩成整扇区**（或 `st_side_load` 读回后随 `st_save3` 重写），
+    否则跑一次 `STORE TEST` 会静默丢主题/收藏。契约已写进 `sloop_store.h` 与 console help。
 
 ### 4. xrun 判据（擦写 stall 是设计内现象）
 
@@ -276,6 +297,11 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   `_sloop_selftest_bss_start..end` 内，`flash_ok` 在窗口之前的 `.noinit`
   （`docs/dev/verify/4-pb-2026-11-21/task-4-memory.txt`）。
   纯展示性 shim（`up_gen/ui.force/sync_reload`）回滚无害，仍留 `.bss`。
+- **settings 的 side record 不在 `STORE TEST` 的快照范围（Task 8 评审 R26）**：见 §3 的
+  「快照只覆盖 payload」——`STORE TEST` 用 `st_load`/`st_save` 搬 payload，side record
+  （`ST_SIDE_OFF=64..255`，src/scenario 擦除时一并丢失）不在快照内；P4-B 无写入者故不可达，
+  P4-E 接线时必须扩为整扇区快照。该限制同时写在 `sloop_store.h` 的 API 契约与 console
+  `STORE TEST` 的帮助/用法里，不是隐含行为。
 - `third_party/MANIFEST.sha256` 校验保持 233/233；上游升级只补 `store_tab5.c` 的 shim 清单。
 
 ### 9. 失败可见性与诊断面
