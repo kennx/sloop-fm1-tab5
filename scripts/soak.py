@@ -7,6 +7,7 @@
     ENG PERF  streaming / xrun / audio_stack_free / render_mean_us / render_max_us /
               duty_mean / duty_max / min_free_since_boot_*
     KEY STATS count / 输入延迟均值峰值 / 输入任务栈余量
+    UI MEM   pool_used / pool_free（九页全建后的 LVGL 池水位）
     STATE SNAP 页面/播放/选轨（行为回归）
 判定（全部满足才退出码 0）：
     1. 内部堆：全程 internal_free ≥ 60KB（HEAP_FLOOR，AGENTS §5.5 内存门禁）；
@@ -43,7 +44,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 sys.path.insert(0, str(SCRIPTS_DIR / "inject"))
 import inject  # noqa: E402
 
-PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3}
+PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
+         "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8}
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -74,6 +76,8 @@ def sample(s) -> dict:
     perf = kv_raw(s.last)
     s.cmd("KEY STATS")
     stats = kv_int(s.last)
+    s.cmd("UI MEM")
+    ui_mem = kv_int(s.last)
     s.cmd("STATE SNAP")
     state = kv_int(s.last)
     s.expect_int(r"playing=(\d)", 1, "soak STATE playing")
@@ -95,6 +99,7 @@ def sample(s) -> dict:
         "key_mean_us": stats.get("mean_us", -1),
         "key_max_us": stats.get("max_us", -1),
         "input_stack_free": stats.get("input_stack_free", -1),
+        "ui_pool_free": ui_mem.get("pool_free", -1),
         "page": state.get("page", -1),
         "bpm": state.get("bpm", -1),
     }
@@ -106,6 +111,14 @@ def switch(s, page: str) -> None:
     s.expect(rf"UI page={page} \({PAGES[page]}\)", f"UI {page}")
     s.cmd("STATE SNAP")
     s.expect_int(r"page=(\d+)", PAGES[page], f"STATE page（{page}）")
+
+
+def visit_all_pages(s) -> None:
+    """采样前把 9 页都建出来：soak 的池水位/懒建状态与产品实际使用（九页全建）一致，
+    避免「采样时只有 4 页已建」掩盖参数页的池压力。"""
+    for page in PAGES:
+        switch(s, page)
+    switch(s, "transport")
 
 
 def ensure_playing(s) -> None:
@@ -216,7 +229,7 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        switch(s, "transport")
+        visit_all_pages(s)  # 九页全建后再采样（池水位 = 产品实际使用）
         ensure_playing(s)
 
         t0 = time.monotonic()
@@ -241,6 +254,7 @@ def main() -> None:
                   f"min={row['internal_min']:>6}B xrun={row['xrun']} "
                   f"audio_stack_free={row['audio_stack_free']} render_blocks={row['render_blocks']} "
                   f"duty_mean={row['duty_mean']:.2f}% duty_max={row['duty_max']:.2f}% "
+                  f"ui_pool_free={row['ui_pool_free']} "
                   f"key_mean={row['key_mean_us']}us key_max={row['key_max_us']}us "
                   f"page={row['page']} bpm={row['bpm']}")
             if row["page"] != PAGES["transport"]:
@@ -292,13 +306,14 @@ def main() -> None:
              f"interval={args.interval:.0f}s cycle={args.cycle:.0f}s",
              "# t_s internal_free internal_min psram_free streaming xrun audio_stack_free "
              "render_blocks render_mean_us render_max_us duty_mean duty_max "
-             "key_count key_mean_us key_max_us input_stack_free page bpm"]
+             "key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm"]
     for r in rows:
         lines.append("  ".join(str(r[k]) for k in
                                ("t", "internal_free", "internal_min", "psram_free", "streaming",
                                 "xrun", "audio_stack_free", "render_blocks", "render_mean_us",
                                 "render_max_us", "duty_mean", "duty_max", "key_count",
-                                "key_mean_us", "key_max_us", "input_stack_free", "page", "bpm")))
+                                "key_mean_us", "key_max_us", "input_stack_free", "ui_pool_free",
+                                "page", "bpm")))
     lines.append("")
     lines.append(f"内存判定：HEAP_FLOOR={HEAP_FLOOR}B（internal_free 与 internal_min），"
                  f"HEAP_NET_FLOOR={HEAP_NET_FLOOR}B（首末差），"
