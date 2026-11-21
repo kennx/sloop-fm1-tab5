@@ -1,9 +1,10 @@
 
 sloop>  # [inject] 场景 transport 开始
 UI transport
+I (578043) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3800B 预算=4608B 池剩余=19424B
 UI page=transport (3)
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -11,7 +12,7 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -19,7 +20,7 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -27,7 +28,7 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  TAP 1050 262
 TAP 1050,262 page=3 -> TRANSPORT CMD_SET_BPM delta=+1
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=91 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=91 playing=1 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -35,20 +36,20 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  TAP 910 262
 TAP 910,262 page=3 -> TRANSPORT CMD_SET_BPM delta=-1
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-102521-transport.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-110211-transport.png
 SCR
-I (2941190) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (579243) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 0 16
 UI WINDOW bank=0 start=0 len=16
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -56,7 +57,7 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  UI step
 UI page=step (2)
 sloop>  ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=2 pos=1,1,1,1
+ENG SNAP playing=1 bpm=90 sel=2 pos=9,9,9,9
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -77,13 +78,13 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-102521-step-playhead-a.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-110211-step-playhead-a.png
 SCR
-I (2964940) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (596373) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=2 pos=3,3,3,3
+ENG SNAP playing=1 bpm=90 sel=2 pos=15,15,15,15
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -104,9 +105,9 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-102521-step-playhead-b.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-110211-step-playhead-b.png
 SCR
-I (2989370) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (613273) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport
@@ -114,7 +115,7 @@ UI page=transport (3)
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0

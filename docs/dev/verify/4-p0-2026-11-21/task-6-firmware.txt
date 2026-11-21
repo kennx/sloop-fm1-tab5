@@ -1,0 +1,31 @@
+# Task 6 受测固件 pin（本任务未改固件、未重烧）
+
+日期：2026-11-21（Asia/Shanghai）｜设备：Tab5 @ /dev/ttyACM0
+来源：直读设备 app 分区（0x10000）的 esp_app_desc_t，不依赖启动日志窗口期。
+
+采集命令（esptool 只读）：
+  esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 read_flash 0x10000 0x1000 app_head.bin
+
+esptool 原始输出：
+  Read 4096 bytes at 0x00010000 in 0.0 seconds (1674.7 kbit/s)...
+  Hard resetting via RTS pin...
+
+app descriptor（镜像内 0x10000 + 0x20 起的 esp_app_desc_t，0x100 字节）：
+  magic          = 0xabcd5432
+  secure_version = 0
+  version        = 28774c0-dirty
+  project_name   = sloop_fm1_tab5
+  time           = 09:35:04
+  date           = Nov 21 2026
+  idf_ver        = v5.5.5
+
+哈希：
+  sha256(前 4KB @0x10000)            = a510aa7bf4c6e1809f824bfc46a88e76a68ad75b03d7498d882ebc4ccb9be2ce
+  sha256(app descriptor 0x100 bytes) = 78d528e281bee82d4617eac74ab4ee27bd5075182b502d5e62f150720c8aec01
+
+说明：
+- `version=28774c0-dirty` 与 Task 5 修复轮启动日志的 `App version: 28774c0-dirty` 一致；
+  Task 6 的两个提交（3c36c73/f0533ed 及其修复轮）只改 scripts/docs，未 build/flash，
+  故 nav 证据对应固件即 28774c0-dirty（工作树含 Task 5 修复）。
+- 本文件可复现：重跑上述 read_flash 命令并对前 4KB 取 SHA256 即可核对；固件重烧后
+  该哈希会变（app descriptor 含编译时间）。
