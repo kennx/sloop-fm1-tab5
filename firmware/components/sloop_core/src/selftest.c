@@ -600,6 +600,58 @@ void sloop_core_set_global(uint32_t id, int16_t value)
     engine_unlock();
 }
 
+/* ------------------------------------------------- 描述符投影 --- */
+/* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
+ * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
+ * max-min+1，不依赖终止符。 */
+static uint8_t desc_enum_count(const param_desc_t *d)
+{
+    if (d->names == NULL) return 0;
+    if (d->fmt == F_ENUM) return (uint8_t)(d->max - d->min + 1);
+    uint32_t n = 0;
+    while (n < 64u && d->names[n] != NULL) n++;
+    return (uint8_t)n;
+}
+
+bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out)
+{
+    const param_desc_t *d;
+    switch (scope) {
+    case SLOOP_DESC_TRACK:
+        if (id >= P_E0) return false; /* P_E0..P_E7 无轨道上下文，走 ENGINE */
+        d = &TP[id];
+        break;
+    case SLOOP_DESC_GLOBAL:
+        if (id >= G_COUNT) return false;
+        d = &GP[id];
+        break;
+    case SLOOP_DESC_ENGINE:
+        if (id >= 8u) return false;
+        if (engine == SLOOP_CORE_NENGINES) { /* 鼓轨哨兵（上游 ed_eng 对鼓轨报 NENGINES） */
+            if (id != 0u) return false;      /* 鼓轨只有 P_E0 = kit */
+            d = &DRUM_KIT_DESC;
+        } else if (engine < NENGINES) {
+            d = &ENGINES[engine]->edit[id];
+        } else {
+            return false;
+        }
+        break;
+    default:
+        return false;
+    }
+    if (out != NULL) {
+        out->label = d->label;
+        out->unit = d->unit;
+        out->fmt = d->fmt;
+        out->min = d->min;
+        out->max = d->max;
+        out->def = d->def;
+        out->enums = d->names;
+        out->enum_count = desc_enum_count(d);
+    }
+    return true;
+}
+
 void sloop_core_set_mute(uint32_t k, bool mute)
 {
     if (k >= NTRK || s_frozen) return;

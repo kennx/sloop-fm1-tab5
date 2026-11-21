@@ -80,6 +80,31 @@ void sloop_core_write_step(uint32_t track, uint32_t idx, const sloop_step_t *in)
  * G_INFO 等）——上游这些是瞬时的 UI 按钮/查询，写 song.g[] 只会改值、不执行动作。 */
 void sloop_core_set_global(uint32_t id, int16_t value);
 
+/* 参数描述符投影（阶段 4 P4-A，spec §4.1）：只读投影上游 params.c 的 `param_desc_t`
+ * 与引擎 `edit[8]` 表，不新建描述符表（single source）。表为静态常量，不取引擎锁、
+ * 可在任意任务调用；`out` 的指针指向上游静态数据，调用方不得释放/改写。
+ *  scope: SLOOP_DESC_TRACK  → TP[id]（id < P_E0 = 63；P_E0..P_E7 是引擎参数，走 ENGINE）
+ *         SLOOP_DESC_GLOBAL → GP[id]（id < G_COUNT）
+ *         SLOOP_DESC_ENGINE → ENGINES[engine]->edit[id]（engine < NENGINES，id < 8）
+ *  engine 对 TRACK/GLOBAL 无意义（传 0）。**鼓轨哨兵**：engine == SLOOP_CORE_NENGINES
+ *  （12，上游 `ed_eng` 对鼓轨报「无引擎」的同一取值）且 id == 0 时返回上游
+ *  `DRUM_KIT_DESC`（鼓轨的 P_E0 就是 kit）；哨兵的 id != 0 返回 false（鼓轨没有
+ *  P_E1..P_E7）。越界/未命中返回 false 且不改 `out`。
+ *  fmt 为上游 F_* 编码（core.h）；unit 原样投影上游可选单位（多数为 NULL——PCT/DB/
+ *  TIME 等显示单位由 fmt 决定，见上游 param_format）。enums/enum_count 在 names
+ *  非空时给出：F_ENUM 每个取值一个名字；F_INT + names 为 0 终止表（值域均分映射，
+ *  同 param_format）。引擎的 `desc` 钩子（依赖轨道状态的动态描述符）不投影，只给
+ *  基础 edit[] 表。 */
+typedef enum { SLOOP_DESC_TRACK, SLOOP_DESC_GLOBAL, SLOOP_DESC_ENGINE } sloop_desc_scope_t;
+typedef struct {
+    const char *label, *unit;
+    uint8_t fmt;
+    int16_t min, max, def;
+    const char *const *enums;
+    uint8_t enum_count;
+} sloop_desc_t;
+bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out);
+
 /* 选轨 / 静音 / 独奏写（SEL/GLO 层的可听路径）：分别写 song.sel、trk[k].p[P_MUTE]
  * （0/1，上游 N_ONOFF）与 song.solo（低 4 位独奏掩码）。走引擎锁，越界
  * （k>=NTRK）与冻结态直接丢弃。听感口径是上游 trk_silent()：P_MUTE 置位，或

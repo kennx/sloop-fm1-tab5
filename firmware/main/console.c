@@ -6,8 +6,8 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF、
- *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、DESC
+ *    描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
  *    bpm/playing 与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
@@ -460,6 +460,39 @@ static int eng_command(int argc, char **argv)
                (unsigned)st.flags, (unsigned)st.lvl, (unsigned)st.rat, (int)st.micro, (unsigned)st.fill);
         return 0;
     }
+    if (argc == 5 && strcasecmp(argv[1], "desc") == 0) {
+        /* 描述符投影抽样（scripts/desc-check.py 对端）：scope=track → TP[id]；
+         * global → GP[id]；engine → ENGINES[engine]->edit[id]，engine=12 为鼓轨
+         * 哨兵（id=0 → DRUM_KIT_DESC）。label/unit/first/last 加引号（上游 label
+         * 可含空格，如 "INS A"），空单位/无枚举名打印 "-"。 */
+        uint32_t engine = 0, id = 0;
+        sloop_desc_scope_t scope = SLOOP_DESC_TRACK;
+        const char *scope_name = NULL;
+        if (strcasecmp(argv[2], "track") == 0) {
+            scope = SLOOP_DESC_TRACK;
+            scope_name = "track";
+        } else if (strcasecmp(argv[2], "global") == 0) {
+            scope = SLOOP_DESC_GLOBAL;
+            scope_name = "global";
+        } else if (strcasecmp(argv[2], "engine") == 0) {
+            scope = SLOOP_DESC_ENGINE;
+            scope_name = "engine";
+        }
+        if (scope_name == NULL || !eng_uint(argv[3], 255, &engine) || !eng_uint(argv[4], 255, &id)) {
+            printf("用法: ENG DESC <track|global|engine> <engine=0..12> <id=0..255>（engine=12 为鼓轨 kit 哨兵；越界值回 ERR）\n");
+            return 1;
+        }
+        sloop_desc_t d;
+        if (!sloop_core_desc(scope, engine, id, &d)) {
+            printf("ENG DESC ERR scope=%s engine=%u id=%u\n", scope_name, (unsigned)engine, (unsigned)id);
+            return 1;
+        }
+        printf("ENG DESC scope=%s engine=%u id=%u label=\"%s\" fmt=%u min=%d max=%d def=%d unit=\"%s\" enums=%u first=\"%s\" last=\"%s\"\n",
+               scope_name, (unsigned)engine, (unsigned)id, d.label != NULL ? d.label : "-", (unsigned)d.fmt,
+               (int)d.min, (int)d.max, (int)d.def, d.unit != NULL ? d.unit : "-", (unsigned)d.enum_count,
+               d.enum_count > 0 ? d.enums[0] : "-", d.enum_count > 0 ? d.enums[d.enum_count - 1] : "-");
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) {
         /* 阶段 3 内存门禁：UI 起来后的 idle 内部堆须 ≥60KB（spec §4） */
         printf("ENG MEM internal_free=%u internal_min=%u psram_free=%u psram_min=%u\n",
@@ -470,7 +503,7 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]\n");
     return 1;
 }
 
@@ -880,8 +913,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF/MEM/AUDIO",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/DESC/PERF/MEM/AUDIO",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);
