@@ -1,0 +1,11 @@
+# P4-B Task 0 基线（feat/phase4b @ 908090d）
+# 日期: 2026-11-21T17:28:24+08:00
+
+build (scripts/build.sh): exit=0, warnings=0
+host-test (scripts/host-test.sh): exit=0
+ALL HOST TESTS PASSED (subset)
+device-selftest: exit=0
+SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS
+DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
+screenshot: task-0-play.png
+be9b21f492c062e2c07394fb8651bc883a6189747667cb4b4c8508a30640b8fa  docs/dev/verify/4-pb-2026-11-21/task-0-play.png
