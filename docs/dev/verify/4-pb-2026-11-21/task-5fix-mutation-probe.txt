@@ -1,0 +1,30 @@
+# MUTATION TEST（R17 反证）：preset_values 里把 P_ATK 写成 env[1]（错一位）后，
+# DIGITAL RHODES 的 P_ATK 期望（上游 env[0]=0）必须与设备值不符 ⇒ oracle 会 FAIL。
+>> ENG AUDIO ON
+ENG AUDIO ON
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>
+>> ENG TRACK 0 0 0
+ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>
+>> ENG TRACK 0 1 0
+ENG TRACK 0 1 0
+ENG TRACK k=0 engine=1 preset=0 OK
+sloop>
+>> PARAM 1
+PARAM 1
+PARAM track=0 id=1 value=85 min=0 max=127
+sloop>
+>> PARAM 2
+PARAM 2
+PARAM track=0 id=2 value=85 min=0 max=127
+sloop>
+>> ENG TRACK 0 0 0
+ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>
+>> PARAM 1
+PARAM 1
+PARAM track=0 id=1 value=112 min=0 max=127
+sloop>

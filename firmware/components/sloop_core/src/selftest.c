@@ -418,17 +418,6 @@ void sloop_core_render(int32_t *block, uint32_t frames)
     engine_unlock();
 }
 
-void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
-{
-    if (k >= NPART || engine >= NENGINES || s_frozen) return;
-    engine_lock();
-    track_t *t = &trk[k];
-    if (t->eng_req != engine || t->preset != preset) sound_change(t);
-    t->eng_req = (uint8_t)engine;
-    t->preset = (uint8_t)preset;
-    engine_unlock();
-}
-
 void sloop_core_note(uint32_t track, uint32_t note, bool on)
 {
     if (track >= NTRK || note > 127 || s_frozen) return;
@@ -491,6 +480,8 @@ static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
         out->trk[k].solo = (song.solo >> k) & 1u;
         out->trk[k].len = (uint8_t)len;
         out->trk[k].div = (uint8_t)clamp(t->p[P_SDIV], TP[P_SDIV].min, TP[P_SDIV].max);
+        out->trk[k].voices = 0;
+        for (uint32_t i = 0; i < NVOICE; i++) out->trk[k].voices += t->v[i].active != 0;
         out->step_pos[k] = (uint8_t)(song.playing ? t->seq_idx % len : 0u);
     }
     for (uint32_t k = 0; k < NPART; k++) {

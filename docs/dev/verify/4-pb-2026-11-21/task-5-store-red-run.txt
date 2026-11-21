@@ -1,0 +1,10 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-203755.log
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] ⑩ 归一 engine=0 preset=0（ANALOG）
+  [PASS] ⑩ P_LEVEL=90（混音）
+  [PASS] ⑩ P_SLEN=12（图案）
+[FAIL] store: ENG PRESET 0 2 1: 回显 0/71 项（'ENG PRESET 0 2 1\r\n用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>  '）

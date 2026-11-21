@@ -6,8 +6,11 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、DESC
- *    描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
+ *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
+ *    向量（71 行 P<id>=<v>，注入侧的机器比对期望，无副作用；冻结态回 `ERR frozen`）；
+ *    FREEZE <on|off> 是诊断冻结的手动入口（必须成对，供注入复验冻结拒绝路径）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
  *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
  *    的抽样字段；与 ENG SNAP 同源）。
@@ -40,8 +43,11 @@
  *    （破坏性）；STORE FAULT <nth> [half] | CLEAR 是 HAL 故障注入入口
  *    （计数只由 erase/prog 递增，arm 期间 read 失败但不计数，Task 8 消费）。
  *    STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n 是工程 A–D 的存读诊断
- *    （与 UI 命令同一套 sloop_store_*）；STORE LIVEHASH 打印当前引擎状态的捕获
- *    hash（工程往返门禁）。STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n 是
+ *    （与 UI 命令同一套 sloop_store_*）；STORE PROJ SYNTH <fmt1|foreign> 是**测试
+ *    专用**的诊断（破坏性：覆盖诊断槽 3）：构造内存工程触发 project_load 的两条
+ *    fallback（格式 1 的 preset==0xFF 默认声音 + steps_clear / 未知引擎的
+ *    proj_foreign_parts），回读各轨 engine/preset/steps/atk/e0。STORE LIVEHASH 打印
+ *    当前引擎状态的捕获 hash（工程往返门禁）。STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n 是
  *    用户预置 32 槽（upreset.c）的诊断入口：SAVE = 选中轨的声音 → 槽，LOAD 缺省
  *    track = 选中轨；行格式 "PRESET k USED <ENGINE> <NAME>" / "PRESET k EMPTY"，
  *    末尾 "PRESET COUNT used=n total=32"。错误统一回
@@ -403,7 +409,7 @@ static int eng_command(int argc, char **argv)
         uint32_t k, engine, preset;
         if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
             !eng_uint(argv[4], 255, &preset)) {
-            printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>\n");
+            printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>（换引擎/预置并载入参数）\n");
             return 1;
         }
         if (sloop_core_status() != ESP_OK) {
@@ -412,6 +418,32 @@ static int eng_command(int argc, char **argv)
         }
         sloop_core_track(k, engine, preset);
         printf("ENG TRACK k=%u engine=%u preset=%u OK\n", (unsigned)k, (unsigned)engine, (unsigned)preset);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "preset") == 0) {
+        /* 期望向量（Task 5 注入对端）：同一「当前 p[] + 引擎 + 预置」的**纯写值**，
+         * 无副作用（不改引擎/预置、不触发 panic）。`ENG TRACK` 应用后 `PARAM <id>`
+         * 逐项回读必须与它 71/71 相同——旧 sloop_core_track 只写索引、p[] 不变。 */
+        uint32_t k, engine, preset;
+        if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
+            !eng_uint(argv[4], 255, &preset)) {
+            printf("用法: ENG PRESET <k=0..2> <engine=0..11> <preset=0..255>\n");
+            return 1;
+        }
+        if (sloop_core_status() != ESP_OK) {
+            printf("ENG PRESET FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
+            return 1;
+        }
+        int16_t v[SLOOP_CORE_P_COUNT];
+        if (!sloop_core_preset_preview(k, engine, preset, v)) {
+            /* 诊断冻结（`ENG PRESET` 在 ENG SELFTEST 期间被调用）或越界：不打印零向量，
+             * 免得注入侧把全零当成合法期望。 */
+            printf("ENG PRESET ERR frozen\n");
+            return 1;
+        }
+        printf("ENG PRESET k=%u engine=%u preset=%u\n", (unsigned)k, (unsigned)engine,
+               (unsigned)preset);
+        for (uint32_t i = 0; i < SLOOP_CORE_P_COUNT; i++) printf("P%u=%d\n", (unsigned)i, (int)v[i]);
         return 0;
     }
     if (argc == 5 && strcasecmp(argv[1], "trig") == 0) {
@@ -456,10 +488,11 @@ static int eng_command(int argc, char **argv)
                (unsigned)s.bpm, (unsigned)s.selected_track, (unsigned)s.step_pos[0],
                (unsigned)s.step_pos[1], (unsigned)s.step_pos[2], (unsigned)s.step_pos[3]);
         for (uint32_t k = 0; k < 4; k++) {
-            printf("ENG SNAP trk k=%u engine=%u preset=%u level=%u mute=%u armed=%u solo=%u len=%u div=%u\n",
+            printf("ENG SNAP trk k=%u engine=%u preset=%u level=%u mute=%u armed=%u solo=%u len=%u div=%u voices=%u\n",
                    (unsigned)k, (unsigned)s.trk[k].engine, (unsigned)s.trk[k].preset,
                    (unsigned)s.trk[k].level, (unsigned)s.trk[k].mute, (unsigned)s.trk[k].armed,
-                   (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div);
+                   (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div,
+                   (unsigned)s.trk[k].voices);
         }
         for (uint32_t i = 0; i < 16; i++) {
             printf("ENG SNAP dstep i=%u on=%u lvl=%u rat=%u\n", (unsigned)i,
@@ -523,8 +556,19 @@ static int eng_command(int argc, char **argv)
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
         return 0;
     }
+    if (argc == 3 && strcasecmp(argv[1], "freeze") == 0 &&
+        (strcasecmp(argv[2], "on") == 0 || strcasecmp(argv[2], "off") == 0)) {
+        /* 诊断（评审 minor 1 的可测入口；**必须成对**）：冻结引擎读写（与 `ENG SELFTEST`
+         * 内部同一入口）——冻结期间 read 返回冻结快照、写 API 丢弃、`ENG PRESET` 回
+         * `ERR frozen`（不打印零向量）。`ENG SELFTEST` 会自行成对执行，无需手动冻结；
+         * 手动 on 之后务必 off，否则引擎编辑/UI 投影停在冻结时刻。 */
+        bool on = strcasecmp(argv[2], "on") == 0;
+        sloop_core_diag_freeze(on);
+        printf("ENG FREEZE %s\n", on ? "on" : "off");
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
     return 1;
 }
 
@@ -1300,8 +1344,23 @@ static int store_proj(int argc, char **argv)
         }
         return 0;
     }
+    if (argc == 4 && strcasecmp(argv[2], "synth") == 0) {
+        /* 诊断（P4-B Task 5 评审 R18，测试专用；**破坏性：覆盖诊断槽 3**，槽 0–2 不碰）：
+         * 构造内存工程并触发 project_load 的两条 fallback（fmt1 / foreign），回读各轨
+         * engine/preset/steps/atk/e0 供注入断言。实现在 store_tab5.c（需要 project_t）。 */
+        sloop_store_synth_t r;
+        esp_err_t err = sloop_store_project_synth(argv[3], &r);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("PROJ 3 SYNTH case=%s OK\n", argv[3]);
+        for (uint32_t k = 0; k < 4; k++)
+            printf("PROJ 3 SYNTH case=%s trk k=%u engine=%u preset=%u steps=%u atk=%d e0=%d\n",
+                   argv[3], (unsigned)k, (unsigned)r.trk[k].engine, (unsigned)r.trk[k].preset,
+                   (unsigned)r.trk[k].steps, (int)r.trk[k].atk, (int)r.trk[k].e0);
+        return 0;
+    }
     if (argc != 4) {
-        printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）\n");
+        printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
+               "SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
         return 1;
     }
     uint32_t slot;
@@ -1328,7 +1387,8 @@ static int store_proj(int argc, char **argv)
         printf("PROJ %u HASH=%08X\n", (unsigned)slot, (unsigned)sloop_store_project_hash(slot));
         return 0;
     }
-    printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）\n");
+    printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
+           "SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
     return 1;
 }
 
@@ -1440,7 +1500,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
-           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n | "
+           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
@@ -1580,9 +1640,10 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t store_cmd = {
         .command = "STORE",
         .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
+                "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
                 "STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|LIVEHASH|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|LIVEHASH|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

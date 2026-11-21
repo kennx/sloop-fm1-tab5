@@ -1570,6 +1570,258 @@ def preset_params_read(s: Session) -> dict:
     return out
 
 
+# ---- 换引擎/预置 = 换声音（上游 apply_preset_to/set_engine_of 移植，Task 5） ----
+# `ENG PRESET <k> <engine> <preset>` 打印 71 行 `P<id>=<v>`：同一「当前 p[] + 引擎 +
+# 预置」的**纯写值向量**（无副作用：不改引擎/预置、不触发 panic）。`ENG TRACK` 应用后
+# 逐项读回引擎真值（`PARAM <id>` 只读、不经状态层投影）必须与它 71/71 相同——这正是
+# 旧 `sloop_core_track` 的缺陷面（只写 eng_req/preset 索引，音频路径读的 p[] 不变）。
+ENG_PARAM_COUNT = 71
+ENG_P_LEVEL = 0   # P_LEVEL：混音（上游 param_kept，载入声音不覆盖）
+ENG_P_ATK = 1     # P_ATK：包络（预置覆盖）
+ENG_P_SLEN = 29   # P_SLEN：图案参数（param_kept，载入声音不覆盖）
+ENG_P_E0 = 63     # P_E0..P_E7：引擎槽
+# 与 ENG SNAP 的默认值同源（TP[] 表：LEVEL 104、LEN 16）；⑩ 收口时还原，后续用例
+# 的归一基线不受本节影响。
+ENG_LEVEL_DEF = 104
+ENG_SLEN_DEF = 16
+
+# ---- 独立 oracle（评审 R17）：硬编码的上游表字面量，不来自固件 ---------------------
+# 71/71 的「ENG PRESET 期望向量 vs ENG TRACK 之后的 p[]」两步都走固件的 preset_values，
+# 写值实现内部的错会被同时复制到期望与实际两边、门禁全盲。下面两组期望值直接抄自
+# vendored 上游表（只读参考，不改 third_party/），用于独立的硬编码判等。
+#
+# 参数 id = 上游 core.h 的 P_* 枚举（与 ENG DESC/PARAM 同口径）：
+#   1 ATK, 2 DEC, 3 SUS, 4 REL, 5 ED_FLT, 6 ED_PIT, 8 ED_FX, 9 LRATE, 16 LD_AMP,
+#   28 TRANS, 33 DIST, 34 CHOR, 35 DLY, 36 REV, 37 VOICE, 38 GLIDE, 41 GLMODE,
+#   63..70 P_E0..P_E7。V_POLY=0 / V_LEGATO=2（core.h:14）。
+#
+# A) 引擎 1（DIGITAL）预置 0 "RHODES"——third_party/sloop-fm1/firmware/src/eng_digital.c:117：
+#    e[] = {4, 1, 1, 14, 26, 35, 0, 0}；env = {0, 85, 35, 55}；fenv = 0；mono = 0（→ V_POLY）；
+#    FX(0, 30, 12, 26) → fx[] 存 +1，写值时 -1 ⇒ DIST/CHOR/DLY/REV = 0/30/12/26；
+#    XP(P_LD_AMP+1, 26, P_LRATE+1, 84) ⇒ LD_AMP=26、LRATE=84；
+#    P_ED_FX = preset_trim(1, 0) = PRESET_TRIM[1][0] = 23（third_party/.../preset_trim.h）。
+DIGITAL_RHODES_ORACLE = {
+    63: 4, 64: 1, 65: 1, 66: 14, 67: 26, 68: 35, 69: 0, 70: 0,   # e[]（eng_digital.c:117）
+    1: 0, 2: 85, 3: 35, 4: 55,                                    # env[0..3]（同上）
+    5: 0, 8: 23, 37: 0,                                          # fenv / PRESET_TRIM[1][0] / mono→V_POLY
+    33: 0, 34: 30, 35: 12, 36: 26,                               # FX(0,30,12,26)
+    9: 84, 16: 26,                                               # XP(P_LRATE,84, P_LD_AMP,26)
+}
+# B) 引擎 0（ANALOG）预置 0 "808 BOOM"——third_party/sloop-fm1/firmware/src/eng_analog.c:128：
+#    e[] = {3, 0, 0, 0, 127, 0, 48, 0}；env = {0, 112, 0, 52}；fenv = 0；mono = 1（→ V_LEGATO）；
+#    FX(0, 0, 0, 0)：表里存 +1（即 1）⇒ 写值时 -1 ⇒ 四个发送都是 0；
+#    XP(P_GLIDE+1,59, P_GLMODE+1,1, P_ED_PIT+1,18, P_TRANS+1,-24)；
+#    P_ED_FX = preset_trim(0, 0) = PRESET_TRIM[0][0] = -9（third_party/.../preset_trim.h）。
+ANALOG_808_ORACLE = {
+    63: 3, 64: 0, 65: 0, 66: 0, 67: 127, 68: 0, 69: 48, 70: 0,   # e[]（eng_analog.c:128）
+    1: 0, 2: 112, 3: 0, 4: 52,                                   # env[0..3]（同上）
+    5: 0, 8: -9, 37: 2,                                          # fenv / PRESET_TRIM[0][0] / mono→V_LEGATO
+    33: 0, 34: 0, 35: 0, 36: 0,                                  # FX(0,0,0,0)
+    6: 18, 28: -24, 38: 59, 41: 1,                               # XP(P_ED_PIT,18, P_TRANS,-24, P_GLIDE,59, P_GLMODE,1)
+}
+
+
+def eng_param_vector(s: Session) -> dict:
+    """选中轨的 71 个参数（引擎真值）。`PARAM <id>` 只读回显，cmd_fast 往返 ~1ms。"""
+    out = {}
+    for pid in range(ENG_PARAM_COUNT):
+        s.cmd_fast(f"PARAM {pid}")
+        out[pid] = param_value(s, "value")
+    return out
+
+
+def eng_preset_vector(s: Session, track: int, engine: int, preset: int) -> dict:
+    """`ENG PRESET` → 期望向量（71 行 `P<id>=<v>`）。缺行/缺命令直接 InjectError
+    （RED 阶段固件还没有该命令，就在这里失败，不得静默通过）。"""
+    s.cmd(f"ENG PRESET {track} {engine} {preset}")
+    vec = {int(m.group(1)): int(m.group(2))
+           for m in re.finditer(r"^P(\d+)=(-?\d+)\r?$", s.last, re.MULTILINE)}
+    if set(vec) != set(range(ENG_PARAM_COUNT)):
+        raise InjectError(f"ENG PRESET {track} {engine} {preset}: 回显 {len(vec)}/"
+                          f"{ENG_PARAM_COUNT} 项（{s.last!r}）")
+    return vec
+
+
+def eng_vector_expect(s: Session, expected: dict, actual: dict, label: str) -> None:
+    bad = [(pid, expected[pid], actual[pid]) for pid in sorted(expected)
+           if expected[pid] != actual[pid]]
+    if bad:
+        s.fail(f"{label}: {len(bad)}/{ENG_PARAM_COUNT} 项不符"
+               f"（id 期望/实得：{bad[:8]}）")
+    else:
+        s.ok(f"{label}: {ENG_PARAM_COUNT}/{ENG_PARAM_COUNT} 项一致")
+
+
+def eng_oracle_expect(s: Session, oracle: dict, actual: dict, label: str) -> None:
+    """独立 oracle（评审 R17）：期望值是**硬编码的上游表字面量**，不经过固件的
+    `preset_values`/`ENG PRESET`——否则「预览 vs 应用」的 71/71 只是同一份实现自己
+    和自己比，写值实现内部的错会被同时复制到两边。每组 oracle 的来源见调用点的注释。"""
+    bad = [(pid, want, actual[pid]) for pid, want in sorted(oracle.items())
+           if actual[pid] != want]
+    if bad:
+        s.fail(f"{label}: {len(bad)}/{len(oracle)} 项与上游表不符"
+               f"（id 上游/实得：{bad}）")
+    else:
+        s.ok(f"{label}: {len(oracle)}/{len(oracle)} 项与上游表一致（{sorted(oracle)}）")
+
+
+def eng_voices_poll(s: Session, want: int, track: int = 0, timeout: float = 1.0) -> int:
+    """轮询 `ENG SNAP` 的 trk 行 `voices=<n>`（引擎真值：该轨 active 的话音数）。
+    回到 want 或超时即返回当前值（由调用方判定）。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        s.cmd_fast("ENG SNAP")
+        m = re.search(rf"^ENG SNAP trk k={track} .* voices=(\d+)\r?$", s.last, re.MULTILINE)
+        if m is None:
+            raise InjectError(f"ENG SNAP trk k={track} 回显缺 voices=（{s.last!r}）")
+        got = int(m.group(1))
+        if got == want or time.monotonic() >= deadline:
+            return got
+        time.sleep(0.02)
+
+
+def run_store_engine(s: Session) -> None:
+    """⑩ 换引擎/预置 = 换声音（`sloop_core_track` 的缺陷：只写索引、p[] 不变）。
+
+    放在 ⓪ 归一之后最先跑：RED 阶段（旧固件无 `ENG PRESET`）快速失败，不拖整套场景。
+
+    ① 归一 `ENG TRACK 0 0 0` → 写混音/图案参数（P_LEVEL=90、P_SLEN=12）→
+       `ENG PRESET 0 2 1` 取期望向量 → `ENG TRACK 0 2 1` ⇒ 71/71 一致；且
+       P_LEVEL/P_SLEN 保持（上游 param_kept：混音与图案不随声音走）；
+    ② 换引擎 `ENG TRACK 0 1 0` ⇒ 71/71 与「引擎 1 预置 0」的期望向量一致，P_E0..P_E7
+       取**预置写值**（不是 `ENG DESC` 的 edit[] def：DIGITAL RHODES 的 ALG=4 覆盖 def 0
+       ——上游 apply_preset_to 先写默认、再用预置的 e[] 覆盖）；
+    ③ 独立 oracle（评审 R17）：上面 71/71 的两边都来自固件的 `preset_values`，实现内部的
+       错会被同时复制；故另用**硬编码上游表字面量**判等（DIGITAL RHODES/ANALOG 808 BOOM，
+       来源见 `DIGITAL_RHODES_ORACLE`/`ANALOG_808_ORACLE` 的注释）；
+    ④ panic：按住一个键（`KEY 0x42 down` = 低八度行 C）⇒ `ENG SNAP` voices≥1；换预置后
+       挂音在 ≤1s 内释放（voices=0），`STATE SNAP playing` 不变；
+    ⑤ project_load 的两条 fallback（评审 R18，`STORE PROJ SYNTH fmt1|foreign`）：格式 1
+       的 `preset == 0xFF` 轨取默认声音 + steps_clear、未知引擎的轨走 `proj_foreign_parts`
+       （图案保留）——诊断槽 3，破坏性，收口 ERASE。
+    """
+    s.ser.note("⑩ 换引擎/预置 = 换声音：ENG PRESET 期望向量 vs ENG TRACK 应用后的 p[]")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑩ 归一 engine=0 preset=0（ANALOG）")
+
+    # 评审 minor 1：诊断冻结时 `ENG PRESET` 必须明确拒绝，不得打印零向量（否则注入侧
+    # 会把「全零」当成合法期望值）。冻结用 `ENG FREEZE on`（与 `ENG SELFTEST` 内部同一
+    # 入口；`UI QUIESCE` 只停 UI 定时器/输入，不冻结引擎读写，故测不到这条路径）。
+    s.ser.note("⑩0 冻结态 ENG PRESET → ENG PRESET ERR frozen（不打印 P<id>= 行）")
+    s.cmd("ENG FREEZE on")
+    s.expect(r"^ENG FREEZE on\r?$", "⑩ ENG FREEZE on（诊断冻结）")
+    s.cmd("ENG PRESET 0 2 1")
+    s.expect(r"^ENG PRESET ERR frozen\r?$", "⑩ 冻结态 ENG PRESET → ERR frozen")
+    (s.fail if re.search(r"^P\d+=-?\d+", s.last, re.MULTILINE) else s.ok)(
+        "⑩ 冻结态没有打印任何 P<id>=<v>（零向量不得被当成期望）")
+    s.cmd("ENG FREEZE off")
+    s.expect(r"^ENG FREEZE off\r?$", "⑩ ENG FREEZE off（恢复）")
+    s.cmd("ENG PRESET 0 2 1")
+    s.expect(r"^ENG PRESET k=0 engine=2 preset=1\r?$", "⑩ 解冻后 ENG PRESET 恢复出向量")
+
+    s.cmd(f"PARAM {ENG_P_LEVEL} 90")
+    s.expect(rf"PARAM track=0 id={ENG_P_LEVEL} value=90 applied=90", "⑩ P_LEVEL=90（混音）")
+    s.cmd(f"PARAM {ENG_P_SLEN} 12")
+    s.expect(rf"PARAM track=0 id={ENG_P_SLEN} value=12 applied=12", "⑩ P_SLEN=12（图案）")
+
+    s.ser.note("⑩a ENG PRESET 0 2 1（期望向量）→ ENG TRACK 0 2 1（应用）→ 71/71")
+    expected = eng_preset_vector(s, 0, 2, 1)
+    s.ok(f"⑩ ENG PRESET 0 2 1：{len(expected)}/71 项")
+    s.cmd("ENG TRACK 0 2 1")
+    s.expect(r"ENG TRACK k=0 engine=2 preset=1 OK", "⑩ ENG TRACK 0 2 1")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=2 preset=1 ", "⑩ ENG SNAP engine=2 preset=1")
+    actual = eng_param_vector(s)
+    eng_vector_expect(s, expected, actual, "⑩ ENG TRACK 0 2 1 的 p[] == ENG PRESET 向量")
+    (s.ok if actual[ENG_P_LEVEL] == 90 else s.fail)(
+        f"⑩ 换预置后 P_LEVEL={actual[ENG_P_LEVEL]}（混音保留 90）")
+    (s.ok if actual[ENG_P_SLEN] == 12 else s.fail)(
+        f"⑩ 换预置后 P_SLEN={actual[ENG_P_SLEN]}（图案参数保留 12）")
+
+    s.ser.note("⑩b 换引擎 ENG TRACK 0 1 0（引擎 1 预置 0）→ 71/71")
+    expected = eng_preset_vector(s, 0, 1, 0)
+    s.cmd("ENG TRACK 0 1 0")
+    s.expect(r"ENG TRACK k=0 engine=1 preset=0 OK", "⑩ ENG TRACK 0 1 0（换引擎）")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=1 preset=0 ", "⑩ ENG SNAP engine=1 preset=0")
+    actual = eng_param_vector(s)
+    eng_vector_expect(s, expected, actual, "⑩ 换引擎后的 p[] == ENG PRESET 0 1 0 向量")
+    (s.ok if actual[ENG_P_ATK] == expected[ENG_P_ATK] else s.fail)(
+        f"⑩ P_ATK={actual[ENG_P_ATK]} == 新引擎预置的 ATK {expected[ENG_P_ATK]}"
+        "（包络随声音走）")
+    engine_slots = [actual[ENG_P_E0 + i] for i in range(8)]
+    expected_slots = [expected[ENG_P_E0 + i] for i in range(8)]
+    (s.ok if engine_slots == expected_slots else s.fail)(
+        f"⑩ P_E0..P_E7={engine_slots} 由新引擎的预置写值覆盖（期望 {expected_slots}）")
+    # R17：独立 oracle（硬编码上游表字面量，不经过 preset_values）——写值实现内部的错
+    # 不会被「预览 vs 应用」同时复制，这一组必须炸。
+    eng_oracle_expect(s, DIGITAL_RHODES_ORACLE, actual,
+                      "⑩ R17 oracle：引擎 1 预置 0 = DIGITAL RHODES（eng_digital.c:117 + preset_trim.h）")
+
+    s.ser.note("⑩b2 独立 oracle 2：ENG TRACK 0 0 0 → ANALOG 808 BOOM（eng_analog.c:128）")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑩ ENG TRACK 0 0 0（回 ANALOG）")
+    actual = eng_param_vector(s)
+    eng_oracle_expect(s, ANALOG_808_ORACLE, actual,
+                      "⑩ R17 oracle：引擎 0 预置 0 = ANALOG 808 BOOM（eng_analog.c:128 + preset_trim.h）")
+
+    s.ser.note("⑩c panic：按住 C（KEY 0x42 down）→ 换预置 ⇒ 挂音释放、playing 不变")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 preset=0 ", "⑩ panic 基线 engine=0 preset=0")
+    s.cmd("ENG AUDIO")
+    s.expect(r"ENG AUDIO streaming=1", "⑩ ENG AUDIO streaming=1（panic 由渲染块消费）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 0, "⑩ STATE SNAP playing=0（基线）")
+    s.cmd("KEY 0x42 down")
+    s.expect(r"KEY 0x42 down", "⑩ KEY 0x42 down（按住 C）")
+    v = eng_voices_poll(s, 1)
+    (s.ok if v >= 1 else s.fail)(f"⑩ 按住一个键后 voices={v}（≥1 = 确实在发声）")
+    s.cmd("ENG TRACK 0 2 1")
+    s.expect(r"ENG TRACK k=0 engine=2 preset=1 OK", "⑩ 发声时换预置 ENG TRACK 0 2 1")
+    v = eng_voices_poll(s, 0)
+    (s.ok if v == 0 else s.fail)(f"⑩ 换预置后 voices={v}（panic 路径：挂音已释放）")
+    s.cmd("KEY 0x42 up")
+    s.expect(r"KEY 0x42 up", "⑩ KEY 0x42 up（收口）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 0, "⑩ STATE SNAP playing=0（换预置不动走带）")
+
+    s.ser.note("⑩d 收口：还原混音/图案参数（后续用例的归一基线不受本节影响）")
+    s.cmd(f"PARAM {ENG_P_LEVEL} {ENG_LEVEL_DEF}")
+    s.expect(rf"PARAM track=0 id={ENG_P_LEVEL} value={ENG_LEVEL_DEF} applied={ENG_LEVEL_DEF}",
+             "⑩ P_LEVEL 回默认")
+    s.cmd(f"PARAM {ENG_P_SLEN} {ENG_SLEN_DEF}")
+    s.expect(rf"PARAM track=0 id={ENG_P_SLEN} value={ENG_SLEN_DEF} applied={ENG_SLEN_DEF}",
+             "⑩ P_SLEN 回默认")
+
+    # R18：project_load 的两条 fallback（真机上原本不可达）经诊断命令 `STORE PROJ SYNTH`
+    # 触发。命令以当前引擎状态捕获工程 → 改写出要验的边界 → 存到**诊断槽 3**（破坏性，
+    # 槽 0–2 不碰）→ 清 RAM 槽强制 flash 回落（proj_import）→ 公共 LOAD → 回读。
+    # 回显每轨 engine/preset/steps/atk/e0；期望值指向上游 project.c 的语义：
+    #   ① fmt1：格式 1 的 `preset == 0xFF` 轨取 `TRK_DEF[k][1]` 默认声音 + steps_clear
+    #      （project.c:663-667）——工程里的 P_ATK=99/WAVE=99/1 个步都必须被换成
+    #      ANALOG 808 BOOM（engine 0 preset 0、atk 0、e0 3）且步清空；
+    #   ② foreign：引擎号 ≥ NENGINES 的轨改回默认声音（project.c:639-647 的
+    #      proj_foreign_parts，TRK_DEF[1] = DIGITAL/RHODES）——engine 1 preset 0、
+    #      atk 0、e0 4（RHODES 的 ALG），而它的图案保留（steps 1）。
+    s.ser.note("⑩e R18 fmt1：preset==0xFF 的轨取默认声音 + steps_clear（诊断槽 3，破坏性）")
+    store_cmd(s, "STORE PROJ SYNTH fmt1", r"^PROJ 3 SYNTH case=fmt1 OK\r?$",
+              "⑩e SYNTH fmt1")
+    store_expect(s, r"^PROJ 3 SYNTH case=fmt1 trk k=0 engine=0 preset=0 steps=0 atk=0 e0=3\r?$",
+                 "⑩e 轨 0：默认声音 ANALOG 808 BOOM（e0=3）+ 工程里的 99 被覆盖 + 步清空")
+    store_expect(s, r"^PROJ 3 SYNTH case=fmt1 trk k=1 engine=1 preset=1 ",
+                 "⑩e 轨 1：不带 0xFF ⇒ 保留工程里的 engine/preset（1/1）")
+
+    s.ser.note("⑩f R18 foreign：引擎号 ≥ NENGINES 的轨走 proj_foreign_parts（图案保留）")
+    store_cmd(s, "STORE PROJ SYNTH foreign", r"^PROJ 3 SYNTH case=foreign OK\r?$",
+              "⑩f SYNTH foreign")
+    store_expect(s,
+                 r"^PROJ 3 SYNTH case=foreign trk k=1 engine=1 preset=0 steps=1 atk=0 e0=4\r?$",
+                 "⑩f 轨 1：未知引擎 → DIGITAL RHODES（engine 1 preset 0、e0=4）、图案保留")
+    store_expect(s, r"^PROJ 3 SYNTH case=foreign trk k=0 engine=0 preset=0 ",
+                 "⑩f 轨 0：不受 foreign 分支影响（engine/preset 保持 0/0）")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑩f 收口 ERASE 3（诊断槽）")
+
+
 def store_early_load_probe(s: Session, timeout: float = 20.0) -> str:
     """热复位后的**早探**：console 一接受命令就发 `STORE PROJ LOAD 0`（不等 init 完成）。
 
@@ -1649,6 +1901,10 @@ def run_store(s: Session) -> None:
        不回滚——本任务最险的失效模式）；
     ⑨ 用户预置 32 槽（run_store_presets）：SAVE/LIST/LOAD/ERASE 往返 + 跨轨/跨银行 +
        播放守卫 + 鼓轨拒绝 + SELFTEST/硬复位后仍可读（up_boot）。
+    ⑩ 换引擎/预置 = 换声音（run_store_engine，最先跑）：`ENG PRESET` 的期望向量 vs
+       `ENG TRACK` 应用后的 p[]（71/71）+ param_kept 保留 + 换引擎 + **独立上游表 oracle**
+       （R17）+ 发声时换预置的 panic 路径（`ENG SNAP` 的 voices 归零）+ **project_load 的
+       两条 fallback**（R18：`STORE PROJ SYNTH fmt1|foreign`，诊断槽 3）。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位到工厂态——引擎
        参数/选轨/引擎号都是 sloop_core_init 的默认值，不带上一次运行 ⑨ 载入的预置参数
@@ -1665,6 +1921,9 @@ def run_store(s: Session) -> None:
     s.expect(r"ENG AUDIO streaming=1", "⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）")
     ensure_stopped(s)
     store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "STORE STATS ready=1")
+
+    # ⑩ 换引擎/预置 = 换声音（Task 5）：最先跑——旧固件没有 `ENG PRESET`，RED 快速失败
+    run_store_engine(s)
 
     s.ser.note("① 归一：四槽 ERASE + LIST 全 EMPTY")
     for i in range(4):

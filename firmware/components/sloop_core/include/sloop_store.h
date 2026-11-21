@@ -45,6 +45,25 @@ esp_err_t sloop_store_project_save(uint32_t slot);
 esp_err_t sloop_store_project_load(uint32_t slot);
 esp_err_t sloop_store_project_erase(uint32_t slot);
 
+/* 诊断（P4-B Task 5 评审 R18，**测试专用**；破坏性：覆盖**诊断槽 3** 的 RAM+flash 对象，
+ * 槽 0–2 不碰）：以当前引擎状态捕获一份内存工程，按 case 改写出 `project_load` 的
+ * fallback 边界，存到槽 3 → 清 RAM 槽（强制 flash 回落 + `proj_import`）→ 走公共 LOAD
+ * → 回读各轨结果（engine/preset/steps/atk/e0），供注入脚本断言：
+ *   "fmt1"    轨 0 的 preset 写 0xFF、engine 写 0（格式 1 没有预置号，引擎来自工程）⇒
+ *             载入后 preset 取 `TRK_DEF[0][1]` 的默认预置（808 BOOM 的值）+ `steps_clear`；
+ *             轨 1 的 engine/preset 必须保留工程里的值；
+ *   "foreign" 轨 1 的 engine 写 NENGINES+2（本固件没有的引擎）⇒ `proj_foreign_parts`
+ *             换回默认引擎+预置（`TRK_DEF[1]`），图案保留。
+ * 走带中拒绝（ESP_ERR_INVALID_STATE）；case 名未知 ESP_ERR_INVALID_ARG。 */
+typedef struct {
+    struct {
+        uint8_t engine, preset; /* eng_req / preset（LOAD 之后） */
+        uint8_t steps;          /* 非空步数（合成轨按 step.n、鼓轨按 dstep.on） */
+        int16_t atk, e0;        /* P_ATK / P_E0（默认声音的写值判据） */
+    } trk[4];
+} sloop_store_synth_t;
+esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *out);
+
 /* 用户预置 0..31（上游 upreset.c：32 槽 / 2 个银行对象，`UPB1` 记录布局原样）。
  * 写 = 当前**选中轨**的声音（引擎 + 除混音/图案参数外的全部参数 + 前 16 步图案）；
  * 读可指定任意合成轨；鼓轨没有声音可存 ⇒ 写/读都回 ESP_ERR_INVALID_ARG（写另出

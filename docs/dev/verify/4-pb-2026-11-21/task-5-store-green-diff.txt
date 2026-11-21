@@ -1,0 +1,11 @@
+--- /dev/fd/63	2026-11-21 21:02:07.623954404 +0800
++++ /dev/fd/62	2026-11-21 21:02:07.623954404 +0800
+@@ -180,7 +180,7 @@
+   [PASS] ⑨ 收口 ERASE 1
+   [PASS] ⑨ ERASE 1 后槽 0 仍 USED、槽 1 EMPTY（实得 [0]）
+   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+-  设备已重启，console 就绪（4.2s）
++  设备已重启，console 就绪（4.1s）
+   [PASS] ⑨ 复位后 STORE STATS ready=1
+   [PASS] ⑨ 复位后 LIST → PRESET 0 USED（实得 ('ANALOG', 'ANALOG 01')）
+   [PASS] UI tracks（选轨）

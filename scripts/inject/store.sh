@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # store.sh — 存储门禁注入：工程 A–D 的「RAM 槽（PSRAM）+ flash」双层往返 + 开机 fetch
+#   ⑩ 换引擎/预置 = 换声音（最先跑：旧固件没有 `ENG PRESET` ⇒ RED 快速失败）：
+#      `ENG PRESET 0 2 1` 取期望向量 → `ENG TRACK 0 2 1` ⇒ p[] 逐项 71/71 一致、
+#      P_LEVEL/P_SLEN（param_kept）保留 → `ENG TRACK 0 1 0` 换引擎 ⇒ 71/71 +
+#      独立上游表 oracle（R17：eng_digital.c/eng_analog.c/preset_trim.h 字面量）→
+#      按住 KEY 0x42 时换预置 ⇒ `ENG SNAP voices` 归 0（panic 路径）、playing 不变 →
+#      `STORE PROJ SYNTH fmt1|foreign`（R18：project_load 的两条 fallback；破坏诊断槽 3）
 #   ① 四槽 ERASE → LIST 全 EMPTY（归一，脚本可重复）
 #   ② BPM 100 → LIVEHASH h0 → SAVE 0 → HASH 0 == h0
 #   ③ BPM 120 → LIVEHASH h1 ≠ h0

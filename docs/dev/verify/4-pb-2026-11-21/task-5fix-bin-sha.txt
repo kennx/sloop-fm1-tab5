@@ -1,0 +1,18 @@
+# fix 轮（R17/R18/minors）受测镜像与最终源码的对应关系
+# 1) 烧录镜像（scripts/flash.sh 的 build/ 产物；烧录前 sha256）
+07383e0ba039f78a6c58e625eb4177d4f4a41070a9aa38a380bd11d4aaac46c4  sloop_fm1_tab5.bin
+032ac77d963ea239fa202ec1f230ef84de824617efb21c271cfc09c998b8264e  bootloader/bootloader.bin
+0f2a64a383e935c988e77e5e785c6ebbf6d31c80547dc8c8caab1d48161ea115  partition_table/partition-table.bin
+
+# 2) 可装载段逐节 SHA256：烧录后紧接着再构建一遍，三段逐字节相同（代码/数据确定性；
+#    应用 .bin 的差异只在 .flash.appdesc 的构建时间/ELF SHA）
+## build A（= 烧录的镜像）
+3f88991c07ea3cd1ffed8846a3ade05308f2a4b14cf06910e995b2dc2e2d5d4a  .flash.init_array.bin
+68f141a0142963d4de203eaf21fb0f22902e01a4cf994b0c16bda220f99b95a0  .flash.rodata.bin
+98d07a18ec7c8521d098dd1ca16568a717e2e0069825695ca56b0e3266197a38  .flash.text.bin
+## build B（再构建一遍）
+3f88991c07ea3cd1ffed8846a3ade05308f2a4b14cf06910e995b2dc2e2d5d4a  .flash.init_array.bin
+68f141a0142963d4de203eaf21fb0f22902e01a4cf994b0c16bda220f99b95a0  .flash.rodata.bin
+98d07a18ec7c8521d098dd1ca16568a717e2e0069825695ca56b0e3266197a38  .flash.text.bin
+
+# 3) 构建：fix 轮两遍 rc=0、警告 0（task-5fix-build1.log / task-5fix-build2.log，镜像 0x17d5a0）。

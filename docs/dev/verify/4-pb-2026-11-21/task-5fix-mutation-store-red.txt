@@ -1,0 +1,37 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-211618.log
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] ⑩ 归一 engine=0 preset=0（ANALOG）
+  [PASS] ⑩ P_LEVEL=90（混音）
+  [PASS] ⑩ P_SLEN=12（图案）
+  [PASS] ⑩ ENG PRESET 0 2 1：71/71 项
+  [PASS] ⑩ ENG TRACK 0 2 1
+  [PASS] ⑩ ENG SNAP engine=2 preset=1
+  [PASS] ⑩ ENG TRACK 0 2 1 的 p[] == ENG PRESET 向量: 71/71 项一致
+  [PASS] ⑩ 换预置后 P_LEVEL=90（混音保留 90）
+  [PASS] ⑩ 换预置后 P_SLEN=12（图案参数保留 12）
+  [PASS] ⑩ ENG TRACK 0 1 0（换引擎）
+  [PASS] ⑩ ENG SNAP engine=1 preset=0
+  [PASS] ⑩ 换引擎后的 p[] == ENG PRESET 0 1 0 向量: 71/71 项一致
+  [PASS] ⑩ P_ATK=85 == 新引擎预置的 ATK 85（包络随声音走）
+  [PASS] ⑩ P_E0..P_E7=[4, 1, 1, 14, 26, 35, 0, 0] 由新引擎的预置写值覆盖（期望 [4, 1, 1, 14, 26, 35, 0, 0]）
+  [FAIL] ⑩ R17 oracle：引擎 1 预置 0 = DIGITAL RHODES（eng_digital.c:117 + preset_trim.h）: 1/21 项与上游表不符（id 上游/实得：[(1, 0, 85)]）
+  [PASS] ⑩ ENG TRACK 0 0 0（回 ANALOG）
+  [FAIL] ⑩ R17 oracle：引擎 0 预置 0 = ANALOG 808 BOOM（eng_analog.c:128 + preset_trim.h）: 1/23 项与上游表不符（id 上游/实得：[(1, 0, 112)]）
+  [PASS] ⑩ panic 基线 engine=0 preset=0
+  [PASS] ⑩ ENG AUDIO streaming=1（panic 由渲染块消费）
+  [PASS] ⑩ STATE SNAP playing=0（基线） = 0
+  [PASS] ⑩ KEY 0x42 down（按住 C）
+  [PASS] ⑩ 按住一个键后 voices=1（≥1 = 确实在发声）
+  [PASS] ⑩ 发声时换预置 ENG TRACK 0 2 1
+  [PASS] ⑩ 换预置后 voices=0（panic 路径：挂音已释放）
+  [PASS] ⑩ KEY 0x42 up（收口）
+  [PASS] ⑩ STATE SNAP playing=0（换预置不动走带） = 0
+  [PASS] ⑩ P_LEVEL 回默认
+  [PASS] ⑩ P_SLEN 回默认
+  [PASS] ⑩e SYNTH fmt1
+[FAIL] store: ⑩e 轨 0：默认声音 ANALOG 808 BOOM（e0=3）+ 工程里的 99 被覆盖 + 步清空: 回显缺少 /^PROJ 3 SYNTH case=fmt1 trk k=0 engine=0 preset=0 steps=0 atk=0 e0=3\r?$/（响应 'STORE PROJ SYNTH fmt1\r\nPROJ 3 SYNTH case=fmt1 OK\r\nPROJ 3 SYNTH case=fmt1 trk k=0 engine=0 preset=0 steps=0 atk=112 e0=3\r\nPROJ 3 SYNTH case=fmt1 trk k=1 engine=1 preset=1 steps=0 atk=10 e0=0\r\nPROJ 3 SYNTH case=fmt1 trk k=2 engine=0 preset=0 steps=0 atk=10 e0=0\r\nPROJ 3 SYNTH case=fmt1 trk k=3 engine=0 preset=0 steps=0 atk=10 e0=0\r\nsloop>'）
+EXIT=1

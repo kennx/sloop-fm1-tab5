@@ -1,10 +1,12 @@
 /*
- * store_tab5.c — 上游 storage.c / project.c 的 Tab5 适配层（ADR-009 §7/§8）
+ * store_tab5.c — 上游 storage.c / project.c / ui.c 的 Tab5 适配层（ADR-009 §7/§8）
  *
  * 本文件由 selftest.c **末尾 include**，与引擎/DSP 同属一个翻译单元——所以可以直接把
  * vendored 的 storage.c（A/B 双扇区 + 32B 提交头 + CRC + 回读校验，原样）、project.c
  * （#define PROJ_HOST：格式层 FUN1..6 + proj_capture/proj_apply）与 upreset.c（用户预置
  * 32 槽；#define FELUCCA_FLASH 1 才走 st_xip）编进来，缺的符号在本文件顶部做薄 shim。
+ * ui.c 的预置机制（apply_preset_to/set_engine_of/TRK_DEF/param_kept/arp_is_sounds）也
+ * 按原语义移植在这里（换引擎/预置 = 换声音，见「换引擎/预置」小节）。
  * third_party/ 零修改。
  *
  * 内存（ADR-009 §7，fidelity-first）：
@@ -78,8 +80,8 @@ static uint32_t trk_def_engine(uint32_t i)
 }
 
 /* 上游 ui.c:592 的 param_kept：载入声音时**不**被覆盖的参数（混音、图案参数、调性）。
- * upreset.c 的 up_load_to 用它逐项保留轨道自己的值（Task 4 起为活代码；工厂预置的
- * apply_preset_to 在 Task 5 落地时同样用它）。 */
+ * upreset.c 的 up_load_to 与工厂预置的预设应用（preset_values/preset_apply_locked）
+ * 都用它逐项保留轨道自己的值。 */
 static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_SLEN && i <= P_SGATE) ||
@@ -171,6 +173,174 @@ static int arp_is_sounds(const track_t *t)
         if (t->p[P_AMODE + i] != a[i])
             return 0;
     return 1;
+}
+
+/* ------------------------------------------------ 换引擎/预置 = 换声音 --- */
+/* 上游 ui.c:581-691 的预置机制（TRK_DEF/trk_def_engine/param_kept/arp_param/
+ * arp_is_sounds/apply_preset_to/set_engine_of）按原语义移植到本适配层。这是「换工厂
+ * 预置 / 换引擎 = 换声音」的唯一实现：音频路径（voice.c/fx.c）读的是 t->p[]，只写
+ * eng_req/preset 索引不会改声音（P4-B spec §2 的真缺陷）。
+ *
+ * 锁：上游在 FM-1 上用 fm1_irq_off/on 挡住音频 ISR；Tab5 上渲染走引擎锁
+ * （sloop_core_render 与所有写 API 共用），故下面的 `*_locked` 变体**要求调用方已持
+ * 引擎锁**——公共 API 与 sloop_store_project_load 都在锁内调它们，绝不递归取锁
+ * （xSemaphoreCreateMutex 不可重入）。 */
+
+/* 上游 ui.c:594 的 arp_param：琶音参数（MODE…ORDER）。在跑琶音时它们不被下一个声音
+ * 覆盖（2.7：你按下的琶音设置继续用），由 keep_arp 决定 */
+static int arp_param(uint32_t i)
+{
+    return i >= P_AMODE && i <= P_AORDER;
+}
+
+/* 上游 apply_preset_to 的**纯写值**部分（抽成一份实现，供应用与预览共用）：v = base->p[]
+ * 的拷贝，再按引擎 e 的预置 pi 覆写——param_kept 保留项、keep_arp 下的 arp 参数、
+ * kbd_hold 下的 P_AHOLD 不写；P_E0 以下其余回到 TP 默认；P_E0..P_E7、包络、ENV→FLT、
+ * level trim、VOICE、fx[4]、arp[4] 与 preset_extras 取预置值。引擎没有预置时上游在
+ * 写索引与清默认之前就返回：p[] 一个字节都不写（v 即 base 的拷贝）。 */
+static void preset_values(int16_t *v, const track_t *base, uint32_t e, uint32_t pi, int keep_arp,
+                          int kbd_hold)
+{
+    const engine_t *en = ENGINES[e % NENGINES];
+    const preset_t *pr;
+    uint32_t i;
+    memcpy(v, base->p, sizeof base->p);
+    if (!en->npresets) return;
+    pi %= en->npresets;
+    pr = &en->presets[pi];
+    for (i = 0; i < P_E0; i++) /* 声音的其余部分回到默认：预置才是声音（不是图案、不是混音） */
+        if (!param_kept(i) && !(keep_arp && arp_param(i)) && !(kbd_hold && i == P_AHOLD))
+            v[i] = TP[i].def;
+    for (i = 0; i < 8u; i++) v[P_E0 + i] = (int16_t)pr->e[i];
+    v[P_ATK] = pr->env[0];
+    v[P_DEC] = pr->env[1];
+    v[P_SUS] = pr->env[2];
+    v[P_REL] = pr->env[3];
+    v[P_ED_FLT] = pr->fenv;
+    v[P_ED_FX] = preset_trim(e % NENGINES, pi); /* 电平对齐（tools/level_presets.py） */
+    v[P_VOICE] = pr->mono ? V_LEGATO : V_POLY;  /* mono 预置保留 legato 手感 */
+    {
+        static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
+        for (i = 0; i < 4u; i++) {
+            v[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
+            if (!keep_arp)
+                v[P_AMODE + i] = (int16_t)(pr->arp[i] ? pr->arp[i] - 1 : TP[P_AMODE + i].def);
+        }
+        preset_extras(v, pr); /* glide、pitch / LFO 调制、voice mode */
+    }
+}
+
+/* 上游 apply_preset_to（ui.c:620-673，逐行同义）的副作用半段：琶音保留请求（必须在
+ * panic 之前）→ sound_change（旧声音淡出，无爆音）→ panic 本轨（MONO/POLY 可能变）→
+ * user 清 0 → 选中轨置 sync_reload → 预置索引 → 纯写值 → FM6 载入预置的 patch。
+ * 调用方持引擎锁（上游此处以 fm1_irq_off/on 保护）。 */
+static void preset_apply_locked(track_t *t, uint32_t pi)
+{
+    const engine_t *e = ENGINES[t->eng_req % NENGINES];
+    int16_t v[P_COUNT];
+    int keep_arp, kbd_hold;
+    if (is_drum(t)) return;
+    keep_arp = t->p[P_AMODE] != 0 && !arp_is_sounds(t); /* 2.7：在跑的琶音不是声音自带的才保留 */
+    kbd_hold = !t->p[P_AMODE] && t->p[P_AHOLD];         /* 2.7：KBD HOLD 保持开 */
+    if (keep_arp) arp_keep_req |= (uint8_t)(1u << trk_index(t));
+    sound_change(t);
+    panic_req |= (uint8_t)(1u << trk_index(t));
+    t->user = 0;
+    if (t == &trk[song.sel]) sync_reload = 1;
+    if (!e->npresets) return;
+    pi %= e->npresets;
+    t->preset = (uint8_t)pi;
+    preset_values(v, t, t->eng_req % NENGINES, pi, keep_arp, kbd_hold);
+    memcpy(t->p, v, sizeof v);
+    fm6_track_loaded(t);
+}
+
+/* 上游 set_engine_of（ui.c:677-689）：锁先还原（在锁里的参数先回基准）→ sound_change →
+ * 记下新引擎 → 引擎默认值 → 预置 0。上游的 fm1_irq_off/on 在这里就是引擎锁。 */
+static void set_engine_of_locked(track_t *t, uint32_t ei)
+{
+    const engine_t *e = ENGINES[ei % NENGINES];
+    uint32_t i;
+    if (is_drum(t)) return;
+    locks_restore(t);
+    sound_change(t);
+    t->eng_req = (uint8_t)(ei % NENGINES);
+    for (i = 0; i < 8u; i++) t->p[P_E0 + i] = e->edit[i].def;
+    preset_apply_locked(t, 0);
+}
+
+/* 上游 project.c:639-647 的 proj_foreign_parts：工程里某轨的声音来自本固件没有的引擎
+ * （Clipper 写的 HYBRID/FMX…）时，proj_apply 会把引擎号绕回另一个引擎并带上别人的参数；
+ * 该轨改回默认声音，图案与混音保留。调用方持引擎锁（project_load 与 Task 6 的
+ * autosave_resume）。 */
+static void proj_foreign_parts(const project_t *p)
+{
+    uint32_t k;
+    for (k = 0; k < NPART; k++)
+        if (p->t[k].preset != 0xFFu && p->t[k].engine >= NENGINES) {
+            set_engine_of_locked(&trk[k], TRK_DEF[k][0]);
+            preset_apply_locked(&trk[k], TRK_DEF[k][1]);
+        }
+}
+
+/* 上游 ui.c 的 apply_preset/set_engine（对指定轨）：本 TU 的公共入口在引擎锁内执行，
+ * 越界/冻结丢弃（与其它写 API 同口径）。 */
+void sloop_core_apply_preset(uint32_t track, uint32_t preset)
+{
+    if (track >= NTRK || s_frozen) return;
+    engine_lock();
+    preset_apply_locked(&trk[track], preset);
+    engine_unlock();
+}
+
+void sloop_core_set_engine(uint32_t track, uint32_t engine)
+{
+    if (track >= NTRK || engine >= NENGINES || s_frozen) return;
+    engine_lock();
+    set_engine_of_locked(&trk[track], engine);
+    engine_unlock();
+}
+
+/* 换引擎/预置 = 换声音（语义见 sloop_core.h）：引擎变 → 默认值 + 预置 0；预置变 →
+ * 应用预置。与旧实现的差别：参数真的落到 p[]（音频路径读的就是它）。 */
+void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
+{
+    if (k >= NPART || engine >= NENGINES || s_frozen) return;
+    engine_lock();
+    track_t *t = &trk[k];
+    if (t->eng_req != engine) set_engine_of_locked(t, engine);
+    if (t->preset != preset) preset_apply_locked(t, preset);
+    engine_unlock();
+}
+
+/* 预览：同一 p[] 基底上的纯写值，无副作用（不 sound_change、不 panic、不碰 FM6 状态）。
+ * 参数锁在生效时与 set_engine_of 的实际写值不同（后者先 locks_restore），此时只作参考。
+ * 返回 false = 冻结态（console 打 `ENG PRESET ERR frozen`）或参数越界；out 已清零。 */
+bool sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset,
+                               int16_t out[SLOOP_CORE_P_COUNT])
+{
+    const track_t *t;
+    int keep_arp, kbd_hold;
+    if (out == NULL) return false;
+    memset(out, 0, SLOOP_CORE_P_COUNT * sizeof *out);
+    if (track >= NTRK || engine >= NENGINES) return false;
+    if (s_frozen) return false;
+    engine_lock();
+    if (s_frozen) { /* 取锁后复核（与 read_params 同口径）：冻结在持锁时置位 */
+        engine_unlock();
+        return false;
+    }
+    t = &trk[track];
+    if (is_drum(t)) { /* 鼓轨没有「声音」（apply_preset_to 同样直接返回）：p[] 不变 */
+        memcpy(out, t->p, sizeof t->p);
+        engine_unlock();
+        return true;
+    }
+    keep_arp = t->p[P_AMODE] != 0 && !arp_is_sounds(t);
+    kbd_hold = !t->p[P_AMODE] && t->p[P_AHOLD];
+    preset_values(out, t, engine, preset, keep_arp, kbd_hold);
+    engine_unlock();
+    return true;
 }
 
 /* 上游 project.c 把 proj_v3_tmp 声明成普通静态（.bss，在自检快照窗口内）——这里用
@@ -344,6 +514,15 @@ esp_err_t sloop_store_project_load(uint32_t slot)
     for (uint32_t k = 0; k < NTRK; k++) ex_off[k] = 0;
     proj_apply(p, 1);
     song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
+    /* 上游 project_apply 的后两步（project.c:663-668）：格式 1 工程里 preset == 0xFF
+     * 的轨（旧格式没有预置号）取默认声音并清图案；随后把「本固件没有的引擎」的轨
+     * 换回默认声音（proj_apply 已把引擎号绕回，参数是别人的）。 */
+    for (uint32_t k = 0; k < NPART; k++)
+        if (p->t[k].preset == 0xFFu) {
+            preset_apply_locked(&trk[k], TRK_DEF[k][1]);
+            steps_clear(&trk[k]);
+        }
+    proj_foreign_parts(p);
     engine_unlock();
     store_unlock();
     return ESP_OK;
@@ -363,6 +542,87 @@ esp_err_t sloop_store_project_erase(uint32_t slot)
         ESP_LOGE(TAG, "PROJ %u ERASE 失败 rc=%d", (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
     }
+    return ESP_OK;
+}
+
+/* ---- 诊断：内存工程 + 触发 project_load 的两条 fallback 分支（R18，测试专用） ------ */
+/* 目录里没有「构造任意工程」的上游入口（FUN1..5 的旧格式 fixture 需要外部文件），而
+ * project_load 的两条 fallback 在真机上原本不可达：
+ *   ① 格式 1 工程的 `preset == 0xFF` 轨（旧格式没有预置号）→ 取 `TRK_DEF[k][1]` 的默认
+ *      声音 + `steps_clear`（上游 project.c:663-667）；
+ *   ② `proj_foreign_parts`：轨的引擎号 ≥ NENGINES（Clipper 写的 HYBRID/FMX…）→
+ *      `proj_apply` 已把引擎号绕回，这里换回该轨默认引擎+预置、图案与混音保留（上游
+ *      project.c:639-647）。
+ * 本函数以当前引擎状态捕获一份工程 → 按 case 改写要验的那个边界 → `st_save` 到**诊断
+ * 槽 3**（破坏性：覆盖该槽 RAM+flash 对象；槽 0–2 不碰）→ 清 RAM 槽强制走 flash 回落
+ * （`st_load` + `proj_import`，顺带验证 FUN6 序列化保留 `preset == 0xFF` 与越界引擎号）
+ * → 走公共 `sloop_store_project_load` → 回读各轨结果。console 只做回显。 */
+esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *out)
+{
+    if (out == NULL || case_name == NULL) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    bool fmt1 = strcmp(case_name, "fmt1") == 0;
+    bool foreign = strcmp(case_name, "foreign") == 0;
+    if (!fmt1 && !foreign) return ESP_ERR_INVALID_ARG;
+
+    const uint32_t slot = SLOOP_STORE_PROJECTS - 1u; /* 诊断槽 3 */
+    project_t *p = &proj_slot[slot];
+    store_lock();
+    engine_lock();
+    proj_capture(p);
+    engine_unlock();
+    if (fmt1) {
+        p->t[0].engine = 0;       /* 格式 1 只缺「预置号」：引擎仍来自工程（ANALOG） */
+        p->t[0].preset = 0xFFu;   /* 没有预置号 → load 必须取默认预置（TRK_DEF[0][1] = 0） */
+        p->t[0].p[P_ATK] = 99;    /* 预置应用必须把它盖回 808 BOOM 的 0（可观测） */
+        p->t[0].e[0] = 99;        /* 同上：ANALOG 的 WAVE 回到 3 */
+        memset(&p->t[0].step[3], 0, sizeof p->t[0].step[3]);
+        p->t[0].step[3].n = 1;    /* 工程里有一个音：fmt1 分支会 steps_clear（→ 0 步） */
+        p->t[0].step[3].note[0] = 60;
+        p->t[0].step[3].time = ST_NOTE;
+        p->t[0].step[3].vel = 100;
+        p->t[1].engine = 1;       /* 对照：轨 1 不带 0xFF，必须**保留**工程里的引擎/预置 */
+        p->t[1].preset = 1;
+    } else {
+        p->t[1].engine = (uint8_t)(NENGINES + 2u); /* 本固件没有的引擎（proj_apply 会绕回 2） */
+        p->t[1].preset = 3;
+        p->t[1].p[P_ATK] = 99;    /* 未知引擎的参数必须被默认声音覆盖 */
+        p->t[1].e[0] = 99;
+        memset(&p->t[1].step[5], 0, sizeof p->t[1].step[5]);
+        p->t[1].step[5].n = 1;    /* 图案保留（上游：its pattern and mix stay） */
+        p->t[1].step[5].note[0] = 64;
+        p->t[1].step[5].time = ST_NOTE;
+        p->t[1].step[5].vel = 100;
+    }
+    p->sum = proj_sum(p);         /* proj_ok 校验 sum：改写后必须重算 */
+    int rc = st_save(OBJ_PROJECT0 + slot, p, sizeof *p);
+    if (rc == 0) memset(p, 0, sizeof *p); /* 强制 load 走 flash 回落（st_load + proj_import） */
+    store_unlock();
+    if (rc != 0) {
+        ESP_LOGE(TAG, "PROJ %u SYNTH 保存失败 rc=%d", (unsigned)slot, rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+
+    esp_err_t err = sloop_store_project_load(slot);
+    if (err != ESP_OK) return err;
+
+    memset(out, 0, sizeof *out);
+    engine_lock();
+    for (uint32_t k = 0; k < NTRK; k++) {
+        const track_t *t = &trk[k];
+        out->trk[k].engine = t->eng_req;
+        out->trk[k].preset = t->preset;
+        out->trk[k].atk = t->p[P_ATK];
+        out->trk[k].e0 = t->p[P_E0];
+        if (is_drum(t)) {
+            for (uint32_t i = 0; i < NSTEP; i++)
+                out->trk[k].steps += (t->dstep[i].on[0] | t->dstep[i].on[1]) != 0 ? 1u : 0u;
+        } else {
+            for (uint32_t i = 0; i < NSTEP; i++) out->trk[k].steps += t->step[i].n != 0 ? 1u : 0u;
+        }
+    }
+    engine_unlock();
     return ESP_OK;
 }
 

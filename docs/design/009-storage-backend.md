@@ -216,6 +216,15 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   上游 `!PROJ_HOST` 段（autosave、`proj_foreign_parts`）与 `ui.c` 的预置应用逻辑
   （`apply_preset_to/set_engine_of/TRK_DEF/param_kept/user_of`）**按原语义移植到 adapter**，
   不改 vendored 文件。
+- **换引擎/预置的锁与写值形态（Task 5）**：`apply_preset_to` 在 FM-1 上由 `fm1_irq_off/on`
+  保护，Tab5 上改为**调用方持引擎锁**——`preset_apply_locked/set_engine_of_locked` 是
+  `*_locked` 变体，公共入口（`sloop_core_track/apply_preset/set_engine`）与
+  `sloop_store_project_load` 在同一次取锁内调它们（mutex 不可重入，绝不在锁内再取）。
+  上游的「纯写值」抽成 `preset_values`，应用与 `sloop_core_preset_preview`（无副作用）
+  共用同一实现，故设备侧可以用 `ENG PRESET` 的 71 项向量逐项判等
+  `ENG TRACK` 之后的 p[]。`project_load` 另补上游 `project_apply` 的后两步：格式 1 的
+  `preset == 0xFF` 轨取默认声音 + 清图案、`proj_foreign_parts`（未知引擎 → 该轨默认
+  引擎+预置；Task 6 的 autosave_resume 复用同一函数）。
 - 数据兼容：工程写 `FUN6`、读兼容 `FUN5/4/3/2/1`；用户预置 `UPB1`/`UP_VER 1`；FM6
   `FM6B`/ver 1。**不得改上游记录布局**；阶段 5 的编辑器协议对象 id 与之一一对应。
 - **`.bss` 与 SELFTEST 快照窗口（Task 4 实测）**：`selftest.c.obj` 的 `.bss` 被
@@ -248,6 +257,12 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   绝对地址**；OTA staging（`[0xE0000, 0xE5000)`）不属于 SLOOP 数据区，测试不得触碰。
 - 写失败（擦/写/回读不符）返回 `ESP_ERR_NOT_FINISHED`，RAM 槽与旧 flash 副本保持可读
   （与上游一致）；不静默报成功。
+- **测试专用诊断**：`STORE PROJ SYNTH <fmt1|foreign>`（`sloop_store_project_synth`）
+  以当前引擎状态捕获内存工程、改写出 `project_load` 的两条 fallback 边界（格式 1 的
+  `preset == 0xFF`、引擎号 ≥ NENGINES）、存到**诊断槽 3**（破坏性；槽 0–2 不碰）、清
+  RAM 槽强制 flash 回落（`proj_import` 校验 FUN6 序列化保留 `0xFF`/越界引擎号），再走
+  公共 LOAD 并回读各轨 `engine/preset/steps/atk/e0`。它是这两条分支在真机上的唯一
+  覆盖入口（`project_load` 的 fallback 在正常使用中不可达）。
 
 ## 后果
 
