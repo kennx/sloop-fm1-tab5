@@ -656,6 +656,18 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
 }
 
 /* ------------------------------------------------- 描述符投影 --- */
+/* 公开 fmt 镜像（sloop_core.h 的 sloop_desc_fmt_t）↔ 上游 core.h 的 F_*：换上游版本
+ * 时编译期暴露，显示层（参数页）按镜像常量分支格式化。 */
+_Static_assert((int)SLOOP_DESC_FMT_INT == (int)F_INT && (int)SLOOP_DESC_FMT_PCT == (int)F_PCT &&
+                   (int)SLOOP_DESC_FMT_BIPCT == (int)F_BIPCT && (int)SLOOP_DESC_FMT_TIME == (int)F_TIME &&
+                   (int)SLOOP_DESC_FMT_LFOHZ == (int)F_LFOHZ && (int)SLOOP_DESC_FMT_CUTOFF == (int)F_CUTOFF &&
+                   (int)SLOOP_DESC_FMT_DB == (int)F_DB && (int)SLOOP_DESC_FMT_SEMI == (int)F_SEMI &&
+                   (int)SLOOP_DESC_FMT_ENUM == (int)F_ENUM && (int)SLOOP_DESC_FMT_BPM == (int)F_BPM &&
+                   (int)SLOOP_DESC_FMT_NOTE == (int)F_NOTE && (int)SLOOP_DESC_FMT_ONOFF == (int)F_ONOFF &&
+                   (int)SLOOP_DESC_FMT_OCT == (int)F_OCT && (int)SLOOP_DESC_FMT_STEPS == (int)F_STEPS &&
+                   (int)SLOOP_DESC_FMT_SWING == (int)F_SWING && (int)SLOOP_DESC_FMT_FILT == (int)F_FILT,
+               "sloop_desc_fmt_t 与上游 core.h 的 F_* 编码不同步");
+
 /* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
  * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
  * max-min+1，不依赖终止符。 */

@@ -110,6 +110,27 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g);
  *  同 param_format）。引擎的 `desc` 钩子（依赖轨道状态的动态描述符）不投影，只给
  *  基础 edit[] 表。 */
 typedef enum { SLOOP_DESC_TRACK, SLOOP_DESC_GLOBAL, SLOOP_DESC_ENGINE } sloop_desc_scope_t;
+/* desc.fmt 的公开镜像（上游 core.h 的 F_* 编码）。`sloop_core_desc` 原样投影上游值，
+ * 这里给出名字以便 UI 按常量分支格式化；selftest.c 用静态断言保证两者一致
+ * （换上游版本时编译期报错，而不是显示层静默走错分支）。 */
+typedef enum {
+    SLOOP_DESC_FMT_INT = 0,
+    SLOOP_DESC_FMT_PCT,
+    SLOOP_DESC_FMT_BIPCT,
+    SLOOP_DESC_FMT_TIME,
+    SLOOP_DESC_FMT_LFOHZ,
+    SLOOP_DESC_FMT_CUTOFF,
+    SLOOP_DESC_FMT_DB,
+    SLOOP_DESC_FMT_SEMI,
+    SLOOP_DESC_FMT_ENUM,
+    SLOOP_DESC_FMT_BPM,
+    SLOOP_DESC_FMT_NOTE,
+    SLOOP_DESC_FMT_ONOFF,
+    SLOOP_DESC_FMT_OCT,
+    SLOOP_DESC_FMT_STEPS,
+    SLOOP_DESC_FMT_SWING,
+    SLOOP_DESC_FMT_FILT,
+} sloop_desc_fmt_t;
 typedef struct {
     const char *label, *unit;
     uint8_t fmt;
