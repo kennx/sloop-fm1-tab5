@@ -31,6 +31,8 @@
 #      store_raw.py 的 STORE RAW BEGIN/<hex>/END 写诊断槽 3 → STORE PROJ LOAD 3 →
 #      STORE PROJ FIELDS 3 与 62 项期望逐项比对（键顺序也判）；截断 fun5[:100] ⇒
 #      LOAD 3 回 STORE ERR invalid 且 LIVEHASH 不变；槽 0–2 不动、收口 ERASE 3
+#      另含 R27/R28：BEGIN 3,841 ⇒ size、BEGIN 3,840 接受；上传中途穿插 STORE PROJ LIST ⇒
+#      上传被丢弃（后续追加/END 回 invalid、不落盘、可重新上传）；播放中 END ⇒ playing
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

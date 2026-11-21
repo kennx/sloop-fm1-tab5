@@ -2952,10 +2952,17 @@ def store_fields_expect(s: Session, expected: dict, order: list, label: str) -> 
 
 
 def store_raw_grammar(s: Session) -> None:
-    """RAW 通道的语法/错误令牌（不含 fixture）：超长、越界块、未 BEGIN、不完整、ABORT。"""
-    s.ser.note("⑭a STORE RAW 语法与错误令牌：size / invalid / ABORT")
+    """RAW 通道的语法/错误令牌（不含 fixture）：超长、越界块、未 BEGIN、不完整、ABORT，
+    以及 R27/R28 的三条：长度上限 = 3,840（一个 flash 对象的 payload）、穿插其它 STORE
+    子命令会丢弃未完成上传（END 回 invalid、不落盘、之后可重新上传）、播放中 END 拒绝。"""
+    s.ser.note("⑭a STORE RAW 语法与错误令牌：size / invalid / ABORT / R27 / R28")
     store_cmd(s, "STORE RAW BEGIN 4097", r"^STORE ERR size\r?$",
-              "⑭a BEGIN 4097（> 4096）→ STORE ERR size")
+              "⑭a BEGIN 4097（> 3,840）→ STORE ERR size")
+    store_cmd(s, "STORE RAW BEGIN 3841", r"^STORE ERR size\r?$",
+              "⑭a BEGIN 3841（= ST_PAYLOAD_MAX + 1）→ 当场 size，不等到 END 的 save")
+    store_cmd(s, "STORE RAW BEGIN 3840", r"^STORE RAW BEGIN len=3840\r?$",
+              "⑭a BEGIN 3840（= ST_PAYLOAD_MAX）接受")
+    store_cmd(s, "STORE RAW ABORT", r"^STORE RAW ABORTED\r?$", "⑭a 收口 ABORT")
     store_cmd(s, "STORE RAW BEGIN 2", r"^STORE RAW BEGIN len=2\r?$", "⑭a BEGIN 2")
     store_cmd(s, "STORE RAW 010203", r"^STORE ERR size\r?$",
               "⑭a 追加 3B 超过声明的 2B → STORE ERR size")
@@ -2969,6 +2976,42 @@ def store_raw_grammar(s: Session) -> None:
     store_cmd(s, "STORE RAW ABORT", r"^STORE RAW ABORTED\r?$", "⑭a 收口 ABORT")
     s.cmd("STORE PROJ LIST")
     store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑭a 被拒的 END 没写槽 3（仍 EMPTY）")
+
+    s.ser.note("⑭a2 R27：上传中途穿插其它 STORE 子命令 ⇒ 未完成上传被丢弃，END 回 invalid")
+    store_cmd(s, "STORE RAW BEGIN 4", r"^STORE RAW BEGIN len=4\r?$", "⑭a2 BEGIN 4")
+    store_cmd(s, "STORE RAW AABB", r"^STORE RAW received=2\r?$", "⑭a2 追加 2B")
+    store_cmd(s, "STORE PROJ LIST", r"^PROJ 0 (USED|EMPTY)", "⑭a2 穿插 STORE PROJ LIST")
+    store_cmd(s, "STORE RAW CCDD", r"^STORE ERR invalid\r?$",
+              "⑭a2 穿插命令后的追加 → invalid（上传已被丢弃，状态机不再接受数据）")
+    store_cmd(s, "STORE RAW END project 3", r"^STORE ERR invalid\r?$",
+              "⑭a2 END → invalid（不会把别人的字节写进 flash）")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑭a2 被丢弃的上传没有落盘（槽 3 仍 EMPTY）")
+    store_cmd(s, "STORE RAW BEGIN 3", r"^STORE RAW BEGIN len=3\r?$", "⑭a2 重新 BEGIN 3")
+    store_cmd(s, "STORE RAW 010203", r"^STORE RAW received=3\r?$", "⑭a2 追加 3B")
+    store_cmd(s, "STORE RAW END project 3", r"^STORE RAW END project 3 saved len=3\r?$",
+              "⑭a2 新上传仍能 END（状态机已复位）")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭a2 收口 ERASE 3")
+
+    s.ser.note("⑭a3 R28：播放中 STORE RAW END 拒绝（写 API 的走带守卫）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑭a3 UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑭a3 TAP PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑭a3 STATE SNAP playing=1")
+    store_cmd(s, "STORE RAW BEGIN 4", r"^STORE RAW BEGIN len=4\r?$",
+              "⑭a3 播放中 BEGIN 允许（只写暂存）")
+    store_cmd(s, "STORE RAW AABB", r"^STORE RAW received=2\r?$", "⑭a3 播放中追加 2B")
+    store_cmd(s, "STORE RAW END project 3", r"^STORE ERR playing\r?$",
+              "⑭a3 播放中 END → STORE ERR playing（未写 flash、上传态保持）")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑭a3 播放中的 END 没落盘（槽 3 仍 EMPTY）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑭a3 TAP STOP")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑭a3 STATE SNAP playing=0")
+    store_cmd(s, "STORE RAW ABORT", r"^STORE RAW ABORTED\r?$", "⑭a3 收口 ABORT")
 
 
 def run_store_fields(s: Session) -> None:

@@ -1,0 +1,17 @@
+评审修复轮受测镜像（已烧录；store×2 + selftest 在此镜像上跑）:
+  8945047331d307d11dab2e567779c2d8471c907a3bc51cde9f9a2bc12f76cd25  sloop_fm1_tab5.bin
+烧录后只改测试脚本/文档，重跑 scripts/build.sh：同一 SHA256（8945047…，0 字节差异）。
+本轮 --clean 构建 2,098 个目标、警告 0（只有已知豁免的 kconfig 首 pass CMake 提示对）；
+第二遍 0 警告、0 kconfig 提示；镜像 0x180a00。
+
+Task 9 首轮的镜像关系（源码相同，镜像不同——差异只在 build 元数据）:
+受测镜像（已烧录；store×2 + selftest 在此镜像上跑）: 986f1c330738d37db21e14e36b3e2901d44b4ee6c08818b0233f74f133ab3412
+clean 构建镜像（同源码，store×2 在此镜像上跑）: 6b85c099a2f686b22ae296e425c8c890306bc51b5f9485db6fbfb5c5df2e2836
+首次烧录镜像（同源码，store×2 + selftest + params 在此镜像上跑）: b8e9f17a4fb3247fa9a2aea387d252041b473282359dbff07775f382cb16932b
+提交源码的最终构建（仅注释去重后增量构建）: 3f29cca44307bd37b0328a83360690bdfffeb9caf294fee6b4025f79105a86ec
+
+逐字节比较（clean/受测镜像 vs 后续重建）：均为 65 字节不同，且只落在两段 build 元数据
+clean 6b85c099 vs 注释后 986f1c33: 65 字节，区间 [(176, 207), (1575343, 1575375)]
+受测 986f1c33 vs 最终构建 3f29cca4: 65 字节，区间 [(176, 207), (1575343, 1575375)]
+区间 [176,207] = esp_app_desc 的 ELF SHA256（32B）；[1575343,1575375] = 镜像尾部 SHA256+对齐
+⇒ 代码与数据完全相同；ESP-IDF 每次构建都会更新这两个 SHA 字段（非确定性 build 元数据）

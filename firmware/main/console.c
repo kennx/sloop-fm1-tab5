@@ -68,10 +68,11 @@
  *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
  *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
  *    对象存在但任何格式都不匹配（截断/损坏）回 invalid。
- *    STORE RAW BEGIN <len> | <hex> | END <project> <slot> | ABORT 是分块上传通道
+ *    STORE RAW BEGIN <len≤3840> | <hex> | END <project> <slot> | ABORT 是分块上传通道
  *    （旧格式 fixture 的唯一入设备通道；一行 ≤240 hex = 120B，受 USJ 驱动 RX 环 256B
- *    约束）：
- *    END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
+ *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
+ *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
+ *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1336,8 +1337,9 @@ static int store_fault(int argc, char **argv)
 
 /* 工程 A–D（0..3）：RAM 槽（PSRAM）+ flash 双层。console 是诊断执行器（ADR-009 §3）：
  * 与 UI 命令共用 sloop_store_* 与同一套锁，只是能把返回码变成脚本可断言的回显。
- * 错误令牌：no_storage（未就绪）/playing（走带中）/empty（空槽）/invalid（槽号越界）/
- * save（flash 擦写或回读校验失败）。 */
+ * 错误令牌：no_storage（未就绪）/playing（走带中）/empty（空槽或空提交 len=0）/
+ * invalid（槽号或对象名越界；或对象存在但 proj_import 不认识它的格式——截断/损坏，
+ * 与 empty 分开）/save（flash 擦写或回读校验失败）/size（STORE RAW 的长度/块越界）。 */
 static const char *store_err(esp_err_t err)
 {
     if (!sloop_store_ready()) return "no_storage";
@@ -1649,10 +1651,12 @@ static int store_test_cmd(void)
 }
 
 /* STORE RAW：分块上传任意对象 payload（spec §4.4；旧格式 fixture 的唯一入设备通道）。
- *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX）
+ *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX = 3,840 =
+ *                        一个 flash 对象的 payload 上限；超限当场回 size，不等到 END 的 save）
  *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
  *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
  *   ABORT              → "STORE RAW ABORTED"
+ * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27：暂存与 proj_tmp 共用）。
  * 一行 ≤240 hex = 120B：真正的上限不是 console 行缓冲（256），而是 USB-Serial-JTAG
  * **驱动 RX 环 256B**——整行要在一次突发里装进环里，否则设备忙（LVGL/音频）时环溢出、
  * 字符被静默丢掉（实测 490 字符的行被截到 256 字符）。240 hex + "STORE RAW " + '\n'
@@ -1728,6 +1732,12 @@ static int store_raw(int argc, char **argv)
 
 static int store_command(int argc, char **argv)
 {
+    /* R27：RAW 暂存就是 proj_tmp/up_stage 那块共用缓冲——任何其它存储子命令都可能
+     * 借用它，故非 RAW 子命令一进来就丢弃未完成的上传（否则 END 会把别人的字节原样
+     * 写进 flash）。RAW 自己的 BEGIN/hex/END/ABORT 不走这里的分支。 */
+    if (argc >= 2 && strcasecmp(argv[1], "raw") == 0) return store_raw(argc, argv);
+    sloop_store_raw_abort();
+
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
     if (argc == 2 && strcasecmp(argv[1], "rawtest") == 0) return store_rawtest();
     if (argc == 2 && strcasecmp(argv[1], "livehash") == 0) return store_livehash();
@@ -1736,7 +1746,6 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
-    if (argc >= 2 && strcasecmp(argv[1], "raw") == 0) return store_raw(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {

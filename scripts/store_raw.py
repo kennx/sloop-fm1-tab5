@@ -2,7 +2,9 @@
 """store_raw.py — 经 console `STORE RAW` 通道把任意 payload 原样写入一个存储对象
 
 用途（P4-B spec §4.4/§6.3）：旧格式工程 fixture（FUN5/FUN4/FUN1，`gen_project_fixtures.py`
-生成）单行放不进 console（行上限 512 → 一块 480 hex 字符 = 240 字节），故分块：
+生成）单行放不进 console，故分块（一行 ≤240 hex = 120B：USB-Serial-JTAG 驱动 RX 环 256B，
+整行必须一次装进环里，否则设备忙时静默丢字符；总长 ≤3,840B = 一个 flash 对象的 payload
+上限，超出 BEGIN 当场回 `size`）：
     STORE RAW BEGIN <len>   → 回 "STORE RAW BEGIN len=<len>"
     STORE RAW <hex>         → 每块一次（≤240 hex = 120B），回 "STORE RAW received=<n>"
     STORE RAW END <obj> <slot> → 以 st_save 原样写入（CRC/提交头由 storage.c 生成），
@@ -21,7 +23,7 @@ import sys
 import time
 
 BAUD = 115200
-RAW_MAX = 4096        # sloop_store.h 的 SLOOP_STORE_RAW_MAX
+RAW_MAX = 3840        # sloop_store.h 的 SLOOP_STORE_RAW_MAX（= ST_PAYLOAD_MAX）
 CHUNK = 120           # 240 hex 字符：整行 251B 必须一次装进 USJ 驱动 RX 环（256B）
 PROMPT = b"sloop>"
 

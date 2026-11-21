@@ -318,10 +318,14 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   绝对地址**；OTA staging（`[0xE0000, 0xE5000)`）不属于 SLOOP 数据区，测试不得触碰。
 - 写失败（擦/写/回读不符）返回 `ESP_ERR_NOT_FINISHED`，RAM 槽与旧 flash 副本保持可读
   （与上游一致）；不静默报成功。
-- **旧格式 fixture 的入设备通道（Task 9）**：`STORE RAW BEGIN <len> | <hex> | END <obj> <slot>
-  | ABORT` 把任意对象 payload（≤4KB）分块搬进 PSRAM 暂存，`END` 以 `st_save` 原样写入**请求
-  的那一个对象**（`project` → `OBJ_PROJECT0 + slot`；工程槽的 RAM 缓存随后按开机 fetch 的
-  语义重新 `proj_import`）。写操作持存储锁、不取引擎锁、播放中拒绝。一行 ≤240 hex = 120B：
+- **旧格式 fixture 的入设备通道（Task 9）**：`STORE RAW BEGIN <len≤3,840> | <hex> | END
+  <obj> <slot> | ABORT` 把任意对象 payload 分块搬进 PSRAM 暂存（3,840 = `ST_PAYLOAD_MAX`，
+  即一个 flash 对象能写的 payload 上限；超限在 BEGIN 当场回 `size`，不会等到 END 才回
+  `save`），`END` 以 `st_save` 原样写入**请求的那一个对象**（`project` →
+  `OBJ_PROJECT0 + slot`；工程槽的 RAM 缓存随后按开机 fetch 的语义重新 `proj_import`）。
+  写操作持存储锁、不取引擎锁、播放中拒绝。**暂存与 `up_stage()`/`proj_tmp` 是同一块
+  4,096B**：任何其它 `STORE` 子命令入口都先 abort 未完成的上传（R27；穿插命令后 END 回
+  `invalid`、不落盘），`sloop_store_init` 也把 RAW 状态归零（`.noinit` 冷启动垃圾）。一行 ≤240 hex = 120B：
   真正的上限是 **USB-Serial-JTAG 驱动 RX 环 256B**（整行须一次入环；设备忙时溢出会静默丢
   字符，Task 9 实测 490 字符的行被截到 256），不是 console 行缓冲。
 - `STORE PROJ FIELDS n` 是 `st_load` + `proj_import` 的**只读投影**（不动引擎/RAM 槽），按固定

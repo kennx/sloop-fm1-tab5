@@ -93,20 +93,24 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
 /* RAW 上传通道（`STORE RAW BEGIN/<hex>/END`，spec §4.4）：把任意对象 payload 分块搬进
  * 4,096B 暂存，再以 `st_save` **原样**写入（CRC/提交头由 storage.c 生成）。用途：旧格式
  * 工程 fixture（3,816B 级）放不进 console 单行。语义：
- *   begin(len)  —— len 1..SLOOP_STORE_RAW_MAX；重复 begin 覆盖上一次；
- *   append(..)  —— 累计收到的字节数，超过 begin 声明的 len ⇒ ESP_ERR_INVALID_SIZE（状态
- *                  保持，调用方可 ABORT 重来）；未 begin ⇒ ESP_ERR_INVALID_ARG；
+ *   begin(len)  —— len 1..SLOOP_STORE_RAW_MAX=3,840（= storage.c 的 ST_PAYLOAD_MAX：一个
+ *                  flash 对象能写的 payload 上限；超限 ⇒ ESP_ERR_INVALID_SIZE，不会等到
+ *                  END 才回 save）；重复 begin 覆盖上一次；
+ *   append(..)  —— 累计收到的字节数；超过 begin 声明的 len（或内部计数已越界）⇒
+ *                  ESP_ERR_INVALID_SIZE（状态保持，调用方可 ABORT 重来）；
+ *                  未 begin ⇒ ESP_ERR_INVALID_ARG；
  *   end(obj,n)  —— 必须已收到恰好 len 字节；`obj` 目前只支持 "project"（→
  *                  OBJ_PROJECT0 + slot，slot 0..3，工程槽的 RAM 缓存按开机 fetch 的语义
  *                  重新 `proj_import`，导入失败则槽无效 ⇒ 之后 LOAD 走 flash 并回
  *                  invalid）；**只写请求的那一个对象**；走带中拒绝 =
  *                  ESP_ERR_INVALID_STATE（与其它写 API 同序）；
  *   abort()     —— 丢弃暂存状态（幂等）。
- * 暂存是与 `up_stage()`/`proj_tmp` **共用**的 4,096B（PSRAM）：begin/append 只写暂存、
- * 不取存储锁，故调用方必须与其它存储操作**串行**（当前唯一调用方是 console 单任务；
- * 若将来加 UI 入口，需要给暂存另开一块或把整段上传放进存储锁）。end 持存储锁；
- * 擦写期间绝不持引擎锁。`received` 供 console 回显。 */
-#define SLOOP_STORE_RAW_MAX 4096u
+ * 暂存是与 `up_stage()`/`proj_tmp` **共用**的 4,096B（PSRAM）：任何其它存储操作都可能
+ * 借用同一块暂存，所以**每一条其它 `STORE` 子命令在入口都先 abort 未完成的上传**
+ * （console 的 R27 纪律；C API 的调用方同样必须这么做——未 abort 就穿插别的存储操作，
+ * 上传内容会被静默覆盖，END 写进 flash 的是别人的字节）。`end` 持存储锁、只写请求的
+ * 那一个对象、擦写期间不持引擎锁；`received` 供 console 回显。 */
+#define SLOOP_STORE_RAW_MAX 3840u /* = storage.c 的 ST_PAYLOAD_MAX（4KB 扇区 − 256B 头/侧区） */
 esp_err_t sloop_store_raw_begin(uint32_t len);
 esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);
 uint32_t sloop_store_raw_received(void);

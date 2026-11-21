@@ -114,6 +114,8 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 
 #include "storage.c"
+_Static_assert(SLOOP_STORE_RAW_MAX == ST_PAYLOAD_MAX,
+               "STORE RAW 的长度上限必须等于一个 flash 对象的 payload 上限");
 
 #define PROJ_HOST 1
 #include "project.c"
@@ -445,6 +447,7 @@ esp_err_t sloop_store_init(void)
     s_last_input_ms = 0;
     s_busy = false;
     s_auto_task = NULL;
+    sloop_store_raw_abort(); /* R27：RAW 上传状态在开机时归零（.noinit 是冷启动垃圾） */
     /* 开机单次调用（ADR-009 §5 启动顺序），不做重复调用保护（与 HAL init 同约定） */
     s_store_lock = xSemaphoreCreateMutex();
     if (s_store_lock == NULL) return ESP_ERR_NO_MEM;
@@ -711,9 +714,10 @@ esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *
  * 故不会并发使用。不给 FIELDS 另开 3.8KB（ADR-009 §7 的 PSRAM 预算）。 */
 esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out)
 {
+    sloop_store_fields_t f; /* 成功才写 *out：失败路径不碰调用方的缓冲（头文件契约） */
     if (out == NULL || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
-    memset(out, 0, sizeof *out);
+    memset(&f, 0, sizeof f);
     store_lock();
     int n = st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp);
     if (n <= 0) {
@@ -723,40 +727,41 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out)
     /* 原始格式号必须在导入**之前**从对象魔数判定（导入后一律是 FUN6） */
     uint32_t magic;
     memcpy(&magic, &proj_tmp, sizeof magic);
-    out->fmt = magic == PROJ_MAGIC ? 6u : magic == PROJ_MAGIC_V5 ? 5u : magic == PROJ_MAGIC_V4 ? 4u :
+    f.fmt = magic == PROJ_MAGIC ? 6u : magic == PROJ_MAGIC_V5 ? 5u : magic == PROJ_MAGIC_V4 ? 4u :
                magic == PROJ_MAGIC_V3 ? 3u : magic == PROJ_MAGIC_V2 ? 2u : magic == PROJ_MAGIC_V1 ? 1u : 0u;
     project_t *p = s_auto;
     if (!proj_import(p, &proj_tmp, n)) {
         store_unlock();
         return ESP_ERR_INVALID_ARG; /* 对象存在，但不是任何已知格式（截断/损坏） */
     }
-    out->sel = p->sel;
-    out->bpm = p->g[G_BPM];
-    out->swing = p->g[G_SWING];
-    out->dust = p->g[G_DUST];
-    out->drdly = p->drdly;
+    f.sel = p->sel;
+    f.bpm = p->g[G_BPM];
+    f.swing = p->g[G_SWING];
+    f.dust = p->g[G_DUST];
+    f.drdly = p->drdly;
     for (uint32_t k = 0; k < NTRK; k++) {
         const proj_trk_t *t = &p->t[k];
-        out->trk[k].engine = t->engine;
-        out->trk[k].preset = t->preset;
-        out->trk[k].level = pt_get(t, P_LEVEL);
-        out->trk[k].atk = pt_get(t, P_ATK);
-        out->trk[k].e0 = t->e[0];
-        out->trk[k].e1 = t->e[1];
+        f.trk[k].engine = t->engine;
+        f.trk[k].preset = t->preset;
+        f.trk[k].level = pt_get(t, P_LEVEL);
+        f.trk[k].atk = pt_get(t, P_ATK);
+        f.trk[k].e0 = t->e[0];
+        f.trk[k].e1 = t->e[1];
         for (uint32_t i = 0; i < 8u; i++) {
             if (k == TRK_DRUM) {
                 uint16_t m = (uint16_t)(t->dstep[i].on[0] | (uint16_t)t->dstep[i].on[1] << 8);
                 uint32_t c = 0;
                 for (uint32_t b = 0; b < 16u; b++) c += (m >> b) & 1u;
-                out->trk[k].n[i] = (uint8_t)c;
-                out->trk[k].v[i] = m;
+                f.trk[k].n[i] = (uint8_t)c;
+                f.trk[k].v[i] = m;
             } else {
-                out->trk[k].n[i] = t->step[i].n;
-                out->trk[k].v[i] = t->step[i].note[0];
+                f.trk[k].n[i] = t->step[i].n;
+                f.trk[k].v[i] = t->step[i].note[0];
             }
         }
     }
     store_unlock();
+    *out = f;
     return ESP_OK;
 }
 
@@ -790,7 +795,10 @@ esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n)
 {
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
     if (!s_raw_on || data == NULL) return ESP_ERR_INVALID_ARG;
-    if (n > s_raw_len - s_raw_got) return ESP_ERR_INVALID_SIZE; /* 状态保持：调用方可 ABORT */
+    /* got > len 是内部状态异常的守卫：不先判会让 s_raw_len - s_raw_got 下溢成巨大值，
+     * 后面的 memcpy 就越过暂存写坏内存（R27）。 */
+    if (s_raw_got > s_raw_len || n > s_raw_len - s_raw_got)
+        return ESP_ERR_INVALID_SIZE; /* 状态保持：调用方可 ABORT */
     memcpy(s_stage->raw + s_raw_got, data, n);
     s_raw_got += n;
     return ESP_OK;

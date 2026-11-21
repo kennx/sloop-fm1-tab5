@@ -248,7 +248,7 @@ STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n
 STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n
 STORE BANK LIST|PUT n|GET n|LIVE|ERASE n    # PUT 取选中轨当前 live patch；GET/LIVE 打印 128B hex
 STORE LIVEHASH                   # 当前引擎捕获 hash（往返门禁用）
-STORE RAW BEGIN <len>            # 分块上传任意对象 payload（旧格式 fixture 用）
+STORE RAW BEGIN <len>            # 分块上传任意对象 payload（≤3,840 = 一个 flash 对象的 payload 上限）
 STORE RAW <hex>                  # 追加一块（≤240 hex 字符 = 120B）；可重复
 STORE RAW END <obj> <slot>       # 以 st_save 原样写入该 payload（CRC/头由 storage.c 生成）
 STORE RAW ABORT
