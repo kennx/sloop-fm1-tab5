@@ -54,6 +54,7 @@
 #include "page_params.h"
 #include "sloop_core.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 #include "theme.h"
 
 static const char *TAG = "sloop_ui";
@@ -526,6 +527,8 @@ void sloop_ui_request_page(uint8_t page)
     portENTER_CRITICAL(&s_page_mux);
     s_page_pending = page;
     portEXIT_CRITICAL(&s_page_mux);
+    /* 切页也是一次面板动作（自动存档的「无输入」计时；上游 ui_input_ms 同义）。 */
+    sloop_store_note_activity((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
 }
 
 /* TAP 注入的页级派发：坐标为页面区相对坐标；PLAY 页无可点控件（纯呈现）。
@@ -561,7 +564,10 @@ sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_res
         hit = page_tap(s_page, x, y, out);
     }
     bsp_display_unlock();
-    return hit ? SLOOP_TAP_RESULT_OK : SLOOP_TAP_RESULT_MISS;
+    if (!hit) return SLOOP_TAP_RESULT_MISS;
+    /* 自动存档的「无输入」计时：命中才算活动（上游按面板动作计），未命中不改任何状态 */
+    sloop_store_note_activity((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
+    return SLOOP_TAP_RESULT_OK;
 }
 
 esp_err_t sloop_ui_switch_page(uint8_t page)

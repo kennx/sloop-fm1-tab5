@@ -1,0 +1,17 @@
+$ STORE STATS
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>
+
+$ STORE AUTO ON
+STORE AUTO ON
+用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+
+$ STORE AUTO OFF
+STORE AUTO OFF
+用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+

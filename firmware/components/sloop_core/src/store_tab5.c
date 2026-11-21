@@ -32,6 +32,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "sloop_hal.h"
 #include "sloop_store.h"
@@ -358,13 +359,45 @@ static volatile uint32_t s_init_magic __attribute__((section(".noinit")));
 static SemaphoreHandle_t s_store_lock __attribute__((section(".noinit")));
 static bool s_ready __attribute__((section(".noinit")));
 
+/* ---- 自动存档（上游 project.c 的 autosave_tick/autosave_resume，Task 6） ----------- */
+/* 全部状态放 `.noinit`：本 TU 的 .bss 在 `ENG SELFTEST` 的快照窗口里，restore 会把
+ * hash/时间戳清零——清零后自检结束的第一拍就会把工厂态写回 autosave（覆盖用户工程）。 */
+#define AUTOSAVE_IDLE       2500u /* 上游 AUTOSAVE_IDLE：ms without input */
+#define AUTOSAVE_GAP        20000u /* 上游 AUTOSAVE_GAP：ms between two saves at least */
+#define AUTOSAVE_PERIOD     1000u /* 上游 now - autosave_checked < 1000u */
+#define AUTOSAVE_TASK_STACK 3072
+#define AUTOSAVE_TASK_PRIO  1
+
+/* 捕获/恢复暂存（上游 autosave_buf，3,816B）：与 proj_tmp（st_load/up_put 的暂存）
+ * 分开，tick 的 st_save 与其它存储操作才不会互相踩。PSRAM（ADR-009 §7）。 */
+static project_t *s_auto __attribute__((section(".noinit")));
+static uint32_t s_auto_hash __attribute__((section(".noinit")));    /* 上次写入/开机恢复的 hash */
+static uint32_t s_auto_ms __attribute__((section(".noinit")));      /* 上次尝试写（gap 起点） */
+static uint32_t s_auto_checked __attribute__((section(".noinit"))); /* 上次 tick 检查（1s 节流） */
+static uint32_t s_auto_writes __attribute__((section(".noinit")));  /* 本次开机的写入计数 */
+static uint32_t s_last_input_ms __attribute__((section(".noinit"))); /* note_activity 的时间戳 */
+static volatile bool s_auto_on __attribute__((section(".noinit")));
+static volatile bool s_busy __attribute__((section(".noinit"))); /* 有线程持存储锁（tick 的「store busy」） */
+static TaskHandle_t s_auto_task __attribute__((section(".noinit"))); /* 1s 任务句柄（失败路径读栈余量） */
+
+static void autosave_task(void *arg);
+
 static void store_lock(void)
 {
     if (s_store_lock != NULL) xSemaphoreTake(s_store_lock, portMAX_DELAY);
+    s_busy = true;
 }
 static void store_unlock(void)
 {
+    s_busy = false;
     if (s_store_lock != NULL) xSemaphoreGive(s_store_lock);
+}
+/* tick 用：拿不到锁就跳过（下个周期再来），不阻塞 1s 任务也不与写者排队 */
+static bool store_trylock(void)
+{
+    if (s_store_lock == NULL || xSemaphoreTake(s_store_lock, 0) != pdTRUE) return false;
+    s_busy = true;
+    return true;
 }
 
 /* 走带中拒写/拒载：对齐上游 "STOP BEFORE SAVE" */
@@ -379,7 +412,7 @@ static bool store_playing(void)
 bool sloop_store_ready(void)
 {
     return s_init_magic == STORE_INIT_MAGIC && s_ready && sloop_hal_storage_ready() &&
-           s_slot_ps != NULL && s_stage != NULL && s_v3_ps != NULL;
+           s_slot_ps != NULL && s_stage != NULL && s_v3_ps != NULL && s_auto != NULL;
 }
 
 esp_err_t sloop_store_init(void)
@@ -387,6 +420,14 @@ esp_err_t sloop_store_init(void)
     s_init_magic = 0;
     s_ready = false;
     flash_ok = 0;
+    s_auto_on = true; /* 默认 ON（上游行为）；console `STORE AUTO OFF` 是测试开关 */
+    s_auto_hash = 0;
+    s_auto_ms = 0;
+    s_auto_checked = 0;
+    s_auto_writes = 0;
+    s_last_input_ms = 0;
+    s_busy = false;
+    s_auto_task = NULL;
     /* 开机单次调用（ADR-009 §5 启动顺序），不做重复调用保护（与 HAL init 同约定） */
     s_store_lock = xSemaphoreCreateMutex();
     if (s_store_lock == NULL) return ESP_ERR_NO_MEM;
@@ -395,9 +436,10 @@ esp_err_t sloop_store_init(void)
     s_v3_ps = heap_caps_malloc(sizeof *s_v3_ps, MALLOC_CAP_SPIRAM);
     s_slot_ps = heap_caps_malloc(SLOOP_STORE_PROJECTS * sizeof(project_t), MALLOC_CAP_SPIRAM);
     s_stage = heap_caps_malloc(sizeof *s_stage, MALLOC_CAP_SPIRAM);
-    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL) {
-        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p", (void *)s_v3_ps, (void *)s_slot_ps,
-                 (void *)s_stage);
+    s_auto = heap_caps_malloc(sizeof *s_auto, MALLOC_CAP_SPIRAM);
+    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL || s_auto == NULL) {
+        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p auto=%p", (void *)s_v3_ps,
+                 (void *)s_slot_ps, (void *)s_stage, (void *)s_auto);
         return ESP_ERR_NO_MEM;
     }
     memset(s_slot_ps, 0, SLOOP_STORE_PROJECTS * sizeof(project_t));
@@ -420,10 +462,13 @@ esp_err_t sloop_store_init(void)
      * 当前副本地址装进 up_bank_xip。必须在 flash_ok=1 之后（up_bank_find 读它）。 */
     up_boot();
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
-    ESP_LOGI(TAG, "ready: slots=%p(%uB) stage=%p v3=%p(%uB) base=0x%lx span=0x%lx",
+    /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
+     * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
+     * 入口是 sloop_store_autosave_start()，由 sloop_core_init 在 resume 之后调用。 */
+    ESP_LOGI(TAG, "ready: slots=%p(%uB) stage=%p v3=%p(%uB) auto=%p(%uB) base=0x%lx span=0x%lx",
              (void *)s_slot_ps, (unsigned)(SLOOP_STORE_PROJECTS * sizeof(project_t)), (void *)s_stage,
-             (void *)s_v3_ps, (unsigned)sizeof *s_v3_ps, (unsigned long)sloop_hal_storage_base(),
-             (unsigned long)sloop_hal_storage_span());
+             (void *)s_v3_ps, (unsigned)sizeof *s_v3_ps, (void *)s_auto, (unsigned)sizeof *s_auto,
+             (unsigned long)sloop_hal_storage_base(), (unsigned long)sloop_hal_storage_span());
     return ESP_OK;
 }
 
@@ -434,7 +479,10 @@ void sloop_store_stats(sloop_store_stats_t *out)
     out->ready = sloop_store_ready();
     out->faults_armed = sloop_hal_storage_fault_armed() ? 1u : 0u;
     out->faults_taken = sloop_hal_storage_fault_taken();
-    if (!out->ready) return;
+    if (!out->ready) return; /* 未 init 时 autosave_* 保持 memset 的 0（.noinit 是冷启动垃圾） */
+    out->autosave_on = s_auto_on;
+    out->autosave_hash = s_auto_hash;
+    out->autosave_writes = s_auto_writes;
     /* objects：flash 里能读出「头合法 + payload CRC 对」且**非空提交**（h.len != 0）的工程
      * 对象数——erase 写的是 len=0 的空对象（与上游 st_save(obj,NULL,0) 同语义），不算对象。
      * st_current 借用 st_buf（main_scratch），故与写路径共用存储锁。 */
@@ -788,4 +836,143 @@ esp_err_t sloop_store_preset_erase(uint32_t slot)
     int rc = up_put(slot, NULL);
     store_unlock();
     return preset_put_rc(rc, "ERASE", slot);
+}
+
+/* ------------------------------------------------ 自动存档与上电恢复（Task 6） --- */
+/* 上游 project.c:686-754（`#ifndef PROJ_HOST` 段）按原语义移植到 adapter：
+ *   - autosave_tick 在「安静」时把工作工程写进 OBJ_AUTOSAVE（`project_t` 原样，
+ *     与工程 A–D 同一格式层，故编辑器/备份可互通）；
+ *   - autosave_resume 开机读回：`st_load` → `proj_import` → `proj_apply(all=1)` →
+ *     `song.sel` 钳位 → `proj_foreign_parts` → `trk[n].engine = eng_req`（上电无声，
+ *     不淡入）——"SLOOP 从上次离开的地方开始"。上游同一函数里 2.5→2.6 的
+ *     `drch_seed`/`midi_set` 段是**设置**对象（G_DRCH）的迁移，归 P4-E，不在这。
+ *
+ * 与上游条件的逐条对应（detail 见 ADR-009 §5）：上游的 `rec_wait/ft_on/ui.menu`
+ * （录音/文件传输/菜单打开）在本机没有对应物；「存储忙」（别的线程正拿着存储锁做
+ * 工程/预置的擦写）与「诊断冻结」（`ENG SELFTEST`）是本机多出来的两项。
+ * 锁序（ADR-009 §3）：存储锁 → 引擎锁；**擦/写 flash 期间不持引擎锁**（本板音频
+ * 渲染持它，持锁 50ms 必然 xrun）。tick 拿不到存储锁就跳过，不与写者排队。 */
+static int audio_quiet(void) /* 上游 project.c:700-709：合成/鼓 voice 均 inactive */
+{
+    uint32_t p, i;
+    for (p = 0; p < NPART; p++)
+        for (i = 0; i < NVOICE; i++)
+            if (trk[p].v[i].active) return 0;
+    for (i = 0; i < NDRUM; i++)
+        if (drums.v[i].active) return 0;
+    return 1;
+}
+
+/* 输入派发的唯一入口（物理/注入键盘、TAP 命中、成功的 state_apply）：只记时间戳，
+ * 不取任何锁（可能在 input 任务持 input 互斥时被调）。 */
+void sloop_store_note_activity(uint32_t now_ms)
+{
+    s_last_input_ms = now_ms;
+}
+
+bool sloop_store_autosave_enable(bool on)
+{
+    s_auto_on = on;
+    return s_auto_on;
+}
+
+void sloop_store_autosave_tick(uint32_t now_ms)
+{
+    if (!sloop_store_ready() || !s_auto_on || !flash_ok || s_frozen || s_busy) return;
+    if (now_ms - s_auto_ms < AUTOSAVE_GAP) return;
+    if (now_ms - s_last_input_ms < AUTOSAVE_IDLE) return;
+    if (now_ms - s_auto_checked < AUTOSAVE_PERIOD) return;
+    if (!store_trylock()) return;
+
+    uint32_t h;
+    engine_lock();
+    /* 走带先判、再捕获（上游同序）：播放中不做 3.8KB 的 proj_capture，也不动 flash。
+     * 整段都在引擎锁内 ⇒ 这份捕获与两个判据是同一时刻的状态（否则可能在「刚开始播放」
+     * 与「捕获」之间抢跑，把播放中的半截状态写进 flash）。 */
+    if (song.playing || transport_req) {
+        engine_unlock();
+        store_unlock();
+        return; /* 上游在这一项上早退，不推进 autosave_checked（下一拍再看） */
+    }
+    proj_capture(s_auto);
+    h = s_auto->sum;
+    bool do_write = audio_quiet() && h != s_auto_hash;
+    engine_unlock();
+    s_auto_checked = now_ms;
+    if (!do_write) {
+        store_unlock();
+        return;
+    }
+    /* 擦/写 flash：不持引擎锁（st_save 自带回读校验，失败时旧副本保持可读） */
+    int rc = st_save(OBJ_AUTOSAVE, s_auto, sizeof *s_auto);
+    if (rc == 0) {
+        s_auto_hash = h;
+        s_auto_writes++;
+        ESP_LOGD(TAG, "autosave 写入 hash=%08lX（本次开机第 %u 次）", (unsigned long)h,
+                 (unsigned)s_auto_writes);
+    } else {
+        /* 失败路径顺带报 1s 任务的栈余量（一次调用，微秒级）：这条路径最可能在
+         * 存储后端异常时反复触发，栈余量是排障时最先要看的一个数。 */
+        ESP_LOGW(TAG, "autosave 写入失败 rc=%d（下一窗口重试；任务栈余量 %uB）", rc,
+                 (unsigned)(s_auto_task ? uxTaskGetStackHighWaterMark(s_auto_task) * sizeof(StackType_t)
+                                        : 0u));
+    }
+    s_auto_ms = now_ms; /* 与上游同：尝试过就推进 gap（成功与否） */
+    store_unlock();
+}
+
+/* 上电恢复（sloop_core_init 在 sloop_store_init 之后、UI/音频启动之前调用）：
+ * 工厂态快照已拍完（README/ADR-009 §5 的启动顺序），resume 的写值不影响
+ * `ENG SELFTEST` 的 golden 基线。 */
+esp_err_t sloop_store_autosave_resume(void)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    int n;
+    store_lock();
+    n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
+    if (!proj_import(s_auto, &proj_tmp, n)) {
+        store_unlock();
+        ESP_LOGI(TAG, "autosave 无有效副本（从工厂态开始）");
+        return ESP_ERR_NOT_FOUND;
+    }
+    s_auto_hash = s_auto->sum; /* 第一拍 tick 不得把刚读回的东西原样写一遍（flash 寿命） */
+    engine_lock();
+    proj_apply(s_auto, 1);
+    song.sel = (uint8_t)(s_auto->sel < NTRK ? s_auto->sel : 0u);
+    proj_foreign_parts(s_auto); /* 本固件没有的引擎 → 该轨默认声音（project.c:639-647） */
+    for (n = 0; n < NPART; n++) trk[n].engine = trk[n].eng_req; /* 上电无声：不淡入 */
+    engine_unlock();
+    store_unlock();
+    ESP_LOGI(TAG, "autosave 恢复：hash=%08lX sel=%u bpm=%d", (unsigned long)s_auto_hash,
+             (unsigned)song.sel, (int)song.g[G_BPM]);
+    return ESP_OK;
+}
+
+/* 1s 周期任务的入口（sloop_core_init 在 sloop_store_autosave_resume 之后调用）：
+ * 栈 3072 内部 RAM、优先级 1（低于音频 5 与输入 4）。任务只调 tick（内部自取存储锁 +
+ * 引擎锁、不取 LVGL 锁）。放在 resume 之后是硬要求：先起任务的话，resume 还没写回
+ * 工作工程时的那一拍会把工厂态写进 autosave（覆盖刚读出来的东西）。
+ * 创建失败只告警：自动存档停摆，工程 A–D 与预置不受影响。 */
+esp_err_t sloop_store_autosave_start(void)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_auto_task != NULL) return ESP_OK; /* 幂等 */
+    if (xTaskCreate(autosave_task, "sloop_autosave", AUTOSAVE_TASK_STACK, NULL, AUTOSAVE_TASK_PRIO,
+                    &s_auto_task) != pdPASS) {
+        s_auto_task = NULL;
+        ESP_LOGE(TAG, "autosave 任务创建失败（内部 RAM 不足？自动存档停摆）");
+        return ESP_ERR_NO_MEM;
+    }
+    return ESP_OK;
+}
+
+/* 1s 周期任务：时间戳用 FreeRTOS tick（100Hz ⇒ 10ms 粒度，对 2.5s/20s 的门限足够），
+ * 与 note_activity 的调用方同一时钟。 */
+static void autosave_task(void *arg)
+{
+    (void)arg;
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(AUTOSAVE_PERIOD));
+        sloop_store_autosave_tick((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
+    }
 }

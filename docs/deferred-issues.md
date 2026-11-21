@@ -142,3 +142,15 @@
 | **触发条件** | Task 7（导航 IA / 组作用域页面生命周期）落地时必须解决并加「九页（或新分组）全建 + 逐页绘制弧线」的注入用例；或在此之前任何一次「全页访问后操作旋钮」的现场 panic 复现。 |
 | **参考** | `docs/dev/verify/4-pb-2026-11-21/task-5-poolcliff-first.log`（首次 Core 0：MTVAL=0x76）、`task-5-poolcliff-repro.log`（故意复现，Core 1 同点）、`task-5-poolcliff-symbols.txt`（addr2line：`get_next_line ← lv_draw_mask_radius ← lv_draw_sw_mask_apply ← lv_draw_sw_arc ← knob_draw`）、`task-5-params-fresh.txt`（独立启动单跑绿，free=2,620）、ADR-008 §3/§5（池预算与 9 页余量）、`firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:869,1053,1197` |
 | **登记** | 2026-11-21（P4-B Task 5 门禁现场发现；Task 5 的换音改动本身不分配 LVGL 内存，boot 池用量与改前相同） |
+
+## DI-20: `ENG SELFTEST` 之后工作工程被回滚到工厂态 ⇒ 自动存档下一拍会把工厂态写回 `OBJ_AUTOSAVE`
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 机制（代码推导，非现场观测）：`ENG SELFTEST` 跑完会调 `selftest_restore()`，把本 TU 的 `.data/.bss`（`linker.lf` 的 `SURROUND(sloop_selftest_bss)` 窗口）与 DSP 状态**回滚到 init 快照**——自检本义就是「从工厂态重跑 golden」。于是自检结束时：①引擎的实时状态（`trk[].p[]/step[]`、`song.g[]`）= 工厂态；②自动存档的「上次写过的 hash」`s_auto_hash` 在 `.noinit`（ADR-009 §8，正是为了不被 restore 清零），仍是自检前那个用户工程的 hash。两者不同 ⇒ 自检结束后的第一个满足门限的窗口（idle 2.5s + gap 20s + 无发声）会把工厂态 `st_save` 进 `OBJ_AUTOSAVE`，覆盖用户上次的工作工程；下次上电 `autosave_resume` 恢复的就是工厂态。 |
+| **影响面** | 只有诊断入口 `ENG SELFTEST`（`device-selftest.py` 门禁也会跑它）。正常使用（上电/编辑/播放/切页）不触发。后果是「跑一次自检 = 用户工作工程被工厂态覆盖」，掉电重启后回到工厂态；对开发与门禁无害（脚本自己控制 `STORE AUTO`），对用户是静默数据丢失。 |
+| **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」）。修法牵涉一个产品判断（自检算不算一次会话语义上的「新状态」），与 P4-E 的设置/会话层同批做更合适；现在改会把「诊断命令」与「存储语义」两件事耦在一起。 |
+| **解决方向** | 三选一（P4-E 决策时记入 ADR）：(a) `selftest_restore()` 尾部用 restore 后的引擎状态 `proj_capture` 并刷新 `s_auto_hash`（= 自检结果不进 autosave，最省事）；(b) 自检结束时把 `s_auto_on` 置 0 且**不**恢复（用户须显式 `STORE AUTO ON`）；(c) 自检前把 autosave 对象备份到暂存、结束时写回（成本高，不推荐）。优先 (a)，并在 `store.sh` 的 ⑨f' 之后加一条「自检后 `autosave_hash` 不变」的断言。 |
+| **触发条件** | 用户在设备上跑过 `ENG SELFTEST`（含 `device-selftest.py` 门禁）之后继续使用并掉电重启；或 P4-E 处理「自检/会话」语义时一并解决。 |
+| **参考** | ADR-009 §5（自动存档阈值与启动顺序）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
+| **登记** | 2026-11-21（P4-B Task 6 落地时按代码推导确认；Task 6 评审 R21 修正措辞——不声称设备实测） |

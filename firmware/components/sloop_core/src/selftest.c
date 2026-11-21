@@ -394,6 +394,22 @@ esp_err_t sloop_core_init(void)
     esp_err_t store_ret = sloop_store_init();
     if (store_ret != ESP_OK) {
         ESP_LOGW("sloop_core", "存储初始化失败: %s（继续无存储运行）", esp_err_to_name(store_ret));
+    } else {
+        /* 上电回到上次离开的地方（上游 autosave_resume，ADR-009 §5）：必须在
+         * selftest_snapshot_init() 之后——工厂态基线已拍完，`ENG SELFTEST` 的 golden
+         * 不受用户工程影响。失败（无 autosave/无存储）只意味着从工厂态开始。 */
+        esp_err_t resume_ret = sloop_store_autosave_resume();
+        if (resume_ret != ESP_OK && resume_ret != ESP_ERR_NOT_FOUND) {
+            ESP_LOGW("sloop_core", "autosave 恢复失败: %s（从工厂态开始）",
+                     esp_err_to_name(resume_ret));
+        }
+        /* 1s 周期任务必须在 resume 之后才起跑（先起任务的那一拍会把工厂态写进 autosave，
+         * 覆盖刚读回的工作工程）。无 autosave（NOT_FOUND）也要起任务——那是新机的正常态。 */
+        esp_err_t tick_ret = sloop_store_autosave_start();
+        if (tick_ret != ESP_OK) {
+            ESP_LOGW("sloop_core", "autosave 任务启动失败: %s（自动存档停摆）",
+                     esp_err_to_name(tick_ret));
+        }
     }
     return core_status;
 }

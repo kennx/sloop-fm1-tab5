@@ -1,0 +1,37 @@
+# Task 6 内存/段归属证据（ADR-009 §5/§7）——评审修复轮（R22 起任务移到 resume 后）
+
+## 1) 新增静态符号（selftest.c.obj）：自动存档状态必须在 .noinit
+00000028 l     O .noinit	00000004 s_init_magic
+0000001c l     O .noinit	00000004 s_auto
+00000005 l     O .noinit	00000001 s_auto_on
+00000000 l     O .noinit	00000004 s_auto_task
+00000018 l     O .noinit	00000004 s_auto_hash
+00000014 l     O .noinit	00000004 s_auto_ms
+00000010 l     O .noinit	00000004 s_auto_checked
+0000000c l     O .noinit	00000004 s_auto_writes
+00000008 l     O .noinit	00000004 s_last_input_ms
+00000004 l     O .noinit	00000001 s_busy
+00000024 l     O .noinit	00000004 s_store_lock
+
+## 2) 链接后 .noinit 与自检快照 bss 区间（不重叠 = restore 不回滚）
+4ff1b12c b s_auto_task
+4ff1b134 b s_last_input_ms
+4ff1b144 b s_auto_hash
+4ff1b148 b s_auto
+4ff1b150 b s_store_lock
+4ff50bf4 A _sloop_selftest_bss_start
+4ff51070 b main_scratch
+4ff9c650 A _sloop_selftest_bss_end
+
+## 3) 启动顺序（代码位置）：sloop_store_init（不建任务）→ sloop_store_autosave_resume → sloop_store_autosave_start
+394:    esp_err_t store_ret = sloop_store_init();
+401:        esp_err_t resume_ret = sloop_store_autosave_resume();
+408:        esp_err_t tick_ret = sloop_store_autosave_start();
+
+## 4) 1s 任务：栈 3072B（内部 RAM）、优先级 1；失败路径打 uxTaskGetStackHighWaterMark
+368:#define AUTOSAVE_TASK_STACK 3072
+369:#define AUTOSAVE_TASK_PRIO  1
+917:                 (unsigned)(s_auto_task ? uxTaskGetStackHighWaterMark(s_auto_task) * sizeof(StackType_t)
+960:    if (xTaskCreate(autosave_task, "sloop_autosave", AUTOSAVE_TASK_STACK, NULL, AUTOSAVE_TASK_PRIO,
+
+## 5) 内部堆门禁（ENG MEM / soak）：修复轮 100,555B 起 / 100,323B 收（≥61,440B）

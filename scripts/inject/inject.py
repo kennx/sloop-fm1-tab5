@@ -1822,6 +1822,119 @@ def run_store_engine(s: Session) -> None:
     store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑩f 收口 ERASE 3（诊断槽）")
 
 
+# ---- 自动存档与上电恢复（上游 autosave_tick/autosave_resume，Task 6） ----
+# console 契约（main/console.c）：
+#   STORE STATS  -> 行尾 "autosave=<0|1> autosave_hash=XXXXXXXX autosave_writes=n"
+#   STORE AUTO ON|OFF -> "STORE AUTO on" / "STORE AUTO off"（诊断开关，默认 on）
+# 上游门限原值：无输入 ≥2.5s（AUTOSAVE_IDLE）、两次写间隔 ≥20s（AUTOSAVE_GAP）、
+# 停走带且无发声（audio_quiet）、捕获 hash 与上次不同才写；tick 1s 一拍。
+AUTOSAVE_IDLE_S = 2.5
+AUTOSAVE_GAP_S = 20.0
+AUTOSAVE_STEP_TRACK = 0
+AUTOSAVE_STEP_COL = 5    # 窗口 0..16 内的绝对步 5（轨 0）：「步表随工程恢复」的判据
+
+
+def autosave_fields(s: Session) -> dict:
+    """`STORE STATS` 的自动存档三项。缺字段（旧固件）抛 InjectError——RED 阶段在这里炸。"""
+    s.cmd("STORE STATS")
+    m = re.search(r"^STORE STATS .*autosave=(\d) autosave_hash=" + STORE_HASH8 +
+                  r" autosave_writes=(\d+)\r?$", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(
+            "STORE STATS: 缺少 autosave=…/autosave_hash=…/autosave_writes=… 字段"
+            f"（{s.last.strip()!r}）")
+    return {"on": int(m.group(1)), "hash": int(m.group(2), 16), "writes": int(m.group(3))}
+
+
+def autosave_wait_writes(s: Session, want: int, timeout: float, label: str) -> float:
+    """轮询到 `autosave_writes == want`，返回实测耗时（秒）；超时判失败并返回耗时。
+    轮询只发 `STORE STATS`（不产生输入活动、不改引擎），每 0.5s 一次。"""
+    t0 = time.monotonic()
+    while True:
+        got = autosave_fields(s)
+        elapsed = time.monotonic() - t0
+        if got["writes"] == want:
+            s.ok(f"{label}：{elapsed:.1f}s 后 autosave_writes={want}")
+            return elapsed
+        if got["writes"] > want:
+            s.fail(f"{label}：autosave_writes 超出期望（实得 {got['writes']}，期望 {want}）")
+            return elapsed
+        if elapsed >= timeout:
+            s.fail(f"{label}：{timeout:.1f}s 内 autosave_writes 未到 {want}"
+                   f"（实得 {got['writes']}）")
+            return elapsed
+        time.sleep(0.5)
+
+
+def autosave_no_write(s: Session, writes: int, wait: float, label: str) -> None:
+    """等 wait 秒再读计数：不得变化（不该写的时候一个字节都不写）。"""
+    time.sleep(wait)
+    got = autosave_fields(s)
+    (s.ok if got["writes"] == writes else s.fail)(
+        f"{label}（{wait:.1f}s 后 autosave_writes={got['writes']}，期望仍 {writes}）")
+
+
+def autosave_bump_bpm(s: Session, prefer: int) -> int:
+    """改全局 BPM 到一个**与当前不同**的值（同一状态不会触发写，hash 相同就测不出东西）。
+    返回落地值。PARAM GLOBAL 经状态层 → 引擎，同时算一次输入活动（重置 idle 计时）。"""
+    cur = store_bpm(s)
+    want = prefer if cur != prefer else (prefer + 7 if prefer + 7 <= 240 else prefer - 7)
+    store_cmd(s, f"PARAM GLOBAL 0 {want}", rf"^PARAM GLOBAL id=0 value={want} applied={want} ",
+              f"BPM {cur} → {want}")
+    (s.ok if store_bpm_settled(s, want) else s.fail)(f"STATE SNAP bpm={want}（改值生效）")
+    return want
+
+
+def step_fields(s: Session, track: int, idx: int) -> tuple:
+    """`ENG STEP` 的 (n, note 列表, vel, time)：步表的逐字段判据。"""
+    s.cmd(f"ENG STEP {track} {idx}")
+    m = re.search(r"^ENG STEP k=(\d+) i=(\d+) n=(\d+) note=([\d,]+) vel=(\d+) time=(\d+)",
+                  s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"ENG STEP: 回显不匹配（{s.last.strip()!r}）")
+    return (int(m.group(3)), m.group(4), int(m.group(5)), int(m.group(6)))
+
+
+def ensure_step_note(s: Session, track: int, col: int) -> tuple:
+    """保证轨 track 的绝对步 col（窗口 0..16 内）有音（幂等：先读，空才 TAP 建）。
+    返回落地后的步字段，供复位前后逐字段比较。"""
+    st = step_fields(s, track, col)
+    if st[0] == 0:
+        x, y = step_cell_xy(col, track)
+        s.cmd(f"TAP {x} {y}")
+        s.expect(rf"-> STEP track={track} step={col} CMD_TOGGLE_STEP",
+                 f"TAP 步 ({track},{col}) 建音")
+        st = step_fields(s, track, col)
+    (s.ok if st[0] >= 1 else s.fail)(f"轨 {track} 绝对步 {col} 有音（n={st[0]} note={st[1]}）")
+    return st
+
+
+def ensure_silent_pattern(s: Session) -> None:
+    """让**播放中**没有音符发声：三条合成轨的 pattern 长度缩到 1 步（`P_SLEN=1`，播放只走
+    步 0）并清掉步 0。上游 seq 的 `trk_len()` 用 `p[P_SLEN]`（clamp ≥1）作循环长度，所以
+    「1 步 + 步 0 空」⇒ 走带在跑但一次都不触发。
+
+    为什么需要：⑪d 要证明「只有 `song.playing` 能拦住写入」。若播放期间有音符在响，
+    `audio_quiet()` 也会拦住同一个写——把 playing 门删掉，断言照样绿（评审 R23 的同一类
+    问题）。静音后窗口内 `voices` 恒 0，⑪d 前后各采样一次 `ENG SNAP voices` 作前提断言，
+    发声门则交给 ⑪e（走带已停、按住一个键）单独隔离。"""
+    for k in range(3):
+        select_track(s, k)
+        store_cmd(s, f"PARAM {ENG_P_SLEN} 1",
+                  rf"^PARAM track={k} id={ENG_P_SLEN} value=1 applied=1 ",
+                  f"⑪d 轨 {k} P_SLEN=1（pattern 只有步 0）")
+        s.cmd("UI step")
+        s.expect(r"UI page=step \(2\)", f"⑪d UI step（轨 {k}）")
+        if step_fields(s, k, 0)[0] != 0:
+            x, y = step_cell_xy(0, k)
+            s.cmd(f"TAP {x} {y}")
+            s.expect(rf"-> STEP track={k} step=0 CMD_TOGGLE_STEP", f"⑪d 清空轨 {k} 步 0")
+        (s.ok if step_fields(s, k, 0)[0] == 0 else s.fail)(f"⑪d 轨 {k} 步 0 为空（播放不会触发）")
+    select_track(s, 0)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑪d UI step（收口回轨 0）")
+
+
 def store_early_load_probe(s: Session, timeout: float = 20.0) -> str:
     """热复位后的**早探**：console 一接受命令就发 `STORE PROJ LOAD 0`（不等 init 完成）。
 
@@ -1905,12 +2018,21 @@ def run_store(s: Session) -> None:
        `ENG TRACK` 应用后的 p[]（71/71）+ param_kept 保留 + 换引擎 + **独立上游表 oracle**
        （R17）+ 发声时换预置的 panic 路径（`ENG SNAP` 的 voices 归零）+ **project_load 的
        两条 fallback**（R18：`STORE PROJ SYNTH fmt1|foreign`，诊断槽 3）。
+    ⑪ 自动存档与上电恢复（run_store_autosave，最后跑）：空闲写 / 20s gap / 同态不写 /
+       播放与发声抑制 / `STORE AUTO OFF` 抑制（每一条都只有被测的那道门能拦住写入，
+       见该函数的 docstring）/ 硬复位后 LIVEHASH+bpm+步表恢复且开机不重写。
+       它留一个 autosave 对象，故**第二次运行起** ⓪ 的「硬复位到工厂态」实际是「硬复位到
+       上一轮 ⑪ 结束时的状态」——本场景的断言全是同轮相对比较（h0/h1/h2 只在同轮内比），
+       不受影响；证据里的 h0 从第 2 轮起稳定。
 
-    ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位到工厂态——引擎
-       参数/选轨/引擎号都是 sloop_core_init 的默认值，不带上一次运行 ⑨ 载入的预置参数
-       （实测：不归一时 run 2 的 h0 变成上一轮载入后的状态，h0/h2 与 run 1 不同）。再
-       `ENG AUDIO ON` + 停止：走带请求（transport_req）只由渲染循环消费，停流时残留的
-       请求会让写 API 回 playing。
+    ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
+       引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
+       的状态，h0/h2 与 run 1 不同）。Task 6 起复位还会恢复上一轮的 autosave（⑪ 段留下的
+       工作工程），故「起点」= 上一轮 ⑪ 结束时的状态；它由本脚本自己写出，从第 2 轮起逐位
+       相同（实测 run 2/3 的 h0/h1/h2 全同）。再 `ENG AUDIO ON` + 停止：走带请求
+       （transport_req）只由渲染循环消费，停流时残留的请求会让写 API 回 playing。
+       选中轨（`song.sel`，工程的一部分、随 autosave 恢复）显式归一到 0：⑩ 的 `PARAM`
+       作用于选中轨，不归一就会写到上一轮剩下的轨上（设备实测：autosave 里 sel=1）。
     """
     # 归一：硬复位到工厂态（不写 flash，只 esptool 硬复位）
     s.ser.note("⓪ 归一：esptool 硬复位到工厂态（不带上一轮载入的预置参数）")
@@ -1921,6 +2043,15 @@ def run_store(s: Session) -> None:
     s.expect(r"ENG AUDIO streaming=1", "⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）")
     ensure_stopped(s)
     store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "STORE STATS ready=1")
+    # 选中轨是**工程的一部分**（proj_capture 的 sel）：Task 6 起复位会从 autosave 恢复
+    # 上一轮的选中轨，故 ⓪ 必须显式归一到轨 0——否则 ⑩ 的 `PARAM`（作用于选中轨）会写到
+    # 别的轨、而 `ENG PRESET 0 …` 比对的是轨 0（设备上真实踩到：autosave 里 sel=1）。
+    select_track(s, 0)
+    # 自动存档（Task 6）默认 ON：本场景的断言是「某个状态在某个时刻的 hash/对象」，
+    # 空闲时的一次擦写会让 LIVEHASH 与 STORE STATS 的读数错拍，故先关掉；⑪ 段自己打开。
+    # 注意 **`STORE AUTO` 不跨复位**（init 每次回到默认 ON）：⑦/⑨g/⑪g 每次硬复位后
+    # 都重新下发一次（⑪g 之后是本场景最后一段，⑪ 段自己会在复位后按需再次打开）。
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF（本场景其余段免干扰）")
 
     # ⑩ 换引擎/预置 = 换声音（Task 5）：最先跑——旧固件没有 `ENG PRESET`，RED 快速失败
     run_store_engine(s)
@@ -1996,6 +2127,9 @@ def run_store(s: Session) -> None:
         s.wait_ready(timeout=20.0)
 
     store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑦ 复位后 STORE STATS ready=1")
+    # STORE AUTO 不跨复位（init 每次都回到默认 ON）：每次硬复位后重新关掉，否则本段的
+    # 空闲擦写会与下面的 hash/对象断言抢时序（⑪ 段自己再打开）。
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑦ 复位后 STORE AUTO OFF")
     s.cmd("STORE PROJ LIST")
     store_expect(s, rf"^PROJ 0 USED hash={STORE_HASH8}\r?$", "⑦ LIST PROJ 0 USED")
     (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
@@ -2019,6 +2153,7 @@ def run_store(s: Session) -> None:
         f"⑧ HASH 0 == h2={h2:08X}（自检 restore 未回滚存储指针与 RAM 槽）")
 
     run_store_presets(s)
+    run_store_autosave(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -2183,6 +2318,7 @@ def run_store_presets(s: Session) -> None:
     s.ser.note("⑨g esptool 硬复位 → LIST 仍 USED（up_boot）+ LOAD 还原同一组值")
     s.reboot()
     store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑨ 复位后 STORE STATS ready=1")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑨ 复位后 STORE AUTO OFF")
     used, _, _ = preset_list(s)
     (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") else s.fail)(
         f"⑨ 复位后 LIST → PRESET 0 USED（实得 {used.get(0)}）")
@@ -2216,6 +2352,197 @@ def run_store_presets(s: Session) -> None:
     used, _, _ = preset_list(s)
     (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") and 2 not in used else s.fail)(
         f"⑨ 被拒的 SAVE/ERASE 未改存储：槽 0 仍 USED、槽 2 仍 EMPTY（实得 {sorted(used)}）")
+
+
+def run_store_autosave(s: Session) -> None:
+    """⑪ 自动存档与上电恢复（Task 6，上游 autosave_tick/autosave_resume 语义）。
+
+    `STORE AUTO OFF` 由 run_store ⓪ 下发（其它段的断言不受「空闲时的一次 flash 擦写」
+    干扰；**它不跨复位**——⑦/⑨g 每次硬复位后都重新下发）；本段归一再打开。
+
+    每条断言都必须**只有被测的那一道门**能拦住写入——否则删掉门也照样绿（评审 R20）：
+    ⓐ 首次空闲写：改 BPM → 1.0s 时不得写（idle 2.5s 未到）→ 轮询到写一次；`autosave_hash`
+       == `LIVEHASH`（写的就是当前工作工程）。本次距 reboot 不足 20s，上游 `autosave_ms`
+       从 0 起算的**boot gap** 也参与（首个写只能落在 uptime ≥20s 之后），故实测可能 3–20s。
+    ⓒ gap 20s（紧跟 ⓐ 的写）：改 BPM → 4s 内不写；若 gap 门被删，idle 一到（2.5s +
+       一拍 ≤3.5s）就会写，4s 的读数必须抓到；随后在 20s 窗口到点才写，实测「改值 → 写」≥6s。
+    ⓑ hash 门（紧跟 ⓒ 的写）：状态**不变**等 25s（>gap 20s + idle 2.5s ⇒ gap/idle 都已满足，
+       只有「hash 相同」能拦住）→ 计数不变。
+    ⓓ 播放门（ⓑ 之后，gap 已在 25s 外过期）：先把三条合成轨的 pattern 缩到 1 步并清空步 0
+       （`ensure_silent_pattern`：走带在跑但一次都不触发 ⇒ `audio_quiet` 恒成立；窗口结束后
+       把 `P_SLEN` 归回默认 16，避免这个副作用随 autosave 漂进下一轮的 ② h0）→ TAP PLAY →
+       **改 BPM**（`proj_capture` 真捕获的值）⇒ 前提断言 `autosave_hash != LIVEHASH`（hash
+       门不成立）→ 10s + 3s 两读都不写，且窗口**前后**各采样一次 `ENG SNAP voices`（都须为 0）
+       ——此刻 idle/gap/hash/发声四道门都成立，唯一能拦的是 `song.playing`。
+    ⓔ 发声门（`audio_quiet`，上一次写已在 20s 之外）：按住 C（`voices≥1`）→ 改 BPM →
+       **先睡 3.5s 让 idle 过期**，再观察 3s 不写（整个窗口 idle/gap 都满足，只有发声能拦）；
+       松开 → 2.5–6s（纯 idle）写一次。
+    ⓕ 开关门：`STORE AUTO OFF` → 改 BPM（到 140）→ 等 26s（>gap 20s ⇒ idle/gap 都满足）→
+       再观察 5s 窗口（两次读）不写；`STORE AUTO ON` → 开闸即写一次（≤5s，写的就是 OFF
+       期间改出来的现状，`autosave_hash == LIVEHASH`）——证明是开关在拦，不是 gap。
+    ⓖ 复位恢复（bpm=140 就是 ⑪f 那一份）：`ENG STEP 0 5` 已有音 → esptool 硬复位 →
+       `LIVEHASH` == 该 hash、`STATE SNAP` bpm=140、`ENG STEP 0 5` 逐字段相同、
+       `autosave_writes=0`；再等过 boot 的 20s gap → 计数仍 0（resume 记住了 hash，
+       第一拍不把刚读回的东西重写一遍）。
+
+    RED 判据：旧固件没有 `STORE AUTO`（run_store ⓪ 就炸）也没有 autosave=… 字段。
+    """
+    s.ser.note("⑪ 自动存档：空闲写 → gap 20s → 同态不写 → 播放/发声抑制 → OFF → 复位恢复")
+    select_track(s, 0)
+    ensure_stopped(s)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑪ UI step")
+    ensure_window(s, 0, 16)
+    step_before = ensure_step_note(s, AUTOSAVE_STEP_TRACK, AUTOSAVE_STEP_COL)
+
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑪ STORE AUTO ON")
+    st = autosave_fields(s)
+    (s.ok if st["on"] == 1 else s.fail)("⑪ STORE STATS autosave=1")
+
+    s.ser.note("⑪a 改 BPM → 首次写一次、autosave_hash == LIVEHASH")
+    autosave_bump_bpm(s, 100)
+    autosave_no_write(s, st["writes"], 1.0, "⑪a 改值后 1.0s 不写（idle 2.5s 未到）")
+    w1 = st["writes"] + 1
+    elapsed = autosave_wait_writes(s, w1, 25.0,
+                                   "⑪a 空闲后写一次（含 boot 的 20s gap：autosave_ms 从 0 起）")
+    (s.ok if elapsed >= AUTOSAVE_IDLE_S else s.fail)(
+        f"⑪a 首次写不早于 idle 2.5s（实测 {elapsed:.1f}s；本次距 boot 不足 20s，"
+        "上游从 0 起算的 boot gap 也参与——⑪e 单独量纯 idle）")
+    st = autosave_fields(s)
+    live = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⑪a LIVEHASH")
+    (s.ok if st["hash"] == live else s.fail)(
+        f"⑪a autosave_hash={st['hash']:08X} == LIVEHASH={live:08X}")
+
+    s.ser.note("⑪c gap 20s（紧跟上一次写）：改值后 4s 不写、20s 窗口到点才写")
+    autosave_bump_bpm(s, 110)
+    # 4.0s > idle 2.5s + 一拍任务 1s：若 gap 门被删，这一拍就会写，4.0s 的读数必须抓到；
+    # 窗口内前 2.5s 是 idle 在拦，后 1.5s 只有 gap 能拦（读数落在后者）。
+    autosave_no_write(s, w1, 4.0,
+                      "⑪c 改值后 4s 不写（若忽略 gap，idle 一到 2.5s+一拍就会写）")
+    elapsed = autosave_wait_writes(s, w1 + 1, 20.0, "⑪c gap 到点后写一次")
+    total = 4.0 + elapsed
+    (s.ok if total >= 5.5 else s.fail)(
+        f"⑪c「改值 → 写」实测 {total:.1f}s ≥ 5.5s（gap 20s 在起作用，不是 idle 一到就写）")
+    (s.ok if total <= AUTOSAVE_GAP_S + 2.0 else s.fail)(
+        f"⑪c 实测 {total:.1f}s ≤ {AUTOSAVE_GAP_S + 2.0:.1f}s（gap 到点即写）")
+    w2 = w1 + 1
+
+    s.ser.note("⑪b hash 门（紧跟上一次写）：状态不变等 25s（>gap+idle）不写")
+    autosave_no_write(s, w2, 25.0, "⑪b 同一状态 25s 不重复写（gap/idle 都已满足，只有 hash 门在拦）")
+
+    s.ser.note("⑪d 播放门（R23）：先让播放无声，再 PLAY 中改 BPM ⇒ 只有 song.playing 能拦")
+    ensure_silent_pattern(s)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑪ TAP PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑪ STATE SNAP playing=1")
+    # 只停走带不改值的话，hash 与上次写相同 ⇒ **hash 门**也会拦住写入，删掉 playing 门
+    # 照样绿（评审 R23）。所以这里改一个 proj_capture 真正捕获的值（全局 BPM），让 hash
+    # 与上次写不同；此后 idle（2.5s）与 gap（20s，上次写已在 25s 之外）都满足，唯一还能
+    # 拦住写入的就是 song.playing。
+    autosave_bump_bpm(s, 120)
+    live_play = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                           "⑪d 播放中的 LIVEHASH")
+    st_play = autosave_fields(s)
+    (s.ok if st_play["hash"] != live_play else s.fail)(
+        f"⑪d 前提：autosave_hash={st_play['hash']:08X} != 当前 LIVEHASH={live_play:08X}"
+        "（hash 门不成立 ⇒ 只剩 playing 门）")
+    autosave_no_write(s, w2, 10.0,
+                      "⑪d 播放中改 BPM 后 10s 不写（hash 已不同、idle/gap 满足，只有 playing 能拦）")
+    s.cmd("ENG SNAP")
+    voices_play = [int(v) for v in re.findall(r"ENG SNAP trk k=\d+ .*voices=(\d+)", s.last)]
+    (s.ok if voices_play and max(voices_play) == 0 else s.fail)(
+        f"⑪d 窗口前前提：播放中无发声 voices={voices_play}"
+        "（0 ⇒ audio_quiet 恒成立，只有 song.playing 能拦）")
+    autosave_no_write(s, w2, 3.0, "⑪d 播放中再 3s 不写")
+    s.cmd("ENG SNAP")
+    voices_play2 = [int(v) for v in re.findall(r"ENG SNAP trk k=\d+ .*voices=(\d+)", s.last)]
+    (s.ok if voices_play2 and max(voices_play2) == 0 else s.fail)(
+        f"⑪d 窗口后前提：仍无发声 voices={voices_play2}（整个窗口 audio_quiet 都成立）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑪ TAP STOP")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑪ STATE SNAP playing=0")
+    # 收尾（必须在 STOP 之后：select_track 会把当前页切到 TRACKS，STOP 的 TAP 就命不中了）：
+    # 把 pattern 长度归回默认 16——⑪d 只是为了让窗口里没有发声才缩到 1 步。不归的话它会随
+    # autosave 进入下一轮的开机状态，② h0 就跨轮漂移（实测踩到：h0=D160C9B7 → 7F23D623）。
+    for k in range(3):
+        select_track(s, k)
+        store_cmd(s, f"PARAM {ENG_P_SLEN} {ENG_SLEN_DEF}",
+                  rf"^PARAM track={k} id={ENG_P_SLEN} value={ENG_SLEN_DEF} "
+                  rf"applied={ENG_SLEN_DEF} ", f"⑪d 轨 {k} P_SLEN 归默认 {ENG_SLEN_DEF}")
+    select_track(s, 0)
+
+    s.ser.note("⑪e 发声门（audio_quiet）：按住 C 改值、先睡过 idle，再观察 3s 不写")
+    s.cmd("KEY 0x42 down")
+    s.expect(r"KEY 0x42 down", "⑪ KEY 0x42 down（按住 C）")
+    s.cmd("ENG SNAP")
+    voices = int(re.search(r"ENG SNAP trk k=0 .*voices=(\d+)", s.last, re.MULTILINE).group(1))
+    (s.ok if voices >= 1 else s.fail)(f"⑪ 按住 C 时 voices={voices}（≥1 = 确实在发声）")
+    autosave_bump_bpm(s, 130)
+    # 先睡过 idle（改值即活动）：这样**整个**观察窗里 idle 与 gap 都已满足，唯一能拦住
+    # 写入的是 audio_quiet()（发声）。不先睡的话，窗口前 2.5s 是 idle 在拦（评审 minor 4）。
+    time.sleep(AUTOSAVE_IDLE_S + 1.0)
+    autosave_no_write(s, w2, 3.0,
+                      "⑪e 发声时 3s 不写（idle 已过期、gap 满足，只有 audio_quiet 能拦）")
+    s.cmd("KEY 0x42 up")
+    s.expect(r"KEY 0x42 up", "⑪ KEY 0x42 up（松开）")
+    w3 = w2 + 1
+    elapsed = autosave_wait_writes(s, w3, 12.0, "⑪e 释放尾音结束后写一次")
+    (s.ok if AUTOSAVE_IDLE_S <= elapsed <= 6.0 else s.fail)(
+        f"⑪e 纯 idle 写实测 {elapsed:.1f}s（idle 2.5s + 一拍 1s 任务；上一次写已在 20s 之外）")
+
+    s.ser.note("⑪f 开关门：AUTO OFF 后改值、等过 gap（26s）再观察 5s 不写 → AUTO ON 开闸即写")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑪ STORE AUTO OFF")
+    st = autosave_fields(s)
+    (s.ok if st["on"] == 0 else s.fail)("⑪ STORE STATS autosave=0")
+    bpm_off = autosave_bump_bpm(s, 140)
+    time.sleep(AUTOSAVE_GAP_S + 6.0)  # 26s：idle 2.5s 与 gap 20s 都已满足
+    autosave_no_write(s, w3, 2.5, "⑪f AUTO OFF：过 gap 后 2.5s 不写")
+    autosave_no_write(s, w3, 2.5, "⑪f AUTO OFF：再过 2.5s 仍不写（5s 窗口）")
+    # 开关一开就应立刻写（idle/gap 都早已满足）：这里**不再改值**——改值在 OFF 期间已经
+    # 做了，若 ON 后再改一次，可能正好落在 tick 之后、让「刚写下的」与「当前状态」错拍。
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑪ STORE AUTO ON（恢复）")
+    w4 = w3 + 1
+    elapsed = autosave_wait_writes(s, w4, 8.0, "⑪f AUTO ON 后立即写一次（开关在拦，不是 gap）")
+    (s.ok if elapsed <= 5.0 else s.fail)(
+        f"⑪f 开闸即写（实测 {elapsed:.1f}s ≤ 5s：idle/gap 早已满足，写的是 OFF 期间改的现状）")
+    st = autosave_fields(s)
+    live = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⑪f 写入后的 LIVEHASH")
+    (s.ok if st["hash"] == live else s.fail)(
+        f"⑪f autosave_hash={st['hash']:08X} == LIVEHASH={live:08X}（写的就是现状 bpm={bpm_off}）")
+
+    s.ser.note("⑪g 复位恢复：硬复位 → LIVEHASH/bpm/步表回来，且开机不重写")
+    step_saved = ensure_step_note(s, AUTOSAVE_STEP_TRACK, AUTOSAVE_STEP_COL)
+    (s.ok if step_saved == step_before else s.fail)(
+        f"⑪ 步表未被本段改动（{step_saved} == {step_before}）")
+    bpm_saved = store_bpm(s)
+    (s.ok if bpm_saved == bpm_off else s.fail)(f"⑪g 复位前 bpm={bpm_saved} == {bpm_off}")
+
+    s.reboot()
+    store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑪g 复位后 STORE STATS ready=1")
+    st = autosave_fields(s)
+    (s.ok if st["writes"] == 0 else s.fail)(
+        f"⑪g 本次开机 autosave_writes={st['writes']}（0 = 还没写）")
+    (s.ok if st["hash"] == live else s.fail)(
+        f"⑪g resume 记住的 autosave_hash={st['hash']:08X} == 复位前的 {live:08X}")
+    got = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⑪g 复位后 LIVEHASH")
+    (s.ok if got == live else s.fail)(f"⑪g 复位后 LIVEHASH={got:08X} == {live:08X}（工作工程回来了）")
+    (s.ok if store_bpm_settled(s, bpm_saved) else s.fail)(
+        f"⑪g STATE SNAP bpm={bpm_saved}（工程内的值）")
+    step_after = step_fields(s, AUTOSAVE_STEP_TRACK, AUTOSAVE_STEP_COL)
+    (s.ok if step_after == step_saved else s.fail)(
+        f"⑪g ENG STEP {AUTOSAVE_STEP_TRACK} {AUTOSAVE_STEP_COL} 复位后 {step_after} == 复位前 {step_saved}")
+
+    s.ser.note("⑪h 开机不重写：等过 boot 的 20s gap，autosave_writes 仍为 0")
+    time.sleep(AUTOSAVE_GAP_S + 5.0)
+    st = autosave_fields(s)
+    (s.ok if st["writes"] == 0 else s.fail)(
+        f"⑪h boot gap 过后 autosave_writes={st['writes']}（0 = resume 的 hash 让第一拍跳过）")
+    (s.ok if st["hash"] == live else s.fail)(
+        f"⑪h autosave_hash 仍为 {st['hash']:08X}")
 
 
 SCENARIOS = {

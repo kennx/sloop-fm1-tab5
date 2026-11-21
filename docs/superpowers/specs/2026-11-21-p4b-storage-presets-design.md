@@ -176,7 +176,9 @@ void     sloop_store_bank_current(uint8_t *packed);  /* 选中轨当前 patch �
 /* 自动存档（上游 autosave_tick/autosave_resume 语义）：停走带 + 无输入 ≥2.5s +
  * 距上次保存 ≥20s + 无发声 + 捕获 hash 与上次不同才写 OBJ_AUTOSAVE；
  * note_activity() 由输入派发调用（键盘/触摸/console 注入都算）；tick 由 1s 周期
- * 任务调用（不占 LVGL 锁）。boot_resume 在 snapshot 之后由 core 调。 */
+ * 任务调用（不占 LVGL 锁）。boot_resume 在 snapshot 之后由 core 调。
+ * 诊断开关 `STORE AUTO ON|OFF`（默认 ON）对应 sloop_store_autosave_enable()；
+ * `STORE STATS` 另带 autosave/autosave_hash/autosave_writes 三项。 */
 void      sloop_store_note_activity(uint32_t now_ms);
 void      sloop_store_autosave_tick(uint32_t now_ms);
 esp_err_t sloop_store_autosave_resume(void);
@@ -185,8 +187,10 @@ esp_err_t sloop_store_autosave_resume(void);
  * 注：这三个声明在 sloop_core.h（引擎 API）；sloop_store.h 只放存储。 */
 void      sloop_core_apply_preset(uint32_t track, uint32_t preset);
 void      sloop_core_set_engine(uint32_t track, uint32_t engine);
-/* 预览：同一 p[] 基底上的预置写值，无副作用（console `ENG PRESET` 用它做期望值）。 */
-void      sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset, int16_t out[71]);
+/* 预览：同一 p[] 基底上的预置写值，无副作用（console `ENG PRESET` 用它做期望值）。
+ * 实际声明（Task 5 落地）返回 bool：false = 诊断冻结（console 回 `ENG PRESET ERR frozen`，
+ * 不打印零向量）或参数越界，out 已清零；true = out 填好 71 项。 */
+bool      sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset, int16_t out[71]);
 /* sloop_core_track(k,e,p) 语义修正为 set_engine_of + apply_preset_to(p)，与上游一致。 */
 
 /* 设备 torn-write 套件：对象 = OBJ_SETTINGS（P4-B 不写它；测试前快照、测试后恢复）。 */
@@ -218,7 +222,7 @@ esp_err_t sloop_store_test(sloop_store_test_t *out);
 
 **内存账（实测后复核）**：内部 RAM 新增仅 `main_scratch` 3,840B + 指针/小静态 ≈4.2KB（当前 soak `internal_free≈70.4KB`、地板 61,440B → 预计 ≈66KB）；PSRAM 新增 `s_slot_ps` 15,264B + `s_stage` 4,096B + `s_v3_ps` 2,584B ≈22KB（32MB PSRAM 充裕）。**门禁**：`nm`/`idf.py size-components` + 启动 `ENG MEM` 确认三者不在 DRAM，且 idle 内部堆 ≥61,440B。
 
-**启动顺序**（`sloop_core_init`）：HAL → 引擎默认 → `selftest_snapshot_init()`（工厂态基线，golden 不变）→ `sloop_store_init()`（PSRAM 槽/暂存、mmap、4 槽 fetch、`up_boot`、`fm6_bank_boot`）→ `sloop_store_autosave_resume()`（proj_import + proj_apply + `proj_foreign_parts`，`trk[n].engine = eng_req` 无淡入）→ 创建 autosave 1s 周期任务。**snapshot 必须在 resume 之前**，否则 `ENG SELFTEST` 的基线会变成用户工程、golden 失配。
+**启动顺序**（`sloop_core_init`）：HAL → 引擎默认 → `selftest_snapshot_init()`（工厂态基线，golden 不变）→ `sloop_store_init()`（PSRAM 槽/暂存、mmap、4 槽 fetch、`up_boot`、`fm6_bank_boot`；不建任务）→ `sloop_store_autosave_resume()`（proj_import + proj_apply + `proj_foreign_parts`，`trk[n].engine = eng_req` 无淡入）→ `sloop_store_autosave_start()`（autosave 1s 周期任务）。**snapshot 必须在 resume 之前**，否则 `ENG SELFTEST` 的基线会变成用户工程、golden 失配；**任务必须在 resume 之后**，否则先起任务的那一拍会把工厂态写进 autosave、覆盖刚读回的工作工程。
 
 ### 4.3 状态层（`sloop_state`）
 

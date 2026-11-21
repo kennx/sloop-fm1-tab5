@@ -167,13 +167,33 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   hash 与上次写入不同、存储未忙、未处于诊断冻结。
 - 1s 周期任务（优先级 1、栈 3072、内部 RAM；不取 LVGL 锁）执行 tick；`note_activity()`
   由输入派发调用（物理/注入键盘、TAP 命中、成功的 `state_apply` 都算活动）。
-- 相同状态不重复写（hash 跳过）→ flash 寿命与上游同量级；`STORE STATS` 暴露写入计数，
-  `STORE AUTO ON|OFF` 为测试开关（默认 ON）。
+- 相同状态不重复写（hash 跳过）→ flash 寿命与上游同量级；`STORE STATS` 暴露
+  `autosave=<0|1> autosave_hash=<8hex> autosave_writes=<n>`，`STORE AUTO ON|OFF` 为测试
+  开关（默认 ON；关掉只停 tick 的写，开机恢复照常）。resume 把读回的 hash 记下 ⇒ 开机第一拍
+  不会把刚读回的东西原样写一遍（实测：复位后再等过 boot 的 20s gap，`autosave_writes` 仍 0）。
+- **与 `ENG SELFTEST` 的交互（已知，DI-20，机制推导）**：自检的 `selftest_restore()` 把
+  `.data/.bss` 窗口与 DSP 状态回滚到 init 快照（引擎 = 工厂态），而 `s_auto_hash` 在
+  `.noinit`（有意不被回滚）——两者不同 ⇒ 自检后的第一个窗口会把工厂态写进 autosave。
+  诊断命令不是用户动作，但会覆盖用户上次的工作工程；修法留 P4-E（DI-20 给了三个方向），
+  门禁不受影响（脚本显式控制 `STORE AUTO`，且每次硬复位后重新下发）。
 - 启动顺序（`sloop_core_init`）：HAL → 引擎默认 → `selftest_snapshot_init()`（工厂态
   golden 基线）→ `sloop_store_init()`（PSRAM 槽/暂存、mmap、四槽 fetch、`up_boot`、
-  `fm6_bank_boot`）→ `sloop_store_autosave_resume()`（`proj_import` + `proj_apply` +
-  `proj_foreign_parts`）→ 创建 autosave 周期任务。**snapshot 必须在 resume 之前**，
-  否则 `ENG SELFTEST` 的基线会变成用户工程、golden 失配。
+  `fm6_bank_boot`；**不建任务**）→ `sloop_store_autosave_resume()`（`proj_import` +
+  `proj_apply` + `proj_foreign_parts`）→ `sloop_store_autosave_start()`（1s 周期任务）。
+  两条顺序都不可倒：**snapshot 必须在 resume 之前**（否则 `ENG SELFTEST` 的基线会变成
+  用户工程、golden 失配）；**任务必须在 resume 之后**（先起任务的那一拍会把工厂态写进
+  autosave，覆盖刚读回的工作工程）。`STORE AUTO OFF` 只是运行期诊断开关，**不跨复位**
+  （每次上电 init 都回到默认 ON）。
+- **落地形态（Task 6，`store_tab5.c` 的「自动存档与上电恢复」小节）**：捕获/恢复暂存
+  `s_auto`（`project_t`，3,816B，PSRAM，与 `proj_tmp` 分开）与全部状态
+  （`autosave_hash/ms/checked/writes`、`last_input_ms`、开关、`busy`）在 `.noinit`
+  ——本 TU 的 `.bss` 在 `ENG SELFTEST` 的恢复窗口里，清零后自检结束的第一拍就会把工厂态
+  写回 autosave、覆盖用户工程。tick 在**一把引擎锁内**完成 `proj_capture` + 走带/发声
+  （`audio_quiet()`：合成/鼓 voice 均 inactive）判定，擦写 `st_save` 在锁外；拿不到存储锁
+  （`s_busy`/trylock）就跳过本拍，不排队。上游没有的 `rec_wait/ft_on/ui.menu` 换成
+  「存储忙」与「诊断冻结（`s_frozen`）」两项。启动时 `st_load` 无有效副本 →
+  `ESP_ERR_NOT_FOUND`（工厂态开始，不报错）。`autosave_ms` 从 0 起算 ⇒ **开机首个写只能落在
+  uptime ≥20s 之后**（上游同），所以「空闲 2.5s 就写」只在已有写入之后成立。
 
 ### 6. 设置对象归属（P4-E）与 NVS 定位
 

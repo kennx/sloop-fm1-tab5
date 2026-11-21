@@ -1,0 +1,14 @@
+# RED 轮：`bash scripts/inject/store.sh /dev/ttyACM0`（设备上的镜像 = Task 5 提交的固件，
+# 没有 STORE AUTO / autosave 字段）。本文件是脚本 stdout 的终端捕获（原始串口回显见
+# task-6-red.log、手工命令见 task-6-red-transcript.txt）。
+== inject store @ /dev/ttyACM0
+   串口原始日志: firmware/build/verify/inject-store-20261121-213727.log
+  复位设备: … esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+[FAIL] store: ⓪ STORE AUTO OFF（本场景其余段免干扰）: 回显缺少 /^STORE AUTO off\r?$/（响应 'STORE AUTO OFF\r\n用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'）
+# 退出码 1（`[FAIL] store: 1 项断言/抽检未通过`）。
+# 说明：⑪ 段在旧固件上同样不可达——`STORE STATS` 没有 autosave=…/autosave_hash=…/
+# autosave_writes=… 字段（autosave_fields() 直接抛 InjectError），且没有任何自动存档
+# 机制会在空闲时写 flash（task-6-red-transcript.txt 里 `STORE AUTO ON|OFF` 均回用法行）。

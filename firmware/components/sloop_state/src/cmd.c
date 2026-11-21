@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+#include "sloop_store.h" /* sloop_store_note_activity（自动存档的活动计时） */
+
 #ifdef HOST_TEST
 #define state_warn(...) ((void)0) /* host 单测无日志后端（告警路径由设备证据覆盖） */
 #else
@@ -311,5 +313,8 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SET_GLOBAL: cmd_set_global(s, cmd->a, cmd->v); break;
     default: break;
     }
+    /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，
+     * 与键盘/TAP 同一时间戳（state_now_ms）。只写时间戳，不取其它锁。 */
+    sloop_store_note_activity(state_now_ms());
     state_unlock();
 }

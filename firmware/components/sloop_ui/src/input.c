@@ -35,6 +35,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
 
@@ -376,6 +377,9 @@ void sloop_ui_input_key(uint8_t code, bool down)
         atomic_fetch_add(&s_quiesce_dropped, 1u);
         return;
     }
+    /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：物理键与 console 注入同入口，
+     * 按下与松开都算活动。只写时间戳，不取锁。 */
+    sloop_store_note_activity((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
     input_lock();
     if (s_quiesce) { /* 等锁期间进入静默（input 任务/另一注入者持有互斥） */
         atomic_fetch_add(&s_quiesce_dropped, 1u);

@@ -52,6 +52,9 @@
  *    track = 选中轨；行格式 "PRESET k USED <ENGINE> <NAME>" / "PRESET k EMPTY"，
  *    末尾 "PRESET COUNT used=n total=32"。错误统一回
  *    "STORE ERR <no_storage|playing|empty|invalid|save|drum>"。
+ *    STORE STATS 另带自动存档三项（autosave=0|1、autosave_hash、autosave_writes）；
+ *    STORE AUTO ON|OFF 是自动存档的诊断开关（默认 ON，测试脚本用：其它场景关掉它，
+ *    免得空闲时的一次 flash 擦写干扰断言）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1236,10 +1239,13 @@ static int store_stats(void)
 {
     sloop_store_stats_t st;
     sloop_store_stats(&st);
-    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=%u faults=%u armed=%u\n",
+    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=%u faults=%u armed=%u "
+           "autosave=%u autosave_hash=%08lX autosave_writes=%u\n",
            st.ready ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
            (unsigned)sloop_hal_storage_span(), (unsigned long)(uintptr_t)sloop_hal_storage_map(),
-           (unsigned)st.objects_ok, (unsigned)st.faults_taken, (unsigned)st.faults_armed);
+           (unsigned)st.objects_ok, (unsigned)st.faults_taken, (unsigned)st.faults_armed,
+           st.autosave_on ? 1u : 0u, (unsigned long)st.autosave_hash,
+           (unsigned)st.autosave_writes);
     return 0;
 }
 
@@ -1499,10 +1505,23 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
+    if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
+        bool on;
+        if (strcasecmp(argv[2], "on") == 0) {
+            on = true;
+        } else if (strcasecmp(argv[2], "off") == 0) {
+            on = false;
+        } else {
+            printf("用法: STORE AUTO <on|off>\n");
+            return 1;
+        }
+        printf("STORE AUTO %s\n", sloop_store_autosave_enable(on) ? "on" : "off");
+        return 0;
+    }
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | "
-           "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
+           "STORE AUTO <on|off> | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;
 }
@@ -1642,8 +1661,8 @@ esp_err_t app_console_init(void)
         .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
                 "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
-                "STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|LIVEHASH|RAWTEST|FAULT <nth> [half]|FAULT CLEAR",
+                "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|LIVEHASH|RAWTEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

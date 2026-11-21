@@ -24,7 +24,9 @@ typedef struct {
     uint32_t objects_ok;      /* flash 中能读出有效副本的工程对象数（0..4） */
     uint32_t faults_armed;    /* HAL 故障注入是否待命中（1 = 已 arm 未触发） */
     uint32_t faults_taken;    /* 自上次 arm/clear 起命中次数 */
-    uint32_t autosave_writes; /* 自动存档写入计数（P4-B Task 6 起填写，本任务恒 0） */
+    uint32_t autosave_hash;   /* 最近一次写入（或开机恢复）的工程捕获 hash；0 = 无 */
+    uint32_t autosave_writes; /* 本次开机以来的自动存档写入次数 */
+    bool autosave_on;         /* 自动存档开关（`STORE AUTO ON|OFF`，默认 ON） */
 } sloop_store_stats_t;
 
 /* sloop_core_init 内调用（ADR-009 §5：snapshot → store init → autosave resume）：
@@ -78,5 +80,23 @@ uint8_t sloop_store_preset_engine(uint32_t slot); /* 引擎号；空槽 0xFF */
 esp_err_t sloop_store_preset_store(uint32_t slot);
 esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track);
 esp_err_t sloop_store_preset_erase(uint32_t slot);
+
+/* 自动存档与上电恢复（上游 `project.c` 的 autosave_tick/autosave_resume，语义照抄）：
+ * 条件全满足才把当前工作工程写进 `OBJ_AUTOSAVE`——非播放（`!song.playing &&
+ * !transport_req`）、无输入 ≥2.5s、距上次保存 ≥20s、无发声（合成/鼓 voice 均 inactive）、
+ * 捕获 hash 与上次写入不同、存储未忙、未诊断冻结；同一状态不重复写（flash 寿命）。
+ * `note_activity` 由输入派发调用（物理/注入键盘、TAP 命中、切页与焦点变更、成功的
+ * `state_apply`），只记录时间戳；`tick` 由 1s 周期任务调用；
+ * `autosave_resume` 在 `sloop_core_init` 的 `sloop_store_init` 之后、UI/音频启动之前调用
+ * ——`ENG SELFTEST` 的工厂态快照已经拍完，基线不受影响；
+ * `autosave_start` 必须在 `autosave_resume` **之后**调用（先起任务的那一拍会把工厂态
+ * 写进 autosave、覆盖随后要恢复的工程），幂等。 */
+void sloop_store_note_activity(uint32_t now_ms);
+void sloop_store_autosave_tick(uint32_t now_ms);
+esp_err_t sloop_store_autosave_resume(void);
+esp_err_t sloop_store_autosave_start(void);
+/* 诊断开关（`STORE AUTO ON|OFF`，测试用；默认 ON）。关闭后 tick 不再写 flash，
+ * 开机恢复仍照常发生。返回设置后的状态。 */
+bool sloop_store_autosave_enable(bool on);
 
 #endif

@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "sloop_store.h" /* sloop_store_note_activity：host 单测的空实现（见文件末尾） */
+
 stub_engine_t g_stub;
 void (*g_stub_on_read_window)(uint32_t start);
 
@@ -179,4 +181,10 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
         else memset(p, 0, sizeof(g_stub.param[track]));
     }
     if (g != NULL) memcpy(g, g_stub.param_g, sizeof(g_stub.param_g));
+}
+
+/* 自动存档的活动计时（state_apply 的每个命令）：host 单测不编自动存档，空实现 */
+void sloop_store_note_activity(uint32_t now_ms)
+{
+    (void)now_ms;
 }

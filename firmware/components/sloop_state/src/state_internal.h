@@ -12,4 +12,8 @@ void state_unlock(void);
 /* 取状态容器（仅持 state_lock 期间使用）。 */
 app_state_t *state_locked(void);
 
+/* 自动存档的「无输入」时间源（设备：FreeRTOS tick / 100Hz；HOST_TEST：恒 0）。
+ * 与键盘/TAP 的调用方同一时钟（ui/input 也用 xTaskGetTickCount）。 */
+uint32_t state_now_ms(void);
+
 #endif
