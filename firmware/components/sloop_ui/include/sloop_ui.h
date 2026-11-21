@@ -178,7 +178,8 @@ void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（�
  * drag = 相对锚点的角度差 → 值差）。用于在无手指/无触摸注入的环境里机器验证
  * 「回调接线 + 相对拖拽」——物理拖拽手感仍需人测（DI-16）。
  * 内部取 LVGL 锁。返回：ESP_OK（事件被接受；*value = 旋钮当前值）；ESP_ERR_NOT_FOUND
- * （环带外，事件未接受，值不变）；ESP_ERR_INVALID_ARG（非参数页/槽位无控件）；
+ * （环带外，事件未接受，值不变）；ESP_ERR_NOT_ALLOWED（引擎页不适用，旋钮显示 --，
+ * console 回 `ignored (locked)`）；ESP_ERR_INVALID_ARG（非参数页/槽位无控件）；
  * ESP_ERR_INVALID_STATE（UI 未启动或目标页未建）；ESP_ERR_TIMEOUT（LVGL 锁超时，
  * 未派发）。诊断期静默（quiesce）时返回 ESP_ERR_INVALID_STATE（console 打印
  * `UI ERR quiesced` 由调用方区分）。 */

@@ -6,8 +6,8 @@
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），之后只改
  * LV_OBJ_FLAG_HIDDEN（已建页不销毁，受每页 est_bytes 预算保护）：PLAY
  * （page_play.c）/ TRACKS（page_tracks.c）/ STEP（page_step.c）/ TRANSPORT
- * （page_transport.c）/ 参数页 GLOBAL|FX|ANALOG（page_params.c + knob.c，布局表
- * page_layout.c；注册顺序接在四基础页之后，7 页时页签收窄到 150px，ADR-008 §8）。
+ * （page_transport.c）/ 参数页 GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，
+ * 布局表 page_layout.c；注册顺序接在四基础页之后，9 页时页签收窄到 114px，ADR-008 §8）。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
  * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
@@ -60,11 +60,15 @@ static const char *TAG = "sloop_ui";
 /* 内置页面注册表（ADR-008）：注册顺序 = 页签顺序。est_bytes 为构建前预算门槛
  * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 13–23% 余量、512 对齐
  * （ADR-008 预算表）；各页 est 之和必须小于 LVGL 池总量，否则后建的页可能永远
- * 被预算拒绝。 */
+ * 被预算拒绝。
+ * STEP 9 页口径：est 从 24,576 收到 24,064（实测 delta 21,808B + 10.2%）——
+ * 九个页面全建后 free 约 24.2KB，再按 13% 余量取 24,576 会让「STEP 最后建」
+ * 被预算门槛误拒（实际 delta 仍装得下，余 ~2.4KB）。9 页是当前池的容量天花板：
+ * 再加页/扩控件前必须先按 ADR-008 §5 rule 4 做设计决策（DI-17）。 */
 static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
-    {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 24576},
+    {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 24064},
     {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
 };
 
@@ -326,8 +330,9 @@ static void register_builtin_pages(void)
                      esp_err_to_name(ret));
         }
     }
-    /* 参数页（GLOBAL/FX/ANALOG…）：布局表与注册表条目同源（page_layout.c 的 X 宏表），
-     * 注册顺序接在四基础页之后 → 页签顺序 = PLAY|TRACKS|STEP|TRANSPORT|GLOBAL|FX|ANALOG */
+    /* 参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE…）：布局表与注册表条目同源（page_layout.c
+     * 的 X 宏表），注册顺序接在四基础页之后 →
+     * 页签顺序 = PLAY|TRACKS|STEP|TRANSPORT|GLOBAL|FX|ANALOG|FM6|SAMPLE */
     esp_err_t ret = page_layout_register();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "参数页注册失败: %s", esp_err_to_name(ret));

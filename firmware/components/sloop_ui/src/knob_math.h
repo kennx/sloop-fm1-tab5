@@ -14,6 +14,9 @@
  *   F_TIME          TIME_MS_X10[v]：<10ms 1 位小数 / <1s 整数 ms / <10s 2 位小数 s / 其余 1 位小数 s
  *   F_LFOHZ         LFO_HZ_X100[v]：<10Hz 2 位小数 / 其余 1 位小数
  *   F_CUTOFF        CUTOFF_HZ[v]：<1k 整数 Hz / <10k 1 位小数 kHz / 其余整数 kHz
+ *   定点小数与上游 libc.c 的 fmt_fix 同口径：**截断**（先整数分频再拼小数位），
+ *   不是 printf 的四舍五入——例如 TIME 104（18,862）显示 1.88s、CUTOFF 90
+ *   （2,568）显示 2.5kHz。
  *   F_DB            v<=0 = OFF；LEVEL_DB_X10[v]（>-10.0dB 1 位小数，其余整数）
  *   F_SEMI          ±n st（仅 v>0 加 '+'）
  *   F_BPM/F_NOTE/F_ONOFF/F_STEPS/F_SWING/F_FILT   同上游

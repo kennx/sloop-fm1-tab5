@@ -28,10 +28,10 @@
  * cmd_select_track 在引擎选轨落地后立即回读，不等下一拍 sync；参数页按此显示）。
  */
 
-/* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）+ 3 参数页（GLOBAL/FX/ANALOG，由
- * sloop_ui 的策展布局表加入，见 ADR-008）。加页时同步 app_page_t、本宏与 console
- * 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 7u
+/* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）+ 5 参数页（GLOBAL/FX/ANALOG/FM6/
+ * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）。加页时同步 app_page_t、本宏
+ * 与 console 的页名表（后者有静态断言兜底）。 */
+#define APP_STATE_PAGES 9u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -147,9 +147,9 @@ typedef struct {
 typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
     /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致） */
-    APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG,
+    APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
 } app_page_t;
-_Static_assert(APP_PAGE_ANALOG + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_SAMPLE + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 
 /* 「有音」判定，与上游 seq.c 的 sp_on 同口径：n>0 且 time==NOTE（ST_NOTE=0）；

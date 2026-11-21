@@ -1,12 +1,16 @@
 /*
- * 参数页布局表（ADR-008 §8）：GLOBAL / FX / ANALOG 三页，每页 8 槽。
+ * 参数页布局表（ADR-008 §8）：GLOBAL / FX / ANALOG / FM6 / SAMPLE 五页，每页 8 槽。
  *
  * 槽位来源 = 上游 params.c 的分页语义：
  * - GLOBAL：GLO > GLOBAL 4 槽（BPM/SWING/CLICK/TUNE）+ GLO > DLY 4 槽（TIME/FDBK/COLR/MIX）
  *   —— 一个「全局 + 主延时」页（全局页在上游是两页，这里合成 8 槽一页）；
  * - FX：TRACK 的 FX 4 件（DST/CHO/DLY/REV，上游 FAM_FX）+ 轨道滤波 FILT（P_TFLT）
  *   + 输出条（LVL/PAN/ATK：电平、声像与起音，便于与 FX 一起塑形）；
- * - ANALOG：引擎 edit[0..7]（WAVE/DTN/MIX/NOIS/CUT/RES/DRV/KTR，上游 EDIT 1/2 合并）。
+ * - ANALOG：引擎 edit[0..7]（WAVE/DTN/MIX/NOIS/CUT/RES/DRV/KTR，上游 EDIT 1/2 合并）；
+ * - FM6：ENGINES[9]->edit[0..7] 全 8 槽（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH，上游
+ *   FM6 EDIT 1+2）——ALG 是 F_INT+33 名（PAT/1..32），PTCH 是 F_INT+35 名（F1..F8/B1..B27）；
+ * - SAMPLE：ENGINES[4]->edit[0..7] 的 6 个真实槽（SET/TUNE/BITS/LOOP/CUT/DRV）；上游
+ *   edit[5]/edit[7] 是占位（label "-"、min=max=0），留空槽不建旋钮。
  *
  * 页元数据（id/title/est）与 REGISTRY 条目由同一个 X-macro 生成：页签顺序 = 本表
  * 声明顺序。id 必须与 sloop_state.h 的 app_page_t 一致；est 是构建前预算门槛
@@ -49,9 +53,13 @@ enum {
     L_E5 = 5,
     L_E6 = 6,
     L_E7 = 7,
+    /* 引擎页的页声明引擎号（上游 engines.c ENGINES[]：SAMPLE=4、FM6=9） */
+    L_ENG_SAMPLE = 4,
+    L_ENG_FM6 = 9,
 };
 
 #define SLOT(sc, en, pid) { .scope = (uint8_t)(sc), .engine = (uint8_t)(en), .id = (uint8_t)(pid) }
+#define EMPTY_SLOT SLOT(SLOOP_DESC_ENGINE, 0, 0xFF)
 
 #define PARAM_PAGES(X)                                                                        \
     X(0, APP_PAGE_GLOBAL, "GLOBAL", 3584,                                                     \
@@ -68,7 +76,17 @@ enum {
       SLOT(SLOOP_DESC_ENGINE, 0, L_E0), SLOT(SLOOP_DESC_ENGINE, 0, L_E1),                     \
       SLOT(SLOOP_DESC_ENGINE, 0, L_E2), SLOT(SLOOP_DESC_ENGINE, 0, L_E3),                     \
       SLOT(SLOOP_DESC_ENGINE, 0, L_E4), SLOT(SLOOP_DESC_ENGINE, 0, L_E5),                     \
-      SLOT(SLOOP_DESC_ENGINE, 0, L_E6), SLOT(SLOOP_DESC_ENGINE, 0, L_E7))
+      SLOT(SLOOP_DESC_ENGINE, 0, L_E6), SLOT(SLOOP_DESC_ENGINE, 0, L_E7))                     \
+    X(3, APP_PAGE_FM6, "FM6", 3584,                                                           \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E0), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E1),     \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E2), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E3),     \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E4), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E5),     \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E6), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E7))     \
+    X(4, APP_PAGE_SAMPLE, "SAMPLE", 3072,                                                     \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E0), SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E1), \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E2), SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E3), \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E4), EMPTY_SLOT,                                \
+      SLOT(SLOOP_DESC_ENGINE, L_ENG_SAMPLE, L_E6), EMPTY_SLOT)
 
 /* 页定义（title + 槽位）与注册表条目来自同一张 X 宏表。
  * 宏参数名不能叫 id/title：designator 的 .id/.title 会被参数替换掉。 */

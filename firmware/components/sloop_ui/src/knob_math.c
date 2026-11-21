@@ -59,55 +59,83 @@ int16_t knob_drag_value(const sloop_desc_t *d, int16_t anchor, int32_t delta_deg
 
 /* ------------------------------------------------------------ 格式化 --- */
 /* 与上游 param_format 同表同算法（params.c）；TIME/CUTOFF/LFO/DB 用生成表，
- * 不用指数近似。 */
+ * 不用指数近似。定点小数按上游 libc.c 的 fmt_fix **截断**（不是 printf 的
+ * 四舍五入）：先整数分频再拼小数位，例如 ms10=18862 显示 "1.88s"（不是 1.89）。 */
+static void format_fixed(char *buf, size_t n, int32_t v, int decimals)
+{
+    int32_t scale = decimals == 2 ? 100 : decimals == 1 ? 10 : 1;
+    int32_t ip = v / scale;
+    int32_t frac = v % scale;
+    if (frac < 0) frac = -frac;
+    if (decimals == 2) {
+        snprintf(buf, n, "%d.%02d", (int)ip, (int)frac);
+    } else if (decimals == 1) {
+        snprintf(buf, n, "%d.%d", (int)ip, (int)frac);
+    } else {
+        snprintf(buf, n, "%d", (int)ip);
+    }
+}
+
 static void format_time(int32_t v, char *buf, size_t n)
 {
+    char num[16];
     uint32_t ms10 = TIME_MS_X10[v & 127];
     if (ms10 < 100u) {
-        snprintf(buf, n, "%.1fms", (double)ms10 / 10.0); /* 1.0 .. 9.9 ms */
+        format_fixed(num, sizeof(num), (int32_t)ms10, 1); /* 1.0 .. 9.9 ms（截断） */
+        snprintf(buf, n, "%sms", num);
     } else if (ms10 < 10000u) {
-        snprintf(buf, n, "%ums", (unsigned)((ms10 + 5u) / 10u)); /* 10 .. 999 ms */
+        snprintf(buf, n, "%ums", (unsigned)((ms10 + 5u) / 10u)); /* 10 .. 999 ms（四舍五入到 ms） */
     } else if (ms10 < 100000u) {
-        snprintf(buf, n, "%.2fs", (double)ms10 / 10000.0); /* 1.00 .. 9.99 s */
+        format_fixed(num, sizeof(num), (int32_t)(ms10 / 100u), 2); /* 1.00 .. 9.99 s（截断） */
+        snprintf(buf, n, "%ss", num);
     } else {
-        snprintf(buf, n, "%.1fs", (double)ms10 / 10000.0); /* 10.0 s */
+        format_fixed(num, sizeof(num), (int32_t)(ms10 / 1000u), 1); /* 10.0 s */
+        snprintf(buf, n, "%ss", num);
     }
 }
 
 static void format_lfohz(int32_t v, char *buf, size_t n)
 {
+    char num[16];
     uint32_t h100 = LFO_HZ_X100[v & 127];
     if (h100 < 1000u) {
-        snprintf(buf, n, "%.2fHz", (double)h100 / 100.0);
+        format_fixed(num, sizeof(num), (int32_t)h100, 2); /* 0.05 .. 9.99 Hz（截断） */
     } else {
-        snprintf(buf, n, "%.1fHz", (double)h100 / 100.0);
+        format_fixed(num, sizeof(num), (int32_t)(h100 / 10u), 1); /* 10.0 Hz+（截断） */
     }
+    snprintf(buf, n, "%sHz", num);
 }
 
 static void format_cutoff(int32_t v, char *buf, size_t n)
 {
+    char num[16];
     uint32_t hz = CUTOFF_HZ[v & 127];
     if (hz < 1000u) {
         snprintf(buf, n, "%uHz", (unsigned)hz);
-    } else if (hz < 10000u) {
-        snprintf(buf, n, "%.1fkHz", (double)hz / 1000.0);
-    } else {
-        snprintf(buf, n, "%ukHz", (unsigned)((hz + 500u) / 1000u));
+        return;
     }
+    if (hz < 10000u) {
+        format_fixed(num, sizeof(num), (int32_t)(hz / 100u), 1); /* 1.0 .. 9.9 kHz（截断） */
+    } else {
+        snprintf(num, sizeof(num), "%u", (unsigned)((hz + 500u) / 1000u)); /* 10 kHz+（四舍五入） */
+    }
+    snprintf(buf, n, "%skHz", num);
 }
 
 static void format_db(int32_t v, char *buf, size_t n)
 {
+    char num[16];
     if (v <= 0) {
         snprintf(buf, n, "OFF");
         return;
     }
     int32_t db10 = LEVEL_DB_X10[v > 127 ? 127 : v];
     if (db10 > -100) {
-        snprintf(buf, n, "%.1fdB", (double)db10 / 10.0);
+        format_fixed(num, sizeof(num), db10, 1);
     } else {
-        snprintf(buf, n, "%ddB", (int)((db10 - 5) / 10));
+        snprintf(num, sizeof(num), "%d", (int)((db10 - 5) / 10));
     }
+    snprintf(buf, n, "%sdB", num);
 }
 
 /* F_INT 的 0 终止名字表（ENV SYNC 音值等）：值域均分映射（上游 names_turn/format）。 */

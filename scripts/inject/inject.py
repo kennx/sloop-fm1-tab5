@@ -329,17 +329,20 @@ C_PANEL_HI = (32, 40, 48) # UI_PANEL_HI 0x242B33 → rgb565 (32,40,48)
 C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
-# 页签条几何随注册页数收窄（ADR-008）：7 页（4 基础 + 3 参数页）时 tab_w = 150、
-# 间距 8 → 页签 i 的 x 区间 = 16 + i*158 .. +150。探针取页签**左缘内 8px** 的底色
+# 页签条几何随注册页数收窄（ADR-008）：9 页（4 基础 + 5 参数页）时 tab_w = 114、
+# 间距 8 → 页签 i 的 x 区间 = 16 + i*122 .. +114。探针取页签**左缘内 8px** 的底色
 # （y=36）：该处只有填充色，不落在居中的页签文本上（4 页布局时用过的中心点会压到
 # 字形，故按新布局改左缘）。
 C_TAB_PLAY = (24, 36)
-C_TAB_TRACKS = (182, 36)
-C_TAB_STEP = (340, 36)
-C_TAB_TRANSPORT = (498, 36)
-C_TAB_GLOBAL = (656, 36)
-C_TAB_FX = (814, 36)
-C_TAB_ANALOG = (972, 36)
+C_TAB_TRACKS = (146, 36)
+C_TAB_STEP = (268, 36)
+C_TAB_TRANSPORT = (390, 36)
+C_TAB_GLOBAL = (512, 36)
+C_TAB_FX = (634, 36)
+C_TAB_ANALOG = (756, 36)
+C_TAB_FM6 = (878, 36)
+C_TAB_SAMPLE = (1000, 36)
+C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
 
 
 def dim(rgb: tuple, pct: int = 45) -> tuple:
@@ -413,9 +416,9 @@ TRACKS_CARD_PITCH = 312
 # 页签条（theme.h UI_TAB_X0/W/GAP/H/Y + ui.c 的页签建成）：页签 i 的 x 区间 =
 # UI_TAB_X0 + i*(UI_TAB_W+UI_TAB_GAP) .. +UI_TAB_W，y = UI_TAB_Y .. +UI_TAB_H。
 # nav 用例①取相邻页签之间 8px 缝的中心：在页签条内、却在所有页签矩形之外。
-# 页面注册表 = 7 页（PLAY/TRACKS/STEP/TRANSPORT/GLOBAL/FX/ANALOG）时 ui.c 的页签
-# 宽度：min(UI_TAB_W=176, (1280 - 2*16 - 150(右侧留位) - 6*8) / 7) = 150。
-UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 150, 8
+# 页面注册表 = 9 页（PLAY/TRACKS/STEP/TRANSPORT/GLOBAL/FX/ANALOG/FM6/SAMPLE）时
+# ui.c 的页签宽度：min(UI_TAB_W=176, (1280 - 2*16 - 150(右侧留位) - 8*8) / 9) = 114。
+UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 114, 8
 UI_TAB_Y, UI_TAB_H = 10, 52
 
 
@@ -1053,6 +1056,24 @@ def knob_cmd(s: Session, slot: int, op: str, dx: int, dy: int, want: int = None)
              f"UI KNOB slot={slot} {op} ({dx},{dy}) value={want}")
 
 
+def knob_locked(s: Session, slot: int, op: str, dx: int, dy: int) -> None:
+    """引擎页不适用（选中轨引擎与页声明不符）：旋钮事件被拒，令牌 `ignored (locked)`
+    ——与环带外的 `ignored (ring band)` 区分（ADR-008 §8.2）。"""
+    s.cmd(f"UI KNOB {slot} {op} {dx} {dy}")
+    s.expect(rf"UI KNOB page=\d+ slot={slot} {op} dx={dx} dy={dy} ignored \(locked\)",
+             f"UI KNOB slot={slot} {op} ({dx},{dy}) 引擎页锁定")
+
+
+def select_track(s: Session, track: int) -> None:
+    """TRACKS 页点卡 k（卡中心 x = 24 + k*312 + 148，y = 347）并断言选中轨。"""
+    s.cmd("UI tracks")
+    s.expect(r"UI page=tracks \(1\)", "UI tracks（选轨）")
+    s.cmd("TAP %d 347" % (24 + track * TRACKS_CARD_PITCH + 148))
+    s.expect(rf"-> TRACKS select track={track} CMD_SELECT_TRACK", f"TAP 卡 {track}")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", track, f"STATE SNAP selected_track={track}")
+
+
 def param_tap_step(s: Session, xy: tuple, slot: int, param_id: int, delta: int, want: int,
                    label: str) -> None:
     s.cmd("TAP %d %d" % xy)
@@ -1070,8 +1091,8 @@ def run_params(s: Session) -> None:
     s.expect_int(r"selected_track=(\d+)", 0, "STATE SNAP selected_track=0")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 7 else s.fail)(
-        f"UI MEM registered=7（4 基础 + 3 参数页）实得 {mem0['head']['registered']}")
+    (s.ok if mem0["head"]["registered"] == 9 else s.fail)(
+        f"UI MEM registered=9（4 基础 + 5 参数页）实得 {mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
     s.cmd("UI global")
@@ -1241,7 +1262,165 @@ def run_params(s: Session) -> None:
     s.probe_region(img, "旋钮 0 数值文本（WAVE 枚举名）",
                    (100, 214, 232, 246), C_TEXT_DIM, 16, 30)
 
-    # ---------- 池水位总表：三页 delta ≤ est，全 7 页可建 ----------
+    # ---------- 引擎页锁定路径：UI KNOB 独立令牌（选中轨仍是 ANALOG） ----------
+    s.cmd("UI fm6")
+    s.expect(r"UI page=fm6 \(7\)", "UI fm6（轨 0 是 ANALOG → 页锁定）")
+    knob_locked(s, 0, "press", 0, -73)
+    knob_locked(s, 0, "drag", 73, 0)
+    s.cmd("TAP %d %d" % PARAM_BTN_PLUS)
+    s.expect(r"-> PARAM slot=\d+ locked", "FM6 锁定页 TAP + 回 locked")
+    s.cmd("PARAM 63")
+    alg_locked = param_value(s)
+    s.ser.note(f"FM6 锁定页基线 alg（ANALOG WAVE 槽位）= {alg_locked}")
+    img = s.capture("params-fm6-locked")
+    s.probe_region(img, "锁定页页眉红字（FM6 · TRACK 1 USES ENG 0 — N/A）",
+                   (16, 72 + 6, 760, 72 + 40), C_ERROR, 16, 200)
+
+    # ---------- FM6 页（ENGINES[9]->edit[0..7]）：ALG 33 名、宏编辑生效 ----------
+    s.cmd("ENG TRACK 1 9 0")
+    s.expect(r"ENG TRACK k=1 engine=9 preset=0 OK", "ENG TRACK 轨 1 → FM6")
+    select_track(s, 1)
+    s.cmd("UI fm6")
+    s.expect(r"UI page=fm6 \(7\)", "UI fm6（FM6 页解锁）")
+    s.cmd("ENG DESC engine 9 0")
+    s.expect(r'label="ALG" fmt=\d+ min=0 max=32 def=0 unit="[^"]*" enums=33 first="PAT" last="32"',
+             "ENG DESC FM6 ALG：33 名（PAT..32）")
+    s.cmd("PARAM 63")
+    alg0 = param_value(s)
+    s.cmd("PARAM 64")
+    fb0 = param_value(s)
+    s.ser.note(f"FM6 基线 alg={alg0} fb={fb0}")
+
+    # 焦点槽 0（ALG）：名称用 UI_ACCENT、数值用 UI_TEXT——先 TAP 定型再截屏
+    s.cmd("TAP %d %d" % param_knob_xy(0))
+    s.expect(r"-> PARAM slot=0 focus", "TAP 旋钮 0（ALG）设焦点")
+    img = s.capture("params-fm6")
+    s.probe(img, "页签选中（FM6）", *C_TAB_FM6, C_YELLOW)
+    s.probe(img, "PLAY 页签未选中", *C_TAB_PLAY, C_PANEL_HI, 10)
+    s.probe(img, "旋钮 0 弧线底（环顶）", 166, 158, C_PANEL_HI, 10)
+    s.probe_region(img, "旋钮 0 数值文本（ALG 枚举名）", (100, 214, 232, 246), C_TEXT, 16, 30)
+
+    # TAP ± 细调（ALG F_INT 0..32）
+    if alg0 < 32:
+        param_tap_step(s, PARAM_BTN_PLUS, 0, 63, +1, alg0 + 1, "TAP +（FM6 ALG）")
+        param_expect_value(s, "PARAM 63", alg0 + 1, "PARAM 63（ALG +1）")
+        param_tap_step(s, PARAM_BTN_MINUS, 0, 63, -1, alg0, "TAP −（FM6 ALG 回基线）")
+        param_expect_value(s, "PARAM 63", alg0, "PARAM 63（ALG 回基线）")
+    else:
+        s.ser.note("FM6 基线 ALG=32（钳位态），跳过 +/− 断言")
+
+    # 触摸路径：按下不改值；+90°（270°=整值域）→ +11（range 33）
+    drag = 1 if alg0 <= 21 else -1
+    knob_cmd(s, 0, "press", 0, -73, alg0)
+    param_expect_value(s, "PARAM 63", alg0, "按下不改值（FM6 ALG）")
+    knob_cmd(s, 0, "drag", 73 * drag, 0, alg0 + 11 * drag)
+    param_expect_value(s, "PARAM 63", alg0 + 11 * drag, "相对拖拽改 ALG（引擎真值）")
+    knob_cmd(s, 0, "drag", 0, -73, alg0)
+    param_expect_value(s, "PARAM 63", alg0, "拖回锚点（ALG 回基线）")
+
+    # 键盘：→ 到槽 1（FB，-7..7），↑/↓ ±1
+    s.cmd("KEY 0x4C down")
+    s.cmd("KEY 0x4C up")
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    param_expect_value(s, "PARAM 64", min(fb0 + 1, 7), "键盘 ↑（FM6 FB）")
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    param_expect_value(s, "PARAM 64", fb0, "键盘 ↓（FM6 FB 回基线）")
+
+    # 改值态截屏：ALG=12（枚举名 "12"）；焦点回槽 0（键盘用例把它移到了槽 1）
+    s.cmd("TAP %d %d" % param_knob_xy(0))
+    s.expect(r"-> PARAM slot=0 focus", "TAP 旋钮 0 复位焦点（改值态截屏）")
+    s.cmd("PARAM 63 12")
+    s.expect(r"PARAM track=1 id=63 value=12 applied=12", "PARAM 63 12（FM6 ALG 改值态）")
+    img = s.capture("params-fm6-alg")
+    s.probe(img, "页签选中（FM6，改值态）", *C_TAB_FM6, C_YELLOW)
+    s.probe(img, "旋钮 0 弧线底（改值态）", 166, 158, C_PANEL_HI, 10)
+    s.probe_region(img, "旋钮 0 数值文本（ALG=12）", (100, 214, 232, 246), C_TEXT, 16, 30)
+    s.cmd(f"PARAM 63 {alg0}")
+    s.expect(rf"PARAM track=1 id=63 value={alg0} applied={alg0}", "FM6 ALG 回基线")
+
+    # ---------- SAMPLE 页（ENGINES[4]->edit[0..7]，空槽 5/7 不建旋钮） ----------
+    s.cmd("ENG TRACK 1 4 0")
+    s.expect(r"ENG TRACK k=1 engine=4 preset=0 OK", "ENG TRACK 轨 1 → SAMPLE")
+    s.cmd("UI sample")
+    s.expect(r"UI page=sample \(8\)", "UI sample（SAMPLE 页解锁）")
+    s.cmd("ENG DESC engine 4 0")
+    s.expect(r'label="SET" fmt=\d+ min=0 max=11 def=0 unit="[^"]*" enums=12 first="PIANO" last="USR4"',
+             "ENG DESC SAMPLE SET：12 名（PIANO..USR4）")
+    s.cmd("PARAM 63")
+    set0 = param_value(s)
+    s.cmd("PARAM 66")
+    loop0 = param_value(s)
+    s.cmd("PARAM 67")
+    cut0 = param_value(s)
+    s.ser.note(f"SAMPLE 基线 set={set0} loop={loop0} cut={cut0}")
+
+    img = s.capture("params-sample")
+    s.probe(img, "页签选中（SAMPLE）", *C_TAB_SAMPLE, C_YELLOW)
+    s.probe(img, "旋钮 0 弧线底（环顶）", 166, 158, C_PANEL_HI, 10)
+    # 空槽 5/7 没有旋钮：其环顶像素应是页面背景（UI_BG）
+    s.probe(img, "空槽 5（行 1 列 1）无旋钮", 482, 454, C_BG, 12)
+    s.probe(img, "空槽 7（行 1 列 3）无旋钮", 1114, 454, C_BG, 12)
+
+    # SET（F_ENUM 12 名）：TAP + / −
+    s.cmd("TAP %d %d" % param_knob_xy(0))
+    s.expect(r"-> PARAM slot=0 focus", "TAP 旋钮 0（SET）设焦点")
+    if set0 < 11:
+        param_tap_step(s, PARAM_BTN_PLUS, 0, 63, +1, set0 + 1, "TAP +（SAMPLE SET）")
+        param_expect_value(s, "PARAM 63", set0 + 1, "PARAM 63（SET +1）")
+        param_tap_step(s, PARAM_BTN_MINUS, 0, 63, -1, set0, "TAP −（SAMPLE SET 回基线）")
+        param_expect_value(s, "PARAM 63", set0, "PARAM 63（SET 回基线）")
+    else:
+        s.ser.note("SAMPLE 基线 SET=11（钳位态），跳过 +/− 断言")
+
+    # LOOP（槽 3，F_ENUM 0..1）
+    s.cmd("TAP %d %d" % param_knob_xy(3))
+    s.expect(r"-> PARAM slot=3 focus", "TAP 旋钮 3（LOOP）设焦点")
+    if loop0 == 0:
+        param_tap_step(s, PARAM_BTN_PLUS, 3, 66, +1, 1, "TAP +（SAMPLE LOOP）")
+        param_expect_value(s, "PARAM 66", 1, "PARAM 66（LOOP=1）")
+        param_tap_step(s, PARAM_BTN_MINUS, 3, 66, -1, 0, "TAP −（LOOP 回基线）")
+        param_expect_value(s, "PARAM 66", 0, "PARAM 66（LOOP 回基线）")
+    else:
+        param_tap_step(s, PARAM_BTN_MINUS, 3, 66, -1, 0, "TAP −（LOOP=1 → 0）")
+        param_expect_value(s, "PARAM 66", 0, "PARAM 66（LOOP=0）")
+        param_tap_step(s, PARAM_BTN_PLUS, 3, 66, +1, 1, "TAP +（LOOP 回基线）")
+        param_expect_value(s, "PARAM 66", 1, "PARAM 66（LOOP=1）")
+
+    # CUT（槽 4，F_INT 0..127）：TAP +1 + 触摸拖拽
+    s.cmd("TAP %d %d" % param_knob_xy(4))
+    s.expect(r"-> PARAM slot=4 focus", "TAP 旋钮 4（CUT）设焦点")
+    if cut0 < 127:
+        param_tap_step(s, PARAM_BTN_PLUS, 4, 67, +1, cut0 + 1, "TAP +（SAMPLE CUT）")
+        param_expect_value(s, "PARAM 67", cut0 + 1, "PARAM 67（CUT +1）")
+        knob_cmd(s, 4, "press", 0, -73, cut0 + 1)
+        knob_cmd(s, 4, "drag", 73, 0, cut0 + 43)  # 127 range：+90° → +42.33 → 43（四舍五入）
+        param_expect_value(s, "PARAM 67", cut0 + 43, "相对拖拽改 CUT（引擎真值）")
+        knob_cmd(s, 4, "drag", 0, -73, cut0 + 1)
+        param_tap_step(s, PARAM_BTN_MINUS, 4, 67, -1, cut0, "TAP −（CUT 回基线）")
+        param_expect_value(s, "PARAM 67", cut0, "PARAM 67（CUT 回基线）")
+    else:
+        s.ser.note("SAMPLE 基线 CUT=127（钳位态），跳过编辑断言")
+
+    # 改值态截屏：SET=1（枚举名 "BASS"）
+    s.cmd("PARAM 63 1")
+    s.expect(r"PARAM track=1 id=63 value=1 applied=1", "PARAM 63 1（SAMPLE SET 改值态）")
+    img = s.capture("params-sample-set")
+    s.probe(img, "页签选中（SAMPLE，改值态）", *C_TAB_SAMPLE, C_YELLOW)
+    s.probe(img, "旋钮 0 弧线底（改值态）", 166, 158, C_PANEL_HI, 10)
+    s.probe_region(img, "旋钮 0 数值文本（SET 枚举名）", (100, 214, 232, 246), C_TEXT_DIM, 16, 30)
+    s.cmd(f"PARAM 63 {set0}")
+    s.expect(rf"PARAM track=1 id=63 value={set0} applied={set0}", "SAMPLE SET 回基线")
+
+    # 复位引擎/轨：轨 1 回 ANALOG（共享 P_E* 槽位先归零），再选回轨 0
+    for pid in (63, 64, 66, 67):
+        s.cmd(f"PARAM {pid} 0")
+    s.cmd("ENG TRACK 1 0 0")
+    s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "ENG TRACK 轨 1 → ANALOG（复位）")
+    select_track(s, 0)
+
+    # ---------- 池水位总表：五页 delta ≤ est，全 9 页可建 ----------
     mem2 = param_mem(s)
     s.cmd("UI play")
     s.cmd("UI transport")
@@ -1249,15 +1428,19 @@ def run_params(s: Session) -> None:
     s.cmd("UI fx")
     s.cmd("UI global")
     s.cmd("UI analog")
+    s.cmd("UI fm6")
+    s.cmd("UI sample")
     mem3 = param_mem(s)
-    (s.ok if mem3["head"]["built"] == 7 else s.fail)(
-        f"UI MEM built={mem3['head']['built']}（7 页全建；free={mem3['head']['free']}）")
-    for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "ANALOG")):
+    (s.ok if mem3["head"]["built"] == 9 else s.fail)(
+        f"UI MEM built={mem3['head']['built']}（9 页全建；free={mem3['head']['free']}）")
+    (s.ok if mem3["head"]["reserve"] > 0 else s.fail)(
+        f"UI MEM reserve={mem3['head']['reserve']}（pool_total - sum_est > 0）")
+    for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "ANALOG"), (7, "FM6"), (8, "SAMPLE")):
         st, est, delta = mem2["pages"].get(pid, ("?", 0, 0))
         (s.ok if st == "built" and 0 < delta <= est else s.fail)(
             f"UI MEM {title} state={st} delta={delta} est={est}（0<delta≤est）")
 
-    # 复位：PLAY 页、轨 0、参数回基线（脚本可重复运行）
+    # 复位：PLAY 页、轨 0（脚本可重复运行）
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "复位 UI play")
 

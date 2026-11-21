@@ -35,7 +35,7 @@ typedef struct {
 } param_page_t;
 
 /* 参数页数（= APP_STATE_PAGES - 4，见 page_layout.c 的静态断言）。 */
-#define PARAM_PAGE_COUNT 3
+#define PARAM_PAGE_COUNT 5
 
 /* 按布局表下标取页定义；越界返回 NULL。 */
 const param_page_t *page_layout_get(uint8_t index);

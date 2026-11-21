@@ -177,27 +177,32 @@ static void case_format(void)
     expect_str("BIPCT -32", &d, -32, "-50%");
     expect_str("BIPCT +1", &d, 1, "+1%");
 
-    /* F_TIME：TIME_MS_X10[0]=10 / [10]=21 / [60]=776 / [90]=6834 / [104]=18862 / [127]=100000 */
+    /* F_TIME：TIME_MS_X10[0]=10 / [10]=21 / [60]=776 / [90]=6834 / [104]=18862 / [127]=100000
+     * [104] 故意取非整两位的值：上游 fmt_fix 截断 → 1.88s（printf 四舍五入会给 1.89s） */
     d = mk(SLOOP_DESC_FMT_TIME, 0, 127, NULL, 0, NULL);
     expect_str("TIME 0", &d, 0, "1.0ms");
     expect_str("TIME 10", &d, 10, "2.1ms");
     expect_str("TIME 60", &d, 60, "78ms");
     expect_str("TIME 90", &d, 90, "683ms");
-    expect_str("TIME 104", &d, 104, "1.89s");
+    expect_str("TIME 104（截断 1.8862→1.88）", &d, 104, "1.88s");
     expect_str("TIME 127", &d, 127, "10.0s");
 
-    /* F_LFOHZ：LFO_HZ_X100[0]=5 / [60]=118 / [90]=571 / [104]=1192 */
+    /* F_LFOHZ：LFO_HZ_X100[0]=5 / [60]=118 / [90]=571 / [104]=1192 / [105]=1257
+     * <10Hz 档 h/100 恰两位（571→5.71）；≥10Hz 档先 h/10 再 1 位（截断）：
+     * [105] 1257 → 12.5Hz（12.57 四舍五入会给 12.6Hz） */
     d = mk(SLOOP_DESC_FMT_LFOHZ, 0, 127, NULL, 0, NULL);
     expect_str("LFOHZ 0", &d, 0, "0.05Hz");
     expect_str("LFOHZ 60", &d, 60, "1.18Hz");
     expect_str("LFOHZ 90", &d, 90, "5.71Hz");
     expect_str("LFOHZ 104", &d, 104, "11.9Hz");
+    expect_str("LFOHZ 105（截断 1257→12.5）", &d, 105, "12.5Hz");
 
-    /* F_CUTOFF：CUTOFF_HZ[0]=30 / [60]=583 / [90]=2568 / [104]=5132 / [127]=16000 */
+    /* F_CUTOFF：CUTOFF_HZ[0]=30 / [60]=583 / [90]=2568 / [104]=5132 / [127]=16000
+     * [90] 2568 → h/100=25 → 2.5kHz（截断；printf 会给 2.6kHz） */
     d = mk(SLOOP_DESC_FMT_CUTOFF, 0, 127, NULL, 0, NULL);
     expect_str("CUTOFF 0", &d, 0, "30Hz");
     expect_str("CUTOFF 60", &d, 60, "583Hz");
-    expect_str("CUTOFF 90", &d, 90, "2.6kHz");
+    expect_str("CUTOFF 90（截断 2568→2.5）", &d, 90, "2.5kHz");
     expect_str("CUTOFF 104", &d, 104, "5.1kHz");
     expect_str("CUTOFF 127", &d, 127, "16kHz");
 

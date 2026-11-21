@@ -316,6 +316,11 @@ esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press
     page_ui_t *ui = &s_ui[idx];
     if (ui->header == NULL) return ESP_ERR_INVALID_STATE;
     if (!ui->present[slot]) return ESP_ERR_INVALID_ARG;
+    /* 引擎页不适用（选中轨引擎与页声明不符/鼓轨）：旋钮显示 -- 且不可编辑。
+     * 用独立错误码让 console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。 */
+    app_state_t st;
+    state_get_copy(&st);
+    if (page_locked(page_layout_get((uint8_t)idx), &st)) return ESP_ERR_NOT_ALLOWED;
     knob_t *k = &ui->knobs[slot];
     bool accepted = press ? knob_test_press(k, dx, dy) : knob_test_drag(k, dx, dy);
     if (value != NULL) *value = k->value;
