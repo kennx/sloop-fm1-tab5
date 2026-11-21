@@ -154,7 +154,12 @@ class Session:
 
     def _open(self) -> LoggedSerial:
         import serial
-        return LoggedSerial(serial.Serial(self.port, BAUD, timeout=0.05), self.log_path)
+        try:
+            return LoggedSerial(serial.Serial(self.port, BAUD, timeout=0.05), self.log_path)
+        except (serial.SerialException, OSError) as e:
+            # 重试耗尽后的重开失败（端口被占/设备已掉）要让上层按 InjectError 收口，
+            # 不能把 pyserial 异常漏成 traceback（脚本断言/退出码口径一致）。
+            raise InjectError(f"打开串口 {self.port} 失败: {e}") from None
 
     # ---- 打印 ----
     def ok(self, text: str) -> None:
@@ -329,19 +334,20 @@ C_PANEL_HI = (32, 40, 48) # UI_PANEL_HI 0x242B33 → rgb565 (32,40,48)
 C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
-# 页签条几何随注册页数收窄（ADR-008）：9 页（4 基础 + 5 参数页）时 tab_w = 114、
-# 间距 8 → 页签 i 的 x 区间 = 16 + i*122 .. +114。探针取页签**左缘内 8px** 的底色
-# （y=36）：该处只有填充色，不落在居中的页签文本上（4 页布局时用过的中心点会压到
-# 字形，故按新布局改左缘）。
-C_TAB_PLAY = (24, 36)
-C_TAB_TRACKS = (146, 36)
-C_TAB_STEP = (268, 36)
-C_TAB_TRANSPORT = (390, 36)
-C_TAB_GLOBAL = (512, 36)
-C_TAB_FX = (634, 36)
-C_TAB_ANALOG = (756, 36)
-C_TAB_FM6 = (878, 36)
-C_TAB_SAMPLE = (1000, 36)
+# 页签条几何随注册页数收窄（ADR-008）：9 页（4 基础 + 5 参数页）时 tab_w = 107、
+# 间距 8 → 页签 i 的 x 区间 = 16 + i*115 .. +107。探针取页签**左缘内 8px** 的底色
+# （y=20，文本行 ~26..46 之上）：9 页时 107px 只比 "TRANSPORT" 标签宽 5px，y=36
+# 会落在字形笔画/抗锯齿上（终审轮实测 (369,36) 命中 T 的竖笔），故探针行上移到
+# 文本之上；4 页布局时用过的中心点同理。
+C_TAB_PLAY = (24, 20)
+C_TAB_TRACKS = (139, 20)
+C_TAB_STEP = (254, 20)
+C_TAB_TRANSPORT = (369, 20)
+C_TAB_GLOBAL = (484, 20)
+C_TAB_FX = (599, 20)
+C_TAB_ANALOG = (714, 20)
+C_TAB_FM6 = (829, 20)
+C_TAB_SAMPLE = (944, 20)
 C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
 
 
@@ -417,8 +423,8 @@ TRACKS_CARD_PITCH = 312
 # UI_TAB_X0 + i*(UI_TAB_W+UI_TAB_GAP) .. +UI_TAB_W，y = UI_TAB_Y .. +UI_TAB_H。
 # nav 用例①取相邻页签之间 8px 缝的中心：在页签条内、却在所有页签矩形之外。
 # 页面注册表 = 9 页（PLAY/TRACKS/STEP/TRANSPORT/GLOBAL/FX/ANALOG/FM6/SAMPLE）时
-# ui.c 的页签宽度：min(UI_TAB_W=176, (1280 - 2*16 - 150(右侧留位) - 8*8) / 9) = 114。
-UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 114, 8
+# ui.c 的页签宽度：min(UI_TAB_W=176, (1280 - 2*16 - 220(右侧留位) - 8*8) / 9) = 107。
+UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 107, 8
 UI_TAB_Y, UI_TAB_H = 10, 52
 
 
@@ -1433,8 +1439,10 @@ def run_params(s: Session) -> None:
     mem3 = param_mem(s)
     (s.ok if mem3["head"]["built"] == 9 else s.fail)(
         f"UI MEM built={mem3['head']['built']}（9 页全建；free={mem3['head']['free']}）")
-    (s.ok if mem3["head"]["reserve"] > 0 else s.fail)(
-        f"UI MEM reserve={mem3['head']['reserve']}（pool_total - sum_est > 0）")
+    # 真不变量是「九页全建后 pool_free > 0」；reserve = total - sum_est 只是展示值
+    # （按 63,120B 池与 7,016B 基础占用算真实账面为负，见 ADR-008 §5），不得当门禁。
+    (s.ok if mem3["head"]["free"] > 0 else s.fail)(
+        f"UI MEM pool_free={mem3['head']['free']}（九页全建后 > 0，ADR-008 §5）")
     for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "ANALOG"), (7, "FM6"), (8, "SAMPLE")):
         st, est, delta = mem2["pages"].get(pid, ("?", 0, 0))
         (s.ok if st == "built" and 0 < delta <= est else s.fail)(
