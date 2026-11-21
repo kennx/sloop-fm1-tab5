@@ -160,7 +160,7 @@ sum_est=56320 reserve=1560`（`task-11-inject-params.log` 第 455–464 行）�
 | I1 | `format_fixed` 丢负数且 |v|<一个显示单位时的符号（F_DB raw 111 显示 `0.5dB`，上游给 `-.5`） | `format_fixed` 在 `v<0 && ip==0` 时单独补 `-`（输出 `-0.5dB`，同值可读）；`knob_test` 新增 raw 111（`-0.5dB`）与 raw 110 边界（`-1.0dB`） | `task-11-fix-knob-test-red.log`（RED：`got "0.5dB" want "-0.5dB"`）、`-green{1,2}.log`（逐字节相同 5 passed） |
 | I2 | ADR-008 §8.3 `CUT 90 → 2.6kHz` 与 §8.2/测试的 2.5kHz 矛盾 | 改为 `2.5kHz`（截断） | ADR-008 §8.3 |
 | I3 | 「9 页全建后 free ≈24.2KB」与九页全建 2,816B 矛盾 | 三处改为「**其它八页建完、STEP 尚未建时** free ≈24.2KB」 | ADR-008 §3、`ui.c` 注释、本 readme §1/§3 |
-| I4 | 容量拒绝无归档 transcript、params 场景并非 STEP-last | 新增 STEP-last 实测 transcript：`UI tracks`→`transport`→`global`→`fx`→`analog`→`fm6`→`sample` → `UI MEM`（built=8、STEP unbuilt、free 24,272）→ `UI step`（池增量 21,864B，预算 24,064）→ `UI MEM`（built=9、free 2,788） | `task-11-fix-steplast.log` 95dc8572…、`-run.txt` 7c564cfe… |
+| I4 | 容量拒绝无归档 transcript、params 场景并非 STEP-last | 新增 STEP-last 实测 transcript：`UI tracks`→`transport`→`global`→`fx`→`analog`→`fm6`→`sample` → `UI MEM`（built=8、STEP unbuilt、free 24,272）→ `UI step`（池增量 21,864B，预算 24,064）→ `UI MEM`（built=9、free 2,788） | `task-11-fix-steplast.log` a346c27d…、`-run.txt` 2e170feb… |
 | m5 | `params.sh` 头注「三张 PNG」 | 改为五页 + 八张 PNG（global/fx/analog/fm6/fm6-alg/fm6-locked/sample/sample-set） | `scripts/inject/params.sh` |
 | m6 | ADR §5 的 `pool_total 57,804–58,880` 无归档出处 | 改为 Task 11 归档 `UI MEM` 实测 **57,876–59,436 B** 并点名日志 | ADR-008 §5 |
 | m7 | `ui.c` 写 delta 21,808B、ADR 写 21,836B | 统一为归档值 **21,836B（+10.2%）**（21,836/24,064 = +10.20%） | `ui.c`、ADR-008 §3 |
@@ -177,7 +177,7 @@ sum_est=56320 reserve=1560`（`task-11-inject-params.log` 第 455–464 行）�
 | knob-test RED→GREEN×2 | RED：`4 passed, 1 failed`（k=5 `DB 111 got "0.5dB"`）；GREEN×2：`5 passed, 0 failed`，两日志逐字节相同 | `task-11-fix-knob-test-red.log` fb607870…、`-green{1,2}.log` 2cf13b59… |
 | build ×2 | clean rc=0 / 增量 rc=0；`warning:` 0 / 0；增量遍 0 kconfig 提示；镜像 `0x176bb0`（82% 余量） | `task-11-fix-build-clean.log` 5b98b3f1…、`-build-incremental.log` 8612bb57… |
 | 烧录 + 启动 | 三段 `Hash of data verified`；`App version: a00df79-dirty`；`UI 就绪: 9 页注册/1 已建`（15,556/62,820）、内部堆 115,483B；无 fatal/abort/WDT | `task-11-fix-flash.log` 28ec88b6…、`-boot-log.txt` 43d2a8b8… |
-| STEP-last 容量实测 | 见 §6.1 I4 | `task-11-fix-steplast.log` 95dc8572… |
+| STEP-last 容量实测 | 见 §6.1 I4 | `task-11-fix-steplast.log` a346c27d… |
 | FX LEVEL=111 显示 smoke | `PARAM 0 111` → `applied=111`；`UI KNOB 5 press` value=111；截屏值文本字形复原为 `- 0 . 5 d B`（负号独立 glyph 在最左，随后 `0.5dB`） | `task-11-fix-smoke-fx-level111.png` 38ab103d…、`task-11-fix-smoke.log` ea3ca7ca…、`-smoke-run.txt` 8097b83c… |
 | 参数页注入回归 | `params.sh` 退出码 0：**142 PASS / 0 FAIL**（五页编辑、九页池水位、锁定令牌、截屏抽检全过） | `task-11-fix-inject-params.log` df8a031e…、`-run.txt` 043895f7… |
 | state / host / 工具 / 完整性 | state-test ×2 `15 passed` 逐字节相同；host-test `ALL HOST TESTS PASSED (subset)`；`screenshot.py --selftest` 全过；manifest 233/233 | `task-11-fix-state-test-green{1,2}.log` d22d9432…、`-host-test.log` 6b965530…、`-screenshot-selftest.log` bf7448d8…、`-manifest.txt` 11007999… |
