@@ -15,7 +15,6 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  UI step
-I (11721) sloop_ui: 页面构建 page=STEP(2) 池增量=21832B 预算=24576B 池剩余=28796B
 UI page=step (2)
 sloop>  ENG STEP 0 2
 ENG STEP k=0 i=2 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
@@ -38,9 +37,9 @@ STATE SNAP trk k=3 mute=0 solo=0
 sloop>  TAP 1 700
 TAP miss 1,700 page=2
 Command returned non-zero error code: 0x1 (ERROR)
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-092414-step-two-on.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-093730-step-two-on.png
 SCR
-I (12761) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (70630) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 16 16
@@ -63,9 +62,9 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-092414-step-bank1.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-093730-step-bank1.png
 SCR
-I (30441) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (88360) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 0 8
@@ -85,9 +84,9 @@ sloop>  TAP 632 332
 TAP 632,332 page=2 -> STEP track=1 step=7 CMD_TOGGLE_STEP
 sloop>  ENG STEP 1 7
 ENG STEP k=1 i=7 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-092414-step-len8.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-093730-step-len8.png
 SCR
-I (47811) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (105860) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 TAP 632 332
@@ -107,7 +106,6 @@ TAP 121,208 page=2 -> STEP track=0 step=16 CMD_TOGGLE_STEP
 sloop>  ENG STEP 0 16
 ENG STEP k=0 i=16 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  UI transport
-I (64391) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3792B 预算=4608B 池剩余=25412B
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -121,9 +119,9 @@ STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 sloop>  UI step
 UI page=step (2)
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-092414-step-bank0-playhead.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-093730-step-bank0-playhead.png
 SCR
-I (65521) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (124160) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI WINDOW 16 16
@@ -134,9 +132,9 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-092414-step-bank1-no-playhead.png
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261121-093730-step-bank1-no-playhead.png
 SCR
-I (82551) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (140940) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport

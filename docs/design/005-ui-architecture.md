@@ -31,9 +31,12 @@ LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部
 - **TRACKS**：四轨卡片横排，轨主题色 outline 描边（选中 6px + 亮底，未选中 3px），卡内
   `TRACK n / ENG k PRE p / LEVEL v / MUTE x SOLO y` + 电平条；点击卡发 `CMD_SELECT_TRACK`
   （`cmd_select_track` 同时写 `selected_track` 与 `focus_track`）。
-- **STEP**：4 行 × 16 步网格，行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
-  切换共用同一判定）；播放中当前步描 `UI_ACCENT`、焦点格描 `UI_TEXT`；点格 `state_set_focus()` +
-  `CMD_TOGGLE_STEP`（鼓轨第 4 行只读，展示 `dstep[i].on` 聚合，点击写状态行提示不发命令）。
+- **STEP**：4 行 × 步窗网格（列数 = `window_len` 1..16，列 c = 引擎绝对步 `window_start+c`；
+  P4-0 Task 5），行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
+  切换共用同一判定）；列号/顶栏 `STEP`/`WIN a..b` 用绝对步号，窗口外的格/列号隐藏（TAP 命不中）；
+  播放头把绝对 `step_pos` 映射进窗口（窗口外不显示）；绝对步 ≥ 本轨 LEN 的格暗显。点格
+  `state_set_focus()` + `CMD_TOGGLE_STEP`（绝对步号；鼓轨第 4 行只读，展示 `dstep[c].on`
+  窗口聚合，点击写状态行提示不发命令）。
 - **LVGL 内存纪律**：格/标签/卡片共用静态 `lv_style_t`（状态变化走 `lv_obj_replace_style` 换指针），
   卡片内文本合并；仍保留局部样式的只有四张卡的 `pad_all`、四条电平条（main/indicator）与顶栏/状态行
   两个单例标签，量级固定。这样把 64KB 内置 TLSF 池占用从首版的 ≈97%（文本重分配即可能失败）压到

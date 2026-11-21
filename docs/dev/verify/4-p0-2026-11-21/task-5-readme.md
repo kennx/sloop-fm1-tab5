@@ -62,11 +62,11 @@ len 0→1、99→16、focus 夹到窗口内）。
 |---|---|---|
 | 默认窗口归一 | 回显 `UI WINDOW bank=0 start=0 len=16`；`STATE SNAP ... window_start=0 window_len=16` | PASS |
 | bank1 绝对步号 | `UI WINDOW 16 16` → TAP 列 0 → `-> STEP track=0 step=16`；`ENG STEP 0 16 n=1 time=0`；`focus_step=0`、`window_start=16` | PASS |
-| bank1 列号 17..32 + 顶栏 `WIN 17..32` | `task-5-inject-step_edit-step-bank1.png` | 列号标签逐列像素阈值 ASCII 复原：列 0=`17`、列 1=`18`、列 15=`32`；顶栏 ASCII 复原 `TRACK 3 STEP 17 LEN 16 DIV 2 WIN 17..32`；bank0 的步 2/5 格在 bank1 窗口中隐藏（像素=页面背景） |
+| bank1 列号 17..32 + 顶栏 `WIN 17..32` | `task-5-inject-step_edit-step-bank1.png` | 列号标签逐列像素阈值 ASCII 复原：列 0=`17`、列 1=`18`、列 15=`32`；顶栏 ASCII 复原 `TRACK 1   STEP 17   LEN 16   DIV 2   WIN 17..32`；bank0 的步 2/5 格在 bank1 窗口中隐藏（像素=页面背景） |
 | bank1 亮格（DIM） | 同上 | 列 0 亮格像素 `(24,52,96)` ≈ 蓝 45%（绝对步 16 ≥ 默认 LEN=16）；列 1 空位 `(16,16,16)` ≈ `UI_PANEL_HI` 45% |
 | window_len=8 | `UI WINDOW 0 8`；列 8 TAP → `TAP miss 705,208 page=2`；列 7 TAP → 绝对步 7，`ENG STEP 1 7 n=1`；`task-5-inject-step_edit-step-len8.png` | PASS；列 8..15 隐藏（列号文本像素=0、格=页面背景），可见列标签 1..8 |
 | 播放头映射 | `task-5-inject-step_edit-step-bank0-playhead.png`（播放中 bank0）→ 4 行播放头列均 `[4]`；`task-5-inject-step_edit-step-bank1-no-playhead.png`（播放中切 bank1）→ 4 行均无强调色描边 | PASS；窗口外播放头不显示残留 |
-| 可重复性 | 同脚本连续第二次运行 | 退出码 0（71 PASS），无人工复位 |
+| 可重复性 | `task-5-fix-step_edit-run2.log`（第二次运行，原始回显） | 退出码 0（71 PASS）；两次运行 5 张 PNG 逐字节相同（确定性），见 §7 |
 
 > 视觉复核口径：本会话无图像查看工具，PNG 的人工目检按 AGENTS §5.4(2) 仍为外部
 > 人测项。本次用像素探针 + 列号区域二值化 ASCII 复原（可读出 17..32/1..8）+ 顶栏
@@ -88,5 +88,24 @@ len 0→1、99→16、focus 夹到窗口内）。
   （编辑与 ENG 真值不受影响）。LEN 编辑属 P4-C，届时 bank1 可显示亮格。
 - `sloop_core_read_window` 在诊断冻结期与 `read` 同口径返回冻结快照（基 0）；UI 本就在
   quiesce 中暂停，不影响门禁。
-- 步窗是持久 UI 状态：注入/soak 脚本进入 STEP 前须归一到 0/16（本次已在 step_edit /
-  soak 前置做掉）。
+- 步窗是持久 UI 状态：注入/soak 脚本进入 STEP 前须归一到 0/16（step_edit/transport/soak
+  均做；transport 在评审后续修复中补上）。
+
+## 7. 评审后续修复（2026-11-21，Task 5 修复轮）
+
+| 项 | 改动 | 证据 |
+|---|---|---|
+| Important 1：transport 未归窗 | `run_transport()` 在 `UI step` 前 `wlen = ensure_window(s, 0, 16)`（落窗 + STATE SNAP 断言）；播放头扫描/期望列/探针区域全部按 `wlen` 几何（`playhead_columns(img, wlen)`） | 先把窗口弄脏：`task-5-fix-transport-dirty-window-pre.txt`（`UI WINDOW 16 16` → `window_bank=1 window_start=16 window_len=16`）；随后 `task-5-fix-transport-dirty-window.log` 原始回显含 `UI WINDOW 0 16` 归一，播放头 4 行断言 PASS，脚本退出码 0。AGENTS §5.4.1 措辞改为「step_edit/transport/soak 均做」 |
+| Important 2：soak.py 无法启动（DI-14） | `inject.Session(args.port, log_path, out_dir, stamp, "soak", timeout=3.0)`（Session 自建 LoggedSerial）；删除本地 `LoggedSerial` 构造与 `import serial`；日志注记改 `s.ser.note()`；保留 Task 5 的 `UI WINDOW 0 16` 前置 | `python3 scripts/soak.py /dev/ttyACM0 --duration 120 --interval 60 --cycle 12` → `VERDICT: PASS`：`task-5-fix-soak.log`、`task-5-fix-soak-summary.txt`（3 采样/120s，内部堆 113,283→113,279B、xrun=0、duty_mean 最大 11.10% ≤ 18.88%、无 panic/WDT）。DI-14 已删除 |
+| Minor 3：readme 顶栏文本 | 实际像素为 `TRACK 1`（焦点轨 0），readme §4 已改正；`inject.py` 锚点注释写明**主题 hex 经 RGB565 量化**（`UI_PANEL_HI 0x242B33=(36,43,51) → (32,40,48)`），容差 10–16 覆盖 ≤4/通道量化差，锚点值不按 hex 改 | 本文 §4；`inject.py` 锚点块注释 |
+| Minor 4：`playhead_columns` 参数未用 | transport 传入真实 `wlen`；期望列 `% wlen`、探针区域 `88 + wlen*73`。step_edit 的播放头扫描窗口固定 16/16（显式） | `task-5-fix-transport-dirty-window.log` |
+| Minor 5：sync 与 SET_WINDOW 交错 | `state_sync_from_engine` 取快照后**复核窗口起点**，变了按新窗口重取一次（最多 2 次尝试），不再把旧基投影写回（EDIT 擦除读该投影） | host 新用例 k=8 `case_window_sync_race`（stub 钩子在第一次 `read_window` 内落 `CMD_SET_WINDOW 16/16`）：`read_window` 共 3 次、写回列 0=绝对 16、列 4=绝对 20、旧基未混入；`task-5-fix-state-test.log` 10 passed（`task-5-fix-state-test-green2.log` 与其逐字节相同） |
+| Minor 6：`state_set_focus` 文档 | 头文件注明 step 是窗口列、须 `< window_len`，窗口外被忽略 | `sloop_state.h` |
+| Minor 7：ADR-005 STEP 描述 | 改为「4 行 × 步窗网格（列数=window_len，列 c=绝对步 window_start+c）」，列号/顶栏绝对、窗口外隐藏、播放头映射、dim 口径 | `docs/design/005-ui-architecture.md` |
+| Minor 8：step_edit 可重复性claim | 第二次运行原始回显入库 `task-5-fix-step_edit-run2.log`；两次运行 5 张 PNG 逐字节相同（确定性） | `task-5-fix-step_edit-run2.log` + `task-5-fix-step_edit-run2-summary.log` |
+
+修复轮回归：`task-5-fix-state-test.log`（10 passed）、`task-5-fix-host-test.log`
+（ALL HOST TESTS PASSED）、`task-5-fix-build-clean.log` / `task-5-fix-build-incremental.log`
+（exit 0，编译警告 0；clean 首遍仅豁免的 kconfig 提示对）、`task-5-fix-flash.log`
+（三段 Hash verified）、`task-5-fix-boot-log.txt`（`App version: 28774c0-dirty`，无 fatal）。
+`task-5-manifest.txt` 重采 233/233。
