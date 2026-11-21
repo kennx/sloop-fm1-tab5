@@ -18,13 +18,12 @@ void stub_engine_reset(void)
     }
 }
 
-void sloop_core_read(sloop_core_snapshot_t *out)
+/* 快照/窗口快照共用的窗口列填充：列 i ← 引擎绝对步 start+i。 */
+static void stub_fill_window(sloop_core_snapshot_t *out, uint32_t start)
 {
-    g_stub.read_calls++;
-    *out = g_stub.snap;
     for (uint32_t k = 0; k < STUB_ENGINE_TRACKS; k++) {
         for (uint32_t i = 0; i < 16; i++) {
-            const sloop_step_t *s = &g_stub.step[k][i];
+            const sloop_step_t *s = &g_stub.step[k][start + i];
             out->step[k][i].n = s->n;
             memcpy(out->step[k][i].note, s->note, sizeof(out->step[k][i].note));
             out->step[k][i].vel = s->vel;
@@ -32,6 +31,27 @@ void sloop_core_read(sloop_core_snapshot_t *out)
             out->step[k][i].flags = s->flags;
         }
     }
+    for (uint32_t i = 0; i < 16; i++) {
+        out->dstep[i].on = g_stub.dstep[start + i].on;
+        out->dstep[i].lvl = g_stub.dstep[start + i].lvl;
+        out->dstep[i].rat = g_stub.dstep[start + i].rat;
+    }
+}
+
+void sloop_core_read(sloop_core_snapshot_t *out)
+{
+    g_stub.read_calls++;
+    *out = g_stub.snap;
+    stub_fill_window(out, 0);
+}
+
+void sloop_core_read_window(uint32_t start, sloop_core_snapshot_t *out)
+{
+    g_stub.read_window_calls++;
+    start &= ~15u;
+    if (start > STUB_ENGINE_STEPS - 16u) start = STUB_ENGINE_STEPS - 16u;
+    *out = g_stub.snap;
+    stub_fill_window(out, start);
 }
 
 void sloop_core_read_step(uint32_t track, uint32_t idx, sloop_step_t *out)

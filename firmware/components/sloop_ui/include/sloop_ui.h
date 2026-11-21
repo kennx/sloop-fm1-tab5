@@ -131,8 +131,8 @@ void sloop_ui_cancel_pending_page(void);
  * 内部取 LVGL 锁（命中后要改控件文本/立即刷新），仅 console 注入路径调用。 */
 typedef enum {
     SLOOP_TAP_MISS = 0,
-    SLOOP_TAP_STEP_CELL,     /* a=track b=step：设焦点 + CMD_TOGGLE_STEP */
-    SLOOP_TAP_STEP_DRUM,     /* b=step：鼓轨只读，只写状态行提示 */
+    SLOOP_TAP_STEP_CELL,     /* a=track b=绝对步号：设焦点（窗口列）+ CMD_TOGGLE_STEP */
+    SLOOP_TAP_STEP_DRUM,     /* b=绝对步号：鼓轨只读，只写状态行提示 */
     SLOOP_TAP_TRACK_CARD,    /* a=track：CMD_SELECT_TRACK */
     SLOOP_TAP_TRANSPORT_PLAY,
     SLOOP_TAP_TRANSPORT_STOP,

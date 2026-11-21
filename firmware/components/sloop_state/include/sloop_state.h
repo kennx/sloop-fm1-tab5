@@ -23,14 +23,29 @@
 
 #define APP_STATE_PAGES 4u      /* PLAY / TRACKS / STEP / TRANSPORT */
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
-#define APP_STATE_STEPS 16u     /* 快照/网格的步视窗列数 */
+#define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
 #define APP_STATE_VEL_DEFAULT 100u
+
+/* 步窗（UI 局部态，非引擎真值）：引擎步号恒为绝对索引 0..63；STEP 网格的列 c
+ * 显示/编辑引擎步 window_start + c。window_start 16 对齐（0/16/32/48），
+ * bank = window_start/16，window_len = 1..16（窗口可窄于一个 bank）。
+ * 默认 {0, 0, APP_STATE_STEPS}。由 CMD_SET_WINDOW 写、step_window() 读。 */
+typedef struct {
+    uint8_t bank, window_start, window_len;
+} step_window_t;
+
+/* 窗口列 → 引擎绝对步号。STEP 页渲染、TAP 命中与输入层派发共用本函数，
+ * 不得另算一份（窗口列与绝对步号的映射只此一处）。 */
+static inline uint8_t step_window_abs(const step_window_t *win, uint8_t col)
+{
+    return (uint8_t)(win->window_start + col);
+}
 
 typedef enum {
     CMD_NOTE_ON, CMD_NOTE_OFF, CMD_PLAY, CMD_STOP, CMD_SELECT_TRACK,
     CMD_TOGGLE_STEP, CMD_SET_BPM, CMD_SET_TRACK, CMD_MUTE, CMD_SOLO,
-    CMD_ERASE_NOTE,
+    CMD_ERASE_NOTE, CMD_SET_WINDOW,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
@@ -57,6 +72,10 @@ typedef enum {
  *                    flags 的 CONT 位）随之前移；最后一个音符删除后整步清空并对齐
  *                    上游折叠 TIE 连缀（同 CMD_TOGGLE_STEP 的关路径）。
  *                    步里没有该音符（或步已空）时不写引擎。鼓轨忽略。
+ *  CMD_SET_WINDOW    a=bank（冗余，由 b 派生） b=start v=len：写步窗（UI 局部态）并
+ *                    立即重取窗口列投影。start 向下对齐到 16 的倍数、钳位到 0..48；
+ *                    bank = start/16；len 钳位到 1..APP_STATE_STEPS；focus_step 被夹到
+ *                    窗口内（隐藏列不可聚焦）。引擎不感知本命令（引擎步号恒为绝对）。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -65,9 +84,11 @@ typedef struct {
 } edit_cmd_t;
 
 typedef struct {
-    sloop_core_snapshot_t core; /* 引擎投影（含 selection/mute/solo：均为引擎真值） */
+    sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
+                                 * （= 引擎步 window_start+c；见 step_window_t） */
+    step_window_t window;       /* 步窗（UI 局部态；默认 {0,0,16}） */
     uint8_t page;               /* 当前页（app_page_t） */
-    uint8_t focus_step;         /* STEP 页焦点步（0..15） */
+    uint8_t focus_step;         /* STEP 页焦点列（0..window_len-1） */
     uint8_t focus_track;        /* 焦点轨（0..3） */
     uint8_t last_note;          /* 最近演奏音；0 = 还没弹过（note 0 不记忆） */
     uint8_t layer_held;         /* 层键位掩码（APP_LAYER_*，InputManager 写、UI 读） */
@@ -100,6 +121,8 @@ void state_apply(const edit_cmd_t *cmd);
 void state_sync_from_engine(void);
 /* 互斥复制一份当前 AppState；UI 只读副本。 */
 void state_get_copy(app_state_t *out);
+/* 互斥复制步窗（当前 bank/窗口起点/列数）。 */
+void step_window(step_window_t *out);
 
 /* UI 局部态写入口（UI 任务的写路径：无 EditCmd 语义，不进引擎/远端）。
  * state_apply 是 input 任务的编辑写路径；两者都走内部互斥。 */

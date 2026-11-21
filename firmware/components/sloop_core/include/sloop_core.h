@@ -35,11 +35,13 @@ int sloop_core_selftest(const char *case_name);
 /* 只读快照：MVP 屏所需状态一次性拷出（内部持引擎锁，数百字节拷贝）。
  * 字段与编辑器协议词表对齐：bpm 是全局 BPM（上游 G_BPM，即编辑器协议里的
  * TEMPO）；trk[k].len/div 是轨道的 LEN/DIV；step_pos[k] 是播放头（seq_idx 模
- * len，停止时 0）。step[][] 为前 16 列视窗，只覆盖三条合成轨；鼓轨（track 3）
- * 的步内容由 dstep[] 聚合给出，step[3] 恒为零（上游 step_t 与 dstep_t 是同一
- * union，按 step_t 解读鼓步无意义）。鼓轨的 trk[3].engine/preset 同样无意义
- * （上游对鼓轨报 NENGINES，它没有引擎与预设）；这里保留上游原值、不置零，
- * 显示层按轨别决定是否使用。 */
+ * len，停止时 0）。step[][] 与 dstep[] 是**16 列步视窗**：sloop_core_read 从
+ * 引擎步 0 起取，sloop_core_read_window 从 window_start 起取（绝对步
+ * window_start+c，见 sloop_state 的 step_window_t）。step[][] 只覆盖三条合成轨；
+ * 鼓轨（track 3）的步内容由 dstep[] 聚合给出，step[3] 恒为零（上游 step_t 与
+ * dstep_t 是同一 union，按 step_t 解读鼓步无意义）。鼓轨的 trk[3].engine/preset
+ * 同样无意义（上游对鼓轨报 NENGINES，它没有引擎与预设）；这里保留上游原值、
+ * 不置零，显示层按轨别决定是否使用。 */
 typedef struct {
     bool playing;
     uint16_t bpm;
@@ -50,6 +52,13 @@ typedef struct {
     uint8_t step_pos[4];
 } sloop_core_snapshot_t;
 void sloop_core_read(sloop_core_snapshot_t *out);
+
+/* 步窗快照：与 sloop_core_read 同，但 step[k][c]/dstep[c] 取引擎绝对步
+ * start + c（start 向下对齐到 16 的倍数并钳位到 0..48，即 4 个 bank 之一）。
+ * 一次引擎锁内完成——状态层每拍只需一次取锁就能把 STEP 页窗口列对齐到引擎真值，
+ * 不必逐列 read_step。冻结态（诊断期）与 sloop_core_read 相同：返回冻结快照
+ * （基 0），UI 本就在 quiesce 中暂停。 */
+void sloop_core_read_window(uint32_t start, sloop_core_snapshot_t *out);
 
 /* 单步读写：完整上游 step_t 语义（n/note/vel/time/flags 原样，lvl/rat 为每音符
  * 2bit 打包），外加 micro（-32..31）与 fill（0..3）保留字段。读改写由调用方做；

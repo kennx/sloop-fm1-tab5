@@ -14,7 +14,8 @@
 typedef struct {
     sloop_core_snapshot_t snap;                    /* sloop_core_read 的快照（步窗由 step[] 覆盖） */
     sloop_step_t step[STUB_ENGINE_TRACKS][STUB_ENGINE_STEPS]; /* read_step/write_step 后端 */
-    uint32_t read_calls, read_step_calls, write_step_calls;
+    struct { uint8_t on, lvl, rat; } dstep[STUB_ENGINE_STEPS]; /* 鼓轨聚合后端（窗口读） */
+    uint32_t read_calls, read_window_calls, read_step_calls, write_step_calls;
     uint32_t note_calls, play_calls, set_global_calls;
     uint32_t set_mute_calls, set_solo_calls, select_calls;
     bool last_play;

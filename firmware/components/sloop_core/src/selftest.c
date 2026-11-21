@@ -461,8 +461,9 @@ uint32_t sloop_core_frames(void)
 /* 只读快照 / 单步读写 / 全局参数写（语义与字段映射见 sloop_core.h）。
  * 与其它会改变引擎状态的 API 共用 s_engine_lock；窗口长度取 LEN 的合法区间，
  * 播放头按「模 len」给（停止时为 0）。 */
-/* 填一份快照（调用方持引擎锁或处于冻结态） */
-static void snapshot_fill(sloop_core_snapshot_t *out)
+/* 填一份快照（调用方持引擎锁或处于冻结态）。start = 步视窗基（0 或 16/32/48），
+ * step[][i]/dstep[i] 取引擎绝对步 start+i。 */
+static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
 {
     memset(out, 0, sizeof(*out));
     out->playing = song.playing != 0;
@@ -484,7 +485,7 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
     }
     for (uint32_t k = 0; k < NPART; k++) {
         for (uint32_t i = 0; i < 16; i++) {
-            const step_t *s = &trk[k].step[i];
+            const step_t *s = &trk[k].step[start + i];
             out->step[k][i].n = s->n;
             memcpy(out->step[k][i].note, s->note, sizeof(out->step[k][i].note));
             out->step[k][i].vel = s->vel;
@@ -494,7 +495,7 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
     }
     /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
     for (uint32_t i = 0; i < 16; i++) {
-        const dstep_t *d = &TDRUM->dstep[i];
+        const dstep_t *d = &TDRUM->dstep[start + i];
         uint32_t on = (uint32_t)(d->on[0] | d->on[1]);
         out->dstep[i].on = on != 0;
         for (uint32_t lane = 0; lane < DRUM_LANES; lane++) {
@@ -505,6 +506,11 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
             if (rat > out->dstep[i].rat) out->dstep[i].rat = rat;
         }
     }
+}
+
+static void snapshot_fill(sloop_core_snapshot_t *out)
+{
+    snapshot_fill_at(out, 0);
 }
 
 void sloop_core_read(sloop_core_snapshot_t *out)
@@ -523,6 +529,27 @@ void sloop_core_read(sloop_core_snapshot_t *out)
         return;
     }
     snapshot_fill(out);
+    engine_unlock();
+}
+
+void sloop_core_read_window(uint32_t start, sloop_core_snapshot_t *out)
+{
+    if (out == NULL) return;
+    if (s_frozen) {
+        /* 冻结态与 read 同口径：返回冻结快照（基 0），不取锁 */
+        *out = s_frozen_snap;
+        return;
+    }
+    /* 步视窗基：16 对齐并钳位到最后一个 bank（4 × 16 = 64 步） */
+    start &= ~15u;
+    if (start > NSTEP - 16u) start = NSTEP - 16u;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        *out = s_frozen_snap;
+        return;
+    }
+    snapshot_fill_at(out, start);
     engine_unlock();
 }
 

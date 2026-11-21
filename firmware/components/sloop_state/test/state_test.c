@@ -486,6 +486,104 @@ static void case_erase_note(void)
     check_ll("越界不写", g_stub.write_step_calls - writes0, 0);
 }
 
+/* ⑦ 步窗抽象 {bank, window_start, window_len}：默认 {0,0,16}；窗口列 c 映射到
+ * 引擎绝对步 window_start + c（引擎步号恒为绝对索引，命令携带绝对值）；窗口投影
+ * 在 STATE SNAP 与 STEP 页同源，窗口切换即重取。钳位：start 16 对齐、上限 48
+ * （bank = start/16）、len 1..16、focus 夹到窗口内。 */
+static void case_step_window(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    step_window_t w;
+
+    step_window(&w);
+    check_ll("默认 bank", w.bank, 0);
+    check_ll("默认 start", w.window_start, 0);
+    check_ll("默认 len", w.window_len, 16);
+    check_ll("列 0 → 绝对步 0", step_window_abs(&w, 0), 0);
+    check_ll("列 15 → 绝对步 15", step_window_abs(&w, 15), 15);
+
+    /* 引擎侧 bank1 内容：步 16/17 + 鼓步 16/17 */
+    g_stub.step[0][16] = (sloop_step_t){ .n = 1, .note = { 67, 0, 0, 0 }, .vel = 90, .time = 0 };
+    g_stub.step[1][17] = (sloop_step_t){ .n = 2, .note = { 60, 64, 0, 0 }, .vel = 88, .time = 0 };
+    g_stub.dstep[16].on = 1;
+    g_stub.dstep[17].on = 1;
+
+    apply(CMD_SET_WINDOW, 1, 16, 16); /* a=bank（冗余，由 start 派生） b=start v=len */
+    step_window(&w);
+    check_ll("窗口 bank", w.bank, 1);
+    check_ll("窗口 start", w.window_start, 16);
+    check_ll("窗口 len", w.window_len, 16);
+    check_ll("bank1 列 0 → 绝对步 16", step_window_abs(&w, 0), 16);
+    check_ll("bank1 列 15 → 绝对步 31", step_window_abs(&w, 15), 31);
+    state_get_copy(&s);
+    check_ll("copy window start", s.window.window_start, 16);
+    check_ll("copy window len", s.window.window_len, 16);
+    check_ll("窗口投影 列 0 n", s.core.step[0][0].n, 1);
+    check_ll("窗口投影 列 0 note", s.core.step[0][0].note[0], 67);
+    check_ll("窗口投影 列 1 空", s.core.step[0][1].n, 0);
+    check_ll("窗口投影 列 1 n（轨 1 绝对步 17）", s.core.step[1][1].n, 2);
+    check_ll("鼓轨窗口投影 列 0", s.core.dstep[0].on, 1);
+    check_ll("鼓轨窗口投影 列 1", s.core.dstep[1].on, 1);
+    check_ll("鼓轨窗口投影 列 2 空", s.core.dstep[2].on, 0);
+
+    /* 写路径：列 c → 绝对步 window_start+c（命令携带绝对值），投影同步到窗口列 */
+    uint32_t writes0 = g_stub.write_step_calls;
+    apply(CMD_TOGGLE_STEP, 2, step_window_abs(&w, 5), 0); /* 列 5 → 绝对步 21 */
+    check_ll("窗口列写引擎绝对步", g_stub.step[2][21].n, 1);
+    check_ll("bank0 同列未被写", g_stub.step[2][5].n, 0);
+    check_ll("写引擎 ×1", g_stub.write_step_calls - writes0, 1);
+    state_get_copy(&s);
+    check_ll("窗口投影 列 5", s.core.step[2][5].n, 1);
+
+    /* 窗口外的绝对步可写（引擎绝对索引），但落在投影窗口外：投影不变 */
+    apply(CMD_TOGGLE_STEP, 0, 3, 0);
+    check_ll("窗口外绝对步写引擎", g_stub.step[0][3].n, 1);
+    state_get_copy(&s);
+    check_ll("窗口外写不进投影（列 3 = 绝对步 19）", s.core.step[0][3].n, 0);
+
+    /* 同步：一次窗口快照把引擎窗口列（含鼓轨）拉进投影；窗口本身不被 sync 改 */
+    uint32_t rw0 = g_stub.read_window_calls;
+    state_sync_from_engine();
+    check_ll("sync 用一次窗口快照", g_stub.read_window_calls - rw0, 1);
+    state_get_copy(&s);
+    check_ll("sync 窗口列 1 n", s.core.step[1][1].n, 2);
+    check_ll("sync 窗口列 1 note1", s.core.step[1][1].note[1], 64);
+    check_ll("sync 鼓轨列 1", s.core.dstep[1].on, 1);
+    check_ll("sync 不改窗口 start", s.window.window_start, 16);
+    check_ll("sync 不改窗口 len", s.window.window_len, 16);
+
+    /* 钳位：start 向下 16 对齐、上限 48、bank = start/16、len 1..16 */
+    apply(CMD_SET_WINDOW, 0, 17, 16);
+    step_window(&w);
+    check_ll("start 向下对齐", w.window_start, 16);
+    check_ll("bank 由 start 派生（a 被忽略）", w.bank, 1);
+    apply(CMD_SET_WINDOW, 0, 64, 16);
+    step_window(&w);
+    check_ll("start 上限 48", w.window_start, 48);
+    check_ll("bank 上限 3", w.bank, 3);
+
+    /* len 缩小：focus 夹到窗口内；之后 set_focus 也不得落在隐藏列 */
+    state_set_focus(1, 9);
+    apply(CMD_SET_WINDOW, 0, 16, 8);
+    step_window(&w);
+    check_ll("len 8", w.window_len, 8);
+    state_get_copy(&s);
+    check_ll("窗口缩小后 focus 夹到窗口内", s.focus_step, 7);
+    state_set_focus(1, 9);
+    state_get_copy(&s);
+    check_ll("焦点落在窗口外列被忽略", s.focus_step, 7);
+    check_ll("焦点轨仍生效", s.focus_track, 1);
+
+    apply(CMD_SET_WINDOW, 0, 16, 0);
+    step_window(&w);
+    check_ll("len 下限 1", w.window_len, 1);
+    apply(CMD_SET_WINDOW, 0, 16, 99);
+    step_window(&w);
+    check_ll("len 上限 16", w.window_len, 16);
+}
+
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
 static void case_bounds(void)
 {
@@ -531,6 +629,7 @@ int main(void)
     run("TOGGLE_STEP 关步折叠 TIE 连缀", case_toggle_step_tie_collapse);
     run("MUTE/SOLO 引擎写入口与 sync 真值", case_mute_solo);
     run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
+    run("步窗抽象：默认/映射/投影/钳位", case_step_window);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);
 

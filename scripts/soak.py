@@ -214,6 +214,9 @@ def main() -> None:
         ser.note(f"soak 开始 duration={args.duration:.0f}s interval={args.interval:.0f}s")
         s.cmd("ENG AUDIO")
         s.expect(r"ENG AUDIO streaming=1", "soak 前置：音频流已开")
+        # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
+        s.cmd("UI WINDOW 0 16")
+        s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
         switch(s, "transport")
         ensure_playing(s)
 

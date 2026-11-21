@@ -237,10 +237,13 @@ static void act_focus(bool step_axis, int8_t delta)
     app_state_t st;
     state_get_copy(&st);
     uint8_t track = st.focus_track < APP_STATE_TRACKS ? st.focus_track : 0u;
-    uint8_t step = st.focus_step < APP_STATE_STEPS ? st.focus_step : 0u;
+    uint8_t wlen = st.window.window_len;
+    if (wlen < 1u) wlen = 1u;
+    if (wlen > APP_STATE_STEPS) wlen = APP_STATE_STEPS;
+    uint8_t step = st.focus_step < wlen ? st.focus_step : 0u;
     if (step_axis) {
-        /* 焦点的步轴移动不动轨：鼓轨（3）也可作为显示焦点保留下来 */
-        step = (uint8_t)((step + APP_STATE_STEPS + delta) % APP_STATE_STEPS);
+        /* 焦点的步轴在窗口列内环绕（隐藏列不可聚焦，不绕到窗口外） */
+        step = (uint8_t)((step + wlen + delta) % wlen);
     } else {
         /* 轨轴只在三条合成轨间环绕；当前停在鼓轨时按方向进入 2 或 0 */
         if (track >= 3u) {
@@ -253,23 +256,25 @@ static void act_focus(bool step_axis, int8_t delta)
 }
 
 /* EDIT 层：删除聚焦步里所有该音级的音符（按音级匹配，跨八度；命令按精确音符）。
- * 步号在派发时解析（命令显式携带，状态层不读焦点）。 */
+ * 步号在派发时解析（命令显式携带绝对步号，状态层不读焦点）：焦点是**窗口列**，
+ * 绝对步 = step_window_abs()。 */
 static void act_erase(int8_t pitch_class)
 {
     app_state_t st;
     state_get_copy(&st);
     uint8_t k = st.focus_track;
     uint8_t i = st.focus_step;
-    if (k >= 3u || i >= APP_STATE_STEPS) return;
+    if (k >= 3u || i >= st.window.window_len) return;
 
+    const uint8_t abs = step_window_abs(&st.window, i);
     const uint8_t n = st.core.step[k][i].n > 4u ? 4u : st.core.step[k][i].n;
     if (!state_step_is_on(n, st.core.step[k][i].time)) return;
     for (uint8_t j = 0; j < n; j++) {
         uint8_t note = st.core.step[k][i].note[j];
         if (note == 0 || (int8_t)(note % 12u) != pitch_class) continue;
-        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = i, .v = note };
+        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = abs, .v = note };
         state_apply(&cmd);
-        ESP_LOGD(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)i,
+        ESP_LOGD(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)abs,
                  (unsigned)note);
     }
 }

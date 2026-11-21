@@ -14,6 +14,8 @@
 #define STATE_ST_TIE 1u
 #define STATE_ST_REST 2u
 #define STATE_STEPS_MAX 64u
+#define STATE_WINDOW_STEP 16u   /* 一 bank 的步数 = window_start 对齐粒度 */
+#define STATE_WINDOW_START_MAX (STATE_STEPS_MAX - STATE_WINDOW_STEP) /* 48 */
 #define STATE_SYNTH_TRACKS 3u /* read_step/write_step 只覆盖合成轨（鼓轨只读） */
 #define STATE_NOTE_MAX 127u
 
@@ -62,12 +64,15 @@ static void state_step_clear(sloop_step_t *st)
 
 static void state_snapshot_step(app_state_t *s, uint32_t track, uint32_t idx, const sloop_step_t *st)
 {
-    if (idx >= APP_STATE_STEPS) return; /* 快照只覆盖前 16 列视窗 */
-    s->core.step[track][idx].n = st->n;
-    memcpy(s->core.step[track][idx].note, st->note, sizeof(st->note));
-    s->core.step[track][idx].vel = st->vel;
-    s->core.step[track][idx].time = st->time;
-    s->core.step[track][idx].flags = st->flags;
+    /* 投影按窗口列存：引擎绝对步 idx → 列 idx - window_start；窗口外的步不投影 */
+    if (idx < s->window.window_start) return;
+    uint32_t col = idx - s->window.window_start;
+    if (col >= APP_STATE_STEPS) return;
+    s->core.step[track][col].n = st->n;
+    memcpy(s->core.step[track][col].note, st->note, sizeof(st->note));
+    s->core.step[track][col].vel = st->vel;
+    s->core.step[track][col].time = st->time;
+    s->core.step[track][col].flags = st->flags;
 }
 
 /* 镜像上游 ui.c note_del() 最后一音的 note_span_set(t,i,1)：步被清掉后，其后承载
@@ -177,6 +182,24 @@ static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
     s->core.bpm = (uint16_t)v;
 }
 
+/* 步窗（UI 局部态）：引擎不感知。start 向下对齐 16 并钳位到 0..48，bank 由
+ * start 派生（a 字段冗余）；len 钳位 1..APP_STATE_STEPS；focus_step 夹到窗口内。
+ * 落窗后立即按新起点重取一份窗口快照——下一拍 sync 之前 STATE SNAP/TAP 看到的
+ * 投影就已是新窗口列（否则最多一个 tick 显示旧 bank 的格）。 */
+static void cmd_set_window(app_state_t *s, uint32_t start, uint32_t len)
+{
+    uint32_t st = start & ~(STATE_WINDOW_STEP - 1u);
+    if (st > STATE_WINDOW_START_MAX) st = STATE_WINDOW_START_MAX;
+    if (len < 1u) len = 1u;
+    if (len > APP_STATE_STEPS) len = APP_STATE_STEPS;
+
+    s->window.bank = (uint8_t)(st / STATE_WINDOW_STEP);
+    s->window.window_start = (uint8_t)st;
+    s->window.window_len = (uint8_t)len;
+    if (s->focus_step >= len) s->focus_step = (uint8_t)(len - 1u);
+    sloop_core_read_window(st, &s->core);
+}
+
 static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
@@ -214,6 +237,7 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_MUTE:
     case CMD_SOLO: cmd_track_mix(s, cmd->type, cmd->a); break;
     case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_SET_WINDOW: cmd_set_window(s, cmd->b, cmd->v); break;
     default: break;
     }
     state_unlock();

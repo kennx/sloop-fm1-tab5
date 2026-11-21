@@ -8,13 +8,15 @@
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF、
  *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
- *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
- *    与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
+ *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
+ *    bpm/playing 与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
- *    实测 delta）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，ADR-008）：
- *    对已建页删除控件并立即重建到失败态（注入当场消费，回显 state=failed），对未建页
- *    挂起到下一次构建；off 只撤销尚未消费的注入，不重建已失败页。
+ *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
+ *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
+ *    ADR-008）：对已建页删除控件并立即重建到失败态（注入当场消费，回显
+ *    state=failed），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
+ *    不重建已失败页。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
  *    均值/最大，µs）、输入任务栈余量与诊断期丢弃计数；KEY PANIC 全停（释放已按下
@@ -478,17 +480,18 @@ static int state_command(int argc, char **argv)
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
         app_state_t st;
         state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
-               (unsigned)st.core.bpm, (unsigned)st.core.playing);
+               (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
+               (unsigned)st.window.window_start, (unsigned)st.window.window_len);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
         }
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键与引擎真值的选轨/mute/solo；同 ENG SNAP）\n");
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗与引擎真值的选轨/mute/solo；同 ENG SNAP）\n");
     return 1;
 }
 
@@ -498,7 +501,10 @@ static int state_command(int argc, char **argv)
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
  * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建页立即
- * 重建到失败态（注入当场消费），未建页挂起到下一次构建；off 只撤销未消费的注入。 */
+ * 重建到失败态（注入当场消费），未建页挂起到下一次构建；off 只撤销未消费的注入。
+ * UI WINDOW [<start> <len>]：步窗（AppState 的 UI 局部态）——start 为引擎绝对步号
+ * （向下对齐 16、钳位 0..48，bank = start/16），len 1..16；无参打印当前窗口。
+ * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
 
 /* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
@@ -574,6 +580,31 @@ static int ui_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
+    if ((argc == 2 || argc == 4) && strcasecmp(argv[1], "window") == 0) {
+        if (argc == 2) {
+            step_window_t w;
+            step_window(&w);
+            printf("UI WINDOW bank=%u start=%u len=%u\n", (unsigned)w.bank,
+                   (unsigned)w.window_start, (unsigned)w.window_len);
+            return 0;
+        }
+        uint32_t start = 0, len = 0;
+        if (!eng_uint(argv[2], 63, &start) || !eng_uint(argv[3], APP_STATE_STEPS, &len)) {
+            printf("用法: UI WINDOW <start=0..63> <len=1..16>（start 向下对齐 16，bank = start/16）\n");
+            return 1;
+        }
+        /* a=bank 冗余（由 start 派生），b=start，v=len：钳位统一在状态层 */
+        const edit_cmd_t cmd = { .type = CMD_SET_WINDOW,
+                                 .a = start / 16u,
+                                 .b = start,
+                                 .v = (uint16_t)len };
+        state_apply(&cmd);
+        step_window_t w;
+        step_window(&w); /* 回显落地值（钳位后），脚本据此派生几何 */
+        printf("UI WINDOW bank=%u start=%u len=%u\n", (unsigned)w.bank,
+               (unsigned)w.window_start, (unsigned)w.window_len);
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
@@ -649,8 +680,9 @@ static int ui_command(int argc, char **argv)
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport> | UI MEM | UI FORCEFAIL <page> [on|off] | "
-           "UI QUIESCE <on|off>（无参打印当前页）\n"
+    printf("用法: UI <play|tracks|step|transport> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
+           "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "FORCEFAIL: 已建页立即重建到失败态（回显 state=failed）；未建页下一次构建失败；"
            "off 只撤销未消费的注入\n");
     return 1;

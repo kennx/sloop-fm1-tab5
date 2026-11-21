@@ -2,8 +2,10 @@
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
 三条场景脚本（transport.sh / step_edit.sh / tracks.sh）是本文的薄封装。每个场景：
-  1. `UI <page>` 同步切页；
-  2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；
+  1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
+  2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
+     页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
+     window_start + c，列数 = STATE SNAP 的 window_len；
   3. `STATE SNAP` / `ENG STEP` 断言状态变化；
   4. 经 SCR 协议截屏（复用 scripts/screenshot.py 的读取/解码函数），对产物做像素抽检。
 
@@ -271,18 +273,28 @@ C_TAB_STEP = (400, 36)
 C_TAB_TRANSPORT = (590, 36)
 
 
-def playhead_columns(img) -> dict:
+def dim(rgb: tuple, pct: int = 45) -> tuple:
+    """page_step.c 的 DIM_PCT 口径：绝对步 ≥ 本轨 LEN 的格取原色 45%。"""
+    return tuple(c * pct // 100 for c in rgb)
+
+
+# 暗色（LEN 之外）：bank1 的绝对步 ≥ 默认 LEN(16)，故整窗格都是暗色系
+C_PANEL_HI_DIM = dim(C_PANEL_HI)
+
+
+def playhead_columns(img, window_len: int = 16) -> dict:
     """按行读出播放头所在列（播放头 = 格子四周 5px UI_ACCENT 描边）。
-    行 y 起点 = 72(页签条) + 84，行距 124；列 x 起点 = 88，列距 73，格 67×104。"""
+    几何与 page_step.c 同源：行 y 起点 = 72(页签条) + 84，行距 124；
+    列 x 起点 = 88，列距 73，格 67×104。只扫窗口内列（隐藏列不可能有描边）。"""
     out = {}
     for r in range(4):
-        y = 156 + r * 124
+        y = STEP_GRID_Y0 + r * STEP_ROW_PITCH
         cols = []
-        for c in range(16):
-            x0 = 88 + c * 73
+        for c in range(window_len):
+            x0 = STEP_GRID_X0 + c * STEP_CELL_PITCH
             hit = 0
-            for x in range(x0, x0 + 67):
-                for yy in (y + 1, y + 102):
+            for x in range(x0, x0 + STEP_CELL_W):
+                for yy in (y + 1, y + STEP_CELL_H - 2):
                     px = img.getpixel((x, yy))
                     if max(abs(px[i] - C_YELLOW[i]) for i in range(3)) <= 16:
                         hit += 1
@@ -291,24 +303,55 @@ def playhead_columns(img) -> dict:
         out[r] = cols
     return out
 
+# 步网格几何（屏幕绝对坐标 = 页内坐标 + 页签条 UI_TAB_BAR_H；与 page_step.c 的宏
+# 同名同值，页面布局改动时同步这里）。注入坐标一律由这些宏派生，不写死中心点。
+#   GRID_X0/GRID_Y0/CELL_W/CELL_H/CELL_STEP_X/ROW_PITCH = page_step.c 步网格宏
+#   NUM_Y                                        = 列号标签行（页内 y）
+STEP_GRID_X0 = 88
+STEP_GRID_Y0 = 72 + 84
+STEP_CELL_W = 67
+STEP_CELL_H = 104
+STEP_CELL_PITCH = 73
+STEP_ROW_PITCH = 124
+
+
+def step_cell_xy(col: int, row: int) -> tuple:
+    """步窗**窗口列** col（0 起）× 行 row 的屏幕绝对中心。
+    列在屏上的 x 与窗口起点无关（16 列固定几何）；当前窗口能命中的列数 =
+    STATE SNAP 的 window_len，绝对步号 = window_start + col。"""
+    return (STEP_GRID_X0 + col * STEP_CELL_PITCH + STEP_CELL_W // 2,
+            STEP_GRID_Y0 + row * STEP_ROW_PITCH + STEP_CELL_H // 2)
+
 # 注入坐标（屏幕绝对坐标 = 页内坐标 + 页签条 UI_TAB_BAR_H，各点取控件矩形中心）。
 # 每个数字对应固件里的布局宏——页面布局改动时按同名宏同步这里：
 #   UI_TAB_BAR_H  = 72   （ui.c）
 #   TRANSPORT_*   = page_transport.c 建按钮的 TRANSPORT_{PLAY,STOP,BPM}_{X,Y,W,H}
-#   GRID_*/CELL_*/ROW_PITCH = page_step.c 步网格宏
+#   GRID_*/CELL_*/ROW_PITCH = page_step.c 步网格宏（见上）
 #   CARD_*        = page_tracks.c 卡宏（卡距 = CARD_W + 16）
 TRANSPORT_PLAY = (208, 210)       # TRANSPORT_PLAY 中心：x=48+320/2，y=72+48+180/2
 TRANSPORT_STOP = (560, 210)       # TRANSPORT_STOP 中心：x=400+320/2，y 同 PLAY
 TRANSPORT_BPM_PLUS = (1050, 262)  # TRANSPORT_BPM_PLUS 中心：x=1000+100/2，y=72+140+100/2
 TRANSPORT_BPM_MINUS = (910, 262)  # TRANSPORT_BPM_MINUS 中心：x=860+100/2，y 同 "+"
-# 轨 0 步 2：x=GRID_X0+2*CELL_STEP_X+CELL_W/2=88+146+33，y=72+GRID_Y0+CELL_H/2=72+84+52
-STEP_CELL_A = (267, 208)
-# 轨 1 步 5：x=88+5*73+33；y=72+84+1*ROW_PITCH+52
-STEP_CELL_B = (486, 332)
+# 默认窗口 {0,0,16} 下的两个编辑格：轨 0 窗口列 2（绝对步 2）/ 轨 1 列 5（绝对步 5）。
+# soak.py 直接复用这两个点，故保留模块级常量（窗口默认口径下与 step_cell_xy 一致）。
+STEP_CELL_A = step_cell_xy(2, 0)
+STEP_CELL_B = step_cell_xy(5, 1)
 # 卡 2：x=CARD_X0+2*(CARD_W+16)+CARD_W/2=24+624+148；y=72+CARD_Y+CARD_H/2=72+40+235
 TRACKS_CARD2 = (796, 347)
 # 卡距：page_tracks.c CARD_PITCH = CARD_W + 16 = 312（soak 循环选卡按此换算）
 TRACKS_CARD_PITCH = 312
+
+
+def ensure_window(s: Session, start: int, window_len: int) -> None:
+    """经 console `UI WINDOW <start> <len>` 落步窗，并用 STATE SNAP 断言落地值。
+    start 必须是 16 的倍数（0/16/32/48）；len 1..16。"""
+    s.cmd(f"UI WINDOW {start} {window_len}")
+    s.expect(rf"UI WINDOW bank={start // 16} start={start} len={window_len}",
+             f"UI WINDOW {start} {window_len}")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"window_bank=(\d+)", start // 16, "STATE SNAP window_bank")
+    s.expect_int(r"window_start=(\d+)", start, "STATE SNAP window_start")
+    s.expect_int(r"window_len=(\d+)", window_len, "STATE SNAP window_len")
 
 
 def ensure_stopped(s: Session) -> None:
@@ -409,12 +452,14 @@ def run_transport(s: Session) -> None:
 
 
 def run_step_edit(s: Session) -> None:
-    """② STEP：点两格（不同轨）→ 断言编辑器真值与焦点 → 截屏。可重复运行。"""
+    """② STEP：窗口列编辑闭环 + 分窗（bank1 绝对步号/隐藏列/播放头映射）+ 截屏。
+    可重复运行：目标格已亮先经同一 TAP 路径点灭；结束复位默认窗口与停止态。"""
     ensure_stopped(s)
+    ensure_window(s, 0, 16)  # 归一到默认窗口：注入几何由此派生（列 c = 绝对步 c）
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
 
-    cells = (("0", "2", STEP_CELL_A), ("1", "5", STEP_CELL_B))
+    cells = (("0", "2", step_cell_xy(2, 0)), ("1", "5", step_cell_xy(5, 1)))
     lit = []
     for track, step, _ in cells:
         s.cmd(f"ENG STEP {track} {step}")
@@ -453,6 +498,97 @@ def run_step_edit(s: Session) -> None:
     s.probe(img, "轨 0 步 3 空位", 340, 208, C_PANEL_HI, 10)
     s.probe(img, "焦点框（轨 1 步 5 左描边）", 454, 332, C_TEXT, 10)
     s.probe(img, "页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+
+    # ②b 分窗：bank1 的列 0 = 引擎绝对步 16（列号标签 17..32）。轨 0 与 bank0 的
+    # 两格互不干扰（bank0 步 2/5 在窗口外）；先归零再点亮，脚本可重复。
+    ensure_window(s, 16, 16)
+    time.sleep(0.15)  # ≥5 个 30ms UI tick：列号/窗口投影刷新
+    bank1_xy = step_cell_xy(0, 0)
+    s.cmd("ENG STEP 0 16")
+    if s.snap_int(r"\bn=(\d+)") != 0:
+        s.ser.note("基线：轨 0 绝对步 16 已亮，先点灭")
+        s.cmd("TAP %d %d" % bank1_xy)
+        s.expect(r"-> STEP track=0 step=16 CMD_TOGGLE_STEP", "TAP 点灭 bank1 列 0")
+    s.cmd("TAP %d %d" % bank1_xy)
+    s.expect(r"-> STEP track=0 step=16 CMD_TOGGLE_STEP", "TAP bank1 列 0（绝对步 16）")
+    s.cmd("ENG STEP 0 16")
+    s.expect_int(r"\bn=(\d+)", 1, "ENG STEP 0 16 n（窗口列 0 写绝对步）")
+    s.expect_int(r"\btime=(\d+)", 0, "ENG STEP 0 16 time（NOTE）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 0, "STATE SNAP focus_track（bank1）")
+    s.expect_int(r"focus_step=(\d+)", 0, "STATE SNAP focus_step（窗口列）")
+    s.expect_int(r"window_start=(\d+)", 16, "STATE SNAP window_start（bank1）")
+    time.sleep(0.15)
+    img = s.capture("step-bank1")
+    # bank1 的绝对步 16..31 ≥ 默认 LEN(16)：格按 DIM 口径显示（暗色亮格），
+    # 编辑语义不变（ENG STEP 断言在上；LEN 编辑属 P4-C）
+    s.probe(img, "bank1 轨 0 列 0 亮格（绝对步 16，DIM）", *bank1_xy, dim(C_BLUE), 16)
+    s.probe(img, "bank1 轨 0 列 1 空位（DIM）", *step_cell_xy(1, 0), C_PANEL_HI_DIM, 10)
+    # 列号标签 17..32 与顶栏 WIN 17..32 由视觉复核（PNG 入库，见报告）
+
+    # ②c window_len=8（窗口 0..7）：列 8 起隐藏（TAP 命不中），可见列 7 命中并可写。
+    ensure_window(s, 0, 8)
+    time.sleep(0.15)
+    hidden_xy = step_cell_xy(8, 0)
+    s.cmd("TAP %d %d" % hidden_xy)
+    s.expect(rf"TAP miss {hidden_xy[0]},{hidden_xy[1]} page=2", "TAP 隐藏列 8 miss")
+    vis_xy = step_cell_xy(7, 1)
+    s.cmd("ENG STEP 1 7")
+    if s.snap_int(r"\bn=(\d+)") == 0:
+        s.cmd("TAP %d %d" % vis_xy)
+        s.expect(r"-> STEP track=1 step=7 CMD_TOGGLE_STEP", "TAP 可见列 7（绝对步 7）")
+        s.cmd("ENG STEP 1 7")
+        s.expect_int(r"\bn=(\d+)", 1, "ENG STEP 1 7 n（窗口列 7 写绝对步）")
+    time.sleep(0.15)
+    img = s.capture("step-len8")
+    s.probe(img, "len=8 列 7 亮格", *vis_xy, C_GREEN)
+    s.probe(img, "len=8 列 8 隐藏（页面背景）", *hidden_xy, C_BG, 10)
+
+    # 清掉分窗阶段的临时步，复位默认窗口（脚本可重复）
+    s.cmd("TAP %d %d" % vis_xy)
+    s.expect(r"-> STEP track=1 step=7 CMD_TOGGLE_STEP", "TAP 点灭可见列 7（清理）")
+    s.cmd("ENG STEP 1 7")
+    s.expect_int(r"\bn=(\d+)", 0, "ENG STEP 1 7 n（清理）")
+    ensure_window(s, 16, 16)
+    time.sleep(0.05)
+    s.cmd("TAP %d %d" % bank1_xy)
+    s.expect(r"-> STEP track=0 step=16 CMD_TOGGLE_STEP", "TAP 点灭 bank1 列 0（清理）")
+    s.cmd("ENG STEP 0 16")
+    s.expect_int(r"\bn=(\d+)", 0, "ENG STEP 0 16 n（清理）")
+
+    # ②d 播放头映射：bank0 播放时各行有播放头；窗口切到 bank1（默认 LEN=16）后
+    # 播放头落在窗口外 → 不显示（无残留强调色描边）。
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "TAP PLAY（播放头证据）")
+    ensure_window(s, 0, 16)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    time.sleep(0.4)  # ≥10 个 30ms tick：播放头与步位置同步
+    img = s.capture("step-bank0-playhead")
+    cols_a = playhead_columns(img)
+    for r in range(4):
+        (s.ok if len(cols_a[r]) == 1 else s.fail)(
+            f"bank0 行 {r} 播放头列 {cols_a[r]}" if len(cols_a[r]) == 1
+            else f"bank0 行 {r} 播放头应唯一（实得 {cols_a[r]}）")
+    ensure_window(s, 16, 16)
+    time.sleep(0.4)
+    img = s.capture("step-bank1-no-playhead")
+    cols_b = playhead_columns(img)
+    stray = {r: cols for r, cols in cols_b.items() if cols}
+    (s.fail if stray else s.ok)(
+        f"bank1 窗口外播放头不显示（无强调色描边）" if not stray
+        else f"bank1 窗口外仍有播放头描边：{stray}")
+
+    # 复位：停止 + 默认窗口 + PLAY 页（脚本可重复运行）
+    s.cmd("UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "TAP STOP（复位）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 0, "STATE SNAP playing（复位）")
+    ensure_window(s, 0, 16)
+    s.cmd("UI play")
 
 
 def run_tracks(s: Session) -> None:
