@@ -1,7 +1,7 @@
 # 渲染占空比补测（评审 Important #2：soak 判据「占空比不劣化」此前未测量）
 # 受测树：e005bf1 + 渲染统计埋点（App version e005bf1-dirty；埋点提交见本轮 fix 提交）
 # 埋点：sloop_hal_audio_render_stats() 由音频任务每块更新（render_us 与 xrun 判定同一次
-#       测量，since boot），console `ENG PERF` 流式分支按块预算 256/44100 s = 5805µs 换算。
+#       测量，since boot），console `ENG PERF` 流式分支按块预算 256/44100 s ≈ 5804µs（固件 `budget_us` 取整值）换算。
 
 ## 启动后 idle（UI 已就绪、音频流式、未播放）
 $ ENG INFO
@@ -19,12 +19,12 @@ t=60s    render_mean_us=582  duty_mean=10.03%  duty_max=70.74%
 t=120s   render_mean_us=589  duty_mean=10.15%  duty_max=74.62%
 
 ## 判定口径与结论
-- 基线：阶段 2 静默渲染 duty_mean=9.44%（离线 100 块 us_mean=548µs / 5805µs，
+- 基线：阶段 2 静默渲染 duty_mean=9.44%（离线 100 块 us_mean=548µs / 5804µs，
   `2-engine-2026-11-20/task-4-audio-perf.log`）。本次 UI live idle 实测 9.44%/9.27%，
   与基线同值 → UI 刷新（30ms 定时器在 LVGL 任务）不计入音频渲染路径。
 - 门限：duty_mean ≤ 2× 基线 = 18.88%（soak.py DUTY_MAX_PCT）。
 - 播放中 + 每 12s 一次「步翻格/选卡/切页/KEY 音符」的负荷下，duty_mean 收敛到 10.15%
   （1.08× 基线；更早一次同构 2min 冒烟为 11.16%，1.18×），远低于 2× 门限；xrun=0。
 - duty_max（52.6~74.6%）是块级峰值：启动首块与切页/状态写后的单块抖动（<100%，
-  render 未超 5805µs 预算，故不计 xrun）。since-boot 均值不被单块峰值放大。
+  render 未超 5804µs 预算，故不计 xrun）。since-boot 均值不被单块峰值放大。
 - 结论：占空比无退化（1.18× < 2×），判据从「未测量」转为「已量化并留档」。

@@ -14,8 +14,9 @@
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
- *    ADR-008）：对已建页删除控件并立即重建到失败态（注入当场消费，回显
- *    state=failed），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
+ *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
+ *    state=failed），对已建非当前页只删除控件回到未建态（回显 state=unbuilt，
+ *    注入待命），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
  *    不重建已失败页。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
@@ -500,8 +501,9 @@ static int state_command(int argc, char **argv)
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
- * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建页立即
- * 重建到失败态（注入当场消费），未建页挂起到下一次构建；off 只撤销未消费的注入。
+ * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建当前页
+ * 立即重建到失败态（注入当场消费）；已建非当前页回到未建态（注入待命）；未建页挂起
+ * 到下一次构建；off 只撤销未消费的注入。
  * UI WINDOW [<start> <len>]：步窗（AppState 的 UI 局部态）——start 为引擎绝对步号
  * （向下对齐 16、钳位 0..48，bank = start/16），len 1..16；无参打印当前窗口。
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
@@ -630,8 +632,9 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR forcefail (%s)\n", esp_err_to_name(ret));
             return 1;
         }
-        /* 回显注入**之后**的页状态：已建页会立即重建到失败态（注入当场被消费），
-         * 未建页则保持 unbuilt 等下一次构建失败——不打印会误导的 armed 标志。 */
+        /* 回显注入**之后**的页状态：已建当前页会立即重建到失败态（注入当场被消费），
+         * 已建非当前页回到 unbuilt、注入仍待命，未建页同样保持 unbuilt 等下一次
+         * 构建失败——不打印会误导的 armed 标志。 */
         printf("UI FORCEFAIL page=%s (%u) %s state=%s\n", k_page_names[page], (unsigned)page,
                on ? "on" : "off", ui_page_state_name(page));
         return 0;
@@ -683,7 +686,8 @@ static int ui_command(int argc, char **argv)
     printf("用法: UI <play|tracks|step|transport> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
-           "FORCEFAIL: 已建页立即重建到失败态（回显 state=failed）；未建页下一次构建失败；"
+           "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
+           "（state=unbuilt，注入待命）；未建页下一次构建失败；"
            "off 只撤销未消费的注入\n");
     return 1;
 }

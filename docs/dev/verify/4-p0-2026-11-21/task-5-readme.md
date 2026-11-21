@@ -55,6 +55,11 @@ len 0→1、99→16、focus 夹到窗口内）。
 
 ## 4. 设备注入与视觉证据（`task-5-inject-step_edit.log` 为串口原始回显）
 
+> 文件沿革：主日志 `task-5-inject-step_edit.log` 的原始内容（本任务首跑，含 STEP 首次构建
+> `池增量=21832B`）在修复轮被第二跑覆盖，首跑已按原字节归档为
+> `task-5-inject-step_edit-run1.log`（8e7dd62f…，与 `f313d2c` 清单一致）；主日志现为修复轮
+> 重跑（见 verification-log 的两行登记）。
+
 `scripts/inject/step_edit.sh` 退出码 0：**71 项 PASS / 0 FAIL**。三条注入脚本均通过
 （`task-5-inject-{transport,tracks}-summary.log` 退出码 0、0 FAIL）。
 
@@ -80,7 +85,7 @@ len 0→1、99→16、focus 夹到窗口内）。
 | 设备 `ENG SELFTEST sends/ANALOG/dry` | `task-5-device-selftest.log` | `cases=1 identical=1 mismatch=0 result=PASS`（本任务未改 DSP；全量 182 口径沿用 P4-0 Task 2 transcript） |
 | `scripts/screenshot.py --selftest` | `task-5-screenshot-selftest.log` | 全部断言通过 |
 | manifest | `task-5-manifest.txt` | `sha256sum -c` 233/233 OK（third_party 未改） |
-| 池预算 | STEP 首次构建日志 `池增量=21832B 预算=24576B`（`task-5-inject-step_edit.log`） | delta ≤ est 成立；ADR-008 表已补注 |
+| 池预算 | STEP 首次构建日志 `池增量=21832B 预算=24576B`（`task-5-inject-step_edit-run1.log` 8e7dd62f…，首跑归档件） | delta ≤ est 成立；ADR-008 表已补注 |
 
 ## 6. 已知限制 / 后续
 
@@ -98,7 +103,7 @@ len 0→1、99→16、focus 夹到窗口内）。
 | Important 1：transport 未归窗 | `run_transport()` 在 `UI step` 前 `wlen = ensure_window(s, 0, 16)`（落窗 + STATE SNAP 断言）；播放头扫描/期望列/探针区域全部按 `wlen` 几何（`playhead_columns(img, wlen)`） | 先把窗口弄脏：`task-5-fix-transport-dirty-window-pre.txt`（`UI WINDOW 16 16` → `window_bank=1 window_start=16 window_len=16`）；随后 `task-5-fix-transport-dirty-window.log` 原始回显含 `UI WINDOW 0 16` 归一，播放头 4 行断言 PASS，脚本退出码 0。AGENTS §5.4.1 措辞改为「step_edit/transport/soak 均做」 |
 | Important 2：soak.py 无法启动（DI-14） | `inject.Session(args.port, log_path, out_dir, stamp, "soak", timeout=3.0)`（Session 自建 LoggedSerial）；删除本地 `LoggedSerial` 构造与 `import serial`；日志注记改 `s.ser.note()`；保留 Task 5 的 `UI WINDOW 0 16` 前置 | `python3 scripts/soak.py /dev/ttyACM0 --duration 120 --interval 60 --cycle 12` → `VERDICT: PASS`：`task-5-fix-soak.log`、`task-5-fix-soak-summary.txt`（3 采样/120s，内部堆 113,283→113,279B、xrun=0、duty_mean 最大 11.10% ≤ 18.88%、无 panic/WDT）。DI-14 已删除 |
 | Minor 3：readme 顶栏文本 | 实际像素为 `TRACK 1`（焦点轨 0），readme §4 已改正；`inject.py` 锚点注释写明**主题 hex 经 RGB565 量化**（`UI_PANEL_HI 0x242B33=(36,43,51) → (32,40,48)`），容差 10–16 覆盖 ≤4/通道量化差，锚点值不按 hex 改 | 本文 §4；`inject.py` 锚点块注释 |
-| Minor 4：`playhead_columns` 参数未用 | transport 传入真实 `wlen`；期望列 `% wlen`、探针区域 `88 + wlen*73`。step_edit 的播放头扫描窗口固定 16/16（显式） | `task-5-fix-transport-dirty-window.log` |
+| Minor 4：`playhead_columns` 参数未用 | transport 传入真实 `wlen`；期望列 `% wlen`、探针区域 `88 + wlen*73`。step_edit 的播放头扫描在归一到 0/16（以及 bank1 的 16/16）后按 16 列几何扫描（`playhead_columns` 默认参数；`window_len` 同为 16，故未显式传参） | `task-5-fix-transport-dirty-window.log` |
 | Minor 5：sync 与 SET_WINDOW 交错 | `state_sync_from_engine` 取快照后**复核窗口起点**，变了按新窗口重取一次（最多 2 次尝试），不再把旧基投影写回（EDIT 擦除读该投影） | host 新用例 k=8 `case_window_sync_race`（stub 钩子在第一次 `read_window` 内落 `CMD_SET_WINDOW 16/16`）：`read_window` 共 3 次、写回列 0=绝对 16、列 4=绝对 20、旧基未混入；`task-5-fix-state-test.log` 10 passed（`task-5-fix-state-test-green2.log` 与其逐字节相同） |
 | Minor 6：`state_set_focus` 文档 | 头文件注明 step 是窗口列、须 `< window_len`，窗口外被忽略 | `sloop_state.h` |
 | Minor 7：ADR-005 STEP 描述 | 改为「4 行 × 步窗网格（列数=window_len，列 c=绝对步 window_start+c）」，列号/顶栏绝对、窗口外隐藏、播放头映射、dim 口径 | `docs/design/005-ui-architecture.md` |

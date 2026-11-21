@@ -10,11 +10,12 @@
  * play/set_global/write_step/set_mute/set_solo/select）以及只读的 read/read_step
  * 共享内部互斥锁，可从不同任务调用；不得在 ISR 中调用。selftest 与音频流互斥
  * （流式期间返回 busy）。
- * 诊断模式（sloop_core_diag_freeze，console `ENG SELFTEST` 用）：冻结后 read 返回
- * 冻结快照、read_step 返回全零、写 API 直接丢弃（均不取锁），selftest 因此可整段持
- * 引擎锁而不制造等待者——UI 在自检期间停在最后一帧、键盘编辑不落地，结束后下一拍
- * 自动对齐。selftest 开始/结束各恢复一次 init 快照，会丢弃运行期编辑——阶段 3 UI
- * 接管状态后，这条对用户可见。 */
+ * 诊断模式（sloop_core_diag_freeze，console `ENG SELFTEST` 用）：冻结标志置位后，
+ * read 返回冻结快照、read_step 返回全零、写 API 直接丢弃（均不取锁）——新到的调用
+ * 走冻结分支、不再取锁排队，诊断期不会有新的锁等待者；UI 在自检期间停在最后一帧、
+ * 键盘编辑不落地，结束后下一拍自动对齐（实现因此只在首尾各取一次短锁，见 ADR-007）。
+ * selftest 开始/结束各恢复一次 init 快照，会丢弃运行期编辑——阶段 3 UI 接管状态后，
+ * 这条对用户可见。 */
 #define SLOOP_CORE_NENGINES 12u
 #define SLOOP_CORE_P_COUNT  71u
 #define SLOOP_CORE_G_COUNT  50u

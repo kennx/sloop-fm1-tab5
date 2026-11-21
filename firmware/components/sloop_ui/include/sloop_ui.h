@@ -74,7 +74,9 @@ esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out);
 
 /* 调试注入（console `UI FORCEFAIL <page>`）：强制该页构建失败（验证失败可见性）。
  * 未建页：挂起到下一次构建（一次性，构建尝试后自动解除）。
- * 已建页：删除其控件并立即重建，注入当场被消费、页面进入失败态（state=failed）。
+ * 已建当前页：删除其控件并立即重建，注入当场被消费、页面进入失败态（state=failed）。
+ * 已建非当前页：只删除其控件、回到未建态（回显 state=unbuilt），注入保持待命，
+ * 下次访问时构建失败。
  * `off` 只撤销尚未消费的注入，不会重建已失败页（失败页在下次访问时重试）。
  * 返回 ESP_ERR_INVALID_ARG / ESP_ERR_INVALID_STATE / ESP_ERR_TIMEOUT。 */
 esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);

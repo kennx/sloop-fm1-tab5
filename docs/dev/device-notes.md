@@ -52,7 +52,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 | 2026-11-19 | 阶段 1 听音人测无声 → 定位 es8388 输出音量初始化缺口（见 §5）→ 修复（4278509）→ 人测出声 |
 | 2026-11-20 | 阶段 2 引擎上机：设备/host 182/182 同源 golden 哈希全等；PERF 静默均值 9.44%/最大 11.73%、xrun=0；CC0 资产 283KB/8 集；ENG SELFTEST/TRACK/TRIG/PERF/INFO/SMOKE 命令就位（feat/sloop-core） |
 | 2026-11-20 | 阶段 3 Task 2（DI-8）：音频流可停启（`ENG AUDIO ON/OFF`），开机即启流；SELFTEST/AUD TONE/离线 PERF 需先停流（见 §6） |
-| 2026-11-21 | 阶段 3 收口（`feat/mvp-ui` → dev）：全门禁复跑（构建/烧录/启动/host-test/state-test/三条注入脚本）+ 30min soak；SCR 传输在连续串口开合会话后出现一次降速停滞（DI-5 复发，RTS 复位自愈，见 §8） |
+| 2026-11-21 | 阶段 3 收口（`feat/mvp-ui` → dev）：全门禁复跑（构建/烧录/启动/host-test/state-test/三条注入脚本）+ 30min soak；SCR 传输在连续串口开合会话后出现一次降速停滞（DI-5 复发，经 esptool 硬复位恢复，见 §8；复位走 esptool 的 bootloader/USB-JTAG 复位序列，不是裸 RTS 翻转——实测无效，见 §8.1） |
 
 ## 5. ES8388 无声排障取证（2026-11-19，阶段 1 听音人测）
 
@@ -89,7 +89,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 ## 8. SCR 帧传输降速/停滞（DI-5 复发观测，2026-11-21 阶段 3 收口）
 
 - 现象：Task 8 门禁采集时，在连续多次「串口开→关」的会话（`ENG MEM` 采样 → `device-selftest.py` → `inject/transport.sh`）之后，transport 脚本的首张截屏在 **208800/1843200** 字节处超时；随后直接读串口可见设备**仍在发帧**，速率约 **8.4KB/s**（5s 连续读 41,941B；正常会话约 1MB/s，全帧 ~2s），无 `ESP-ROM` 重启痕迹、无 panic/WDT；console 任务被 SCR 写循环占住（新命令无响应）。
-- 处置（当次）：手工 esptool 硬复位（`--after hard_reset`，走 RTS 引脚）后同一脚本 48.8s 跑完（含 3 张 1.8MB 截屏，像素抽检全过），随后 step_edit/tracks 连续通过。与 DI-5「USB 状态相关、硬复位自愈」一致。（2026-11-21 起该复位已自动化，见 §8.1）
+- 处置（当次）：手工 esptool 硬复位（`--after hard_reset`；实际经 esptool 的 bootloader 接入 + USB-JTAG 复位序列，不是裸 RTS 引脚翻转——纯 pyserial 翻转 RTS/DTR 实测无效，见 §8.1）后同一脚本 48.8s 跑完（含 3 张 1.8MB 截屏，像素抽检全过），随后 step_edit/tracks 连续通过。与 DI-5「USB 状态相关、硬复位自愈」一致。（2026-11-21 起该复位已自动化，见 §8.1）
 - 证据：`docs/dev/verify/3-mvp-2026-11-21/task-8-transport-scr-stall-fail.log`（原始串口回显；同目录 `task-8-transport-run.txt` 是复位后复跑通过的 stdout 断言摘要，不是失败证据）；速率测量命令见 Task 8 报告。
 - 未定性（截至 2026-11-21 阶段 3 收口）：降速根因（疑似 USB-Serial-JTAG TX 侧或主机 IN 调度退化）。当时为避免掩盖固件问题未加自动重试、DI-5 保持在册——**该状态已由 §8.1 取代**（脚本级自动复位重试落地，DI-5 删除）。
 

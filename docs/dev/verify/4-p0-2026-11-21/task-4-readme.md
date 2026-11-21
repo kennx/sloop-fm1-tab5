@@ -39,7 +39,7 @@
 |---|---|---|
 | **Important 1**：预注册页不被内置注册清空 | `task-4-fix-regtest-boot.log`、`task-4-fix-regtest-tabs.png` | 临时构型（已还原）：`APP_STATE_PAGES=5`，`main.c` 在 `sloop_ui_start()` **之前**从组件外部 `ui_page_register({id=4,"REGTEST"})` → 启动日志 `REGTEST: 预注册外部页 -> ESP_OK`、`UI 就绪: **5 页注册**/1 已建`、`UI MEM ... registered=5` 且 `page id=4 title=REGTEST state=unbuilt`；截屏页签条为 5 个（REGTEST 在首位＝注册顺序，PLAY 选中，accent bbox x=200–375 即第 2 个页签）。临时补丁已 `git checkout` 还原，最终固件注册=4 |
 | **Minor 7**：tab 轮转按注册表计数 | `task-4-fix-tab-rotation.log` | `KEY 0x20 down/up` ×2：`UI page=play (0)` → `tracks (1)` → `step (2)`（`KEY` 注入与物理同入口） |
-| **Minor 4**：FORCEFAIL 回显与实际一致 | `task-4-forcefail.log`、`task-4-forcefail-rebuild.log`、`task-4-fix-forcefail-off.log` | 未建页：`UI FORCEFAIL page=step (2) on state=unbuilt`（挂起）；已建页：`… on state=failed`（注入当场消费、立即重建到失败态）；`on` 后 `off` 再访问 → 正常构建（`state=built`），即 off 只撤销未消费注入 |
+| **Minor 4**：FORCEFAIL 回显与实际一致 | `task-4-forcefail.log`、`task-4-forcefail-rebuild.log`、`task-4-fix-forcefail-off.log` | 未建页：`UI FORCEFAIL page=step (2) on state=unbuilt`（挂起）；已建**当前页**：`… on state=failed`（注入当场消费、立即重建到失败态；已建非当前页则为 `state=unbuilt`、注入待命，见 ADR-008 §4）；`on` 后 `off` 再访问 → 正常构建（`state=built`），即 off 只撤销未消费注入 |
 | **Minor 8**：未注册页令牌 | 代码核对（`console.c` 分支） | `sloop_ui_switch_page()` 返回 `ESP_ERR_INVALID_ARG` → `UI ERR not_registered <id>`（与 `not_started` 分道）。正常构型不可达（四页都注册），故仅静态核对 |
 | **Minor 6**：start 失败路径悬空指针 | 代码核对（`ui.c` 失败分支） | 清树后同时复位 `s_page_error`/`s_layer_hint`/`s_page_obj`/`s_page_state` |
 | **Minor 3**：delta 语义 | ADR-008 §3、`sloop_ui.h` | 注释改为「最近一次成功构建」并注明采样于首帧 `update()` 之前（不含首帧文本分配） |
@@ -119,7 +119,7 @@ TAP miss 172,200 page=2
 - 失败页 TAP 不派发（`TAP miss`，不崩溃）；`UI MEM` 显示 `state=failed`。
 - `task-4-forcefail-step-recovered.png`（eaf94f73）：注入消费后再次 `UI step` 构建成功，
   恢复帧与正常 STEP 帧**逐字节相同**；`UI MEM` 显示 `state=built delta=21776`。
-- `task-4-forcefail-rebuild.log`：对**已建**页 `UI FORCEFAIL step` → 回显
+- `task-4-forcefail-rebuild.log`：对**已建当前页** `UI FORCEFAIL step` → 回显
   `on state=failed`（删除控件、立即重建到失败态）；再 `UI step` 重建成功（delta 21,784），
   验证重建路径与页内脏检查缓存复位。
 - `task-4-fix-forcefail-off.log`：未建页注入后 `off` → `state=unbuilt`，随后 `UI step`

@@ -98,7 +98,7 @@ bring-up 的触摸十字准星画在 `lv_layer_top()`，会盖住生产页面并
 - 页面注册表 `ui_page_t` + `ui_page_register()`：页签由注册表派生；PLAY 启动即建
   （开机非空白），其余页首次进入时建、离页不销毁。
 - 实测预算表（`UI MEM` 口径，池 free 减少量）：PLAY 2,492 / TRACKS 6,080 / STEP 21,760 /
-  TRANSPORT 3,744 B；est_bytes 分别为 3,072 / 7,168 / 24,576 / 4,608（合计 39,424 B，
+  TRANSPORT 3,744 B（STEP 在 P4-0 Task 5 步窗后复测为 21,832 B，见 ADR-008 §3）；est_bytes 分别为 3,072 / 7,168 / 24,576 / 4,608（合计 39,424 B，
   < 池可用 63,120 B）。构建前 `free < est` 即拒绝。
 - 失败可见：构建失败 → 删除半成品 + ERROR 日志 + 页面区错误状态条 +
   `UI ERR page_build <id>`（console），失败页下次访问重试；`UI FORCEFAIL <page>` 为验证注入。
@@ -109,13 +109,14 @@ bring-up 的触摸十字准星画在 `lv_layer_top()`，会盖住生产页面并
 
 ## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记；同日 P4-0 Task 5 落地）
 
-STEP 网格目前固定 16 列（`APP_STATE_STEPS`），快照只带前 16 列。阶段 4 一旦支持
+此前的 STEP 网格固定 16 列（`APP_STATE_STEPS`），快照只带前 16 列。阶段 4 一旦支持
 bank/滚动或 LEN > 16 的编辑，必须**先**在状态层与快照引入一次 `{bank, window_start,
 window_len}`，页面布局/hit-test/注入脚本都从它推导，再扩网格列数；禁止在页面里
 各自再加一套列偏移。网格渲染须同时把列 ≥ 每轨 `len` 的格暗显（阶段 3 已落地该 dim
 位，阶段 4 沿用同一判定）。
 
-**落地（2026-11-21，P4-0 Task 5）**：
+**落地（2026-11-21，P4-0 Task 5）**：此前「STEP 网格固定 16 列、快照只带前 16 列」的
+状态已由步窗取代——快照仍是一次取 16 列，但基址由 `window_start` 给出（见下）。
 
 - `step_window_t { uint8_t bank, window_start, window_len; }` 由 `sloop_state` 持有
   （UI 局部态，非引擎真值），默认 `{0,0,16}`；`CMD_SET_WINDOW{a=bank(冗余), b=start,
@@ -131,7 +132,8 @@ window_len}`，页面布局/hit-test/注入脚本都从它推导，再扩网格�
   （不留残留描边）；dim 仍按「绝对步 ≥ 本轨 LEN」判定。
 - 注入几何由 `page_step.c` 的布局宏派生（`step_cell_xy`），列语义对齐 `STATE SNAP`
   的 `window_start/window_len`；console `UI WINDOW [<start> <len>]` 为落窗入口。
-  `soak.py` 与 `step_edit.sh` 在进入 STEP 前归一到默认窗口（窗口是持久 UI 状态）。
+  `step_edit.sh`、`transport.sh` 与 `soak.py` 在进入 STEP 前归一到默认窗口（窗口是持久
+  UI 状态；transport 的归窗在 P4-0 Task 5 修复轮补上）。
 
 ## 后果
 

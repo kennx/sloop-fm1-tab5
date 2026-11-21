@@ -268,7 +268,9 @@ class Session:
         self.ser = self._open()
         self.wait_ready()
 
-    def capture(self, label: str, timeout: float = 25.0):
+    def capture(self, label: str, timeout: float = 30.0):
+        """截屏并落 PNG。timeout 是单阶段等待上限，与 `screenshot.py --timeout` 默认一致
+        （实测整帧 16.4–17.8s，20s 仅约 12% 余量）。"""
         out = self.out_dir / f"inject-{self.scenario}-{self.stamp}-{label}.png"
         self.ser.note(f"SCR 截屏 -> {out.name}")
         self.ser.write(b"SCR\n")

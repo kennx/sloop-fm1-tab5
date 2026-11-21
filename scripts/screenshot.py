@@ -47,11 +47,11 @@ CONSOLE_PROMPT = b"sloop>"
 
 
 class FirmwareError(ValueError):
-    """固件侧明确报错（SCR ERR、格式/长度不符）——重试无意义，直接失败。"""
+    """固件侧明确报错（SCR ERR、响应头格式/数值非法）——重试无意义，直接失败。"""
 
 
 class TransferError(TimeoutError):
-    """传输层失败（帧头/帧数据/尾标记超时、短帧、坏尾）——复位后重试可恢复。"""
+    """传输层失败（帧头/帧数据/尾标记超时、短帧、坏尾、长度与分辨率不符）——复位后重试可恢复。"""
 
     def __init__(self, msg: str, partial: bytes = b""):
         super().__init__(msg)
