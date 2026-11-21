@@ -1,0 +1,11 @@
+  [PASS] 前置：停流
+  [PASS] LOCKHOLD 持锁
+  [PASS] quiesce 失败 → 拒绝自检
+  [INFO] SELFTEST 拒绝耗时 1.10s
+  [PASS] UI 仍存活
+  [PASS] KEY 通道存活
+  [PASS] STATE 通道存活
+  [PASS] 手动 quiesce on
+  [PASS] 手动 quiesce off
+  [PASS] 恢复流式
+  [INFO] failures=0

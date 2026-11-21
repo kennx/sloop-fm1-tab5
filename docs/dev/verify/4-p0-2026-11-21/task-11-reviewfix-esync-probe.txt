@@ -1,0 +1,5 @@
+FX 页 ATK 槽（slot 7，屏幕坐标 cell=(964,422) + 旋钮盒 (70,26)）
+name region diff off->on : 12.1
+value region diff off->on: 10.8
+neighbor PAN name diff   : 0.0
+name restore off2 diff   : 0.0

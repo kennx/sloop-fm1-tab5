@@ -1,0 +1,6 @@
+base: firmware/build/verify/inject-reviewfix-20261121-164037-tab-base.png
+layer: firmware/build/verify/inject-reviewfix-20261121-164037-tab-layer-all.png
+diff bbox: (1065, 29, 1169, 41)
+tab-bar changed cols: (1065, 1168) changed before x=1043: 0
+changed pixels x in [1043,1050]: 0
+changed pixels x<1043 (tab area): 0

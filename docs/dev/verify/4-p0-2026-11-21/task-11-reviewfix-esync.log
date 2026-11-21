@@ -1,0 +1,35 @@
+
+sloop>  UI fx
+UI page=fx (5)
+sloop>  PARAM 59
+PARAM track=0 id=59 value=0 min=0 max=1
+sloop>  # [inject] P_ESYNC 基线=0
+PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>  # [inject] SCR 截屏 -> inject-reviewfix-20261121-162731-fx-esync-off.png
+SCR
+I (121046) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+PARAM 59 1
+PARAM track=0 id=59 value=1 applied=1 min=0 max=1
+sloop>  # [inject] SCR 截屏 -> inject-reviewfix-20261121-162731-fx-esync-on.png
+SCR
+I (138196) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI KNOB 7 press 0 -75
+UI KNOB page=5 slot=7 press dx=0 dy=-75 value=10
+sloop>  UI KNOB 7 drag 75 0
+UI KNOB page=5 slot=7 drag dx=75 dy=0 value=52
+sloop>  PARAM 1
+PARAM track=0 id=1 value=52 min=0 max=127
+sloop>  PARAM 1 10
+PARAM track=0 id=1 value=10 applied=10 min=0 max=127
+sloop>  PARAM 59 0
+PARAM track=0 id=59 value=0 applied=0 min=0 max=1
+sloop>  # [inject] SCR 截屏 -> inject-reviewfix-20261121-162731-fx-esync-off2.png
+SCR
+I (155216) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK

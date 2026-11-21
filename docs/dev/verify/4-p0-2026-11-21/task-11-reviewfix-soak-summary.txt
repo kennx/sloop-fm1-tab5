@@ -1,0 +1,14 @@
+# soak 20261121-164125 port=/dev/ttyACM0 requested=120s measured=121s interval=30s cycle=12s
+# t_s internal_free internal_min psram_free streaming xrun audio_stack_free render_blocks render_mean_us render_max_us duty_mean duty_max key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm
+1  70363  70228  30128892  1  0  3172  8807  570  2983  9.82  51.4  57  103  374  3752  2596  3  90
+37  70363  70228  30128892  1  0  3124  15009  600  3281  10.34  56.53  63  116  374  3752  2612  3  90
+61  70347  70228  30128892  1  0  3124  19142  613  3708  10.56  63.89  67  123  374  3752  2592  3  90
+97  70359  70228  30128892  1  0  3124  25344  621  3708  10.7  63.89  73  142  909  3752  2568  3  90
+121  70367  70228  30128892  1  0  3124  29478  624  3708  10.75  63.89  77  147  909  3752  2596  3  90
+
+内存判定：HEAP_FLOOR=61440B（internal_free 与 internal_min），HEAP_NET_FLOOR=-8192B（首末差），HEAP_JITTER=2048B（连续 3 采样非增累计下滑容差）
+占空比判定：基线 9.44%（阶段 2 静默渲染），上限 2× = 18.88%（流式 render_mean_us / 块预算 5804µs）
+实测时长 121s / 请求 120s
+断言失败 0 项
+判定问题：无
+VERDICT: PASS

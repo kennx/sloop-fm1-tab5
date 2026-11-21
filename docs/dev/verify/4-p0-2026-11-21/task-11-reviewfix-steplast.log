@@ -1,0 +1,53 @@
+
+sloop>  I (4360) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  UI play
+UI page=play (0)
+sloop>  UI tracks
+I (5490) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=41352B
+UI page=tracks (1)
+sloop>  UI transport
+I (5700) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3792B 预算=4608B 池剩余=37668B
+UI page=transport (3)
+sloop>  UI global
+I (5890) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2872B 预算=3584B 池剩余=34928B
+UI page=global (4)
+sloop>  UI fx
+I (6120) sloop_ui: 页面构建 page=FX(5) 池增量=2852B 预算=3584B 池剩余=32124B
+UI page=fx (5)
+sloop>  UI analog
+I (6360) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2852B 预算=3584B 池剩余=29312B
+UI page=analog (6)
+sloop>  UI fm6
+I (6590) sloop_ui: 页面构建 page=FM6(7) 池增量=2856B 预算=3584B 池剩余=26492B
+UI page=fm6 (7)
+sloop>  UI sample
+I (6800) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=2416B 预算=3072B 池剩余=24096B
+UI page=sample (8)
+sloop>  UI MEM
+UI MEM pool_used=36212 pool_free=24112 pool_total=60324 registered=9 built=8 failed=0 sum_est=55296 reserve=5028
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3792
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2872
+UI MEM page id=5 title=FX state=built est=3584 delta=2852
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2852
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2856
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2416
+sloop>  # [inject] STEP-last 前 free=24112B est=23040
+UI step
+I (7150) sloop_ui: 页面构建 page=STEP(2) 池增量=21864B 预算=23040B 池剩余=2248B
+UI page=step (2)
+sloop>  UI MEM
+UI MEM pool_used=55172 pool_free=2628 pool_total=57800 registered=9 built=9 failed=0 sum_est=55296 reserve=2504
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=built est=23040 delta=21864
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3792
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2872
+UI MEM page id=5 title=FX state=built est=3584 delta=2852
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2852
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2856
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2416
+sloop>  # [inject] STEP-last 后 free=2628B 门槛余量=1072B delta=21484B

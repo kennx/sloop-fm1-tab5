@@ -1,0 +1,15 @@
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] 预建 play
+  [PASS] 预建 tracks
+  [PASS] 预建 transport
+  [PASS] 预建 global
+  [PASS] 预建 fx
+  [PASS] 预建 analog
+  [PASS] 预建 fm6
+  [PASS] 预建 sample
+  [PASS] STEP 前：8 页已建
+  [PASS] STEP 最后建成功
+  [PASS] 九页全建
+  [INFO] free_before=24112 free_after=2628 margin=1072
+  [INFO] failures=0

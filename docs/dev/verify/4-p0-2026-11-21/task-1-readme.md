@@ -38,6 +38,11 @@
 **未覆盖（人测项，非门禁）**：静音/独奏的**听感**确认（扬声器/耳机实际静音与独奏混音）
 需人耳；机器侧只证到上游 `trk_silent()` 口径的输入状态（`P_MUTE`、`song.solo`）已落引擎。
 
+> ⚠️ **人测顺序警告**：上表的 Alt+1（mute 轨 0）→ Alt+5（solo 轨 0）组合在听感上是
+> **全静音**——`trk_silent()` = `P_MUTE` 置位 **或**「有独奏且本位未置」，mute 优先。
+> 判断独奏混音时必须先解除 mute（Alt+1）再独奏，或对另一条轨独奏。听音项已登记
+> `docs/deferred-issues.md` DI-7。
+
 ## 3. 备注
 
 - 设备证据（flash/boot/transcript/selftest）均在最终 `build.sh --clean` + 增量构建之后

@@ -1,0 +1,32 @@
+
+sloop>  ENG AUDIO OFF
+I (711424) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  UI LOCKHOLD 3000
+UI LOCKHOLD ms=3000 held=1
+sloop>  ENG SELFTEST
+E (712624) sloop_ui: 诊断期静默 ON 失败：LVGL 锁超时（输入静默已回滚，UI 仍在运行）
+ENG SELFTEST cases=0 result=FAIL reason=quiesce (UI busy: LVGL lock timeout)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI
+UI page=play (0)
+sloop>  KEY STATS
+KEY STATS count=49 mean_us=108 max_us=374 input_stack_free=3752 quiesce_dropped=0
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  UI QUIESCE on
+I (714824) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+UI QUIESCE on quiesced=1
+sloop>  UI QUIESCE off
+I (714914) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+UI QUIESCE off quiesced=0
+sloop>  ENG AUDIO ON
+I (715024) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  

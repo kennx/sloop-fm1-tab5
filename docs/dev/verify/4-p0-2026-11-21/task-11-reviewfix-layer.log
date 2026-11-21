@@ -1,0 +1,36 @@
+
+sloop>  KEY PANIC
+W (715274) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  UI transport
+UI page=transport (3)
+sloop>  # [inject] SCR 截屏 -> inject-reviewfix-20261121-164037-tab-base.png
+SCR
+I (715854) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+KEY 65 down
+KEY 0x41 down alt elapsed_us=94
+sloop>  KEY 49 down
+KEY 0x31 down Aa elapsed_us=55
+sloop>  KEY 48 down
+KEY 0x30 down sym elapsed_us=50
+sloop>  KEY 64 down
+KEY 0x40 down ctrl elapsed_us=70
+sloop>  # [inject] SCR 截屏 -> inject-reviewfix-20261121-164037-tab-layer-all.png
+SCR
+I (738234) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+KEY 65 up
+KEY 0x41 up alt elapsed_us=94
+sloop>  KEY 49 up
+KEY 0x31 up Aa elapsed_us=70
+sloop>  KEY 48 up
+KEY 0x30 up sym elapsed_us=50
+sloop>  KEY 64 up
+KEY 0x40 up ctrl elapsed_us=70
+sloop>  KEY PANIC
+W (760124) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  
