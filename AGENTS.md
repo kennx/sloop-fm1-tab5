@@ -149,9 +149,9 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 命令 | 语义 |
 |---|---|
 | `UI <play\|tracks\|step\|transport>` | **同步**切页（内部取 LVGL 锁；成功后作废待执行的异步切页邮箱，回显页即落地页）；无参打印当前页。`UI QUIESCE <on\|off>` 手动复验诊断期静默（暂停/恢复 30ms UI 定时器、LVGL 定时器、触摸 indev 与输入派发），与 `ENG SELFTEST` 内部同入口。注意手动 `on` 不是粘滞的：下一次 `ENG SELFTEST` 会自行 on→off 并在结束时恢复（等价于一次 `off`），自检结束后需重新手动 `on` 才能复验拒绝路径 |
-| `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`）；LVGL 锁超时打印 `TAP ERR lvgl_lock_timeout`、诊断期静默打印 `TAP ERR quiesced`（均**未派发**，与 miss 区分）。`UI` 的锁超时打印 `UI ERR lock_timeout` |
+| `TAP <x> <y>` | 触摸注入，坐标为**屏幕绝对坐标**（含 72px 页签条，与触摸 indev 同口径）。按当前页 hit-test 表命中矩形后执行与控件回调**相同的动作函数**——等价性在 EditCmd 层（同一 `state_apply` 命令序列），**不声称**原始指针事件等价（见 ADR-005）。未命中打印 `TAP miss x,y page=P` 并返回非零（不改状态；UI 未启动时打印 `page=n/a`）；LVGL 锁超时打印 `TAP ERR lvgl_lock_timeout`、诊断期静默打印 `TAP ERR quiesced`（均**未派发**，与 miss 区分）。`UI` 的锁超时打印 `UI ERR lock_timeout`、目标页构建失败打印 `UI ERR page_build <id>`、页 id 合法但未注册打印 `UI ERR not_registered <id>`（三者与 miss/not_started 分开） |
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入，与物理键盘同入口（ADR-006）；诊断期静默时打印 `KEY ERR quiesced`（丢弃并计数，`KEY STATS` 的 `quiesce_dropped` 可回读） |
-| `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与懒建的池水位（ADR-008）：`UI MEM` 打印池 used/free/total、注册/已建/失败页数、`sum_est`/`reserve` 与每页 `state`/`est`/`delta`（delta = 构建前后池 free 减少量，含块头开销）；`UI FORCEFAIL` 让该页下一次构建强制失败（一次性；对已建页则删除并立即重建到失败态），用于验证「错误状态条 + ERROR 日志 + `UI ERR page_build <id>`」路径，验证后下一次访问/`off` 即恢复 |
+| `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与懒建的池水位（ADR-008）：`UI MEM` 打印池 used/free/total、注册/已建/失败页数、`sum_est`/`reserve` 与每页 `state`/`est`/`delta`（delta = 最近一次成功构建前后池 free 减少量，含块头开销，采样于首帧 update 前）；`UI FORCEFAIL` 强制该页构建失败：未建页挂起到下一次构建（回显 `state=unbuilt`），已建页删除并立即重建到失败态（注入当场消费，回显 `state=failed`），用于验证「错误状态条 + ERROR 日志 + `UI ERR page_build <id>`」路径；`off` 只撤销尚未消费的注入，不重建已失败页（失败页在下次访问时重试） |
 
 - 命中矩形与控件布局**同源**：页内用同一组布局宏建控件、算 hit-test，禁止另抄一份坐标数字。
 - 状态断言：`STATE SNAP`（页面/焦点/层键/选轨/bpm/playing）、`ENG SNAP`、`ENG STEP <track> <idx>`（引擎真值）。

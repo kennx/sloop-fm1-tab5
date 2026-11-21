@@ -8,10 +8,14 @@
 
 ## 背景
 
-阶段 3 的四页（PLAY/TRACKS/STEP/TRANSPORT）在 `sloop_ui_start()` 里一次性建完，实测占
-LVGL 内置 TLSF 池 40,124 / 59,772 字节（≈67%，`UI MEM` 口径），池剩余约 19.6KB。
-阶段 4 要把 192 个参数摊到多个参数页（GLOBAL/MASTER/引擎组…），若沿用「启动即建全部页」，
-第一个参数页落地就会撞池顶。ADR-005 已登记该容量决策必须在第一个参数页之前完成。
+阶段 3 的四页（PLAY/TRACKS/STEP/TRANSPORT）在 `sloop_ui_start()` 里一次性建完。
+**阶段 3 收口归档**的启动行（`docs/dev/verify/3-mvp-2026-11-20/task-7-boot-log.txt`）为
+池已用 **40,532 / 59,632** 字节（≈68%）；本任务父提交（`4-p0-2026-11-21/task-2-boot-log.txt`，
+阶段 4 起点）为 40,712 / 59,612。**本任务在懒建下四页全建后重测**为
+40,124 / 59,772 字节（≈67%，`task-4-ui-mem-transcript.log`；free 19,648），三组数不是同一
+固件/时点的同一口径，引用时须区分。池剩余约 19.6KB，阶段 4 要把 192 个参数摊到多个参数页
+（GLOBAL/MASTER/引擎组…），若沿用「启动即建全部页」，第一个参数页落地就会撞池顶。
+ADR-005 已登记该容量决策必须在第一个参数页之前完成。
 
 池本身不能扩：`CONFIG_LV_USE_STDLIB_MALLOC=0`，池是静态 `.bss`（`CONFIG_LV_MEM_SIZE=65536`，
 TLSF 可用 63,120 字节）；阶段 3 实测扩到 96KB 会撑爆内部 RAM（链接期 `.bss` 溢出）。
@@ -44,7 +48,11 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 ```
 
 - 注册顺序 = 页签顺序；页签文本/数量由注册表派生（4 页时宽度仍是 176px，像素不变；
-  注册页更多时按可用宽度收窄，不溢出到 SLOOP 标题/层提示区）。
+  注册页更多时按可用宽度收窄，不溢出到 SLOOP 标题/层提示区）。**注册表只增不删**：
+  外部组件可在 `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册
+  幂等（`static done` 标志 + 按 id 去重），不会重置/清空已注册项——预注册页保持原位
+  （页签顺序在 PLAY 之前）。输入层的 tab 轮转按 `sloop_ui_page_count()`（注册表计数），
+  不按 `APP_STATE_PAGES`，与页签数量同源。
 - 现有四页在 `sloop_ui_start()` 内注册（`k_builtin_pages`）；`ui_page_register()` 供阶段 4
   的参数页加入同一注册表。`id` 受 `APP_STATE_PAGES` 约束（状态层 `state_set_page`、input
   的 tab 轮转、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
@@ -67,6 +75,8 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 测量方法：`ensure_page_built()` 在构建前后各取一次 `lv_mem_monitor()`，delta = 池
 `free_size` 的减少量（含 TLSF 块头元数据）。不用 `total_size - free_size` 的差：
 `lv_mem_monitor` 的 `total_size` 只累计块负载、不含块头，用它算 delta 会低估每次分配。
+**采样点**在 `build()` 返回之后、首帧 `update()` 之前：不含首帧文本分配（量级为文案
+长度）。`delta_bytes` 的语义是「**最近一次**成功构建」（重建成功会覆盖旧值）。
 
 | 页 | 实测 delta（`UI MEM`） | est_bytes（预算） | 余量 | 说明 |
 |---|---|---|---|---|
@@ -80,7 +90,9 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 - `est_bytes` = 实测 delta × 1.13–1.23、512 对齐；预算是**构建前门槛**，不是精确账本。
 - **Σ est_bytes < 池可用总量**（现 39,424 < 59,772，留 ≈20KB 实际余量）。这是「任意一页
-  都能在其它页已建之后仍被允许构建」的充要条件（其它页占用 ≤ Σ其它 est）。
+  都能在其它页已建之后仍被允许构建」的**充分条件**（其它页实际占用 ≤ Σ其它 est ≤ Σ其它
+  预算），不是必要条件：实际占用小于 est 的页即使 Σ est ≥ 池也可能构建成功——预算门槛
+  只是保守拒绝，不承诺「Σ est ≥ 池即必然失败」。
 - 构建前检查 `free_size < est_bytes` → 直接拒绝（`原因=budget`），不做半途分配：
   池碎片化时中途失败的代价（半成品容器 + 后续分配面更小）比拒绝更高。
 - 参数页落地后增表行；`UI MEM` 的 `sum_est`/`reserve` 行是现场校验入口。
@@ -98,6 +110,13 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   （与 `UI ERR lock_timeout`/`UI ERR not_started` 分开，脚本不得互相误判）。
 - 失败页下次访问重试（池可能已因其它页恢复/变化而有余量）；TAP 在未建/失败页一律
   `TAP miss`（不碰页内静态控件指针）。
+- **错误状态条自身也可能分配不出文本**（DI-13 家族）：`create_page_error_label()` 建不出
+  标签时按框架级失败回退 bring-up 测试图（非空白）；标签存在但 `lv_label_set_text_fmt`
+  的文本缓冲分配失败时，只剩 ERROR 日志 + console 令牌——画面是无控件的页面区，不是
+  「静默成功」。此路径无法从 API 判定，登记 DI-13 跟踪。
+- `UI FORCEFAIL` 语义（调试）：未建页挂起到下一次构建（回显 `state=unbuilt`，注入在
+  构建尝试时消费）；已建页删除控件并立即重建（注入当场消费，回显 `state=failed`）。
+  `off` 只撤销尚未消费的注入，**不会**重建已失败页（失败页在下次访问时重试）。
 - **已知边界**：`build()` 的失败判定覆盖「对象分配」（`lv_*_create` 返回 NULL）；
   LVGL 标签文本缓冲等二级分配发生在 API 内部、无返回值，不在判定内（登记 DI-13）。
   预算前置检查（est = 实测 + 余量）与共享 `lv_style_t` 纪律是这一层的防线；若后续发现

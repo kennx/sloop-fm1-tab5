@@ -40,15 +40,15 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-082841-transport.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-084517-transport.png
 SCR
-I (105190) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (95607) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI step
 UI page=step (2)
 sloop>  ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=0 pos=9,9,9,9
+ENG SNAP playing=1 bpm=90 sel=0 pos=11,11,11,11
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -69,13 +69,13 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-082841-step-playhead-a.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-084517-step-playhead-a.png
 SCR
-I (122300) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (112937) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 ENG SNAP
-ENG SNAP playing=1 bpm=90 sel=0 pos=12,12,12,12
+ENG SNAP playing=1 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
 ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
@@ -96,9 +96,9 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-082841-step-playhead-b.png
+sloop>  # [inject] SCR 截屏 -> inject-transport-20261121-084517-step-playhead-b.png
 SCR
-I (138720) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+I (129867) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport

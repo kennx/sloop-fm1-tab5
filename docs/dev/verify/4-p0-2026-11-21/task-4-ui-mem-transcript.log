@@ -6,7 +6,7 @@ UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
 sloop>  
 sloop>  UI tracks
-I (27840) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6080B 预算=7168B 池剩余=44548B
+I (11351) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6080B 预算=7168B 池剩余=44548B
 UI page=tracks (1)
 sloop>  
 sloop>  UI MEM
@@ -17,7 +17,7 @@ UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
 sloop>  
 sloop>  UI step
-I (28960) sloop_ui: 页面构建 page=STEP(2) 池增量=21760B 预算=24576B 池剩余=22888B
+I (12481) sloop_ui: 页面构建 page=STEP(2) 池增量=21760B 预算=24576B 池剩余=22888B
 UI page=step (2)
 sloop>  
 sloop>  UI MEM
@@ -28,7 +28,7 @@ UI MEM page id=2 title=STEP state=built est=24576 delta=21760
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
 sloop>  
 sloop>  UI transport
-I (30040) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3744B 预算=4608B 池剩余=19516B
+I (13561) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3744B 预算=4608B 池剩余=19516B
 UI page=transport (3)
 sloop>  
 sloop>  UI MEM
