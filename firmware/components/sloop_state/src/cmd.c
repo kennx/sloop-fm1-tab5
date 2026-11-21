@@ -41,12 +41,23 @@ static void cmd_play(app_state_t *s, bool on)
     s->core.playing = on;
 }
 
+/* 参数投影回读：p[] 恒为选中轨、g[] 为全局（一次引擎锁，参数命令落地后立即对齐
+ * 引擎真值——含引擎钳位）。写非选中轨时 p[] 仍读选中轨，因此不会被别人的值污染。 */
+static void state_refresh_params(app_state_t *s)
+{
+    sloop_core_read_params(s->core.selected_track, s->p, s->g);
+}
+
 static void cmd_select_track(app_state_t *s, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
     sloop_core_select(track);
     s->core.selected_track = (uint8_t)track;
     s->focus_track = (uint8_t)track;
+    /* 选轨即刷参数投影：p[] 是选中轨的参数，若等下一拍 sync，切页/`STATE SNAP`
+     * 可能落在「标题=新轨、参数=旧轨」的一帧里（参数页读 p[]）。同锁内回读，
+     * 与其它编辑写路径一样是 state 锁 → 引擎锁的顺序。 */
+    state_refresh_params(s);
 }
 
 static uint32_t state_track_len(const app_state_t *s, uint32_t track)
@@ -227,13 +238,6 @@ static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
     mask ^= (uint8_t)(1u << track);
     sloop_core_set_solo(mask);
     for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
-}
-
-/* 参数投影回读：p[] 恒为选中轨、g[] 为全局（一次引擎锁，参数命令落地后立即对齐
- * 引擎真值——含引擎钳位）。写非选中轨时 p[] 仍读选中轨，因此不会被别人的值污染。 */
-static void state_refresh_params(app_state_t *s)
-{
-    sloop_core_read_params(s->core.selected_track, s->p, s->g);
 }
 
 /* 单值参数：以批量入口 N=1 下发（钳位与越界判定只在引擎一处）。v 是 uint16——

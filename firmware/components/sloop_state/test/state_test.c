@@ -681,8 +681,8 @@ static void case_set_param(void)
     check_ll("越界轨不调引擎", g_stub.set_params_calls - calls0, 0);
 
     /* 鼓轨 P_E0 = kit：状态层不区分轨别，钳位由引擎（这里 stub 模拟 0..3） */
-    apply(CMD_SET_PARAM, 3, 63, 99);
-    check_ll("鼓轨 P_E0 落引擎", g_stub.param[3][63], 3);
+    apply(CMD_SET_PARAM, 3, STUB_ENGINE_P_E0, 99);
+    check_ll("鼓轨 P_E0 落引擎（stub kit 0..45）", g_stub.param[3][STUB_ENGINE_P_E0], 45);
 }
 
 /* ⑨ 批量参数：真批量（一次引擎调用）+ 截断/空载荷/非选中轨语义。 */
@@ -695,24 +695,24 @@ static void case_set_param_batch(void)
     apply(CMD_SET_TRACK, 1, 0, 0); /* p[] 是选中轨投影：选轨 1 */
 
     const sloop_param_pair_t pairs[] = {
-        { .id = 0, .v = 100 }, { .id = 1, .v = 20 }, { .id = 200, .v = 5 }, { .id = 29, .v = 33 },
+        { .id = 2, .v = 100 }, { .id = 1, .v = 20 }, { .id = 200, .v = 5 }, { .id = 29, .v = 33 },
     };
     uint32_t calls0 = g_stub.set_params_calls;
     apply_param_batch(1, pairs, 4);
     check_ll("批量只一次引擎调用", g_stub.set_params_calls - calls0, 1);
     check_ll("批量轨号", g_stub.last_params_track, 1);
     check_ll("批量对数", g_stub.last_params_n, 4);
-    check_ll("批量 id 保序 0", g_stub.last_param_ids[0], 0);
+    check_ll("批量 id 保序 0（非零，丢首项必失败）", g_stub.last_param_ids[0], 2);
     check_ll("批量 id 保序 1", g_stub.last_param_ids[1], 1);
     check_ll("批量 id 保序 2", g_stub.last_param_ids[2], 200);
     check_ll("批量 id 保序 3", g_stub.last_param_ids[3], 29);
     check_ll("批量值保序 0", g_stub.last_param_values[0], 100);
     check_ll("批量值保序 3", g_stub.last_param_values[3], 33);
     check_ll("批量越界 id 逐条忽略", g_stub.invalid_param_ids, 1);
-    check_ll("批量有效项落地 0", g_stub.param[1][0], 100);
+    check_ll("批量有效项落地 2", g_stub.param[1][2], 100);
     check_ll("批量有效项落地 29", g_stub.param[1][29], 33);
     state_get_copy(&s);
-    check_ll("批量投影 p[0]", s.p[0], 100);
+    check_ll("批量投影 p[2]", s.p[2], 100);
     check_ll("批量投影 p[29]", s.p[29], 33);
 
     /* 写非选中轨：引擎落地，但 p[]（选中轨投影）不动 */
@@ -720,7 +720,7 @@ static void case_set_param_batch(void)
     apply_param_batch(2, other, 1);
     check_ll("非选中轨值落引擎", g_stub.param[2][0], 7);
     state_get_copy(&s);
-    check_ll("非选中轨写入不动投影", s.p[0], 100);
+    check_ll("非选中轨写入不动投影", s.p[2], 100);
 
     /* 超上限：只应用前 APP_STATE_PARAM_BATCH_MAX 条（其余忽略 + 设备侧告警） */
     static sloop_param_pair_t big[APP_STATE_PARAM_BATCH_MAX + 1u];
@@ -769,6 +769,41 @@ static void case_param_projection_sync(void)
     state_get_copy(&s);
     check_ll("sync 后选中轨 2", s.core.selected_track, 2);
     check_ll("投影跟随选中轨", s.p[1], 77);
+}
+
+/* ⑪ 选轨即刷参数投影：p[] 必须与选中轨同拍切换（不等下一拍 sync）——否则参数页/
+ * STATE SNAP 可能落在「标题=新轨、参数=旧轨」的一帧里。 */
+static void case_select_track_refresh(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* 各轨参数各不同（P_LEVEL=0 / P_ATK=1）：p[] 换轨必须换值 */
+    stub_engine_set_param(0, 0, 11);
+    stub_engine_set_param(1, 0, 22);
+    stub_engine_set_param(2, 0, 33);
+    stub_engine_set_param(2, 1, 44);
+    state_sync_from_engine(); /* 选轨 0：p 取轨 0 */
+    state_get_copy(&s);
+    check_ll("基线 p[0]=轨 0", s.p[0], 11);
+
+    /* 选轨 2：**不调 sync**，投影立即换成轨 2 的值 */
+    apply(CMD_SET_TRACK, 2, 0, 0);
+    state_get_copy(&s);
+    check_ll("选轨即换投影 p[0]", s.p[0], 33);
+    check_ll("选轨即换投影 p[1]", s.p[1], 44);
+    check_ll("选中轨字段", s.core.selected_track, 2);
+
+    /* CMD_SELECT_TRACK 走同一路径（TRACKS 卡点选） */
+    apply(CMD_SELECT_TRACK, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("SELECT_TRACK 即换投影 p[0]", s.p[0], 22);
+
+    /* 选回轨 0：投影回到轨 0 的值 */
+    apply(CMD_SET_TRACK, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("选回轨 0 立即投影", s.p[0], 11);
 }
 
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
@@ -821,6 +856,7 @@ int main(void)
     run("参数命令：单 SET 钳位/越界忽略", case_set_param);
     run("参数批量：一次引擎调用/截断/空载荷", case_set_param_batch);
     run("参数投影：sync 采纳引擎真值/跟随选轨", case_param_projection_sync);
+    run("选轨即刷参数投影（不等 sync）", case_select_track_refresh);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);
 

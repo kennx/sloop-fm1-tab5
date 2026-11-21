@@ -86,7 +86,11 @@ void state_sync_from_engine(void)
          * 窗口快照在同一把引擎锁里取完 16 列（不是逐列 read_step），取锁次数仍为 1。 */
         sloop_core_read_window(win.window_start, &snap);
         /* 参数投影同拍取（第二次短锁）：p 的轨别取快照里的选中轨，与 core 一致；
-         * 不逐项读 71+50 个参数。写回前与窗口一起复核。 */
+         * 不逐项读 71+50 个参数。写回前与窗口一起复核。
+         * 注意这是**两个快照**（窗口 + 参数）而非一个原子快照：两次取锁之间若发生
+         * 选轨/参数写/外部改动，本次写回的 core 与 p[] 可能差一拍（≤1 个 sync 周期，
+         * 下一拍自愈）。与既有 core 快照语义一致；选中轨切换本身在 cmd_select_track
+         * 里已即时刷新 p[]，不会出现「标题/参数跨轨」的帧。 */
         int16_t param_p[SLOOP_CORE_P_COUNT];
         int16_t param_g[SLOOP_CORE_G_COUNT];
         sloop_core_read_params(snap.selected_track, param_p, param_g);

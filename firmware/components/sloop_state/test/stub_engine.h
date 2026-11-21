@@ -1,4 +1,6 @@
-/* host 单测的引擎替身：实现 sloop_state 调用的 11 个引擎函数并记录调用。
+/* host 单测的引擎替身：实现 sloop_state 调用的 12 个引擎函数并记录调用
+ * （read/read_window/read_step/write_step/set_global/play/note/set_mute/set_solo/
+ * select/set_params/read_params）。
  * 快照/步表/参数就是 stub 的状态，state_sync_from_engine 走真实的 sloop_core_*
  * 读取路径。 */
 #ifndef STUB_ENGINE_H

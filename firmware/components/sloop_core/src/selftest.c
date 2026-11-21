@@ -606,7 +606,13 @@ void sloop_core_set_global(uint32_t id, int16_t value)
  * NULL = 该 id 在本轨上不可描述（逐条忽略）。上游 params.c 的 lock_desc()（音序器
  * 参数锁）是同一张表；它取 t->engine（正在发声的引擎），这里取 eng_req——与
  * sloop_core_desc/编辑器投影看到的是同一引擎槽（淡入淡出期间两者可能短暂不同，
- * 取舍见 sloop_core.h 的批量写契约）。 */
+ * 取舍见 sloop_core.h 的批量写契约）。
+ * 与上游**动态描述符**的关系：上游 params.c 的 track_desc() 会在 ins_desc()（INSERT
+ * A/B/C 随 P_ITYPE）、ESYNC_DESC[]（ENV SYNC 的 ATK/DEC/REL）与 engine->desc()（引擎
+ * mode 依赖 label/names）处替换静态表。这里**不**投影动态钩子，直接取 TP[]/edit[]：
+ * 前提是这些动态描述符的 min/max 与静态表相同（上游现状如此，只换 label/names/unit）。
+ * 若上游某次改动让动态范围不同于静态范围，本函数的钳位会与 UI 显示范围不一致——
+ * 届时须把动态钩子纳入（需要 track 上下文，sloop_core_desc 已登记同一限制）。 */
 static const param_desc_t *param_desc_at(const track_t *t, uint32_t id)
 {
     if (id < P_E0) return &TP[id];
@@ -622,7 +628,11 @@ void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *va
     track_t *t = &trk[track];
     for (uint32_t i = 0; i < n; i++) {
         const param_desc_t *d = param_desc_at(t, ids[i]);
-        if (d == NULL) continue; /* 无描述符：忽略该条，不中止整批 */
+        /* 无描述符的 id（越界 / 鼓轨 P_E1..P_E7）：忽略该条，不中止整批。主机侧
+         * state-test 的 stub 只模拟“忽略”语义，本分支本身由设备 `PARAM RAW`
+         * （跳过 console 的 desc 预判）实际走到——证据见
+         * docs/dev/verify/4-p0-2026-11-21/task-9-readme.md 的修复轮。 */
+        if (d == NULL) continue;
         t->p[ids[i]] = (int16_t)clamp(values[i], d->min, d->max);
     }
     engine_unlock();
@@ -634,6 +644,12 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
     if (g != NULL) memset(g, 0, SLOOP_CORE_G_COUNT * sizeof(*g));
     if (s_frozen) return; /* 冻结态：不取锁，返回全零（与 read_step 同口径） */
     engine_lock();
+    /* 取到锁后再查一次：冻结在持锁时置位（与 sloop_core_read 同口径），这里要么
+     * 在冻结前完成，要么看到标志直接返回已清零的缓冲、不再排队。 */
+    if (s_frozen) {
+        engine_unlock();
+        return;
+    }
     if (p != NULL && track < NTRK) memcpy(p, trk[track].p, sizeof(trk[track].p));
     if (g != NULL) memcpy(g, song.g, sizeof(song.g));
     engine_unlock();

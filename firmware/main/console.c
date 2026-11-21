@@ -14,6 +14,8 @@
  *  - PARAM：参数写诊断注入（阶段 4 P4-A）：PARAM <id> <value> 经状态层
  *    CMD_SET_PARAM 写选中轨（钳位在引擎，回显 applied），PARAM BATCH <id> <value> …
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
+ *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
+ *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
@@ -583,7 +585,7 @@ static int param_command(int argc, char **argv)
         int16_t value;
         sloop_desc_t d;
         if (!eng_uint(argv[1], 0xFFFFu, &id) || !param_parse_value(argv[2], &value)) {
-            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...\n");
+            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
             return 1;
         }
         if (!param_id_valid(engine, id, &d)) {
@@ -595,6 +597,28 @@ static int param_command(int argc, char **argv)
         sloop_core_read_params(track, p, g);
         printf("PARAM track=%u id=%u value=%d applied=%d min=%d max=%d\n", (unsigned)track,
                (unsigned)id, (int)value, (int)p[id], (int)d.min, (int)d.max);
+        return 0;
+    }
+    if (argc == 4 && strcasecmp(argv[1], "raw") == 0) {
+        uint32_t id;
+        int16_t value;
+        if (!eng_uint(argv[2], 0xFFFFu, &id) || !param_parse_value(argv[3], &value)) {
+            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            return 1;
+        }
+        /* 旁路：不做 desc 预判，直接经状态层命令到引擎批量入口——用于设备上复验
+         * 引擎对无描述符 id（越界 / 鼓轨 P_E1..P_E7）的逐条忽略。applied 是回读到
+         * 的现有值（id 超出 p[] 范围时打印 n/a），与 value 不同即证明未写。 */
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM, .a = track, .b = id, .v = (uint16_t)value };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        if (id < SLOOP_CORE_P_COUNT) {
+            printf("PARAM RAW track=%u id=%u value=%d applied=%d\n", (unsigned)track,
+                   (unsigned)id, (int)value, (int)p[id]);
+        } else {
+            printf("PARAM RAW track=%u id=%u value=%d applied=n/a\n", (unsigned)track,
+                   (unsigned)id, (int)value);
+        }
         return 0;
     }
     if (argc >= 4 && strcasecmp(argv[1], "batch") == 0 && ((argc - 2) % 2) == 0) {
@@ -611,7 +635,7 @@ static int param_command(int argc, char **argv)
             int16_t value;
             if (!eng_uint(argv[2 + 2u * i], 0xFFFFu, &id) ||
                 !param_parse_value(argv[3 + 2u * i], &value)) {
-                printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...\n");
+                printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
                 return 1;
             }
             if (!param_id_valid(engine, id, &d)) {
@@ -632,7 +656,7 @@ static int param_command(int argc, char **argv)
         printf("\n");
         return 0;
     }
-    printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ...（选中轨，经状态层参数命令；钳位在引擎）\n");
+    printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>（选中轨，经状态层参数命令；钳位在引擎）\n");
     return 1;
 }
 
@@ -1044,8 +1068,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t param_cmd = {
         .command = "PARAM",
-        .help = "参数写诊断：PARAM <id> <value> 经状态层写选中轨；PARAM BATCH <id> <value> ... 真批量",
-        .hint = "<id> <value> | BATCH <id> <value> ...",
+        .help = "参数写诊断：PARAM <id> <value> 经状态层写选中轨；PARAM BATCH <id> <value> ... 真批量；PARAM RAW 跳过 desc 预判",
+        .hint = "<id> <value> | BATCH <id> <value> ... | RAW <id> <value>",
         .func = &param_command,
     };
     ret = esp_console_cmd_register(&param_cmd);

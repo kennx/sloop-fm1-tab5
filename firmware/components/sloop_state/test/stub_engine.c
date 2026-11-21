@@ -139,12 +139,13 @@ void sloop_core_select(uint32_t k)
 }
 
 /* 简化的描述符钳位（模拟真引擎；真实范围由设备 PARAM/ENG DESC 门禁覆盖）：
- * id < P_E0 → 0..127（TP 多数为 0..127 类），id == P_E0（鼓 kit 槽）→ 0..3，
- * P_E0+1..P_E7 → 0..127。越界 id 逐条忽略、不中止整批（与真引擎同语义）。 */
+ * id < P_E0 → 0..127（TP 多数为 0..127 类），id == P_E0（鼓 kit 槽）→ 0..45
+ * （与上游 DRUM_KIT_DESC 一致），P_E0+1..P_E7 → 0..127。越界 id 逐条忽略、
+ * 不中止整批（与真引擎同语义）。 */
 static void stub_clamp_param(uint32_t id, int16_t *v)
 {
     int16_t lo = 0, hi = 127;
-    if (id == STUB_ENGINE_P_E0) hi = 3;
+    if (id == STUB_ENGINE_P_E0) hi = 45; /* DRUM_KIT_DESC：kit 0..45 */
     if (*v < lo) *v = lo;
     if (*v > hi) *v = hi;
 }
