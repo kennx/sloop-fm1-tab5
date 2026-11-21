@@ -1,0 +1,49 @@
+# [desc-check] <sync>
+
+sloop>  # [desc-check] ENG DESC track 0 0
+ENG DESC track 0 0
+ENG DESC scope=track engine=0 id=0 label="LVL" fmt=6 min=0 max=127 def=104 unit="-" enums=0 first="-" last="-"
+sloop>  # [desc-check] ENG DESC track 0 1
+ENG DESC track 0 1
+ENG DESC scope=track engine=0 id=1 label="ATK" fmt=3 min=0 max=127 def=10 unit="-" enums=0 first="-" last="-"
+sloop>  # [desc-check] ENG DESC track 0 5
+ENG DESC track 0 5
+ENG DESC scope=track engine=0 id=5 label="FLT" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  # [desc-check] ENG DESC track 0 53
+ENG DESC track 0 53
+ENG DESC scope=track engine=0 id=53 label="INSRT" fmt=8 min=0 max=8 def=0 unit="-" enums=9 first="OFF" last="CHOR"
+sloop>  # [desc-check] ENG DESC global 0 0
+ENG DESC global 0 0
+ENG DESC scope=global engine=0 id=0 label="BPM" fmt=9 min=40 max=240 def=90 unit="-" enums=0 first="-" last="-"
+sloop>  # [desc-check] ENG DESC engine 12 0
+ENG DESC engine 12 0
+ENG DESC scope=engine engine=12 id=0 label="KIT" fmt=8 min=0 max=45 def=0 unit="-" enums=46 first="ACOUSTIC" last="SYN4"
+sloop>  # [desc-check] ENG DESC engine 0 0
+ENG DESC engine 0 0
+ENG DESC scope=engine engine=0 id=0 label="WAVE" fmt=8 min=0 max=4 def=0 unit="-" enums=5 first="SAW" last="PWM"
+sloop>  # [desc-check] ENG DESC engine 0 1
+ENG DESC engine 0 1
+ENG DESC scope=engine engine=0 id=1 label="DTN" fmt=0 min=0 max=127 def=10 unit="ct" enums=0 first="-" last="-"
+sloop>  # [desc-check] ENG DESC engine 9 0
+ENG DESC engine 9 0
+ENG DESC scope=engine engine=9 id=0 label="ALG" fmt=0 min=0 max=32 def=0 unit="-" enums=33 first="PAT" last="32"
+sloop>  # [desc-check] ENG DESC engine 4 0
+ENG DESC engine 4 0
+ENG DESC scope=engine engine=4 id=0 label="SET" fmt=8 min=0 max=11 def=0 unit="-" enums=12 first="PIANO" last="USR4"
+sloop>  # [desc-check] ENG DESC track 0 63
+ENG DESC track 0 63
+ENG DESC ERR scope=track engine=0 id=63
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [desc-check] ENG DESC global 0 50
+ENG DESC global 0 50
+ENG DESC ERR scope=global engine=0 id=50
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [desc-check] ENG DESC engine 13 0
+ENG DESC engine 13 0
+ENG DESC ERR scope=engine engine=13 id=0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [desc-check] ENG DESC engine 12 1
+ENG DESC engine 12 1
+ENG DESC ERR scope=engine engine=12 id=1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  
