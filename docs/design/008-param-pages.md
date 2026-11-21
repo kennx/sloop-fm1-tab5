@@ -140,13 +140,15 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 **组作用域生命周期（P4-B，决策见 ADR-005「导航决策」）**：预算从「九页平铺 Σ」改为
 **按组核算**——跨组切换的**过渡峰值**不变量
-`base + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B`（base 九页实测 7,016B，
-两行页签落地后须重测；当前 `7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`，余
-1,320B），每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到目标页 →
-销毁源组**全部**已建页（含原当前页）」——源组页面在**切换之后**才释放（先销毁会出现
-空白帧、输入路径在跨组切换期间失去活页），故峰值是瞬态且必须被上式覆盖；离开组后源组
-`built=0`。组内首次访问兄弟页时构建、同组后续切换只改显隐。`UI MEM` 增加
-`GROUP <name> built=<n> sum_est=<B> sum_delta=<B>` 分组行。上表九页实测
+`base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（base **两行页签实测
+13,800B**，2026-11-22 Task 11 最终固件；旧值 7,016B 是 `pool_used` 口径的低估，见
+ADR-005 §5）。最坏有序对 = EDIT 全建 → 首建 STEP：`13,800 + 17,408 + 23,040 +
+4,096 = 58,344 ≤ 63,120`（余 4,776B）；实测过渡峰值 `pool_free 12,356B`；每页
+`free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
+目标页 → 销毁源组**全部**已建页（含原当前页）」——源组页面在**切换之后**才释放（先销毁
+会出现空白帧、输入路径在跨组切换期间失去活页），故峰值是瞬态且必须被上式覆盖；离开组后
+源组 `built=0`。组内首次访问兄弟页时构建、同组后续切换只改显隐。`UI MEM` 增加
+`GROUP <name> built=<n> sum_est=<B> sum_delta=<B> build_ms=<ms>` 分组行。上表九页实测
 数据保留为 P4-A 终审时点的平铺历史口径；新页（FILE 组 PROJECTS/PRESETS 等）按组预算
 纳入，不再要求「全部页面同时已建」。
 
@@ -195,16 +197,18 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
      更保守的替代（Σ est + 基础占用 ≤ 63,120）在 Task 11 的 est 下就失败，不能
      作为门禁；
   2. 每页 `delta <= est`（九页全部成立，余量 5.4–26%；STEP 例外见 §3 注）；
-  3. 九页全建后 `pool_free > 0`（Task 11 实测 2,816 B）；
+  3. **当前组全建后 `pool_free ≥20KB`**（P4-B 组作用域口径；`params` 场景门禁实测
+     26–34KB）。「九页全建后 free > 0」（Task 11 实测 2,816B）只是 P4-A 平铺时点的
+     历史口径，组作用域下九页不会同时常驻；
   4. 再加页/改控件前重新核对以上三条并把新行写入本表。**9 页平铺曾是容量天花板**
      （STEP 门槛余量 1,004B 量级，且页签宽度在 10 页时已不足——见 ADR-005「导航信息
      架构」）：P4-B 起由组作用域生命周期解除（见下条），但单组内的加页仍须按 rule 4
      做设计决策，不得只调 est 或池；
   5. **组作用域（P4-B 起）**：跨组切换的**过渡峰值**不变量
-     `base + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B`（当前
-     `7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`，余 1,320B；
-     `max_single_page_est` 保守取 STEP est 23,040B）。源组页面在切换后才释放，峰值是
-     瞬态但必须被覆盖；稳态回落为 `base + max_group Σ est + 4KB = 38,760B`。且离开组后
+     `base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（两行页签实测
+     `13,800 + 17,408 + 23,040 + 4,096 = 58,344 ≤ 63,120`，余 4,776B；最坏对 =
+     EDIT 全建 → 首建 STEP，实测峰值 `pool_free 12,356B`）。源组页面在切换后才释放，
+     峰值是瞬态但必须被覆盖；稳态回落为 `base + max_group Σ est = 41,448B`。且离开组后
      该组 `built=0`（含原当前页；`UI MEM` 分组行可复核）——这是把「九页全建」的经验
      下沿换成可复核预算（ADR-005「导航决策」§5）。
 - 阶段 4 参数页的硬性规则：
@@ -231,11 +235,23 @@ UI MEM page id=7 title=FM6 state=built est=3584 delta=2864
 UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 ```
 
-（示例为 Task 11 现场（STEP est 24,064）；P4-A 终审轮 STEP est 23,040 后 `sum_est` 55,296、`reserve` 相应变大——`reserve` 只是展示值，门禁见 §5。
-Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未访问的页
-`state=unbuilt` 且 `delta=0`。上面是九页全建后的现场输出。P4-B 起另有
-`GROUP <name> built=<n> sum_est=<B> sum_delta=<B>` 分组行（§3 组作用域），
-上面示例为九页平铺时点。）
+（上面示例的数值是 P4-A 九页平铺时点（`pool_total`/`pool_used` 随池块拆分漂移，
+`reserve` 只是展示值，门禁见 §5）。P4-B Task 11 组作用域落地后 `UI MEM` 形如：
+
+```
+UI MEM pool_used=19748 pool_free=42520 pool_total=62268 registered=9 built=1 failed=0 sum_est=55296 reserve=6972 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=10
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3828 build_ms=9
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3828 build_ms=6
+…（其余页 state=unbuilt delta=0 build_ms=0）
+```
+
+（`group=<name>` = 当前页所属组；`sum_est` = 组内已注册成员 est，`sum_delta` = 已建
+成员池增量；离开组后该组 `built=0`、`sum_delta=0`。FILE 在 Task 12 注册前
+`sum_est=0` 且组签不显示。）
 
 ### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
 
@@ -289,11 +305,13 @@ Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未
   - 家族页取 **GLOBAL + FX**（而非 MASTER）：上游 MASTER 的 8 个宏是全局/轨道混排，
     GLOBAL 与 FX 已覆盖其大部分语义（FX 页含输出条 LVL/PAN/ATK，主电平/声像在
     此），故 P4-A 的「一个家族页」口径由 GLOBAL+FX 两页共同满足（spec §3）。
-- 页签：9 页时 `tab_w = min(176, (1280 - 2·16 - 220 - 8·8)/9) = 107`；右侧 220px 留给
-  SLOOP 标题/层提示（`theme.h` 的 `UI_TAB_RIGHT_RESERVE`）。层提示 16pt + 宽度封顶 +
-  省略号截断，四层键同按也不压页签（ADR-005「导航信息架构」节）。注入脚本的页签
-  几何/探针已同步（`scripts/inject/inject.py`，探针取页签左缘内 8px 的填充色；9 页
-  y=36 行的 x 依次为 24/139/254/369/484/599/714/829/944）。
+- 页签（P4-B Task 11 起两行，ADR-005「导航决策」§2）：上行组签 5×176px @ y=4..36
+  （PLAY/TRACKS/EDIT/SEQ/FILE，无已注册页的组不显示），下行当前组子签 176×30 @
+  y=38..68（单页组留空）；右侧 220px 留给上行 SLOOP 标题 / 下行层键提示
+  （`theme.h` 的 `UI_TAB_RIGHT_RESERVE`）。层提示 16pt + 宽度封顶 + 省略号截断，
+  四层键同按也不压子签。注入脚本的页签几何/探针已同步（`scripts/inject/inject.py`
+  的 `group_tab_probe(i)` / `sub_tab_probe(i)`：组签探针 y=8、子签 y=42；GLOBAL/FX/
+  ANALOG/FM6/SAMPLE 依次是 EDIT 子行的第 0..4 张）。
 
 #### 8.2 旋钮控件（`knob.c`）
 
@@ -388,8 +406,9 @@ Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未
 
 #### 8.5 预算与验证
 
-- 九页预算见 §3 表（GLOBAL/FX/ANALOG/FM6 各 est 3,584B、SAMPLE 3,072B；九页全建
-  free 2,816B）。
+- 九页预算见 §3 表（GLOBAL/FX/ANALOG/FM6 各 est 3,584B、SAMPLE 3,072B）；P4-B 起
+  按组核算（EDIT 组 Σ 17,408B，全建后 `pool_free` 实测 26–34KB；九页平铺时点的
+  2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
   `STATE SNAP` 断言；**`UI KNOB` press/drag 证明触摸回调接线与相对拖拽**——按下不改值、
   +90° 改 +67（BPM range 200）、拖回锚点回原值、中心/环带外被忽略；FM6/SAMPLE 页
@@ -443,14 +462,18 @@ Task 11 之后注册表 9 页：四基础页 + GLOBAL/FX/ANALOG/FM6/SAMPLE；未
 ## 后果
 
 - 阶段 4 参数页可以「按页付池费」：未访问的参数页不占池；每页有明确预算与失败出口。
-- 切页首次进入有一次构建延迟（毫秒级；PLAY 例外）。当前没有页面销毁/驱逐机制；
-  若参数页总预算超出池（Σ est 逼近 63KB），必须回到本 ADR 的设计决策，而不是调大池。
+- 切页首次进入有一次构建延迟（实测 4–35ms，≤100ms 预算；PLAY 例外）。P4-B Task 11
+  起有**组作用域销毁**（跨组切页时销毁源组全部已建页），组内不重建、无 LRU；
+  若单组 Σ est 或跨组峰值超出池，必须回到本 ADR 的设计决策，而不是调大池。
 - 池水位从「启动常量」变成「随访问增长」，soak 门禁（AGENTS §5.5）仍需在参数页落地后
-  重跑：`UI MEM` 的 built 数会随 soak 的切页动作增长到全页。
+  重跑：组作用域下采样时只驻留当前组（soak 停 TRANSPORT ⇒ SEQ），`UI MEM` 分组行
+  给出该组 built/sum_delta。
 - `UI MEM`/`UI FORCEFAIL` 是 console 诊断面：前者只读，后者一次性注入、默认关闭，
   不影响产品行为。
-- Task 11 后：参数页每页 2.4–2.9KB（est 3,072–3,584B），九页全建 free 2,816B；
-  页签 9 页时收窄到 107px（右侧留 220px 给 SLOOP/层提示；10 页放不下，见 ADR-005「导航信息架构」）。参数页的控件选择见 §8.2 的预算决策
+- P4-A Task 11 后：参数页每页 2.4–2.9KB（est 3,072–3,584B），九页平铺全建 free 2,816B
+  （P4-B 组作用域下只驻留一组，EDIT 全建 free 26–34KB）；
+  页签为两行（组签 + 子签，P4-B Task 11），右侧 220px 给上行 SLOOP / 下行层提示
+  （ADR-005「导航决策」§2；九页平铺时 107px 的宽度墙已解除）。参数页的控件选择见 §8.2 的预算决策
   （单对象自绘旋钮），**不要**退回 `lv_arc`+`lv_label`（会撑爆池）。新增参数页的
   步骤：布局表加一行 X 宏（id/title/est + 8 槽）→ `PARAM_PAGE_COUNT` 与
   `app_page_t`/`APP_STATE_PAGES` 同步 → console 页名表 → 实测 est。

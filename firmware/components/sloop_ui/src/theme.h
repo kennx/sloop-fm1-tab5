@@ -2,7 +2,7 @@
  * sloop_ui 主题与共享布局常量（组件内部头文件）
  *
  * 视觉规范取自阶段 3 spec §3.3：四轨主题色 蓝/绿/黄/橙、背景 0x101418、
- * 顶部页签 PLAY|TRACKS|STEP|TRANSPORT 常驻。横屏 1280×720：页签条占
+ * 顶部两行页签（组签 + 当前组子签）常驻。横屏 1280×720：页签条占
  * y∈[0,72)，页面区 y∈[72,720)，各页对象坐标相对页面区左上角。
  *
  * 截屏像素抽检（scripts/screenshot.py --check）的锚点由这里的常量推导；
@@ -28,18 +28,27 @@
 #define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
 #define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
-/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72）。注册页多于 4 时按
- * 可用宽度收窄（UI_TAB_RIGHT_RESERVE 给右侧 SLOOP 标题/层提示留位）：7 页时
- * 140px（7×140 + 6×8 = 1028，右端 1044）；9 页时 107px
- * （9×107 + 8×8 = 1027，右端 1043；右侧 127px 给 16pt 层提示，宽度封顶 +
- * 省略号截断）。10 页时只剩 95px < "TRANSPORT" 的 16pt 标签 101.6px——页签不够，
- * P4-B 加页前必须先做分组导航决策（ADR-005「导航信息架构」节）。 */
+/* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
+ * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行最多
+ * 5 个组签（PLAY/TRACKS/EDIT/SEQ/FILE），176px 宽（5×176+4×8=912，右端 928）；
+ * 子行复用固定 UI_GROUP_MAX 个槽，只显示当前组已注册页（EDIT 5 页是最大组）。
+ * 右侧 UI_TAB_RIGHT_RESERVE=220 给上行 SLOOP 标题与下行层键提示留位（提示盒
+ * 起点 936 > 页签右端 928，宽度封顶 + 省略号截断，绝不压到页签）。 */
 #define UI_TAB_X0  16
-#define UI_TAB_W   176
-#define UI_TAB_H   52
 #define UI_TAB_GAP 8
-#define UI_TAB_Y   10
 #define UI_TAB_RIGHT_RESERVE 220
+#define UI_GROUP_W 176
+#define UI_GROUP_H 32
+#define UI_GROUP_Y 4
+#define UI_SUB_W   176
+#define UI_SUB_H   30
+#define UI_SUB_Y   38
+/* 单组成员上限 = 子行可容纳的子签数：5 张（5×176+4×8=912，右端 928；
+ * 层提示盒从 936 起）。组内加第 6 页须先拆分组的布局决策（ADR-005 §2）。 */
+#define UI_GROUP_MAX 5
+_Static_assert(UI_TAB_X0 + UI_GROUP_MAX * (UI_SUB_W + UI_TAB_GAP) - UI_TAB_GAP <=
+                   UI_W - UI_TAB_RIGHT_RESERVE,
+               "子签槽位超出行宽（与右侧层提示重叠）");
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)

@@ -34,7 +34,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | SEL 层 | Ctrl + 1..4（0x01..0x04） | 选轨 0..3（`CMD_SELECT_TRACK`，同时设焦点轨） |
 | GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；引擎写入口 `sloop_core_set_mute/set_solo`，`STATE SNAP`/`ENG SNAP` 同源） |
 | 走带 | space 0x4D | 播放/停止切换（`CMD_PLAY`/`CMD_STOP`）；enter 0x3D 未映射（原计划的 REC 占位在 MVP 移除） |
-| 页面 | esc 0x00=PLAY；tab 0x20=下一屏 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs） |
+| 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→[PROJECTS→PRESETS]→PLAY（ADR-005 §4，跳过未注册页） |
 | 焦点 | ← 0x4A / → 0x4C 移焦点步（0..15 环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` |
 
 八度切换（原计划的 OCT±）**未实现**：键表里 `-` 0x0B / `+` 0x0C（以及 0 0x0A 等）仍空闲，
@@ -78,23 +78,31 @@ InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll(
 「键→发声/动作 ≤20ms」的机器门禁（console 入口口径）之内。听感上的最终裁决仍是人工项
 （DI-4 全键人测 + 演奏手感），覆盖端到端延迟而不只是 console 入口耗时。
 
-### 切页的确定性（Task 7 评审裁定）
+### 切页的确定性（Task 7 评审裁定；P4-B Task 11 组顺序）
 
 输入路径不取 LVGL 锁，切页走 `sloop_ui_request_page()` 邮箱，由 30ms UI 定时器执行：
 
-- **一拍一页**：tab 的目标页按「当前页 + 1」计算，邮箱只保留最后一次请求——同一 30ms
+- **一拍一页**：tab 的目标页按「当前页在组顺序扁平轮转里的下一张」计算
+  （`sloop_ui_page_order_next()`，PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→
+  TRANSPORT→[FILE]→PLAY，跳过未注册页），邮箱只保留最后一次请求——同一 30ms
   周期内的 N 次 tab 只前进一页（不是 N 页）。需要一次跨多页请用 console `UI`（同步切页）。
+- **esc = PLAY**：组与子页随页面复位（PLAY 组只有一页）；不改变「点组签记住组内
+  上次子页」的记忆（那是组签/子签的触摸语义，不是 esc 的）。
 - **同步 `UI` 作废异步邮箱**：`sloop_ui_switch_page()` 在 LVGL 锁内先
   `sloop_ui_cancel_pending_page()` 再切页，避免「tab 刚记下目标页 → console 同步切到 X →
   下一拍被旧请求切走」；回显页即落地页。
 - **`KEY PANIC` 用专用清空**：撤销待切页走同一个 `sloop_ui_cancel_pending_page()`，
   不再「读当前页再请求同页」——后者在切页进行中会读到旧页而漏撤销。
 - 定时器已消费的请求无法回滚（页面已经切了）；PANIC 只撤销**尚未执行**的请求。
+- **组作用域**：跨组切换的销毁在 30ms 定时器/LVGL 锁内完成，输入路径只碰邮箱与
+  状态层，不访问 LVGL 对象；同拍 `tab`+`PANIC` 的语义不变（PANIC 撤销尚未执行的
+  切页请求，页面停在原组，源组页面不被销毁）。
 
 ### 层提示
 
-页签条右侧（`SLOOP` 标题左侧）显示 `LAYER FX|EDIT|SEL|GLO`（多层层键叠加时并列），
-由 30ms UI 定时器按 `state_get_copy().layer_held` 脏检查刷新；无层时为空（不改变既有像素）。
+页签条**下行右侧**（`SLOOP` 标题在下行上方、上行右侧）显示 `LAYER FX|EDIT|SEL|GLO`
+（多层层键叠加时并列），由 30ms UI 定时器按 `state_get_copy().layer_held` 脏检查刷新；
+无层时为空（不改变既有像素）。
 
 ## 后果
 

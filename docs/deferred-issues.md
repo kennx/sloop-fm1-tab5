@@ -119,18 +119,6 @@
 | **参考** | ADR-008 §8.2/§8.5、`docs/dev/verify/4-p0-2026-11-21/task-10-readme.md` §5、`scripts/knob-test.sh`、console `UI KNOB` |
 | **登记** | 2026-11-21（P4-A Task 10） |
 
-## DI-19: 九页全建后 LVGL 池余量 < 弧线 mask 分配 ⇒ 空指针解引用 panic（用户可达）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | P4-B Task 5 门禁中发现（`docs/dev/verify/4-pb-2026-11-21/task-5-poolcliff-repro.log`）：同一会话里跑 `store.sh → tracks.sh → params.sh`（三脚本都跑完九页懒建）时，`UI step` 把池余量压到 **2,196B**，紧随的 `UI fx` 需要绘制旋钮弧线（`lv_draw_sw_arc`）→ `lv_malloc_zeroed` 拿不到内存（`create_non_cached_mask_radius` 返回 NULL）→ `lv_draw_mask_radius` 未判空直接 `get_next_line(p->circle, …)`（`lv_draw_sw_mask.c:869/1197`）→ `Load access fault`（MTVAL=0x76 = NULL+字段偏移）→ 设备 panic 重启。**同一天同一固件、独立启动后单跑 `params.sh` 是绿的（九页全建 free=2,620）**，说明触发条件是**会话分配历史**（页面访问顺序/状态行文本）决定的池余量，而不是某一条命令；`Task 5` 的换音改动不分配任何 LVGL 内存（boot 池用量 15,716/62,820 与改前逐字节相同），且崩溃发生在 `⑨g` 硬复位之后（引擎状态=工厂 + `PROJ LOAD`，与改前固件相同）。 |
-| **影响面** | 产品态：用户在**一次上电会话**里访问全部 9 页（PLAY/TRACKS/STEP/TRANSPORT/4 个参数页/FM6/SAMPLE）后继续操作旋钮，就可能落在池悬崖下并 panic 重启（不是仅测试脚本可达）。ADR-008 已知九页全建余量仅 ~2.6KB，本条目是它的**安全性后果**；`DI-13`（标签文本二次分配失败静默）是同一余量问题的另一面。 |
-| **为何可延迟** | 修法绑定在 P4-B Task 11 的导航信息架构（ADR-005）：**组作用域页面生命周期**（切组时销毁源组页面）会把常驻页数从 9 降到 ~2–3，池余量回到 20KB+，本条目的触发条件随之消失；现在就改 `CONFIG_LV_MEM_SIZE` 会碰 ADR-008 的「96KB 链接溢出」结论、且会重排全部 `est/delta` 预算表，收益低于等到 Task 11。在此之前：门禁脚本**每条之间重启设备**（或把 `params.sh` 放在重启后第一条），并把 `UI MEM` 的 `pool_free` 当作硬判据（`params.sh` 已有「九页全建后 free>0」，但 >0 不足以覆盖一次弧线绘制）。 |
-| **解决方向** | (a) 结构性：Task 11 组作用域生命周期（首选，ADR-005 §组作用域）；(b) 余量判据：`params.sh`/soak 的池判据从「free>0」改为「free ≥ 单次绘制峰值（实测 ≥2.6KB，建议 ≥4KB）」；(c) 若 TM 仍要九页常驻：给 `knob_draw` 的弧线加预算检查（`lv_mem_monitor` free 不足时退化为矩形/纯文本），或在 `managed_components` 的 LVGL 打「NULL mask → `LV_DRAW_SW_MASK_RES_TRANSP`」补丁（与 ADR-004 零修改原则冲突，需负责人裁决）；(d) 长期：升级 LVGL 到已判空的上游版本并复核该路径。 |
-| **触发条件** | Task 11（导航 IA / 组作用域页面生命周期）落地时必须解决并加「九页（或新分组）全建 + 逐页绘制弧线」的注入用例；或在此之前任何一次「全页访问后操作旋钮」的现场 panic 复现。 |
-| **参考** | `docs/dev/verify/4-pb-2026-11-21/task-5-poolcliff-first.log`（首次 Core 0：MTVAL=0x76）、`task-5-poolcliff-repro.log`（故意复现，Core 1 同点）、`task-5-poolcliff-symbols.txt`（addr2line：`get_next_line ← lv_draw_mask_radius ← lv_draw_sw_mask_apply ← lv_draw_sw_arc ← knob_draw`）、`task-5-params-fresh.txt`（独立启动单跑绿，free=2,620）、ADR-008 §3/§5（池预算与 9 页余量）、`firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:869,1053,1197` |
-| **登记** | 2026-11-21（P4-B Task 5 门禁现场发现；Task 5 的换音改动本身不分配 LVGL 内存，boot 池用量与改前相同） |
-
 ## DI-20: `ENG SELFTEST` 之后实时状态被回滚到工厂态（工作工程自动存档 / FM6 银行读取钩子）
 
 | 项 | 内容 |

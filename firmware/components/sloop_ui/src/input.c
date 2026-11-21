@@ -310,15 +310,15 @@ static void dispatch(const key_binding_t *b, bool down)
 
     switch (b->action) {
     case ACT_PLAY_TOGGLE: act_play_toggle(); break;
-    case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break;
+    case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4：PLAY→TRACKS→GLOBAL→FX→
+         * ANALOG→FM6→SAMPLE→STEP→TRANSPORT→[FILE]→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
-         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。
-         * 页数取注册表（sloop_ui_page_count），与页签数量同源（ADR-008）。 */
-        uint8_t page = sloop_ui_current_page();
-        uint8_t count = sloop_ui_page_count();
-        if (count > 0 && page < count) sloop_ui_request_page((uint8_t)((page + 1u) % count));
+         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
+        uint8_t next = sloop_ui_page_order_next(sloop_ui_current_page());
+        if (next < APP_STATE_PAGES) sloop_ui_request_page(next);
         break;
     }
     case ACT_FOCUS_STEP:

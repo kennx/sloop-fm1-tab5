@@ -1,0 +1,27 @@
+# 派生摘录（非原始 transcript）：nav ⑥ 手指导航（R32）与 ⑥d R30 用例的断言行
+# 原始证据：task-11-nav-transcript.log / task-11-nav.txt（同一次运行）
+  [PASS] ⑥ 起点 PLAY
+  [PASS] ⑥ UI TAB edit（进入 EDIT 的当前/首个子页）
+  [PASS] ⑥ 设 EDIT 上次子页 = SAMPLE
+  [PASS] ⑥ UI TAB play（跨组回 PLAY）
+  [PASS] ⑥ 点组离开后 EDIT built=0（期望 0）
+  [PASS] ⑥ 点组回到上次子页（SAMPLE，记忆跨往返）
+  [PASS] ⑥ 记忆入口只建 SAMPLE：EDIT built=1 SAMPLE=built（期望 1 / built）
+  [PASS] ⑥ 跨组 UI TAB tracks（目标首个子页）
+  [PASS] ⑥ 跨组点击后 EDIT built=0 / TRACKS built=1（期望 0 / 1）
+  [PASS] ⑥ 跨组点击 TRACKS build_ms=12ms（0 < x ≤100）
+  [PASS] ⑥ 回 EDIT（记忆仍是 SAMPLE）
+  [PASS] ⑥ UI SUB 0 切 GLOBAL
+  [PASS] ⑥ 子签切换不重建兄弟页：EDIT built=2 SAMPLE=built（期望 2 / built）
+  [PASS] ⑥ UI SUB 1 切 FX
+  [PASS] ⑥ UI SUB 5 越界 → UI ERR sub
+  [PASS] ⑥ 越界注入不改页（仍 FX）
+  [PASS] ⑥ 回 PLAY
+  [PASS] ⑥ 单页组子行为空：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 单页组 SUB 注入不改页
+  [PASS] ⑥ 未注册页的组（FILE）→ UI ERR group
+  [PASS] ⑥ 未知组名 → UI ERR group
+  [PASS] ⑥d 起点 TRACKS（对齐 1/5）
+  [PASS] ⑥d 批内点击后页=0（期望 0 = PLAY；UI TAB 立即生效）
+  [PASS] ⑥d 同拍点击胜出：1s 后仍 PLAY（待切页已丢弃，R30）
+  [PASS] ⑥d 再 6 拍仍 PLAY（无 GLOBAL 回跳）

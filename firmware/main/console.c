@@ -842,15 +842,25 @@ static int ui_mem_dump(void)
     static const char *const states[] = {"unbuilt", "built", "failed"};
     uint32_t sum_est = 0;
     for (uint8_t i = 0; i < ps.registered; i++) sum_est += ps.pages[i].est_bytes;
-    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d\n",
+    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d group=%s\n",
            (unsigned)ps.pool_used, (unsigned)ps.pool_free, (unsigned)ps.pool_total,
            (unsigned)ps.registered, (unsigned)ps.built, (unsigned)ps.failed, (unsigned)sum_est,
-           (int)(ps.pool_total - sum_est));
+           (int)(ps.pool_total - sum_est),
+           ps.current_group < ps.group_count ? ps.groups[ps.current_group].name : "-");
+    /* 分组水位（ADR-005 §5）：sum_est = 组内已注册成员 est（静态预算），
+     * sum_delta = 组内已建成员的池增量；离开组后 built/sum_delta 回 0。
+     * build_ms = 最近一次跨组进入/组内首建的耗时（≤100ms 预算口径）。 */
+    for (uint8_t g = 0; g < ps.group_count; g++) {
+        const sloop_ui_group_stat_t *gr = &ps.groups[g];
+        printf("UI MEM GROUP %s built=%u sum_est=%u sum_delta=%u build_ms=%u\n", gr->name,
+               (unsigned)gr->built, (unsigned)gr->sum_est, (unsigned)gr->sum_delta,
+               (unsigned)gr->build_ms);
+    }
     for (uint8_t i = 0; i < ps.registered; i++) {
         const sloop_ui_page_stat_t *p = &ps.pages[i];
-        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d\n", (unsigned)p->id,
+        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d build_ms=%u\n", (unsigned)p->id,
                p->title, states[p->state < 3 ? p->state : 0], (unsigned)p->est_bytes,
-               (int)p->delta_bytes);
+               (int)p->delta_bytes, (unsigned)p->build_ms);
     }
     return 0;
 }
@@ -1094,10 +1104,79 @@ static int ui_command(int argc, char **argv)
             return 0;
         }
     }
+    /* UI TAB <group> / UI SUB <index>：与物理组签/子签点击同一动作函数（R32）。
+     * TAP 对 y<72 一律 miss，这是唯一能机器覆盖手指导航路径的入口。 */
+    if (argc == 3 && strcasecmp(argv[1], "tab") == 0) {
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        uint8_t found = 0xFF;
+        for (uint8_t g = 0; g < sloop_ui_group_count(); g++) {
+            const char *name = sloop_ui_group_name(g);
+            if (name != NULL && strcasecmp(argv[2], name) == 0) {
+                found = g;
+                break;
+            }
+        }
+        if (found == 0xFF) {
+            printf("UI ERR group %s\n", argv[2]);
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_group_select(found);
+        uint8_t page = sloop_ui_current_page();
+        if (ret == ESP_OK) {
+            printf("UI TAB %s page=%s (%u)\n", sloop_ui_group_name(found),
+                   page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)page);
+            return 0;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_NO_MEM) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+        } else {
+            /* 组存在但没有已注册页（FILE 在 Task 12 前）：组签也不显示，不可点击 */
+            printf("UI ERR group %s\n", sloop_ui_group_name(found));
+        }
+        return 1;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "sub") == 0) {
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        char *end = NULL;
+        long idx = strtol(argv[2], &end, 0);
+        if (end == argv[2] || *end != '\0' || idx < 0 || idx >= 8) {
+            printf("用法: UI SUB <index=0..7>（当前组的子签下标；当前最大组 5 张 ⇒ 0..4）\n");
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_sub_select((uint8_t)idx);
+        uint8_t page = sloop_ui_current_page();
+        if (ret == ESP_OK) {
+            printf("UI SUB %ld page=%s (%u)\n", idx,
+                   page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)page);
+            return 0;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_NO_MEM) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+        } else {
+            /* 下标越界或单页组（子行为空，没有可点的子签） */
+            printf("UI ERR sub %ld\n", idx);
+        }
+        return 1;
+    }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
-           "UI KNOB <slot> <press|drag> <dx> <dy> | "
+           "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
+           "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
            "off 只撤销未消费的注入\n"

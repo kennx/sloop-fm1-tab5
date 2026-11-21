@@ -1,0 +1,569 @@
+
+sloop>  # [inject] 场景 params 开始
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=4 dec=7 sus=10 rel=13 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  PARAM GLOBAL 0 90
+PARAM GLOBAL id=0 value=90 applied=90 min=40 max=240
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  UI MEM
+UI MEM pool_used=24188 pool_free=37744 pool_total=61932 registered=9 built=3 failed=0 sum_est=55296 reserve=6636
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3820
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0
+sloop>  UI global
+I (37497) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2896B 预算=3584B 池剩余=34848B
+UI page=global (4)
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=40 min=0 max=100
+sloop>  # [inject] GLOBAL 基线 bpm=90 swing=40
+TAP 166 230
+TAP 166,230 page=4 -> PARAM slot=0 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=4 -> PARAM slot=0 id=0 delta=+1 value=91
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=91 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=4 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=91 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=4 dec=7 sus=10 rel=13 slen=64 mute=1
+STATE SNAP global bpm=91 swing=40
+sloop>  TAP 1136 94
+TAP 1136,94 page=4 -> PARAM slot=0 id=0 delta=-1 value=90
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=116
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=73
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=140
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=728
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=138
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=73
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=42 min=0 max=100
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=233
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=69
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=140
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=69
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=40 min=0 max=100
+sloop>  UI KNOB 0 press 0 -73
+UI KNOB page=4 slot=0 press dx=0 dy=-73 value=90
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  UI KNOB 0 drag 73 0
+UI KNOB page=4 slot=0 drag dx=73 dy=0 value=157
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=157 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=4 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=157 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=4 dec=7 sus=10 rel=13 slen=64 mute=1
+STATE SNAP global bpm=157 swing=40
+sloop>  UI KNOB 0 drag 0 -73
+UI KNOB page=4 slot=0 drag dx=0 dy=-73 value=90
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  UI KNOB 0 press 0 0
+UI KNOB page=4 slot=0 press dx=0 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI KNOB 0 drag 73 0
+UI KNOB page=4 slot=0 drag dx=73 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  UI KNOB 0 press 0 -73
+UI KNOB page=4 slot=0 press dx=0 dy=-73 value=90
+sloop>  UI KNOB 0 drag 0 -40
+UI KNOB page=4 slot=0 drag dx=0 dy=-40 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  TAP 482 230
+TAP 482,230 page=4 -> PARAM slot=1 focus
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-global.png
+SCR
+I (41207) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MEM
+UI MEM pool_used=26696 pool_free=34920 pool_total=61616 registered=9 built=4 failed=0 sum_est=55296 reserve=6320
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3820
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2896
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0
+sloop>  UI fx
+I (57757) sloop_ui: 页面构建 page=FX(5) 池增量=2864B 预算=3584B 池剩余=32056B
+UI page=fx (5)
+sloop>  PARAM 0
+PARAM track=0 id=0 value=1 min=0 max=127
+sloop>  PARAM 1
+PARAM track=0 id=1 value=4 min=0 max=127
+sloop>  # [inject] FX 基线 level=1 atk=4
+TAP 482 528
+TAP 482,528 page=5 -> PARAM slot=5 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=5 -> PARAM slot=5 id=0 delta=+1 value=2
+sloop>  STATE SNAP
+STATE SNAP page=5 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=2 atk=4 dec=7 sus=10 rel=13 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  PARAM 0
+PARAM track=0 id=0 value=2 min=0 max=127
+sloop>  TAP 1136 94
+TAP 1136,94 page=5 -> PARAM slot=5 id=0 delta=-1 value=1
+sloop>  PARAM 0
+PARAM track=0 id=0 value=1 min=0 max=127
+sloop>  TAP 1114 528
+TAP 1114,528 page=5 -> PARAM slot=7 focus
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=216
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=74
+sloop>  PARAM 1
+PARAM track=0 id=1 value=5 min=0 max=127
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=153
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=71
+sloop>  PARAM 1
+PARAM track=0 id=1 value=4 min=0 max=127
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-fx.png
+SCR
+I (59537) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI analog
+I (76357) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2860B 预算=3584B 池剩余=29248B
+UI page=analog (6)
+sloop>  PARAM 63
+PARAM track=0 id=63 value=15 min=0 max=15
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  # [inject] ANALOG 基线 wave=15 cut=6
+TAP 166 230
+TAP 166,230 page=6 -> PARAM slot=0 focus
+sloop>  # [inject] ANALOG 基线 WAVE=4（钳位态）
+KEY 0x4C down
+KEY 0x4C down right elapsed_us=122
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=73
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=110
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=72
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=80
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=73
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=80
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=73
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=48
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=17
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=32
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=16
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=25
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=16
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  UI play
+UI page=play (0)
+sloop>  UI analog
+UI page=analog (6)
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=192
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=73
+sloop>  PARAM 67
+PARAM track=0 id=67 value=6 min=0 max=6
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-analog.png
+SCR
+I (79297) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI fm6
+I (95937) sloop_ui: 页面构建 page=FM6(7) 池增量=2860B 预算=3584B 池剩余=26408B
+UI page=fm6 (7)
+sloop>  UI KNOB 0 press 0 -73
+UI KNOB page=7 slot=0 press dx=0 dy=-73 ignored (locked)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI KNOB 0 drag 73 0
+UI KNOB page=7 slot=0 drag dx=73 dy=0 ignored (locked)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 1224 94
+TAP 1224,94 page=7 -> PARAM slot=0 locked (engine page N/A)
+sloop>  PARAM 63
+PARAM track=0 id=63 value=15 min=0 max=15
+sloop>  # [inject] FM6 锁定页基线 alg（ANALOG WAVE 槽位）= 15
+# [inject] SCR 截屏 -> inject-params-20261122-033722-params-fm6-locked.png
+SCR
+I (96707) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=0 sus=127 rel=0 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI fm6
+UI page=fm6 (7)
+sloop>  ENG DESC engine 9 0
+ENG DESC scope=engine engine=9 id=0 label="ALG" fmt=0 min=0 max=32 def=0 unit="-" enums=33 first="PAT" last="32"
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=32
+sloop>  PARAM 64
+PARAM track=1 id=64 value=0 min=-7 max=7
+sloop>  # [inject] FM6 基线 alg=0 fb=0
+TAP 166 230
+TAP 166,230 page=7 -> PARAM slot=0 focus
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-fm6.png
+SCR
+I (114487) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 1224 94
+TAP 1224,94 page=7 -> PARAM slot=0 id=63 delta=+1 value=1
+sloop>  PARAM 63
+PARAM track=1 id=63 value=1 min=0 max=32
+sloop>  TAP 1136 94
+TAP 1136,94 page=7 -> PARAM slot=0 id=63 delta=-1 value=0
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=32
+sloop>  UI KNOB 0 press 0 -73
+UI KNOB page=7 slot=0 press dx=0 dy=-73 value=0
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=32
+sloop>  UI KNOB 0 drag 73 0
+UI KNOB page=7 slot=0 drag dx=73 dy=0 value=11
+sloop>  PARAM 63
+PARAM track=1 id=63 value=11 min=0 max=32
+sloop>  UI KNOB 0 drag 0 -73
+UI KNOB page=7 slot=0 drag dx=0 dy=-73 value=0
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=32
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=126
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=73
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=160
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=69
+sloop>  PARAM 64
+PARAM track=1 id=64 value=1 min=-7 max=7
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=157
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=73
+sloop>  PARAM 64
+PARAM track=1 id=64 value=0 min=-7 max=7
+sloop>  TAP 166 230
+TAP 166,230 page=7 -> PARAM slot=0 focus
+sloop>  PARAM 63 12
+PARAM track=1 id=63 value=12 applied=12 min=0 max=32
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-fm6-alg.png
+SCR
+I (133087) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+PARAM 63 0
+PARAM track=1 id=63 value=0 applied=0 min=0 max=32
+sloop>  ENG TRACK 1 4 0
+ENG TRACK k=1 engine=4 preset=0 OK
+sloop>  UI sample
+I (149747) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=2408B 预算=3072B 池剩余=24024B
+UI page=sample (8)
+sloop>  ENG DESC engine 4 0
+ENG DESC scope=engine engine=4 id=0 label="SET" fmt=8 min=0 max=11 def=0 unit="-" enums=12 first="PIANO" last="USR4"
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=11
+sloop>  PARAM 66
+PARAM track=1 id=66 value=1 min=0 max=1
+sloop>  PARAM 67
+PARAM track=1 id=67 value=127 min=0 max=127
+sloop>  # [inject] SAMPLE 基线 set=0 loop=1 cut=127
+# [inject] SCR 截屏 -> inject-params-20261122-033722-params-sample.png
+SCR
+I (150417) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 166 230
+TAP 166,230 page=8 -> PARAM slot=0 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=8 -> PARAM slot=0 id=63 delta=+1 value=1
+sloop>  PARAM 63
+PARAM track=1 id=63 value=1 min=0 max=11
+sloop>  TAP 1136 94
+TAP 1136,94 page=8 -> PARAM slot=0 id=63 delta=-1 value=0
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=11
+sloop>  TAP 1114 230
+TAP 1114,230 page=8 -> PARAM slot=3 focus
+sloop>  TAP 1136 94
+TAP 1136,94 page=8 -> PARAM slot=3 id=66 delta=-1 value=0
+sloop>  PARAM 66
+PARAM track=1 id=66 value=0 min=0 max=1
+sloop>  TAP 1224 94
+TAP 1224,94 page=8 -> PARAM slot=3 id=66 delta=+1 value=1
+sloop>  PARAM 66
+PARAM track=1 id=66 value=1 min=0 max=1
+sloop>  TAP 166 528
+TAP 166,528 page=8 -> PARAM slot=4 focus
+sloop>  # [inject] SAMPLE 基线 CUT=127（钳位态），跳过编辑断言
+PARAM 63 1
+PARAM track=1 id=63 value=1 applied=1 min=0 max=11
+sloop>  # [inject] SCR 截屏 -> inject-params-20261122-033722-params-sample-set.png
+SCR
+I (168257) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+PARAM 63 0
+PARAM track=1 id=63 value=0 applied=0 min=0 max=11
+sloop>  PARAM 63 0
+PARAM track=1 id=63 value=0 applied=0 min=0 max=11
+sloop>  PARAM 64 0
+PARAM track=1 id=64 value=0 applied=0 min=-24 max=24
+sloop>  PARAM 66 0
+PARAM track=1 id=66 value=0 applied=0 min=0 max=1
+sloop>  PARAM 67 0
+PARAM track=1 id=67 value=0 applied=0 min=0 max=127
+sloop>  ENG TRACK 1 0 0
+ENG TRACK k=1 engine=0 preset=0 OK
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=4 dec=7 sus=10 rel=13 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  UI MEM
+UI MEM pool_used=36284 pool_free=24040 pool_total=60324 registered=9 built=8 failed=0 sum_est=55296 reserve=5028
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3820
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2896
+UI MEM page id=5 title=FX state=built est=3584 delta=2864
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2860
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2860
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2408
+sloop>  UI play
+UI page=play (0)
+sloop>  UI transport
+UI page=transport (3)
+sloop>  UI step
+I (186467) sloop_ui: 页面构建 page=STEP(2) 池增量=21880B 预算=23040B 池剩余=2160B
+UI page=step (2)
+sloop>  UI fx
+UI page=fx (5)
+sloop>  Guru Meditation Error: Core  1 panic'ed (Load access fault). Exception was unhandled.
+
+Core  1 register dump:
+MEPC    : 0x4005d134  RA      : 0x4005dcee  SP      : 0x4ff9d9d0  GP      : 0x4ff17180  
+TP      : 0x4ff9e6a0  T0      : 0x0000012a  T1      : 0x00a01003  T2      : 0x00000000  
+S0/FP   : 0x4ff9db3c  S1      : 0x00000092  A0      : 0x4ff20e3c  A1      : 0x0000003a  
+A2      : 0x4ff9d9dc  A3      : 0x4ff9d9d8  A4      : 0x00000000  A5      : 0x00000076  
+A6      : 0x000000fc  A7      : 0x4ff4f898  S2      : 0x0000003b  S3      : 0x4ff4f80c  
+S4      : 0x0000003b  S5      : 0x00000001  S6      : 0x0000000e  S7      : 0x00000076  
+S8      : 0x4ff9d9e0  S9      : 0x00000010  S10     : 0x00000000  S11     : 0x00000000  
+T3      : 0x07e0f81f  T4      : 0x07e0f81f  T5      : 0x00ffffff  T6      : 0x0000012a  
+MSTATUS : 0x00011880  MTVEC   : 0x4ff00003  MCAUSE  : 0x00000005  MTVAL   : 0x00000076  
+MHARTID : 0x00000001  
+
+Stack memory:
+4ff9d9d0: 0x00000a00 0x4ff4f80c 0x0000002b 0x00000002 0x0000006a 0x000000aa 0x000000df 0x0000011f
+4ff9d9f0: 0x0000000d 0x00000007 0x00000000 0x00000001 0x00000001 0x4ff4f80c 0x0000005c 0x000000aa
+4ff9da10: 0x00000092 0x4ff9dc10 0x00000002 0x4005e45e 0x00000092 0x0000000e 0x4ff4f80c 0x4ff4fb1c
+4ff9da30: 0x00000002 0x4ff4f8c0 0x4ff4f910 0x4007cef2 0x4ff41ea8 0x00000000 0x00000000 0x4ff47acc
+4ff9da50: 0x00000056 0x00000001 0x00000000 0x400506d8 0x00000000 0x4ff47acc 0x00000000 0xe0000001
+4ff9da70: 0x00000000 0x4ff9da84 0x00000000 0x4005078e 0x000004cf 0x000000cd 0x0000010d 0x000000da
+4ff9da90: 0x0000011a 0x0000006f 0x0000010d 0x0000007c 0x0000011a 0x4ff47acc 0x00000000 0x40051200
+4ff9dab0: 0x00000000 0x00000050 0x00000010 0x0000001e 0x00000000 0x4ff47acc 0x00000000 0x40067ca6
+4ff9dad0: 0x000004a0 0x00000078 0x000004ef 0x00000071 0x000004a0 0x0000004a 0x000004ef 0x00000071
+4ff9daf0: 0x4ff9db2c 0x00000000 0x00000000 0x00000000 0x00000000 0x242b33ff 0x4ff4f80c 0x00000002
+4ff9db10: 0x4ff9db2c 0x00000000 0x00000000 0x4ff4f80c 0x4ff4f80c 0x4ff410c0 0x4ff40ca8 0x0000005c
+4ff9db30: 0x000000aa 0x000000ed 0x000000aa 0x4005dbb8 0x00000002 0x0000006a 0x000000aa 0x000000df
+4ff9db50: 0x0000011f 0x0000003b 0x00000001 0x4ff20e3c 0x4005dbb8 0x00000002 0x0000005c 0x0000009c
+4ff9db70: 0x000000ed 0x0000012d 0x00000049 0x00000000 0x4ff20e20 0x4005d86c 0x00000001 0x000000a5
+4ff9db90: 0x000000e5 0x00000087 0x0000002d 0x4005d77c 0x00000000 0x000000a5 0x000000e5 0xfffffdd0
+4ff9dbb0: 0x000003b9 0x00000000 0x000000a5 0x000000e5 0xfffffbfe 0xfffffc01 0xfffffc01 0x00000100
+4ff9dbd0: 0x00000001 0x4005d77c 0x00000000 0x000000a5 0x000000e5 0x00000379 0x000003b9 0x00000001
+4ff9dbf0: 0x000000a5 0x000000e5 0x000003ff 0x000003ff 0x000003ff 0x000000ff 0x00000002 0x0000010e
+4ff9dc10: 0x4ff9db84 0x4ff9db60 0x4ff9db3c 0x00000000 0x0000005c 0x0000009c 0x000000ee 0x0000012e
+4ff9dc30: 0x0000006a 0x000000aa 0x000000df 0x0000011f 0x0000005c 0x000000a8 0x000000ed 0x000000b7
+4ff9dc50: 0x0000005c 0x0000009c 0x000000ed 0x0000012d 0x00000000 0x00000000 0x00000000 0x00000010
+4ff9dc70: 0x00000000 0x00000000 0x00000001 0x4ff4f8c0 0x4ff4f8c0 0x4ff410c0 0x4ff40ca8 0x4007c7be
+4ff9dc90: 0x4ff4f8c0 0x4ff410c0 0x4ff40ca8 0x4007c862 0x00000000 0x4ff410c0 0x4ff40ca8 0x40059cb2
+4ff9dcb0: 0x4ff47c00 0x4ff410c0 0x00000098 0x4ff47c7c 0x00000000 0x4ff40d80 0x4ff410c0 0x40059cf4
+4ff9dcd0: 0x4ff4f8c0 0x4ff4f8c0 0x00000000 0x40059d9a 0x4ff4f8c0 0x4ff410c0 0x4ff9dd84 0x40059f02
+4ff9dcf0: 0x00000000 0x00000000 0x00000000 0x00000056 0x00000096 0x000000f5 0x00000135 0x00000000
+4ff9dd10: 0x00000096 0x000004a9 0x00000135 0x00000000 0x010000ff 0x00000000 0x00000000 0x00000000
+4ff9dd30: 0x0000003f 0x0000007f 0x000000be 0x00000000 0x0000005c 0x0000009c 0x000000ed 0x0000012d
+4ff9dd50: 0x4ff9dd84 0x4ff410c0 0x4ff1e954 0x4001b71e 0x000000a0 0x00000000 0x00000000 0x00000000
+4ff9dd70: 0x40150fe8 0xff000000 0xff000000 0xffffffff 0x000000ff 0x00000000 0x00000000 0x00000000
+4ff9dd90: 0x00000000 0x4ff410c0 0x00000000 0x00000000 0x00000000 0x00000048 0x00000000 0x00242b33
+4ff9ddb0: 0x0000000e 0x00000087 0x00000195 0x000000a5 0x000000e5 0x00000000 0x01ff0049 0x00000056
+
+
+
+ELF file SHA256: b926cd1b6
+
+Rebooting...
+ESP-ROM:esp32p4-eco2-20240710
+Build:Jul 10 2024
+rst:0xc (SW_CPU_RESET),boot:0x20c (SPI_FAST_FLASH_BOOT)
+Core0 Saved PC:0x4003c1d0
+Core1 Saved PC:0x4ff037c0
+SPI mode:DIO, clock div:1
+load:0x4ff33ce0,len:0x1664
+load:0x4ff29ed0,len:0xe24
+load:0x4ff2cbd0,len:0x3548
+entry 0x4ff29eda
+I (21) boot: ESP-IDF v5.5.5 2nd stage bootloader
+I (21) boot: compile time Nov 22 2026 02:26:31
+I (21) boot: Multicore bootloader
+I (22) boot: chip revision: v1.3
+I (23) boot: efuse block revision: v0.3
+I (23) boot.esp32p4: SPI Speed      : 80MHz
+I (23) boot.esp32p4: SPI Mode       : DIO
+I (23) boot.esp32p4: SPI Flash Size : 16MB
+I (24) boot: Enabling RNG early entropy source...
+I (24) boot: Partition Table:
+I (24) boot: ## Label            Usage          Type ST Offset   Length
+I (25) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (25) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (26) boot:  2 factory          factory app      00 00 00010000 00800000
+I (27) boot:  3 sloopstore       Unknown data     01 99 00810000 00068000
+I (27) boot:  4 storage          Unknown data     01 81 00878000 00788000
+I (29) boot: End of partition table
+I (29) esp_image: segment 0: paddr=00010020 vaddr=400e0020 size=8d2fch (578300) map
+I (111) esp_image: segment 1: paddr=0009d324 vaddr=30100000 size=0007ch (   124) load
+I (112) esp_image: segment 2: paddr=0009d3a8 vaddr=4ff00000 size=02c70h ( 11376) load
+I (115) esp_image: segment 3: paddr=000a0020 vaddr=40000020 size=d87bch (886716) map
+I (240) esp_image: segment 4: paddr=001787e4 vaddr=4ff02c70 size=13d04h ( 81156) load
+I (255) esp_image: segment 5: paddr=0018c4f0 vaddr=4ff16980 size=047b0h ( 18352) load
+I (259) esp_image: segment 6: paddr=00190ca8 vaddr=50108080 size=00020h (    32) load
+I (265) boot: Loaded app from partition at offset 0x10000
+I (266) boot: Disabling RNG early entropy source...
+I (271) hex_psram: vendor id    : 0x0d (AP)
+I (272) hex_psram: Latency      : 0x01 (Fixed)
+I (272) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (272) hex_psram: dev id       : 0x03 (generation 4)
+I (273) hex_psram: density      : 0x07 (256 Mbit)
+I (273) hex_psram: good-die     : 0x06 (Pass)
+I (273) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (274) hex_psram: BurstType    : 0x00 ( Wrap)
+I (274) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (274) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (275) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (275) hex_psram: DriveStrength: 0x00 (1/1)
+I (275) MSPI Timing: Enter psram timing tuning
+I (449) esp_psram: Found 32MB PSRAM device
+I (449) esp_psram: Speed: 200MHz
+I (450) hex_psram: psram CS IO is dedicated
+I (450) cpu_start: Multicore app
+I (1401) esp_psram: SPI SRAM memory test OK
+I (1417) cpu_start: Pro cpu start user code
+I (1417) cpu_start: cpu freq: 360000000 Hz
+I (1418) app_init: Application information:
+I (1418) app_init: Project name:     sloop_fm1_tab5
+I (1418) app_init: App version:      bb6025e-dirty
+I (1418) app_init: Compile time:     Nov 22 2026 03:16:34
+I (1418) app_init: ELF file SHA256:  b926cd1b6...
+I (1419) app_init: ESP-IDF:          v5.5.5
+I (1419) efuse_init: Min chip rev:     v1.0
+I (1419) efuse_init: Max chip rev:     v1.99 
+I (1419) efuse_init: Chip rev:         v1.3
+I (1420) heap_init: Initializing. RAM available for dynamic allocation:
+I (1420) heap_init: At 4FF20EB0 len 0001A110 (104 KiB): RETENT_RAM
+I (1420) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1420) heap_init: At 4FF9C660 len 000039A0 (14 KiB): RAM
+I (1421) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1421) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1421) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1423) spi_flash: detected chip: generic
+I (1423) spi_flash: flash io: dio
+I (1423) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1424) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1424) main_task: Started on CPU0
+I (1424) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1424) main_task: Calling app_main()
+I (1424) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1424) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1424) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1424) LVGL: Starting LVGL task
+I (1424) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1934) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1934) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1934) st7123: version: 1.0.2
+# [inject] 场景 params 异常终止: 命令 'UI fx' 无响应：等待提示符超时（已收 8802 字节）

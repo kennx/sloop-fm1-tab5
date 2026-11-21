@@ -1,0 +1,153 @@
+=== play ===
+UI MEM
+UI MEM pool_used=15920 pool_free=46840 pool_total=62760 registered=9 built=1 failed=0 sum_est=55296 reserve=7464 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2480 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== tracks ===
+UI MEM
+UI MEM pool_used=19140 pool_free=43228 pool_total=62368 registered=9 built=1 failed=0 sum_est=55296 reserve=7072 group=TRACKS
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=1 sum_est=7168 sum_delta=6048 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6048 build_ms=9
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== global ===
+UI MEM
+UI MEM pool_used=16576 pool_free=46000 pool_total=62576 registered=9 built=1 failed=0 sum_est=55296 reserve=7280 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=1 sum_est=17408 sum_delta=2864 build_ms=8
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2864 build_ms=5
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== fx ===
+UI MEM
+UI MEM pool_used=19092 pool_free=43208 pool_total=62300 registered=9 built=2 failed=0 sum_est=55296 reserve=7004 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=2 sum_est=17408 sum_delta=5700 build_ms=7
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2864 build_ms=5
+UI MEM page id=5 title=FX state=built est=3584 delta=2836 build_ms=5
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== analog ===
+UI MEM
+UI MEM pool_used=21592 pool_free=40384 pool_total=61976 registered=9 built=3 failed=0 sum_est=55296 reserve=6680 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=3 sum_est=17408 sum_delta=8560 build_ms=8
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2864 build_ms=5
+UI MEM page id=5 title=FX state=built est=3584 delta=2836 build_ms=5
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2860 build_ms=6
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== fm6 ===
+UI MEM
+UI MEM pool_used=24108 pool_free=37532 pool_total=61640 registered=9 built=4 failed=0 sum_est=55296 reserve=6344 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=4 sum_est=17408 sum_delta=11432 build_ms=7
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2864 build_ms=5
+UI MEM page id=5 title=FX state=built est=3584 delta=2836 build_ms=5
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2860 build_ms=6
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2872 build_ms=5
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== sample ===
+UI MEM
+UI MEM pool_used=26224 pool_free=35136 pool_total=61360 registered=9 built=5 failed=0 sum_est=55296 reserve=6064 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=5 sum_est=17408 sum_delta=13844 build_ms=6
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2864 build_ms=5
+UI MEM page id=5 title=FX state=built est=3584 delta=2836 build_ms=5
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2860 build_ms=6
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2872 build_ms=5
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2412 build_ms=5
+=== step ===
+UI MEM
+UI MEM pool_used=33000 pool_free=27372 pool_total=60372 registered=9 built=1 failed=0 sum_est=55296 reserve=5076 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=6
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=21852 build_ms=35
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=built est=23040 delta=21852 build_ms=31
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+=== transport ===
+UI MEM
+UI MEM pool_used=36344 pool_free=23816 pool_total=60160 registered=9 built=2 failed=0 sum_est=55296 reserve=4864 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=6
+UI MEM GROUP SEQ built=2 sum_est=27648 sum_delta=25532 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=built est=23040 delta=21852 build_ms=31
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3680 build_ms=7
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0

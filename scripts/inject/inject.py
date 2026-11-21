@@ -111,11 +111,22 @@ class LoggedSerial:
         self._ser.close()
 
 
+# 固件异步日志行（esp_log：`I (1234) tag: ...`）——显示/引擎任务在 console 之后启动，
+# 提示符打印后仍可能紧跟一行日志；这种尾随日志不改变「命令已执行完、提示符已出现」，
+# 若按「尾部必须恰以 sloop> 结束」判定会把正常启动误报成超时（store 首个
+# `ENG AUDIO ON` 的现场：响应与提示符都已到达，只差尾部多一行 sloop_display 日志）。
+_ASYNC_LOG = re.compile(r"^[IWE] \(\d+\) \S")
+
+
 def _prompt_at(buf: bytearray) -> bool:
-    """console 提示符检测：缓冲区尾部是 "sloop>" 且其后只有空格。
-    （esp_console 实际输出为 "sloop>  "——尾部可能多一个空格，不能按固定长度比较。）"""
+    """console 提示符检测：缓冲区尾部是 "sloop>"（其后只允许空格），或 "sloop>" 后只
+    跟完整的固件异步日志行。（esp_console 实际输出为 "sloop>  "——尾部可能多一个
+    空格，不能按固定长度比较。）"""
     i = buf.rfind(b"sloop>")
-    return i >= 0 and buf[i + len(b"sloop>"):].strip() == b""
+    if i < 0:
+        return False
+    tail = buf[i + len(b"sloop>") :].decode(errors="replace")
+    return all(_ASYNC_LOG.match(line) for line in tail.strip().splitlines())
 
 
 def read_response(ser, timeout: float) -> str:
@@ -178,8 +189,8 @@ class Session:
             self.ser.write(b"\n")
             self.ser.flush()
             try:
-                if read_response(self.ser, 1.0).rstrip().endswith("sloop>"):
-                    return
+                read_response(self.ser, 1.0)  # 提示符由 _prompt_at 判定（允许尾随日志）
+                return
             except TimeoutError:
                 continue
         raise InjectError("等待 console 提示符超时（设备未启动或串口被占用？）")
@@ -344,20 +355,49 @@ C_PANEL_HI = (32, 40, 48) # UI_PANEL_HI 0x242B33 → rgb565 (32,40,48)
 C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
-# 页签条几何随注册页数收窄（ADR-008）：9 页（4 基础 + 5 参数页）时 tab_w = 107、
-# 间距 8 → 页签 i 的 x 区间 = 16 + i*115 .. +107。探针取页签**左缘内 8px** 的底色
-# （y=20，文本行 ~26..46 之上）：9 页时 107px 只比 "TRANSPORT" 标签宽 5px，y=36
-# 会落在字形笔画/抗锯齿上（终审轮实测 (369,36) 命中 T 的竖笔），故探针行上移到
-# 文本之上；4 页布局时用过的中心点同理。
-C_TAB_PLAY = (24, 20)
-C_TAB_TRACKS = (139, 20)
-C_TAB_STEP = (254, 20)
-C_TAB_TRANSPORT = (369, 20)
-C_TAB_GLOBAL = (484, 20)
-C_TAB_FX = (599, 20)
-C_TAB_ANALOG = (714, 20)
-C_TAB_FM6 = (829, 20)
-C_TAB_SAMPLE = (944, 20)
+# 页签条几何（ADR-005「导航决策」两行页签；theme.h UI_GROUP_*/UI_SUB_* 同源）：
+# 上行组签 y∈[4,36)、176px 宽、间距 8（5×176+4×8=912，右端 928）；下行子签
+# y∈[38,68)、同样 176px，只显示当前组已注册页（固定 5 槽复用）。页面区起点仍是
+# y=72，页内几何全部不变。
+# 探针取页签**左上内缘**（x = 签左 + 20，y = 行顶 + 4）：避开 10px 圆角与 16pt
+# 文本行（组签文本 ≈10..30，子签 ≈43..63），命中填充色（选中 UI_ACCENT / 未选中
+# UI_PANEL_HI）而不是字形抗锯齿。
+UI_TAB_X0, UI_TAB_GAP = 16, 8
+UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 176, 32, 4
+UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
+UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SEQ", "FILE")
+
+
+def group_tab_xy(i: int) -> tuple:
+    """上行组签 i 的中心（屏幕绝对坐标；仅点击用途）。"""
+    return (UI_TAB_X0 + i * (UI_GROUP_W + UI_TAB_GAP) + UI_GROUP_W // 2,
+            UI_GROUP_Y + UI_GROUP_H // 2)
+
+
+def group_tab_probe(i: int) -> tuple:
+    """上行组签 i 的左缘内探针（避开圆角/文本）。"""
+    return (UI_TAB_X0 + i * (UI_GROUP_W + UI_TAB_GAP) + 20, UI_GROUP_Y + 4)
+
+
+def sub_tab_probe(i: int) -> tuple:
+    """下行子签 i（当前组内下标）的左缘内探针。"""
+    return (UI_TAB_X0 + i * (UI_SUB_W + UI_TAB_GAP) + 20, UI_SUB_Y + 4)
+
+
+# 单页组（PLAY/TRACKS）的选中态在上行组签；多页组（EDIT/SEQ）的选中态在下行子签。
+# 注意 C_TAB_GLOBAL 与 C_TAB_STEP（C_TAB_FX 与 C_TAB_TRANSPORT）坐标相同：都是
+# 「当前组第一/二张子签」，语义由当前组决定——探针只在对应组为当前组时使用。
+C_TAB_PLAY = group_tab_probe(0)
+C_TAB_TRACKS = group_tab_probe(1)
+C_TAB_EDIT = group_tab_probe(2)
+C_TAB_SEQ = group_tab_probe(3)
+C_TAB_STEP = sub_tab_probe(0)
+C_TAB_TRANSPORT = sub_tab_probe(1)
+C_TAB_GLOBAL = sub_tab_probe(0)
+C_TAB_FX = sub_tab_probe(1)
+C_TAB_ANALOG = sub_tab_probe(2)
+C_TAB_FM6 = sub_tab_probe(3)
+C_TAB_SAMPLE = sub_tab_probe(4)
 C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
 
 
@@ -429,19 +469,14 @@ TRACKS_CARD2 = (796, 347)
 # 卡距：page_tracks.c CARD_PITCH = CARD_W + 16 = 312（soak 循环选卡按此换算）
 TRACKS_CARD_PITCH = 312
 
-# 页签条（theme.h UI_TAB_X0/W/GAP/H/Y + ui.c 的页签建成）：页签 i 的 x 区间 =
-# UI_TAB_X0 + i*(UI_TAB_W+UI_TAB_GAP) .. +UI_TAB_W，y = UI_TAB_Y .. +UI_TAB_H。
-# nav 用例①取相邻页签之间 8px 缝的中心：在页签条内、却在所有页签矩形之外。
-# 页面注册表 = 9 页（PLAY/TRACKS/STEP/TRANSPORT/GLOBAL/FX/ANALOG/FM6/SAMPLE）时
-# ui.c 的页签宽度：min(UI_TAB_W=176, (1280 - 2*16 - 220(右侧留位) - 8*8) / 9) = 107。
-UI_TAB_X0, UI_TAB_W, UI_TAB_GAP = 16, 107, 8
-UI_TAB_Y, UI_TAB_H = 10, 52
-
-
+# 页签条（theme.h UI_GROUP_*/UI_SUB_* + ui.c 的两行页签建成）：上行组签 i 的 x 区间 =
+# UI_TAB_X0 + i*(UI_GROUP_W+UI_TAB_GAP) .. +UI_GROUP_W，y = UI_GROUP_Y .. +UI_GROUP_H。
+# nav 用例①取相邻组签之间 8px 缝的中心：在页签条内、却在所有组签/子签矩形之外
+# （TAP 对 y<72 一律 miss，页签切换走 LVGL 回调/UI/KEY tab）。
 def tab_gap_xy(i: int) -> tuple:
-    """页签 i 与 i+1 之间缝隙的中心（屏幕绝对坐标）。"""
-    return (UI_TAB_X0 + (i + 1) * (UI_TAB_W + UI_TAB_GAP) - UI_TAB_GAP // 2,
-            UI_TAB_Y + UI_TAB_H // 2)
+    """组签 i 与 i+1 之间缝隙的中心（屏幕绝对坐标）。"""
+    return (UI_TAB_X0 + (i + 1) * (UI_GROUP_W + UI_TAB_GAP) - UI_TAB_GAP // 2,
+            UI_GROUP_Y + UI_GROUP_H // 2)
 
 
 def ensure_window(s: Session, start: int, window_len: int) -> int:
@@ -743,6 +778,8 @@ UI_TICK_S = 0.030
 NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察窗留到 1s
                      # （>1s 停摆时用例③的「仍 TRACKS」可能被误判为通过，故取 1s）
 NAV_ATTEMPTS = 5
+# 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
+NAV_BUILD_BUDGET_MS = 100
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
 # 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
 NAV_STATUS_BOX = (1040, 82, 1258, 112)
@@ -847,15 +884,21 @@ def nav_last_page(s: Session) -> int:
 
 
 def run_nav(s: Session) -> None:
-    """nav 场景：阶段 3 评审点名的四条导航行为（阶段 4 路由重构最易静默破坏）。
+    """nav 场景：导航行为（阶段 4 路由重构最易静默破坏）+ 组作用域生命周期。
 
-    ① 页签缝与页签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
+    ① 组签缝与组签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
     ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
        焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
        1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
-       一页」），再 1s 无第二次前进。
+       一页」），再 1s 无第二次前进；`TAB` 顺序 = 组顺序扁平轮转
+       PLAY→TRACKS→GLOBAL→…（FILE 未注册前不参与）；
+    ⑤ 组作用域生命周期：EDIT→SEQ 后 EDIT 组 built=0（含原当前页），同组切换
+       只改显隐（STEP 不重建），build_ms 0 < x ≤100ms（ADR-005 §3/§5）；
+    ⑥ 手指导航（`UI TAB`/`UI SUB` 与物理组签/子签同一动作函数，R32）：点组进上次
+       子页且记忆跨往返、跨组点组销毁源组并建目标首个子页、子签同组切换不重建；
+       同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）。
     """
     ensure_stopped(s)
     ensure_window(s, 0, 16)
@@ -874,24 +917,26 @@ def run_nav(s: Session) -> None:
     s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格再 TAP（落回原值）")
 
     # ---------- ① 页签区 TAP：miss 且状态/引擎不变 ----------
-    # 两个点都必须在 TAP 路线上 miss：页签缝（页签条内、所有页签矩形外）与页签矩形
-    # 内部（PLAY 页签中心 104,36）。后者钉住「页签矩形被接进 TAP 路由」的回归——一旦
-    # 接进来，点页签会切页，与「TAP 只派发当前页控件」的约定冲突（切页走 UI/KEY tab）。
+    # 两个点都必须在 TAP 路线上 miss：组签缝（页签条内、所有组签/子签矩形外）与
+    # 组签矩形内部（PLAY 组签中心）。后者钉住「页签矩形被接进 TAP 路由」的回归——
+    # 两行页签的切换走 LVGL 回调/`UI`/`KEY tab`，TAP 只派发页面区控件（y≥72）。
     gap_xy = tab_gap_xy(0)
-    tab_xy = (UI_TAB_X0 + UI_TAB_W // 2, UI_TAB_Y + UI_TAB_H // 2)  # PLAY 页签中心
-    s.ser.note(f"用例①：TAP 页签缝 {gap_xy[0]},{gap_xy[1]} 与页签矩形内 "
+    tab_xy = group_tab_xy(0)  # PLAY 组签中心
+    s.ser.note(f"用例①：TAP 组签缝 {gap_xy[0]},{gap_xy[1]} 与组签矩形内 "
                f"{tab_xy[0]},{tab_xy[1]}（均须 miss）")
     st1 = nav_state_fields(s)
     eng1 = nav_eng_snapshot(s)
     s.cmd("TAP %d %d" % gap_xy)
-    s.expect(rf"TAP miss {gap_xy[0]},{gap_xy[1]} page=2", "① 页签缝 TAP miss")
+    s.expect(rf"TAP miss {gap_xy[0]},{gap_xy[1]} page=2", "① 组签缝 TAP miss")
     s.cmd("TAP %d %d" % tab_xy)
-    s.expect(rf"TAP miss {tab_xy[0]},{tab_xy[1]} page=2", "① 页签矩形内 TAP miss")
+    s.expect(rf"TAP miss {tab_xy[0]},{tab_xy[1]} page=2", "① 组签矩形内 TAP miss")
     nav_same(s, "① STATE SNAP", st1, nav_state_fields(s))
     nav_same(s, "① ENG SNAP", eng1, nav_eng_snapshot(s))
     img_step = s.capture("nav-01-tabbar")
-    s.probe(img_step, "① 页签缝底（页签条 UI_PANEL）", *gap_xy, C_PANEL, 10)
-    s.probe(img_step, "① 页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+    s.probe(img_step, "① 组签缝底（页签条 UI_PANEL）", *gap_xy, C_PANEL, 10)
+    s.probe(img_step, "① 子签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+    s.probe(img_step, "① 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
+    s.probe(img_step, "① 组签未选中（PLAY）", *C_TAB_PLAY, C_PANEL_HI, 10)
 
     # ---------- ② STEP 鼓轨行只读 ----------
     nav_set_focus(s, 2, 2)  # 非默认焦点：让「焦点不变」有判别力
@@ -992,15 +1037,150 @@ def run_nav(s: Session) -> None:
              f"（时序下界余量 {margin:.1f}ms，仅作参考）")
         time.sleep(NAV_SETTLE_S)
         s.cmd_fast("UI")
-        s.expect(r"UI page=step \(2\)", "④ 3 次 tab 只前进一页（TRACKS→STEP）")
+        s.expect(r"UI page=global \(4\)", "④ 3 次 tab 只前进一页（TRACKS→GLOBAL，新顺序）")
         time.sleep(NAV_SETTLE_S)
         s.cmd_fast("UI")
-        s.expect(r"UI page=step \(2\)", "④ 再 6 拍无第二次前进")
+        s.expect(r"UI page=global \(4\)", "④ 再 6 拍无第二次前进")
         img = s.capture("nav-05-tab3-final")
-        s.probe(img, "④ 页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
-        s.probe(img, "④ TRANSPORT 页签未选中", *C_TAB_TRANSPORT, C_PANEL_HI, 10)
+        s.probe(img, "④ 子签选中（GLOBAL）", *C_TAB_GLOBAL, C_YELLOW)
+        s.probe(img, "④ 组签选中（EDIT）", *C_TAB_EDIT, C_YELLOW)
+        s.probe(img, "④ 组签未选中（PLAY）", *C_TAB_PLAY, C_PANEL_HI, 10)
     else:
         s.fail(f"④ {NAV_ATTEMPTS} 次对齐都未能把 3 次 tab 压进同一拍（测试前提不成立）")
+
+    # ---------- ⑤ 组作用域生命周期：离开组即销毁（ADR-005 §3/§5，DI-19） ----------
+    # 先落到 EDIT 组的 GLOBAL。EDIT→SEQ 后 EDIT built 必须回 0（含原当前页），
+    # SEQ 首次进入只建 STEP；再从 STEP 切 TRANSPORT（同组）只改显隐、STEP 不重建。
+    s.cmd("UI global")
+    s.expect(r"UI page=global \(4\)", "⑤ 起点 EDIT 组 GLOBAL")
+    mem_a = param_mem(s)
+    ga = mem_a["groups"]
+    (s.ok if ga["EDIT"]["built"] == 1 and ga["SEQ"]["built"] == 0 else s.fail)(
+        f"⑤ 进入前 EDIT built={ga['EDIT']['built']} / SEQ built={ga['SEQ']['built']}"
+        f"（期望 1 / 0）")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑤ 跨组 EDIT→SEQ")
+    mem_b = param_mem(s)
+    gb = mem_b["groups"]
+    (s.ok if gb["EDIT"]["built"] == 0 and gb["EDIT"]["sum_delta"] == 0 else s.fail)(
+        f"⑤ 离开 EDIT 后 built={gb['EDIT']['built']} sum_delta={gb['EDIT']['sum_delta']}"
+        f"（期望 0 / 0，源组页面含原当前页全部销毁）")
+    (s.ok if mem_b["pages"].get(4, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⑤ 原当前页 GLOBAL state={mem_b['pages'].get(4, ('?',))[0]}（期望 unbuilt）")
+    (s.ok if gb["SEQ"]["built"] == 1 else s.fail)(
+        f"⑤ SEQ built={gb['SEQ']['built']}（期望 1 = 只建 STEP）")
+    (s.ok if 0 < gb["SEQ"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑤ 跨组进入 SEQ build_ms={gb['SEQ']['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    img = s.capture("nav-06-groupscope")
+    s.probe(img, "⑤ 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
+    s.probe(img, "⑤ 组签未选中（EDIT）", *C_TAB_EDIT, C_PANEL_HI, 10)
+    s.probe(img, "⑤ 子签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+    s.probe(img, "⑤ 子签未选中（TRANSPORT）", *C_TAB_TRANSPORT, C_PANEL_HI, 10)
+
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑤ 同组 STEP→TRANSPORT")
+    mem_c = param_mem(s)
+    gc = mem_c["groups"]
+    (s.ok if gc["SEQ"]["built"] == 2 and mem_c["pages"].get(2, ("?",))[0] == "built" else s.fail)(
+        f"⑤ 同组切换后 SEQ built={gc['SEQ']['built']} STEP={mem_c['pages'].get(2, ('?',))[0]}"
+        f"（期望 2 / built：同组切换只改显隐、不重建）")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑤ 回 PLAY（SEQ 组销毁）")
+    mem_d = param_mem(s)
+    (s.ok if mem_d["groups"]["SEQ"]["built"] == 0 and mem_d["head"]["built"] == 1 else s.fail)(
+        f"⑤ 离开 SEQ 后 SEQ built={mem_d['groups']['SEQ']['built']} 总 built="
+        f"{mem_d['head']['built']}（期望 0 / 1 = 仅 PLAY）")
+
+    # ---------- ⑥ 手指路径（R32）：组签/子签点击与 R30 同拍取消 ----------
+    # TAP 对 y<72 一律 miss，页签只能经 LVGL 回调；`UI TAB`/`UI SUB` 与回调共用同一
+    # 动作函数，故这三段覆盖：①点组进「上次子页」且记忆跨往返；②跨组点组销毁源组
+    # 并建目标首个子页；③同拍 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）。
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑥ 起点 PLAY")
+    # ⑥a 记忆：先显式把 EDIT 的「上次子页」设成 SAMPLE，再离开/点组回来
+    s.cmd("UI tab edit")
+    s.expect(r"UI TAB EDIT page=\w+ \(\d+\)", "⑥ UI TAB edit（进入 EDIT 的当前/首个子页）")
+    s.cmd("UI sample")
+    s.expect(r"UI page=sample \(8\)", "⑥ 设 EDIT 上次子页 = SAMPLE")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ UI TAB play（跨组回 PLAY）")
+    mem_e = param_mem(s)
+    (s.ok if mem_e["groups"]["EDIT"]["built"] == 0 else s.fail)(
+        f"⑥ 点组离开后 EDIT built={mem_e['groups']['EDIT']['built']}（期望 0）")
+    s.cmd("UI tab edit")
+    s.expect(r"UI TAB EDIT page=sample \(8\)", "⑥ 点组回到上次子页（SAMPLE，记忆跨往返）")
+    mem_f = param_mem(s)
+    (s.ok if mem_f["groups"]["EDIT"]["built"] == 1 and mem_f["pages"].get(8, ("?",))[0] == "built"
+     else s.fail)(
+        f"⑥ 记忆入口只建 SAMPLE：EDIT built={mem_f['groups']['EDIT']['built']} "
+        f"SAMPLE={mem_f['pages'].get(8, ('?',))[0]}（期望 1 / built）")
+    # ⑥b 跨组点组：销毁源组 + 建目标组首个子页（TRACKS 单页组，首个子页恒为 TRACKS）
+    s.cmd("UI tab tracks")
+    s.expect(r"UI TAB TRACKS page=tracks \(1\)", "⑥ 跨组 UI TAB tracks（目标首个子页）")
+    mem_g = param_mem(s)
+    (s.ok if mem_g["groups"]["EDIT"]["built"] == 0 and mem_g["groups"]["TRACKS"]["built"] == 1
+     else s.fail)(
+        f"⑥ 跨组点击后 EDIT built={mem_g['groups']['EDIT']['built']} / "
+        f"TRACKS built={mem_g['groups']['TRACKS']['built']}（期望 0 / 1）")
+    (s.ok if 0 < mem_g["groups"]["TRACKS"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑥ 跨组点击 TRACKS build_ms={mem_g['groups']['TRACKS']['build_ms']}ms"
+        f"（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    # ⑥c 子签点击：同组切换不重建兄弟页；越界/单页组返回显式令牌
+    s.cmd("UI tab edit")
+    s.expect(r"UI TAB EDIT page=sample \(8\)", "⑥ 回 EDIT（记忆仍是 SAMPLE）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=global \(4\)", "⑥ UI SUB 0 切 GLOBAL")
+    mem_h = param_mem(s)
+    (s.ok if mem_h["groups"]["EDIT"]["built"] == 2 and mem_h["pages"].get(8, ("?",))[0] == "built"
+     else s.fail)(
+        f"⑥ 子签切换不重建兄弟页：EDIT built={mem_h['groups']['EDIT']['built']} "
+        f"SAMPLE={mem_h['pages'].get(8, ('?',))[0]}（期望 2 / built）")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=fx \(5\)", "⑥ UI SUB 1 切 FX")
+    s.cmd("UI SUB 5")
+    s.expect(r"UI ERR sub 5", "⑥ UI SUB 5 越界 → UI ERR sub")
+    s.cmd("UI")
+    s.expect(r"UI page=fx \(5\)", "⑥ 越界注入不改页（仍 FX）")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "⑥ 单页组子行为空：UI SUB 0 → UI ERR sub")
+    s.cmd("UI")
+    s.expect(r"UI page=play \(0\)", "⑥ 单页组 SUB 注入不改页")
+    s.cmd("UI TAB FILE")
+    s.expect(r"UI ERR group FILE", "⑥ 未注册页的组（FILE）→ UI ERR group")
+    s.cmd("UI TAB nope")
+    s.expect(r"UI ERR group nope", "⑥ 未知组名 → UI ERR group")
+    # ⑥d R30：同一 30ms 拍内 KEY tab 排队 + UI TAB 点击 ⇒ 点击胜出、待切页丢弃。
+    # 锚点 TRACKS 的单按 tab 目标 = GLOBAL（与 UI TAB play 的目标不同），故若未取消，
+    # 下一拍会跳到 GLOBAL（1s 后读页可判别）。批内 UI 自证「点击执行时请求仍在邮箱」。
+    premise = False
+    for attempt in range(1, NAV_ATTEMPTS + 1):
+        s.cmd_fast("UI tracks")
+        s.expect(r"UI page=tracks \(1\)", f"⑥d 起点 TRACKS（对齐 {attempt}/{NAV_ATTEMPTS}）")
+        span = s.cmd_batch(["KEY 0x20 down", "KEY 0x20 up", "UI", "UI TAB play", "UI"])
+        pages = re.findall(r"UI page=\w+ \((\d+)\)", s.last)
+        if len(pages) < 2:
+            raise InjectError(f"⑥d 批内缺少 UI 页回显：{s.last!r}")
+        mid, after = int(pages[0]), int(pages[-1])
+        s.ser.note(f"⑥d 对齐 {attempt}: 批次 {span:.1f}ms，批内 UI：点击前={mid} 点击后={after}")
+        if mid != 1:
+            s.ser.note("⑥d 前提不成立：批内 UI 已前进 → 拍插在 tab 与点击之间；重新对齐")
+            print(f"  [NOTE] ⑥d 对齐 {attempt}: 拍插在 tab 与 UI TAB 之间（批内点击前={mid}），重新对齐")
+            continue
+        premise = True
+        break
+    if premise:
+        (s.ok if after == 0 else s.fail)(
+            f"⑥d 批内点击后页={after}（期望 0 = PLAY；UI TAB 立即生效）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=play \(0\)", "⑥d 同拍点击胜出：1s 后仍 PLAY（待切页已丢弃，R30）")
+        time.sleep(NAV_SETTLE_S)
+        s.cmd_fast("UI")
+        s.expect(r"UI page=play \(0\)", "⑥d 再 6 拍仍 PLAY（无 GLOBAL 回跳）")
+    else:
+        s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
     # 复位：PLAY 页（脚本可重复运行）
     s.cmd("UI play")
@@ -1039,7 +1219,11 @@ def param_value(s: Session, key: str = "value") -> int:
 
 
 def param_mem(s: Session) -> dict:
-    """`UI MEM` → {page_id: (state, est, delta)} + 首行字段。"""
+    """`UI MEM` → {page_id: (state, est, delta)} + 首行字段 + 分组行。
+
+    分组行（ADR-005 §5）：`UI MEM GROUP <name> built=<n> sum_est=<B> sum_delta=<B>
+    build_ms=<ms>`；sum_est = 组内已注册成员 est（静态预算），sum_delta = 组内已建
+    成员的池增量（离开组后 built/sum_delta 回 0）。"""
     s.cmd("UI MEM")
     m = re.search(r"UI MEM pool_used=(\d+) pool_free=(\d+) pool_total=(\d+) registered=(\d+) "
                   r"built=(\d+) failed=(\d+) sum_est=(\d+) reserve=(-?\d+)", s.last)
@@ -1047,12 +1231,27 @@ def param_mem(s: Session) -> dict:
         raise InjectError("UI MEM 首行缺失")
     head = dict(zip(("used", "free", "total", "registered", "built", "failed", "sum_est", "reserve"),
                     map(int, m.groups())))
+    gm = re.search(r"group=(\w+|-)", s.last)
+    head["group"] = gm.group(1) if gm else "?"
     pages = {}
     for line in s.last.splitlines():
         pm = re.search(r"UI MEM page id=(\d+) title=(\S+) state=(\w+) est=(\d+) delta=(-?\d+)", line)
         if pm:
             pages[int(pm.group(1))] = (pm.group(3), int(pm.group(4)), int(pm.group(5)))
-    return {"head": head, "pages": pages}
+    groups = {}
+    for line in s.last.splitlines():
+        gr = re.search(r"UI MEM GROUP (\w+) built=(\d+) sum_est=(\d+) sum_delta=(\d+) "
+                       r"build_ms=(\d+)", line)
+        if gr:
+            groups[gr.group(1)] = {
+                "built": int(gr.group(2)),
+                "sum_est": int(gr.group(3)),
+                "sum_delta": int(gr.group(4)),
+                "build_ms": int(gr.group(5)),
+            }
+    if len(groups) != len(UI_GROUP_NAMES):
+        raise InjectError(f"UI MEM 分组行不完整（{len(groups)}/{len(UI_GROUP_NAMES)}）：{s.last!r}")
+    return {"head": head, "pages": pages, "groups": groups}
 
 
 def param_expect_value(s: Session, read_cmd: str, want: int, label: str) -> None:
@@ -1113,6 +1312,21 @@ def run_params(s: Session) -> None:
     s.expect(r"-> TRACKS select track=0 CMD_SELECT_TRACK", "TAP 卡 0")
     s.cmd("STATE SNAP")
     s.expect_int(r"selected_track=(\d+)", 0, "STATE SNAP selected_track=0")
+    # 引擎归一到 ANALOG 预置 0：上一轮会话（store 场景的工程载入 / autosave resume）
+    # 可能把选中轨留在别的引擎上——那样 ANALOG 页是**锁定态**（键盘 ↑/↓ 与 ± 被拒、
+    # 值为 "--"），本场景的 ANALOG 编辑断言会与布局无关地失败。引擎已经是 0 时该
+    # 命令可能无操作，故另把 FX 页旋钮 0（P_DIST）归零：环顶探针要求值为 0
+    # （弧线的 TEXT_DIM 指示弧不盖 12 点方向）。
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "归一轨 0 引擎 = ANALOG 预置 0")
+    s.cmd("PARAM 33 0")
+    s.expect(r"PARAM track=0 id=33 value=0 applied=0", "归一 FX DIST=0（环顶探针前提）")
+    # ANALOG 页旋钮 0/4 = WAVE/CUT：环顶探针与 CUT 的 ±1 都要求基线为 0（恢复的工程
+    # 可能让 CUT=127 钳位、指示弧盖住 12 点；CUT=127 时 ↑ 无法 +1）。
+    for pid in (63, 67):
+        s.cmd(f"PARAM {pid} 0")
+        s.expect(rf"PARAM track=0 id={pid} value=0 applied=0",
+                 f"归一 ANALOG id={pid}=0（环顶探针/±1 前提）")
     # BPM 回到 TP 默认（截图探针的弧长前提，见 PARAM_BPM_DEF 的注释）
     s.cmd(f"PARAM GLOBAL 0 {PARAM_BPM_DEF}")
     param_expect_value(s, "PARAM GLOBAL 0", PARAM_BPM_DEF,
@@ -1201,6 +1415,10 @@ def run_params(s: Session) -> None:
     # ---------- FX 页：LEVEL（F_DB）经 TAP ±，ATK（F_TIME）经键盘 ----------
     s.cmd("UI fx")
     s.expect(r"UI page=fx \(5\)", "UI fx")
+    mem_fx = param_mem(s)
+    st, est, delta = mem_fx["pages"].get(5, ("?", 0, 0))
+    (s.ok if st == "built" and 0 < delta <= est else s.fail)(
+        f"UI MEM FX state={st} delta={delta} est={est}（0<delta≤est）")
     s.cmd("PARAM 0")
     level0 = param_value(s)
     s.cmd("PARAM 1")
@@ -1241,6 +1459,10 @@ def run_params(s: Session) -> None:
     # ---------- ANALOG 页：WAVE（F_ENUM）TAP ±，CUT（F_CUTOFF）键盘；切页保值 ----------
     s.cmd("UI analog")
     s.expect(r"UI page=analog \(6\)", "UI analog")
+    mem_analog = param_mem(s)
+    st, est, delta = mem_analog["pages"].get(6, ("?", 0, 0))
+    (s.ok if st == "built" and 0 < delta <= est else s.fail)(
+        f"UI MEM ANALOG state={st} delta={delta} est={est}（0<delta≤est）")
     s.cmd("PARAM 63")
     wave0 = param_value(s)
     s.cmd("PARAM 67")
@@ -1303,6 +1525,10 @@ def run_params(s: Session) -> None:
     img = s.capture("params-fm6-locked")
     s.probe_region(img, "锁定页页眉红字（FM6 · TRACK 1 USES ENG 0 — N/A）",
                    (16, 72 + 6, 760, 72 + 40), C_ERROR, 16, 200)
+    mem_fm6 = param_mem(s)
+    st, est, delta = mem_fm6["pages"].get(7, ("?", 0, 0))
+    (s.ok if st == "built" and 0 < delta <= est else s.fail)(
+        f"UI MEM FM6 state={st} delta={delta} est={est}（首次构建，0<delta≤est）")
 
     # ---------- FM6 页（ENGINES[9]->edit[0..7]）：ALG 33 名、宏编辑生效 ----------
     s.cmd("ENG TRACK 1 9 0")
@@ -1313,6 +1539,8 @@ def run_params(s: Session) -> None:
     s.cmd("ENG DESC engine 9 0")
     s.expect(r'label="ALG" fmt=\d+ min=0 max=32 def=0 unit="[^"]*" enums=33 first="PAT" last="32"',
              "ENG DESC FM6 ALG：33 名（PAT..32）")
+    s.cmd("PARAM 63 0")  # ALG=0：环顶探针不被指示弧盖住（恢复的工程可能 ALG>0）
+    s.expect(r"PARAM track=1 id=63 value=0 applied=0", "归一 FM6 ALG=0（环顶探针前提）")
     s.cmd("PARAM 63")
     alg0 = param_value(s)
     s.cmd("PARAM 64")
@@ -1376,6 +1604,8 @@ def run_params(s: Session) -> None:
     s.cmd("ENG DESC engine 4 0")
     s.expect(r'label="SET" fmt=\d+ min=0 max=11 def=0 unit="[^"]*" enums=12 first="PIANO" last="USR4"',
              "ENG DESC SAMPLE SET：12 名（PIANO..USR4）")
+    s.cmd("PARAM 63 0")  # SET=0：环顶探针不被指示弧盖住（恢复的工程可能 SET>0）
+    s.expect(r"PARAM track=1 id=63 value=0 applied=0", "归一 SAMPLE SET=0（环顶探针前提）")
     s.cmd("PARAM 63")
     set0 = param_value(s)
     s.cmd("PARAM 66")
@@ -1390,6 +1620,10 @@ def run_params(s: Session) -> None:
     # 空槽 5/7 没有旋钮：其环顶像素应是页面背景（UI_BG）
     s.probe(img, "空槽 5（行 1 列 1）无旋钮", 482, 454, C_BG, 12)
     s.probe(img, "空槽 7（行 1 列 3）无旋钮", 1114, 454, C_BG, 12)
+    mem_sample = param_mem(s)
+    st, est, delta = mem_sample["pages"].get(8, ("?", 0, 0))
+    (s.ok if st == "built" and 0 < delta <= est else s.fail)(
+        f"UI MEM SAMPLE state={st} delta={delta} est={est}（0<delta≤est）")
 
     # SET（F_ENUM 12 名）：TAP + / −
     s.cmd("TAP %d %d" % param_knob_xy(0))
@@ -1446,11 +1680,29 @@ def run_params(s: Session) -> None:
         s.cmd(f"PARAM {pid} 0")
     s.cmd("ENG TRACK 1 0 0")
     s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "ENG TRACK 轨 1 → ANALOG（复位）")
-    select_track(s, 0)
 
-    # ---------- 池水位总表：五页 delta ≤ est，全 9 页可建 ----------
-    mem2 = param_mem(s)
+    # ---------- 池水位：组作用域（ADR-005 §3/§5；DI-19 收口口径） ----------
+    # 中途 select_track(1) 走过 UI tracks（跨组）⇒ EDIT 的 GLOBAL/FX/ANALOG 已被销毁，
+    # 之后 UI fm6/UI sample 按序重建 ⇒ 此刻 EDIT 组只剩 FM6+SAMPLE。离开组后 built
+    # 必须回 0（含原当前页）；每页 delta ≤ est 已在各自首次构建时断言。
+    mem_pages = param_mem(s)
+    (s.ok if mem_pages["groups"]["EDIT"]["built"] == 2 else s.fail)(
+        f"UI MEM EDIT built={mem_pages['groups']['EDIT']['built']}"
+        f"（期望 2 = FM6 + SAMPLE；GLOBAL/FX/ANALOG 已在跨组时销毁）")
+    select_track(s, 0)
+    mem_left = param_mem(s)
+    (s.ok if mem_left["groups"]["EDIT"]["built"] == 0 else s.fail)(
+        f"UI MEM 离开 EDIT 后 built={mem_left['groups']['EDIT']['built']}"
+        f"（期望 0：源组页面含原当前页全部销毁）")
+
+    # 逐组访问：同一时刻只保留**当前组**的页面（组作用域生命周期）。
     s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "池水位：UI play")
+    mem_play = param_mem(s)
+    (s.ok if mem_play["head"]["built"] == 1 and mem_play["groups"]["PLAY"]["built"] == 1
+     else s.fail)(
+        f"UI MEM PLAY 组 built={mem_play['groups']['PLAY']['built']} 总 built="
+        f"{mem_play['head']['built']}（期望 1 / 1）")
     s.cmd("UI transport")
     s.cmd("UI step")
     s.cmd("UI fx")
@@ -1459,16 +1711,21 @@ def run_params(s: Session) -> None:
     s.cmd("UI fm6")
     s.cmd("UI sample")
     mem3 = param_mem(s)
-    (s.ok if mem3["head"]["built"] == 9 else s.fail)(
-        f"UI MEM built={mem3['head']['built']}（9 页全建；free={mem3['head']['free']}）")
-    # 真不变量是「九页全建后 pool_free > 0」；reserve = total - sum_est 只是展示值
-    # （按 63,120B 池与 7,016B 基础占用算真实账面为负，见 ADR-008 §5），不得当门禁。
-    (s.ok if mem3["head"]["free"] > 0 else s.fail)(
-        f"UI MEM pool_free={mem3['head']['free']}（九页全建后 > 0，ADR-008 §5）")
-    for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "ANALOG"), (7, "FM6"), (8, "SAMPLE")):
-        st, est, delta = mem2["pages"].get(pid, ("?", 0, 0))
-        (s.ok if st == "built" and 0 < delta <= est else s.fail)(
-            f"UI MEM {title} state={st} delta={delta} est={est}（0<delta≤est）")
+    g3 = mem3["groups"]
+    (s.ok if mem3["head"]["built"] == 5 and g3["EDIT"]["built"] == 5 else s.fail)(
+        f"UI MEM built={mem3['head']['built']} / EDIT built={g3['EDIT']['built']}"
+        f"（期望 5 / 5：只有当前组 EDIT 的页面常驻）")
+    (s.ok if all(g3[g]["built"] == 0 for g in ("PLAY", "TRACKS", "SEQ", "FILE")) else s.fail)(
+        "UI MEM 非当前组 built=0（"
+        + " ".join(f"{g}={g3[g]['built']}" for g in ("PLAY", "TRACKS", "SEQ", "FILE")) + "）")
+    # 组作用域后的池余量必须显著高于九页平铺的 2.2–2.7KB（DI-19 的池悬崖），
+    # 取 ≥20KB 作为回归下界：EDIT 组 Σdelta 实测 ≈14KB，base 重测后见证据文件。
+    (s.ok if mem3["head"]["free"] >= 20480 else s.fail)(
+        f"UI MEM pool_free={mem3['head']['free']}（组作用域后 ≥20KB，DI-19 收口）")
+    (s.ok if g3["EDIT"]["sum_est"] == 17408 else s.fail)(
+        f"UI MEM EDIT sum_est={g3['EDIT']['sum_est']}（期望 17,408 = 4×3584 + 3072）")
+    (s.ok if 0 < g3["EDIT"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"UI MEM EDIT build_ms={g3['EDIT']['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
 
     # 复位：PLAY 页、轨 0（脚本可重复运行）
     s.cmd("UI play")

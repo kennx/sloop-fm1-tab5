@@ -240,30 +240,46 @@ PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRA
 
 #### 5. 容量不变量（取代「九页平铺」口径）
 
-`UI MEM` 口径（TLSF 可用 63,120B），**跨组切换的过渡峰值**：
+`UI MEM` 口径（TLSF 可用 63,120B），**跨组切换的过渡峰值**（按有序对取最坏）：
 
 ```
-base + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B
+base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 ```
 
-- `base` = 非页面基础占用（根/页签条/错误状态条/字体等），九页实测 **7,016B**
-  （= `pool_used 55,064 − Σdelta 48,048`，2026-11-21 `UI MEM`）。**两行页签落地后须重测
-  `base` 并回写本节**——7,016B 是九页平铺页签时点的基线，改成组/子两行后页签条对象数
-  变化，不能直接沿用。
-- 当前最大组 = SEQ：`STEP 23,040 + TRANSPORT 4,608 = 27,648B`；FILE 两页初始 est
-  `PROJECTS 4,608 + PRESETS 5,120 = 9,728B`（构建前实测 est 以 ADR-008 表为准）。
-- `max_single_page_est` = 任意单页 est 的上限，保守取 **STEP 23,040B**（真实最坏对
-  SEQ→EDIT 更小）。切换峰值账面：`7,016 + 27,648 + 23,040 + 4,096 = 61,800B ≤ 63,120B`
-  （余 **1,320B**）。
+- `base` = 非页面基础占用（根/两行页签条/错误状态条/字体/LVGL 内部等），**P4-B Task 11
+  两行页签落地后实测 13,800B**（＝ 63,120 − boot `UI MEM` 的 `pool_free 46,840` − PLAY
+  delta 2,480，最终固件）。九页平铺页签的 boot 基线同法为 13,196B，故两行页签的代价
+  ≈ **+604B**（第一版子行建 8 个复用槽时 15,648B；收敛为 5 槽后回落到 13,800B）。
+  「UI 就绪」那一拍的瞬时值 14,112B（含启动期临时分配，差 0.3KB）可作保守上界。
+  本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会漏计
+  TLSF 块头，是低估，已作废；两行页签后已按本值重测回写。
+- 组 est：PLAY 3,072 / TRACKS 7,168 / EDIT `4×3,584+3,072 = 17,408` / SEQ
+  `STEP 23,040 + TRANSPORT 4,608 = 27,648` / FILE 初始 `PROJECTS 4,608 + PRESETS 5,120
+  = 9,728`（构建前实测 est 以 ADR-008 表为准）。
+- **最坏有序对 = EDIT（已全建）→ SEQ 首建 STEP**：`17,408 + 23,040 = 40,448B`；账面
+  `13,800 + 40,448 + 4,096 = 58,344 ≤ 63,120`（余 **4,776B**；base 取保守上界
+  14,112B 时为 58,656B，余 4,464B）。反方向 SEQ（全建）→
+  EDIT 首建 GLOBAL 只有 `27,648 + 3,584 = 31,232B`。（STEP 属 SEQ，所以它不可能是
+  「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ 的目标——最坏对必须按有序对枚举，
+  旧式「任意单页上限 + 任意最大组」是病态上界。）
+- **实测过渡峰值**（2026-11-22 Task 11 最终固件，`UI MEM`/构建日志）：
+  EDIT 五页全建 `pool_free 34,212B` → 跨组建 STEP（delta 21,856B、耗时 30ms）后、
+  销毁 EDIT 前 **`pool_free 12,356B`**；SEQ 两页全建 `pool_free 23,376B` → 跨组建
+  GLOBAL（delta 2,848B）后 `pool_free 20,528B`。最坏观测 **12,356B free**——是 DI-19
+  弧线 mask 峰值（≈2.6KB，取 4KB 余量）的 3 倍以上。
 - **为什么必须按峰值核算**：切组顺序是「建目标页 → 切到目标页 → 销毁源组页面」，源组的
   池占用在**切换之后**才释放；若在切换前释放，会出现空白帧、输入路径在跨组切换期间
-  没有活页。因此峰值 = 源组已建 Σ + 目标页 est，是瞬态但必须被上式覆盖；切换完成后
-  回落为稳态 `7,016 + 27,648 + 4,096 = 38,760B ≤ 63,120B`。
+  没有活页。因此峰值 = 源组已建 Σ + 目标页实际构建量，是瞬态但必须被上式覆盖；切换
+  完成后回落为稳态 `base + max_group Σ est = 41,448B ≤ 63,120B`。
 - **每页构建前 `free ≥ est` 的检查继续保留**（真门禁不变）；组作用域只是把「同时已建
   页集合」限制在一组内。
-- `UI MEM` 增加分组行：`GROUP <name> built=<n> sum_est=<B> sum_delta=<B>`（含 build_ms），
-  与既有 `page` 行并存；九页平铺的实测预算表保留在 ADR-008 §3。
+- `UI MEM` 增加分组行：`GROUP <name> built=<n> sum_est=<B> sum_delta=<B> build_ms=<ms>`，
+  与既有 `page` 行并存（`sum_est` = 组内已注册成员 est，`sum_delta` = 已建成员池增量）；
+  九页平铺的实测预算表保留在 ADR-008 §3。
 - 池仍为 64KB（`CONFIG_LV_MEM_SIZE=65536`）；扩池路线不重启。
+- 构建延迟（`build_ms`）：跨组进入 SEQ（STEP 首建）最终 nav 证据 **33ms**（早期会话
+  29–35ms）、EDIT 首建 GLOBAL 7–11ms、PLAY/TRACKS 首入 ≤10ms；同组首建
+  FX/ANALOG/FM6/SAMPLE/TRANSPORT 4–9ms——全部 `0 < x ≤100ms`。
 
 #### 6. 验证入口
 
@@ -272,3 +288,30 @@ base + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B
 - `scripts/inject/store.sh` 覆盖 FILE 组：`UI projects/presets` 截屏 + `TAP` 动作 +
   `UI MEM` 组水位断言（FILE Σ ≤ 预算、离开 FILE 后两页回 `UNBUILT`，含原当前页）。
 - 九页既有截屏基线只允许页签区差异（页面区像素不变）；差异证据按 AGENTS §5.4 晋升。
+
+#### 7. 落地（P4-B Task 11，2026-11-22）
+
+- 组表 `k_groups[]`（ui.c）：PLAY{PLAY} / TRACKS{TRACKS} / EDIT{GLOBAL,FX,ANALOG,FM6,
+  SAMPLE} / SEQ{STEP,TRANSPORT} / FILE{PROJECTS,PRESETS}。组签固定 5 槽（176×32 @ y=4），
+  无已注册页的组隐藏并压缩排布（FILE 在 Task 12 前不显示、`TAB` 跳过）；子签固定 5 槽
+  复用（176×30 @ y=38），**单页组（PLAY/TRACKS）子行留空**；层键提示在下行右侧
+  （x∈[936,1170]，LONG_DOT），SLOOP 标题在上行右侧（−24,6）。页面区仍是 y=72、1280×720。
+- `TAP` 对 y<72 一律 miss（页签切换走 LVGL 回调 / `UI` / `KEY tab`）；面板命中几何
+  由 `theme.h` 的 UI_GROUP_*/UI_SUB_* 宏与注入脚本 `group_tab_probe/sub_tab_probe` 同源。
+- `show_page()` 的组作用域顺序与 `destroy_group_pages()` 落在 ui.c；目标页构建失败也
+  销毁源组（否则两个组的页面在错误态下并存）。`s_group_build_ms[]` 记录跨组进入/组内
+  首建的耗时（`UI MEM GROUP … build_ms`），每页另有 `build_ms`。
+- `sloop_ui_page_order_next()` 是 `TAB` 的唯一顺序来源；`sloop_ui_page_count()` 保留为
+  注册表计数（不再用于轮转）。
+- 手指路径（R32）：console `UI TAB <group>` / `UI SUB <index>` 与物理组签/子签**共用**
+  同一动作函数（`group_select_locked`/`sub_select_locked`）——TAP 对 y<72 一律 miss，
+  这是唯一能机器覆盖手指导航的入口；`UI SUB` 在单页组（子行为空）与越界时回
+  `UI ERR sub <n>`，`UI TAB` 对未注册页的组回 `UI ERR group <NAME>`。
+- 切页作废旧请求（R30）：`show_page()` 顶部 `sloop_ui_cancel_pending_page()`——同一
+  30ms 拍内 `KEY tab` 排队后紧跟手指点击时，点击胜出、待切页被丢弃（定时器路径
+  邮箱已消费，为 no-op；console 同步切页另有一次幂等清空）。
+- 验证：`nav.sh` ①–⑥（⑤ 组作用域：EDIT→SEQ 后 EDIT built=0、同组只改显隐、
+  build_ms `0 < x ≤100ms`；⑥ 手指导航：点组进上次子页且记忆跨往返、跨组点组销毁
+  源组并建目标首个子页、子签同组切换不重建、同拍 `KEY tab` + `UI TAB` 点击胜出）；
+  `params.sh` 的池口径改为组作用域（同时只常驻一个组，`GROUP EDIT sum_delta` +
+  `pool_free ≥20KB`）；DI-19 由「store→params 不重启」现场收口。

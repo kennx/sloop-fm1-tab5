@@ -7,7 +7,8 @@
     ENG PERF  streaming / xrun / audio_stack_free / render_mean_us / render_max_us /
               duty_mean / duty_max / min_free_since_boot_*
     KEY STATS count / 输入延迟均值峰值 / 输入任务栈余量
-    UI MEM   pool_used / pool_free（九页全建后的 LVGL 池水位）
+    UI MEM   pool_used / pool_free（组作用域：采样时只驻留当前组的 LVGL 池水位，
+             另打印分组行 `built`/`sum_delta`；ADR-005 §5）
     STATE SNAP 页面/播放/选轨（行为回归）
 判定（全部满足才退出码 0）：
     1. 内部堆：全程 internal_free ≥ 60KB（HEAP_FLOOR，AGENTS §5.5 内存门禁）；
@@ -114,8 +115,9 @@ def switch(s, page: str) -> None:
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 9 页都建出来：soak 的池水位/懒建状态与产品实际使用（九页全建）一致，
-    避免「采样时只有 4 页已建」掩盖参数页的池压力。"""
+    """采样前把 9 页都访问一遍（每页的首次构建都过一次分配面），最终停在 TRANSPORT
+    ——组作用域（ADR-005 §5）下采样时只驻留 SEQ 组的页面；`UI MEM` 的分组行给出
+    该组的 built/sum_delta。"""
     for page in PAGES:
         switch(s, page)
     switch(s, "transport")
@@ -229,7 +231,7 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        visit_all_pages(s)  # 九页全建后再采样（池水位 = 产品实际使用）
+        visit_all_pages(s)  # 九页各访问一次后采样（组作用域：只驻留 SEQ 组）
         ensure_playing(s)
 
         t0 = time.monotonic()

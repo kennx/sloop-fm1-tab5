@@ -1,0 +1,17 @@
+# 受测（已烧录）镜像 vs 最终源码重建镜像：同代码、不同 build 元数据（不是同一镜像）
+#
+# flashed  = build3，App version 嵌入 "e3466cd-dirty"（烧录时的 HEAD 标签）
+#            sha256 1f7def66f7dfae467d66de398a99b5fe7e5224a565937c48ca56bf781f396364
+# rebuilt  = build5，App version 嵌入 "83bd2f1"（中间一次 amend 后的 HEAD 标签）
+#            sha256 420d72eb636813bb9af31bebab406e055cf73f4c611569a31fb3560b41d4b01d
+# final commit = 本任务提交（见 git log；amend 只改变嵌入的版本标签，不改代码）
+# size: 1580176 bytes (0x181c90) both
+#
+# 逐字节差异 82B，全部落在：
+#   [48,61]      esp_app_desc.version（git 版本字符串）
+#   [113,119]    esp_app_desc.time/date（编译时间）
+#   [176,207]    esp_app_desc.app_elf_sha256
+#   [1580143,1580175] 镜像尾部 SHA256/trailer
+# 可装载代码/rodata 段逐字节相同 —— 这是「同代码、不同 build 元数据」，不是同一镜像。
+# 口令（评审 minor）：不要写成「镜像相同」；只有源码未变且未触发重编时（build4 曾如此）
+# 重建镜像才可能与受测镜像逐字节相同。
