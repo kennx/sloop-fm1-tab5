@@ -1,0 +1,114 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-200108.log
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] ① ERASE 0
+  [PASS] ① ERASE 1
+  [PASS] ① ERASE 2
+  [PASS] ① ERASE 3
+  [PASS] ① LIST PROJ 0 EMPTY
+  [PASS] ① LIST PROJ 1 EMPTY
+  [PASS] ① LIST PROJ 2 EMPTY
+  [PASS] ① LIST PROJ 3 EMPTY
+  [PASS] ② BPM=100
+  [PASS] ② STATE SNAP bpm=100
+  [PASS] ② LIVEHASH h0
+  [PASS] ② h0=81C7AC65 非零（捕获有效）
+  [PASS] ② SAVE 0
+  [PASS] ② HASH 0（RAM 槽）
+  [PASS] ② HASH 0 == h0=81C7AC65
+  [PASS] ③ BPM=120
+  [PASS] ③ STATE SNAP bpm=120
+  [PASS] ③ LIVEHASH h1
+  [PASS] ③ h1=AB4FEE09 != h0=81C7AC65
+  [PASS] ④ LOAD 0
+  [PASS] ④ LIVEHASH==h0
+  [PASS] ④ LIVEHASH 回到 h0=81C7AC65
+  [PASS] ④ STATE SNAP bpm=100（保存时的值）
+  [PASS] ⑤ ERASE 0
+  [PASS] ⑤ LIST PROJ 0 EMPTY
+  [PASS] ⑤ LIST PROJ 1 EMPTY
+  [PASS] ⑤ LIST PROJ 2 EMPTY
+  [PASS] ⑤ LIST PROJ 3 EMPTY
+  [PASS] ⑤ LIVEHASH 不变
+  [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
+  [PASS] ⑥ SAVE 0
+  [PASS] ⑥ 再保存 hash h2=81C7AC65 == h0=81C7AC65
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  [PASS] ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
+  [PASS] ⑦ 复位后 STORE STATS ready=1
+  [PASS] ⑦ LIST PROJ 0 USED
+  [PASS] ⑦ HASH 0（RAM 槽开机 fetch）
+  [PASS] ⑦ HASH 0 == h2=81C7AC65
+  [PASS] ⑦ LOAD 0
+  [PASS] ⑦ LIVEHASH==h2
+  [PASS] ⑦ LIVEHASH 恢复 h2=81C7AC65
+  [PASS] ⑦ STATE SNAP bpm=100（工程内的值）
+  [PASS] ⑧ ENG AUDIO OFF
+  [PASS] ⑧ 单例 selftest PASS
+  [PASS] ⑧ ENG AUDIO ON
+  [PASS] ⑧ selftest 后 HASH 0（RAM 槽）
+  [PASS] ⑧ HASH 0 == h2=81C7AC65（自检 restore 未回滚存储指针与 RAM 槽）
+  [PASS] ⑨ ERASE 0（归一）
+  [PASS] ⑨ ERASE 1（归一）
+  [PASS] ⑨ LIST 列出全部 32 槽（实得 32）
+  [PASS] ⑨ 归一后 LIST 无 USED（实得 []）
+  [PASS] ⑨ PRESET COUNT used=0 total=32（实得 (0, 32)）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 写参数组 A: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ SAVE 0（默认名 = 引擎名 + 槽号）
+  [PASS] ⑨ LIST → PRESET 0 USED ANALOG ANALOG 01（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] ⑨ PRESET COUNT used=1（实得 (1, 32)）
+  [PASS] ⑨ 写参数组 B: applied=[100, 110, 20, 30, 30, -30, 20, -8]
+  [PASS] ⑨ 改值生效（100,110… ≠ SAVE 时的 20,40…）
+  [PASS] ⑨ LOAD 0 0
+  [PASS] ⑨ LOAD 后 id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ LOAD 后 id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ LOAD 后 id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ LOAD 后 id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ LOAD 后 id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ LOAD 后 id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ LOAD 后 id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ LOAD 后 id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ LOAD 0（缺省轨）
+  [PASS] ⑨ ENG TRACK 0 4 0（切 SAMPLE）
+  [PASS] ⑨ 换引擎后 ENG SNAP engine=4
+  [PASS] ⑨ 换引擎后 LOAD 0 0
+  [PASS] ⑨ LOAD 后 engine 回到 0（预置里的引擎）
+  [PASS] ⑨ 换引擎后 LOAD id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ 换引擎后 LOAD id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ 换引擎后 LOAD id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ 换引擎后 LOAD id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ 换引擎后 LOAD id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ 换引擎后 LOAD id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ 换引擎后 LOAD id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ 换引擎后 LOAD id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ ERASE 0
+  [PASS] ⑨ ERASE 后 PRESET 0 EMPTY、COUNT used=0（实得 used=[] count=(0, 32)）
+  [PASS] ⑨ 再 SAVE 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ 鼓轨 SAVE → STORE ERR drum
+  [PASS] ⑨ 鼓轨 LOAD → STORE ERR drum
+  [PASS] ⑨ 鼓轨 SAVE 未写槽 1（used=[0]）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ ENG AUDIO OFF
+  [PASS] ⑨ 单例 selftest PASS
+  [PASS] ⑨ ENG AUDIO ON
+  [PASS] ⑨ selftest 后 SAVE 1（未经过任何预置读）
+  [FAIL] ⑨ selftest 后 SAVE 1：槽 0/1 均 USED（实得 {1: ('ANALOG', 'ANALOG 02')}）
+  [PASS] ⑨ 收口 ERASE 1
+  [FAIL] ⑨ ERASE 1 后槽 0 仍 USED、槽 1 EMPTY（实得 []）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⑨ 复位后 STORE STATS ready=1
+  [FAIL] ⑨ 复位后 LIST → PRESET 0 USED（实得 None）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+[FAIL] store: ⑨ 复位后 LOAD 0 0: 回显缺少 /^PRESET 0 LOADED track=0\r?$/（响应 'STORE PRESET LOAD 0 0\r\nSTORE ERR empty\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'）

@@ -1473,6 +1473,19 @@ def run_params(s: Session) -> None:
 STORE_HASH8 = r"([0-9A-Fa-f]{8})"
 # 热复位早探的重对齐次数：主机侧可能晚于 init 才读到提示符（不是固件失败）
 STORE_WARM_ATTEMPTS = 5
+# 用户预置（upreset.c）：32 槽 / 2 个银行对象（0xDC000..0xDFFFF，A/B 扇区对）。
+#   STORE PRESET LIST            -> 32 行 "PRESET k USED <ENGINE> <NAME>" / "PRESET k EMPTY" + "PRESET COUNT used=n total=32"
+#   STORE PRESET SAVE n          -> "PRESET n SAVED <ENGINE> <NAME>"（当前选中轨 → 槽）
+#   STORE PRESET LOAD n [track]  -> "PRESET n LOADED track=t"（缺省 track = STATE SNAP 的选中轨）
+#   STORE PRESET ERASE n         -> "PRESET n ERASED"
+#   错误令牌：no_storage（未就绪）/ playing（走带中）/ empty（空槽）/ invalid（槽或轨号越界）/
+#   save（擦写或回读校验失败）/ drum（鼓轨没有声音可存可载）
+STORE_PRESET_SLOTS = 32
+# 记录里的 8 个「声音」参数：P_ATK..P_ED_FX（id 1..8）。都不在上游 param_kept 里
+# （载入预置会覆盖），且 ANALOG 轨默认值 ≠ 下面两组 ⇒ SAVE/LOAD 的往返可判读。
+PRESET_PARAM_IDS = (1, 2, 3, 4, 5, 6, 7, 8)
+PRESET_PARAM_A = {1: 20, 2: 40, 3: 60, 4: 70, 5: -10, 6: 15, 7: -25, 8: 8}
+PRESET_PARAM_B = {1: 100, 2: 110, 3: 20, 4: 30, 5: 30, 6: -30, 7: 20, 8: -8}
 
 
 def store_expect(s: Session, pattern: str, label: str) -> re.Match:
@@ -1512,6 +1525,49 @@ def store_bpm_settled(s: Session, want: int, timeout: float = 1.0, step: float =
             print(f"  [NOTE] STATE SNAP bpm 轮询 {timeout:.1f}s 后仍为 {got}（期望 {want}）")
             return False
         time.sleep(step)
+
+
+def preset_list(s: Session) -> tuple:
+    """`STORE PRESET LIST` → ({(slot): (engine, name)}, 已列出的槽号集合, (used, total))。
+    枚举/计数行缺失时不报错（由调用方断言），但行数不符会被 `seen` 暴露。"""
+    s.cmd("STORE PRESET LIST")
+    used, seen = {}, set()
+    for raw in s.last.splitlines():
+        line = raw.strip()
+        m = re.match(r"^PRESET (\d+) USED (\S+) (.+)$", line)
+        if m:
+            k = int(m.group(1))
+            seen.add(k)
+            used[k] = (m.group(2), m.group(3))
+            continue
+        m = re.match(r"^PRESET (\d+) EMPTY$", line)
+        if m:
+            seen.add(int(m.group(1)))
+    m = re.search(r"^PRESET COUNT used=(\d+) total=(\d+)\r?$", s.last, re.MULTILINE)
+    count = (int(m.group(1)), int(m.group(2))) if m else None
+    return used, seen, count
+
+
+def preset_params_write(s: Session, values: dict, label: str) -> dict:
+    """`PARAM BATCH` 一次写 8 个参数（一次状态层批量命令）；返回**回显的 applied**
+    （引擎钳位后的真值，作为后面 LOAD 的期望值）。"""
+    pairs = " ".join(f"{pid} {values[pid]}" for pid in PRESET_PARAM_IDS)
+    s.cmd(f"PARAM BATCH {pairs}")
+    applied = {int(m.group(1)): int(m.group(2)) for m in
+               re.finditer(r"id=(\d+) value=-?\d+ applied=(-?\d+)", s.last)}
+    if set(applied) != set(PRESET_PARAM_IDS):
+        raise InjectError(f"{label}: PARAM BATCH 回显缺参数（{s.last!r}）")
+    s.ok(f"{label}: applied={[applied[pid] for pid in PRESET_PARAM_IDS]}")
+    return applied
+
+
+def preset_params_read(s: Session) -> dict:
+    """`PARAM <id>` 只读回读 8 个参数的引擎真值（不走状态层投影，无需等 30ms 拍）。"""
+    out = {}
+    for pid in PRESET_PARAM_IDS:
+        s.cmd(f"PARAM {pid}")
+        out[pid] = param_value(s, "value")
+    return out
 
 
 def store_early_load_probe(s: Session, timeout: float = 20.0) -> str:
@@ -1590,8 +1646,23 @@ def run_store(s: Session) -> None:
        LIST 仍 USED、**HASH 0==h2**（HASH 只读 RAM 槽、不走 flash 回落 ⇒ 这是「开机
        fetch 填充了 RAM 槽」的证据）、LOAD 0 → LIVEHASH==h2（bpm 轮询等投影对齐）；
     ⑧ 单例 ENG SELFTEST 之后 HASH 0 仍==h2（PSRAM 指针在 .noinit，自检 restore
-       不回滚——本任务最险的失效模式）。
+       不回滚——本任务最险的失效模式）；
+    ⑨ 用户预置 32 槽（run_store_presets）：SAVE/LIST/LOAD/ERASE 往返 + 跨轨/跨银行 +
+       播放守卫 + 鼓轨拒绝 + SELFTEST/硬复位后仍可读（up_boot）。
+
+    ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位到工厂态——引擎
+       参数/选轨/引擎号都是 sloop_core_init 的默认值，不带上一次运行 ⑨ 载入的预置参数
+       （实测：不归一时 run 2 的 h0 变成上一轮载入后的状态，h0/h2 与 run 1 不同）。再
+       `ENG AUDIO ON` + 停止：走带请求（transport_req）只由渲染循环消费，停流时残留的
+       请求会让写 API 回 playing。
     """
+    # 归一：硬复位到工厂态（不写 flash，只 esptool 硬复位）
+    s.ser.note("⓪ 归一：esptool 硬复位到工厂态（不带上一轮载入的预置参数）")
+    s.reboot()
+    # 走带请求（transport_req）只由渲染循环消费——音频停流时它会一直挂着，让每个写 API
+    # 都回 STORE ERR playing。上一轮若在 ENG AUDIO OFF 处中断就会这样。
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）")
     ensure_stopped(s)
     store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "STORE STATS ready=1")
 
@@ -1687,6 +1758,205 @@ def run_store(s: Session) -> None:
     (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
                         "⑧ selftest 后 HASH 0（RAM 槽）") == h2 else s.fail)(
         f"⑧ HASH 0 == h2={h2:08X}（自检 restore 未回滚存储指针与 RAM 槽）")
+
+    run_store_presets(s)
+
+
+def run_store_presets(s: Session) -> None:
+    """⑨ 用户预置 32 槽（upreset.c，Task 4）：
+
+    ① 归一基线：选中轨 0 + `ENG TRACK 0 0 0`（ANALOG/工厂预置）+ `PARAM BATCH` 写 8 个
+       已知参数（ATK/DEC/…/TRIM，回显 applied）→ 两次运行的起点逐位相同；再 ERASE 0/1 →
+       LIST 32 槽全 EMPTY、COUNT used=0 total=32；
+    ② SAVE 0（默认名 = 引擎名 + 槽号 "ANALOG 01"）→ LIST 与 COUNT 反映 USED；
+    ③ 改成另一组值 → LOAD 0 0 → 8 个参数逐项回到 SAVE 时（预置覆盖 param_kept 之外的全部）；
+    ④ LOAD 0（缺省 track = 选中轨）同样生效；
+    ⑤ `ENG TRACK 0 4 0` 换成 SAMPLE 后 LOAD ⇒ 引擎回到预置里的 ANALOG、参数不变（换声音）；
+    ⑥ 跨轨载入（LOAD 0 1）：选中轨 0 的 8 参数不变、轨 1 取到预置的 8 参数；
+    ⑦ 银行 1（槽 16）：SAVE/LIST/LOAD 往返 + ERASE 不碰银行 0 的槽 0；
+    ⑧ ERASE 0 → EMPTY；再 SAVE（为复位用例留一个 USED 槽）；
+    ⑨ 鼓轨（TAP TRACKS 卡 3）SAVE 1 / LOAD 0 3 → `STORE ERR drum`，槽 1 仍 EMPTY；
+    ⑩ 单例 ENG SELFTEST 之后 LIST/LOAD 仍可用（读路径重扫）；第二次 selftest 后**紧跟**
+       SAVE 1（不先读预置）⇒ 同银行的槽 0 必须保留（写路径重扫）；
+    ⑪ 播放中 SAVE/ERASE ⇒ `STORE ERR playing`；播放中鼓轨 SAVE ⇒ `STORE ERR drum`
+       （上游 up_ui 的判定顺序：鼓轨先于播放守卫）；
+    ⑫ esptool 硬复位后 LIST 仍 USED（`up_boot` 的 flash 扫描证据）+ LOAD 0 0 还原同一组值。
+    """
+    s.ser.note("⑨ 用户预置：归一基线 → ERASE → SAVE/LIST/LOAD → 跨轨/跨银行 → 鼓轨 → 自检/复位")
+    # 归一基线：已知轨/引擎/工厂预置/已知参数 + 已知页面（select_track 落 TRACKS 页）。
+    # 两次运行（以及任何上一个场景）都从这里起跑，SAVE 写出的记录与期望值才逐位可比。
+    select_track(s, 0)
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑨ 归一基线 engine=0 preset=0（ANALOG）")
+    saved = preset_params_write(s, PRESET_PARAM_A, "⑨ 归一基线参数（8 个，ATK…TRIM）")
+    for k in (0, 1):
+        store_cmd(s, f"STORE PRESET ERASE {k}", rf"^PRESET {k} ERASED\r?$", f"⑨ ERASE {k}（归一）")
+    used, seen, count = preset_list(s)
+    (s.ok if seen == set(range(STORE_PRESET_SLOTS)) else s.fail)(
+        f"⑨ LIST 列出全部 {STORE_PRESET_SLOTS} 槽（实得 {len(seen)}）")
+    (s.ok if not used else s.fail)(f"⑨ 归一后 LIST 无 USED（实得 {sorted(used)}）")
+    (s.ok if count == (0, STORE_PRESET_SLOTS) else s.fail)(
+        f"⑨ PRESET COUNT used=0 total={STORE_PRESET_SLOTS}（实得 {count}）")
+
+    s.ser.note("⑨a SAVE 0（当前轨 0 的声音 = 归一基线的 8 参数）")
+    store_cmd(s, "STORE PRESET SAVE 0", r"^PRESET 0 SAVED ANALOG ANALOG 01\r?$",
+              "⑨ SAVE 0（默认名 = 引擎名 + 槽号）")
+    used, _, count = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") else s.fail)(
+        f"⑨ LIST → PRESET 0 USED ANALOG ANALOG 01（实得 {used.get(0)}）")
+    (s.ok if count == (1, STORE_PRESET_SLOTS) else s.fail)(
+        f"⑨ PRESET COUNT used=1（实得 {count}）")
+
+    s.ser.note("⑨b 改参数组 B → LOAD 0 0 → 8 参数逐项回到 A")
+    preset_params_write(s, PRESET_PARAM_B, "⑨ 写参数组 B")
+    changed = preset_params_read(s)
+    (s.ok if changed != saved else s.fail)(
+        f"⑨ 改值生效（{changed[1]},{changed[2]}… ≠ SAVE 时的 {saved[1]},{saved[2]}…）")
+    store_cmd(s, "STORE PRESET LOAD 0 0", r"^PRESET 0 LOADED track=0\r?$", "⑨ LOAD 0 0")
+    back = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if back[pid] == saved[pid] else s.fail)(
+            f"⑨ LOAD 后 id={pid} value={back[pid]} == SAVE 时 {saved[pid]}")
+
+    s.ser.note("⑨c LOAD 0（缺省 track = 选中轨）")
+    store_cmd(s, "STORE PRESET LOAD 0", r"^PRESET 0 LOADED track=0\r?$", "⑨ LOAD 0（缺省轨）")
+
+    s.ser.note("⑨c' 换成 SAMPLE 引擎再 LOAD：预置带回它自己的引擎（SAVE 的是 ANALOG）")
+    s.cmd("ENG TRACK 0 4 0")
+    s.expect(r"ENG TRACK k=0 engine=4 preset=0 OK", "⑨ ENG TRACK 0 4 0（切 SAMPLE）")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=4 ", "⑨ 换引擎后 ENG SNAP engine=4")
+    store_cmd(s, "STORE PRESET LOAD 0 0", r"^PRESET 0 LOADED track=0\r?$", "⑨ 换引擎后 LOAD 0 0")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 ", "⑨ LOAD 后 engine 回到 0（预置里的引擎）")
+    back = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if back[pid] == saved[pid] else s.fail)(
+            f"⑨ 换引擎后 LOAD id={pid} value={back[pid]} == SAVE 时 {saved[pid]}")
+
+    s.ser.note("⑨c2 跨轨载入：LOAD 0 1 → 选中轨(0) 的 p[] 不变、轨 1 取到预置")
+    before0 = preset_params_read(s)  # 选中轨仍是 0
+    store_cmd(s, "STORE PRESET LOAD 0 1", r"^PRESET 0 LOADED track=1\r?$", "⑨ LOAD 0 1（跨轨）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 0, "⑨ 跨轨 LOAD 后 selected_track 仍 0")
+    after0 = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if after0[pid] == before0[pid] else s.fail)(
+            f"⑨ 跨轨 LOAD 后选中轨(0) id={pid} value={after0[pid]} 不变")
+    select_track(s, 1)
+    t1 = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if t1[pid] == saved[pid] else s.fail)(
+            f"⑨ 轨 1 id={pid} value={t1[pid]} == 预置 {saved[pid]}")
+    select_track(s, 0)
+
+    s.ser.note("⑨c3 银行 1（槽 16）：SAVE/LIST/LOAD 往返；ERASE 16 不碰银行 0 的槽 0")
+    b16 = preset_params_write(s, PRESET_PARAM_B, "⑨ 写参数组 B（槽 16 用）")
+    store_cmd(s, "STORE PRESET SAVE 16", r"^PRESET 16 SAVED ANALOG ANALOG 17\r?$",
+              "⑨ SAVE 16（bank1）")
+    used, _, count = preset_list(s)
+    (s.ok if used.get(16) == ("ANALOG", "ANALOG 17") and used.get(0) == ("ANALOG", "ANALOG 01")
+     and count == (2, STORE_PRESET_SLOTS) else s.fail)(
+        f"⑨ LIST 槽 0/16 均 USED、COUNT used=2（实得 {sorted(used)} count={count}）")
+    preset_params_write(s, PRESET_PARAM_A, "⑨ 改回参数组 A")
+    store_cmd(s, "STORE PRESET LOAD 16 0", r"^PRESET 16 LOADED track=0\r?$", "⑨ LOAD 16")
+    back16 = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if back16[pid] == b16[pid] else s.fail)(
+            f"⑨ LOAD 16 后 id={pid} value={back16[pid]} == 保存时 {b16[pid]}")
+    preset_params_write(s, PRESET_PARAM_A, "⑨ 收口写回参数组 A")
+    store_cmd(s, "STORE PRESET ERASE 16", r"^PRESET 16 ERASED\r?$", "⑨ 收口 ERASE 16")
+    used, _, count = preset_list(s)
+    (s.ok if 16 not in used and used.get(0) == ("ANALOG", "ANALOG 01")
+     and count == (1, STORE_PRESET_SLOTS) else s.fail)(
+        f"⑨ ERASE 16 后槽 0 仍 USED、槽 16 EMPTY（实得 {sorted(used)} count={count}）")
+
+    s.ser.note("⑨d ERASE 0 → EMPTY；再 SAVE（为后面的复位用例留一个 USED 槽）")
+    store_cmd(s, "STORE PRESET ERASE 0", r"^PRESET 0 ERASED\r?$", "⑨ ERASE 0")
+    used, _, count = preset_list(s)
+    (s.ok if 0 not in used and count == (0, STORE_PRESET_SLOTS) else s.fail)(
+        f"⑨ ERASE 后 PRESET 0 EMPTY、COUNT used=0（实得 used={sorted(used)} count={count}）")
+    store_cmd(s, "STORE PRESET SAVE 0", r"^PRESET 0 SAVED ANALOG ANALOG 01\r?$", "⑨ 再 SAVE 0")
+
+    s.ser.note("⑨e 鼓轨：SAVE 1 / LOAD 0 3 均被拒（STORE ERR drum），槽 1 仍 EMPTY")
+    select_track(s, 3)
+    store_cmd(s, "STORE PRESET SAVE 1", r"^STORE ERR drum\r?$", "⑨ 鼓轨 SAVE → STORE ERR drum")
+    store_expect(s, r"^DRUM TRACK: NO SOUND\r?$", "⑨ 鼓轨 SAVE 出上游消息 DRUM TRACK: NO SOUND")
+    store_cmd(s, "STORE PRESET LOAD 0 3", r"^STORE ERR drum\r?$", "⑨ 鼓轨 LOAD → STORE ERR drum")
+    store_expect(s, r"^DRUM TRACK: NO SOUND\r?$",
+                 "⑨ 鼓轨 LOAD 也出 DRUM TRACK: NO SOUND（对齐上游 up_ui）")
+    used, _, _ = preset_list(s)
+    (s.ok if 1 not in used else s.fail)(f"⑨ 鼓轨 SAVE 未写槽 1（used={sorted(used)}）")
+    select_track(s, 0)
+
+    s.ser.note("⑨f 单例 ENG SELFTEST 之后预置仍可用（银行指针在 .bss，restore 会清空）")
+    s.cmd("ENG AUDIO OFF")
+    s.expect(r"ENG AUDIO streaming=0", "⑨ ENG AUDIO OFF")
+    s.cmd("ENG SELFTEST preset/ANALOG/00_808_BOOM", timeout=90)
+    store_expect(s, r"^ENG SELFTEST .*result=PASS\r?$", "⑨ 单例 selftest PASS")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⑨ ENG AUDIO ON")
+    # 读路径：restore 清空了银行索引，LIST/LOAD 必须自己重扫（否则预置读成空）
+    used, _, _ = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") else s.fail)(
+        f"⑨ selftest 后 LIST → PRESET 0 USED（实得 {used.get(0)}）")
+    store_cmd(s, "STORE PRESET LOAD 0 0", r"^PRESET 0 LOADED track=0\r?$", "⑨ selftest 后 LOAD 0 0")
+
+    # 写路径：再来一次 selftest（索引重新被清），**紧跟** SAVE 1、不先做任何预置读——
+    # 写路径必须自己重扫，否则 up_put 从空的 XIP 副本起笔，把同银行里已用的槽 0 抹掉。
+    s.ser.note("⑨f' 第二次 selftest → 紧跟 SAVE 1（不先读预置）：同银行的槽 0 必须保留")
+    s.cmd("ENG AUDIO OFF")
+    s.expect(r"ENG AUDIO streaming=0", "⑨ ENG AUDIO OFF（第二次）")
+    s.cmd("ENG SELFTEST preset/ANALOG/00_808_BOOM", timeout=90)
+    store_expect(s, r"^ENG SELFTEST .*result=PASS\r?$", "⑨ 第二次单例 selftest PASS")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⑨ ENG AUDIO ON（第二次）")
+    store_cmd(s, "STORE PRESET SAVE 1", r"^PRESET 1 SAVED ANALOG ANALOG 02\r?$",
+              "⑨ selftest 后 SAVE 1（未经过任何预置读）")
+    used, _, _ = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") and used.get(1) == ("ANALOG", "ANALOG 02")
+     else s.fail)(f"⑨ selftest 后 SAVE 1：槽 0/1 均 USED（实得 {used}）")
+    store_cmd(s, "STORE PRESET ERASE 1", r"^PRESET 1 ERASED\r?$", "⑨ 收口 ERASE 1")
+    used, _, _ = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") and 1 not in used else s.fail)(
+        f"⑨ ERASE 1 后槽 0 仍 USED、槽 1 EMPTY（实得 {sorted(used)}）")
+
+    s.ser.note("⑨g esptool 硬复位 → LIST 仍 USED（up_boot）+ LOAD 还原同一组值")
+    s.reboot()
+    store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑨ 复位后 STORE STATS ready=1")
+    used, _, _ = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") else s.fail)(
+        f"⑨ 复位后 LIST → PRESET 0 USED（实得 {used.get(0)}）")
+    select_track(s, 0)
+    store_cmd(s, "STORE PRESET LOAD 0 0", r"^PRESET 0 LOADED track=0\r?$", "⑨ 复位后 LOAD 0 0")
+    back = preset_params_read(s)
+    for pid in PRESET_PARAM_IDS:
+        (s.ok if back[pid] == saved[pid] else s.fail)(
+            f"⑨ 复位后 LOAD id={pid} value={back[pid]} == 保存时 {saved[pid]}")
+
+    s.ser.note("⑨h 播放守卫：SAVE/ERASE ⇒ STORE ERR playing；播放中鼓轨 SAVE ⇒ drum（上游顺序）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑨ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑨ TAP PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑨ STATE SNAP playing=1")
+    store_cmd(s, "STORE PRESET SAVE 0", r"^STORE ERR playing\r?$", "⑨ 播放中 SAVE → playing")
+    store_cmd(s, "STORE PRESET ERASE 0", r"^STORE ERR playing\r?$", "⑨ 播放中 ERASE → playing")
+    select_track(s, 3)
+    store_cmd(s, "STORE PRESET SAVE 2", r"^STORE ERR drum\r?$",
+              "⑨ 播放中鼓轨 SAVE → drum（鼓轨检查先于播放守卫）")
+    store_expect(s, r"^DRUM TRACK: NO SOUND\r?$", "⑨ 播放中鼓轨 SAVE 的 DRUM TRACK: NO SOUND")
+    select_track(s, 0)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑨ UI transport（收口）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑨ TAP STOP")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑨ STATE SNAP playing=0（收口）")
+    used, _, _ = preset_list(s)
+    (s.ok if used.get(0) == ("ANALOG", "ANALOG 01") and 2 not in used else s.fail)(
+        f"⑨ 被拒的 SAVE/ERASE 未改存储：槽 0 仍 USED、槽 2 仍 EMPTY（实得 {sorted(used)}）")
 
 
 SCENARIOS = {

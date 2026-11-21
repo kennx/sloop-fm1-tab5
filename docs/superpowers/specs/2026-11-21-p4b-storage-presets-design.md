@@ -98,7 +98,7 @@
 | **A. 全部写/载操作经状态层命令（采纳）** | `CMD_PROJECT_* / CMD_PRESET_* / CMD_BANK_*` 由 input 任务（唯一写者）执行；UI 只发命令、只读列表查询。保持阶段 3 的「UI 不直接写引擎」不变量，阶段 5 可把执行端换成 FM-1 会话 |
 | B. UI 任务直调 `sloop_store_*` | 少一层转接，但破坏唯一写者模型；加载工程会与 input 任务编辑竞争 |
 
-**决策 A**。只读的列表/名称查询（`used/name/engine/count`）允许 UI 直接调用（无写、mmap 读、无锁；写操作期间 UI 任务本就被 cache 停顿），在 ADR-009 记录为例外。
+**决策 A**。只读的列表/名称查询（`used/name/engine/count`）允许 UI 直接调用：不写任何介质、只读 mmap，也**不取引擎锁**；但要取 `s_store_lock`——每次查询先重扫一次银行索引（微秒级），若恰好有保存/擦除在写 flash，读者会**排在这次擦写之后**（实测一次保存 ≈50–150ms）。这是有意的：宁可等，也不让 UI 读到擦写中的副本。ADR-009 §3 记为该例外（Task 4 实测口径）。
 **console 例外**：`STORE …` 诊断命令由 REPL 任务直接调用同一套 `sloop_store_*`（需要返回值做脚本断言，`state_apply` 是 fire-and-forget 无法回传），与 UI 路径共用 `s_store_lock` + 引擎锁，行为与 CMD 完全相同；这与 `ENG`/`PARAM RAW` 属同一「诊断执行器」类别，ADR-009 记明。
 
 **并发纪律**（与上游一致）：

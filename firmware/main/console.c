@@ -41,7 +41,11 @@
  *    （计数只由 erase/prog 递增，arm 期间 read 失败但不计数，Task 8 消费）。
  *    STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n 是工程 A–D 的存读诊断
  *    （与 UI 命令同一套 sloop_store_*）；STORE LIVEHASH 打印当前引擎状态的捕获
- *    hash（工程往返门禁）。错误统一回 "STORE ERR <no_storage|playing|empty|invalid|save>"。
+ *    hash（工程往返门禁）。STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n 是
+ *    用户预置 32 槽（upreset.c）的诊断入口：SAVE = 选中轨的声音 → 槽，LOAD 缺省
+ *    track = 选中轨；行格式 "PRESET k USED <ENGINE> <NAME>" / "PRESET k EMPTY"，
+ *    末尾 "PRESET COUNT used=n total=32"。错误统一回
+ *    "STORE ERR <no_storage|playing|empty|invalid|save|drum>"。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1336,6 +1340,97 @@ static int store_livehash(void)
     return 0;
 }
 
+/* 上游 params.c 的 N_ENGNAME（12 个引擎；FELUCCA_SLICE 关闭，故无 SLICE 项）。引擎名
+ * 没有进 sloop_core 的公共 API，LIST 行需要文本故在此镜像；数量由下面的静态断言锁死
+ * 与 SLOOP_CORE_NENGINES 一致，名字漂移由 ENG DESC / 参数页的既有断言暴露。 */
+static const char *const STORE_ENGINE_NAMES[] = {"ANALOG", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE",
+                                                 "TRIO",   "WHEEL",   "GRAIN", "FM6",  "PHYS",   "NOISE"};
+_Static_assert(sizeof(STORE_ENGINE_NAMES) / sizeof(STORE_ENGINE_NAMES[0]) == SLOOP_CORE_NENGINES,
+               "引擎名表与 SLOOP_CORE_NENGINES 一致");
+
+static const char *store_engine_name(uint8_t engine)
+{
+    return engine < SLOOP_CORE_NENGINES ? STORE_ENGINE_NAMES[engine] : "-";
+}
+
+/* 鼓轨（槽/轨号已在 console 层校验过）：存/载都没有「声音」可写可读——令牌与槽号越界
+ * 的 invalid 分开，脚本据此区分拒绝原因（upstream: "DRUM TRACK: NO SOUND"）。 */
+static int store_err_drum(void)
+{
+    printf("STORE ERR drum\n");
+    return 1;
+}
+
+/* 预置/工程命令的轨号上限用 APP_STATE_TRACKS（0..3，含鼓轨）；引擎快照的 trk[] 由
+ * sloop_core_read 按上游 NTRK 填满，二者必须相等——否则鼓轨（3）可能在一边合法、在另一边
+ * 越界，drum 与 invalid 两个令牌就会随实现漂移。 */
+_Static_assert(sizeof(((const sloop_core_snapshot_t *)0)->trk) /
+                       sizeof(((const sloop_core_snapshot_t *)0)->trk[0]) == APP_STATE_TRACKS,
+               "APP_STATE_TRACKS 与引擎快照的轨数（上游 NTRK）一致");
+
+/* 用户预置 32 槽（upreset.c，P4-B Task 4）。console 诊断执行器口径同 PROJ：与 UI
+ * 命令共用 sloop_store_* 与同一套锁。行格式见文件头；鼓轨（存/载没有声音）回
+ * "STORE ERR drum"——与槽/轨号越界的 invalid 分开，脚本据此区分拒绝原因。 */
+static int store_preset(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        for (uint32_t k = 0; k < SLOOP_STORE_PRESETS; k++) {
+            char name[13];
+            if (!sloop_store_preset_name(k, name)) {
+                printf("PRESET %u EMPTY\n", (unsigned)k);
+                continue;
+            }
+            printf("PRESET %u USED %s %s\n", (unsigned)k,
+                   store_engine_name(sloop_store_preset_engine(k)), name);
+        }
+        printf("PRESET COUNT used=%u total=%u\n", (unsigned)sloop_store_preset_count(),
+               (unsigned)SLOOP_STORE_PRESETS);
+        return 0;
+    }
+    if (argc != 4 && argc != 5) {
+        printf("用法: STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n（n = 0..31）\n");
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_PRESETS - 1u, &slot)) return store_err_print(ESP_ERR_INVALID_ARG);
+    esp_err_t err;
+    if (strcasecmp(argv[2], "save") == 0 && argc == 4) {
+        if ((err = sloop_store_preset_store(slot)) != ESP_OK) {
+            return err == ESP_ERR_INVALID_ARG ? store_err_drum() : store_err_print(err);
+        }
+        char name[13];
+        sloop_store_preset_name(slot, name);
+        printf("PRESET %u SAVED %s %s\n", (unsigned)slot,
+               store_engine_name(sloop_store_preset_engine(slot)), name);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "load") == 0) {
+        uint32_t track;
+        if (argc == 5) {
+            if (!eng_uint(argv[4], APP_STATE_TRACKS - 1u, &track)) {
+                return store_err_print(ESP_ERR_INVALID_ARG);
+            }
+        } else {
+            sloop_core_snapshot_t snap;
+            sloop_core_read(&snap); /* 缺省 = 选中轨（与 UI 同一真值源） */
+            track = snap.selected_track < APP_STATE_TRACKS ? snap.selected_track : 0u;
+        }
+        if ((err = sloop_store_preset_load(slot, track)) != ESP_OK) {
+            return err == ESP_ERR_INVALID_ARG ? store_err_drum() : store_err_print(err);
+        }
+        printf("PRESET %u LOADED track=%u\n", (unsigned)slot, (unsigned)track);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0 && argc == 4) {
+        if ((err = sloop_store_preset_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("PRESET %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    printf("用法: STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n（n = 0..31）\n");
+    return 1;
+}
+
 static int store_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
@@ -1343,8 +1438,10 @@ static int store_command(int argc, char **argv)
     if (argc == 2 && strcasecmp(argv[1], "livehash") == 0) return store_livehash();
     if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
-           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n | STORE LIVEHASH | "
+           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n | "
+           "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;

@@ -10,6 +10,10 @@
 #      LOAD 0 → LIVEHASH == h2
 #   ⑧ ENG SELFTEST（单例）之后存储仍可用：HASH 0 == h2（PSRAM 指针/RAM 槽不被自检
 #      restore 回滚——.noinit 重定向的回归守卫）
+#   ⑨ 用户预置 32 槽：ERASE 归一 → 写 8 参数 → SAVE 0（默认名 ANALOG 01）→ LIST USED →
+#      改值 → LOAD 0 0（8 参数逐项还原）→ ERASE 0 → 鼓轨 SAVE/LOAD 回 STORE ERR drum →
+#      ENG SELFTEST 之后 LIST 仍 USED → esptool 硬复位后 LIST 仍 USED（up_boot）且
+#      LOAD 还原同一组值
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

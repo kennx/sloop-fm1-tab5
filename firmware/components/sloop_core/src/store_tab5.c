@@ -2,9 +2,10 @@
  * store_tab5.c — 上游 storage.c / project.c 的 Tab5 适配层（ADR-009 §7/§8）
  *
  * 本文件由 selftest.c **末尾 include**，与引擎/DSP 同属一个翻译单元——所以可以直接把
- * vendored 的 storage.c（A/B 双扇区 + 32B 提交头 + CRC + 回读校验，原样）与 project.c
- * （#define PROJ_HOST：格式层 FUN1..6 + proj_capture/proj_apply）编进来，缺的符号在本
- * 文件顶部做薄 shim。third_party/ 零修改。
+ * vendored 的 storage.c（A/B 双扇区 + 32B 提交头 + CRC + 回读校验，原样）、project.c
+ * （#define PROJ_HOST：格式层 FUN1..6 + proj_capture/proj_apply）与 upreset.c（用户预置
+ * 32 槽；#define FELUCCA_FLASH 1 才走 st_xip）编进来，缺的符号在本文件顶部做薄 shim。
+ * third_party/ 零修改。
  *
  * 内存（ADR-009 §7，fidelity-first）：
  *   - main_scratch（上游 st_buf，3,840B）留在**内部 SRAM**：擦/写期间 cache 关闭仍要访问；
@@ -42,9 +43,16 @@ static const char *TAG = "sloop_store";
 #define proj_v3_tmp (*s_v3_ps)
 #define proj_slot (*s_slot_ps)
 
-/* ---- shim：project.c 的 PROJ_HOST 部分缺的上游符号 ------------------------------- */
-/* 后续任务（预置银行/FM6 bank/自动存档）会用到；本任务只要求它们可编入。 */
-static uint8_t flash_ok;  /* (2.6) 存储后端就绪（上游 felucca.c 的 JEDEC 探测） */
+/* ---- shim：project.c / upreset.c 的 PROJ_HOST / FELUCCA_FLASH 段缺的上游符号 ------ */
+/* 本文件即「适配层」：这些符号在上游分属 felucca.c/ui.c/seq.c，这里按原语义给出薄实现。
+ * 目前已被消费的：flash_ok（upreset.c 的 up_bank_find）、param_kept（up_load_to）、
+ * up_gen/ui.force/sync_reload（重绘/推送开关的占位，UI 接入时接线）。 */
+/* flash_ok 放 .noinit：本 TU（selftest.c.obj）的 .bss 被 linker.lf 的
+ * SURROUND(sloop_selftest_bss) 包住，`ENG SELFTEST` 的 restore 会把 .bss 回滚到 init
+ * 之前的快照（= 0）——upreset.c 的 up_bank_find 只在 flash_ok 时读 XIP 窗口，回滚后
+ * 预置就会永远读成空。其余 shim（up_gen/ui.force/sync_reload）只是重绘/推送开关，
+ * 回滚无害。 */
+static uint8_t flash_ok __attribute__((section(".noinit"))); /* 存储后端就绪（上游 felucca.c 的 JEDEC 探测） */
 static uint32_t up_gen;   /* 用户预置银行变更代号（上游 ui.c） */
 static uint8_t sync_reload; /* 载入引擎/预置/工程后置位（上游 ui.c） */
 static struct { uint8_t force; uint8_t rsv[3]; } ui; /* ui.force 的 4 字节占位（上游 ui.c） */
@@ -70,7 +78,8 @@ static uint32_t trk_def_engine(uint32_t i)
 }
 
 /* 上游 ui.c:592 的 param_kept：载入声音时**不**被覆盖的参数（混音、图案参数、调性）。
- * 本任务只编入（apply_preset_to 在预置任务里落地），保证 shim 与上游同源。 */
+ * upreset.c 的 up_load_to 用它逐项保留轨道自己的值（Task 4 起为活代码；工厂预置的
+ * apply_preset_to 在 Task 5 落地时同样用它）。 */
 static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_SLEN && i <= P_SGATE) ||
@@ -118,6 +127,51 @@ static void *up_stage(void)
 
 _Static_assert(sizeof(proj_tmp) >= sizeof(project_t), "暂存装得下一个工程（storage.c ST_PAYLOAD_MAX = 3,840）");
 _Static_assert(sizeof(proj_tmp) >= sizeof(project_v5_t), "暂存装得下格式 5");
+
+/* ---- 上游用户预置（upreset.c，32 槽 / 2 个银行对象） ----------------------------- */
+/* FELUCCA_FLASH 必须为 1：upreset.c 的 up_bank_find / up_put 只在
+ * `#if FELUCCA_FLASH` 内走 st_xip（否则银行永远读空、写也不落 flash）。project.c 是在
+ * 这个宏未定义的条件下编入的（PROJ_HOST 段本就与 flash 无关），故这里只包住 include。
+ * up_load_to 会调 arp_is_sounds（上游在 ui.c:607）；它依赖本 include 的 up_arp_of 与
+ * user_of，故先声明、在 include 之后定义（ui.c 的写法相同）。 */
+static int arp_is_sounds(const track_t *t);
+
+#define FELUCCA_FLASH 1
+#include "upreset.c"
+#undef FELUCCA_FLASH
+
+_Static_assert(SLOOP_STORE_PRESETS == UP_SLOTS, "公共 API 的预置槽数与上游 upreset.c 一致");
+_Static_assert(sizeof(proj_tmp) >= sizeof(up_bank_t), "暂存装得下用户预置银行（3,080B）");
+
+/* 上游 ui.c:24：轨的声音来自哪个用户预置（UP_SLOTS = 不是用户预置） */
+static uint32_t user_of(const track_t *t)
+{
+    return t->user && up_used(t->user - 1u) ? t->user - 1u : UP_SLOTS;
+}
+
+/* 上游 ui.c:607（逐行同义）：正在跑的琶音是不是这个声音自带的（2.7.1）——载入新声音
+ * 时只有「不是它带来的」琶音才保留。up_load_to 用它，故必须在 include 之后定义。 */
+static int arp_is_sounds(const track_t *t)
+{
+    int16_t a[8];
+    uint32_t i, k = user_of(t);
+    if (k < UP_SLOTS) {
+        if (up_arp_of(k, a))
+            return 0;
+    } else {
+        const engine_t *e = ENGINES[t->engine % NENGINES];
+        const preset_t *pr;
+        if (t->user || !e->npresets)
+            return 0;
+        pr = &e->presets[t->preset % e->npresets];
+        for (i = 0; i < 8u; i++)
+            a[i] = (int16_t)(i < 4u && pr->arp[i] ? pr->arp[i] - 1 : TP[P_AMODE + i].def);
+    }
+    for (i = 0; i < 8u; i++)
+        if (t->p[P_AMODE + i] != a[i])
+            return 0;
+    return 1;
+}
 
 /* 上游 project.c 把 proj_v3_tmp 声明成普通静态（.bss，在自检快照窗口内）——这里用
  * 后置 section 属性把它移进 .noinit（见文件头）。`sizeof *s_v3_ps` = 2,584B。 */
@@ -192,6 +246,9 @@ esp_err_t sloop_store_init(void)
 
     s_ready = true;
     flash_ok = 1;
+    /* 用户预置银行的开机扫描（上游 persist_boot 同语义）：把两个银行在 XIP 窗口里的
+     * 当前副本地址装进 up_bank_xip。必须在 flash_ok=1 之后（up_bank_find 读它）。 */
+    up_boot();
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
     ESP_LOGI(TAG, "ready: slots=%p(%uB) stage=%p v3=%p(%uB) base=0x%lx span=0x%lx",
              (void *)s_slot_ps, (unsigned)(SLOOP_STORE_PROJECTS * sizeof(project_t)), (void *)s_stage,
@@ -307,4 +364,168 @@ esp_err_t sloop_store_project_erase(uint32_t slot)
         return ESP_ERR_NOT_FINISHED;
     }
     return ESP_OK;
+}
+
+/* ---- 用户预置 0..31（upreset.c）--------------------------------------------------- */
+/* 上游语义（upreset.c）：
+ *   up_store(k, 0)      = 选中轨的声音 → 槽 k（鼓轨返回 1）；
+ *   up_load_to(t, k)    = 槽 k → 轨 t 的声音（引擎 + 除混音/图案参数外的参数 + PTCH；
+ *                         空槽/鼓轨返回 1；不写 flash，可在走带中调用）；
+ *   up_put(k, NULL)     = 擦槽 k（重写整个银行对象，并把引用该槽的轨的 user 清 0）。
+ * 锁序与工程一致（ADR-009 §3）：存储锁 → 引擎锁，**flash 擦写期间不持引擎锁**——本板
+ * 的音频渲染就持引擎锁（sloop_core_render），持锁 50ms 必然 xrun。故捕获/应用到引擎的
+ * 半段在引擎锁内，up_put 的擦写在锁外。
+ * up_put 的返回码：0 成功 / 2 flash 擦写或回读失败 / 3 无 flash。
+ *
+ * 只读入口与写入口都先重扫一次银行索引：up_bank_xip[2] 是 upreset.c 的静态 .bss，本 TU
+ * 的 .bss 在 `ENG SELFTEST` 的 SURROUND(sloop_selftest_bss) 快照窗口里，restore 会把它
+ * 清成 NULL（flash_ok 同理，已放 .noinit），此后预置会全部读成空；而 up_put 是「把整
+ * 银行重写一遍」，从 NULL 起笔会抹掉同银行的其它槽（实测：selftest 后 SAVE 1 把槽 0
+ * 抹掉）。上游的声明没有 section 属性，宏重定向搬不走它，故每个入口在存储锁内 up_boot()
+ * 一次（2 次头校验 + 3,080B CRC，微秒级）；这也让「刚写下的预置立刻可见」。 */
+
+/* 上游 up_store 的「捕获」半段（upreset.c:259-286，逐行同义）：记录 = 引擎、名字
+ * （默认引擎名 + 槽号，如 "ANALOG 01"）、P_COUNT 个参数、前 16 步图案。 */
+static void preset_capture(const track_t *t, uint32_t k, up_rec_t *r)
+{
+    char b[16], l[4];
+    uint32_t i;
+    memset(r, 0, sizeof *r);
+    r->used = UP_USED;
+    r->ver = UP_VER;
+    r->engine = t->eng_req;
+    r->np = P_COUNT;
+    str_cpy(b, ENGINES[t->eng_req]->name, 9);
+    up_slot_label(l, k);
+    str_cpy(b + str_len(b), " ", 2);
+    str_cpy(b + str_len(b), l + 1, 3);
+    for (i = 0; i < 12u && b[i]; i++)
+        r->name[i] = b[i];
+    for (i = 0; i < P_COUNT; i++)
+        r->p[i] = t->p[i];
+    up_pat_from(r, t->step);
+}
+
+/* up_put 的返回码 → esp_err_t（3 = 无 flash：本平台上只在 HAL 未就绪时出现，而公共
+ * API 已由 sloop_store_ready() 挡住，保留映射以防后端降级）。 */
+static esp_err_t preset_put_rc(int rc, const char *what, uint32_t slot)
+{
+    if (rc == 0) return ESP_OK;
+    if (rc == 2) {
+        ESP_LOGE(TAG, "PRESET %u %s 失败 rc=%d", (unsigned)slot, what, rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+    ESP_LOGE(TAG, "PRESET %u %s 无 flash rc=%d", (unsigned)slot, what, rc);
+    return ESP_ERR_INVALID_STATE;
+}
+
+uint32_t sloop_store_preset_count(void)
+{
+    if (!sloop_store_ready()) return 0;
+    store_lock();
+    up_boot();
+    uint32_t n = up_count();
+    store_unlock();
+    return n;
+}
+
+bool sloop_store_preset_used(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PRESETS || !sloop_store_ready()) return false;
+    store_lock();
+    up_boot();
+    bool used = up_used(slot) != 0;
+    store_unlock();
+    return used;
+}
+
+bool sloop_store_preset_name(uint32_t slot, char out[13])
+{
+    if (out == NULL) return false;
+    out[0] = '\0';
+    if (slot >= SLOOP_STORE_PRESETS || !sloop_store_ready()) return false;
+    store_lock();
+    up_boot();
+    bool used = up_used(slot) != 0;
+    if (used) up_name(slot, out); /* 上游 up_name：大写、0 结尾（13 字节） */
+    store_unlock();
+    return used;
+}
+
+uint8_t sloop_store_preset_engine(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PRESETS || !sloop_store_ready()) return 0xFF;
+    store_lock();
+    up_boot();
+    uint8_t engine = up_used(slot) ? up_rec(slot)->engine : (uint8_t)0xFF;
+    store_unlock();
+    return engine;
+}
+
+/* 上游 up_ui（upreset.c:360-377）的判定顺序对 SAVE 是：先鼓轨（DRUM TRACK: NO SOUND），
+ * 再播放守卫（STOP BEFORE SAVE）——顺序可观测：播放中选中鼓轨时回的是鼓轨令牌。
+ * 故这里在引擎锁内一次判两件事（同一临界区里读 song.sel 与 song.playing，无 TOCTOU）。 */
+esp_err_t sloop_store_preset_store(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PRESETS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    up_rec_t r;
+    store_lock();
+    up_boot(); /* 写路径也必须重扫：up_put 从当前 XIP 副本起笔，NULL 会抹掉同银行的其它槽 */
+    engine_lock();
+    if (is_drum(TSEL)) { /* 鼓轨没有「声音」可存（上游 SAVE > USER 页同一令牌，先于播放守卫） */
+        engine_unlock();
+        store_unlock();
+        ui_message("DRUM TRACK: NO SOUND");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (store_playing()) {
+        engine_unlock();
+        store_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    preset_capture(TSEL, slot, &r);
+    engine_unlock();
+    int rc = up_put(slot, &r); /* 擦/写 flash：不持引擎锁 */
+    store_unlock();
+    return preset_put_rc(rc, "SAVE", slot);
+}
+
+/* 上游 up_ui 的 LOAD 同样先拦鼓轨并出 DRUM TRACK: NO SOUND（upreset.c:360-363），空槽
+ * 再回 EMPTY SLOT。本接口可指定任意轨，故按**目标轨**判定（缺省轨 = 选中轨，由 console
+ * 传入）。load 不写 flash，因此不受播放守卫（上游 MIDI PC 语义）。 */
+esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track)
+{
+    if (slot >= SLOOP_STORE_PRESETS || track >= NTRK) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (is_drum(&trk[track])) {
+        ui_message("DRUM TRACK: NO SOUND");
+        return ESP_ERR_INVALID_ARG;
+    }
+    store_lock();
+    up_boot();
+    bool used = up_used(slot) != 0;
+    engine_lock();
+    int rc = used ? up_load_to(&trk[track], slot) : 1; /* 引擎锁内：写 p[]、fade、panic 该轨 */
+    engine_unlock();
+    store_unlock();
+    return rc == 0 ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
+
+esp_err_t sloop_store_preset_erase(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PRESETS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    store_lock();
+    up_boot(); /* 同上：擦除也是「把整银行重写一遍」，必须从当前副本起笔 */
+    /* up_put 会清掉引用该槽的轨（trk[i].user）——那部分是引擎状态，先在引擎锁内做，
+     * 于是 up_put 自己的清理循环成为空操作，flash 擦写落在锁外。 */
+    engine_lock();
+    for (uint32_t i = 0; i < NTRK; i++)
+        if (trk[i].user == slot + 1u) trk[i].user = 0;
+    engine_unlock();
+    int rc = up_put(slot, NULL);
+    store_unlock();
+    return preset_put_rc(rc, "ERASE", slot);
 }

@@ -118,3 +118,15 @@
 | **触发条件** | 参数页进入人测/产品化验收（P4-F 全页面矩阵或首次真机手感验收）之前必须完成人测；改拖拽换算（`KNOB_DRAG_SPAN_DEG`/环带）或触摸链路时重测。 |
 | **参考** | ADR-008 §8.2/§8.5、`docs/dev/verify/4-p0-2026-11-21/task-10-readme.md` §5、`scripts/knob-test.sh`、console `UI KNOB` |
 | **登记** | 2026-11-21（P4-A Task 10） |
+
+## DI-18: FM6 银行索引 `fm6_bank_used` 在 `.bss`，`ENG SELFTEST` 后会回滚（Task 7 前置）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | Task 4 实测（ADR-009 §8）：`store_tab5.c` 由 `selftest.c` 末尾 include，而 `linker.lf` 用 `SURROUND(sloop_selftest_bss)` 把 `selftest.c.obj` 的 `.bss` 包成自检快照窗口，`ENG SELFTEST` 的 restore 会把窗口内容回滚到 init 之前。用户预置的银行索引 `up_bank_xip[2]` 正是这种**上游 `.bss`**（vendored 声明无 section 属性，宏重定向搬不走）。Task 4 的实测后果有两级：读成空（LIST/LOAD），以及**写路径从 NULL 副本起笔抹掉同银行的其它槽**（`task-4-saveafter-red-run.txt`）。`fm6_bank.c` 的 `fm6_bank_used`（used 位图，普通 `.bss`）是同一类风险。 |
+| **影响面** | Task 7（FM6 银行 27 槽）落地后：自检结束到下一次 `fm6_bank_boot()` 之前，`sloop_store_bank_used()` 会把所有槽读成未用；若此时写 bank（`fm6_bank.c` 的 save 路径同样整银行重写），可能把已用槽静默抹掉。当前无影响（FM6 银行尚未接入，`fm6_track_loaded` 只在 `eng_req == FM6` 时动作，Task 4 已验证不影响预置）。 |
+| **为何可延迟** | FM6 银行本身是 Task 7 的交付物；在它落地前 `fm6_bank_used` 没有任何读者。Task 4 已把「`.noinit` 或入口重扫」的模式与 ADR 记录写好，Task 7 照同一模式落地即可。 |
+| **解决方向** | 二选一（Task 7 决策时择一记入 ADR-009 §8）：(a) 按 Task 4 的做法，`sloop_store_bank_*` 每个入口在 `s_store_lock` 内重跑 `fm6_bank_boot()`（微秒级，且对写路径是**必须**的）；(b) 给 `fm6_bank.c` 的 `fm6_bank_used` 加 `.noinit`（需 vendored 声明带属性 → 只能走宏重定向或上游补丁，前者受声明形态限制，后者违反 ADR-004 零修改）。优先 (a)。 |
+| **触发条件** | Task 7（FM6 银行 27 槽）实现 bank 存/取/擦之前必须解决，并在 `store` 或新的 bank 注入场景里加一条「selftest 后紧跟 bank SAVE 不丢同银行其它槽」的断言（与 Task 4 的 ⑨f' 同型）；若上游改名为非 `.bss` 存储则重评估。 |
+| **参考** | ADR-009 §8（`.bss` 与 SELFTEST 快照窗口）、`docs/dev/verify/4-pb-2026-11-21/task-4-memory.txt`、`task-4-saveafter-red-run.txt`、`firmware/components/sloop_core/src/store_tab5.c` 的 `up_boot()` 重扫注释 |
+| **登记** | 2026-11-21（P4-B Task 4 评审 carry） |

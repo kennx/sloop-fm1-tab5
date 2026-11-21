@@ -17,6 +17,7 @@
  * 所有 API 不得在 ISR 中调用；写操作由存储锁串行化（console/UI/自动存档共用）。 */
 
 #define SLOOP_STORE_PROJECTS 4u
+#define SLOOP_STORE_PRESETS 32u
 
 typedef struct {
     bool ready;               /* PSRAM 槽/暂存已分配且分区 mmap 就绪 */
@@ -43,5 +44,20 @@ uint32_t sloop_store_live_hash(void); /* 当前引擎状态的捕获 hash（不�
 esp_err_t sloop_store_project_save(uint32_t slot);
 esp_err_t sloop_store_project_load(uint32_t slot);
 esp_err_t sloop_store_project_erase(uint32_t slot);
+
+/* 用户预置 0..31（上游 upreset.c：32 槽 / 2 个银行对象，`UPB1` 记录布局原样）。
+ * 写 = 当前**选中轨**的声音（引擎 + 除混音/图案参数外的全部参数 + 前 16 步图案）；
+ * 读可指定任意合成轨；鼓轨没有声音可存 ⇒ 写/读都回 ESP_ERR_INVALID_ARG（写另出
+ * ui_message("DRUM TRACK: NO SOUND")，与上游 SAVE > USER 页一致）。
+ * 名字大写、0 结尾（13 字节，上游 up_name 口径）；空槽 not_found；整表查询只读 mmap，
+ * 但会在存储锁内重扫银行索引（见 store_tab5.c 的 .bss 回滚说明）。
+ * load 不写 flash、可在走带中调用（上游 MIDI PC 语义）；store/erase 走带中拒绝。 */
+uint32_t sloop_store_preset_count(void); /* 已用槽数（0..32） */
+bool sloop_store_preset_used(uint32_t slot);
+bool sloop_store_preset_name(uint32_t slot, char out[13]);
+uint8_t sloop_store_preset_engine(uint32_t slot); /* 引擎号；空槽 0xFF */
+esp_err_t sloop_store_preset_store(uint32_t slot);
+esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track);
+esp_err_t sloop_store_preset_erase(uint32_t slot);
 
 #endif

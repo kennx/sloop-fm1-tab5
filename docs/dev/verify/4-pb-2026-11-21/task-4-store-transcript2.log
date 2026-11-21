@@ -1,0 +1,1013 @@
+
+sloop>  # [inject] 场景 store 开始
+# [inject] ⓪ 归一：esptool 硬复位到工厂态（不带上一轮载入的预置参数）
+# [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
+
+sloop>  I (4364) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  ENG AUDIO ON
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  # [inject] ① 归一：四槽 ERASE + LIST 全 EMPTY
+STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE PROJ ERASE 1
+PROJ 1 ERASED
+sloop>  STORE PROJ ERASE 2
+PROJ 2 ERASED
+sloop>  STORE PROJ ERASE 3
+PROJ 3 ERASED
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  # [inject] ② BPM 100 → LIVEHASH h0 → SAVE 0
+PARAM GLOBAL 0 100
+PARAM GLOBAL id=0 value=100 applied=100 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STORE PROJ SAVE 0
+PROJ 0 SAVED hash=CCB3B3D7
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  # [inject] ③ BPM 120 → LIVEHASH h1 != h0
+PARAM GLOBAL 0 120
+PARAM GLOBAL id=0 value=120 applied=120 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=0
+sloop>  STORE LIVEHASH
+LIVEHASH CFF2701B
+sloop>  # [inject] ④ LOAD 0 → 引擎回到 h0（含 bpm）
+STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  # [inject] ⑤ ERASE 0 → LIST EMPTY、LIVEHASH 不变
+STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  # [inject] ⑥ 再 SAVE 0（为开机 fetch 用例留一个 USED 槽）
+STORE PROJ SAVE 0
+PROJ 0 SAVED hash=CCB3B3D7
+sloop>  # [inject] ⑦ 硬复位（不写 flash）→ 先在 console 一接受命令时早探 LOAD 0（热复位哨兵）
+# [inject] ⑦ 早探：esptool 复位（不等提示符）→ 见到 sloop> 立即发 STORE PROJ LOAD 0
+I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 sizeI (231) esp_image: segment 4: paddr=00174fe4 vaddr=4ff03910 size=13064h ( 77924) load
+I (245) esp_image: segment 5: paddr=00188050 vaddr=4ff16980 size=047ach ( 18348) load
+I (249) esp_image: segment 6: paddr=0018c804 vaddr=50108080 size=00020h (    32) load
+I (256) boot: Loaded app from partition at offset 0x10000
+I (256) boot: Disabling RNG early entropy source...
+I (261) hex_psram: vendor id    : 0x0d (AP)
+I (262) hex_psram: Latency      : 0x01 (Fixed)
+I (262) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (262) hex_psram: dev id       : 0x03 (generation 4)
+I (263) hex_psram: density      : 0x07 (256 Mbit)
+I (263) hex_psram: good-die     : 0x06 (Pass)
+I (263) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (264) hex_psram: BurstType    : 0x00 ( Wrap)
+I (264) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (264) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (265) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (265) hex_psram: DriveStrength: 0x00 (1/1)
+I (265) MSPI Timing: Enter psram timing tuning
+I (440) esp_psram: Found 32MB PSRAM device
+I (440) esp_psram: Speed: 200MHz
+I (441) hex_psram: psram CS IO is dedicated
+I (441) cpu_start: Multicore app
+I (1391) esp_psram: SPI SRAM memory test OK
+I (1407) cpu_start: Pro cpu start user code
+I (1407) cpu_start: cpu freq: 360000000 Hz
+I (1408) app_init: Application information:
+I (1408) app_init: Project name:     sloop_fm1_tab5
+I (1408) app_init: App version:      0d7120a-dirty
+I (1408) app_init: Compile time:     Nov 21 2026 20:20:46
+I (1408) app_init: ELF file SHA256:  c03229d22...
+I (1409) app_init: ESP-IDF:          v5.5.5
+I (1409) efuse_init: Min chip rev:     v1.0
+I (1409) efuse_init: Max chip rev:     v1.99 
+I (1409) efuse_init: Chip rev:         v1.3
+I (1409) heap_init: Initializing. RAM available for dynamic allocation:
+I (1410) heap_init: At 4FF20E50 len 0001A170 (104 KiB): RETENT_RAM
+I (1410) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1410) heap_init: At 4FF9C650 len 000039B0 (14 KiB): RAM
+I (1411) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1411) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1411) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1413) spi_flash: detected chip: generic
+I (1413) spi_flash: flash io: dio
+I (1413) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1414) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1414) main_task: Started on CPU0
+I (1414) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1414) main_task: Calling app_main()
+I (1414) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1414) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1414) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1414) LVGL: Starting LVGL task
+I (1414) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1924) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1924) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1924) st7123: version: 1.0.2
+I (2944) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2944) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2944) ST7123: Touch panel create success, version: 1.0.2
+I (2944) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3084) M5Stack Tab5: Setting LCD backlight: 100%
+I (3094) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3094) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  I (4094) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4094) sloop_tab5: keyboard: OK (0x6D)
+W (4094) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4104) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+STORE PROJ LOAD 0
+STORE ERR no_storage
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  I (4114) I2# [inject] ⑦ 早探 1/5: in_window=True token='STORE ERR no_storage' 回显='ab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01\r\nI (4094) sloop_tab5: keyboard: OK (0x6D)\r\nW (4094) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512\r\nW (4104) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512\r\nSTORE PROJ LOAD 0\r\nSTORE ERR no_storage\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>  I (4114) I2'
+S_IF: Paired data: 0x4ff28344, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4114) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4114) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4124) ES8388: Start on mode:2
+I (4124) Adev_Codec: Open codec device OK
+I (4134) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4154) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x40170000 handle=1341783824 base=0x97000 span=0x68000
+I (4154) sloop_store: ready: slots=0x48344eec(15264B) stage=0x48348af0 v3=0x483444a8(2584B) base=0x97000 span=0x68000
+I (4154) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4164) sloop_audio_stream: stream started, half=256 frames
+I (4164) sloop_tab5: UI 启动前内部堆剩余 108843 字节
+I (4174) sloop_ui: 页面构建 page=PLAY(0) 池增量=2508B 预算=3072B 池剩余=47144B
+I (4184) sloop_ui: UI 就绪: 9 页注册/1 已建 @1280x720, LVGL 池已用 15716/62820 字节, 内部堆剩余 108843 字节
+I (4184) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4364) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  STORE PROJ LIST
+PROJ 0 USED hash=CCB3B3D7
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  # [inject] ⑧ 诊断期 selftest 之后存储仍可用（.noinit 指针/RAM 槽不被 restore 回滚）
+ENG AUDIO OFF
+I (5854) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (5954) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (6564) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (6664) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  # [inject] ⑨ 用户预置：归一基线 → ERASE → SAVE/LIST/LOAD → 跨轨/跨银行 → 鼓轨 → 自检/复位
+UI tracks
+I (6874) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=41352B
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>  PARAM BATCH 1 20 2 40 3 60 4 70 5 -10 6 15 7 -25 8 8
+PARAM BATCH track=0 n=8 id=1 value=20 applied=20 id=2 value=40 applied=40 id=3 value=60 applied=60 id=4 value=70 applied=70 id=5 value=-10 applied=-10 id=6 value=15 applied=15 id=7 value=-25 applied=-25 id=8 value=8 applied=8
+sloop>  STORE PRESET ERASE 0
+PRESET 0 ERASED
+sloop>  STORE PRESET ERASE 1
+PRESET 1 ERASED
+sloop>  STORE PRESET LIST
+PRESET 0 EMPTY
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=0 total=32
+sloop>  # [inject] ⑨a SAVE 0（当前轨 0 的声音 = 归一基线的 8 参数）
+STORE PRESET SAVE 0
+PRESET 0 SAVED ANALOG ANALOG 01
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  # [inject] ⑨b 改参数组 B → LOAD 0 0 → 8 参数逐项回到 A
+PARAM BATCH 1 100 2 110 3 20 4 30 5 30 6 -30 7 20 8 -8
+PARAM BATCH track=0 n=8 id=1 value=100 applied=100 id=2 value=110 applied=110 id=3 value=20 applied=20 id=4 value=30 applied=30 id=5 value=30 applied=30 id=6 value=-30 applied=-30 id=7 value=20 applied=20 id=8 value=-8 applied=-8
+sloop>  PARAM 1
+PARAM track=0 id=1 value=100 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=110 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=20 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=30 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=30 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=-30 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=20 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=-8 min=-64 max=63
+sloop>  STORE PRESET LOAD 0 0
+PRESET 0 LOADED track=0
+sloop>  PARAM 1
+PARAM track=0 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=8 min=-64 max=63
+sloop>  # [inject] ⑨c LOAD 0（缺省 track = 选中轨）
+STORE PRESET LOAD 0
+PRESET 0 LOADED track=0
+sloop>  # [inject] ⑨c' 换成 SAMPLE 引擎再 LOAD：预置带回它自己的引擎（SAVE 的是 ANALOG）
+ENG TRACK 0 4 0
+ENG TRACK k=0 engine=4 preset=0 OK
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  STORE PRESET LOAD 0 0
+PRESET 0 LOADED track=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  PARAM 1
+PARAM track=0 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=8 min=-64 max=63
+sloop>  # [inject] ⑨c2 跨轨载入：LOAD 0 1 → 选中轨(0) 的 p[] 不变、轨 1 取到预置
+PARAM 1
+PARAM track=0 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=8 min=-64 max=63
+sloop>  STORE PRESET LOAD 0 1
+PRESET 0 LOADED track=1
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  PARAM 1
+PARAM track=0 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=8 min=-64 max=63
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  PARAM 1
+PARAM track=1 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=1 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=1 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=1 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=1 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=1 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=1 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=1 id=8 value=8 min=-64 max=63
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  # [inject] ⑨c3 银行 1（槽 16）：SAVE/LIST/LOAD 往返；ERASE 16 不碰银行 0 的槽 0
+PARAM BATCH 1 100 2 110 3 20 4 30 5 30 6 -30 7 20 8 -8
+PARAM BATCH track=0 n=8 id=1 value=100 applied=100 id=2 value=110 applied=110 id=3 value=20 applied=20 id=4 value=30 applied=30 id=5 value=30 applied=30 id=6 value=-30 applied=-30 id=7 value=20 applied=20 id=8 value=-8 applied=-8
+sloop>  STORE PRESET SAVE 16
+PRESET 16 SAVED ANALOG ANALOG 17
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 USED ANALOG ANALOG 17
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=2 total=32
+sloop>  PARAM BATCH 1 20 2 40 3 60 4 70 5 -10 6 15 7 -25 8 8
+PARAM BATCH track=0 n=8 id=1 value=20 applied=20 id=2 value=40 applied=40 id=3 value=60 applied=60 id=4 value=70 applied=70 id=5 value=-10 applied=-10 id=6 value=15 applied=15 id=7 value=-25 applied=-25 id=8 value=8 applied=8
+sloop>  STORE PRESET LOAD 16 0
+PRESET 16 LOADED track=0
+sloop>  PARAM 1
+PARAM track=0 id=1 value=100 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=110 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=20 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=30 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=30 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=-30 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=20 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=-8 min=-64 max=63
+sloop>  PARAM BATCH 1 20 2 40 3 60 4 70 5 -10 6 15 7 -25 8 8
+PARAM BATCH track=0 n=8 id=1 value=20 applied=20 id=2 value=40 applied=40 id=3 value=60 applied=60 id=4 value=70 applied=70 id=5 value=-10 applied=-10 id=6 value=15 applied=15 id=7 value=-25 applied=-25 id=8 value=8 applied=8
+sloop>  STORE PRESET ERASE 16
+PRESET 16 ERASED
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  # [inject] ⑨d ERASE 0 → EMPTY；再 SAVE（为后面的复位用例留一个 USED 槽）
+STORE PRESET ERASE 0
+PRESET 0 ERASED
+sloop>  STORE PRESET LIST
+PRESET 0 EMPTY
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=0 total=32
+sloop>  STORE PRESET SAVE 0
+PRESET 0 SAVED ANALOG ANALOG 01
+sloop>  # [inject] ⑨e 鼓轨：SAVE 1 / LOAD 0 3 均被拒（STORE ERR drum），槽 1 仍 EMPTY
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PRESET SAVE 1
+DRUM TRACK: NO SOUND
+STORE ERR drum
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PRESET LOAD 0 3
+DRUM TRACK: NO SOUND
+STORE ERR drum
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  # [inject] ⑨f 单例 ENG SELFTEST 之后预置仍可用（银行指针在 .bss，restore 会清空）
+ENG AUDIO OFF
+I (17724) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (17824) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (18434) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (18534) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  STORE PRESET LOAD 0 0
+PRESET 0 LOADED track=0
+sloop>  # [inject] ⑨f' 第二次 selftest → 紧跟 SAVE 1（不先读预置）：同银行的槽 0 必须保留
+ENG AUDIO OFF
+I (18874) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (18964) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (19574) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (19674) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STORE PRESET SAVE 1
+PRESET 1 SAVED ANALOG ANALOG 02
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 USED ANALOG ANALOG 02
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=2 total=32
+sloop>  STORE PRESET ERASE 1
+PRESET 1 ERASED
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  # [inject] ⑨g esptool 硬复位 → LIST 仍 USED（up_boot）+ LOAD 还原同一组值
+# [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
+
+sloop>  I (4364) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  UI tracks
+I (5614) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=41352B
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PRESET LOAD 0 0
+PRESET 0 LOADED track=0
+sloop>  PARAM 1
+PARAM track=0 id=1 value=20 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=40 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=60 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=70 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=-10 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=15 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=-25 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=8 min=-64 max=63
+sloop>  # [inject] ⑨h 播放守卫：SAVE/ERASE ⇒ STORE ERR playing；播放中鼓轨 SAVE ⇒ drum（上游顺序）
+UI transport
+I (6924) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3792B 预算=4608B 池剩余=37668B
+UI page=transport (3)
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PRESET SAVE 0
+STORE ERR playing
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PRESET ERASE 0
+STORE ERR playing
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PRESET SAVE 2
+DRUM TRACK: NO SOUND
+STORE ERR drum
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  UI transport
+UI page=transport (3)
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PRESET LIST
+PRESET 0 USED ANALOG ANALOG 01
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=1 total=32
+sloop>  # [inject] 场景 store 结束 failures=0

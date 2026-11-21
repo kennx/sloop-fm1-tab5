@@ -120,10 +120,19 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - 锁序与上游语义：保存 = 引擎锁内 `proj_capture` → 释放 → `st_save`（擦/写 flash）；
   加载 = 无锁 `st_load + proj_import` → 引擎锁内 `proj_apply(all=1)` + `song.sel`。另设
   `s_store_lock` 串行化存储动作（手动命令、自动存档、console 共用），避免并发擦写。
+  **用户预置同理**（Task 4）：SAVE = 引擎锁内捕获 `up_rec_t`（`preset_capture`）→ 释放 →
+  `up_put` 擦写；LOAD = `up_load_to` 在引擎锁内（纯 RAM，无 flash）；ERASE = 引擎锁内清
+  `trk[].user` 引用 → 释放 → `up_put(k, NULL)`。**擦写期间绝不持引擎锁**——本板音频渲染
+  就持引擎锁（`sloop_core_render`），持锁 50ms 等于必然 xrun。
 - 播放中拒写：`song.playing || transport_req` 时返回 `ESP_ERR_INVALID_STATE`（对齐上游
   "STOP BEFORE SAVE"）；所有 `sloop_store_*` 不得在 ISR 调用。
-- **只读查询例外**：列表/名称查询（`used/name/engine/count`）允许 UI 直接调用——只读
-  mmap、无写、无锁；写操作期间 UI 任务本就被 cache 停顿，不存在半写视图。
+- **只读查询例外**：列表/名称查询（`used/name/engine/count`）不取引擎锁、不写任何介质
+  （只读 mmap）；但**取 `s_store_lock`**——它们要先重扫银行索引（见 §8 的 `.bss` 窗口
+  说明），且一次查询内不得看到并发的擦写中视图。代价要说清：该锁在保存/擦除期间是
+  **跨越 flash 擦写**持有的，故读者最坏会排在一次擦写之后（一次保存 ≈4KB 擦 + 3.8KB
+  写 + 回读校验，目标 ≤150ms，见 §4）。这是有意的取舍：宁可让查询等，也不读半写副本；
+  UI 在写操作期间本就被 cache 停顿。Task 4 实测（`store` 场景每次 LIST 33 次重扫仍在
+  毫秒内）。
 - **console 诊断执行器例外**：`STORE …` 命令由 REPL 任务直接调用同一套 `sloop_store_*`，
   与 UI 命令共用 `s_store_lock` + 引擎锁，行为完全相同。理由：`state_apply` 是
   fire-and-forget，无法把返回码回传给脚本，而存储断言需要 `SAVED/EMPTY/playing/…` 这类
@@ -209,6 +218,20 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   不改 vendored 文件。
 - 数据兼容：工程写 `FUN6`、读兼容 `FUN5/4/3/2/1`；用户预置 `UPB1`/`UP_VER 1`；FM6
   `FM6B`/ver 1。**不得改上游记录布局**；阶段 5 的编辑器协议对象 id 与之一一对应。
+- **`.bss` 与 SELFTEST 快照窗口（Task 4 实测）**：`selftest.c.obj` 的 `.bss` 被
+  `linker.lf` 的 `SURROUND(sloop_selftest_bss)` 包住，`ENG SELFTEST` 的 restore 会把
+  整个窗口回滚到 init 之前的快照。因此本 TU 内的**功能性**静态一律放 `.noinit`
+  （`s_v3_ps/s_slot_ps/s_stage`、锁与哨兵，以及 shim 的 `flash_ok`）；上游 `upreset.c`
+  的银行索引 `up_bank_xip[2]`（普通 `.bss`，vendored 声明无 section 属性、宏重定向也搬
+  不走）只能**每次公共预置入口在存储锁内重扫** `up_boot()`（两次头校验 + 3,080B CRC，
+  微秒级）。**写入口也必须重扫**：`up_put` 把整银行重写一遍、从当前 XIP 副本起笔，索引为
+  NULL 时会静默抹掉同银行里已用的其它槽（设备实测：selftest 后直接 SAVE 1 丢掉槽 0，
+  `4-pb-2026-11-21/task-4-saveafter-red-run.txt`）。**FM6 银行有同型风险**（Task 7）：
+  `fm6_bank.c` 的 `fm6_bank_used` 也是普通 `.bss`，自检 restore 后须重跑
+  `fm6_bank_boot()`。实测：`nm` 显示 `up_bank_xip` 地址落在
+  `_sloop_selftest_bss_start..end` 内，`flash_ok` 在窗口之前的 `.noinit`
+  （`docs/dev/verify/4-pb-2026-11-21/task-4-memory.txt`）。
+  纯展示性 shim（`up_gen/ui.force/sync_reload`）回滚无害，仍留 `.bss`。
 - `third_party/MANIFEST.sha256` 校验保持 233/233；上游升级只补 `store_tab5.c` 的 shim 清单。
 
 ### 9. 失败可见性与诊断面
