@@ -188,3 +188,45 @@ void sloop_store_note_activity(uint32_t now_ms)
 {
     (void)now_ms;
 }
+
+/* ---- 存储 API 替身（状态层存储命令，P4-B Task 10） --------------------------------
+ * 统一返回 g_stub.store_ret 并记录调用；不碰引擎后端。bank_current 用
+ * 0xA0 | 选中轨 填充首字节——PUT 的入参缓冲即「用哪条轨的 live patch」的证据。 */
+static esp_err_t stub_store_hit(uint32_t kind, uint32_t op, uint32_t slot, uint32_t track)
+{
+    g_stub.store_calls++;
+    if (kind == 0) g_stub.store_proj_calls++;
+    else if (kind == 1) g_stub.store_preset_calls++;
+    else g_stub.store_bank_calls++;
+    g_stub.store_last_op = op;
+    g_stub.store_last_slot = slot;
+    g_stub.store_last_track = track;
+    return g_stub.store_ret;
+}
+
+esp_err_t sloop_store_project_save(uint32_t slot) { return stub_store_hit(0, 0, slot, 0xFFu); }
+esp_err_t sloop_store_project_load(uint32_t slot) { return stub_store_hit(0, 1, slot, 0xFFu); }
+esp_err_t sloop_store_project_erase(uint32_t slot) { return stub_store_hit(0, 2, slot, 0xFFu); }
+
+esp_err_t sloop_store_preset_store(uint32_t slot) { return stub_store_hit(1, 0, slot, 0xFFu); }
+esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track)
+{
+    return stub_store_hit(1, 1, slot, track);
+}
+esp_err_t sloop_store_preset_erase(uint32_t slot) { return stub_store_hit(1, 2, slot, 0xFFu); }
+
+esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed)
+{
+    g_stub.bank_put_calls++;
+    if (packed != NULL) memcpy(g_stub.last_bank_put, packed, sizeof(g_stub.last_bank_put));
+    return stub_store_hit(2, 0, slot, 0xFFu); /* op 0 = save/PUT */
+}
+esp_err_t sloop_store_bank_erase(uint32_t slot) { return stub_store_hit(2, 2, slot, 0xFFu); }
+
+void sloop_store_bank_current(uint8_t *packed)
+{
+    g_stub.bank_current_calls++;
+    if (packed == NULL) return;
+    memset(packed, 0, SLOOP_STORE_BANK_PACKED);
+    packed[0] = (uint8_t)(0xA0u | g_stub.snap.selected_track);
+}

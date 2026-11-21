@@ -1,0 +1,45 @@
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+$ UI projects
+UI projects
+UI ERR not_registered 9
+Command returned non-zero error code: 0x1 (ERROR)
+---
+$ UI presets
+UI presets
+UI ERR not_registered 10
+Command returned non-zero error code: 0x1 (ERROR)
+---
+$ UI MEM
+UI MEM
+UI MEM pool_used=15404 pool_free=47416 pool_total=62820 registered=9 built=1 failed=0 sum_est=55296 reserve=7524
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0
+---
+$ UI 9
+UI 9
+用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | UI KNOB <slot> <press|drag> <dx> <dy> | UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）
+WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口
+FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态（state=unbuilt，注入待命）；未建页下一次构建失败；off 只撤销未消费的注入
+LOCKHOLD: 辅助任务持 LVGL 锁 ms 毫秒，紧随的 ENG SELFTEST 应回 result=FAIL reason=quiesce
+Command returned non-zero error code: 0x1 (ERROR)
+---
+$ UI 10
+UI 10
+用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | UI KNOB <slot> <press|drag> <dx> <dy> | UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）
+WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口
+FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态（state=unbuilt，注入待命）；未建页下一次构建失败；off 只撤销未消费的注入
+LOCKHOLD: 辅助任务持 LVGL 锁 ms 毫秒，紧随的 ENG SELFTEST 应回 result=FAIL reason=quiesce
+Command returned non-zero error code: 0x1 (ERROR)
+---
+$ UI play
+UI play
+UI page=play (0)
+---

@@ -290,6 +290,85 @@ static void cmd_set_global(app_state_t *s, uint32_t id, uint16_t value)
     if (id == STATE_G_BPM) s->core.bpm = (uint16_t)s->g[STATE_G_BPM];
 }
 
+/* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
+ * （命令无效 ≠ 存储失败）。返回码按 app_store_status_t 映射；成功即整份刷新投影
+ * （工程/预置载入会改引擎真值）。存储调用在状态锁内、flash 擦写由存储层在引擎锁外
+ * 完成（ADR-009 §3）；UI 读副本最多等一次擦写（≤150ms，spec §4.3 接受）。 */
+#define STATE_DRUM_TRACK (APP_STATE_TRACKS - 1u)
+
+static void state_store_result(app_state_t *s, esp_err_t ret, bool drum)
+{
+    switch (ret) {
+    case ESP_OK: s->store_status = APP_STORE_STATUS_OK; break;
+    case ESP_ERR_NOT_FOUND: s->store_status = APP_STORE_STATUS_EMPTY; break;
+    case ESP_ERR_INVALID_STATE: s->store_status = APP_STORE_STATUS_PLAYING; break;
+    case ESP_ERR_INVALID_ARG:
+        s->store_status = drum ? APP_STORE_STATUS_DRUM : APP_STORE_STATUS_ERROR;
+        break;
+    default: s->store_status = APP_STORE_STATUS_ERROR; break;
+    }
+    if (ret == ESP_OK) state_refresh_locked();
+}
+
+static void cmd_project(app_state_t *s, edit_cmd_type_t type, uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) return;
+    esp_err_t ret;
+    switch (type) {
+    case CMD_PROJECT_SAVE: ret = sloop_store_project_save(slot); break;
+    case CMD_PROJECT_LOAD: ret = sloop_store_project_load(slot); break;
+    case CMD_PROJECT_ERASE: ret = sloop_store_project_erase(slot); break;
+    default: return; /* 不认识的类型不发存储动作（分发只传上述三种；default 不是 erase） */
+    }
+    state_store_result(s, ret, false);
+}
+
+/* STORE 的目标轨是选中轨（上游 SAVE > USER）；LOAD 的轨号由 b 显式给出（保存的轨
+ * 号语义随上游 up_load_to）。鼓轨没有声音 ⇒ 存储层回 ESP_ERR_INVALID_ARG，状态层
+ * 按「目标是否鼓轨」把它映射成 drum 而不是 error。 */
+static void cmd_preset(app_state_t *s, edit_cmd_type_t type, uint32_t slot, uint32_t track)
+{
+    if (slot >= SLOOP_STORE_PRESETS) return;
+    bool drum = false;
+    esp_err_t ret;
+    switch (type) {
+    case CMD_PRESET_STORE:
+        drum = s->core.selected_track == STATE_DRUM_TRACK;
+        ret = sloop_store_preset_store(slot);
+        break;
+    case CMD_PRESET_LOAD:
+        if (track >= APP_STATE_TRACKS) return;
+        drum = track == STATE_DRUM_TRACK;
+        ret = sloop_store_preset_load(slot, track);
+        break;
+    case CMD_PRESET_ERASE: ret = sloop_store_preset_erase(slot); break;
+    default: return; /* 不认识的类型不发存储动作（default 不是 erase） */
+    }
+    state_store_result(s, ret, drum);
+}
+
+/* PUT = 选中轨的 live patch（bank_current 只读引擎状态）。选中鼓轨时 fm6_patch 不
+ * 存在（输出全 0），故直接拒绝：drum 且不调存储 API（与 console 的守卫同口径）。 */
+static void cmd_bank(app_state_t *s, edit_cmd_type_t type, uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_BANK_SLOTS) return;
+    switch (type) {
+    case CMD_BANK_ERASE:
+        state_store_result(s, sloop_store_bank_erase(slot), false);
+        return;
+    case CMD_BANK_PUT:
+        break;
+    default: return; /* 不认识的类型不发存储动作（default 不是 PUT） */
+    }
+    if (s->core.selected_track == STATE_DRUM_TRACK) {
+        s->store_status = APP_STORE_STATUS_DRUM;
+        return;
+    }
+    uint8_t packed[SLOOP_STORE_BANK_PACKED];
+    sloop_store_bank_current(packed);
+    state_store_result(s, sloop_store_bank_put(slot, packed), false);
+}
+
 void state_apply(const edit_cmd_t *cmd)
 {
     if (cmd == NULL) return;
@@ -311,6 +390,14 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SET_PARAM: cmd_set_param(s, cmd->a, cmd->b, cmd->v); break;
     case CMD_SET_PARAM_BATCH: cmd_set_param_batch(s, cmd->a, cmd->p, cmd->n); break;
     case CMD_SET_GLOBAL: cmd_set_global(s, cmd->a, cmd->v); break;
+    case CMD_PROJECT_SAVE:
+    case CMD_PROJECT_LOAD:
+    case CMD_PROJECT_ERASE: cmd_project(s, cmd->type, cmd->a); break;
+    case CMD_PRESET_STORE:
+    case CMD_PRESET_LOAD:
+    case CMD_PRESET_ERASE: cmd_preset(s, cmd->type, cmd->a, cmd->b); break;
+    case CMD_BANK_PUT:
+    case CMD_BANK_ERASE: cmd_bank(s, cmd->type, cmd->a); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

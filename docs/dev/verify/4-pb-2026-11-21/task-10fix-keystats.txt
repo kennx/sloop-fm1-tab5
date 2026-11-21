@@ -1,0 +1,25 @@
+### KEY STATS (boot)
+KEY STATS
+KEY STATS count=0 mean_us=0 max_us=0 input_stack_free=3780 quiesce_dropped=0
+
+### KEY 0x42 down/up
+KEY 0x42 down
+KEY 0x42 down z elapsed_us=295
+KEY 0x42 up z elapsed_us=159
+
+### KEY STATS (after key events)
+KEY STATS
+KEY STATS count=2 mean_us=227 max_us=295 input_stack_free=3780 quiesce_dropped=0
+
+### STORE PROJ SAVE 3
+STORE PROJ SAVE 3
+PROJ 3 SAVED hash=5FB1EDD1
+
+### KEY STATS (after project SAVE)
+KEY STATS
+KEY STATS count=2 mean_us=227 max_us=295 input_stack_free=3780 quiesce_dropped=0
+
+### STORE PROJ ERASE 3
+STORE PROJ ERASE 3
+PROJ 3 ERASED
+

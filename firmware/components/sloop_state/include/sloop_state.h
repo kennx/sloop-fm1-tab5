@@ -29,9 +29,11 @@
  */
 
 /* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）+ 5 参数页（GLOBAL/FX/ANALOG/FM6/
- * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）。加页时同步 app_page_t、本宏
- * 与 console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 9u
+ * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
+ * P4-B Task 10 只扩 id；页面由 P4-B Task 12 注册，此前 `UI projects` 回
+ * `not_registered` 属预期）。加页时同步 app_page_t、本宏与 console 的页名表
+ * （后者有静态断言兜底）。 */
+#define APP_STATE_PAGES 11u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -71,6 +73,10 @@ typedef enum {
     CMD_TOGGLE_STEP, CMD_SET_BPM, CMD_SET_TRACK, CMD_MUTE, CMD_SOLO,
     CMD_ERASE_NOTE, CMD_SET_WINDOW, CMD_SET_PARAM, CMD_SET_PARAM_BATCH,
     CMD_SET_GLOBAL,
+    /* P4-B 存储命令（单写者 = input 任务；返回码映射 app_state_t.store_status） */
+    CMD_PROJECT_SAVE, CMD_PROJECT_LOAD, CMD_PROJECT_ERASE,
+    CMD_PRESET_STORE, CMD_PRESET_LOAD, CMD_PRESET_ERASE,
+    CMD_BANK_PUT, CMD_BANK_ERASE,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
@@ -116,6 +122,28 @@ typedef enum {
  *                    （与 CMD_SET_BPM 同一真值，TRANSPORT/STATE SNAP 不落后一拍）。
  *                    只用于**值参数**——动作类全局（G_LOAD/G_SAVE/G_CLRSEQ…）不得
  *                    经本命令下发（那只会改 song.g[]，不执行动作）。
+ *  CMD_PROJECT_SAVE/LOAD/ERASE a=slot(0..3)：分发 sloop_store_project_*。槽号越界不调
+ *                    存储 API、不改 store_status。否则返回码按 app_store_status_t 映射
+ *                    写 store_status；**成功（ESP_OK）后整份刷新投影**（一次窗口快照 +
+ *                    一次参数回读，与 state_sync_from_engine 同口径）——工程载入会改
+ *                    引擎真值（含选中轨/参数/图案），失败则投影不动。
+ *  CMD_PRESET_STORE/LOAD/ERASE a=slot(0..31) b=track(0..3，仅 LOAD 使用；显式给出，
+ *                    不从选中轨推断)：STORE 的目标轨是**选中轨**（上游 SAVE >
+ *                    USER 语义）；LOAD 的 b 是载入目标合成轨；ERASE 忽略 b。
+ *                    ESP_ERR_INVALID_ARG 且目标轨是鼓轨 ⇒ store_status = drum(5)，
+ *                    其它无效参数 ⇒ error(4)。成功同工程命令一样整份刷新投影。
+ *  CMD_BANK_PUT/ERASE a=slot(0..26)：PUT = 选中轨的 live patch（sloop_store_bank_current
+ *                    → sloop_store_bank_put）；选中鼓轨没有 patch ⇒ drum(5)，且在
+ *                    **状态层**就拒绝——该路径连 bank_current 都不调，存储未就绪时也
+ *                    先回 drum（与预置命令的次序相反，见下）。ERASE 只按槽号擦
+ *                    （与选中轨无关）。
+ *  存储命令在**状态锁内**直接调存储层（单写者串行化，flash 擦写期间不持引擎锁——
+ *  存储层保证，ADR-009 §3）；UI 读副本最多等一次擦写（spec §4.3 接受 ≤150ms 停顿）。
+ *
+ *  次序（drum vs 未就绪）：预置命令只做槽号/轨号**越界**判定，鼓轨判定依赖存储层的
+ *  ESP_ERR_INVALID_ARG ——而 sloop_store.h 的预置入口先判就绪，故「存储未就绪 + 鼓轨」
+ *  回 INVALID_STATE（3 = playing）而非 drum；bank PUT 的鼓轨判定在状态层先做，未就绪
+ *  时回 drum(5)。两者都是「先发生的检查说话」——调用方不应假设某个固定次序。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -124,6 +152,22 @@ typedef struct {
     const void *p; /* CMD_SET_PARAM_BATCH：sloop_param_pair_t 数组（仅 apply 期间有效） */
     uint32_t n;    /* CMD_SET_PARAM_BATCH：元素个数 */
 } edit_cmd_t;
+
+/* 存储命令的结果（app_state_t.store_status）：UI 状态行按此映射文案
+ * （`STOP BEFORE SAVE` / `DRUM TRACK: NO SOUND` …）。0 表示还没有存储命令；
+ * 槽号/轨号越界被拒时**不调存储 API、也不改本字段**（命令无效 ≠ 存储失败）。
+ * 语义边界：存储 API 用 ESP_ERR_INVALID_STATE **同时**表示「走带中」与「存储未就绪」
+ * （分区/mmap/PSRAM 缺失，见 sloop_store.h），因此 3 不是「正在播放」的充分证据；
+ * 需要区分 `NO STORAGE` 的调用方必须另查 sloop_store_ready()。 */
+typedef enum {
+    APP_STORE_STATUS_IDLE = 0,    /* 尚无存储命令 */
+    APP_STORE_STATUS_OK = 1,      /* save/load/erase 成功 */
+    APP_STORE_STATUS_EMPTY = 2,   /* 槽为空（ESP_ERR_NOT_FOUND） */
+    APP_STORE_STATUS_PLAYING = 3, /* 走带中**或存储未就绪**（ESP_ERR_INVALID_STATE） */
+    APP_STORE_STATUS_ERROR = 4,   /* 其它失败（擦写/校验/无效格式） */
+    APP_STORE_STATUS_DRUM = 5,    /* 鼓轨没有可存/可载的声音（ESP_ERR_INVALID_ARG；
+                                   * 或 bank PUT 在状态层直接判鼓轨、不调存储 API） */
+} app_store_status_t;
 
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
@@ -136,6 +180,7 @@ typedef struct {
     uint8_t focus_track;        /* 焦点轨（0..3） */
     uint8_t last_note;          /* 最近演奏音；0 = 还没弹过（note 0 不记忆） */
     uint8_t layer_held;         /* 层键位掩码（APP_LAYER_*，InputManager 写、UI 读） */
+    uint8_t store_status;       /* 最近一次存储命令的结果（app_store_status_t） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -148,9 +193,14 @@ typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
     /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致） */
     APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
+    /* FILE 组（P4-B Task 10 只扩 id：页面注册与页签在 Task 11/12；未注册期间
+     * `UI projects` 回 not_registered，属预期） */
+    APP_PAGE_PROJECTS, APP_PAGE_PRESETS,
 } app_page_t;
-_Static_assert(APP_PAGE_SAMPLE + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_PRESETS + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
+_Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
+               "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");
 
 /* 「有音」判定，与上游 seq.c 的 sp_on 同口径：n>0 且 time==NOTE（ST_NOTE=0）；
  * n>0 但 time 为 TIE/REST 的步算「空」。状态层的步切换与 STEP 网格渲染共用本

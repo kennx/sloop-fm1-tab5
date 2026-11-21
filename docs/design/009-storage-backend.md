@@ -122,6 +122,18 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - **唯一写者 = input 任务**：所有存/读/擦经状态层命令 `CMD_PROJECT_* / CMD_PRESET_* /
   CMD_BANK_*`，UI 只发命令。保持「UI 不直接写引擎/存储」的既有不变量，阶段 5 可把执行端
   换成 FM-1 会话。
+  **落地（Task 10）**：`CMD_PROJECT_SAVE/LOAD/ERASE{a=slot}`、`CMD_PRESET_STORE/LOAD/
+  ERASE{a=slot, b=track（仅 LOAD）}`、`CMD_BANK_PUT/ERASE{a=slot}`。槽号/轨号越界在状态层
+  直接拒绝（**不调存储 API、不改 `store_status`**——命令无效不等于存储失败）；返回码映射
+  `app_state_t.store_status`（0 idle/1 ok/2 empty/3 playing/4 error/5 drum；`ESP_ERR_INVALID_ARG`
+  只有目标为鼓轨时映射 drum：选中鼓轨的 preset SAVE、LOAD 的 `b==3`、选中鼓轨的 bank PUT
+  （该路径连 `bank_current` 都不调），其余为 error）。**成功即整份刷新投影**（一次窗口快照 +
+  一次参数回读，与 `state_sync_from_engine` 同口径）——工程/预置载入后 UI 立刻看到新的
+  选中轨/参数/图案；失败不改投影。存储调用在状态锁内（单写者串行化），UI 读副本最多等
+  一次擦写（≤150ms；§4 的 xrun 判据不变）。`store_status` 的 3 = `ESP_ERR_INVALID_STATE`
+  **同时**涵盖「播放中」与「存储未就绪」（§9 的 `NO STORAGE`）——需要区分时调用方必须另查
+  `sloop_store_ready()`；drum 在预置命令里由存储层先判就绪（未就绪回 3），在 bank PUT 里由
+  状态层先判（未就绪也回 5）。
 - 锁序与上游语义：保存 = 引擎锁内 `proj_capture` → 释放 → `st_save`（擦/写 flash）；
   加载 = 无锁 `st_load + proj_import` → 引擎锁内 `proj_apply(all=1)` + `song.sel`。另设
   `s_store_lock` 串行化存储动作（手动命令、自动存档、console 共用），避免并发擦写。

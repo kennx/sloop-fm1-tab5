@@ -149,3 +149,18 @@ void state_set_layer(uint8_t mask)
     s_state.layer_held = mask;
     state_unlock();
 }
+
+void state_refresh_locked(void)
+{
+    /* 调用方持 state_lock：窗口在此期间不会被 CMD_SET_WINDOW 改，故不需要 sync 的
+     * 窗口复核循环。取快照的锁序与编辑命令一致（state → engine）；引擎锁只包住
+     * 快照读取，存储层从不持有引擎锁做 flash 擦写（ADR-009 §3）。 */
+    sloop_core_snapshot_t snap;
+    int16_t param_p[SLOOP_CORE_P_COUNT];
+    int16_t param_g[SLOOP_CORE_G_COUNT];
+    sloop_core_read_window(s_state.window.window_start, &snap);
+    sloop_core_read_params(snap.selected_track, param_p, param_g);
+    s_state.core = snap;
+    memcpy(s_state.p, param_p, sizeof(param_p));
+    memcpy(s_state.g, param_g, sizeof(param_g));
+}

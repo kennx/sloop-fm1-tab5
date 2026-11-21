@@ -107,8 +107,10 @@ static const ui_page_t k_entries[PARAM_PAGE_COUNT] = { PARAM_PAGES(X_ENTRY) };
 
 _Static_assert(sizeof(k_pages) / sizeof(k_pages[0]) == PARAM_PAGE_COUNT, "布局表页数不符");
 _Static_assert(sizeof(k_entries) / sizeof(k_entries[0]) == PARAM_PAGE_COUNT, "注册表页数不符");
-_Static_assert(PARAM_PAGE_COUNT == APP_STATE_PAGES - 4u,
-               "PARAM_PAGE_COUNT 与 app_page_t 的参数页数量不同步");
+/* 参数页是 app_page_t 里的**连续段**（GLOBAL..SAMPLE）；其后可追加 FILE 等页
+ * （P4-B Task 10 起 APP_STATE_PAGES = 11，尾两页不属于本表）。 */
+_Static_assert(PARAM_PAGE_COUNT == APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1u,
+               "PARAM_PAGE_COUNT 与 app_page_t 的参数页 id 段不同步");
 
 const param_page_t *page_layout_get(uint8_t index)
 {
