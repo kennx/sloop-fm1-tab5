@@ -1,0 +1,231 @@
+
+sloop>  # [inject] 场景 params 开始
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  UI MEM
+UI MEM pool_used=49324 pool_free=9268 pool_total=58592 registered=7 built=7 failed=0 sum_est=50176 reserve=8416
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6128
+UI MEM page id=2 title=STEP state=built est=24576 delta=21816
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3748
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
+UI MEM page id=5 title=FX state=built est=3584 delta=2860
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
+sloop>  UI global
+UI page=global (4)
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=0 min=0 max=100
+sloop>  # [inject] GLOBAL 基线 bpm=90 swing=0
+TAP 166 230
+TAP 166,230 page=4 -> PARAM slot=0 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=4 -> PARAM slot=0 id=0 delta=+1 value=91
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=91 min=40 max=240
+sloop>  STATE SNAP
+STATE SNAP page=4 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=91 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=91 swing=0
+sloop>  TAP 1136 94
+TAP 1136,94 page=4 -> PARAM slot=0 id=0 delta=-1 value=90
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=104
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=63
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=145
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=65
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=150
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=63
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=2 min=0 max=100
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=137
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=64
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=134
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=64
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=0 min=0 max=100
+sloop>  # [inject] SCR 截屏 -> inject-params-20261121-132908-params-global.png
+SCR
+I (379408) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MEM
+UI MEM pool_used=49324 pool_free=9268 pool_total=58592 registered=7 built=7 failed=0 sum_est=50176 reserve=8416
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6128
+UI MEM page id=2 title=STEP state=built est=24576 delta=21816
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3748
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
+UI MEM page id=5 title=FX state=built est=3584 delta=2860
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
+sloop>  UI fx
+UI page=fx (5)
+sloop>  PARAM 0
+PARAM track=0 id=0 value=104 min=0 max=127
+sloop>  PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>  # [inject] FX 基线 level=104 atk=10
+TAP 482 528
+TAP 482,528 page=5 -> PARAM slot=5 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=5 -> PARAM slot=5 id=0 delta=+1 value=105
+sloop>  STATE SNAP
+STATE SNAP page=5 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=105 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  PARAM 0
+PARAM track=0 id=0 value=105 min=0 max=127
+sloop>  TAP 1136 94
+TAP 1136,94 page=5 -> PARAM slot=5 id=0 delta=-1 value=104
+sloop>  PARAM 0
+PARAM track=0 id=0 value=104 min=0 max=127
+sloop>  TAP 1114 528
+TAP 1114,528 page=5 -> PARAM slot=7 focus
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=209
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=65
+sloop>  PARAM 1
+PARAM track=0 id=1 value=11 min=0 max=127
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=155
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=63
+sloop>  PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>  # [inject] SCR 截屏 -> inject-params-20261121-132908-params-fx.png
+SCR
+I (398858) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI analog
+UI page=analog (6)
+sloop>  PARAM 63
+PARAM track=0 id=63 value=0 min=0 max=4
+sloop>  PARAM 67
+PARAM track=0 id=67 value=0 min=0 max=127
+sloop>  # [inject] ANALOG 基线 wave=0 cut=0
+TAP 166 230
+TAP 166,230 page=6 -> PARAM slot=0 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=6 -> PARAM slot=0 id=63 delta=+1 value=1
+sloop>  PARAM 63
+PARAM track=0 id=63 value=1 min=0 max=4
+sloop>  TAP 1136 94
+TAP 1136,94 page=6 -> PARAM slot=0 id=63 delta=-1 value=0
+sloop>  PARAM 63
+PARAM track=0 id=63 value=0 min=0 max=4
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=107
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=64
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=68
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=63
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=68
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=63
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=75
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=64
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=176
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=64
+sloop>  PARAM 67
+PARAM track=0 id=67 value=1 min=0 max=127
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=155
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=102
+sloop>  PARAM 67
+PARAM track=0 id=67 value=0 min=0 max=127
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=155
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=62
+sloop>  PARAM 67
+PARAM track=0 id=67 value=1 min=0 max=127
+sloop>  UI play
+UI page=play (0)
+sloop>  UI analog
+UI page=analog (6)
+sloop>  PARAM 67
+PARAM track=0 id=67 value=1 min=0 max=127
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=327
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=64
+sloop>  PARAM 67
+PARAM track=0 id=67 value=0 min=0 max=127
+sloop>  # [inject] SCR 截屏 -> inject-params-20261121-132908-params-analog.png
+SCR
+I (420248) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MEM
+UI MEM pool_used=49324 pool_free=9268 pool_total=58592 registered=7 built=7 failed=0 sum_est=50176 reserve=8416
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6128
+UI MEM page id=2 title=STEP state=built est=24576 delta=21816
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3748
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
+UI MEM page id=5 title=FX state=built est=3584 delta=2860
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
+sloop>  UI play
+UI page=play (0)
+sloop>  UI transport
+UI page=transport (3)
+sloop>  UI step
+UI page=step (2)
+sloop>  UI fx
+UI page=fx (5)
+sloop>  UI global
+UI page=global (4)
+sloop>  UI analog
+UI page=analog (6)
+sloop>  UI MEM
+UI MEM pool_used=49324 pool_free=9268 pool_total=58592 registered=7 built=7 failed=0 sum_est=50176 reserve=8416
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6128
+UI MEM page id=2 title=STEP state=built est=24576 delta=21816
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3748
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
+UI MEM page id=5 title=FX state=built est=3584 delta=2860
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
+sloop>  UI play
+UI page=play (0)
+sloop>  # [inject] 场景 params 结束 failures=0

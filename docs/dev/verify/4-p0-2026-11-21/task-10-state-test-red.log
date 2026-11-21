@@ -1,0 +1,30 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/src/cmd.c:283:13: warning: ‘cmd_set_global’ defined but not used [-Wunused-function]
+  283 | static void cmd_set_global(app_state_t *s, uint32_t id, uint16_t value)
+      |             ^~~~~~~~~~~~~~
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+PASS k=5 MUTE/SOLO 引擎写入口与 sync 真值
+PASS k=6 ERASE_NOTE 删除聚焦步音符（RMW/字段随移）
+PASS k=7 步窗抽象：默认/映射/投影/钳位
+PASS k=8 步窗 sync 与 SET_WINDOW 交错按新基重取
+PASS k=9 参数命令：单 SET 钳位/越界忽略
+PASS k=10 参数批量：一次引擎调用/截断/空载荷
+PASS k=11 参数投影：sync 采纳引擎真值/跟随选轨
+PASS k=12 选轨即刷参数投影（不等 sync）
+PASS k=13 state_get_copy 反映 cmd 与 sync
+  FAIL k=14 G_TUNE 一次 set_global: got 0 want 1
+  FAIL k=14 G_TUNE 原样下发 id: got 0 want 3
+  FAIL k=14 G_TUNE 补码原样下发: got 0 want -20
+  FAIL k=14 投影 g[3]: got 0 want -20
+  FAIL k=14 G_BPM 落引擎: got 0 want 137
+  FAIL k=14 core.bpm 同拍跟随: got 90 want 137
+  FAIL k=14 投影 g[0] 跟随: got 90 want 137
+  FAIL k=14 越界 id 不改投影: got 90 want 137
+FAIL k=14 全局参数 CMD_SET_GLOBAL 与投影
+PASS k=15 越界参数忽略
+
+14 passed, 1 failed
+STATE TEST FAILED

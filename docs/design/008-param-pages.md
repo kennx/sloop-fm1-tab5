@@ -1,10 +1,13 @@
 # ADR-008: 页面懒建与 LVGL 池预算（阶段 4 参数页的前置框架）
 
-> 状态：已接受（阶段 4，P4-0 Task 4；Task 9 补 §7 参数写/读接口与状态层投影）｜ 日期：2026-11-21
+> 状态：已接受（阶段 4，P4-0 Task 4；Task 9 补 §7 参数写/读接口与状态层投影；
+> **Task 10 定稿**：§8 参数页框架（knob/布局表/格式化/编辑路径/预算）与 §9 描述符契约）｜
+> 日期：2026-11-21
 > 关联：ADR-005「阶段 4 容量决策」；AGENTS §5.4.1（console 注入约定）、§5.5（门禁）；
-> 代码：`firmware/components/sloop_ui/src/ui.c`、`include/sloop_ui.h`、`src/theme.h`、
-> `src/page_*.c`、`firmware/main/console.c`；证据：`docs/dev/verify/4-p0-2026-11-21/task-4-*`
-> 与 `docs/dev/verification-log.md`（阶段 4 / P4-0 Task 4）。
+> 代码：`firmware/components/sloop_ui/src/{ui.c,knob.c,page_layout.c,page_params.c,page_*.c}`、
+> `include/sloop_ui.h`、`src/theme.h`、`firmware/main/console.c`；证据：
+> `docs/dev/verify/4-p0-2026-11-21/task-{4,9,10}-*` 与 `docs/dev/verification-log.md`
+> （阶段 4 / P4-0 Task 4、9、10）。
 
 ## 背景
 
@@ -48,7 +51,8 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 ```
 
 - 注册顺序 = 页签顺序；页签文本/数量由注册表派生（4 页时宽度仍是 176px，像素不变；
-  注册页更多时按可用宽度收窄，不溢出到 SLOOP 标题/层提示区）。**注册表只增不删**：
+  注册页更多时按可用宽度收窄，并给右侧 SLOOP 标题/层提示留 `UI_TAB_RIGHT_RESERVE`
+  =150px——7 页时 150px，见 §8.1）。**注册表只增不删**：
   外部组件可在 `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册
   幂等（`static done` 标志 + 按 id 去重），不会重置/清空已注册项——预注册页保持原位
   （页签顺序在 PLAY 之前）。输入层的 tab 轮转按 `sloop_ui_page_count()`（注册表计数），
@@ -62,7 +66,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 - 页对象（透明容器 + 页内控件）在**首次进入**时创建，之后只改 `LV_OBJ_FLAG_HIDDEN`，
   **不销毁**（切页零分配、焦点/滚动/状态行都保留）。
 - PLAY 在 `sloop_ui_start()` 内立即构建：开机首帧非空白（实测首帧与阶段 3 PLAY 基线
-  逐字节相同）。其余三页首次访问时构建。
+  逐字节相同）。其余页（TRACKS/STEP/TRANSPORT + 参数页）首次访问时构建。
 - 构建成功后立即按当前 AppState 刷新一次，首帧不等 30ms 定时器（切页/截屏时序确定）。
 - 30ms 定时器只刷新**已建**页；未建页不参与脏检查。
 - 构建函数必须复位本页脏检查缓存（重建路径要求）：`page_*_build()` 开头复位
@@ -84,7 +88,10 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | TRACKS | 6,080 B | 7,168 B | +18% | 4 卡 × 4 子对象 + 4 电平条 |
 | STEP | 21,760 B | 24,576 B | +13% | 75 对象（64 格 + 标签）+ 12 个共享 `lv_style_t` 的实例引用 |
 | TRANSPORT | 3,744 B | 4,608 B | +23% | 6 按钮（含标签）+ 4 标签 |
-| **合计** | **34,076 B** | **39,424 B** | — | 四页全建后池 free=19,648 B / total=59,772 B |
+| GLOBAL | 2,848 B | 3,584 B | +26% | 8 旋钮（单对象自绘）+ 页眉 + 2 个 ± 按钮（Task 10） |
+| FX | 2,860 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
+| ANALOG | 2,864 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,864） |
+| **合计** | **40,892 B** | **50,176 B** | — | 七页全建后 free 9,284 B / total 58,592 B（Task 10 `UI MEM`，同次输出） |
 
 > 2026-11-21 P4-0 Task 5（步窗）后复测：STEP 首次构建 `池增量=21832B 预算=24576B`
 > （列号改为单行绝对步号后 TLSF 分配序变化，对象数不变；delta ≤ est 仍成立），
@@ -95,7 +102,8 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 预算规则：
 
 - `est_bytes` = 实测 delta × 1.13–1.23、512 对齐；预算是**构建前门槛**，不是精确账本。
-- **Σ est_bytes < 池可用总量**（现 39,424 < 59,772，留 ≈20KB 实际余量）。这是「任意一页
+- **Σ est_bytes < 池可用总量**（Task 10 后七页口径 50,176 < ≈59,000，留 ≈9KB 实际
+  余量）。这是「任意一页
   都能在其它页已建之后仍被允许构建」的**充分条件**（其它页实际占用 ≤ Σ其它 est ≤ Σ其它
   预算），不是必要条件：实际占用小于 est 的页即使 Σ est ≥ 池也可能构建成功——预算门槛
   只是保守拒绝，不承诺「Σ est ≥ 池即必然失败」。
@@ -139,11 +147,12 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 - 池配置保持 `CONFIG_LV_USE_STDLIB_MALLOC=0` + `CONFIG_LV_MEM_SIZE=65536`（TLSF 可用
   63,120B）。不改配置：96KB 实测链接期 `.bss` 溢出。
-- 不变量（`UI MEM` 可复核）：
-  1. `pool_total - sum_est > 0`（当前 20,348 B）；
-  2. 每页 `delta <= est`（当前全部成立，余量 13–23%）；
-  3. 四页全建后 `pool_free > 0`（当前 19,648 B）；
-  4. 参数页落地后重新核对以上三条并把新行写入本表。
+- 不变量（`UI MEM` 可复核；Task 10 后为**七页**口径）：
+  1. `pool_total - sum_est > 0`（`UI MEM reserve`；七页口径 ≈ 8,300 B，`pool_total`
+     随 TLSF 块负载浮动，取同一次输出的值）；
+  2. 每页 `delta <= est`（七页全部成立，余量 13–26%）；
+  3. 七页全建后 `pool_free > 0`（Task 10 实测 9,284 B）；
+  4. 再加页/改控件前重新核对以上三条并把新行写入本表。
 - 阶段 4 参数页的硬性规则：
   1. 每页一个注册表条目，`est_bytes` 必须来自本机 `UI MEM` 实测（同方法），不得拍脑袋；
   2. `build()` 内每个 `lv_*_create` 用 `UI_BUILD_CHECK()` 检查，并复位本页脏检查缓存；
@@ -158,9 +167,14 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 按注册顺序的每页 `state`/`est`/`delta`。console `UI MEM` 输出：
 
 ```
-UI MEM pool_used=40124 pool_free=19648 pool_total=59772 registered=4 built=4 failed=0 sum_est=39424 reserve=20348
-UI MEM page id=2 title=STEP state=built est=24576 delta=21760
+UI MEM pool_used=21612 pool_free=40360 pool_total=61972 registered=7 built=4 failed=0 sum_est=50176 reserve=11796
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2848
+UI MEM page id=5 title=FX state=built est=3584 delta=2860
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2864
 ```
+
+（Task 10 之后注册表 7 页：四基础页 + GLOBAL/FX/ANALOG；未访问的页 `state=unbuilt`
+且 `delta=0`。）
 
 ### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
 
@@ -173,17 +187,115 @@ UI MEM page id=2 title=STEP state=built est=24576 delta=21760
 | 引擎 | `sloop_core_read_params(track, p, g)` | 一次锁拷出 `trk[track].p[P_COUNT]` + `song.g[G_COUNT]`（原始真值）；track 越界 p 全零；冻结态两者全零（与 `read_step` 同口径） |
 | 状态 | `CMD_SET_PARAM{a=track,b=id,v}` | 以 N=1 走批量入口；`v` 为 16 位补码（双极参数用 `(uint16_t)(int16_t)x`）；写后立即回读投影 |
 | 状态 | `CMD_SET_PARAM_BATCH{a=track,p,n}` | `p` = `sloop_param_pair_t{uint8_t id; int16_t v;}`（sizeof==4，静态断言）数组，**同步 apply**：数组只需在 `state_apply` 返回前有效；状态层解包到栈数组（上限 `APP_STATE_PARAM_BATCH_MAX`=128，超出截断并 `ESP_LOGW`）后**一次**引擎调用 |
+| 状态 | `CMD_SET_GLOBAL{a=id,v}`（Task 10） | 全局参数（`song.g[]`）：经 `sloop_core_set_global` 按 `GP[id]` 钳位后写引擎，立即回读 `g[]`；`id == G_BPM` 同拍更新 `core.bpm`。只用于值参数（动作类全局不得经此下发） |
 | 状态 | `app_state_t.p[]/g[]` | p = **选中轨**参数投影、g = 全局；`state_sync_from_engine` 与窗口快照同拍用一次 `read_params` 整份覆盖；非选中轨写入不改 p |
 
 - 钳位只在引擎一处（状态层不重复实现 desc 范围）；`PARAM` 的 id 合法性预判走
   `sloop_core_desc`（只判存在性，不钳位）。
-- 投影跟着**选中轨**：参数页显示 p[] 时，选轨变化后下一拍 sync 换成新轨的值
-  （参数页的 update 只需按 `core.selected_track` 刷新标题）。
+- 投影跟着**选中轨**：`CMD_SET_TRACK`/`CMD_SELECT_TRACK` 在引擎选轨落地后**立即**
+  回读（`cmd_select_track`，同拍，不等下一拍 sync）——参数页的标题（`core.selected_track`）
+  与值（`p[]`）不会出现「标题=新轨、参数=旧轨」的帧。
 - 设备诊断入口：console `PARAM <id> <value>` / `PARAM BATCH <id> <value> …`（选中轨；
   回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）；
   `PARAM RAW <id> <value>` 跳过 desc 预判，用于复验引擎对无描述符 id 的忽略路径。
-- 选轨即刷投影：`CMD_SET_TRACK`/`CMD_SELECT_TRACK` 在引擎选轨落地后**立即**回读
-  参数（不等下一拍 sync），避免参数页出现「标题=新轨、参数=旧轨」的帧。
+
+### 8. 参数页框架（P4-A Task 10 落地）
+
+#### 8.1 页与布局表
+
+- **布局表**（`sloop_ui/src/page_layout.c`）：GLOBAL / FX / ANALOG 三页，每页 8 槽
+  `{scope, engine, id}`（`0xFF` = 空槽）。页元数据（id/title/est）与 `ui_page_t`
+  注册条目由**同一张 X-macro 表**生成：页签顺序 = 声明顺序，接在四基础页之后；
+  `PARAM_PAGE_COUNT == APP_STATE_PAGES - 4` 与 `app_page_t` 有静态断言。
+- 槽位语义：GLOBAL → `GP[]`（`song.g[]`）；TRACK → `TP[]`（`trk[].p[]`）；
+  ENGINE → `ENGINES[engine]->edit[0..7]`（= P_E0..P_E7）。
+- 页内容（策展取舍，映射上游 `PAGES[]` 语义而非逐像素复刻）：
+  - GLOBAL = BPM / SWING / CLICK / TUNE + DLY(TIME/FDBK/COLR/MIX)（上游 GLO>GLOBAL
+    与 GLO>DLY 合成一页）；
+  - FX = DST / CHO / DLY / REV + FILT(P_TFLT) + LVL / PAN / ATK（FX 四件 + 轨道滤波
+    + 输出条；覆盖 F_PCT/F_FILT/F_DB/F_TIME/F_BIPCT 的显示路径）；
+  - ANALOG = 引擎 edit[0..7]：WAVE(F_ENUM)/DTN(F_INT unit=ct)/MIX/NOIS/CUT(F_CUTOFF)/
+    RES/DRV/KTR（覆盖 F_ENUM/F_INT/F_PCT/F_CUTOFF）。
+  - FM6/SAMPLE 引擎页与 MASTER 家族页属 Task 11（同表追加）。
+- 页签：7 页时 `tab_w = min(176, (1280 - 2·16 - 150 - 6·8)/7) = 150`；右侧 150px 留给
+  SLOOP 标题/层提示（`theme.h` 的 `UI_TAB_RIGHT_RESERVE`）。注入脚本的页签几何/探针
+  已同步（`scripts/inject/inject.py`，探针取页签左缘内 8px 的填充色）。
+
+#### 8.2 旋钮控件（`knob.c`）
+
+- 一个旋钮 = **一个 LVGL 对象**：普通 `lv_obj` + `LV_EVENT_DRAW_MAIN`，
+  `lv_draw_arc` 两次（底弧 UI_PANEL_HI / 指示弧 UI_TEXT_DIM|UI_ACCENT）、
+  `lv_draw_label` 两次（名称 16pt / 数值 20pt，`text_local=1` 让 LVGL 复制文本——
+  绘制任务可能晚于回调执行）。
+- **预算决策**：不用 `lv_arc`+`lv_label`。实测 662B/旋钮/页（lv_arc 的 bg/indicator
+  绘图描述符 + 3 个样式部件），8 槽页 6.6KB；七页全建的中间态会把 STEP 的
+  24,576B 预算拒绝（free 23,304B）。单对象自绘约 300B/旋钮，页 delta 2.85KB。
+- 触摸：按下/拖动按**角度**设值（扫角 135°..405° = 270°，底部 90° 死区就近取端；
+  内圈 50px 不响应）；按下同时设焦点。焦点态 = 指示弧/名称用 UI_ACCENT。
+- 细调：页眉右侧 `−`/`+` 按钮（80×40，作用于**焦点槽**，±1 原始单位）；键盘 ↑/↓
+  同一动作。焦点槽是 UI 局部态（`s_focus[页]`，临界区保护），按页保持。
+- TAP 注入（`page_params_tap`）：旋钮命中只设焦点 → `-> PARAM slot=n focus`；
+  `−`/`+` 命中走与控件回调相同的动作函数 → `-> PARAM slot=n id=.. delta=±1 value=..`
+  （value = 写后回读的钳位结果）；不可编辑页 → `-> PARAM slot=n locked`。
+- 键盘路由（`input.c` + `sloop_ui_param_*`）：参数页上 ←/→ 移动焦点（跳过空槽、
+  环绕）、↑/↓ 调值 ±1；只写状态层，不取 LVGL 锁（控件由 30ms 定时器刷新）。
+
+#### 8.3 值路径与格式化
+
+- 值路径（唯一）：槽位值 → 状态层命令 → 引擎钳位 → 立即回读投影并刷新本页。
+  GLOBAL → `CMD_SET_GLOBAL`；TRACK/ENGINE → `CMD_SET_PARAM`（a=选中轨，
+  b=TP id 或 `P_E0 + i`）。
+- 格式化（`knob_format_value`，显示层）：
+
+| fmt | 显示 | 例 |
+|---|---|---|
+| F_ENUM | `enums[v-min]` + desc.unit | WAVE `SAW`；CLICK `OFF` |
+| F_PCT | `(v*100 + max/2)/max` + `%` | SUS 90 → `71%` |
+| F_BIPCT | `±v*100/64` + `%` | PAN 0 → `+0%` |
+| F_DB | 0 = `OFF`；`-56 + 0.5v dB`（上游 LEVEL_DB_X10） | LVL 104 → `-4.0dB` |
+| F_TIME | `10·1.0752^v` (0.1ms) → ms/s | ATK 10 → `2.1ms`（ATK 0 = `1.0ms`） |
+| F_CUTOFF | `30·1.0507^v` Hz → Hz/kHz | CUT 90 → `2.6kHz` |
+| F_LFOHZ | `5·1.0483^v` (0.01Hz) → Hz | RATE 60 → `...Hz` |
+| F_SEMI / F_BPM / F_NOTE / F_ONOFF / F_STEPS / F_SWING / F_FILT | 上游 param_format 同口径 | `+2st` / `90BPM` / `C` / `ON` / `16STEP` / `50` / `LP100%` |
+| F_INT（含 0 终止 names）与未知 fmt | 原始整数（+ desc.unit） | DTN 10 → `10ct` |
+
+- `fmt` 的上游编码由 `sloop_core.h` 的 `sloop_desc_fmt_t` 镜像，`selftest.c` 静态
+  断言与 `F_*` 逐项一致（换上游版本编译期暴露）。单位只由 fmt 决定（desc.unit 只
+  用于 F_INT/F_ENUM），不额外加 fmt 不隐含的后缀。
+
+#### 8.4 引擎页的适用性
+
+- ENGINE 槽位的描述符取**页声明的引擎**（布局表），值取 `trk[选中轨].p[P_E0+i]`
+  （选中轨的引擎槽就是这 8 个 id）。选中轨的引擎与页声明不符、或选中鼓轨（P_E0 是
+  kit 不是引擎槽）时：页眉红字 `… USES ENG k — N/A`（鼓轨 `(DRUM) — N/A`），旋钮显示
+  `--`，TAP ± 回 `PARAM slot=n locked`，键盘调值忽略——避免拿 ANALOG 的 label 写另一
+  个引擎的槽位。
+- 当前固件所有轨默认 ANALOG（engine=0），该路径需 `ENG TRACK <k> <engine> <preset>`
+  触发；一次性探针（`ENG TRACK 1 1 0` → 选轨 1 → ANALOG 页）证据见
+  `docs/dev/verify/4-p0-2026-11-21/task-10-*`。
+
+#### 8.5 预算与验证
+
+- 七页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B；七页全建 free 9,284B）。
+- 验证入口：`scripts/inject/params.sh`（TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
+  `STATE SNAP` 断言、切页保值、池水位、三页截屏 + 像素抽检）；`UI FORCEFAIL global`
+  复验参数页的失败可见性与重建（重建后引擎真值不变）。
+
+### 9. 描述符契约的定稿决定（Task 8/10）
+
+- **不做新描述符表**：`sloop_core_desc` 直接投影上游 `param_desc_t`（`label/unit/fmt/
+  min/max/def/names`），指针指向上游静态数据，调用方不得释放/改写。
+- **鼓轨哨兵**：`SLOOP_DESC_ENGINE` + `engine == SLOOP_CORE_NENGINES (12)` + `id == 0`
+  返回 `DRUM_KIT_DESC`（上游 `ed_eng` 对鼓轨报「无引擎」的同一取值）；哨兵的
+  `id != 0` 返回 false（鼓轨没有 P_E1..P_E7）。
+- **TRACK scope 拒绝 id ≥ P_E0**（63）：引擎槽没有轨道上下文，必须走 ENGINE scope。
+- **动态描述符钩子不投影**：上游 `params.c` 的 `track_desc()` 会在 `ins_desc()`
+  （INSERT A/B/C 随 P_ITYPE）、`ESYNC_DESC[]`（ENV SYNC 的 ATK/DEC/REL）与
+  `engine->desc()`（引擎 mode 依赖 label/names）处替换静态表；本投影只给静态
+  `TP[]`/`GP[]`/`edit[]`。前提是这些动态描述符的 **min/max 与静态表相同**（上游
+  现状只换 label/names/unit）。若上游改变范围，`sloop_core_set_params` 的钳位会与
+  参数页显示范围不一致——届时须把动态钩子纳入（需要 track 上下文），并重跑设备
+  参数断言。
 
 ## 迁移与回归（不改渲染）
 
@@ -208,3 +320,8 @@ UI MEM page id=2 title=STEP state=built est=24576 delta=21760
   重跑：`UI MEM` 的 built 数会随 soak 的切页动作增长到全页。
 - `UI MEM`/`UI FORCEFAIL` 是 console 诊断面：前者只读，后者一次性注入、默认关闭，
   不影响产品行为。
+- Task 10 后：参数页每页 ~2.85KB（est 3,584B），七页全建 free 9,284B；页签 7 页时
+  收窄到 150px（右侧留 150px 给 SLOOP/层提示）。参数页的控件选择见 §8.2 的预算决策
+  （单对象自绘旋钮），**不要**退回 `lv_arc`+`lv_label`（会撑爆池）。新增参数页的
+  步骤：布局表加一行 X 宏（id/title/est + 8 槽）→ `PARAM_PAGE_COUNT` 与
+  `app_page_t`/`APP_STATE_PAGES` 同步 → console 页名表 → 实测 est。
