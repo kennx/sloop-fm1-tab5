@@ -1,0 +1,47 @@
+# [probe] UI FORCEFAIL 对「已建非当前页」的行为（T7 复核）
+UI play
+UI page=play (0)
+sloop>
+UI tracks
+I (19853) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6080B 预算=7168B 池剩余=44548B
+UI page=tracks (1)
+sloop>
+UI play
+UI page=play (0)
+sloop>
+UI MEM
+UI MEM pool_used=17876 pool_free=44648 pool_total=62524 registered=4 built=2 failed=0 sum_est=39424 reserve=23100
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6080
+UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>
+UI FORCEFAIL tracks
+UI FORCEFAIL page=tracks (1) on state=unbuilt
+sloop>
+UI tracks
+E (23443) sloop_ui: 页面构建失败 page=TRACKS(1) 原因=forced 池剩余=50372B 预算=7168B（UI ERR page_build 1）
+UI ERR page_build 1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+UI MEM
+UI MEM pool_used=12772 pool_free=50324 pool_total=63096 registered=4 built=1 failed=1 sum_est=39424 reserve=23672
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=failed est=7168 delta=0
+UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>
+UI tracks
+I (25253) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6100B 预算=7168B 池剩余=44224B
+UI page=tracks (1)
+sloop>
+UI MEM
+UI MEM pool_used=18160 pool_free=44324 pool_total=62484 registered=4 built=2 failed=0 sum_est=39424 reserve=23060
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6100
+UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>
+UI play
+UI page=play (0)
+sloop>

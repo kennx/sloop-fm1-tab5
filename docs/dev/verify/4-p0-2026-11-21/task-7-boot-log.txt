@@ -1,0 +1,39 @@
+I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 sizeI (2973) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2973) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2973) ST7123: Touch panel create success, version: 1.0.2
+I (2973) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3123) M5Stack Tab5: Setting LCD backlight: 100%
+I (3123) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3123) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  I (4123) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4123) sloop_tab5: keyboard: OK (0x6D)
+W (4123) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4133) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4143) I2S_IF: Paired data: 0x4ff3fb44, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4143) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4143) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4153) ES8388: Start on mode:2
+I (4153) Adev_Codec: Open codec device OK
+I (4153) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4173) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4183) sloop_audio_stream: stream started, half=256 frames
+I (4183) sloop_tab5: UI 启动前内部堆剩余 118407 字节
+I (4193) sloop_ui: 页面构建 page=PLAY(0) 池增量=2492B 预算=3072B 池剩余=50436B
+I (4193) sloop_ui: UI 就绪: 4 页注册/1 已建 @1280x720, LVGL 池已用 12724/63120 字节, 内部堆剩余 118407 字节
+I (4233) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4383) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+UI
+UI page=play (0)
+sloop>  ENG MEM
+ENG MEM internal_free=113763 internal_min=97820 psram_free=30128928 psram_min=30128928
+sloop>  

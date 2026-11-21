@@ -56,9 +56,9 @@ len 0→1、99→16、focus 夹到窗口内）。
 ## 4. 设备注入与视觉证据（`task-5-inject-step_edit.log` 为串口原始回显）
 
 > 文件沿革：主日志 `task-5-inject-step_edit.log` 的原始内容（本任务首跑，含 STEP 首次构建
-> `池增量=21832B`）在修复轮被第二跑覆盖，首跑已按原字节归档为
-> `task-5-inject-step_edit-run1.log`（8e7dd62f…，与 `f313d2c` 清单一致）；主日志现为修复轮
-> 重跑（见 verification-log 的两行登记）。
+> `池增量=21832B`）被修复轮重跑覆盖（该重跑即 09:37:30 那次，早于 run2 09:39:00），首跑已按
+> 原字节归档为 `task-5-inject-step_edit-run1.log`（8e7dd62f…，与 `f313d2c` 清单一致）；主日志
+> 现为修复轮重跑（见 verification-log 的两行登记）。
 
 `scripts/inject/step_edit.sh` 退出码 0：**71 项 PASS / 0 FAIL**。三条注入脚本均通过
 （`task-5-inject-{transport,tracks}-summary.log` 退出码 0、0 FAIL）。

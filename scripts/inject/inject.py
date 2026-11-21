@@ -702,13 +702,14 @@ def run_tracks(s: Session) -> None:
 # - 用例③ 用**批内第三条 `UI`** 在设备侧自证前提：tab 与 PANIC 之间若被一拍插入，
 #   页面在 PANIC 之前就已前进，批内 UI 立即读出新页——此时前提不成立，重新对齐
 #   （工具侧重试，日志注记），不算固件失败；只有「批内 UI 仍是原页（PANIC 执行时
-#   请求尚未被消费）+ 6 拍后无回跳」才判定 PANIC 撤销成功。
+#   请求尚未被消费）+ 观察窗（NAV_SETTLE_S=1.0s，约 33 个 30ms 拍）后无回跳」才判定
+#   PANIC 撤销成功。
 # - 用例④ 同理：批内第四条 `UI` 仍是起点页 ⇒ press1..press3 之间没有拍执行过
 #   （任何一拍都会立即把页面推进一页），3 次请求因此压在同一个邮箱里。
 # - 前提不成立的重对齐最多 NAV_ATTEMPTS 次；耗尽即 FAIL（脚本不通过，不放宽断言）。
 
 UI_TICK_S = 0.030
-NAV_SETTLE_S = 1.0  # ≥6 个 30ms 拍；实测拍迟滞可达 ~270ms，观察窗留到 1s
+NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察窗留到 1s
                      # （>1s 停摆时用例③的「仍 TRACKS」可能被误判为通过，故取 1s）
 NAV_ATTEMPTS = 5
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
@@ -821,7 +822,7 @@ def run_nav(s: Session) -> None:
     ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
        焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
-       1s（≥6 拍）仍停在原页（撤销待切页，无回跳）；
+       1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
        一页」），再 1s 无第二次前进。
     """

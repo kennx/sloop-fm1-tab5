@@ -1,0 +1,46 @@
+# Task 7 复核轮受测固件 pin（固件源码未改；帮助文本/注释在上一轮已烧录）
+
+日期：2026-11-21（Asia/Shanghai）｜设备：Tab5 @ /dev/ttyACM0
+来源：直读设备 app 分区（0x10000）的 esp_app_desc_t，不依赖启动日志窗口期。
+
+采集命令（esptool 只读）：
+  esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 read_flash 0x10000 0x1000 app_head.bin
+
+esptool 原始输出：
+  esptool.py v4.13.0
+  Serial port /dev/ttyACM0
+  Connecting...
+  Chip is ESP32-P4 (revision v1.3)
+  Features: High-Performance MCU
+  Crystal is 40MHz
+  USB mode: USB-Serial/JTAG
+  MAC: e8:f6:0a:e2:fd:41
+  Uploading stub...
+  Running stub...
+  Stub running...
+  Changing baud rate to 460800
+  Changed.
+  Configuring flash size...
+  4096 (100 %)
+  4096 (100 %)
+  Read 4096 bytes at 0x00010000 in 0.0 seconds (1659.7 kbit/s)...
+  Hard resetting via RTS pin...
+
+app descriptor（镜像内 0x10000 + 0x20 起的 esp_app_desc_t，0x100 字节）：
+  magic          = 0xabcd5432
+  secure_version = 0
+  version        = 33844d0
+  project_name   = sloop_fm1_tab5
+  time           = 11:25:30
+  date           = Nov 21 2026
+  idf_ver        = v5.5.5
+
+哈希：
+  sha256(前 4KB @0x10000)            = 07b631ca5fde6db845f0fae5a319f35bd500651db512c100029830333fbc59f4
+  sha256(app descriptor 0x100 bytes) = b42cf0d59818bccb8feebdc01c22ed1f6617aaa3b5a96b85a8e8f604bcef69b3
+
+说明：
+- `version=33844d0`（无 `-dirty` 后缀）＝ Task 7 主提交的固件源码；本复核轮只改文档与
+  `scripts/inject/inject.py` 注释，未改固件，故设备固件与源码一致。
+- 本文件可复现：重跑上述 read_flash 命令并对前 4KB 取 SHA256 即可核对；固件重烧后
+  该哈希会变（app descriptor 含编译时间）。
