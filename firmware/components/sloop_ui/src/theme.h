@@ -26,13 +26,18 @@
 #define UI_TEXT     0xF2F5F8 /* 主文本 */
 #define UI_TEXT_DIM 0x8A949E /* 次级文本 */
 #define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
+#define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
-/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72） */
+/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72）。注册页多于 4 时按
+ * 可用宽度收窄（UI_TAB_RIGHT_RESERVE 给右侧 SLOOP 标题/层提示留位）：7 页时
+ * 150px（7×150 + 6×8 = 1098，右端 1114 < 1280-150）；9 页时 114px
+ * （9×114 + 8×8 = 1090，右端 1106）。 */
 #define UI_TAB_X0  16
 #define UI_TAB_W   176
 #define UI_TAB_H   52
 #define UI_TAB_GAP 8
 #define UI_TAB_Y   10
+#define UI_TAB_RIGHT_RESERVE 150
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)
@@ -41,19 +46,25 @@ static inline uint32_t ui_track_color(uint8_t k)
     return colors[k < APP_STATE_TRACKS ? k : 0];
 }
 
-/* 各页由 ui.c 创建一次；update 在 30ms 定时器（LVGL 任务持锁）里做脏检查刷新。 */
-void page_play_create(lv_obj_t *parent);
+/* 页面构建函数（懒建，ADR-008）：在 parent 内建本页控件，成功返回 parent；
+ * 任一控件分配失败（LVGL 池耗尽）返回 NULL——由 ui.c 显示错误状态条并记 ERROR，
+ * 绝不留静默空白页。每页用 UI_BUILD_CHECK() 逐个检查分配结果。
+ * 同一页可能因失败后重试而再次调用：build 必须复位本页脏检查缓存。 */
+lv_obj_t *page_play_build(lv_obj_t *parent);
 void page_play_update(const app_state_t *st);
-void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock */
+void page_play_flash(uint8_t note); /* 调用方已持 bsp_display_lock；PLAY 未建时不调用 */
 
-void page_tracks_create(lv_obj_t *parent);
+lv_obj_t *page_tracks_build(lv_obj_t *parent);
 void page_tracks_update(const app_state_t *st);
 
-void page_step_create(lv_obj_t *parent);
+lv_obj_t *page_step_build(lv_obj_t *parent);
 void page_step_update(const app_state_t *st);
 
-void page_transport_create(lv_obj_t *parent);
+lv_obj_t *page_transport_build(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
+
+/* 构建期分配检查：NULL 即中止本页构建（半成品容器由 ui.c 删除回收） */
+#define UI_BUILD_CHECK(obj) do { if ((obj) == NULL) return NULL; } while (0)
 
 /* hit-test（console `TAP` 注入）：坐标为页面区相对坐标（调用方已扣 UI_TAB_BAR_H）。
  * 命中：调用与控件事件回调**相同**的动作函数并填 out，返回 true；未命中返回 false。
@@ -63,7 +74,16 @@ bool page_tracks_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 bool page_transport_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
-/* InputManager 任务（input.c）：建互斥并启动 5ms 轮询任务；由 sloop_ui_start()
- * 在 LVGL 锁外调用（键盘驱动须已初始化）。 */
+/* InputManager 任务（input.c）：建互斥并启动轮询任务（周期取 tick 地板，
+ * 100Hz 下 10ms）；由 sloop_ui_start() 在 LVGL 锁外调用（键盘驱动须已初始化）。 */
 esp_err_t input_start(void);
+
+/* 输入静默（诊断期，sloop_ui_quiesce 调用）：
+ *  - begin：置丢弃标志，并等 input 任务回到「批次之间」确认（最多 timeout_ms；
+ *    超时返回 false——在途批次可能仍未收尾）。无 input 任务时立即返回 true。
+ *  - end：清标志与计数，唤醒 input 任务并返回本轮丢弃的事件数（诊断日志用）。
+ *  - dropped：KEY STATS 回读（诊断期丢弃计数）。 */
+bool input_quiesce_begin(uint32_t timeout_ms);
+uint32_t input_quiesce_end(void);
+uint32_t input_quiesce_dropped(void);
 

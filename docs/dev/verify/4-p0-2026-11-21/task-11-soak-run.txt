@@ -1,0 +1,140 @@
+== soak 120s @ /dev/ttyACM0（采样 60s，循环 12s）
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-20261121-144509.log
+  [PASS] soak 前置：音频流已开
+  [PASS] soak 前置：步窗归一 0/16
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] TAP PLAY（恢复播放）
+  [PASS] soak STATE playing = 1
+   t=   0s internal_free= 70299B min= 70216B xrun=0 audio_stack_free=3180 render_blocks=1164 duty_mean=9.49% duty_max=46.28% key_mean=0us key_max=0us page=3 bpm=90
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t=  60s internal_free= 70375B min= 70216B xrun=0 audio_stack_free=3132 render_blocks=11500 duty_mean=11.01% duty_max=61.20% key_mean=229us key_max=319us page=3 bpm=90
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 120s internal_free= 70363B min= 70216B xrun=0 audio_stack_free=3132 render_blocks=21836 duty_mean=11.11% duty_max=62.13% key_mean=228us key_max=319us page=3 bpm=90
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak 收尾 STOP
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+   摘要: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-summary-20261121-144509.txt
+[PASS] soak: 3 次采样（120s），内部堆 70299 -> 70363B，xrun=0，duty_mean 最大 11.11%（上限 18.88%），无 panic/WDT

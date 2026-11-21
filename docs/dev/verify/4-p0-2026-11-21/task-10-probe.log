@@ -1,0 +1,55 @@
+
+sloop>  
+sloop>  UI global
+UI page=global (4)
+sloop>  TAP 166 230
+TAP 166,230 page=4 -> PARAM slot=0 focus
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  PARAM GLOBAL 1 0
+PARAM GLOBAL id=1 value=0 applied=0 min=0 max=100
+sloop>  PARAM GLOBAL 0 90
+PARAM GLOBAL id=0 value=90 applied=90 min=40 max=240
+sloop>  UI fx
+UI page=fx (5)
+sloop>  PARAM 0
+PARAM track=0 id=0 value=104 min=0 max=127
+sloop>  PARAM 0 500
+PARAM track=0 id=0 value=500 applied=127 min=0 max=127
+sloop>  STATE SNAP
+STATE SNAP page=5 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  PARAM 0 104
+PARAM track=0 id=0 value=104 applied=104 min=0 max=127
+sloop>  UI global
+UI page=global (4)
+sloop>  TAP 166 230
+TAP 166,230 page=4 -> PARAM slot=0 focus
+sloop>  TAP 1224 94
+TAP 1224,94 page=4 -> PARAM slot=0 id=0 delta=+1 value=91
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=91 min=40 max=240
+sloop>  UI FORCEFAIL global
+E (500218) sloop_ui: 页面构建失败 page=GLOBAL(4) 原因=forced 池剩余=11984B 预算=3584B（UI ERR page_build 4）
+UI FORCEFAIL page=global (4) on state=failed
+sloop>  UI global
+I (500468) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2788B 预算=3584B 池剩余=9176B
+UI page=global (4)
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=91 min=40 max=240
+sloop>  PARAM GLOBAL 0 90
+PARAM GLOBAL id=0 value=90 applied=90 min=40 max=240
+sloop>  PARAM GLOBAL 1 0
+PARAM GLOBAL id=1 value=0 applied=0 min=0 max=100
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=90 min=40 max=240
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=0 min=0 max=100
+sloop>  UI play
+UI page=play (0)
+sloop>  

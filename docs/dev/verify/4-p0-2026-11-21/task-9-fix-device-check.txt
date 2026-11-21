@@ -1,0 +1,42 @@
+PASS 基线 param 行（LVL104 ATK10 SLEN16）
+PASS 基线 global 行（bpm90 swing0）
+PASS 切 TRACKS
+PASS TAP 选轨 0
+PASS 写轨 0 atk=11
+PASS TAP 选轨 1
+PASS 写轨 1 atk=22
+PASS TAP 选轨 2
+PASS 写轨 2 atk=33
+PASS TAP 选轨 3
+PASS 写轨 3 atk=44
+PASS TAP 选轨 0
+PASS 选轨 0 后立即投影 trk=0 atk=11
+PASS TAP 选轨 0
+PASS TAP 选轨 1
+PASS 选轨 1 后立即投影 trk=1 atk=22
+PASS TAP 选轨 0
+PASS TAP 选轨 2
+PASS 选轨 2 后立即投影 trk=2 atk=33
+PASS TAP 选轨 0
+PASS TAP 选轨 3
+PASS 选轨 3 后立即投影 trk=3 atk=44
+PASS TAP 选轨 0
+PASS RAW 越界 id 200 → n/a（引擎忽略）
+PASS RAW 越界 id 不改参数
+PASS TAP 选轨 3
+PASS RAW 鼓轨 P_E1 → applied 仍为旧值 0（未写）
+PASS RAW 鼓轨 P_E0 kit 钳位 45
+PASS TAP 选轨 0
+PASS PARAM 上限钳位 127
+PASS PARAM 越界 id 拒绝
+PASS PARAM BATCH 三对回显
+PASS BATCH 后投影 level=100 atk=20 slen=8
+PASS 还原轨 0 默认值
+PASS TAP 选轨 1
+PASS TAP 选轨 2
+PASS TAP 选轨 3
+PASS TAP 选轨 3
+PASS TAP 选轨 0
+PASS 还原后 STATE SNAP
+PASS 还原后选轨 0
+RESULT: PASS (failed=0)

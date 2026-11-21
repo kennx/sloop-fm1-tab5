@@ -1,0 +1,41 @@
+UI MEM
+UI MEM pool_used=12492 pool_free=50628 pool_total=63120 registered=4 built=1 failed=0 sum_est=39424 reserve=23696
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0
+UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>  
+sloop>  UI tracks
+I (11351) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6080B 预算=7168B 池剩余=44548B
+UI page=tracks (1)
+sloop>  
+sloop>  UI MEM
+UI MEM pool_used=17876 pool_free=44648 pool_total=62524 registered=4 built=2 failed=0 sum_est=39424 reserve=23100
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6080
+UI MEM page id=2 title=STEP state=unbuilt est=24576 delta=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>  
+sloop>  UI step
+I (12481) sloop_ui: 页面构建 page=STEP(2) 池增量=21760B 预算=24576B 池剩余=22888B
+UI page=step (2)
+sloop>  
+sloop>  UI MEM
+UI MEM pool_used=36792 pool_free=23260 pool_total=60052 registered=4 built=3 failed=0 sum_est=39424 reserve=20628
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6080
+UI MEM page id=2 title=STEP state=built est=24576 delta=21760
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0
+sloop>  
+sloop>  UI transport
+I (13561) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3744B 预算=4608B 池剩余=19516B
+UI page=transport (3)
+sloop>  
+sloop>  UI MEM
+UI MEM pool_used=40124 pool_free=19648 pool_total=59772 registered=4 built=4 failed=0 sum_est=39424 reserve=20348
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2492
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6080
+UI MEM page id=2 title=STEP state=built est=24576 delta=21760
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3744
+sloop>  
+sloop>  

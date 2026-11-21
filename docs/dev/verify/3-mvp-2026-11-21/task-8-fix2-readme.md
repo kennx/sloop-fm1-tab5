@@ -28,9 +28,10 @@
   带 `expected_checks=`；全量模式仍撞 DI-11（见 §5，既有缺陷）。
 - **I3**：`ENG PERF` 的 `duty_*` 窗口改为本次流会话（`sloop_hal_audio_start` 清零），
   本轮 soak 数据即该口径。
-- **M1/M4/M5**：三条注入脚本复跑全绿（TAP/UI 错误令牌不影响 miss 断言；默认 LEN=16 下
-  网格像素与旧证据一致——`task-8-fix2-inject-step-two-on.png` 与
-  `task-8-step-two-on.png` 逐字节相同）。
+- **M1/M4/M5**：三条注入脚本复跑全绿（TAP/UI 错误令牌不影响 miss 断言；网格像素与旧证据
+  一致——`task-8-fix2-inject-step-two-on.png`（c717fa8c）与 `task-8-step-two-on.png`
+  （fd14f09c）的网格/焦点像素相同，差异 4,187px 全在底部提示行（bbox 242,681–804,695），
+  是本轮 M4 的提示文案更新所致，不是注入回归）。
 
 ## 3. 30min soak（含占空比窗口）
 

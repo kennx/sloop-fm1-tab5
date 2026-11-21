@@ -1,0 +1,23 @@
+
+sloop>  
+sloop>  ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=2 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  UI analog
+UI page=analog (6)
+sloop>  TAP 1224 94
+TAP 1224,94 page=6 -> PARAM slot=3 locked (engine page N/A)
+sloop>  PARAM 67
+PARAM track=1 id=67 value=0 min=0 max=127
+sloop>  

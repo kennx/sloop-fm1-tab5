@@ -1,0 +1,22 @@
+  [fw] SCR
+  [fw] I (148367) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+== inject step_edit @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-084610.log
+  [PASS] UI step
+  [PASS] TAP track=0 step=2
+  [PASS] ENG STEP 0 2 n = 1
+  [PASS] ENG STEP 0 2 time（NOTE） = 0
+  [PASS] TAP track=1 step=5
+  [PASS] ENG STEP 1 5 n = 1
+  [PASS] ENG STEP 1 5 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track = 1
+  [PASS] STATE SNAP focus_step = 5
+  [PASS] TAP 表外 miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-084610-step-two-on.png  (1280x720 rgb565)
+  [PASS] 轨 0 步 2 亮格: (267,208) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [PASS] 轨 1 步 5 亮格: (486,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] 轨 0 步 3 空位: (340,208) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] 焦点框（轨 1 步 5 左描边）: (454,332) 实测 (240,244,248) ≈ 期望 (240,244,248)（容差 10）
+  [PASS] 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+[PASS] step_edit: 全部断言与像素抽检通过

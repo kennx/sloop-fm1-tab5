@@ -6,20 +6,34 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、PERF、
- *    MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
- *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键、走带 bpm/playing
- *    与状态层持有的选轨/mute/solo；引擎真值看 ENG SNAP）。
- *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页（sloop_ui）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、DESC
+ *    描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
+ *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
+ *    的抽样字段；与 ENG SNAP 同源）。
+ *  - PARAM：参数写诊断注入（阶段 4 P4-A）：PARAM <id> <value> 经状态层
+ *    CMD_SET_PARAM 写选中轨（钳位在引擎，回显 applied），PARAM BATCH <id> <value> …
+ *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
+ *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
+ *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample>）；无参打印当前页；QUIESCE <on|off>
+ *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
+ *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
+ *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
+ *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
+ *    state=failed），对已建非当前页只删除控件回到未建态（回显 state=unbuilt，
+ *    注入待命），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
+ *    不重建已失败页。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
- *    均值/最大，µs）与输入任务栈余量；KEY PANIC 全停（释放已按下音符、清层键与
- *    待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *    均值/最大，µs）、输入任务栈余量与诊断期丢弃计数；KEY PANIC 全停（释放已按下
+ *    音符、清层键与待切页）。code = tab5_keyboard 事件码（row<<4|col），十进制或 0x。
+ *    诊断期静默（UI QUIESCE on / ENG SELFTEST 运行中）KEY 被丢弃并回 "KEY ERR quiesced"。
  *  - TAP：触摸注入 TAP <x> <y>（屏幕绝对坐标，含页签条），经
  *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
- *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"（两者都返回非零，令牌不同，
- *    脚本不得把锁超时误判为正常 miss）。
+ *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
+ *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -366,13 +380,9 @@ static int eng_command(int argc, char **argv)
         return nonzero ? 0 : 1;
     }
     if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "selftest") == 0) {
-        /* 诊断模式：冻结引擎快照读 + 丢弃引擎写（UI 停在最后一帧、键盘编辑不落地），
-         * 自检因此可整段持引擎锁而不产生长时间等待者——阶段 3 固件在 UI live 时
-         * 直接跑全量 SELFTEST 会在该 FreeRTOS SMP 端口卡死刷 task_wdt（见 ADR-007）。 */
-        sloop_core_diag_freeze(true);
-        int rc = sloop_core_selftest(argc == 3 ? argv[2] : NULL);
-        sloop_core_diag_freeze(false);
-        return rc == 0 ? 0 : 1;
+        /* 诊断模式（静默 UI + 冻结引擎读写）由 sloop_core_selftest 内部成对执行：
+         * 全量 182 例跑完后恢复 UI 定时器/输入与引擎读写。UI 未启动时静默为空操作。 */
+        return sloop_core_selftest(argc == 3 ? argv[2] : NULL) == 0 ? 0 : 1;
     }
     if (argc == 5 && strcasecmp(argv[1], "track") == 0) {
         uint32_t k, engine, preset;
@@ -456,6 +466,39 @@ static int eng_command(int argc, char **argv)
                (unsigned)st.flags, (unsigned)st.lvl, (unsigned)st.rat, (int)st.micro, (unsigned)st.fill);
         return 0;
     }
+    if (argc == 5 && strcasecmp(argv[1], "desc") == 0) {
+        /* 描述符投影抽样（scripts/desc-check.py 对端）：scope=track → TP[id]；
+         * global → GP[id]；engine → ENGINES[engine]->edit[id]，engine=12 为鼓轨
+         * 哨兵（id=0 → DRUM_KIT_DESC）。label/unit/first/last 加引号（上游 label
+         * 可含空格，如 "INS A"），空单位/无枚举名打印 "-"。 */
+        uint32_t engine = 0, id = 0;
+        sloop_desc_scope_t scope = SLOOP_DESC_TRACK;
+        const char *scope_name = NULL;
+        if (strcasecmp(argv[2], "track") == 0) {
+            scope = SLOOP_DESC_TRACK;
+            scope_name = "track";
+        } else if (strcasecmp(argv[2], "global") == 0) {
+            scope = SLOOP_DESC_GLOBAL;
+            scope_name = "global";
+        } else if (strcasecmp(argv[2], "engine") == 0) {
+            scope = SLOOP_DESC_ENGINE;
+            scope_name = "engine";
+        }
+        if (scope_name == NULL || !eng_uint(argv[3], 255, &engine) || !eng_uint(argv[4], 255, &id)) {
+            printf("用法: ENG DESC <track|global|engine> <engine=0..12> <id=0..255>（engine=12 为鼓轨 kit 哨兵；越界值回 ERR）\n");
+            return 1;
+        }
+        sloop_desc_t d;
+        if (!sloop_core_desc(scope, engine, id, &d)) {
+            printf("ENG DESC ERR scope=%s engine=%u id=%u\n", scope_name, (unsigned)engine, (unsigned)id);
+            return 1;
+        }
+        printf("ENG DESC scope=%s engine=%u id=%u label=\"%s\" fmt=%u min=%d max=%d def=%d unit=\"%s\" enums=%u first=\"%s\" last=\"%s\"\n",
+               scope_name, (unsigned)engine, (unsigned)id, d.label != NULL ? d.label : "-", (unsigned)d.fmt,
+               (int)d.min, (int)d.max, (int)d.def, d.unit != NULL ? d.unit : "-", (unsigned)d.enum_count,
+               d.enum_count > 0 ? d.enums[0] : "-", d.enum_count > 0 ? d.enums[d.enum_count - 1] : "-");
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) {
         /* 阶段 3 内存门禁：UI 起来后的 idle 内部堆须 ≥60KB（spec §4） */
         printf("ENG MEM internal_free=%u internal_min=%u psram_free=%u psram_min=%u\n",
@@ -466,68 +509,468 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]\n");
     return 1;
 }
 
+/* 上游 P_* 与 G_* 枚举镜像（仅诊断回显用；数值与 params.c 的枚举顺序一致，漂移会被
+ * ENG DESC/PARAM 与设备断言暴露）。P_E0 = P_COUNT - 8：TP 表末尾 8 个引擎槽的起点。 */
+enum {
+    CONSOLE_P_LEVEL = 0, CONSOLE_P_ATK = 1, CONSOLE_P_DEC = 2, CONSOLE_P_SUS = 3,
+    CONSOLE_P_REL = 4, CONSOLE_P_SLEN = 29, CONSOLE_P_MUTE = 40,
+    CONSOLE_G_BPM = 0, CONSOLE_G_SWING = 1,
+};
+
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
- * 选轨/mute/solo 目前由状态层持有（引擎无写入口，DI-9），只能从这里的读取断言。 */
+ * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
+ * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。 */
 static int state_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
         app_state_t st;
         state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
-               (unsigned)st.core.bpm, (unsigned)st.core.playing);
+               (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
+               (unsigned)st.window.window_start, (unsigned)st.window.window_len);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
         }
+        printf("STATE SNAP param trk=%u level=%d atk=%d dec=%d sus=%d rel=%d slen=%d mute=%d\n",
+               (unsigned)st.core.selected_track, (int)st.p[CONSOLE_P_LEVEL], (int)st.p[CONSOLE_P_ATK],
+               (int)st.p[CONSOLE_P_DEC], (int)st.p[CONSOLE_P_SUS], (int)st.p[CONSOLE_P_REL],
+               (int)st.p[CONSOLE_P_SLEN], (int)st.p[CONSOLE_P_MUTE]);
+        printf("STATE SNAP global bpm=%d swing=%d\n", (int)st.g[CONSOLE_G_BPM],
+               (int)st.g[CONSOLE_G_SWING]);
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键与状态层持有的选轨/mute/solo；引擎真值见 ENG SNAP）\n");
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、引擎真值的选轨/mute/solo 与参数投影；同 ENG SNAP）\n");
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport>；无参打印当前页。
- * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。 */
+/* PARAM 诊断注入（阶段 4 P4-A Task 9 的设备断言入口）：走与 UI 编辑相同的状态层
+ * 路径（CMD_SET_PARAM / CMD_SET_PARAM_BATCH → sloop_core_set_params），写完回读
+ * 引擎真值。`PARAM <id>`（无值）是只读形式：打印当前真值 + 描述符范围（参数页
+ * 编辑生效的断言入口，不改任何状态）；`PARAM GLOBAL <id> [<value>]` 是全局参数
+ * （song.g[]）的读/写入口（与 GLOBAL 参数页同一状态层命令 CMD_SET_GLOBAL）。
+ * id 合法性按 desc 契约预判（TRACK scope
+ * 覆盖 id < P_E0；P_E0..P_E7 是引擎槽：鼓轨用哨兵 SLOOP_CORE_NENGINES）——钳位不在
+ * 本层做，引擎按同一描述符钳位，回显的 applied 即钳位结果。value 接受任意 int16。 */
+static bool param_parse_value(const char *text, int16_t *value)
+{
+    char *end = NULL;
+    long parsed = strtol(text, &end, 0);
+    if (end == text || *end != '\0' || parsed < INT16_MIN || parsed > INT16_MAX) return false;
+    *value = (int16_t)parsed;
+    return true;
+}
+
+static bool param_id_valid(uint32_t engine, uint32_t id, sloop_desc_t *desc)
+{
+    const uint32_t p_e0 = SLOOP_CORE_P_COUNT - 8u; /* 上游 P_E0（8 个引擎槽的起点） */
+    if (id < p_e0) return sloop_core_desc(SLOOP_DESC_TRACK, 0, id, desc);
+    if (id >= SLOOP_CORE_P_COUNT) return false;
+    return sloop_core_desc(SLOOP_DESC_ENGINE, engine, id - p_e0, desc);
+}
+
+static int param_command(int argc, char **argv)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap); /* 选中轨与引擎号（鼓轨 = 哨兵）取自引擎真值 */
+    uint32_t track = snap.selected_track < APP_STATE_TRACKS ? snap.selected_track : 0;
+    uint32_t engine = track == 3u ? SLOOP_CORE_NENGINES : snap.trk[track].engine;
+    int16_t p[SLOOP_CORE_P_COUNT], g[SLOOP_CORE_G_COUNT];
+
+    /* PARAM GLOBAL <id> [<value>]：全局参数（song.g[]）的读/写诊断入口。写经状态层
+     * CMD_SET_GLOBAL（与 GLOBAL 参数页同一路径，钳位在引擎）；读是只读回显。 */
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "global") == 0) {
+        uint32_t id;
+        sloop_desc_t d;
+        if (!eng_uint(argv[2], 0xFFFFu, &id) ||
+            !sloop_core_desc(SLOOP_DESC_GLOBAL, 0, id, &d)) {
+            printf("PARAM ERR global id=%s reason=invalid_id\n", argv[2]);
+            return 1;
+        }
+        if (argc == 4) {
+            int16_t value;
+            if (!param_parse_value(argv[3], &value)) {
+                printf("用法: PARAM GLOBAL <id> [<value>]\n");
+                return 1;
+            }
+            const edit_cmd_t cmd = { .type = CMD_SET_GLOBAL, .a = id, .v = (uint16_t)value };
+            state_apply(&cmd);
+            sloop_core_read_params(track, NULL, g);
+            printf("PARAM GLOBAL id=%u value=%d applied=%d min=%d max=%d\n", (unsigned)id,
+                   (int)value, (int)g[id], (int)d.min, (int)d.max);
+            return 0;
+        }
+        sloop_core_read_params(track, NULL, g);
+        printf("PARAM GLOBAL id=%u value=%d min=%d max=%d\n", (unsigned)id, (int)g[id],
+               (int)d.min, (int)d.max);
+        return 0;
+    }
+
+    if (argc == 2 && strcasecmp(argv[1], "batch") != 0) {
+        /* 只读：PARAM <id> 打印选中轨该参数的引擎真值与描述符范围（不写） */
+        uint32_t id;
+        sloop_desc_t d;
+        if (!eng_uint(argv[1], 0xFFFFu, &id)) {
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            return 1;
+        }
+        if (!param_id_valid(engine, id, &d)) {
+            printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+            return 1;
+        }
+        sloop_core_read_params(track, p, g);
+        printf("PARAM track=%u id=%u value=%d min=%d max=%d\n", (unsigned)track, (unsigned)id,
+               (int)p[id], (int)d.min, (int)d.max);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "batch") != 0) {
+        uint32_t id;
+        int16_t value;
+        sloop_desc_t d;
+        if (!eng_uint(argv[1], 0xFFFFu, &id) || !param_parse_value(argv[2], &value)) {
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            return 1;
+        }
+        if (!param_id_valid(engine, id, &d)) {
+            printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+            return 1;
+        }
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM, .a = track, .b = id, .v = (uint16_t)value };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        printf("PARAM track=%u id=%u value=%d applied=%d min=%d max=%d\n", (unsigned)track,
+               (unsigned)id, (int)value, (int)p[id], (int)d.min, (int)d.max);
+        return 0;
+    }
+    if (argc == 4 && strcasecmp(argv[1], "raw") == 0) {
+        uint32_t id;
+        int16_t value;
+        if (!eng_uint(argv[2], 0xFFFFu, &id) || !param_parse_value(argv[3], &value)) {
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            return 1;
+        }
+        /* 旁路：不做 desc 预判，直接经状态层命令到引擎批量入口——用于设备上复验
+         * 引擎对无描述符 id（越界 / 鼓轨 P_E1..P_E7）的逐条忽略。applied 是回读到
+         * 的现有值（id 超出 p[] 范围时打印 n/a），与 value 不同即证明未写。 */
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM, .a = track, .b = id, .v = (uint16_t)value };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        if (id < SLOOP_CORE_P_COUNT) {
+            printf("PARAM RAW track=%u id=%u value=%d applied=%d\n", (unsigned)track,
+                   (unsigned)id, (int)value, (int)p[id]);
+        } else {
+            printf("PARAM RAW track=%u id=%u value=%d applied=n/a\n", (unsigned)track,
+                   (unsigned)id, (int)value);
+        }
+        return 0;
+    }
+    if (argc >= 4 && strcasecmp(argv[1], "batch") == 0 && ((argc - 2) % 2) == 0) {
+        uint32_t n = (uint32_t)(argc - 2) / 2u;
+        sloop_param_pair_t pairs[APP_STATE_PARAM_BATCH_MAX];
+        sloop_desc_t d;
+        if (n > APP_STATE_PARAM_BATCH_MAX) {
+            printf("PARAM ERR n=%u reason=too_many max=%u\n", (unsigned)n,
+                   (unsigned)APP_STATE_PARAM_BATCH_MAX);
+            return 1;
+        }
+        for (uint32_t i = 0; i < n; i++) {
+            uint32_t id;
+            int16_t value;
+            if (!eng_uint(argv[2 + 2u * i], 0xFFFFu, &id) ||
+                !param_parse_value(argv[3 + 2u * i], &value)) {
+                printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+                return 1;
+            }
+            if (!param_id_valid(engine, id, &d)) {
+                printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+                return 1;
+            }
+            pairs[i].id = (uint8_t)id;
+            pairs[i].v = value;
+        }
+        const edit_cmd_t cmd = { .type = CMD_SET_PARAM_BATCH, .a = track, .p = pairs, .n = n };
+        state_apply(&cmd);
+        sloop_core_read_params(track, p, g);
+        printf("PARAM BATCH track=%u n=%u", (unsigned)track, (unsigned)n);
+        for (uint32_t i = 0; i < n; i++) {
+            printf(" id=%u value=%d applied=%d", (unsigned)pairs[i].id, (int)pairs[i].v,
+                   (int)p[pairs[i].id]);
+        }
+        printf("\n");
+        return 0;
+    }
+    printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>（选中轨，经状态层参数命令；钳位在引擎；无 value 时只读回显）\n");
+    return 1;
+}
+
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample>；无参打印当前页。
+ * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
+ * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
+ * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
+ * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
+ * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建当前页
+ * 立即重建到失败态（注入当场消费）；已建非当前页回到未建态（注入待命）；未建页挂起
+ * 到下一次构建；off 只撤销未消费的注入。
+ * UI WINDOW [<start> <len>]：步窗（AppState 的 UI 局部态）——start 为引擎绝对步号
+ * （向下对齐 16、钳位 0..48，bank = start/16），len 1..16；无参打印当前窗口。
+ * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
+static const char *const k_page_names[APP_STATE_PAGES] = {
+    "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
+};
+_Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
+               "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
+
+/* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
+static bool ui_parse_page(const char *arg, uint8_t *out)
+{
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (strcasecmp(arg, k_page_names[i]) == 0) {
+            *out = i;
+            return true;
+        }
+    }
+    char *end = NULL;
+    unsigned long v = strtoul(arg, &end, 10);
+    if (end == arg || *end != '\0' || v >= APP_STATE_PAGES) return false;
+    *out = (uint8_t)v;
+    return true;
+}
+
+static int ui_mem_dump(void)
+{
+    sloop_ui_pool_stats_t ps;
+    esp_err_t ret = sloop_ui_page_pool_stats(&ps);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        printf("UI ERR not_started\n");
+        return 1;
+    }
+    if (ret == ESP_ERR_TIMEOUT) {
+        printf("UI ERR lock_timeout\n");
+        return 1;
+    }
+    if (ret != ESP_OK) {
+        printf("UI ERR mem (%s)\n", esp_err_to_name(ret));
+        return 1;
+    }
+    static const char *const states[] = {"unbuilt", "built", "failed"};
+    uint32_t sum_est = 0;
+    for (uint8_t i = 0; i < ps.registered; i++) sum_est += ps.pages[i].est_bytes;
+    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d\n",
+           (unsigned)ps.pool_used, (unsigned)ps.pool_free, (unsigned)ps.pool_total,
+           (unsigned)ps.registered, (unsigned)ps.built, (unsigned)ps.failed, (unsigned)sum_est,
+           (int)(ps.pool_total - sum_est));
+    for (uint8_t i = 0; i < ps.registered; i++) {
+        const sloop_ui_page_stat_t *p = &ps.pages[i];
+        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d\n", (unsigned)p->id,
+               p->title, states[p->state < 3 ? p->state : 0], (unsigned)p->est_bytes,
+               (int)p->delta_bytes);
+    }
+    return 0;
+}
+
+/* 页状态名（`UI MEM`/`UI FORCEFAIL` 回显共用）；未注册或统计失败返回固定串 */
+static const char *ui_page_state_name(uint8_t page)
+{
+    static const char *const states[] = {"unbuilt", "built", "failed"};
+    sloop_ui_pool_stats_t ps;
+    if (sloop_ui_page_pool_stats(&ps) != ESP_OK) return "?";
+    for (uint8_t i = 0; i < ps.registered; i++) {
+        if (ps.pages[i].id != page) continue;
+        return states[ps.pages[i].state < 3 ? ps.pages[i].state : 0];
+    }
+    return "not_registered";
+}
+
 static int ui_command(int argc, char **argv)
 {
-    static const char *const names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
     if (argc == 1) {
         uint8_t page = sloop_ui_current_page();
         if (page >= APP_STATE_PAGES) {
             printf("UI ERR not_started\n");
             return 1;
         }
-        printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+        printf("UI page=%s (%u)\n", k_page_names[page], (unsigned)page);
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
+    if (argc == 6 && strcasecmp(argv[1], "knob") == 0) {
+        /* UI KNOB <slot> PRESS|DRAG <dx> <dy>：向当前参数页的旋钮派发合成指针事件
+         * （走物理触摸同一路径，ADR-008 §8.2/§8.5）。dx/dy 相对旋钮中心，可负。 */
+        char *end = NULL;
+        long slot = strtol(argv[2], &end, 0);
+        bool bad = end == argv[2] || *end != '\0' || slot < 0 || slot >= 8;
+        bool press = strcasecmp(argv[3], "press") == 0;
+        long dx = 0, dy = 0;
+        if (!bad && (press || strcasecmp(argv[3], "drag") == 0)) {
+            end = NULL;
+            dx = strtol(argv[4], &end, 0);
+            bad = end == argv[4] || *end != '\0' || dx < -1000 || dx > 1000;
+            end = NULL;
+            dy = strtol(argv[5], &end, 0);
+            bad = bad || end == argv[5] || *end != '\0' || dy < -1000 || dy > 1000;
+        } else {
+            bad = true;
+        }
+        if (bad) {
+            printf("用法: UI KNOB <slot=0..7> <press|drag> <dx> <dy>（dx/dy 相对旋钮中心）\n");
+            return 1;
+        }
+        if (sloop_ui_quiesced()) {
+            printf("UI ERR quiesced\n");
+            return 1;
+        }
+        uint8_t page = sloop_ui_current_page();
+        if (page >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        if (page < APP_PAGE_GLOBAL) {
+            printf("UI ERR not_params\n");
+            return 1;
+        }
+        int16_t value = 0;
+        esp_err_t ret = sloop_ui_test_knob((uint8_t)slot, (int32_t)dx, (int32_t)dy, press, &value);
+        const char *op = press ? "press" : "drag";
+        if (ret == ESP_OK) {
+            printf("UI KNOB page=%u slot=%u %s dx=%ld dy=%ld value=%d\n", (unsigned)page,
+                   (unsigned)slot, op, dx, dy, (int)value);
+            return 0;
+        }
+        if (ret == ESP_ERR_NOT_FOUND) {
+            /* 环带外/无锚点：事件未被接受（值不变）——与 miss 同口径返回非零，令牌独立 */
+            printf("UI KNOB page=%u slot=%u %s dx=%ld dy=%ld ignored (ring band)\n",
+                   (unsigned)page, (unsigned)slot, op, dx, dy);
+            return 1;
+        }
+        if (ret == ESP_ERR_NOT_ALLOWED) {
+            /* 引擎页不适用（选中轨引擎与页声明不符/鼓轨）：旋钮显示 --，事件被拒 */
+            printf("UI KNOB page=%u slot=%u %s dx=%ld dy=%ld ignored (locked)\n",
+                   (unsigned)page, (unsigned)slot, op, dx, dy);
+            return 1;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else {
+            printf("UI ERR knob_slot %ld\n", slot);
+        }
+        return 1;
+    }
+    if ((argc == 2 || argc == 4) && strcasecmp(argv[1], "window") == 0) {
+        if (argc == 2) {
+            step_window_t w;
+            step_window(&w);
+            printf("UI WINDOW bank=%u start=%u len=%u\n", (unsigned)w.bank,
+                   (unsigned)w.window_start, (unsigned)w.window_len);
+            return 0;
+        }
+        uint32_t start = 0, len = 0;
+        if (!eng_uint(argv[2], 63, &start) || !eng_uint(argv[3], APP_STATE_STEPS, &len)) {
+            printf("用法: UI WINDOW <start=0..63> <len=1..16>（start 向下对齐 16，bank = start/16）\n");
+            return 1;
+        }
+        /* a=bank 冗余（由 start 派生），b=start，v=len：钳位统一在状态层 */
+        const edit_cmd_t cmd = { .type = CMD_SET_WINDOW,
+                                 .a = start / 16u,
+                                 .b = start,
+                                 .v = (uint16_t)len };
+        state_apply(&cmd);
+        step_window_t w;
+        step_window(&w); /* 回显落地值（钳位后），脚本据此派生几何 */
+        printf("UI WINDOW bank=%u start=%u len=%u\n", (unsigned)w.bank,
+               (unsigned)w.window_start, (unsigned)w.window_len);
+        return 0;
+    }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
+        uint8_t page = 0;
+        if (!ui_parse_page(argv[2], &page)) {
+            printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|0..%u)\n",
+                   (unsigned)(APP_STATE_PAGES - 1));
+            return 1;
+        }
+        bool on = argc == 3 || strcasecmp(argv[3], "on") == 0;
+        if (argc == 4 && !on && strcasecmp(argv[3], "off") != 0) {
+            printf("用法: UI FORCEFAIL <page> [on|off]\n");
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_force_page_build_failure(page, on);
+        if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+            return 1;
+        }
+        if (ret != ESP_OK) {
+            printf("UI ERR forcefail (%s)\n", esp_err_to_name(ret));
+            return 1;
+        }
+        /* 回显注入**之后**的页状态：已建当前页会立即重建到失败态（注入当场被消费），
+         * 已建非当前页回到 unbuilt、注入仍待命，未建页同样保持 unbuilt 等下一次
+         * 构建失败——不打印会误导的 armed 标志。 */
+        printf("UI FORCEFAIL page=%s (%u) %s state=%s\n", k_page_names[page], (unsigned)page,
+               on ? "on" : "off", ui_page_state_name(page));
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "quiesce") == 0 &&
+        (strcasecmp(argv[2], "on") == 0 || strcasecmp(argv[2], "off") == 0)) {
+        bool on = strcasecmp(argv[2], "on") == 0;
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        sloop_ui_quiesce(on);
+        printf("UI QUIESCE %s quiesced=%u\n", on ? "on" : "off",
+               (unsigned)sloop_ui_quiesced());
         return 0;
     }
     if (argc == 2) {
         for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-            if (strcasecmp(argv[1], names[i]) != 0) continue;
+            if (strcasecmp(argv[1], k_page_names[i]) != 0) continue;
             esp_err_t ret = sloop_ui_switch_page(i);
             if (ret == ESP_ERR_TIMEOUT) {
                 /* 与 miss 区分：锁超时没有落地，脚本的 miss/页断言不得误判为通过 */
                 printf("UI ERR lock_timeout\n");
                 return 1;
             }
+            if (ret == ESP_ERR_NO_MEM) {
+                /* 目标页构建失败：页面已切到错误状态条（可见），与「未启动」区分 */
+                printf("UI ERR page_build %u\n", (unsigned)i);
+                return 1;
+            }
+            if (ret == ESP_ERR_INVALID_ARG) {
+                /* 页 id 合法但注册表里没有（扩页时忘了 ui_page_register）：与未启动区分 */
+                printf("UI ERR not_registered %u\n", (unsigned)i);
+                return 1;
+            }
             if (ret != ESP_OK) {
-                printf("UI ERR not_started (want=%s)\n", names[i]);
+                printf("UI ERR not_started (want=%s)\n", k_page_names[i]);
                 return 1;
             }
             uint8_t page = sloop_ui_current_page();
             if (page != i) {
-                printf("UI ERR not_started (want=%s)\n", names[i]);
+                printf("UI ERR not_started (want=%s)\n", k_page_names[i]);
                 return 1;
             }
-            printf("UI page=%s (%u)\n", names[page], (unsigned)page);
+            printf("UI page=%s (%u)\n", k_page_names[page], (unsigned)page);
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport>（无参打印当前页）\n");
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI KNOB <slot> <press|drag> <dx> <dy> | "
+           "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
+           "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
+           "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
+           "（state=unbuilt，注入待命）；未建页下一次构建失败；"
+           "off 只撤销未消费的注入\n");
     return 1;
 }
 
@@ -541,9 +984,10 @@ static uint32_t s_key_us_max;
 static int key_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) {
-        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u\n",
+        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u quiesce_dropped=%u\n",
                (unsigned)s_key_calls, (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
-               (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free());
+               (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free(),
+               (unsigned)sloop_ui_input_quiesce_dropped());
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "panic") == 0) {
@@ -566,6 +1010,12 @@ static int key_command(int argc, char **argv)
             int64_t t0 = esp_timer_get_time();
             sloop_ui_input_key((uint8_t)code, down);
             uint32_t us = (uint32_t)(esp_timer_get_time() - t0);
+            if (sloop_ui_quiesced()) {
+                /* 诊断期：与物理键盘同入口被丢弃（计数在 input 侧，KEY STATS
+                 * quiesce_dropped 可回读）；独立令牌与正常回显区分 */
+                printf("KEY ERR quiesced\n");
+                return 1;
+            }
             s_key_calls++;
             s_key_us_sum += us;
             if (us > s_key_us_max) s_key_us_max = us;
@@ -615,6 +1065,11 @@ static int tap_command(int argc, char **argv)
         printf("TAP ERR lvgl_lock_timeout\n");
         return 1;
     }
+    if (status == SLOOP_TAP_RESULT_QUIESCED) {
+        /* 诊断期静默 = 没派发（与 miss/lock_timeout 分开） */
+        printf("TAP ERR quiesced\n");
+        return 1;
+    }
     if (status != SLOOP_TAP_RESULT_OK) {
         if (page == 0xFF) {
             printf("TAP miss %ld,%ld page=n/a\n", x, y);
@@ -643,6 +1098,17 @@ static int tap_command(int argc, char **argv)
         break;
     case SLOOP_TAP_TRANSPORT_BPM:
         printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_SET_BPM delta=%+d\n", x, y, page, (int)r.v);
+        break;
+    case SLOOP_TAP_PARAM_STEP:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u id=%u delta=%+d value=%d\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b, (int)r.d, (int)r.v);
+        break;
+    case SLOOP_TAP_PARAM_FOCUS:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u focus\n", x, y, page, (unsigned)r.a);
+        break;
+    case SLOOP_TAP_PARAM_LOCKED:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (engine page N/A)\n", x, y, page,
+               (unsigned)r.a);
         break;
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
@@ -707,8 +1173,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/PERF/MEM/AUDIO",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|PERF|MEM|AUDIO [ON|OFF]",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/DESC/PERF/MEM/AUDIO",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);
@@ -719,7 +1185,7 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 由状态层持有；引擎真值见 ENG SNAP）",
+        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源；含参数投影）",
         .hint = "SNAP",
         .func = &state_command,
     };
@@ -729,10 +1195,22 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
+    const esp_console_cmd_t param_cmd = {
+        .command = "PARAM",
+        .help = "参数写诊断：PARAM <id> <value> 经状态层写选中轨；PARAM BATCH <id> <value> ... 真批量；PARAM RAW 跳过 desc 预判",
+        .hint = "<id> <value> | BATCH <id> <value> ... | RAW <id> <value>",
+        .func = &param_command,
+    };
+    ret = esp_console_cmd_register(&param_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 PARAM 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
-        .help = "UI 切页/查询当前页（sloop_ui 四屏框架）",
-        .hint = "<play|tracks|step|transport>",
+        .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

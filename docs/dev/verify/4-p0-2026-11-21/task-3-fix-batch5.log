@@ -1,0 +1,27 @@
+# 5-shot SCR batch (post-review) @ /dev/ttyACM0 start 2026-11-21T07:53:19+08:00
+=== shot 01 rc=0 elapsed=16.7s retries=0
+  [fw] SCR
+  [fw] I (416807) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task3-fix-batch5-20261121-075319-shot01.png
+=== shot 02 rc=0 elapsed=17.1s retries=0
+  [fw] SCR
+  [fw] I (433537) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task3-fix-batch5-20261121-075336-shot02.png
+=== shot 03 rc=0 elapsed=16.9s retries=0
+  [fw] SCR
+  [fw] I (450647) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task3-fix-batch5-20261121-075353-shot03.png
+=== shot 04 rc=0 elapsed=16.8s retries=0
+  [fw] SCR
+  [fw] I (467547) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task3-fix-batch5-20261121-075410-shot04.png
+=== shot 05 rc=0 elapsed=17.0s retries=0
+  [fw] SCR
+  [fw] I (484367) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task3-fix-batch5-20261121-075427-shot05.png
+# 5-shot batch done 2026-11-21T07:54:44+08:00: failures=0 retries=0

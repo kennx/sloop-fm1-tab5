@@ -1,0 +1,28 @@
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+  FAIL k=5 MUTE 落引擎 ×1: got 0 want 1
+  FAIL k=5 MUTE 引擎轨号: got 0 want 1
+  FAIL k=5 MUTE 引擎值: got 0 want 1
+  FAIL k=5 MUTE 引擎快照: got 0 want 1
+  FAIL k=5 MUTE 鼓轨落引擎: got 0 want 1
+  FAIL k=5 SOLO 落引擎 ×1: got 0 want 1
+  FAIL k=5 SOLO 掩码: got 0 want 4
+  FAIL k=5 SOLO 引擎快照: got 0 want 1
+  FAIL k=5 SOLO 掩码累积: got 0 want 5
+  FAIL k=5 sync 采纳引擎 mute: got 0 want 1
+  FAIL k=5 sync 采纳引擎 solo: got 0 want 1
+FAIL k=5 MUTE/SOLO 轨位翻转
+PASS k=6 ERASE_NOTE 删除聚焦步音符（RMW/字段随移）
+  FAIL k=7 SET_TRACK 落引擎: got 0 want 3
+  FAIL k=7 SELECT_TRACK 落引擎 ×1: got 0 want 1
+  FAIL k=7 SELECT_TRACK 引擎轨号: got 0 want 1
+  FAIL k=7 SELECT_TRACK 引擎快照: got 0 want 1
+  FAIL k=7 sync 采纳引擎选轨: got 1 want 2
+FAIL k=7 state_get_copy 反映 cmd 与 sync
+PASS k=8 越界参数忽略
+
+6 passed, 2 failed
+STATE TEST FAILED

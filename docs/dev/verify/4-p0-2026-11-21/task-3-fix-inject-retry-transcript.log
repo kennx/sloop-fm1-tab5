@@ -1,0 +1,45 @@
+
+sloop>  # [inject] 场景 tracks 开始
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 640 260
+TAP miss 640,260 page=1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] SCR 截屏 -> inject-tracks-20261121-075528-tracks-sel3.png
+SCR
+I (42127) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+# [inject] 截屏 tracks-sel3 传输失败（注入故障：已收 2048/1843200 字节）；esptool 复位后场景重跑（第 1/3 次重试）
+
+sloop>  I (4217) sloop_ui: UI 就绪: 4 页 @1280x720, LVGL 池已用 40712/59612 字节, 内部堆剩余 118499 字节
+I (4257) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4417) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  # [inject] 场景 tracks 开始（第 2 轮：复位后重跑）
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 640 260
+TAP miss 640,260 page=1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] SCR 截屏 -> inject-tracks-20261121-075528-tracks-sel3.png
+SCR
+I (5947) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+# [inject] 场景 tracks 结束 failures=0

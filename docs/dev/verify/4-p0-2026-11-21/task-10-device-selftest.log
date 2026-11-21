@@ -1,0 +1,15 @@
+ENG AUDIO OFF
+I (86670) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (86680) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (87290) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (87300) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+SELFTEST COMPARE identical=1 mismatch=0 missing=0 extra=0 result=PASS
+DEVICE SUMMARY cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS

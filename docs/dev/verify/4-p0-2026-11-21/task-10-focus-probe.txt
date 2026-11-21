@@ -1,0 +1,40 @@
+# [probe] 旋钮焦点样式：ANALOG 页 TAP 旋钮 0 设焦点 → 帧 A；KEY right×3 → 帧 B
+# [probe] 每槽旋钮盒 160×160 内 accent(224,176,40)/dim(136,148,152) 像素数（±14）
+
+sloop>  
+sloop>  UI analog
+UI page=analog (6)
+sloop>  TAP 166 230
+TAP 166,230 page=6 -> PARAM slot=0 focus
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=134
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=67
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=62
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=66
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=58
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=62
+sloop>  UI play
+UI page=play (0)
+sloop>  
+# [probe] 像素统计：
+# frame A slot=0 accent=100 dim=6
+# frame A slot=1 accent=0 dim=189
+# frame A slot=2 accent=0 dim=147
+# frame A slot=3 accent=0 dim=173
+# frame A slot=4 accent=0 dim=225
+# frame A slot=5 accent=0 dim=161
+# frame A slot=6 accent=0 dim=164
+# frame A slot=7 accent=0 dim=157
+# frame B slot=0 accent=0 dim=249
+# frame B slot=1 accent=0 dim=189
+# frame B slot=2 accent=0 dim=147
+# frame B slot=3 accent=85 dim=4
+# frame B slot=4 accent=0 dim=225
+# frame B slot=5 accent=0 dim=161
+# frame B slot=6 accent=0 dim=164
+# frame B slot=7 accent=0 dim=157

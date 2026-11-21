@@ -1,0 +1,93 @@
+  [fw] SCR
+  [fw] I (631273) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (648913) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (665853) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (683983) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  [fw] SCR
+  [fw] I (700773) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+== inject step_edit @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303.log
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] TAP track=0 step=2
+  [PASS] ENG STEP 0 2 n = 1
+  [PASS] ENG STEP 0 2 time（NOTE） = 0
+  [PASS] TAP track=1 step=5
+  [PASS] ENG STEP 1 5 n = 1
+  [PASS] ENG STEP 1 5 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track = 1
+  [PASS] STATE SNAP focus_step = 5
+  [PASS] TAP 表外 miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303-step-two-on.png  (1280x720 rgb565)
+  [PASS] 轨 0 步 2 亮格: (267,208) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [PASS] 轨 1 步 5 亮格: (486,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] 轨 0 步 3 空位: (340,208) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] 焦点框（轨 1 步 5 左描边）: (454,332) 实测 (240,244,248) ≈ 期望 (240,244,248)（容差 10）
+  [PASS] 页签选中（STEP）: (400,36) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  [PASS] TAP bank1 列 0（绝对步 16）
+  [PASS] ENG STEP 0 16 n（窗口列 0 写绝对步） = 1
+  [PASS] ENG STEP 0 16 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track（bank1） = 0
+  [PASS] STATE SNAP focus_step（窗口列） = 0
+  [PASS] STATE SNAP window_start（bank1） = 16
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303-step-bank1.png  (1280x720 rgb565)
+  [PASS] bank1 轨 0 列 0 亮格（绝对步 16，DIM）: (121,208) 实测 (24,52,96) ≈ 期望 (25,54,97)（容差 16）
+  [PASS] bank1 轨 0 列 1 空位（DIM）: (194,208) 实测 (16,16,16) ≈ 期望 (14,18,21)（容差 10）
+  [PASS] UI WINDOW 0 8
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 8
+  [PASS] TAP 隐藏列 8 miss
+  [PASS] TAP 可见列 7（绝对步 7）
+  [PASS] ENG STEP 1 7 n（窗口列 7 写绝对步） = 1
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303-step-len8.png  (1280x720 rgb565)
+  [PASS] len=8 列 7 亮格: (632,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] len=8 列 8 隐藏（页面背景）: (705,208) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] TAP 点灭可见列 7（清理）
+  [PASS] ENG STEP 1 7 n（清理） = 0
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  [PASS] TAP 点灭 bank1 列 0（清理）
+  [PASS] ENG STEP 0 16 n（清理） = 0
+  [PASS] UI transport
+  [PASS] TAP PLAY（播放头证据）
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303-step-bank0-playhead.png  (1280x720 rgb565)
+  [PASS] bank0 行 0 播放头列 [4]
+  [PASS] bank0 行 1 播放头列 [4]
+  [PASS] bank0 行 2 播放头列 [4]
+  [PASS] bank0 行 3 播放头列 [4]
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261121-110303-step-bank1-no-playhead.png  (1280x720 rgb565)
+  [PASS] bank1 窗口外播放头不显示（无强调色描边）
+  [PASS] TAP STOP（复位）
+  [PASS] STATE SNAP playing（复位） = 0
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+[PASS] step_edit: 全部断言与像素抽检通过

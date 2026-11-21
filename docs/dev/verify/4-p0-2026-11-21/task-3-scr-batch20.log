@@ -1,0 +1,102 @@
+# 20-shot SCR batch @ /dev/ttyACM0 start 2026-11-21T07:37:23+08:00
+=== shot 01 rc=0 elapsed=17.2s retries=0
+  [fw] SCR
+  [fw] I (28347) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot01.png
+=== shot 02 rc=0 elapsed=17.8s retries=0
+  [fw] SCR
+  [fw] I (45547) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot02.png
+=== shot 03 rc=0 elapsed=17.3s retries=0
+  [fw] SCR
+  [fw] I (63387) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot03.png
+=== shot 04 rc=0 elapsed=16.6s retries=0
+  [fw] SCR
+  [fw] I (80717) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot04.png
+=== shot 05 rc=0 elapsed=16.8s retries=0
+  [fw] SCR
+  [fw] I (97357) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot05.png
+=== shot 06 rc=0 elapsed=17.1s retries=0
+  [fw] SCR
+  [fw] I (114167) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot06.png
+=== shot 07 rc=0 elapsed=17.0s retries=0
+  [fw] SCR
+  [fw] I (131247) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot07.png
+=== shot 08 rc=0 elapsed=16.6s retries=0
+  [fw] SCR
+  [fw] I (148297) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot08.png
+=== shot 09 rc=0 elapsed=16.7s retries=0
+  [fw] SCR
+  [fw] I (164907) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot09.png
+=== shot 10 rc=0 elapsed=16.4s retries=0
+  [fw] SCR
+  [fw] I (181637) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot10.png
+=== shot 11 rc=0 elapsed=17.0s retries=0
+  [fw] SCR
+  [fw] I (198077) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot11.png
+=== shot 12 rc=0 elapsed=17.1s retries=0
+  [fw] SCR
+  [fw] I (215097) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot12.png
+=== shot 13 rc=0 elapsed=16.6s retries=0
+  [fw] SCR
+  [fw] I (232197) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot13.png
+=== shot 14 rc=0 elapsed=16.7s retries=0
+  [fw] SCR
+  [fw] I (248777) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot14.png
+=== shot 15 rc=0 elapsed=16.9s retries=0
+  [fw] SCR
+  [fw] I (265467) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot15.png
+=== shot 16 rc=0 elapsed=17.4s retries=0
+  [fw] SCR
+  [fw] I (282417) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot16.png
+=== shot 17 rc=0 elapsed=16.8s retries=0
+  [fw] SCR
+  [fw] I (299877) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot17.png
+=== shot 18 rc=0 elapsed=16.7s retries=0
+  [fw] SCR
+  [fw] I (316667) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot18.png
+=== shot 19 rc=0 elapsed=16.9s retries=0
+  [fw] SCR
+  [fw] I (333337) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot19.png
+=== shot 20 rc=0 elapsed=16.6s retries=0
+  [fw] SCR
+  [fw] I (350237) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/task3-batch20-20261121-073723-shot20.png
+# 20-shot batch done 2026-11-21T07:43:02+08:00: failures=0 retries=0

@@ -142,12 +142,16 @@ static void card_apply(uint8_t k, const card_view_t *cv, uint8_t prev_sel)
     lv_label_set_text(s_mix_labels[k], buf);
 }
 
-void page_tracks_create(lv_obj_t *parent)
+lv_obj_t *page_tracks_build(lv_obj_t *parent)
 {
     styles_init();
+    /* 懒建重试时控件是全新的：复位脏检查缓存 */
+    memset(s_cache, 0, sizeof(s_cache));
+    s_valid = false;
 
     for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
         lv_obj_t *card = lv_obj_create(parent);
+        UI_BUILD_CHECK(card);
         lv_obj_set_scrollable(card, false);
         lv_obj_set_pos(card, CARD_X0 + k * CARD_PITCH, CARD_Y);
         lv_obj_set_size(card, CARD_W, CARD_H);
@@ -159,16 +163,19 @@ void page_tracks_create(lv_obj_t *parent)
         char buf[16];
         snprintf(buf, sizeof(buf), "TRACK %u", (unsigned)(k + 1));
         lv_obj_t *title = lv_label_create(card);
+        UI_BUILD_CHECK(title);
         lv_label_set_text(title, buf);
         lv_obj_add_style(title, &s_st_title[k], 0);
         lv_obj_set_pos(title, 24, 26);
 
         s_info_labels[k] = lv_label_create(card);
+        UI_BUILD_CHECK(s_info_labels[k]);
         lv_label_set_text(s_info_labels[k], "");
         lv_obj_add_style(s_info_labels[k], &s_st_value, 0);
         lv_obj_set_pos(s_info_labels[k], 24, 84);
 
         s_level_bars[k] = lv_bar_create(card);
+        UI_BUILD_CHECK(s_level_bars[k]);
         lv_obj_set_pos(s_level_bars[k], 24, 150);
         lv_obj_set_size(s_level_bars[k], 248, 16);
         lv_bar_set_range(s_level_bars[k], 0, 127);
@@ -181,10 +188,12 @@ void page_tracks_create(lv_obj_t *parent)
         lv_obj_set_style_bg_opa(s_level_bars[k], LV_OPA_COVER, LV_PART_INDICATOR);
 
         s_mix_labels[k] = lv_label_create(card);
+        UI_BUILD_CHECK(s_mix_labels[k]);
         lv_label_set_text(s_mix_labels[k], "");
         lv_obj_add_style(s_mix_labels[k], &s_st_value, 0);
         lv_obj_set_pos(s_mix_labels[k], 24, 250);
     }
+    return parent;
 }
 
 void page_tracks_update(const app_state_t *st)

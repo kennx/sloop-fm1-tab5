@@ -1,0 +1,22 @@
+UI play
+UI page=play (0)
+sloop>  
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=86
+sloop>  
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=69
+sloop>  
+sloop>  UI
+UI page=tracks (1)
+sloop>  
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=31
+sloop>  
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=66
+sloop>  
+sloop>  UI
+UI page=step (2)
+sloop>  
+sloop>  

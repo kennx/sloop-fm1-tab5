@@ -1,0 +1,9 @@
+UI WINDOW 16 16
+UI WINDOW bank=1 start=16 len=16
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=90 playing=0 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  

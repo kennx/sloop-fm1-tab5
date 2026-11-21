@@ -4,6 +4,14 @@
 
 #include <string.h>
 
+#ifdef HOST_TEST
+#define state_warn(...) ((void)0) /* host 单测无日志后端（告警路径由设备证据覆盖） */
+#else
+#include "esp_log.h"
+static const char *TAG = "sloop_state";
+#define state_warn(...) ESP_LOGW(TAG, __VA_ARGS__)
+#endif
+
 /* 上游常量镜像（本组件不包含上游 core.h：host 单测不编译上游源码）：
  * core.h 的 enum { G_BPM, ... } → G_BPM = 0；params.c 的 GP[G_BPM] 范围 40..240；
  * core.h 的 enum { ST_NOTE, ST_TIE, ST_REST }；NSTEP = 步表长度 64。 */
@@ -14,6 +22,8 @@
 #define STATE_ST_TIE 1u
 #define STATE_ST_REST 2u
 #define STATE_STEPS_MAX 64u
+#define STATE_WINDOW_STEP 16u   /* 一 bank 的步数 = window_start 对齐粒度 */
+#define STATE_WINDOW_START_MAX (STATE_STEPS_MAX - STATE_WINDOW_STEP) /* 48 */
 #define STATE_SYNTH_TRACKS 3u /* read_step/write_step 只覆盖合成轨（鼓轨只读） */
 #define STATE_NOTE_MAX 127u
 
@@ -31,11 +41,23 @@ static void cmd_play(app_state_t *s, bool on)
     s->core.playing = on;
 }
 
+/* 参数投影回读：p[] 恒为选中轨、g[] 为全局（一次引擎锁，参数命令落地后立即对齐
+ * 引擎真值——含引擎钳位）。写非选中轨时 p[] 仍读选中轨，因此不会被别人的值污染。 */
+static void state_refresh_params(app_state_t *s)
+{
+    sloop_core_read_params(s->core.selected_track, s->p, s->g);
+}
+
 static void cmd_select_track(app_state_t *s, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
+    sloop_core_select(track);
     s->core.selected_track = (uint8_t)track;
     s->focus_track = (uint8_t)track;
+    /* 选轨即刷参数投影：p[] 是选中轨的参数，若等下一拍 sync，切页/`STATE SNAP`
+     * 可能落在「标题=新轨、参数=旧轨」的一帧里（参数页读 p[]）。同锁内回读，
+     * 与其它编辑写路径一样是 state 锁 → 引擎锁的顺序。 */
+    state_refresh_params(s);
 }
 
 static uint32_t state_track_len(const app_state_t *s, uint32_t track)
@@ -61,12 +83,15 @@ static void state_step_clear(sloop_step_t *st)
 
 static void state_snapshot_step(app_state_t *s, uint32_t track, uint32_t idx, const sloop_step_t *st)
 {
-    if (idx >= APP_STATE_STEPS) return; /* 快照只覆盖前 16 列视窗 */
-    s->core.step[track][idx].n = st->n;
-    memcpy(s->core.step[track][idx].note, st->note, sizeof(st->note));
-    s->core.step[track][idx].vel = st->vel;
-    s->core.step[track][idx].time = st->time;
-    s->core.step[track][idx].flags = st->flags;
+    /* 投影按窗口列存：引擎绝对步 idx → 列 idx - window_start；窗口外的步不投影 */
+    if (idx < s->window.window_start) return;
+    uint32_t col = idx - s->window.window_start;
+    if (col >= APP_STATE_STEPS) return;
+    s->core.step[track][col].n = st->n;
+    memcpy(s->core.step[track][col].note, st->note, sizeof(st->note));
+    s->core.step[track][col].vel = st->vel;
+    s->core.step[track][col].time = st->time;
+    s->core.step[track][col].flags = st->flags;
 }
 
 /* 镜像上游 ui.c note_del() 最后一音的 note_span_set(t,i,1)：步被清掉后，其后承载
@@ -174,14 +199,93 @@ static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
     if (v > STATE_BPM_MAX) v = STATE_BPM_MAX;
     sloop_core_set_global(STATE_G_BPM, (int16_t)v);
     s->core.bpm = (uint16_t)v;
+    s->g[STATE_G_BPM] = (int16_t)v; /* 全局投影同源（与 core.bpm 同一钳位） */
+}
+
+/* 步窗（UI 局部态）：引擎不感知。start 向下对齐 16 并钳位到 0..48，bank 由
+ * start 派生（a 字段冗余）；len 钳位 1..APP_STATE_STEPS；focus_step 夹到窗口内。
+ * 落窗后立即按新起点重取一份窗口快照——下一拍 sync 之前 STATE SNAP/TAP 看到的
+ * 投影就已是新窗口列（否则最多一个 tick 显示旧 bank 的格）。 */
+static void cmd_set_window(app_state_t *s, uint32_t start, uint32_t len)
+{
+    uint32_t st = start & ~(STATE_WINDOW_STEP - 1u);
+    if (st > STATE_WINDOW_START_MAX) st = STATE_WINDOW_START_MAX;
+    if (len < 1u) len = 1u;
+    if (len > APP_STATE_STEPS) len = APP_STATE_STEPS;
+
+    s->window.bank = (uint8_t)(st / STATE_WINDOW_STEP);
+    s->window.window_start = (uint8_t)st;
+    s->window.window_len = (uint8_t)len;
+    if (s->focus_step >= len) s->focus_step = (uint8_t)(len - 1u);
+    sloop_core_read_window(st, &s->core);
 }
 
 static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
 {
     if (track >= APP_STATE_TRACKS) return;
-    /* 引擎无 mute/solo 写入口：MVP 由本层持有（见 sloop_state.h 的 MVP 约定） */
-    if (type == CMD_MUTE) s->core.trk[track].mute ^= 1u;
-    else s->core.trk[track].solo ^= 1u;
+    if (type == CMD_MUTE) {
+        /* 翻转基于投影（= 上一次引擎真值），写进引擎后同写投影 */
+        bool mute = s->core.trk[track].mute == 0;
+        sloop_core_set_mute(track, mute);
+        s->core.trk[track].mute = mute ? 1u : 0u;
+        return;
+    }
+    /* solo 是整轨掩码：由投影的 4 位重组成当前掩码，翻转本轨后整掩码写回 */
+    uint8_t mask = 0;
+    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
+        if (s->core.trk[k].solo != 0) mask |= (uint8_t)(1u << k);
+    }
+    mask ^= (uint8_t)(1u << track);
+    sloop_core_set_solo(mask);
+    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
+}
+
+/* 单值参数：以批量入口 N=1 下发（钳位与越界判定只在引擎一处）。v 是 uint16——
+ * 双极参数按 16 位补码解读（见 sloop_state.h 的 CMD_SET_PARAM 契约）。 */
+static void cmd_set_param(app_state_t *s, uint32_t track, uint32_t id, uint16_t value)
+{
+    if (track >= APP_STATE_TRACKS) return;
+    if (id > 0xFFu) { /* 引擎批量 API 的 id 是 uint8：无法表达，忽略（不写） */
+        state_warn("参数 id=%u 超出 uint8，忽略（track=%u）", (unsigned)id, (unsigned)track);
+        return;
+    }
+    uint8_t pid = (uint8_t)id;
+    int16_t v = (int16_t)value;
+    sloop_core_set_params(track, &pid, &v, 1u);
+    state_refresh_params(s);
+}
+
+/* 批量参数：解包 POD 到两个栈数组（引擎 API 是 ids/values 双数组），一次引擎调用
+ * 下发；超过 APP_STATE_PARAM_BATCH_MAX 的尾部丢弃并告警。载荷指针只在本次 apply
+ * 内使用（同步 apply 语义，见 sloop_state.h）。 */
+static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, uint32_t n)
+{
+    if (track >= APP_STATE_TRACKS || p == NULL || n == 0u) return;
+    if (n > APP_STATE_PARAM_BATCH_MAX) {
+        state_warn("参数批量 %u 对超过上限 %u，只应用前 %u 对", (unsigned)n,
+                   (unsigned)APP_STATE_PARAM_BATCH_MAX, (unsigned)APP_STATE_PARAM_BATCH_MAX);
+        n = APP_STATE_PARAM_BATCH_MAX;
+    }
+    const sloop_param_pair_t *pairs = p;
+    uint8_t ids[APP_STATE_PARAM_BATCH_MAX];
+    int16_t values[APP_STATE_PARAM_BATCH_MAX];
+    for (uint32_t i = 0; i < n; i++) {
+        ids[i] = pairs[i].id;
+        values[i] = pairs[i].v;
+    }
+    sloop_core_set_params(track, ids, values, n);
+    state_refresh_params(s);
+}
+
+/* 全局参数（GLOBAL 参数页的唯一写路径）：经引擎写入口按 GP[id] 钳位后立即回读
+ * g[] 投影。G_BPM 另同拍更新快照的 bpm（TRANSPORT 与 STATE SNAP 与 g[0] 同一真值，
+ * 不落后一拍）。动作类全局不在本命令语义内（见 sloop_state.h 的命令契约）。 */
+static void cmd_set_global(app_state_t *s, uint32_t id, uint16_t value)
+{
+    if (id >= SLOOP_CORE_G_COUNT) return;
+    sloop_core_set_global(id, (int16_t)value);
+    state_refresh_params(s);
+    if (id == STATE_G_BPM) s->core.bpm = (uint16_t)s->g[STATE_G_BPM];
 }
 
 void state_apply(const edit_cmd_t *cmd)
@@ -201,6 +305,10 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_MUTE:
     case CMD_SOLO: cmd_track_mix(s, cmd->type, cmd->a); break;
     case CMD_ERASE_NOTE: cmd_erase_note(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_SET_WINDOW: cmd_set_window(s, cmd->b, cmd->v); break;
+    case CMD_SET_PARAM: cmd_set_param(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_SET_PARAM_BATCH: cmd_set_param_batch(s, cmd->a, cmd->p, cmd->n); break;
+    case CMD_SET_GLOBAL: cmd_set_global(s, cmd->a, cmd->v); break;
     default: break;
     }
     state_unlock();

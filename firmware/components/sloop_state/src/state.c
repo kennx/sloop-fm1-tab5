@@ -44,6 +44,12 @@ void state_init(void)
 #endif
     memset(&s_state, 0, sizeof(s_state));
     sloop_core_read(&s_state.core);
+    /* 参数投影与 core 同拍初化（p = 选中轨，g = 全局） */
+    sloop_core_read_params(s_state.core.selected_track, s_state.p, s_state.g);
+    /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
+    s_state.window.bank = 0;
+    s_state.window.window_start = 0;
+    s_state.window.window_len = APP_STATE_STEPS;
     s_inited = true;
 }
 
@@ -55,31 +61,54 @@ void state_get_copy(app_state_t *out)
     state_unlock();
 }
 
+void step_window(step_window_t *out)
+{
+    if (out == NULL) return;
+    state_lock();
+    *out = s_state.window;
+    state_unlock();
+}
+
 void state_sync_from_engine(void)
 {
-    sloop_core_snapshot_t snap;
-    /* 先在状态锁外读引擎：若恰与 state_apply 交错，本次写入的投影最多被一份旧快照
-     * 覆盖一个 UI tick（30–60ms），下一次 sync 即自愈。反过来先取状态锁会把输入任务
-     * 堵在音频块持有的引擎锁后面（≈5.8ms/块），直接伤 ≤20ms 的按键延迟目标。 */
-    sloop_core_read(&snap);
+    /* 步窗是 UI 局部态（state 所有）。sync 在状态锁外读引擎（避免把输入任务堵在
+     * 音频块的引擎锁后面），因此取快照与写回之间可能插入一次 CMD_SET_WINDOW：
+     * 写回前复核窗口，变了就按新窗口重取一次（最多两次）——否则会把旧基的投影
+     * 留在 AppState 一拍，而 EDIT 擦除读的是这份投影。 */
+    for (uint32_t attempt = 0; attempt < 2u; attempt++) {
+        step_window_t win;
+        state_lock();
+        win = s_state.window;
+        state_unlock();
 
-    state_lock();
-    /* 选轨与逐轨 mute/solo 暂无引擎写入口（sloop_core 只落了快照/步/全局写），
-     * 由本层持有，sync 不覆盖；其余字段取引擎真值（见 sloop_state.h 的 MVP 约定）。 */
-    uint8_t selected = s_state.core.selected_track;
-    uint8_t mute[APP_STATE_TRACKS];
-    uint8_t solo[APP_STATE_TRACKS];
-    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
-        mute[k] = s_state.core.trk[k].mute;
-        solo[k] = s_state.core.trk[k].solo;
+        sloop_core_snapshot_t snap;
+        /* snapshot 的 step[][]/dstep[] 是窗口列投影（基 = win.window_start）。
+         * 窗口快照在同一把引擎锁里取完 16 列（不是逐列 read_step），取锁次数仍为 1。 */
+        sloop_core_read_window(win.window_start, &snap);
+        /* 参数投影同拍取（第二次短锁）：p 的轨别取快照里的选中轨，与 core 一致；
+         * 不逐项读 71+50 个参数。写回前与窗口一起复核。
+         * 注意这是**两个快照**（窗口 + 参数）而非一个原子快照：两次取锁之间若发生
+         * 选轨/参数写/外部改动，本次写回的 core 与 p[] 可能差一拍（≤1 个 sync 周期，
+         * 下一拍自愈）。与既有 core 快照语义一致；选中轨切换本身在 cmd_select_track
+         * 里已即时刷新 p[]，不会出现「标题/参数跨轨」的帧。 */
+        int16_t param_p[SLOOP_CORE_P_COUNT];
+        int16_t param_g[SLOOP_CORE_G_COUNT];
+        sloop_core_read_params(snap.selected_track, param_p, param_g);
+
+        state_lock();
+        if (s_state.window.window_start == win.window_start) {
+            /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
+             * set_mute/set_solo），本层不再持有，也不做任何例外保持。窗口本身不被 sync
+             * 改写；窗口基与快照基一致才写回（否则按新窗口重取）。 */
+            s_state.core = snap;
+            memcpy(s_state.p, param_p, sizeof(param_p));
+            memcpy(s_state.g, param_g, sizeof(param_g));
+            state_unlock();
+            return;
+        }
+        state_unlock();
     }
-    s_state.core = snap;
-    s_state.core.selected_track = selected;
-    for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) {
-        s_state.core.trk[k].mute = mute[k];
-        s_state.core.trk[k].solo = solo[k];
-    }
-    state_unlock();
+    /* 连续两次窗口变更（极端交错）：本次不写投影，下一拍按最新窗口重取并自愈 */
 }
 
 void state_set_page(uint8_t page)
@@ -94,7 +123,8 @@ void state_set_focus(uint8_t track, uint8_t step)
 {
     state_lock();
     if (track < APP_STATE_TRACKS) s_state.focus_track = track;
-    if (step < APP_STATE_STEPS) s_state.focus_step = step;
+    /* 焦点步是窗口列：窗口外的隐藏列不可聚焦（窗口缩小后旧焦点已由 SET_WINDOW 夹住） */
+    if (step < s_state.window.window_len) s_state.focus_step = step;
     state_unlock();
 }
 

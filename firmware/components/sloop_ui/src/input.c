@@ -2,7 +2,8 @@
  * sloop_ui InputManager：Tab5 Keyboard 事件码 → 层模型 → EditCmd（ADR-006）
  *
  * 唯一入口 sloop_ui_input_key(code, down)，两条路径共用：
- *  - input 任务（本文件）：tab5_kb_poll() 每 5ms 取事件，优先级 4（低于音频 5）；
+ *  - input 任务（本文件）：tab5_kb_poll() 按 INPUT_POLL_TICKS 取事件（100Hz tick 下
+ *    10ms，见下方 tick 地板说明），优先级 4（低于音频 5）；
  *  - console 注入 `KEY <code> <down|up>`（console.c），与物理按键同入口。
  * code 为 tab5_keyboard.h 的事件码（row<<4|col），键名见 tab5_kb_key_name()。
  *
@@ -16,10 +17,15 @@
  * docs/design/006-keyboard-mapping.md）。layer_held 写 AppState（state_set_layer）。
  * 演奏键只在「无层或仅 FX」时发声：EDIT/SEL/GLO 按住期间演奏键不弹音符。
  *
+ * 参数页路由（ADR-008 §8）：当前页是参数页（GLOBAL/FX/ANALOG…）时，←/→ 在槽位间
+ * 移动焦点、↑/↓ 调焦点槽的值（经 sloop_ui_param_*，只写状态层；控件由 30ms UI
+ * 定时器刷新），不再驱动 STEP 焦点列/轨焦点。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
  */
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -37,6 +43,11 @@ static const char *TAG = "sloop_input";
 #define INPUT_TASK_STACK 4096
 #define INPUT_TASK_PRIO  4 /* 低于音频任务（5），与键盘解码任务同级 */
 #define INPUT_POLL_MS    5
+/* tick 下限 1：CONFIG_FREERTOS_HZ=100 时 pdMS_TO_TICKS(5) 取整成 0，vTaskDelay(0)
+ * 只 yield 不阻塞——input 任务会退化成全速自旋，每秒数十万次跨核 yield IPI
+ * （esp_crosscore_int_send 的全局自旋锁），与 UI/DSP 并发时打死 FreeRTOS SMP
+ * 端口的 IPI 路径（vPortYield busy-wait、IDLE 饿死；DI-11 的真因）。 */
+#define INPUT_POLL_TICKS (pdMS_TO_TICKS(INPUT_POLL_MS) > 0 ? pdMS_TO_TICKS(INPUT_POLL_MS) : 1)
 #define INPUT_BATCH      8
 
 /* 演奏基音：低八度行（z 排）= C3，高八度行（q 排）= +12 半音（C4=60） */
@@ -157,6 +168,16 @@ static SemaphoreHandle_t s_mutex;
 static TaskHandle_t s_task;
 static bool s_started;
 
+/* 诊断期静默（sloop_ui_quiesce）：标志置位后 input 任务只排空事件队列并计数，
+ * 不再派发（因此不碰 state/引擎锁）；console 注入经 sloop_ui_input_key 也被拦下。
+ * s_quiesce_ack 只在 input 任务回到「批次之间」时自增——quiesce 用它确认在途批次
+ * 已收尾（置标志时任务可能正派发一批事件，只等标志不够）。 */
+static volatile bool s_quiesce;
+static volatile uint32_t s_quiesce_ack;
+/* 丢弃计数由 input 任务与 console（KEY 注入被拒）两个上下文写：原子自增/清零，
+ * 避免丢计数（诊断量级，不需要严格一致） */
+static atomic_uint s_quiesce_dropped;
+
 /* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响 */
 static bool s_note_on[128];
 static uint8_t s_note_val[128];
@@ -220,10 +241,13 @@ static void act_focus(bool step_axis, int8_t delta)
     app_state_t st;
     state_get_copy(&st);
     uint8_t track = st.focus_track < APP_STATE_TRACKS ? st.focus_track : 0u;
-    uint8_t step = st.focus_step < APP_STATE_STEPS ? st.focus_step : 0u;
+    uint8_t wlen = st.window.window_len;
+    if (wlen < 1u) wlen = 1u;
+    if (wlen > APP_STATE_STEPS) wlen = APP_STATE_STEPS;
+    uint8_t step = st.focus_step < wlen ? st.focus_step : 0u;
     if (step_axis) {
-        /* 焦点的步轴移动不动轨：鼓轨（3）也可作为显示焦点保留下来 */
-        step = (uint8_t)((step + APP_STATE_STEPS + delta) % APP_STATE_STEPS);
+        /* 焦点的步轴在窗口列内环绕（隐藏列不可聚焦，不绕到窗口外） */
+        step = (uint8_t)((step + wlen + delta) % wlen);
     } else {
         /* 轨轴只在三条合成轨间环绕；当前停在鼓轨时按方向进入 2 或 0 */
         if (track >= 3u) {
@@ -236,23 +260,25 @@ static void act_focus(bool step_axis, int8_t delta)
 }
 
 /* EDIT 层：删除聚焦步里所有该音级的音符（按音级匹配，跨八度；命令按精确音符）。
- * 步号在派发时解析（命令显式携带，状态层不读焦点）。 */
+ * 步号在派发时解析（命令显式携带绝对步号，状态层不读焦点）：焦点是**窗口列**，
+ * 绝对步 = step_window_abs()。 */
 static void act_erase(int8_t pitch_class)
 {
     app_state_t st;
     state_get_copy(&st);
     uint8_t k = st.focus_track;
     uint8_t i = st.focus_step;
-    if (k >= 3u || i >= APP_STATE_STEPS) return;
+    if (k >= 3u || i >= st.window.window_len) return;
 
+    const uint8_t abs = step_window_abs(&st.window, i);
     const uint8_t n = st.core.step[k][i].n > 4u ? 4u : st.core.step[k][i].n;
     if (!state_step_is_on(n, st.core.step[k][i].time)) return;
     for (uint8_t j = 0; j < n; j++) {
         uint8_t note = st.core.step[k][i].note[j];
         if (note == 0 || (int8_t)(note % 12u) != pitch_class) continue;
-        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = i, .v = note };
+        const edit_cmd_t cmd = { .type = CMD_ERASE_NOTE, .a = k, .b = abs, .v = note };
         state_apply(&cmd);
-        ESP_LOGD(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)i,
+        ESP_LOGD(TAG, "erase track=%u step=%u note=%u", (unsigned)k, (unsigned)abs,
                  (unsigned)note);
     }
 }
@@ -287,13 +313,29 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
-         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
+         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。
+         * 页数取注册表（sloop_ui_page_count），与页签数量同源（ADR-008）。 */
         uint8_t page = sloop_ui_current_page();
-        if (page < APP_STATE_PAGES) sloop_ui_request_page((uint8_t)((page + 1u) % APP_STATE_PAGES));
+        uint8_t count = sloop_ui_page_count();
+        if (count > 0 && page < count) sloop_ui_request_page((uint8_t)((page + 1u) % count));
         break;
     }
-    case ACT_FOCUS_STEP: act_focus(true, b->param); break;
-    case ACT_FOCUS_TRACK: act_focus(false, b->param); break;
+    case ACT_FOCUS_STEP:
+        /* 参数页：←/→ 在 8 槽间移动焦点（不再驱动 STEP 焦点列） */
+        if (sloop_ui_param_page_active()) {
+            sloop_ui_param_focus_move(b->param);
+        } else {
+            act_focus(true, b->param);
+        }
+        break;
+    case ACT_FOCUS_TRACK:
+        /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新） */
+        if (sloop_ui_param_page_active()) {
+            sloop_ui_param_adjust((int8_t)-b->param);
+        } else {
+            act_focus(false, b->param);
+        }
+        break;
     case ACT_SELECT: {
         /* SEL 层 1–4 = 选轨（与 TRACKS 卡片点击同一命令，同时设焦点轨） */
         const edit_cmd_t cmd = { .type = CMD_SELECT_TRACK, .a = (uint32_t)b->param };
@@ -302,7 +344,6 @@ static void dispatch(const key_binding_t *b, bool down)
     }
     case ACT_MUTE:
     case ACT_SOLO: {
-        /* 状态层持有 mute/solo（DI-9，引擎暂无写入口）：串口断言用 STATE SNAP */
         const edit_cmd_t cmd = { .type = b->action == ACT_MUTE ? CMD_MUTE : CMD_SOLO,
                                  .a = (uint32_t)b->param };
         state_apply(&cmd);
@@ -329,7 +370,18 @@ static const key_binding_t *find_binding(uint8_t code, uint8_t layers)
 void sloop_ui_input_key(uint8_t code, bool down)
 {
     if (code > 0x7F) return;
+    /* 诊断期：丢弃并计数（不派发 = 不碰 state/引擎锁）。批内竞态由 input 任务在
+     * 批次边界确认，见 input_quiesce_begin()。 */
+    if (s_quiesce) {
+        atomic_fetch_add(&s_quiesce_dropped, 1u);
+        return;
+    }
     input_lock();
+    if (s_quiesce) { /* 等锁期间进入静默（input 任务/另一注入者持有互斥） */
+        atomic_fetch_add(&s_quiesce_dropped, 1u);
+        input_unlock();
+        return;
+    }
     /* 释放先于层路由：按住演奏键期间再按层键（如 c 尚未松开就按 Aa）时，松开必须
      * 仍然按「演奏键释放」处理，否则会被 EDIT 层的同名条目吞掉、音符挂住。 */
     if (!down && s_note_on[code]) {
@@ -378,10 +430,22 @@ static void input_task(void *arg)
     tab5_kb_event_t ev[INPUT_BATCH];
     while (1) {
         int n = tab5_kb_poll(ev, INPUT_BATCH);
+        if (s_quiesce) {
+            atomic_fetch_add(&s_quiesce_dropped, (unsigned)n); /* 静默期：排空队列、不派发 */
+            s_quiesce_ack++;                  /* 已回到批次边界（不持任何锁/不占 I2C） */
+            /* 阻塞等恢复通知（input_quiesce_end）：诊断期不再按轮询周期 yield */
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            /* 静默期积压的事件一律丢弃、不补发：诊断期 UI 已暂停，补发可能只有
+             * note-on 而 note-off 已被驱动 FIFO 覆盖 → 挂音 */
+            while ((n = tab5_kb_poll(ev, INPUT_BATCH)) > 0) {
+                atomic_fetch_add(&s_quiesce_dropped, (unsigned)n);
+            }
+            continue;
+        }
         for (int i = 0; i < n; i++) {
             sloop_ui_input_key(ev[i].code, ev[i].pressed);
         }
-        vTaskDelay(pdMS_TO_TICKS(INPUT_POLL_MS));
+        vTaskDelay(INPUT_POLL_TICKS);
     }
 }
 
@@ -401,12 +465,49 @@ esp_err_t input_start(void)
         return ESP_ERR_NO_MEM;
     }
     s_started = true;
-    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums，任务优先级 %u",
-             (unsigned)BINDING_COUNT, (unsigned)INPUT_POLL_MS, (unsigned)INPUT_TASK_PRIO);
+    /* 打印生效周期（不是请求的 INPUT_POLL_MS）：周期以 tick 为单位，100Hz 下
+     * 1 tick = 10ms，请求的 5ms 表达不出来（INPUT_POLL_MS 只是意图） */
+    const unsigned period_ms = (unsigned)(INPUT_POLL_TICKS * portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums（%u tick @%uHz），任务优先级 %u",
+             (unsigned)BINDING_COUNT, period_ms, (unsigned)INPUT_POLL_TICKS,
+             (unsigned)configTICK_RATE_HZ, (unsigned)INPUT_TASK_PRIO);
     return ESP_OK;
 }
 
 uint32_t sloop_ui_input_stack_free(void)
 {
     return s_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(s_task) : 0;
+}
+
+bool input_quiesce_begin(uint32_t timeout_ms)
+{
+    if (s_task == NULL) {
+        s_quiesce = true; /* 无 input 任务（未启动/创建失败）：仅拦 console 注入 */
+        return true;
+    }
+    /* base 必须在置位前取：置位之后 input 任务才可能自增 ack */
+    uint32_t base = s_quiesce_ack;
+    s_quiesce = true;
+    TickType_t remaining = pdMS_TO_TICKS(timeout_ms);
+    TimeOut_t timeout;
+    vTaskSetTimeOutState(&timeout);
+    while (s_quiesce_ack == base) {
+        if (xTaskCheckForTimeOut(&timeout, &remaining) != pdFALSE) return false;
+        vTaskDelay(1);
+    }
+    return true;
+}
+
+uint32_t input_quiesce_end(void)
+{
+    s_quiesce = false;
+    s_quiesce_ack = 0;
+    if (s_task != NULL) xTaskNotifyGive(s_task); /* 唤醒静默期阻塞的 input 任务 */
+    uint32_t dropped = atomic_exchange(&s_quiesce_dropped, 0u); /* 恢复后清零（本轮量才有意义） */
+    return dropped;
+}
+
+uint32_t input_quiesce_dropped(void)
+{
+    return atomic_load(&s_quiesce_dropped);
 }

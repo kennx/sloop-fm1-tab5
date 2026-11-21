@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# step_edit.sh — STEP 注入：点两格（轨 0 步 2 / 轨 1 步 5）→ 断言编辑器真值与焦点 → 截屏
+# step_edit.sh — STEP 注入：窗口列编辑（默认窗口两格）+ 分窗 bank1（绝对步号/隐藏列/
+# 播放头映射）→ 断言 STATE/ENG 真值 → 截屏
 # 用法: bash scripts/inject/step_edit.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
-# 脚本可重复运行：若目标格已亮，先经同一 TAP 路径点灭再点亮。
-# 断言与截屏都在 scripts/inject/inject.py 的 step_edit 场景里；本脚本只是入口。
+# 脚本可重复运行：先归一窗口到 {0,0,16}；目标格已亮先经同一 TAP 路径点灭再点亮；
+# 结束复位默认窗口与停止态。断言与截屏都在 scripts/inject/inject.py 的 step_edit
+# 场景里；本脚本只是入口。
 # 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-step_edit-<时间戳>.log + PNG。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

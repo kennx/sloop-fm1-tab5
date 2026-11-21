@@ -1,0 +1,486 @@
+
+sloop>  # [inject] 场景 nav 开始
+STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  UI step
+UI page=step (2)
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  # [inject] 用例①：TAP 页签缝 196,36 与页签矩形内 104,36（均须 miss）
+STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  TAP 196 36
+TAP miss 196,36 page=2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 104 36
+TAP miss 104,36 page=2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-105410-nav-01-tabbar.png
+SCR
+I (98343) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=96
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=64
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=42
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=68
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  # [inject] 用例②：TAP 鼓轨格 340,580（DRM 行只读）
+STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-105410-nav-02-drum-before.png
+SCR
+I (115403) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 340 580
+I (131793) sloop_ui: 鼓轨步 3 点击忽略（MVP 只读，阶段 4 接 DRUM_STEP）
+TAP 340,580 page=2 -> STEP drum step=3 read-only
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-105410-nav-03-drum-readonly.png
+SCR
+I (132273) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=121
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=tracks (1)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=153
+sloop>  KEY PANIC
+W (149433) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  UI
+UI page=tracks (1)
+sloop># [inject] ③ 对齐 1: 批次 16.5ms，锚点下界→批次结束余量 10.7ms（tab 写入→翻转 187.4ms，下界→翻转 2.6ms，轮询 64 次），批内 UI 页=1
+UI
+UI page=tracks (1)
+sloop>  UI
+UI page=tracks (1)
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-105410-nav-04-panic-final.png
+SCR
+I (151603) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+UI page=play (0)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=117
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop> UI
+UI page=play (0)
+sloop>  UI
+UI page=play (0)
+sloop>  UI
+UI page=tracks (1)
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=103
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=79
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=209
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=146
+sloop>  KEY 0x20 down
+KEY 0x20 down tab elapsed_us=128
+sloop>  KEY 0x20 up
+KEY 0x20 up tab elapsed_us=89
+sloop>  UI
+UI page=tracks (1)
+sloop>  # [inject] ④ 对齐 1: 批次 37.2ms，锚点下界→批次结束余量 -8.6ms（tab 写入→翻转 191.4ms，下界→翻转 1.3ms，轮询 63 次），批内 UI 页=1
+UI
+UI page=step (2)
+sloop>  UI
+UI page=step (2)
+sloop>  # [inject] SCR 截屏 -> inject-nav-20261121-105410-nav-05-tab3-final.png
+SCR
+I (170053) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+UI page=play (0)
+sloop>  # [inject] 场景 nav 结束 failures=0

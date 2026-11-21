@@ -21,8 +21,8 @@ A。UI 组件 `sloop_ui`（LVGL 四屏 + 页签 + InputManager）；状态组件
 
 ## 落地状态（2026-11-20，阶段 3 Task 4 / Task 5）
 
-`sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页对象创建一次、
-切页只改显隐）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
+`sloop_ui` 组件已落地骨架：单容器屏 + 顶部页签 `PLAY|TRACKS|STEP|TRANSPORT`（页面注册表
+`ui_page_t`，页对象首次访问时懒建、切页只改显隐，PLAY 启动即建——ADR-008）、30ms 定时器（`state_sync_from_engine` + 逐页脏检查）、`sloop_ui_switch_page()` 与
 console `UI <page>`。全部 LVGL 调用走 `bsp_display_lock`（esp_lvgl_port 递归锁，页签回调/定时器已在
 LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部堆门禁实测 ≈120.0KB（≥60KB）。
 
@@ -31,9 +31,12 @@ LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部
 - **TRACKS**：四轨卡片横排，轨主题色 outline 描边（选中 6px + 亮底，未选中 3px），卡内
   `TRACK n / ENG k PRE p / LEVEL v / MUTE x SOLO y` + 电平条；点击卡发 `CMD_SELECT_TRACK`
   （`cmd_select_track` 同时写 `selected_track` 与 `focus_track`）。
-- **STEP**：4 行 × 16 步网格，行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
-  切换共用同一判定）；播放中当前步描 `UI_ACCENT`、焦点格描 `UI_TEXT`；点格 `state_set_focus()` +
-  `CMD_TOGGLE_STEP`（鼓轨第 4 行只读，展示 `dstep[i].on` 聚合，点击写状态行提示不发命令）。
+- **STEP**：4 行 × 步窗网格（列数 = `window_len` 1..16，列 c = 引擎绝对步 `window_start+c`；
+  P4-0 Task 5），行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
+  切换共用同一判定）；列号/顶栏 `STEP`/`WIN a..b` 用绝对步号，窗口外的格/列号隐藏（TAP 命不中）；
+  播放头把绝对 `step_pos` 映射进窗口（窗口外不显示）；绝对步 ≥ 本轨 LEN 的格暗显。点格
+  `state_set_focus()` + `CMD_TOGGLE_STEP`（绝对步号；鼓轨第 4 行只读，展示 `dstep[c].on`
+  窗口聚合，点击写状态行提示不发命令）。
 - **LVGL 内存纪律**：格/标签/卡片共用静态 `lv_style_t`（状态变化走 `lv_obj_replace_style` 换指针），
   卡片内文本合并；仍保留局部样式的只有四张卡的 `pad_all`、四条电平条（main/indicator）与顶栏/状态行
   两个单例标签，量级固定。这样把 64KB 内置 TLSF 池占用从首版的 ≈97%（文本重分配即可能失败）压到
@@ -90,18 +93,52 @@ bring-up 的触摸十字准星画在 `lv_layer_top()`，会盖住生产页面并
 决策产出物：一张「页面 × 对象/字节预算」表 + 选型理由（写回本节）。在此之前若临时加页，
 须在 `sloop_ui_start()` 就绪行附池占用证据，并确认仍有余量。
 
-## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记）
+**决策（2026-11-21，阶段 4 P4-0 Task 4）：选 A（懒建 + 每页预算），落地为 ADR-008。**
 
-STEP 网格目前固定 16 列（`APP_STATE_STEPS`），快照只带前 16 列。阶段 4 一旦支持
+- 页面注册表 `ui_page_t` + `ui_page_register()`：页签由注册表派生；PLAY 启动即建
+  （开机非空白），其余页首次进入时建、离页不销毁。
+- 实测预算表（`UI MEM` 口径，池 free 减少量）：PLAY 2,492 / TRACKS 6,080 / STEP 21,760 /
+  TRANSPORT 3,744 B（STEP 在 P4-0 Task 5 步窗后复测为 21,832 B，见 ADR-008 §3）；est_bytes 分别为 3,072 / 7,168 / 24,576 / 4,608（合计 39,424 B，
+  < 池可用 63,120 B）。构建前 `free < est` 即拒绝。
+- 失败可见：构建失败 → 删除半成品 + ERROR 日志 + 页面区错误状态条 +
+  `UI ERR page_build <id>`（console），失败页下次访问重试；`UI FORCEFAIL <page>` 为验证注入。
+- 池仍为 64KB（`CONFIG_LV_MEM_SIZE=65536`）；96KB 的 `.bss` 溢出结论不变，扩池路线不重启。
+- 阶段 4 参数页沿用同一套：每页一个注册表条目 + 实测 est + `UI_BUILD_CHECK` 分配检查；
+  Σ est 逼近池总量时必须先做设计决策（拆页/共享/驱逐），详见 ADR-008。
+
+
+## 阶段 4 入口条件：16 步视窗抽象（2026-11-21 终审登记；同日 P4-0 Task 5 落地）
+
+此前的 STEP 网格固定 16 列（`APP_STATE_STEPS`），快照只带前 16 列。阶段 4 一旦支持
 bank/滚动或 LEN > 16 的编辑，必须**先**在状态层与快照引入一次 `{bank, window_start,
 window_len}`，页面布局/hit-test/注入脚本都从它推导，再扩网格列数；禁止在页面里
 各自再加一套列偏移。网格渲染须同时把列 ≥ 每轨 `len` 的格暗显（阶段 3 已落地该 dim
 位，阶段 4 沿用同一判定）。
 
+**落地（2026-11-21，P4-0 Task 5）**：此前「STEP 网格固定 16 列、快照只带前 16 列」的
+状态已由步窗取代——快照仍是一次取 16 列，但基址由 `window_start` 给出（见下）。
+
+- `step_window_t { uint8_t bank, window_start, window_len; }` 由 `sloop_state` 持有
+  （UI 局部态，非引擎真值），默认 `{0,0,16}`；`CMD_SET_WINDOW{a=bank(冗余), b=start,
+  v=len}` 写、`step_window()` 读。start 16 对齐、0..48（bank = start/16），len 1..16，
+  focus_step 夹在窗口内。引擎步号**恒为绝对索引**（命令携带绝对值；`step_window_abs()`
+  是「窗口列→绝对步」的唯一映射函数）。
+- 快照的 `step[k][c]` / `dstep[c]` 是**窗口列投影**：`state_sync_from_engine` 调
+  `sloop_core_read_window(window_start, &snap)`，一次引擎锁内取 16 列（每拍取锁次数
+  仍为 1，不逐列 `read_step`）；`CMD_SET_WINDOW` 落窗时立即重取一份投影，避免下一拍
+  之前显示旧 bank 的格。
+- STEP 页列数 = `window_len`，窗口外的格与列号标签隐藏（TAP 命不中）；列号/顶栏
+  `STEP`/`WIN a..b` 均用绝对步号；播放头把绝对 `step_pos` 映射进窗口，窗口外不显示
+  （不留残留描边）；dim 仍按「绝对步 ≥ 本轨 LEN」判定。
+- 注入几何由 `page_step.c` 的布局宏派生（`step_cell_xy`），列语义对齐 `STATE SNAP`
+  的 `window_start/window_len`；console `UI WINDOW [<start> <len>]` 为落窗入口。
+  `step_edit.sh`、`transport.sh` 与 `soak.py` 在进入 STEP 前归一到默认窗口（窗口是持久
+  UI 状态；transport 的归窗在 P4-0 Task 5 修复轮补上）。
+
 ## 后果
 
 - 阶段 4 全页面在此架构上扩展（页面路由+控件复用）；阶段 5 将 `state_apply` 的执行端换成 FM-1 会话即可复用 UI。
-- 引擎保持单例+互斥；UI 输入路径的 input 任务已落地（`sloop_ui/src/input.c`：5ms 轮询
-  `tab5_kb_poll`，优先级 4，层模型见 ADR-006）；串口 `KEY <code> <down|up>` 与物理同入口，
-  实测派发延迟（含 state_apply 与 PLAY 指示入队）均值 ≈0.51ms、note-on 最大 ≈1.37ms（note-off 最大 1.32ms；Task 6，见 verification-log）。切页走 `sloop_ui_request_page()` 邮箱（派发 22–72µs），输入路径不再等 LVGL 锁。
-- 阶段 3 MVP 的选轨与逐轨 mute/solo 暂由状态层持有（引擎暂无写入口）：音频效果与串口断言局限见 `docs/deferred-issues.md` DI-9（串口用 `STATE SNAP`，不能用 `ENG SNAP`）；引擎写入落地后删除该特例。
+- 引擎保持单例+互斥；UI 输入路径的 input 任务已落地（`sloop_ui/src/input.c`：按 tick
+  地板轮询 `tab5_kb_poll`——100Hz tick 下 10ms，见 ADR-006；优先级 4）；串口 `KEY <code> <down|up>` 与物理同入口，
+  实测派发延迟（含 state_apply 与 PLAY 指示入队）均值 ≈0.51ms、note-on 最大 ≈1.37ms（note-off 最大 1.32ms；Task 6，见 verification-log）。端到端「键→发声」还含轮询（1 tick=10ms）与音频块（5.8ms），听感/手感的人测项按端到端口径复核（ADR-006）。切页走 `sloop_ui_request_page()` 邮箱（派发 22–72µs），输入路径不再等 LVGL 锁。
+- 阶段 3 遗留的「选轨与逐轨 mute/solo 由状态层持有」特例已在阶段 4 P4-0 Task 1 删除：引擎落地 `sloop_core_select/set_mute/set_solo`（`song.sel`/`P_MUTE`/`song.solo`），`state_sync_from_engine` 整份取引擎真值、无例外；`STATE SNAP` 与 `ENG SNAP` 对这三类值同源，音频效果即上游 `trk_silent()` 口径（听感人测仍为外部门禁）。

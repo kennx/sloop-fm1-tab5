@@ -344,6 +344,10 @@ static SemaphoreHandle_t s_engine_lock;
  * 会把组件 data/bss 恢复到 init 快照，普通静态标志会在自检一开始就被回滚成 false。 */
 static sloop_core_snapshot_t s_frozen_snap __attribute__((section(".noinit")));
 static volatile bool s_frozen __attribute__((section(".noinit")));
+/* 诊断期静默钩子（sloop_ui 启动后注册）。同样放 .noinit：注册发生在 sloop_core_init
+ * 的快照之后，普通静态会被 selftest_restore() 抹成 NULL——结束时 quiesce(false)
+ * 就永远不会执行，UI 定时器将永久停在暂停态。 */
+static void (*s_quiesce_hook)(bool on) __attribute__((section(".noinit")));
 
 static inline void engine_lock(void)
 {
@@ -371,6 +375,7 @@ esp_err_t sloop_core_init(void)
     fm6_init();
     /* .noinit：冷启动内容未定义，必须显式清诊断冻结标志（否则写 API 可能全被丢弃） */
     s_frozen = false;
+    s_quiesce_hook = NULL;
     memset(&ctl, 0, sizeof(ctl));
     if (s_engine_lock == NULL) {
         s_engine_lock = xSemaphoreCreateMutex();
@@ -388,6 +393,10 @@ esp_err_t sloop_core_status(void)
     return core_status;
 }
 
+/* 渲染不查 s_frozen：正常唯一调用方是音频任务，而自检的前置条件就是「流已停」
+ * （`ENG SELFTEST` 在流式时拒绝），诊断期 UI 定时器/LVGL 定时器/输入又全部静默
+ * （sloop_ui_quiesce）——自检期间本函数不会被调用，「冻结后没有新的锁使用者」
+ * 因此成立。diagnostic 的 SMOKE/PERF 也只在非自检期间由 console 调用。 */
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
     engine_lock();
@@ -452,8 +461,9 @@ uint32_t sloop_core_frames(void)
 /* 只读快照 / 单步读写 / 全局参数写（语义与字段映射见 sloop_core.h）。
  * 与其它会改变引擎状态的 API 共用 s_engine_lock；窗口长度取 LEN 的合法区间，
  * 播放头按「模 len」给（停止时为 0）。 */
-/* 填一份快照（调用方持引擎锁或处于冻结态） */
-static void snapshot_fill(sloop_core_snapshot_t *out)
+/* 填一份快照（调用方持引擎锁或处于冻结态）。start = 步视窗基（0 或 16/32/48），
+ * step[][i]/dstep[i] 取引擎绝对步 start+i。 */
+static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
 {
     memset(out, 0, sizeof(*out));
     out->playing = song.playing != 0;
@@ -475,7 +485,7 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
     }
     for (uint32_t k = 0; k < NPART; k++) {
         for (uint32_t i = 0; i < 16; i++) {
-            const step_t *s = &trk[k].step[i];
+            const step_t *s = &trk[k].step[start + i];
             out->step[k][i].n = s->n;
             memcpy(out->step[k][i].note, s->note, sizeof(out->step[k][i].note));
             out->step[k][i].vel = s->vel;
@@ -485,7 +495,7 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
     }
     /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
     for (uint32_t i = 0; i < 16; i++) {
-        const dstep_t *d = &TDRUM->dstep[i];
+        const dstep_t *d = &TDRUM->dstep[start + i];
         uint32_t on = (uint32_t)(d->on[0] | d->on[1]);
         out->dstep[i].on = on != 0;
         for (uint32_t lane = 0; lane < DRUM_LANES; lane++) {
@@ -496,6 +506,11 @@ static void snapshot_fill(sloop_core_snapshot_t *out)
             if (rat > out->dstep[i].rat) out->dstep[i].rat = rat;
         }
     }
+}
+
+static void snapshot_fill(sloop_core_snapshot_t *out)
+{
+    snapshot_fill_at(out, 0);
 }
 
 void sloop_core_read(sloop_core_snapshot_t *out)
@@ -514,6 +529,27 @@ void sloop_core_read(sloop_core_snapshot_t *out)
         return;
     }
     snapshot_fill(out);
+    engine_unlock();
+}
+
+void sloop_core_read_window(uint32_t start, sloop_core_snapshot_t *out)
+{
+    if (out == NULL) return;
+    if (s_frozen) {
+        /* 冻结态与 read 同口径：返回冻结快照（基 0），不取锁 */
+        *out = s_frozen_snap;
+        return;
+    }
+    /* 步视窗基：16 对齐并钳位到最后一个 bank（4 × 16 = 64 步） */
+    start &= ~15u;
+    if (start > NSTEP - 16u) start = NSTEP - 16u;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        *out = s_frozen_snap;
+        return;
+    }
+    snapshot_fill_at(out, start);
     engine_unlock();
 }
 
@@ -564,11 +600,153 @@ void sloop_core_set_global(uint32_t id, int16_t value)
     engine_unlock();
 }
 
-/* 诊断模式开关（console `ENG SELFTEST` 前后调用，见 sloop_core.h）：
+/* ------------------------------------------------- 参数批量写/读 --- */
+/* 钳位描述符来源（与 sloop_core_desc 同源）：id < P_E0 → TP[id]；引擎槽 P_E0..P_E7
+ * → 合成轨取 ENGINES[eng_req]->edit[id-P_E0]、鼓轨只有 P_E0（DRUM_KIT_DESC = kit）。
+ * NULL = 该 id 在本轨上不可描述（逐条忽略）。上游 params.c 的 lock_desc()（音序器
+ * 参数锁）是同一张表；它取 t->engine（正在发声的引擎），这里取 eng_req——与
+ * sloop_core_desc/编辑器投影看到的是同一引擎槽（淡入淡出期间两者可能短暂不同，
+ * 取舍见 sloop_core.h 的批量写契约）。
+ * 与上游**动态描述符**的关系：上游 params.c 的 track_desc() 会在 ins_desc()（INSERT
+ * A/B/C 随 P_ITYPE）、ESYNC_DESC[]（ENV SYNC 的 ATK/DEC/REL）与 engine->desc()（引擎
+ * mode 依赖 label/names）处替换静态表。这里**不**投影动态钩子，直接取 TP[]/edit[]：
+ * 前提是这些动态描述符的 min/max 与静态表相同（上游现状如此，只换 label/names/unit）。
+ * 若上游某次改动让动态范围不同于静态范围，本函数的钳位会与 UI 显示范围不一致——
+ * 届时须把动态钩子纳入（需要 track 上下文，sloop_core_desc 已登记同一限制）。 */
+static const param_desc_t *param_desc_at(const track_t *t, uint32_t id)
+{
+    if (id < P_E0) return &TP[id];
+    if (id > P_E7) return NULL;
+    if (t == TDRUM) return id == P_E0 ? &DRUM_KIT_DESC : NULL;
+    return &ENGINES[t->eng_req % NENGINES]->edit[id - P_E0];
+}
+
+void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *values, uint32_t n)
+{
+    if (track >= NTRK || ids == NULL || values == NULL || n == 0u || s_frozen) return;
+    engine_lock();
+    track_t *t = &trk[track];
+    for (uint32_t i = 0; i < n; i++) {
+        const param_desc_t *d = param_desc_at(t, ids[i]);
+        /* 无描述符的 id（越界 / 鼓轨 P_E1..P_E7）：忽略该条，不中止整批。主机侧
+         * state-test 的 stub 只模拟“忽略”语义，本分支本身由设备 `PARAM RAW`
+         * （跳过 console 的 desc 预判）实际走到——证据见
+         * docs/dev/verify/4-p0-2026-11-21/task-9-readme.md 的修复轮。 */
+        if (d == NULL) continue;
+        t->p[ids[i]] = (int16_t)clamp(values[i], d->min, d->max);
+    }
+    engine_unlock();
+}
+
+void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
+{
+    if (p != NULL) memset(p, 0, SLOOP_CORE_P_COUNT * sizeof(*p));
+    if (g != NULL) memset(g, 0, SLOOP_CORE_G_COUNT * sizeof(*g));
+    if (s_frozen) return; /* 冻结态：不取锁，返回全零（与 read_step 同口径） */
+    engine_lock();
+    /* 取到锁后再查一次：冻结在持锁时置位（与 sloop_core_read 同口径），这里要么
+     * 在冻结前完成，要么看到标志直接返回已清零的缓冲、不再排队。 */
+    if (s_frozen) {
+        engine_unlock();
+        return;
+    }
+    if (p != NULL && track < NTRK) memcpy(p, trk[track].p, sizeof(trk[track].p));
+    if (g != NULL) memcpy(g, song.g, sizeof(song.g));
+    engine_unlock();
+}
+
+/* ------------------------------------------------- 描述符投影 --- */
+/* 公开 fmt 镜像（sloop_core.h 的 sloop_desc_fmt_t）↔ 上游 core.h 的 F_*：换上游版本
+ * 时编译期暴露，显示层（参数页）按镜像常量分支格式化。 */
+_Static_assert((int)SLOOP_DESC_FMT_INT == (int)F_INT && (int)SLOOP_DESC_FMT_PCT == (int)F_PCT &&
+                   (int)SLOOP_DESC_FMT_BIPCT == (int)F_BIPCT && (int)SLOOP_DESC_FMT_TIME == (int)F_TIME &&
+                   (int)SLOOP_DESC_FMT_LFOHZ == (int)F_LFOHZ && (int)SLOOP_DESC_FMT_CUTOFF == (int)F_CUTOFF &&
+                   (int)SLOOP_DESC_FMT_DB == (int)F_DB && (int)SLOOP_DESC_FMT_SEMI == (int)F_SEMI &&
+                   (int)SLOOP_DESC_FMT_ENUM == (int)F_ENUM && (int)SLOOP_DESC_FMT_BPM == (int)F_BPM &&
+                   (int)SLOOP_DESC_FMT_NOTE == (int)F_NOTE && (int)SLOOP_DESC_FMT_ONOFF == (int)F_ONOFF &&
+                   (int)SLOOP_DESC_FMT_OCT == (int)F_OCT && (int)SLOOP_DESC_FMT_STEPS == (int)F_STEPS &&
+                   (int)SLOOP_DESC_FMT_SWING == (int)F_SWING && (int)SLOOP_DESC_FMT_FILT == (int)F_FILT,
+               "sloop_desc_fmt_t 与上游 core.h 的 F_* 编码不同步");
+
+/* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
+ * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
+ * max-min+1，不依赖终止符。 */
+static uint8_t desc_enum_count(const param_desc_t *d)
+{
+    if (d->names == NULL) return 0;
+    if (d->fmt == F_ENUM) return (uint8_t)(d->max - d->min + 1);
+    uint32_t n = 0;
+    while (n < 64u && d->names[n] != NULL) n++;
+    return (uint8_t)n;
+}
+
+bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out)
+{
+    const param_desc_t *d;
+    switch (scope) {
+    case SLOOP_DESC_TRACK:
+        if (id >= P_E0) return false; /* P_E0..P_E7 无轨道上下文，走 ENGINE */
+        d = &TP[id];
+        break;
+    case SLOOP_DESC_GLOBAL:
+        if (id >= G_COUNT) return false;
+        d = &GP[id];
+        break;
+    case SLOOP_DESC_ENGINE:
+        if (id >= 8u) return false;
+        if (engine == SLOOP_CORE_NENGINES) { /* 鼓轨哨兵（上游 ed_eng 对鼓轨报 NENGINES） */
+            if (id != 0u) return false;      /* 鼓轨只有 P_E0 = kit */
+            d = &DRUM_KIT_DESC;
+        } else if (engine < NENGINES) {
+            d = &ENGINES[engine]->edit[id];
+        } else {
+            return false;
+        }
+        break;
+    default:
+        return false;
+    }
+    if (out != NULL) {
+        out->label = d->label;
+        out->unit = d->unit;
+        out->fmt = d->fmt;
+        out->min = d->min;
+        out->max = d->max;
+        out->def = d->def;
+        out->enums = d->names;
+        out->enum_count = desc_enum_count(d);
+    }
+    return true;
+}
+
+void sloop_core_set_mute(uint32_t k, bool mute)
+{
+    if (k >= NTRK || s_frozen) return;
+    engine_lock();
+    trk[k].p[P_MUTE] = (int16_t)(mute ? 1 : 0); /* 上游 N_ONOFF：0/1 */
+    engine_unlock();
+}
+
+void sloop_core_set_solo(uint8_t mask)
+{
+    if (s_frozen) return;
+    engine_lock();
+    song.solo = (uint8_t)(mask & 0xFu); /* 每轨 1 位，低 NTRK 位 */
+    engine_unlock();
+}
+
+void sloop_core_select(uint32_t k)
+{
+    if (k >= NTRK || s_frozen) return;
+    engine_lock();
+    song.sel = (uint8_t)k;
+    engine_unlock();
+}
+
+/* 诊断模式开关（`ENG SELFTEST` 内部成对调用，见 sloop_core.h）：
  *  - freeze(true)：持引擎锁取一份快照后置位。置位后 read 直接返回该快照、
- *    read_step 返回全零、所有写 API 直接丢弃——UI 定时器与 input 任务都不再取
- *    引擎锁，自检可以整段持锁而不制造长时间等待者（本 FreeRTOS SMP 端口在长时
- *    持锁 + 高优先级等待者下会触发跨核 yield 风暴，见 ADR-007）。
+ *    read_step 返回全零、所有写 API 直接丢弃——UI/输入任务不再取引擎锁，自检的
+ *    快照恢复与用例运行因此没有并发写者/读者（见 ADR-007）。
  *  - freeze(false)：清位（引擎状态已由 selftest 恢复到 init 快照，下一次 sync 对齐）。
  * 标志与快照放在 .noinit：selftest_restore() 会覆盖组件 data/bss，普通静态会被
  * 快照回滚掉（这是首版实现被「还原」掉的根因）。 */
@@ -584,24 +762,33 @@ void sloop_core_diag_freeze(bool on)
     s_frozen = false;
 }
 
+void sloop_core_diag_quiesce_hook(void (*hook)(bool on))
+{
+    s_quiesce_hook = hook;
+}
+
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
         printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
-    /* 整段持引擎锁（restore → jobs → 结束 restore）：快照恢复会覆盖引擎状态，而
-     * UI 定时器每 30ms 调 sloop_core_read、input 任务会 sloop_core_note/write_step
-     * ——不持锁就是「活写者 + 快照回滚」的数据竞争（写者可能把半个用例的状态带进
-     * 下一个用例，或读方看到回滚中途）。
-     * 调用方（console 的 ENG SELFTEST）在调用前后执行 sloop_core_diag_freeze(true/false)：
-     * 冻结后 read 返回冻结快照、写 API 直接丢弃（都不取锁），因此本锁的等待者只剩
-     * 音频任务（已按设计停流）——没有长时持锁 + 高优先级等待者的组合，就不会触发
-     * 该 FreeRTOS SMP 端口的跨核 yield 风暴（vPortYield busy-wait；阶段 3 收口的既有
-     * 固件在 UI live 时跑 SELFTEST 即因此卡死刷 task_wdt，见 ADR-007）。
-     * 诊断模式期间 UI 停在最后一帧、键盘编辑不落地，见 sloop_core.h。 */
+    /* 诊断期（ADR-007）：静默 UI → 冻结引擎 → 跑用例 → 恢复，成对且只有一条出口。
+     * 1) quiesce：暂停 30ms UI 定时器与 LVGL 定时器、input 任务阻塞等恢复通知；
+     *    等 input 任务回到批次边界后才算静默生效——置标志时它可能正派发。
+     * 2) freeze：置位后 read/write 都不取锁（返回冻结快照/丢弃写），UI 停在最后一帧。
+     * 3) 用例之间不再整段持引擎锁：freeze 已保证「置位后无新写者/读者取锁」，自检
+     *    自己是唯一写者；restore 只在首尾各取一次短锁。长时间持锁 + 每次 job 后的
+     *    vTaskDelay 没有收益，只增加与其它核调度交错的面。
+     * 钩子未注册（UI 未启动/host）时 quiesce 为空操作。
+     * 注意：DI-11 卡死的真因不在持锁，而在 input 任务的轮询周期（CONFIG_FREERTOS_HZ=100
+     * 下 pdMS_TO_TICKS(5)==0 → vTaskDelay(0) 全速自旋 → 跨核 yield IPI 风暴），见 input.c
+     * 的 INPUT_POLL_TICKS 与本 ADR 的「DI-11 真因」小节。 */
+    if (s_quiesce_hook != NULL) s_quiesce_hook(true);
+    sloop_core_diag_freeze(true);
     engine_lock();
     selftest_restore();
+    engine_unlock();
     ctl.selector = case_name;
     ctl.fork_count = 0;
     ctl.recapture = 1;
@@ -666,8 +853,11 @@ int sloop_core_selftest(const char *case_name)
            (unsigned)checks, (unsigned)check_fail, deterministic, (unsigned)expected,
            (unsigned)expected_checks, main_rc, pass ? "PASS" : "FAIL");
     heap_caps_free(golden);
+    engine_lock();
     selftest_restore();
-    nj = 0;
     engine_unlock();
+    nj = 0;
+    sloop_core_diag_freeze(false);
+    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     return pass ? 0 : 1;
 }

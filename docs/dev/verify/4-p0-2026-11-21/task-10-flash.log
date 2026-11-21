@@ -1,0 +1,240 @@
+已加载 ESP-IDF 环境: /home/kenn/esp/esp-idf/export.sh
+==> 使用串口: /dev/ttyACM0
+Executing action: flash
+Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
+Executing "ninja flash"...
+[1/5] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+sloop_fm1_tab5.bin binary size 0x176a00 bytes. Smallest app partition is 0x800000 bytes. 0x689600 bytes (82%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+[3/5] No install step for 'bootloader'
+[4/5] Completed 'bootloader'
+[4/5] cd /home/kenn/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH=/home/kenn/esp/esp-idf -D "SERIAL_TOOL=/home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python;;/home/kenn/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32p4" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/kenn/projects/sloop-fm1-tab5/firmware/build -P /home/kenn/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB 0x2000 bootloader/bootloader.bin 0x10000 sloop_fm1_tab5.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.13.0
+Serial port /dev/ttyACM0
+Connecting...
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:41
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00002000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x00186fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 23088 bytes to 14350...
+Writing at 0x00002000... (100 %)
+Wrote 23088 bytes (14350 compressed) at 0x00002000 in 0.2 seconds (effective 937.7 kbit/s)...
+Hash of data verified.
+Compressed 1534464 bytes to 919819...
+Writing at 0x00010000... (1 %)
+Writing at 0x00019f4a... (3 %)
+Writing at 0x00027b3f... (5 %)
+Writing at 0x00030085... (7 %)
+Writing at 0x000360e2... (8 %)
+Writing at 0x0003b02b... (10 %)
+Writing at 0x00040949... (12 %)
+Writing at 0x00047d31... (14 %)
+Writing at 0x0004d92c... (15 %)
+Writing at 0x00052bce... (17 %)
+Writing at 0x00057ae3... (19 %)
+Writing at 0x0005ca59... (21 %)
+Writing at 0x0006217e... (22 %)
+Writing at 0x00066e68... (24 %)
+Writing at 0x0006b92c... (26 %)
+Writing at 0x0006fe20... (28 %)
+Writing at 0x000747ea... (29 %)
+Writing at 0x000790b7... (31 %)
+Writing at 0x0007e4ac... (33 %)
+Writing at 0x000861f9... (35 %)
+Writing at 0x0008f1bd... (36 %)
+Writing at 0x00099cd1... (38 %)
+Writing at 0x000a0a58... (40 %)
+Writing at 0x000a7ea9... (42 %)
+Writing at 0x000af76c... (43 %)
+Writing at 0x000b6037... (45 %)
+Writing at 0x000bca1f... (47 %)
+Writing at 0x000c1ce4... (49 %)
+Writing at 0x000c6efa... (50 %)
+Writing at 0x000cbda0... (52 %)
+Writing at 0x000d0ee4... (54 %)
+Writing at 0x000d6370... (56 %)
+Writing at 0x000db4e5... (57 %)
+Writing at 0x000e1698... (59 %)
+Writing at 0x000e8eea... (61 %)
+Writing at 0x000efabc... (63 %)
+Writing at 0x000f5d53... (64 %)
+Writing at 0x000fc471... (66 %)
+Writing at 0x00103ff6... (68 %)
+Writing at 0x00109cec... (70 %)
+Writing at 0x0010fe55... (71 %)
+Writing at 0x00115de2... (73 %)
+Writing at 0x0011c029... (75 %)
+Writing at 0x00121fd1... (77 %)
+Writing at 0x0012b6dc... (78 %)
+Writing at 0x001343ad... (80 %)
+Writing at 0x0013a80c... (82 %)
+Writing at 0x0014233d... (84 %)
+Writing at 0x0014a229... (85 %)
+Writing at 0x001526c0... (87 %)
+Writing at 0x00158e55... (89 %)
+Writing at 0x0015edf1... (91 %)
+Writing at 0x001667f8... (92 %)
+Writing at 0x0016ddbf... (94 %)
+Writing at 0x00174fa2... (96 %)
+Writing at 0x0017c47e... (98 %)
+Writing at 0x001849bd... (100 %)
+Wrote 1534464 bytes (919819 compressed) at 0x00010000 in 6.0 seconds (effective 2060.8 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 120...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (120 compressed) at 0x00008000 in 0.0 seconds (effective 986.8 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+--- esp-idf-monitor 1.10.0 on /dev/ttyACM0 115200
+--- Standard input is not a TTY, running in non-interactive mode. Reading commands from stdin: reset, flash, flash-all, app-flash, output, log, timestamps, bootloader, send <text>, sleep <seconds>, expect [--timeout <seconds>] <regex>, exit | Quit: 'exit' command, EOF or Ctrl+C
+--- No commands on standard input, watching serial output only...
+Executing action: monitor
+Running idf_monitor in directory /home/kenn/projects/sloop-fm1-tab5/firmware
+Executing "/home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/tools/idf_monitor.py -p /dev/ttyACM0 -b 115200 --toolchain-prefix riscv32-esp-elf- --target esp32p4 --revision 100 --decode-panic backtrace /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.elf /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.elf -m '/home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python' '/home/kenn/esp/esp-idf/tools/idf.py' '-C' '/home/kenn/projects/sloop-fm1-tab5/firmware' '-B' '/home/kenn/projects/sloop-fm1-tab5/firmware/build' '-p' '/dev/ttyACM0'"...
+I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 sizeESP-ROM:esp32p4-eco2-20240710
+Build:Jul 10 2024
+rst:0x17 (CHIP_USB_UART_RESET),boot:0x20c (SPI_FAST_FLASH_BOOT)
+Core0 Saved PC:0x4ff04cbc
+--- 0x4ff04cbc: mspi_timing_config_psram_set_tuning_delayline at /home/kenn/esp/esp-idf/components/esp_hw_support/mspi_timing_tuning/tuning_scheme_impl/mspi_timing_by_dqs.c:173
+Core1 Saved PC:0x4fc058e0
+--- 0x4fc058e0: wdt_hal_config_stage in ROM
+SPI mode:DIO, clock div:1
+load:0x4ff33ce0,len:0x1664
+load:0x4ff29ed0,len:0xe24
+--- 0x4ff29ed0: esp_bootloader_get_description at /home/kenn/esp/esp-idf/components/esp_bootloader_format/esp_bootloader_desc.c:39
+load:0x4ff2cbd0,len:0x3548
+--- 0x4ff2cbd0: esp_flash_encryption_enabled at /home/kenn/esp/esp-idf/components/bootloader_support/src/flash_encrypt.c:89
+entry 0x4ff29eda
+--- 0x4ff29eda: call_start_cpu0 at /home/kenn/esp/esp-idf/components/bootloader/subproject/main/bootloader_start.c:27
+I (11) boot: ESP-IDF v5.5.5 2nd stage bootloader
+I (11) boot: compile time Nov 21 2026 13:51:32
+I (12) boot: Multicore bootloader
+I (13) boot: chip revision: v1.3
+I (13) boot: efuse block revision: v0.3
+I (13) boot.esp32p4: SPI Speed      : 80MHz
+I (14) boot.esp32p4: SPI Mode       : DIO
+I (14) boot.esp32p4: SPI Flash Size : 16MB
+I (14) boot: Enabling RNG early entropy source...
+I (15) boot: Partition Table:
+I (15) boot: ## Label            Usage          Type ST Offset   Length
+I (15) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (16) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (17) boot:  2 factory          factory app      00 00 00010000 00800000
+I (17) boot:  3 storage          Unknown data     01 81 00810000 007f0000
+I (18) boot: End of partition table
+I (19) esp_image: segment 0: paddr=00010020 vaddr=400e0020 size=8b80ch (571404) map
+I (100) esp_image: segment 1: paddr=0009b834 vaddr=30100000 size=0007ch (   124) load
+I (101) esp_image: segment 2: paddr=0009b8b8 vaddr=4ff00000 size=04760h ( 18272) load
+I (106) esp_image: segment 3: paddr=000a0020 vaddr=40000020 size=d071ch (853788) map
+I (226) esp_image: segment 4: paddr=00170744 vaddr=4ff04760 size=11b88h ( 72584) load
+I (239) esp_image: segment 5: paddr=001822d4 vaddr=4ff16300 size=046d4h ( 18132) load
+I (243) esp_image: segment 6: paddr=001869b0 vaddr=50108080 size=00020h (    32) load
+I (249) boot: Loaded app from partition at offset 0x10000
+I (250) boot: Disabling RNG early entropy source...
+I (255) hex_psram: vendor id    : 0x0d (AP)
+I (255) hex_psram: Latency      : 0x01 (Fixed)
+I (256) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (256) hex_psram: dev id       : 0x03 (generation 4)
+I (256) hex_psram: density      : 0x07 (256 Mbit)
+I (257) hex_psram: good-die     : 0x06 (Pass)
+I (257) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (257) hex_psram: BurstType    : 0x00 ( Wrap)
+I (258) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (258) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (258) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (259) hex_psram: DriveStrength: 0x00 (1/1)
+I (259) MSPI Timing: Enter psram timing tuning
+I (433) esp_psram: Found 32MB PSRAM device
+I (434) esp_psram: Speed: 200MHz
+I (435) hex_psram: psram CS IO is dedicated
+I (435) cpu_start: Multicore app
+I (1385) esp_psram: SPI SRAM memory test OK
+I (1401) cpu_start: Pro cpu start user code
+I (1401) cpu_start: cpu freq: 360000000 Hz
+I (1402) app_init: Application information:
+I (1402) app_init: Project name:     sloop_fm1_tab5
+I (1402) app_init: App version:      23bfbd8
+I (1402) app_init: Compile time:     Nov 21 2026 13:50:39
+I (1402) app_init: ELF file SHA256:  ae2dedca1...
+I (1403) app_init: ESP-IDF:          v5.5.5
+I (1403) efuse_init: Min chip rev:     v1.0
+I (1403) efuse_init: Max chip rev:     v1.99 
+I (1403) efuse_init: Chip rev:         v1.3
+I (1403) heap_init: Initializing. RAM available for dynamic allocation:
+I (1404) heap_init: At 4FF202D0 len 0001ACF0 (107 KiB): RETENT_RAM
+I (1404) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1404) heap_init: At 4FF9B6F0 len 00004910 (18 KiB): RAM
+I (1405) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1405) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1405) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1406) spi_flash: detected chip: generic
+I (1407) spi_flash: flash io: dio
+I (1407) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1408) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1408) main_task: Started on CPU0
+I (1408) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1408) main_task: Calling app_main()
+I (1408) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1408) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1408) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1408) LVGL: Starting LVGL task
+I (1408) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1918) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1918) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1918) st7123: version: 1.0.2
+I (2938) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2938) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2938) ST7123: Touch panel create success, version: 1.0.2
+I (2938) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3088) M5Stack Tab5: Setting LCD backlight: 100%
+I (3088) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3088) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+
+Type 'help' to get the list of commands.
+
+Use UP/DOWN arrows to navigate through command history.
+
+Press TAB when typing command name to auto-complete.
+
+
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+
+sloop>  I (4088) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4088) sloop_tab5: keyboard: OK (0x6D)
+W (4088) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4098) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4108) I2S_IF: Paired data: 0x4ff3fb10, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4108) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4108) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4118) ES8388: Start on mode:2
+I (4118) Adev_Codec: Open codec device OK
+I (4118) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4138) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4148) sloop_audio_stream: stream started, half=256 frames
+I (4148) sloop_tab5: UI 启动前内部堆剩余 116483 字节
+I (4158) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=48576B
+I (4158) sloop_ui: UI 就绪: 7 页注册/1 已建 @1280x720, LVGL 池已用 14404/62940 字节, 内部堆剩余 116483 字节
+I (4268) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4358) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）

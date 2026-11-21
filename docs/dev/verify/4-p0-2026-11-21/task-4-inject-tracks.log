@@ -1,0 +1,21 @@
+
+sloop>  # [inject] 场景 tracks 开始
+UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=5 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+sloop>  TAP 640 260
+TAP miss 640,260 page=1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] SCR 截屏 -> inject-tracks-20261121-084628-tracks-sel3.png
+SCR
+I (165777) sloop_console: SCR: 传输前 PSRAM 剩余 28261148 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+# [inject] 场景 tracks 结束 failures=0
