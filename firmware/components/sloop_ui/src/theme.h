@@ -28,12 +28,15 @@
 #define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
 #define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
-/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72） */
+/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72）。注册页多于 4 时按
+ * 可用宽度收窄（UI_TAB_RIGHT_RESERVE 给右侧 SLOOP 标题/层提示留位）：7 页时
+ * 150px（7×150 + 6×8 = 1098，右端 1114 < 1280-150）。 */
 #define UI_TAB_X0  16
 #define UI_TAB_W   176
 #define UI_TAB_H   52
 #define UI_TAB_GAP 8
 #define UI_TAB_Y   10
+#define UI_TAB_RIGHT_RESERVE 150
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)

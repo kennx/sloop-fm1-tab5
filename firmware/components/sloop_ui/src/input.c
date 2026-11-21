@@ -17,6 +17,10 @@
  * docs/design/006-keyboard-mapping.md）。layer_held 写 AppState（state_set_layer）。
  * 演奏键只在「无层或仅 FX」时发声：EDIT/SEL/GLO 按住期间演奏键不弹音符。
  *
+ * 参数页路由（ADR-008 §8）：当前页是参数页（GLOBAL/FX/ANALOG…）时，←/→ 在槽位间
+ * 移动焦点、↑/↓ 调焦点槽的值（经 sloop_ui_param_*，只写状态层；控件由 30ms UI
+ * 定时器刷新），不再驱动 STEP 焦点列/轨焦点。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -316,8 +320,22 @@ static void dispatch(const key_binding_t *b, bool down)
         if (count > 0 && page < count) sloop_ui_request_page((uint8_t)((page + 1u) % count));
         break;
     }
-    case ACT_FOCUS_STEP: act_focus(true, b->param); break;
-    case ACT_FOCUS_TRACK: act_focus(false, b->param); break;
+    case ACT_FOCUS_STEP:
+        /* 参数页：←/→ 在 8 槽间移动焦点（不再驱动 STEP 焦点列） */
+        if (sloop_ui_param_page_active()) {
+            sloop_ui_param_focus_move(b->param);
+        } else {
+            act_focus(true, b->param);
+        }
+        break;
+    case ACT_FOCUS_TRACK:
+        /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新） */
+        if (sloop_ui_param_page_active()) {
+            sloop_ui_param_adjust((int8_t)-b->param);
+        } else {
+            act_focus(false, b->param);
+        }
+        break;
     case ACT_SELECT: {
         /* SEL 层 1–4 = 选轨（与 TRACKS 卡片点击同一命令，同时设焦点轨） */
         const edit_cmd_t cmd = { .type = CMD_SELECT_TRACK, .a = (uint32_t)b->param };

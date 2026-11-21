@@ -1,7 +1,8 @@
 /*
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 四屏框架 + 页面注册表）
  *
- * 单容器屏 + 顶部页签 PLAY|TRACKS|STEP|TRANSPORT：页签由页面注册表（ADR-008）
+ * 单容器屏 + 顶部页签（页签顺序 = 页面注册表顺序）：PLAY|TRACKS|STEP|TRANSPORT
+ * + 参数页 GLOBAL|FX|ANALOG（描述符驱动的旋钮页，ADR-008 §8）。页签由页面注册表
  * 派生，页面**首次访问时构建**，之后保留（不销毁）。PLAY 在
  * sloop_ui_start() 内立即构建，保证开机首帧非空白；TRACKS/STEP/TRANSPORT
  * 在首次进入时构建并把 LVGL 池增量记入日志/`UI MEM`。
@@ -88,7 +89,8 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
  * 错误状态条留在屏上，本函数仍返回 ESP_OK。 */
 esp_err_t sloop_ui_start(void);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t），首次进入时构建该页。
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG
+ * （同 app_page_t），首次进入时构建该页。
  * 可从任意任务调用（内部加锁）。返回：ESP_OK = 已落地；ESP_ERR_INVALID_ARG =
  * 非法页 id 或该页未注册（console 打印 `UI ERR not_registered <id>`）；
  * ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
@@ -139,12 +141,16 @@ typedef enum {
     SLOOP_TAP_TRANSPORT_PLAY,
     SLOOP_TAP_TRANSPORT_STOP,
     SLOOP_TAP_TRANSPORT_BPM, /* v=±1：CMD_SET_BPM */
+    SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
+    SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
+    SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
 } sloop_tap_kind_t;
 
 typedef struct {
     sloop_tap_kind_t kind;
     uint8_t a, b;
     int16_t v;
+    int8_t d; /* SLOOP_TAP_PARAM_STEP：±1 步进方向 */
 } sloop_tap_result_t;
 
 typedef enum {
@@ -156,6 +162,15 @@ typedef enum {
 } sloop_tap_result_status_t;
 
 sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+
+/* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/ANALOG…）
+ * 时 ←/→ 选槽、↑/↓ 调值，不再驱动 STEP 焦点/轨焦点。
+ * 三个函数都不取 LVGL 锁（可在输入任务调用）：焦点是 UI 局部态（临界区保护），
+ * 调值走状态层 CMD_SET_PARAM/CMD_SET_GLOBAL，页面控件由 30ms UI 定时器刷新。
+ * 非参数页/UI 未启动时为空操作；不可编辑的引擎页（所选轨引擎与页不符）忽略调值。 */
+bool sloop_ui_param_page_active(void);
+void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
+void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
 
 /* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);

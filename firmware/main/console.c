@@ -16,7 +16,7 @@
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
  *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
- *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
@@ -552,9 +552,12 @@ static int state_command(int argc, char **argv)
 
 /* PARAM 诊断注入（阶段 4 P4-A Task 9 的设备断言入口）：走与 UI 编辑相同的状态层
  * 路径（CMD_SET_PARAM / CMD_SET_PARAM_BATCH → sloop_core_set_params），写完回读
- * 引擎真值。id 合法性按 desc 契约预判（TRACK scope 覆盖 id < P_E0；P_E0..P_E7 是
- * 引擎槽：鼓轨用哨兵 SLOOP_CORE_NENGINES）——钳位不在本层做，引擎按同一描述符
- * 钳位，回显的 applied 即钳位结果。value 接受任意 int16。 */
+ * 引擎真值。`PARAM <id>`（无值）是只读形式：打印当前真值 + 描述符范围（参数页
+ * 编辑生效的断言入口，不改任何状态）；`PARAM GLOBAL <id> [<value>]` 是全局参数
+ * （song.g[]）的读/写入口（与 GLOBAL 参数页同一状态层命令 CMD_SET_GLOBAL）。
+ * id 合法性按 desc 契约预判（TRACK scope
+ * 覆盖 id < P_E0；P_E0..P_E7 是引擎槽：鼓轨用哨兵 SLOOP_CORE_NENGINES）——钳位不在
+ * 本层做，引擎按同一描述符钳位，回显的 applied 即钳位结果。value 接受任意 int16。 */
 static bool param_parse_value(const char *text, int16_t *value)
 {
     char *end = NULL;
@@ -580,12 +583,58 @@ static int param_command(int argc, char **argv)
     uint32_t engine = track == 3u ? SLOOP_CORE_NENGINES : snap.trk[track].engine;
     int16_t p[SLOOP_CORE_P_COUNT], g[SLOOP_CORE_G_COUNT];
 
+    /* PARAM GLOBAL <id> [<value>]：全局参数（song.g[]）的读/写诊断入口。写经状态层
+     * CMD_SET_GLOBAL（与 GLOBAL 参数页同一路径，钳位在引擎）；读是只读回显。 */
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "global") == 0) {
+        uint32_t id;
+        sloop_desc_t d;
+        if (!eng_uint(argv[2], 0xFFFFu, &id) ||
+            !sloop_core_desc(SLOOP_DESC_GLOBAL, 0, id, &d)) {
+            printf("PARAM ERR global id=%s reason=invalid_id\n", argv[2]);
+            return 1;
+        }
+        if (argc == 4) {
+            int16_t value;
+            if (!param_parse_value(argv[3], &value)) {
+                printf("用法: PARAM GLOBAL <id> [<value>]\n");
+                return 1;
+            }
+            const edit_cmd_t cmd = { .type = CMD_SET_GLOBAL, .a = id, .v = (uint16_t)value };
+            state_apply(&cmd);
+            sloop_core_read_params(track, NULL, g);
+            printf("PARAM GLOBAL id=%u value=%d applied=%d min=%d max=%d\n", (unsigned)id,
+                   (int)value, (int)g[id], (int)d.min, (int)d.max);
+            return 0;
+        }
+        sloop_core_read_params(track, NULL, g);
+        printf("PARAM GLOBAL id=%u value=%d min=%d max=%d\n", (unsigned)id, (int)g[id],
+               (int)d.min, (int)d.max);
+        return 0;
+    }
+
+    if (argc == 2 && strcasecmp(argv[1], "batch") != 0) {
+        /* 只读：PARAM <id> 打印选中轨该参数的引擎真值与描述符范围（不写） */
+        uint32_t id;
+        sloop_desc_t d;
+        if (!eng_uint(argv[1], 0xFFFFu, &id)) {
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            return 1;
+        }
+        if (!param_id_valid(engine, id, &d)) {
+            printf("PARAM ERR track=%u id=%u reason=invalid_id\n", (unsigned)track, (unsigned)id);
+            return 1;
+        }
+        sloop_core_read_params(track, p, g);
+        printf("PARAM track=%u id=%u value=%d min=%d max=%d\n", (unsigned)track, (unsigned)id,
+               (int)p[id], (int)d.min, (int)d.max);
+        return 0;
+    }
     if (argc == 3 && strcasecmp(argv[1], "batch") != 0) {
         uint32_t id;
         int16_t value;
         sloop_desc_t d;
         if (!eng_uint(argv[1], 0xFFFFu, &id) || !param_parse_value(argv[2], &value)) {
-            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
             return 1;
         }
         if (!param_id_valid(engine, id, &d)) {
@@ -603,7 +652,7 @@ static int param_command(int argc, char **argv)
         uint32_t id;
         int16_t value;
         if (!eng_uint(argv[2], 0xFFFFu, &id) || !param_parse_value(argv[3], &value)) {
-            printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+            printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
             return 1;
         }
         /* 旁路：不做 desc 预判，直接经状态层命令到引擎批量入口——用于设备上复验
@@ -635,7 +684,7 @@ static int param_command(int argc, char **argv)
             int16_t value;
             if (!eng_uint(argv[2 + 2u * i], 0xFFFFu, &id) ||
                 !param_parse_value(argv[3 + 2u * i], &value)) {
-                printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
+                printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>\n");
                 return 1;
             }
             if (!param_id_valid(engine, id, &d)) {
@@ -656,11 +705,11 @@ static int param_command(int argc, char **argv)
         printf("\n");
         return 0;
     }
-    printf("用法: PARAM <id> <value> | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>（选中轨，经状态层参数命令；钳位在引擎）\n");
+    printf("用法: PARAM <id> [<value>] | PARAM GLOBAL <id> [<value>] | PARAM BATCH <id> <value> ... | PARAM RAW <id> <value>（选中轨，经状态层参数命令；钳位在引擎；无 value 时只读回显）\n");
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -671,7 +720,11 @@ static int param_command(int argc, char **argv)
  * UI WINDOW [<start> <len>]：步窗（AppState 的 UI 局部态）——start 为引擎绝对步号
  * （向下对齐 16、钳位 0..48，bank = start/16），len 1..16；无参打印当前窗口。
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
-static const char *const k_page_names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
+static const char *const k_page_names[APP_STATE_PAGES] = {
+    "play", "tracks", "step", "transport", "global", "fx", "analog",
+};
+_Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
+               "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
 
 /* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
 static bool ui_parse_page(const char *arg, uint8_t *out)
@@ -774,7 +827,7 @@ static int ui_command(int argc, char **argv)
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
-            printf("UI ERR page (want=play|tracks|step|transport|0..%u)\n",
+            printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -847,7 +900,7 @@ static int ui_command(int argc, char **argv)
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
@@ -981,6 +1034,17 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_TRANSPORT_BPM:
         printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_SET_BPM delta=%+d\n", x, y, page, (int)r.v);
         break;
+    case SLOOP_TAP_PARAM_STEP:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u id=%u delta=%+d value=%d\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b, (int)r.d, (int)r.v);
+        break;
+    case SLOOP_TAP_PARAM_FOCUS:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u focus\n", x, y, page, (unsigned)r.a);
+        break;
+    case SLOOP_TAP_PARAM_LOCKED:
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (engine page N/A)\n", x, y, page,
+               (unsigned)r.a);
+        break;
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;
@@ -1081,7 +1145,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport>|MEM|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog>|MEM|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

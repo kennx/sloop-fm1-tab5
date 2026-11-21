@@ -6,7 +6,8 @@
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），之后只改
  * LV_OBJ_FLAG_HIDDEN（已建页不销毁，受每页 est_bytes 预算保护）：PLAY
  * （page_play.c）/ TRACKS（page_tracks.c）/ STEP（page_step.c）/ TRANSPORT
- * （page_transport.c）。
+ * （page_transport.c）/ 参数页 GLOBAL|FX|ANALOG（page_params.c + knob.c，布局表
+ * page_layout.c；注册顺序接在四基础页之后，7 页时页签收窄到 150px，ADR-008 §8）。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
  * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
@@ -48,6 +49,8 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "lvgl.h"
+#include "page_layout.h"
+#include "page_params.h"
 #include "sloop_core.h"
 #include "sloop_state.h"
 #include "theme.h"
@@ -241,11 +244,12 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 页签宽度：4 页时保持 UI_TAB_W（像素与阶段 3 一致）；注册页更多时按可用
-     * 宽度收窄，避免溢出到 SLOOP 标题/层提示区 */
+    /* 页签宽度：4 页时保持 UI_TAB_W（像素与阶段 3 一致）；注册页更多时按可用宽度
+     * 收窄，并给右侧 SLOOP 标题/层提示留出 UI_TAB_RIGHT_RESERVE，避免溢出 */
     int32_t tab_w = UI_TAB_W;
     if (s_reg_count > 0) {
-        int32_t fit = (UI_W - 2 * UI_TAB_X0 - (int32_t)(s_reg_count - 1) * UI_TAB_GAP) /
+        int32_t fit = (UI_W - 2 * UI_TAB_X0 - UI_TAB_RIGHT_RESERVE -
+                       (int32_t)(s_reg_count - 1) * UI_TAB_GAP) /
                       (int32_t)s_reg_count;
         if (fit < tab_w) tab_w = fit;
     }
@@ -321,6 +325,12 @@ static void register_builtin_pages(void)
             ESP_LOGE(TAG, "内置页注册失败 id=%u: %s", (unsigned)k_builtin_pages[i].id,
                      esp_err_to_name(ret));
         }
+    }
+    /* 参数页（GLOBAL/FX/ANALOG…）：布局表与注册表条目同源（page_layout.c 的 X 宏表），
+     * 注册顺序接在四基础页之后 → 页签顺序 = PLAY|TRACKS|STEP|TRANSPORT|GLOBAL|FX|ANALOG */
+    esp_err_t ret = page_layout_register();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "参数页注册失败: %s", esp_err_to_name(ret));
     }
 }
 
@@ -503,7 +513,8 @@ void sloop_ui_request_page(uint8_t page)
 }
 
 /* TAP 注入的页级派发：坐标为页面区相对坐标；PLAY 页无可点控件（纯呈现）。
- * 调用方已持 LVGL 锁（动作函数会改控件文本并立即刷新本页）。 */
+ * 调用方已持 LVGL 锁（动作函数会改控件文本并立即刷新本页）。参数页（布局表）
+ * 统一走 page_params_tap（弧线/± 按钮/数值文本）。 */
 static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     if (y < UI_TAB_BAR_H) return false;
@@ -512,7 +523,10 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_STEP: return page_step_tap(x, py, out);
     case APP_PAGE_TRACKS: return page_tracks_tap(x, py, out);
     case APP_PAGE_TRANSPORT: return page_transport_tap(x, py, out);
-    default: return false; /* PLAY：无编辑控件 */
+    default: {
+        int idx = page_layout_index(page);
+        return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
+    }
     }
 }
 
