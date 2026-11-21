@@ -193,7 +193,6 @@ def main() -> None:
     args = ap.parse_args()
 
     inject.require_deps()
-    import serial
 
     project = os.environ.get("SLOOP_TAB5_PROJECT") or str(SCRIPTS_DIR.parent / "firmware")
     out_dir = Path(args.out_dir) if args.out_dir else Path(project) / "build" / "verify"
@@ -202,8 +201,8 @@ def main() -> None:
     stamp = f"{datetime.now():%Y%m%d-%H%M%S}"
     log_path = out_dir / f"soak-{stamp}.log"
     sum_path = out_dir / f"soak-summary-{stamp}.txt"
-    ser = inject.LoggedSerial(serial.Serial(args.port, inject.BAUD, timeout=0.05), log_path)
-    s = inject.Session(ser, out_dir, stamp, "soak", timeout=3.0)
+    # Session 自建 LoggedSerial（DI-5 硬化后的签名）；soak 不用截屏重试
+    s = inject.Session(args.port, log_path, out_dir, stamp, "soak", timeout=3.0)
 
     rows = []
     problems = []
@@ -211,7 +210,7 @@ def main() -> None:
     print(f"   串口原始日志: {log_path}")
     try:
         s.wait_ready()
-        ser.note(f"soak 开始 duration={args.duration:.0f}s interval={args.interval:.0f}s")
+        s.ser.note(f"soak 开始 duration={args.duration:.0f}s interval={args.interval:.0f}s")
         s.cmd("ENG AUDIO")
         s.expect(r"ENG AUDIO streaming=1", "soak 前置：音频流已开")
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
@@ -278,13 +277,13 @@ def main() -> None:
         s.expect(r"-> TRANSPORT CMD_STOP", "soak 收尾 STOP")
         switch(s, "play")
         problems = verdict(rows, log_path, elapsed, args.duration)
-        ser.note(f"soak 结束 cycles={n} samples={len(rows)} failures={s.failures} "
-                 f"problems={len(problems)}")
+        s.ser.note(f"soak 结束 cycles={n} samples={len(rows)} failures={s.failures} "
+                   f"problems={len(problems)}")
     except inject.InjectError as e:
-        ser.note(f"soak 异常终止: {e}")
+        s.ser.note(f"soak 异常终止: {e}")
         problems.append(f"串口会话异常：{e}")
     finally:
-        ser.close()
+        s.ser.close()
 
     measured = rows[-1]["t"] if rows else 0
     if not rows:

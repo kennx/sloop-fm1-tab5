@@ -257,14 +257,17 @@ class Session:
             f"{label}: 区域 {box} 内 {rgb}±{tol} 像素 {n}（阈值 ≥{min_count}）")
 
 
-# 锚点颜色取 RGB565 位扩展口径（与 screenshot.py --check 一致；容差默认 16）
+# 锚点颜色取主题色经 **RGB565 量化**后的实测值（本机帧缓冲为 rgb565；与
+# screenshot.py --check 同口径）。量化误差最大 ~4/通道，调用方容差 10–16 覆盖：
+# 例：UI_PANEL_HI 0x242B33=(36,43,51) → (32,40,48)；UI_TEXT 0xF2F5F8=(242,245,248)
+# → (240,244,248)。不要按主题 hex 直接改这些值，否则探针会因位扩展差误报。
 C_BLUE = (56, 120, 216)   # 轨 0 主题色 0x3B7BD8
 C_GREEN = (56, 160, 72)   # 轨 1 主题色 0x3FA34D
 C_YELLOW = (224, 176, 40) # 轨 2 / UI_ACCENT 0xE0B32A
 C_ORANGE = (224, 104, 24) # 轨 3 主题色 0xE06A1B
 C_BG = (16, 20, 24)       # UI_BG 0x101418
 C_PANEL = (24, 32, 32)    # UI_PANEL 0x1B2026
-C_PANEL_HI = (32, 40, 48) # UI_PANEL_HI 0x242B33
+C_PANEL_HI = (32, 40, 48) # UI_PANEL_HI 0x242B33 → rgb565 (32,40,48)
 C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）
 C_TAB_PLAY = (40, 36)
@@ -342,9 +345,10 @@ TRACKS_CARD2 = (796, 347)
 TRACKS_CARD_PITCH = 312
 
 
-def ensure_window(s: Session, start: int, window_len: int) -> None:
+def ensure_window(s: Session, start: int, window_len: int) -> int:
     """经 console `UI WINDOW <start> <len>` 落步窗，并用 STATE SNAP 断言落地值。
-    start 必须是 16 的倍数（0/16/32/48）；len 1..16。"""
+    start 必须是 16 的倍数（0/16/32/48）；len 1..16。返回 window_len（供
+    播放头/像素扫描按实际窗口列数设置几何）。"""
     s.cmd(f"UI WINDOW {start} {window_len}")
     s.expect(rf"UI WINDOW bank={start // 16} start={start} len={window_len}",
              f"UI WINDOW {start} {window_len}")
@@ -352,6 +356,7 @@ def ensure_window(s: Session, start: int, window_len: int) -> None:
     s.expect_int(r"window_bank=(\d+)", start // 16, "STATE SNAP window_bank")
     s.expect_int(r"window_start=(\d+)", start, "STATE SNAP window_start")
     s.expect_int(r"window_len=(\d+)", window_len, "STATE SNAP window_len")
+    return window_len
 
 
 def ensure_stopped(s: Session) -> None:
@@ -408,9 +413,11 @@ def run_transport(s: Session) -> None:
     s.probe(img, "页签选中（TRANSPORT）", *C_TAB_TRANSPORT, C_YELLOW)
     s.probe(img, "页面背景", 640, 690, C_BG)
 
-    # 播放中切 STEP：播放头由引擎 step_pos 驱动。SCR 抓的是"上一已刷新帧"（≤30ms 旧），
-    # 所以每帧的播放头列应等于抓屏前 ENG SNAP 的 pos（或紧邻 1–2 列）；
-    # 两帧的 pos 不同即证明播放推进（16 列环绕会让"列号不同"本身不可靠，故以引擎为锚）。
+    # 播放中切 STEP：先归一窗口（窗口是持久 UI 状态；播放头列扫描按 window_len 几何）。
+    # 播放头由引擎 step_pos 驱动；SCR 抓的是"上一已刷新帧"（≤30ms 旧），所以每帧的
+    # 播放头列应等于抓屏前 ENG SNAP 的 pos（或紧邻 1–2 列）；两帧的 pos 不同即证明
+    # 播放推进（16 列环绕会让"列号不同"本身不可靠，故以引擎为锚）。
+    wlen = ensure_window(s, 0, 16)
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
     time.sleep(0.4)  # ≥10 个 30ms tick，播放头与步位置同步稳定
@@ -419,19 +426,19 @@ def run_transport(s: Session) -> None:
         s.cmd("ENG SNAP")
         pre = s.snap_int(r"pos=(\d+)")
         img = s.capture(label)
-        return pre, playhead_columns(img), img
+        return pre, playhead_columns(img, wlen), img
 
     pre_a, cls_a, _ = shot_with_pos("step-playhead-a")
     time.sleep(0.3)
     pre_b, cls_b, img_b = shot_with_pos("step-playhead-b")
 
-    s.probe_region(img_b, "播放头描边", (88, 156, 88 + 16 * 73, 156 + 3 * 124 + 104),
-                   C_YELLOW, 16, 100)
+    s.probe_region(img_b, "播放头描边",
+                   (88, 156, 88 + wlen * 73, 156 + 3 * 124 + 104), C_YELLOW, 16, 100)
     s.probe(img_b, "页签选中（STEP）", *C_TAB_STEP, C_YELLOW)
 
     for r in range(4):
-        want_a = {(pre_a + k) % 16 for k in (0, 1, 2)}
-        want_b = {(pre_b + k) % 16 for k in (0, 1, 2)}
+        want_a = {(pre_a + k) % wlen for k in (0, 1, 2)}
+        want_b = {(pre_b + k) % wlen for k in (0, 1, 2)}
         ok_a = len(cls_a[r]) == 1 and cls_a[r][0] in want_a
         ok_b = len(cls_b[r]) == 1 and cls_b[r][0] in want_b
         s.ok(f"行 {r}: 帧 A 列 {cls_a[r]}（pos={pre_a}）/ 帧 B 列 {cls_b[r]}（pos={pre_b}）")
