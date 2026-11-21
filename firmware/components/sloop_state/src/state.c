@@ -69,26 +69,33 @@ void step_window(step_window_t *out)
 
 void state_sync_from_engine(void)
 {
-    /* 步窗是 UI 局部态（state 所有），先在状态锁外取一份：随后的一次窗口快照
-     * 按该起点读引擎真值，snapshot 的 step[][]/dstep[] 即窗口列投影。 */
-    step_window_t win;
-    state_lock();
-    win = s_state.window;
-    state_unlock();
+    /* 步窗是 UI 局部态（state 所有）。sync 在状态锁外读引擎（避免把输入任务堵在
+     * 音频块的引擎锁后面），因此取快照与写回之间可能插入一次 CMD_SET_WINDOW：
+     * 写回前复核窗口，变了就按新窗口重取一次（最多两次）——否则会把旧基的投影
+     * 留在 AppState 一拍，而 EDIT 擦除读的是这份投影。 */
+    for (uint32_t attempt = 0; attempt < 2u; attempt++) {
+        step_window_t win;
+        state_lock();
+        win = s_state.window;
+        state_unlock();
 
-    sloop_core_snapshot_t snap;
-    /* 先在状态锁外读引擎：若恰与 state_apply 交错，本次写入的投影最多被一份旧快照
-     * 覆盖一个 UI tick（30–60ms），下一次 sync 即自愈。反过来先取状态锁会把输入任务
-     * 堵在音频块持有的引擎锁后面（≈5.8ms/块），直接伤 ≤20ms 的按键延迟目标。
-     * 窗口快照在同一把引擎锁里取完 16 列（不是逐列 read_step），取锁次数仍为 1。 */
-    sloop_core_read_window(win.window_start, &snap);
+        sloop_core_snapshot_t snap;
+        /* snapshot 的 step[][]/dstep[] 是窗口列投影（基 = win.window_start）。
+         * 窗口快照在同一把引擎锁里取完 16 列（不是逐列 read_step），取锁次数仍为 1。 */
+        sloop_core_read_window(win.window_start, &snap);
 
-    state_lock();
-    /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
-     * set_mute/set_solo），本层不再持有，也不做任何例外保持。step[][]/dstep[] 是
-     * 窗口列投影（基 = win.window_start），窗口本身不被 sync 改写。 */
-    s_state.core = snap;
-    state_unlock();
+        state_lock();
+        if (s_state.window.window_start == win.window_start) {
+            /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
+             * set_mute/set_solo），本层不再持有，也不做任何例外保持。窗口本身不被 sync
+             * 改写；窗口基与快照基一致才写回（否则按新窗口重取）。 */
+            s_state.core = snap;
+            state_unlock();
+            return;
+        }
+        state_unlock();
+    }
+    /* 连续两次窗口变更（极端交错）：本次不写投影，下一拍按最新窗口重取并自愈 */
 }
 
 void state_set_page(uint8_t page)

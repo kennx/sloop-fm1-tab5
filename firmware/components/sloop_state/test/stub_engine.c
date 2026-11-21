@@ -3,10 +3,12 @@
 #include <string.h>
 
 stub_engine_t g_stub;
+void (*g_stub_on_read_window)(uint32_t start);
 
 void stub_engine_reset(void)
 {
     memset(&g_stub, 0, sizeof(g_stub));
+    g_stub_on_read_window = NULL;
     g_stub.snap.bpm = 90; /* 上游 GP[G_BPM].def */
     for (uint32_t k = 0; k < 4; k++) {
         g_stub.snap.trk[k].len = 16;
@@ -48,6 +50,7 @@ void sloop_core_read(sloop_core_snapshot_t *out)
 void sloop_core_read_window(uint32_t start, sloop_core_snapshot_t *out)
 {
     g_stub.read_window_calls++;
+    if (g_stub_on_read_window != NULL) g_stub_on_read_window(start);
     start &= ~15u;
     if (start > STUB_ENGINE_STEPS - 16u) start = STUB_ENGINE_STEPS - 16u;
     *out = g_stub.snap;

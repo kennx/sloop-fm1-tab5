@@ -584,6 +584,47 @@ static void case_step_window(void)
     check_ll("len 上限 16", w.window_len, 16);
 }
 
+/* ⑦b sync 与 CMD_SET_WINDOW 交错：引擎快照读完后窗口才变——sync 必须按新窗口
+ * 重取一次，不能把旧基投影写回（EDIT 擦除读这份投影）。 */
+static int s_hook_calls;
+
+static void window_shift_hook(uint32_t start)
+{
+    (void)start;
+    if (s_hook_calls++ != 0) return; /* 只插一次（嵌套的 SET_WINDOW 读不再触发） */
+    apply(CMD_SET_WINDOW, 0, 16, 16); /* 模拟另一写路径在取快照期间落窗 */
+}
+
+static void case_window_sync_race(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* 引擎内容：绝对步 16（新基列 0）与绝对步 20（新基列 4） */
+    g_stub.step[0][16] = (sloop_step_t){ .n = 1, .note = { 67, 0, 0, 0 }, .vel = 90, .time = 0 };
+    g_stub.step[0][20] = (sloop_step_t){ .n = 1, .note = { 72, 0, 0, 0 }, .vel = 90, .time = 0 };
+    apply(CMD_SET_WINDOW, 0, 0, 16); /* 先落在基 0 */
+
+    uint32_t rw0 = g_stub.read_window_calls;
+    s_hook_calls = 0;
+    g_stub_on_read_window = window_shift_hook;
+    state_sync_from_engine();
+    g_stub_on_read_window = NULL;
+
+    /* sync 读 1 次（基 0）→ 钩子内 SET_WINDOW 自己读 1 次（基 16）→ sync 复核后
+     * 按新基重取 1 次，共 3 次；写回的一定是新基投影。 */
+    check_ll("交错：窗口快照读取次数", g_stub.read_window_calls - rw0, 3);
+    step_window_t w;
+    step_window(&w);
+    check_ll("交错：窗口已切 bank1", w.window_start, 16);
+    check_ll("交错：窗口 len", w.window_len, 16);
+    state_get_copy(&s);
+    check_ll("交错：投影基 = 新窗口（列 0 = 绝对步 16）", s.core.step[0][0].note[0], 67);
+    check_ll("交错：投影基 = 新窗口（列 4 = 绝对步 20）", s.core.step[0][4].note[0], 72);
+    check_ll("交错：旧基内容未混入（列 5 空）", s.core.step[0][5].n, 0);
+}
+
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
 static void case_bounds(void)
 {
@@ -630,6 +671,7 @@ int main(void)
     run("MUTE/SOLO 引擎写入口与 sync 真值", case_mute_solo);
     run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
     run("步窗抽象：默认/映射/投影/钳位", case_step_window);
+    run("步窗 sync 与 SET_WINDOW 交错按新基重取", case_window_sync_race);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("越界参数忽略", case_bounds);
 

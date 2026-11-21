@@ -28,6 +28,11 @@ typedef struct {
 
 extern stub_engine_t g_stub;
 
+/* 窗口读钩子（测试用）：在 sloop_core_read_window 入口按入参 start 调用。用于
+ * 模拟「sync 取引擎快照期间 CMD_SET_WINDOW 落地」的交错（state 的窗口复核路径）。
+ * 钩子内可安全调用 state_apply（此时 state 锁不在 state_sync 手里）。NULL = 不启用。 */
+extern void (*g_stub_on_read_window)(uint32_t start);
+
 /* 清空记录并把快照/步表恢复为上游默认（bpm=90，空步 time=REST）。 */
 void stub_engine_reset(void);
 

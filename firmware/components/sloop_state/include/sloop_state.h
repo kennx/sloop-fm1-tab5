@@ -127,6 +127,8 @@ void step_window(step_window_t *out);
 /* UI 局部态写入口（UI 任务的写路径：无 EditCmd 语义，不进引擎/远端）。
  * state_apply 是 input 任务的编辑写路径；两者都走内部互斥。 */
 void state_set_page(uint8_t page);
+/* 写焦点：track < 4；step 是**窗口列**，须 < window_len（窗口外的隐藏列被忽略，
+ * 焦点不会落在不可见的列上）。窗口缩小后旧焦点由 CMD_SET_WINDOW 夹到窗口内。 */
 void state_set_focus(uint8_t track, uint8_t step);
 void state_set_layer(uint8_t mask);
 
