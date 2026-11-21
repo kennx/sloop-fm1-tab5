@@ -7,7 +7,7 @@
  * LV_OBJ_FLAG_HIDDEN（已建页不销毁，受每页 est_bytes 预算保护）：PLAY
  * （page_play.c）/ TRACKS（page_tracks.c）/ STEP（page_step.c）/ TRANSPORT
  * （page_transport.c）/ 参数页 GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，
- * 布局表 page_layout.c；注册顺序接在四基础页之后，9 页时页签收窄到 114px，ADR-008 §8）。
+ * 布局表 page_layout.c；注册顺序接在四基础页之后，9 页时页签收窄到 107px，ADR-008 §8）。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
  * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
@@ -48,6 +48,7 @@
 #include "esp_lvgl_port.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "lvgl.h"
 #include "page_layout.h"
 #include "page_params.h"
@@ -58,18 +59,18 @@
 static const char *TAG = "sloop_ui";
 
 /* 内置页面注册表（ADR-008）：注册顺序 = 页签顺序。est_bytes 为构建前预算门槛
- * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 13–23% 余量、512 对齐
- * （ADR-008 预算表）；各页 est 之和必须小于 LVGL 池总量，否则后建的页可能永远
- * 被预算拒绝。
- * STEP 9 页口径：est 从 24,576 收到 24,064（实测 delta 21,836B，+10.2%）——
- * 其它八页建完、STEP 尚未建时 free 约 24.2KB（task-11-fix-steplast.log），按
- * 13% 余量取 24,576 会让「STEP 最后建」被预算门槛误拒（实际 delta 仍装得下，
- * 余 ~2.4KB）。9 页是当前池的容量天花板：再加页/扩控件前必须先按 ADR-008 §5
- * rule 4 做设计决策（DI-17）。 */
+ * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 10–26% 余量、512 对齐
+ * （ADR-008 预算表；STEP 因 9 页末页自由量见下的例外取 +5.4%）；预算门槛的
+ * 真口径是逐页 `free_size >= est`，不是「Σ est < 池总量」（ADR-008 §5）。
+ * STEP 9 页口径：est = 23,040（实测 delta 21,484–21,864B，+5.4%）——「其它八页
+ * 建完、STEP 最后建」时 free 实测 24,044–24,272B（P4-A 终审修复轮：params 场景
+ * 顺序下 24,044B），delta+10% 的 24,064 会差 20B 被预算误拒（实际 delta 装得下）。
+ * 9 页是当前池的容量天花板：再加页/扩控件前必须先按 ADR-008 §5 rule 4 做设计
+ * 决策（DI-17）。 */
 static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
-    {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 24064},
+    {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 23040},
     {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
 };
 
@@ -269,6 +270,7 @@ static bool create_tab_bar(void)
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_bg_color(btn, lv_color_hex(UI_PANEL_HI), 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(btn, 0, 0); /* 9 页时 107px 只比 "TRANSPORT" 标签宽 5px：不给默认内边距留位 */
         lv_obj_add_event_cb(btn, tab_clicked_cb, LV_EVENT_CLICKED,
                             (void *)(uintptr_t)s_registry[i]->id);
 
@@ -291,13 +293,21 @@ static bool create_tab_bar(void)
     lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -24, 22);
 
     /* 层键提示（InputManager 写 layer_held，30ms 定时器刷新）：按住 Sym/Aa/Ctrl/Alt
-     * 时在页签条右侧显示 LAYER FX/EDIT/SEL/GLO */
+     * 时在页签条右侧显示 LAYER FX/EDIT/SEL/GLO。9 页时页签右端 1043、提示右端
+     * 1170：16pt + 宽度封顶 + LV_LABEL_LONG_DOT——长组合（四层键同按）以省略号
+     * 收尾，绝不压到页签上（ADR-005「导航信息架构」节）。 */
+    int32_t tab_right = UI_TAB_X0 + (int32_t)s_reg_count * (tab_w + UI_TAB_GAP) - UI_TAB_GAP;
+    int32_t hint_w = (UI_W - 110) - tab_right - 8;
+    if (hint_w < 0) hint_w = 0;
     s_layer_hint = lv_label_create(bar);
     if (s_layer_hint == NULL) return false;
     lv_label_set_text(s_layer_hint, "");
-    lv_obj_set_style_text_font(s_layer_hint, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(s_layer_hint, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(s_layer_hint, lv_color_hex(UI_TEXT_DIM), 0);
-    lv_obj_align(s_layer_hint, LV_ALIGN_TOP_RIGHT, -110, 22);
+    lv_obj_set_style_text_align(s_layer_hint, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_label_set_long_mode(s_layer_hint, LV_LABEL_LONG_DOT);
+    lv_obj_set_size(s_layer_hint, hint_w, 20); /* 高度 = 一行 16pt：DOT 截断只在单行内，不换行 */
+    lv_obj_align(s_layer_hint, LV_ALIGN_TOP_RIGHT, -110, 26);
     return true;
 }
 
@@ -584,21 +594,25 @@ void sloop_ui_cancel_pending_page(void)
     portEXIT_CRITICAL(&s_page_mux);
 }
 
-void sloop_ui_quiesce(bool on)
+bool sloop_ui_quiesce(bool on)
 {
-    if (!s_started) return; /* UI 未启动：空操作（selftest 的钩子也没注册到本函数） */
-    if (on == s_quiesced) return;
+    if (!s_started) return true; /* UI 未启动：空操作（selftest 的钩子也没注册到本函数） */
+    if (on == s_quiesced) return true;
     if (on) {
         /* 顺序：先输入、后定时器。输入侧在定时器暂停前已不再派发，随后自检冻结
          * 引擎跑用例时系统里没有其它引擎使用方（ADR-007）。 */
         if (!input_quiesce_begin(50)) {
             ESP_LOGW(TAG, "输入静默确认超时（50ms）：输入任务未在批次边界观察到标志");
         }
-        s_quiesced = true;
         if (!bsp_display_lock(1000)) {
-            ESP_LOGE(TAG, "诊断期静默：LVGL 锁超时，30ms 定时器未暂停（输入已静默）");
-            return;
+            /* 定时器还在跑：UI 实际是活的，不能对外声称已静默。回滚输入静默，
+             * 让自检（sloop_core_selftest）按 FAIL reason=quiesce 拒绝运行——
+             * 否则冻结引擎期间定时器会读 base-0 步窗快照，STEP 列显示错位。 */
+            ESP_LOGE(TAG, "诊断期静默 ON 失败：LVGL 锁超时（输入静默已回滚，UI 仍在运行）");
+            (void)input_quiesce_end();
+            return false;
         }
+        s_quiesced = true;
         sloop_ui_cancel_pending_page();
         if (s_timer != NULL) lv_timer_pause(s_timer);
         /* 光停自己的 30ms 定时器还不够：LVGL 任务仍会跑 indev 读（触摸 I2C）与
@@ -615,26 +629,35 @@ void sloop_ui_quiesce(bool on)
         bsp_display_unlock();
         ESP_LOGI(TAG, "诊断期静默 ON：UI 定时器暂停、LVGL 定时器%s、输入丢弃生效",
                  stop_ret == ESP_OK ? "停用" : "停用失败");
-        return;
+        return true;
     }
 
-    s_quiesced = false;
-    if (!bsp_display_lock(1000)) {
-        ESP_LOGE(TAG, "诊断期恢复：LVGL 锁超时，30ms 定时器未恢复（需复位）");
-    } else {
-        if (s_indev_disabled) {
-            /* LVGL 没有「enabled 查询」接口，只能整体还原；本机 indev 只有触摸一个 */
-            lv_indev_enable(NULL, true);
-            s_indev_disabled = false;
-        }
-        esp_err_t resume_ret = lvgl_port_resume(); /* 先恢复 LVGL 定时器（含刷新/indev） */
-        if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 已建页刷新 */
-        bsp_display_unlock();
-        if (resume_ret != ESP_OK) ESP_LOGE(TAG, "诊断期恢复：LVGL 定时器恢复失败 %s", esp_err_to_name(resume_ret));
+    /* OFF：定时器与 LVGL 定时器都是暂停态，取锁失败不能只把标志清掉——那会让
+     * UI 永久停摆而对外声称已恢复。重试几次；仍失败则保持 quiesce 态（标志为真
+     * → TAP/KEY 仍被拒，状态自洽），由调用方再次 `UI QUIESCE off`。 */
+    bool locked = false;
+    for (int i = 0; i < 3 && !locked; i++) {
+        locked = bsp_display_lock(1000);
+        if (!locked) vTaskDelay(pdMS_TO_TICKS(10));
     }
+    if (!locked) {
+        ESP_LOGE(TAG, "诊断期恢复失败：LVGL 锁超时（保持静默态，可重试 UI QUIESCE off）");
+        return false;
+    }
+    s_quiesced = false;
+    if (s_indev_disabled) {
+        /* LVGL 没有「enabled 查询」接口，只能整体还原；本机 indev 只有触摸一个 */
+        lv_indev_enable(NULL, true);
+        s_indev_disabled = false;
+    }
+    esp_err_t resume_ret = lvgl_port_resume(); /* 先恢复 LVGL 定时器（含刷新/indev） */
+    if (s_timer != NULL) lv_timer_resume(s_timer); /* 下一拍 state_sync + 已建页刷新 */
+    bsp_display_unlock();
+    if (resume_ret != ESP_OK) ESP_LOGE(TAG, "诊断期恢复：LVGL 定时器恢复失败 %s", esp_err_to_name(resume_ret));
     uint32_t dropped = input_quiesce_end();
     ESP_LOGI(TAG, "诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 %u 条键盘事件）",
              (unsigned)dropped);
+    return true;
 }
 
 bool sloop_ui_quiesced(void)

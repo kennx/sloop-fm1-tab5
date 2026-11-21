@@ -347,7 +347,7 @@ static volatile bool s_frozen __attribute__((section(".noinit")));
 /* 诊断期静默钩子（sloop_ui 启动后注册）。同样放 .noinit：注册发生在 sloop_core_init
  * 的快照之后，普通静态会被 selftest_restore() 抹成 NULL——结束时 quiesce(false)
  * 就永远不会执行，UI 定时器将永久停在暂停态。 */
-static void (*s_quiesce_hook)(bool on) __attribute__((section(".noinit")));
+static bool (*s_quiesce_hook)(bool on) __attribute__((section(".noinit")));
 
 static inline void engine_lock(void)
 {
@@ -762,7 +762,7 @@ void sloop_core_diag_freeze(bool on)
     s_frozen = false;
 }
 
-void sloop_core_diag_quiesce_hook(void (*hook)(bool on))
+void sloop_core_diag_quiesce_hook(bool (*hook)(bool on))
 {
     s_quiesce_hook = hook;
 }
@@ -781,10 +781,16 @@ int sloop_core_selftest(const char *case_name)
      *    自己是唯一写者；restore 只在首尾各取一次短锁。长时间持锁 + 每次 job 后的
      *    vTaskDelay 没有收益，只增加与其它核调度交错的面。
      * 钩子未注册（UI 未启动/host）时 quiesce 为空操作。
+     * 钩子返回 false（UI 取 LVGL 锁超时、输入静默已回滚）= 静默未生效：此刻
+     * UI 定时器仍在跑，绝不能冻结引擎（定时器会读 base-0 步窗快照 → STEP 列错位），
+     * 直接以 reason=quiesce 拒绝本次自检。
      * 注意：DI-11 卡死的真因不在持锁，而在 input 任务的轮询周期（CONFIG_FREERTOS_HZ=100
      * 下 pdMS_TO_TICKS(5)==0 → vTaskDelay(0) 全速自旋 → 跨核 yield IPI 风暴），见 input.c
      * 的 INPUT_POLL_TICKS 与本 ADR 的「DI-11 真因」小节。 */
-    if (s_quiesce_hook != NULL) s_quiesce_hook(true);
+    if (s_quiesce_hook != NULL && !s_quiesce_hook(true)) {
+        printf("ENG SELFTEST cases=0 result=FAIL reason=quiesce (UI busy: LVGL lock timeout)\n");
+        return 1;
+    }
     sloop_core_diag_freeze(true);
     engine_lock();
     selftest_restore();

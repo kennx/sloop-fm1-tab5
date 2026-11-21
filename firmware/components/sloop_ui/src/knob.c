@@ -33,7 +33,7 @@
 
 /* ------------------------------------------------------------------ 自绘 --- */
 static void draw_text_line(lv_layer_t *layer, const lv_area_t *obj, int16_t y1, int16_t y2,
-                           const lv_font_t *font, lv_color_t color, const char *text)
+                           const lv_font_t *font, lv_color_t color, const char *text, bool text_local)
 {
     lv_draw_label_dsc_t dsc;
     lv_draw_label_dsc_init(&dsc);
@@ -43,9 +43,10 @@ static void draw_text_line(lv_layer_t *layer, const lv_area_t *obj, int16_t y1, 
     dsc.align = LV_TEXT_ALIGN_CENTER;
     dsc.opa = LV_OPA_COVER;
     dsc.text = text;
-    /* 文本在栈缓冲里：绘制任务可能在本函数返回后才被 draw unit 消费，必须让
-     * LVGL 复制一份（text_local=1），否则任务持有悬空指针。 */
-    dsc.text_local = 1;
+    /* 栈缓冲文本（数值行）：绘制任务可能在本函数返回后才被 draw unit 消费，必须让
+     * LVGL 复制一份（text_local=1），否则任务持有悬空指针。名称行指向描述符里的
+     * 静态字符串（生命周期 = 程序），复制只会每帧多两次池分配，故 text_local=0。 */
+    dsc.text_local = text_local;
     lv_area_t a = {.x1 = obj->x1, .y1 = (int32_t)(obj->y1 + y1),
                    .x2 = obj->x2, .y2 = (int32_t)(obj->y1 + y2)};
     lv_draw_label(layer, &dsc, &a);
@@ -82,10 +83,11 @@ static void knob_draw(knob_t *k, lv_layer_t *layer)
     lv_color_t text_color = lv_color_hex(k->active ? UI_TEXT : UI_TEXT_DIM);
     draw_text_line(layer, &c, KNOB_NAME_Y1, KNOB_NAME_Y2, &lv_font_montserrat_16,
                    lv_color_hex(k->active ? UI_ACCENT : UI_TEXT_DIM),
-                   k->desc.label != NULL ? k->desc.label : "?");
+                   k->desc.label != NULL ? k->desc.label : "?", false);
     char val[24] = "--";
     if (!k->locked) knob_format_value(&k->desc, k->value, val, sizeof(val));
-    draw_text_line(layer, &c, KNOB_VAL_Y1, KNOB_VAL_Y2, &lv_font_montserrat_20, text_color, val);
+    draw_text_line(layer, &c, KNOB_VAL_Y1, KNOB_VAL_Y2, &lv_font_montserrat_20, text_color, val,
+                   true);
 }
 
 /* ------------------------------------------------------------------ 控件 --- */

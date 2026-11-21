@@ -30,14 +30,16 @@
 
 /* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72）。注册页多于 4 时按
  * 可用宽度收窄（UI_TAB_RIGHT_RESERVE 给右侧 SLOOP 标题/层提示留位）：7 页时
- * 150px（7×150 + 6×8 = 1098，右端 1114 < 1280-150）；9 页时 114px
- * （9×114 + 8×8 = 1090，右端 1106）。 */
+ * 140px（7×140 + 6×8 = 1028，右端 1044）；9 页时 107px
+ * （9×107 + 8×8 = 1027，右端 1043；右侧 127px 给 16pt 层提示，宽度封顶 +
+ * 省略号截断）。10 页时只剩 95px < "TRANSPORT" 的 16pt 标签 101.6px——页签不够，
+ * P4-B 加页前必须先做分组导航决策（ADR-005「导航信息架构」节）。 */
 #define UI_TAB_X0  16
 #define UI_TAB_W   176
 #define UI_TAB_H   52
 #define UI_TAB_GAP 8
 #define UI_TAB_Y   10
-#define UI_TAB_RIGHT_RESERVE 150
+#define UI_TAB_RIGHT_RESERVE 220
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)

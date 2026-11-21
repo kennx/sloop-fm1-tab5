@@ -158,8 +158,9 @@ void sloop_core_diag_freeze(bool on);
 
 /* 诊断期静默钩子：sloop_ui 启动成功后注册 sloop_ui_quiesce（暂停 30ms UI 定时器与
  * LVGL 定时器、输入任务阻塞丢弃事件）。sloop_core_selftest 在诊断期前后成对调用；
- * 未注册（UI 未启动、host 自测）时为空操作。只保留一个钩子（后注册覆盖）；
- * 不得在 ISR 调用。 */
-void sloop_core_diag_quiesce_hook(void (*hook)(bool on));
+ * 返回 false = 静默未生效（UI 取 LVGL 锁超时），selftest 以 `result=FAIL
+ * reason=quiesce` 拒绝运行（不冻结引擎——UI 定时器仍在读引擎）。未注册（UI 未启动、
+ * host 自测）时为空操作。只保留一个钩子（后注册覆盖）；不得在 ISR 调用。 */
+void sloop_core_diag_quiesce_hook(bool (*hook)(bool on));
 
 #endif

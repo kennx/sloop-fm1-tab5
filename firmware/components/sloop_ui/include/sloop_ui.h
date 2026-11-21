@@ -1,11 +1,11 @@
 /*
- * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 四屏框架 + 页面注册表）
+ * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：9 页 + 页面注册表）
  *
  * 单容器屏 + 顶部页签（页签顺序 = 页面注册表顺序）：PLAY|TRACKS|STEP|TRANSPORT
- * + 参数页 GLOBAL|FX|ANALOG（描述符驱动的旋钮页，ADR-008 §8）。页签由页面注册表
- * 派生，页面**首次访问时构建**，之后保留（不销毁）。PLAY 在
- * sloop_ui_start() 内立即构建，保证开机首帧非空白；TRACKS/STEP/TRANSPORT
- * 在首次进入时构建并把 LVGL 池增量记入日志/`UI MEM`。
+ * + 参数页 GLOBAL|FX|ANALOG|FM6|SAMPLE（描述符驱动的旋钮页，ADR-008 §8）。页签由
+ * 页面注册表派生，页面**首次访问时构建**，之后保留（不销毁）。PLAY 在
+ * sloop_ui_start() 内立即构建，保证开机首帧非空白；TRACKS/STEP/TRANSPORT 与五个
+ * 参数页在首次进入时构建并把 LVGL 池增量记入日志/`UI MEM`。
  * 构建失败（控件分配失败/预算不足）显示状态条错误文本 + ERROR 日志，
  * 同步切页返回 ESP_ERR_NO_MEM（console 打印 `UI ERR page_build <id>`）。
  *
@@ -35,7 +35,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有四页）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 9 页）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -195,10 +195,13 @@ uint32_t sloop_ui_input_stack_free(void);
  *    定时器、`lv_indev_enable(NULL, false)` 禁用触摸 indev（物理触摸不再派发），
  *    并作废待执行切页。此后键盘事件只被计数、KEY/TAP 注入被拒
  *    （`SLOOP_TAP_RESULT_QUIESCED` / `KEY ERR quiesced`）。
- *  - off：`lvgl_port_resume()` + 恢复 30ms 定时器（下一拍 state_sync + 四页刷新），
+ *  - off：`lvgl_port_resume()` + 恢复 30ms 定时器（下一拍 state_sync + 已建页刷新），
  *    唤醒 input 任务并清零/打印本轮丢弃量。
- * UI 未启动时为空操作；幂等。可从任意任务调用，不得在 ISR 中调用。 */
-void sloop_ui_quiesce(bool on);
+ * 返回值：true = 已达到目标状态；false = 未达到（on 取 LVGL 锁超时 → 输入静默已
+ * 回滚、UI 仍在运行，selftest 据此拒绝执行；off 取锁重试后仍超时 → 保持 quiesce
+ * 态，可再次调用 off）。UI 未启动时为空操作并返回 true；幂等。可从任意任务调用，
+ * 不得在 ISR 中调用。 */
+bool sloop_ui_quiesce(bool on);
 
 /* 当前是否处于诊断期静默（UI 未启动恒为 false）。 */
 bool sloop_ui_quiesced(void);

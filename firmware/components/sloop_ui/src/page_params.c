@@ -56,6 +56,7 @@ typedef struct {
     uint8_t shown_track;
     uint8_t shown_engine;
     int8_t shown_locked;  /* -1 = 尚未渲染上下文 */
+    int8_t shown_esync;   /* 选中轨 ENV SYNC 位（ATK 槽描述符随它变，见 slot_desc） */
     uint8_t focus_shown;  /* 最近渲染的焦点槽 */
     bool ctx_valid;
 } page_ui_t;
@@ -97,11 +98,35 @@ static void focus_set(uint8_t index, uint8_t slot)
 }
 
 /* ---------------------------------------------------------------- 槽位解析 --- */
+/* 上游 TP[] 的 ATK 与 ENV SYNC 开关 id（core.h 枚举值，SLOOP 2.8.5 起稳定；布局表
+ * FX 页的 ATK 槽就是 TP[1]）。 */
+#define PARAM_TP_ATK   1u
+#define PARAM_TP_ESYNC 59u
+/* P_ESYNC 打开时上游 track_desc() 把 ATK/DEC/REL 换成 ESYNC_DESC[]：F_INT + 音符名
+ * 表、单位 1/384 小节；静态 TP[P_ATK] 仍是 F_TIME（ms）。sloop_core_desc 不投影
+ * 动态钩子（需要轨上下文），所以这里显式标注：名称后缀 /ESYNC、按 0..127 原始值
+ * 显示（无 ms 后缀），绝不把音符值显示成毫秒。P4-B 接 ENV 页/动态描述符时改为取
+ * 上游动态表（ADR-008 §9 的 P4-B 复核项）。 */
+static bool track_env_sync_on(void)
+{
+    app_state_t st;
+    state_get_copy(&st);
+    return st.core.selected_track < APP_STATE_TRACKS && st.p[PARAM_TP_ESYNC] != 0;
+}
+
 static bool slot_desc(const param_page_t *pg, uint8_t slot, sloop_desc_t *out)
 {
     const param_slot_t *s = &pg->slots[slot];
     if (s->id == 0xFF) return false;
-    return sloop_core_desc((sloop_desc_scope_t)s->scope, s->engine, s->id, out);
+    if (!sloop_core_desc((sloop_desc_scope_t)s->scope, s->engine, s->id, out)) return false;
+    if (s->scope == SLOOP_DESC_TRACK && s->id == PARAM_TP_ATK && track_env_sync_on()) {
+        out->label = "ATK/ESYNC";
+        out->fmt = SLOOP_DESC_FMT_INT;
+        out->unit = NULL;
+        out->enums = NULL;
+        out->enum_count = 0;
+    }
+    return true;
 }
 
 /* 页声明的引擎（ENGINE 槽位的 engine 字段）；非引擎页返回 0xFF */
@@ -425,13 +450,26 @@ void page_params_update(uint8_t index, const app_state_t *st)
     uint8_t track = st->core.selected_track < APP_STATE_TRACKS ? st->core.selected_track : 0;
     bool locked = page_locked(pg, st);
     uint8_t engine = page_engine(pg);
+    bool esync = st->p[PARAM_TP_ESYNC] != 0;
     if (!ui->ctx_valid || ui->shown_track != track || ui->shown_engine != engine ||
-        ui->shown_locked != (int8_t)locked) {
+        ui->shown_locked != (int8_t)locked || ui->shown_esync != (int8_t)esync) {
         ui->ctx_valid = true;
         ui->shown_track = track;
         ui->shown_engine = engine;
         ui->shown_locked = (int8_t)locked;
+        ui->shown_esync = (int8_t)esync;
         update_header(index, pg, st, track, locked);
+        /* ENV SYNC 翻转会换 ATK 槽的 label/fmt（ms ↔ 音符值）：重新解析并重绘，
+         * 不要求用户重进页面（PARAM 59 注入/FM-1 同步都能触发）。 */
+        for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
+            if (!ui->present[slot]) continue;
+            sloop_desc_t d;
+            if (!slot_desc(pg, slot, &d)) continue;
+            knob_t *k = &ui->knobs[slot];
+            if (d.label == k->desc.label && d.fmt == k->desc.fmt && d.unit == k->desc.unit) continue;
+            k->desc = d;
+            lv_obj_invalidate(k->obj);
+        }
     }
 
     uint8_t focus = focus_get(index);

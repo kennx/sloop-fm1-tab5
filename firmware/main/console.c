@@ -787,6 +787,45 @@ static const char *ui_page_state_name(uint8_t page)
     return "not_registered";
 }
 
+/* UI LOCKHOLD <ms>（调试注入，验证 quiesce 失败路径）：辅助任务持 LVGL 锁 ms
+ * 毫秒（≥1100），命令等持锁确认后返回；紧随其后的 `ENG SELFTEST` 会在 quiesce
+ * 阶段等锁 1s 超时，以 `result=FAIL reason=quiesce` 拒绝（UI 继续运行，不冻结引擎）。 */
+static volatile bool s_lockhold_held;
+
+static void lockhold_task(void *arg)
+{
+    uint32_t ms = (uint32_t)(uintptr_t)arg;
+    if (bsp_display_lock(1000)) {
+        s_lockhold_held = true;
+        vTaskDelay(pdMS_TO_TICKS(ms));
+        bsp_display_unlock();
+    }
+    s_lockhold_held = false;
+    vTaskDelete(NULL);
+}
+
+static int ui_lockhold_command(const char *arg)
+{
+    char *end = NULL;
+    long ms = strtol(arg, &end, 10);
+    if (end == arg || *end != '\0' || ms < 1100 || ms > 30000) {
+        printf("用法: UI LOCKHOLD <ms=1100..30000>（辅助任务持 LVGL 锁，quiesce 锁超时探针）\n");
+        return 1;
+    }
+    s_lockhold_held = false;
+    if (xTaskCreate(lockhold_task, "ui_lockhold", 2048, (void *)(uintptr_t)ms, 3, NULL) != pdPASS) {
+        printf("UI ERR lockhold (task)\n");
+        return 1;
+    }
+    for (int i = 0; i < 100 && !s_lockhold_held; i++) vTaskDelay(pdMS_TO_TICKS(10));
+    if (!s_lockhold_held) {
+        printf("UI LOCKHOLD ERR not_acquired\n");
+        return 1;
+    }
+    printf("UI LOCKHOLD ms=%ld held=1\n", ms);
+    return 0;
+}
+
 static int ui_command(int argc, char **argv)
 {
     if (argc == 1) {
@@ -927,10 +966,19 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR not_started\n");
             return 1;
         }
-        sloop_ui_quiesce(on);
+        if (!sloop_ui_quiesce(on)) {
+            /* 未达到目标态（取锁超时）：ON 已回滚输入静默（UI 仍在跑），OFF 保持
+             * 静默态（可重试）。与成功回显分开，脚本不得把失败当已落地。 */
+            printf("UI QUIESCE %s ERR lock_timeout quiesced=%u\n", on ? "on" : "off",
+                   (unsigned)sloop_ui_quiesced());
+            return 1;
+        }
         printf("UI QUIESCE %s quiesced=%u\n", on ? "on" : "off",
                (unsigned)sloop_ui_quiesced());
         return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "lockhold") == 0) {
+        return ui_lockhold_command(argv[2]);
     }
     if (argc == 2) {
         for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
@@ -966,11 +1014,12 @@ static int ui_command(int argc, char **argv)
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | "
-           "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
+           "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
-           "off 只撤销未消费的注入\n");
+           "off 只撤销未消费的注入\n"
+           "LOCKHOLD: 辅助任务持 LVGL 锁 ms 毫秒，紧随的 ENG SELFTEST 应回 result=FAIL reason=quiesce\n");
     return 1;
 }
 
