@@ -1022,7 +1022,6 @@ def param_value(s: Session, key: str = "value") -> int:
 def param_mem(s: Session) -> dict:
     """`UI MEM` → {page_id: (state, est, delta)} + 首行字段。"""
     s.cmd("UI MEM")
-    head = {}
     m = re.search(r"UI MEM pool_used=(\d+) pool_free=(\d+) pool_total=(\d+) registered=(\d+) "
                   r"built=(\d+) failed=(\d+) sum_est=(\d+) reserve=(-?\d+)", s.last)
     if m is None:
@@ -1041,6 +1040,17 @@ def param_expect_value(s: Session, read_cmd: str, want: int, label: str) -> None
     s.cmd(read_cmd)
     got = param_value(s)
     (s.ok if got == want else s.fail)(f"{label}: {read_cmd} → {got}（期望 {want}）")
+
+
+def knob_cmd(s: Session, slot: int, op: str, dx: int, dy: int, want: int = None) -> None:
+    """`UI KNOB <slot> <press|drag> <dx> <dy>`：合成指针事件（物理触摸同一路径）。
+    want=None 断言环带外被忽略（`ignored (ring band)`）；否则断言回显 value=want。"""
+    s.cmd(f"UI KNOB {slot} {op} {dx} {dy}")
+    if want is None:
+        s.expect(r"ignored \(ring band\)", f"UI KNOB slot={slot} {op} ({dx},{dy}) 环带外")
+        return
+    s.expect(rf"UI KNOB page=\d+ slot={slot} {op} dx={dx} dy={dy} value={want}",
+             f"UI KNOB slot={slot} {op} ({dx},{dy}) value={want}")
 
 
 def param_tap_step(s: Session, xy: tuple, slot: int, param_id: int, delta: int, want: int,
@@ -1097,6 +1107,30 @@ def run_params(s: Session) -> None:
         s.cmd("KEY 0x4B down")
         s.cmd("KEY 0x4B up")
     param_expect_value(s, "PARAM GLOBAL 1", swing0, "键盘 ↓×2（SWING 回基线）")
+
+    # ---------- 物理触摸路径（合成事件）：按下不改值，相对拖拽改值 ----------
+    # BPM range 200：+90° = +67（270° 扫角 = 整个值域）。方向按基线取不撞钳位的一侧。
+    drag = 1 if bpm0 + 67 <= 240 else -1
+    drag_dx = 73 * drag
+    want_after = bpm0 + 67 * drag
+    knob_cmd(s, 0, "press", 0, -73, bpm0)  # 按下只设焦点 + 锚点，不改值
+    param_expect_value(s, "PARAM GLOBAL 0", bpm0, "按下不改值（PARAM GLOBAL 0）")
+    knob_cmd(s, 0, "drag", drag_dx, 0, want_after)  # +90°/-90° → +67/-67
+    param_expect_value(s, "PARAM GLOBAL 0", want_after, "相对拖拽改值（引擎真值）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"\bbpm=(\d+)", want_after, "STATE SNAP bpm（拖拽后）")
+    knob_cmd(s, 0, "drag", 0, -73, bpm0)  # 拖回锚点角度 → 回基线
+    param_expect_value(s, "PARAM GLOBAL 0", bpm0, "拖回锚点（值回基线）")
+    # 环带外：中心按下不建锚点、内圈拖动被忽略（不跳值）
+    knob_cmd(s, 0, "press", 0, 0)
+    knob_cmd(s, 0, "drag", 73, 0)
+    param_expect_value(s, "PARAM GLOBAL 0", bpm0, "中心按下后拖拽被忽略（值不变）")
+    knob_cmd(s, 0, "press", 0, -73, bpm0)
+    knob_cmd(s, 0, "drag", 0, -40)  # 半径 40 < 55：环带外
+    param_expect_value(s, "PARAM GLOBAL 0", bpm0, "环带外拖动被忽略（值不变）")
+    # 焦点回到 SWING（截图探针按非焦点文本色断言）
+    s.cmd("TAP %d %d" % param_knob_xy(1))
+    s.expect(r"-> PARAM slot=1 focus", "TAP 旋钮 1 复位焦点")
 
     img = s.capture("params-global")
     s.probe(img, "页签选中（GLOBAL）", *C_TAB_GLOBAL, C_YELLOW)

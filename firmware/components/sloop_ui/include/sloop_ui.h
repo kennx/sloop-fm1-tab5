@@ -172,6 +172,18 @@ bool sloop_ui_param_page_active(void);
 void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
 void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
 
+/* 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`，ADR-008 §8.2/§8.5）：
+ * 向**当前**参数页第 slot 槽旋钮派发合成的 PRESSED/PRESSING 事件（dx/dy 相对旋钮
+ * 中心），走与物理触摸相同的处理路径（press = 设焦点 + 记录锚点且不改值；
+ * drag = 相对锚点的角度差 → 值差）。用于在无手指/无触摸注入的环境里机器验证
+ * 「回调接线 + 相对拖拽」——物理拖拽手感仍需人测（DI-16）。
+ * 内部取 LVGL 锁。返回：ESP_OK（事件被接受；*value = 旋钮当前值）；ESP_ERR_NOT_FOUND
+ * （环带外，事件未接受，值不变）；ESP_ERR_INVALID_ARG（非参数页/槽位无控件）；
+ * ESP_ERR_INVALID_STATE（UI 未启动或目标页未建）；ESP_ERR_TIMEOUT（LVGL 锁超时，
+ * 未派发）。诊断期静默（quiesce）时返回 ESP_ERR_INVALID_STATE（console 打印
+ * `UI ERR quiesced` 由调用方区分）。 */
+esp_err_t sloop_ui_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value);
+
 /* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
 

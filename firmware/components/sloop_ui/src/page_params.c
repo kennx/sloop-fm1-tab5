@@ -9,7 +9,8 @@
  *   （旋钮盒 160×160 在单元内 (70,26)：弧线 + 名称/数值两行文本，自绘见 knob.c）。
  *
  * 值路径（唯一）：槽位值 → 状态层命令 → 引擎（钳位在引擎）→ 立即回读投影刷新本页。
- * 触摸按下/拖动按角度设值（粗调，knob.c）；± 与键盘 ↑/↓ 是 1 个原始单位（细调）。
+ * 触摸：按下只设焦点+锚点，拖动按相对角度差改值（粗调，knob.c）；± 与键盘 ↑/↓ 是
+ * 1 个原始单位（细调）。调试注入 console `UI KNOB` 走同一指针路径（ADR-008 §8.2）。
  * TAP 注入与控件回调共用同一动作函数（param_step/slot_write），只是 TAP 不能拖拽。
  *
  * 引擎页的适用性：槽位描述符取**页声明的引擎**（布局表），值是 trk[选中轨].p[P_E0+i]；
@@ -65,19 +66,22 @@ static page_ui_t s_ui[PARAM_PAGE_COUNT];
 static portMUX_TYPE s_focus_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_focus[PARAM_PAGE_COUNT];
 
-/* 旋钮的页面上下文编码进 knob_t.user（页下标 << 4 | 槽位） */
-#define KNOB_CTX(page, slot) ((void *)(uintptr_t)(((unsigned)(page) << 4) | (unsigned)(slot)))
+/* 旋钮的页面上下文编码进 knob_t.user：((页下标 << 4) | 槽位) + 1。
+ * +1 让「页 0 槽 0」不是 NULL——NULL 是「未设置」的哨兵，初版直接编码成 NULL，
+ * 与未接线无法区分。 */
+#define KNOB_CTX(page, slot)     ((void *)(uintptr_t)((((unsigned)(page) << 4) | (unsigned)(slot)) + 1u))
 static uint8_t ctx_page(const void *p)
 {
-    return (uint8_t)((uintptr_t)p >> 4);
+    return (uint8_t)((((uintptr_t)p) - 1u) >> 4);
 }
 static uint8_t ctx_slot(const void *p)
 {
-    return (uint8_t)((uintptr_t)p & 0x0Fu);
+    return (uint8_t)((((uintptr_t)p) - 1u) & 0x0Fu);
 }
 
 static uint8_t focus_get(uint8_t index)
 {
+    if (index >= PARAM_PAGE_COUNT) return 0; /* 与 focus_set 同一边界 */
     portENTER_CRITICAL(&s_focus_mux);
     uint8_t f = s_focus[index];
     portEXIT_CRITICAL(&s_focus_mux);
@@ -259,7 +263,7 @@ static void knob_focus_cb(knob_t *k)
 
 static void btn_cb(lv_event_t *e)
 {
-    /* user_data = (页下标 << 4 | 方向位)，方向位 1 = +1、0 = -1（与 KNOB_CTX 同编码） */
+    /* user_data = (页下标 << 4 | 方向位)，方向位 1 = +1、0 = -1（同布局；旋钮上下文另有 +1 偏移） */
     uintptr_t ctx = (uintptr_t)lv_event_get_user_data(e);
     uint8_t index = (uint8_t)(ctx >> 4);
     int8_t delta = (ctx & 1u) != 0 ? 1 : -1;
@@ -298,6 +302,24 @@ void sloop_ui_param_adjust(int8_t delta)
     int idx = current_index();
     if (idx < 0 || delta == 0) return;
     param_step((uint8_t)idx, delta, NULL); /* 状态层写；控件由 30ms UI 定时器刷新 */
+}
+
+/* ---------------------------------------------------------------- 调试注入 --- */
+/* console `UI KNOB`：向当前参数页的第 slot 槽旋钮派发合成 PRESSED/PRESSING
+ * （dx/dy 相对旋钮中心）。调用方已持 LVGL 锁（ui.c 的 sloop_ui_test_knob）。
+ * ESP_ERR_NOT_FOUND = 事件未被接受（环带外/无锚点）；INVALID_ARG = 非参数页或
+ * 槽位无控件；INVALID_STATE = 页未建。*value 回填旋钮当前显示值。 */
+esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value)
+{
+    int idx = current_index();
+    if (idx < 0 || slot >= PARAM_PAGE_SLOTS) return ESP_ERR_INVALID_ARG;
+    page_ui_t *ui = &s_ui[idx];
+    if (ui->header == NULL) return ESP_ERR_INVALID_STATE;
+    if (!ui->present[slot]) return ESP_ERR_INVALID_ARG;
+    knob_t *k = &ui->knobs[slot];
+    bool accepted = press ? knob_test_press(k, dx, dy) : knob_test_drag(k, dx, dy);
+    if (value != NULL) *value = k->value;
+    return accepted ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 
 /* ---------------------------------------------------------------- 构建 --- */
@@ -353,7 +375,8 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
     lv_label_set_long_mode(ui->header, LV_LABEL_LONG_CLIP);
     lv_label_set_text(ui->header, "");
 
-    /* ± 按钮：共用同一回调，user_data 编码 (页下标 << 4 | 方向位)；方向位 0=减 1=加 */
+    /* ± 按钮：共用同一回调，user_data 编码 (页下标 << 4 | 方向位)；方向位 0=减 1=加。
+     * 旋钮上下文另有 +1 偏移（见 KNOB_CTX），按钮不需要（解码不经过 NULL 哨兵）。 */
     ui->btn_dec = make_button(parent, BTN_DEC_X, BTN_Y, "-", btn_cb,
                               (void *)(uintptr_t)(((unsigned)index << 4) | 0u));
     UI_BUILD_CHECK(ui->btn_dec);
@@ -365,12 +388,12 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
         sloop_desc_t desc;
         if (!slot_desc(pg, slot, &desc)) continue;
         knob_t *k = &ui->knobs[slot];
-        k->user = KNOB_CTX(index, slot);
-        k->on_change = knob_change_cb;
-        k->on_focus = knob_focus_cb;
         int16_t cx = (int16_t)(GRID_X0 + (slot % 4u) * CELL_PITCH);
         int16_t cy = (int16_t)(GRID_Y0 + (slot / 4u) * ROW_PITCH);
-        if (!knob_create(k, parent, cx, cy, &desc)) return NULL;
+        if (!knob_create(k, parent, cx, cy, &desc, KNOB_CTX(index, slot), knob_change_cb,
+                         knob_focus_cb)) {
+            return NULL;
+        }
         ui->present[slot] = true;
     }
 

@@ -27,3 +27,10 @@ void page_params_update(uint8_t index, const app_state_t *st);
 
 /* TAP 注入（坐标为页面区相对坐标，调用方已扣页签条）：与控件回调同一动作函数。 */
 bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *out);
+
+/* 调试注入（console `UI KNOB`）：向**当前**参数页第 slot 槽旋钮派发合成
+ * PRESSED/PRESSING（dx/dy 相对旋钮中心），走与物理触摸相同的处理路径。
+ * 调用方已持 LVGL 锁。返回 ESP_OK（事件被接受）/ ESP_ERR_NOT_FOUND（环带外，
+ * 事件未接受）/ ESP_ERR_INVALID_ARG（非参数页、槽位越界或无控件）/
+ * ESP_ERR_INVALID_STATE（页未建）。*value 回填旋钮当前值（可 NULL）。 */
+esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value);

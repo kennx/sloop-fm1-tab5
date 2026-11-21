@@ -799,6 +799,64 @@ static int ui_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
+    if (argc == 6 && strcasecmp(argv[1], "knob") == 0) {
+        /* UI KNOB <slot> PRESS|DRAG <dx> <dy>：向当前参数页的旋钮派发合成指针事件
+         * （走物理触摸同一路径，ADR-008 §8.2/§8.5）。dx/dy 相对旋钮中心，可负。 */
+        char *end = NULL;
+        long slot = strtol(argv[2], &end, 0);
+        bool bad = end == argv[2] || *end != '\0' || slot < 0 || slot >= 8;
+        bool press = strcasecmp(argv[3], "press") == 0;
+        long dx = 0, dy = 0;
+        if (!bad && (press || strcasecmp(argv[3], "drag") == 0)) {
+            end = NULL;
+            dx = strtol(argv[4], &end, 0);
+            bad = end == argv[4] || *end != '\0' || dx < -1000 || dx > 1000;
+            end = NULL;
+            dy = strtol(argv[5], &end, 0);
+            bad = bad || end == argv[5] || *end != '\0' || dy < -1000 || dy > 1000;
+        } else {
+            bad = true;
+        }
+        if (bad) {
+            printf("用法: UI KNOB <slot=0..7> <press|drag> <dx> <dy>（dx/dy 相对旋钮中心）\n");
+            return 1;
+        }
+        if (sloop_ui_quiesced()) {
+            printf("UI ERR quiesced\n");
+            return 1;
+        }
+        uint8_t page = sloop_ui_current_page();
+        if (page >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        if (page < APP_PAGE_GLOBAL) {
+            printf("UI ERR not_params\n");
+            return 1;
+        }
+        int16_t value = 0;
+        esp_err_t ret = sloop_ui_test_knob((uint8_t)slot, (int32_t)dx, (int32_t)dy, press, &value);
+        const char *op = press ? "press" : "drag";
+        if (ret == ESP_OK) {
+            printf("UI KNOB page=%u slot=%u %s dx=%ld dy=%ld value=%d\n", (unsigned)page,
+                   (unsigned)slot, op, dx, dy, (int)value);
+            return 0;
+        }
+        if (ret == ESP_ERR_NOT_FOUND) {
+            /* 环带外/无锚点：事件未被接受（值不变）——与 miss 同口径返回非零，令牌独立 */
+            printf("UI KNOB page=%u slot=%u %s dx=%ld dy=%ld ignored (ring band)\n",
+                   (unsigned)page, (unsigned)slot, op, dx, dy);
+            return 1;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else {
+            printf("UI ERR knob_slot %ld\n", slot);
+        }
+        return 1;
+    }
     if ((argc == 2 || argc == 4) && strcasecmp(argv[1], "window") == 0) {
         if (argc == 2) {
             step_window_t w;
@@ -901,6 +959,7 @@ static int ui_command(int argc, char **argv)
         }
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI KNOB <slot> <press|drag> <dx> <dy> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
@@ -1145,7 +1204,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog>|MEM|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

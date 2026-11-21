@@ -692,6 +692,22 @@ esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out)
     return ESP_OK;
 }
 
+esp_err_t sloop_ui_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value)
+{
+    if (!s_started) return ESP_ERR_INVALID_STATE;
+    if (s_quiesced) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = ESP_ERR_INVALID_ARG;
+    if (s_page < APP_STATE_PAGES && s_page_state[s_page] == SLOOP_UI_PAGE_BUILT) {
+        int idx = page_layout_index(s_page);
+        if (idx >= 0) ret = page_params_test_knob(slot, dx, dy, press, value);
+    } else {
+        ret = ESP_ERR_INVALID_STATE;
+    }
+    bsp_display_unlock();
+    return ret;
+}
+
 esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on)
 {
     if (!s_started) return ESP_ERR_INVALID_STATE;
