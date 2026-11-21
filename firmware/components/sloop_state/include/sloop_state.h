@@ -23,11 +23,14 @@
  *
  * 参数投影 p[]/g[]：p 是**选中轨**的 trk[].p[P_COUNT] 投影、g 是 song.g[G_COUNT]
  * （引擎真值，不重钳位）。state_sync_from_engine 用一次 sloop_core_read_params 与
- * 窗口快照同拍整份覆盖；参数写入命令（CMD_SET_PARAM*）落地后立即回读一次——UI
- * 不直接调引擎。选轨变化后 p[] 在下一拍 sync 换成新选中轨（参数页按此显示）。
+ * 窗口快照同拍整份覆盖；参数写入命令（CMD_SET_PARAM / CMD_SET_GLOBAL）落地后立即
+ * 回读一次——UI 不直接调引擎。选轨变化后 p[] **同拍**换成新选中轨（cmd.c 的
+ * cmd_select_track 在引擎选轨落地后立即回读，不等下一拍 sync；参数页按此显示）。
  */
 
-#define APP_STATE_PAGES 4u      /* PLAY / TRACKS / STEP / TRANSPORT */
+/* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）。参数页（GLOBAL/FX/ANALOG）由
+ * sloop_ui 的策展布局表加入，加页时同步 app_page_t 与 console 的页名表。 */
+#define APP_STATE_PAGES 4u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -66,6 +69,7 @@ typedef enum {
     CMD_NOTE_ON, CMD_NOTE_OFF, CMD_PLAY, CMD_STOP, CMD_SELECT_TRACK,
     CMD_TOGGLE_STEP, CMD_SET_BPM, CMD_SET_TRACK, CMD_MUTE, CMD_SOLO,
     CMD_ERASE_NOTE, CMD_SET_WINDOW, CMD_SET_PARAM, CMD_SET_PARAM_BATCH,
+    CMD_SET_GLOBAL,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
@@ -104,6 +108,13 @@ typedef enum {
  *                    sloop_core_set_params 下发（真批量，参数页/预置加载用）；
  *                    n > APP_STATE_PARAM_BATCH_MAX 时只应用前 MAX 条（设备侧告警）。
  *                    数组只在 state_apply 返回前有效（同步 apply 语义）。
+ *  CMD_SET_GLOBAL    a=id(0..SLOOP_CORE_G_COUNT-1) v=值：全局参数（song.g[]），经
+ *                    sloop_core_set_global 按 GP[id] 钳位后写引擎；v 按 16 位补码
+ *                    解读（双极全局如 G_FILT 用 (uint16_t)(int16_t)x）。写后立即回读
+ *                    g[]（投影 = 钳位后的引擎真值）；id == G_BPM 时同拍更新 core.bpm
+ *                    （与 CMD_SET_BPM 同一真值，TRANSPORT/STATE SNAP 不落后一拍）。
+ *                    只用于**值参数**——动作类全局（G_LOAD/G_SAVE/G_CLRSEQ…）不得
+ *                    经本命令下发（那只会改 song.g[]，不执行动作）。
  */
 typedef struct {
     edit_cmd_type_t type;

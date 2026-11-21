@@ -90,10 +90,9 @@ void sloop_core_set_global(uint32_t id, int16_t value)
     g_stub.set_global_calls++;
     g_stub.last_global.id = id;
     g_stub.last_global.value = value;
-    if (id == 0) {
-        g_stub.snap.bpm = (uint16_t)value; /* G_BPM */
-        g_stub.param_g[0] = value;         /* 参数投影同源 */
-    }
+    if (id >= SLOOP_CORE_G_COUNT) return; /* 越界与真引擎同口径：不写 */
+    g_stub.param_g[id] = value;           /* 参数投影后端（GP 钳位不在 stub 内模拟） */
+    if (id == 0) g_stub.snap.bpm = (uint16_t)value; /* G_BPM：快照 bpm 与 g[0] 同源 */
 }
 
 void sloop_core_play(bool on)

@@ -806,6 +806,37 @@ static void case_select_track_refresh(void)
     check_ll("选回轨 0 立即投影", s.p[0], 11);
 }
 
+/* ⑩ 全局参数：CMD_SET_GLOBAL 经引擎写入口落地并回读 g[]；G_BPM 同拍更新 core.bpm。 */
+static void case_set_global(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* G_TUNE（id 3，F_INT -50..50）：值按 16 位补码下发，投影采纳引擎回读 */
+    apply(CMD_SET_GLOBAL, 3, 0, (uint16_t)(int16_t)-20);
+    check_ll("G_TUNE 一次 set_global", g_stub.set_global_calls, 1);
+    check_ll("G_TUNE 原样下发 id", g_stub.last_global.id, 3);
+    check_ll("G_TUNE 补码原样下发", g_stub.last_global.value, -20);
+    state_get_copy(&s);
+    check_ll("投影 g[3]", s.g[3], -20);
+    check_ll("g[0] 不受影响", s.g[0], 90);
+
+    /* G_BPM：core.bpm 与 g[0] 同拍跟随（不等下一拍 sync） */
+    apply(CMD_SET_GLOBAL, 0, 0, 137);
+    state_get_copy(&s);
+    check_ll("G_BPM 落引擎", g_stub.last_global.value, 137);
+    check_ll("core.bpm 同拍跟随", s.core.bpm, 137);
+    check_ll("投影 g[0] 跟随", s.g[0], 137);
+
+    /* 越界 id：不调引擎、不改投影 */
+    uint32_t calls0 = g_stub.set_global_calls;
+    apply(CMD_SET_GLOBAL, SLOOP_CORE_G_COUNT + 5u, 0, 1);
+    check_ll("越界 id 不调引擎", g_stub.set_global_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("越界 id 不改投影", s.g[0], 137);
+}
+
 /* 越界/未知命令一律忽略，不调引擎、不改状态。 */
 static void case_bounds(void)
 {
@@ -858,6 +889,7 @@ int main(void)
     run("参数投影：sync 采纳引擎真值/跟随选轨", case_param_projection_sync);
     run("选轨即刷参数投影（不等 sync）", case_select_track_refresh);
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
+    run("全局参数 CMD_SET_GLOBAL 与投影", case_set_global);
     run("越界参数忽略", case_bounds);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);

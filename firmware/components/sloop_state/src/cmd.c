@@ -277,6 +277,17 @@ static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, u
     state_refresh_params(s);
 }
 
+/* 全局参数（GLOBAL 参数页的唯一写路径）：经引擎写入口按 GP[id] 钳位后立即回读
+ * g[] 投影。G_BPM 另同拍更新快照的 bpm（TRANSPORT 与 STATE SNAP 与 g[0] 同一真值，
+ * 不落后一拍）。动作类全局不在本命令语义内（见 sloop_state.h 的命令契约）。 */
+static void cmd_set_global(app_state_t *s, uint32_t id, uint16_t value)
+{
+    if (id >= SLOOP_CORE_G_COUNT) return;
+    sloop_core_set_global(id, (int16_t)value);
+    state_refresh_params(s);
+    if (id == STATE_G_BPM) s->core.bpm = (uint16_t)s->g[STATE_G_BPM];
+}
+
 void state_apply(const edit_cmd_t *cmd)
 {
     if (cmd == NULL) return;
@@ -297,6 +308,7 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SET_WINDOW: cmd_set_window(s, cmd->b, cmd->v); break;
     case CMD_SET_PARAM: cmd_set_param(s, cmd->a, cmd->b, cmd->v); break;
     case CMD_SET_PARAM_BATCH: cmd_set_param_batch(s, cmd->a, cmd->p, cmd->n); break;
+    case CMD_SET_GLOBAL: cmd_set_global(s, cmd->a, cmd->v); break;
     default: break;
     }
     state_unlock();
