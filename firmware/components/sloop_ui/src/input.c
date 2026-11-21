@@ -304,9 +304,11 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
-         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
+         * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。
+         * 页数取注册表（sloop_ui_page_count），与页签数量同源（ADR-008）。 */
         uint8_t page = sloop_ui_current_page();
-        if (page < APP_STATE_PAGES) sloop_ui_request_page((uint8_t)((page + 1u) % APP_STATE_PAGES));
+        uint8_t count = sloop_ui_page_count();
+        if (count > 0 && page < count) sloop_ui_request_page((uint8_t)((page + 1u) % count));
         break;
     }
     case ACT_FOCUS_STEP: act_focus(true, b->param); break;

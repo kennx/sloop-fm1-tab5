@@ -73,7 +73,7 @@ static lv_obj_t *s_tabs[APP_STATE_PAGES];       /* 按注册（页签）顺序 *
 static lv_obj_t *s_tab_labels[APP_STATE_PAGES];
 static lv_obj_t *s_page_obj[APP_STATE_PAGES];   /* 按页 id 索引；NULL = 未建/失败 */
 static uint8_t s_page_state[APP_STATE_PAGES];   /* sloop_ui_page_state_t */
-static int32_t s_page_delta[APP_STATE_PAGES];   /* 首次成功构建的池 free 减少量（字节） */
+static int32_t s_page_delta[APP_STATE_PAGES];   /* 最近一次成功构建的池 free 减少量（字节） */
 static const char *s_page_fail_reason[APP_STATE_PAGES]; /* 最近一次构建失败原因 */
 static bool s_forcefail[APP_STATE_PAGES];       /* UI FORCEFAIL：一次性注入 */
 static lv_obj_t *s_page_error;                  /* 构建失败状态条（页面区居中） */
@@ -191,7 +191,8 @@ static esp_err_t ensure_page_built(uint8_t page)
     lv_mem_monitor_t mon_after;
     lv_mem_monitor(&mon_after);
     /* delta 取池 free_size 的减少量（含 TLSF 块头开销）；lv_mem_monitor 的
-     * total_size 不含块头，用 total-free 差会低估每次分配的元数据 */
+     * total_size 不含块头，用 total-free 差会低估每次分配的元数据。
+     * 采样点在首帧 update() 之前：不含首帧文本分配（量级 = 文案长度，ADR-008）。 */
     int32_t delta = (int32_t)free_before - (int32_t)mon_after.free_size;
     s_page_delta[page] = delta;
     ESP_LOGI(TAG, "页面构建 page=%s(%u) 池增量=%dB 预算=%uB 池剩余=%uB", def->title,
@@ -306,9 +307,14 @@ static bool create_page_error_label(void)
     return true;
 }
 
+/* 内置页注册（幂等）。注册表只增不删：sloop_ui_start() 之前由外部
+ * ui_page_register() 注册的页必须保留，不能被内置注册重跑清空（ADR-008 扩展点）。
+ * 框架失败后重试 start 也不会重复注册（done 标志 + 按 id 去重）。 */
 static void register_builtin_pages(void)
 {
-    s_reg_count = 0;
+    static bool done;
+    if (done) return;
+    done = true;
     for (size_t i = 0; i < sizeof(k_builtin_pages) / sizeof(k_builtin_pages[0]); i++) {
         esp_err_t ret = ui_page_register(&k_builtin_pages[i]);
         if (ret != ESP_OK) {
@@ -403,7 +409,7 @@ esp_err_t sloop_ui_start(void)
         return ESP_ERR_TIMEOUT;
     }
 
-    /* 注册表在每次启动尝试时重建（框架失败后重试不会重复注册） */
+    /* 注册表只增不删：内置页注册幂等，外部预注册的页保持原位（ADR-008） */
     register_builtin_pages();
     memset(s_page_obj, 0, sizeof(s_page_obj));
     memset(s_page_state, 0, sizeof(s_page_state));
@@ -448,6 +454,10 @@ esp_err_t sloop_ui_start(void)
         }
         lv_obj_clean(scr);
         s_root = NULL;
+        s_page_error = NULL;
+        s_layer_hint = NULL;
+        memset(s_page_obj, 0, sizeof(s_page_obj));
+        memset(s_page_state, 0, sizeof(s_page_state));
         bsp_display_unlock();
         ESP_LOGE(TAG, "UI 对象创建失败（LVGL 内存不足）");
         return ESP_ERR_NO_MEM;
@@ -615,6 +625,11 @@ bool sloop_ui_quiesced(void)
 uint32_t sloop_ui_input_quiesce_dropped(void)
 {
     return input_quiesce_dropped();
+}
+
+uint8_t sloop_ui_page_count(void)
+{
+    return s_reg_count;
 }
 
 uint8_t sloop_ui_current_page(void)

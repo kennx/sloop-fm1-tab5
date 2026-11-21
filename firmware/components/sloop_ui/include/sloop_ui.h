@@ -35,10 +35,16 @@ typedef struct {
 } ui_page_t;
 
 /* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有四页）。
+ * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
  * （注册表满）；ESP_ERR_INVALID_STATE（UI 已启动）。 */
 esp_err_t ui_page_register(const ui_page_t *page);
+
+/* 已注册页数（页签顺序即注册顺序；输入层的 tab 轮转按此计数，不按
+ * APP_STATE_PAGES）。注册表只在 start 前写入，读无需加锁；UI 未启动时返回已注册
+ * 的外部页数（通常 0）。 */
+uint8_t sloop_ui_page_count(void);
 
 typedef enum {
     SLOOP_UI_PAGE_UNBUILT = 0, /* 尚未进入过（懒建） */
@@ -51,7 +57,8 @@ typedef struct {
     const char *title;
     uint8_t state;         /* sloop_ui_page_state_t */
     uint32_t est_bytes;    /* 预算（注册表） */
-    int32_t delta_bytes;   /* 首次成功构建实测的池 free 减少量（含块头）；0 = 未建/失败 */
+    int32_t delta_bytes;   /* 最近一次成功构建的池 free 减少量（含块头；采样于首帧 update
+                            * 之前，不含首帧文本分配）；0 = 未建/从未成功 */
 } sloop_ui_page_stat_t;
 
 typedef struct {
@@ -65,9 +72,10 @@ typedef struct {
  * ESP_ERR_TIMEOUT（LVGL 锁超时）。 */
 esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out);
 
-/* 调试注入（console `UI FORCEFAIL <page>`）：让该页的**下一次**构建强制失败
- * （一次性，构建尝试后自动解除），用于验证失败可见性路径；
- * `UI FORCEFAIL <page> off` 可撤销尚未消费的注入。
+/* 调试注入（console `UI FORCEFAIL <page>`）：强制该页构建失败（验证失败可见性）。
+ * 未建页：挂起到下一次构建（一次性，构建尝试后自动解除）。
+ * 已建页：删除其控件并立即重建，注入当场被消费、页面进入失败态（state=failed）。
+ * `off` 只撤销尚未消费的注入，不会重建已失败页（失败页在下次访问时重试）。
  * 返回 ESP_ERR_INVALID_ARG / ESP_ERR_INVALID_STATE / ESP_ERR_TIMEOUT。 */
 esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
 
@@ -80,7 +88,8 @@ esp_err_t sloop_ui_start(void);
 
 /* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT（同 app_page_t），首次进入时构建该页。
  * 可从任意任务调用（内部加锁）。返回：ESP_OK = 已落地；ESP_ERR_INVALID_ARG =
- * 非法页；ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
+ * 非法页 id 或该页未注册（console 打印 `UI ERR not_registered <id>`）；
+ * ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
  * （**未切页**，console `UI` 据此打印 `UI ERR lock_timeout`）；ESP_ERR_NO_MEM =
  * 目标页构建失败（页面已切到错误状态条，console 打印 `UI ERR page_build <id>`）。 */
 esp_err_t sloop_ui_switch_page(uint8_t page);

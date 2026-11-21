@@ -12,8 +12,9 @@
  *    与引擎真值的选轨/mute/solo；与 ENG SNAP 同源）。
  *  - UI：切页（UI <play|tracks|step|transport>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
- *    实测 delta）；FORCEFAIL <page> [on|off] 一次性强制该页下次构建失败
- *    （验证失败可见性，ADR-008）。
+ *    实测 delta）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，ADR-008）：
+ *    对已建页删除控件并立即重建到失败态（注入当场消费，回显 state=failed），对未建页
+ *    挂起到下一次构建；off 只撤销尚未消费的注入，不重建已失败页。
  *  - KEY：键盘注入（KEY <code> <down|up>），与物理键盘同入口
  *    sloop_ui_input_key()；KEY STATS [RESET] 打印注入路径延迟（入口→派发返回，
  *    均值/最大，µs）、输入任务栈余量与诊断期丢弃计数；KEY PANIC 全停（释放已按下
@@ -496,7 +497,8 @@ static int state_command(int argc, char **argv)
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
- * UI FORCEFAIL <page> [on|off]：一次性强制该页下次构建失败（验证失败可见性）。 */
+ * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建页立即
+ * 重建到失败态（注入当场消费），未建页挂起到下一次构建；off 只撤销未消费的注入。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {"play", "tracks", "step", "transport"};
 
 /* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
@@ -547,6 +549,19 @@ static int ui_mem_dump(void)
     return 0;
 }
 
+/* 页状态名（`UI MEM`/`UI FORCEFAIL` 回显共用）；未注册或统计失败返回固定串 */
+static const char *ui_page_state_name(uint8_t page)
+{
+    static const char *const states[] = {"unbuilt", "built", "failed"};
+    sloop_ui_pool_stats_t ps;
+    if (sloop_ui_page_pool_stats(&ps) != ESP_OK) return "?";
+    for (uint8_t i = 0; i < ps.registered; i++) {
+        if (ps.pages[i].id != page) continue;
+        return states[ps.pages[i].state < 3 ? ps.pages[i].state : 0];
+    }
+    return "not_registered";
+}
+
 static int ui_command(int argc, char **argv)
 {
     if (argc == 1) {
@@ -584,8 +599,10 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR forcefail (%s)\n", esp_err_to_name(ret));
             return 1;
         }
-        printf("UI FORCEFAIL page=%s (%u) armed=%u\n", k_page_names[page], (unsigned)page,
-               (unsigned)on);
+        /* 回显注入**之后**的页状态：已建页会立即重建到失败态（注入当场被消费），
+         * 未建页则保持 unbuilt 等下一次构建失败——不打印会误导的 armed 标志。 */
+        printf("UI FORCEFAIL page=%s (%u) %s state=%s\n", k_page_names[page], (unsigned)page,
+               on ? "on" : "off", ui_page_state_name(page));
         return 0;
     }
     if (argc == 3 && strcasecmp(argv[1], "quiesce") == 0 &&
@@ -614,6 +631,11 @@ static int ui_command(int argc, char **argv)
                 printf("UI ERR page_build %u\n", (unsigned)i);
                 return 1;
             }
+            if (ret == ESP_ERR_INVALID_ARG) {
+                /* 页 id 合法但注册表里没有（扩页时忘了 ui_page_register）：与未启动区分 */
+                printf("UI ERR not_registered %u\n", (unsigned)i);
+                return 1;
+            }
             if (ret != ESP_OK) {
                 printf("UI ERR not_started (want=%s)\n", k_page_names[i]);
                 return 1;
@@ -628,7 +650,9 @@ static int ui_command(int argc, char **argv)
         }
     }
     printf("用法: UI <play|tracks|step|transport> | UI MEM | UI FORCEFAIL <page> [on|off] | "
-           "UI QUIESCE <on|off>（无参打印当前页）\n");
+           "UI QUIESCE <on|off>（无参打印当前页）\n"
+           "FORCEFAIL: 已建页立即重建到失败态（回显 state=failed）；未建页下一次构建失败；"
+           "off 只撤销未消费的注入\n");
     return 1;
 }
 
