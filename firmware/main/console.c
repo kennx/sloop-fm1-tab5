@@ -55,6 +55,11 @@
  *    STORE STATS 另带自动存档三项（autosave=0|1、autosave_hash、autosave_writes）；
  *    STORE AUTO ON|OFF 是自动存档的诊断开关（默认 ON，测试脚本用：其它场景关掉它，
  *    免得空闲时的一次 flash 擦写干扰断言）。
+ *    STORE BANK LIST | PUT n | GET n | LIVE | ERASE n 是 FM6 银行 27 槽
+ *    （fm6_bank.c）的诊断入口：PUT = 选中轨的 live patch（fm6_patch 经 fm6_pack）→
+ *    槽 n，GET/LIVE 打印 128B packed 记录的 hex；行格式 "B<k> USED|EMPTY" 末尾
+ *    "BANK COUNT used=n total=27"；PTCH = 8 + n（< 8 是工厂槽）。播放中 PUT/ERASE 回
+ *    "STORE ERR playing"；空槽 GET 回 empty；选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1497,6 +1502,87 @@ static int store_preset(int argc, char **argv)
     return 1;
 }
 
+/* FM6 银行 27 槽（上游 fm6_bank.c，P4-B Task 7）。console 诊断执行器口径同 PROJ/PRESET：
+ * 与 UI 命令共用 sloop_store_* 与同一套锁。
+ *   STORE BANK LIST     -> 27 行 "B<k> USED|EMPTY" + "BANK COUNT used=n total=27"
+ *   STORE BANK PUT n    -> "BANK n SAVED"（选中轨的 live patch；播放中 playing）
+ *   STORE BANK GET n    -> "BANK n GET <128B hex>"；空槽 empty
+ *   STORE BANK LIVE     -> "BANK LIVE <128B hex>"（选中轨当前 patch，不写 flash）
+ *   STORE BANK ERASE n  -> "BANK n ERASED"
+ * 选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"：fm6_patch 只对 NPART 个合成轨存在，鼓轨没有
+ * patch 可存（与预置的 DRUM TRACK: NO SOUND 同一类拒绝，令牌与槽号越界分开）。
+ * LIVE 只读引擎状态，故**不要求存储就绪**（其余子命令都需要）。 */
+static void store_hex(const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) printf("%02X", p[i]);
+}
+
+static bool store_drum_selected(void)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap); /* 选中轨取自引擎真值（与 PARAM/PRESET 同源） */
+    return snap.selected_track >= APP_STATE_TRACKS - 1u;
+}
+
+static int store_bank(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        uint32_t used = 0;
+        for (uint32_t k = 0; k < SLOOP_STORE_BANK_SLOTS; k++) {
+            bool u = sloop_store_bank_used(k);
+            printf("B%u %s\n", (unsigned)k, u ? "USED" : "EMPTY");
+            used += u ? 1u : 0u;
+        }
+        printf("BANK COUNT used=%u total=%u\n", (unsigned)used, (unsigned)SLOOP_STORE_BANK_SLOTS);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "live") == 0) {
+        /* 只读引擎状态（sloop_store_bank_current 不依赖存储就绪）：无存储时也能导出当前音色 */
+        if (store_drum_selected()) return store_err_drum();
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        sloop_store_bank_current(pk);
+        printf("BANK LIVE ");
+        store_hex(pk, sizeof pk);
+        printf("\n");
+        return 0;
+    }
+    if (argc != 4) {
+        printf("用法: STORE BANK LIST | PUT n | GET n | LIVE | ERASE n（n = 0..%u；"
+               "PTCH = 8 + n）\n", (unsigned)(SLOOP_STORE_BANK_SLOTS - 1u));
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_BANK_SLOTS - 1u, &slot)) {
+        return store_err_print(ESP_ERR_INVALID_ARG);
+    }
+    esp_err_t err;
+    if (strcasecmp(argv[2], "put") == 0) {
+        if (store_drum_selected()) return store_err_drum();
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        sloop_store_bank_current(pk);
+        if ((err = sloop_store_bank_put(slot, pk)) != ESP_OK) return store_err_print(err);
+        printf("BANK %u SAVED\n", (unsigned)slot);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "get") == 0) {
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        if (!sloop_store_bank_get(slot, pk)) return store_err_print(ESP_ERR_NOT_FOUND);
+        printf("BANK %u GET ", (unsigned)slot);
+        store_hex(pk, sizeof pk);
+        printf("\n");
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0) {
+        if ((err = sloop_store_bank_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("BANK %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    printf("用法: STORE BANK LIST | PUT n | GET n | LIVE | ERASE n（n = 0..%u；"
+           "PTCH = 8 + n）\n", (unsigned)(SLOOP_STORE_BANK_SLOTS - 1u));
+    return 1;
+}
+
 static int store_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
@@ -1505,6 +1591,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -1520,7 +1607,8 @@ static int store_command(int argc, char **argv)
     }
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | "
-           "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | "
+           "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
+           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
            "STORE AUTO <on|off> | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;
@@ -1660,9 +1748,10 @@ esp_err_t app_console_init(void)
         .command = "STORE",
         .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
                 "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
+                "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n（FM6 银行 27 槽，PTCH = 8 + n）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|LIVEHASH|RAWTEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

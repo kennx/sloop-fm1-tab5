@@ -119,38 +119,26 @@
 | **参考** | ADR-008 §8.2/§8.5、`docs/dev/verify/4-p0-2026-11-21/task-10-readme.md` §5、`scripts/knob-test.sh`、console `UI KNOB` |
 | **登记** | 2026-11-21（P4-A Task 10） |
 
-## DI-18: FM6 银行索引 `fm6_bank_used` 在 `.bss`，`ENG SELFTEST` 后会回滚（Task 7 前置）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | Task 4 实测（ADR-009 §8）：`store_tab5.c` 由 `selftest.c` 末尾 include，而 `linker.lf` 用 `SURROUND(sloop_selftest_bss)` 把 `selftest.c.obj` 的 `.bss` 包成自检快照窗口，`ENG SELFTEST` 的 restore 会把窗口内容回滚到 init 之前。用户预置的银行索引 `up_bank_xip[2]` 正是这种**上游 `.bss`**（vendored 声明无 section 属性，宏重定向搬不走）。Task 4 的实测后果有两级：读成空（LIST/LOAD），以及**写路径从 NULL 副本起笔抹掉同银行的其它槽**（`task-4-saveafter-red-run.txt`）。`fm6_bank.c` 的 `fm6_bank_used`（used 位图，普通 `.bss`）是同一类风险。 |
-| **影响面** | Task 7（FM6 银行 27 槽）落地后：自检结束到下一次 `fm6_bank_boot()` 之前，`sloop_store_bank_used()` 会把所有槽读成未用；若此时写 bank（`fm6_bank.c` 的 save 路径同样整银行重写），可能把已用槽静默抹掉。当前无影响（FM6 银行尚未接入，`fm6_track_loaded` 只在 `eng_req == FM6` 时动作，Task 4 已验证不影响预置）。 |
-| **为何可延迟** | FM6 银行本身是 Task 7 的交付物；在它落地前 `fm6_bank_used` 没有任何读者。Task 4 已把「`.noinit` 或入口重扫」的模式与 ADR 记录写好，Task 7 照同一模式落地即可。 |
-| **解决方向** | 二选一（Task 7 决策时择一记入 ADR-009 §8）：(a) 按 Task 4 的做法，`sloop_store_bank_*` 每个入口在 `s_store_lock` 内重跑 `fm6_bank_boot()`（微秒级，且对写路径是**必须**的）；(b) 给 `fm6_bank.c` 的 `fm6_bank_used` 加 `.noinit`（需 vendored 声明带属性 → 只能走宏重定向或上游补丁，前者受声明形态限制，后者违反 ADR-004 零修改）。优先 (a)。 |
-| **触发条件** | Task 7（FM6 银行 27 槽）实现 bank 存/取/擦之前必须解决，并在 `store` 或新的 bank 注入场景里加一条「selftest 后紧跟 bank SAVE 不丢同银行其它槽」的断言（与 Task 4 的 ⑨f' 同型）；若上游改名为非 `.bss` 存储则重评估。 |
-| **参考** | ADR-009 §8（`.bss` 与 SELFTEST 快照窗口）、`docs/dev/verify/4-pb-2026-11-21/task-4-memory.txt`、`task-4-saveafter-red-run.txt`、`firmware/components/sloop_core/src/store_tab5.c` 的 `up_boot()` 重扫注释 |
-| **登记** | 2026-11-21（P4-B Task 4 评审 carry） |
-
 ## DI-19: 九页全建后 LVGL 池余量 < 弧线 mask 分配 ⇒ 空指针解引用 panic（用户可达）
 
 | 项 | 内容 |
 |---|---|
 | **背景** | P4-B Task 5 门禁中发现（`docs/dev/verify/4-pb-2026-11-21/task-5-poolcliff-repro.log`）：同一会话里跑 `store.sh → tracks.sh → params.sh`（三脚本都跑完九页懒建）时，`UI step` 把池余量压到 **2,196B**，紧随的 `UI fx` 需要绘制旋钮弧线（`lv_draw_sw_arc`）→ `lv_malloc_zeroed` 拿不到内存（`create_non_cached_mask_radius` 返回 NULL）→ `lv_draw_mask_radius` 未判空直接 `get_next_line(p->circle, …)`（`lv_draw_sw_mask.c:869/1197`）→ `Load access fault`（MTVAL=0x76 = NULL+字段偏移）→ 设备 panic 重启。**同一天同一固件、独立启动后单跑 `params.sh` 是绿的（九页全建 free=2,620）**，说明触发条件是**会话分配历史**（页面访问顺序/状态行文本）决定的池余量，而不是某一条命令；`Task 5` 的换音改动不分配任何 LVGL 内存（boot 池用量 15,716/62,820 与改前逐字节相同），且崩溃发生在 `⑨g` 硬复位之后（引擎状态=工厂 + `PROJ LOAD`，与改前固件相同）。 |
 | **影响面** | 产品态：用户在**一次上电会话**里访问全部 9 页（PLAY/TRACKS/STEP/TRANSPORT/4 个参数页/FM6/SAMPLE）后继续操作旋钮，就可能落在池悬崖下并 panic 重启（不是仅测试脚本可达）。ADR-008 已知九页全建余量仅 ~2.6KB，本条目是它的**安全性后果**；`DI-13`（标签文本二次分配失败静默）是同一余量问题的另一面。 |
-| **为何可延迟** | 修法绑定在 P4-B Task 7 的导航信息架构（ADR-005）：**组作用域页面生命周期**（切组时销毁源组页面）会把常驻页数从 9 降到 ~2–3，池余量回到 20KB+，本条目的触发条件随之消失；现在就改 `CONFIG_LV_MEM_SIZE` 会碰 ADR-008 的「96KB 链接溢出」结论、且会重排全部 `est/delta` 预算表，收益低于等到 Task 7。在此之前：门禁脚本**每条之间重启设备**（或把 `params.sh` 放在重启后第一条），并把 `UI MEM` 的 `pool_free` 当作硬判据（`params.sh` 已有「九页全建后 free>0」，但 >0 不足以覆盖一次弧线绘制）。 |
-| **解决方向** | (a) 结构性：Task 7 组作用域生命周期（首选，ADR-005 §组作用域）；(b) 余量判据：`params.sh`/soak 的池判据从「free>0」改为「free ≥ 单次绘制峰值（实测 ≥2.6KB，建议 ≥4KB）」；(c) 若 TM 仍要九页常驻：给 `knob_draw` 的弧线加预算检查（`lv_mem_monitor` free 不足时退化为矩形/纯文本），或在 `managed_components` 的 LVGL 打「NULL mask → `LV_DRAW_SW_MASK_RES_TRANSP`」补丁（与 ADR-004 零修改原则冲突，需负责人裁决）；(d) 长期：升级 LVGL 到已判空的上游版本并复核该路径。 |
-| **触发条件** | Task 7（导航 IA / 组作用域页面生命周期）落地时必须解决并加「九页（或新分组）全建 + 逐页绘制弧线」的注入用例；或在此之前任何一次「全页访问后操作旋钮」的现场 panic 复现。 |
+| **为何可延迟** | 修法绑定在 P4-B Task 11 的导航信息架构（ADR-005）：**组作用域页面生命周期**（切组时销毁源组页面）会把常驻页数从 9 降到 ~2–3，池余量回到 20KB+，本条目的触发条件随之消失；现在就改 `CONFIG_LV_MEM_SIZE` 会碰 ADR-008 的「96KB 链接溢出」结论、且会重排全部 `est/delta` 预算表，收益低于等到 Task 11。在此之前：门禁脚本**每条之间重启设备**（或把 `params.sh` 放在重启后第一条），并把 `UI MEM` 的 `pool_free` 当作硬判据（`params.sh` 已有「九页全建后 free>0」，但 >0 不足以覆盖一次弧线绘制）。 |
+| **解决方向** | (a) 结构性：Task 11 组作用域生命周期（首选，ADR-005 §组作用域）；(b) 余量判据：`params.sh`/soak 的池判据从「free>0」改为「free ≥ 单次绘制峰值（实测 ≥2.6KB，建议 ≥4KB）」；(c) 若 TM 仍要九页常驻：给 `knob_draw` 的弧线加预算检查（`lv_mem_monitor` free 不足时退化为矩形/纯文本），或在 `managed_components` 的 LVGL 打「NULL mask → `LV_DRAW_SW_MASK_RES_TRANSP`」补丁（与 ADR-004 零修改原则冲突，需负责人裁决）；(d) 长期：升级 LVGL 到已判空的上游版本并复核该路径。 |
+| **触发条件** | Task 11（导航 IA / 组作用域页面生命周期）落地时必须解决并加「九页（或新分组）全建 + 逐页绘制弧线」的注入用例；或在此之前任何一次「全页访问后操作旋钮」的现场 panic 复现。 |
 | **参考** | `docs/dev/verify/4-pb-2026-11-21/task-5-poolcliff-first.log`（首次 Core 0：MTVAL=0x76）、`task-5-poolcliff-repro.log`（故意复现，Core 1 同点）、`task-5-poolcliff-symbols.txt`（addr2line：`get_next_line ← lv_draw_mask_radius ← lv_draw_sw_mask_apply ← lv_draw_sw_arc ← knob_draw`）、`task-5-params-fresh.txt`（独立启动单跑绿，free=2,620）、ADR-008 §3/§5（池预算与 9 页余量）、`firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:869,1053,1197` |
 | **登记** | 2026-11-21（P4-B Task 5 门禁现场发现；Task 5 的换音改动本身不分配 LVGL 内存，boot 池用量与改前相同） |
 
-## DI-20: `ENG SELFTEST` 之后工作工程被回滚到工厂态 ⇒ 自动存档下一拍会把工厂态写回 `OBJ_AUTOSAVE`
+## DI-20: `ENG SELFTEST` 之后实时状态被回滚到工厂态（工作工程自动存档 / FM6 银行读取钩子）
 
 | 项 | 内容 |
 |---|---|
-| **背景** | 机制（代码推导，非现场观测）：`ENG SELFTEST` 跑完会调 `selftest_restore()`，把本 TU 的 `.data/.bss`（`linker.lf` 的 `SURROUND(sloop_selftest_bss)` 窗口）与 DSP 状态**回滚到 init 快照**——自检本义就是「从工厂态重跑 golden」。于是自检结束时：①引擎的实时状态（`trk[].p[]/step[]`、`song.g[]`）= 工厂态；②自动存档的「上次写过的 hash」`s_auto_hash` 在 `.noinit`（ADR-009 §8，正是为了不被 restore 清零），仍是自检前那个用户工程的 hash。两者不同 ⇒ 自检结束后的第一个满足门限的窗口（idle 2.5s + gap 20s + 无发声）会把工厂态 `st_save` 进 `OBJ_AUTOSAVE`，覆盖用户上次的工作工程；下次上电 `autosave_resume` 恢复的就是工厂态。 |
-| **影响面** | 只有诊断入口 `ENG SELFTEST`（`device-selftest.py` 门禁也会跑它）。正常使用（上电/编辑/播放/切页）不触发。后果是「跑一次自检 = 用户工作工程被工厂态覆盖」，掉电重启后回到工厂态；对开发与门禁无害（脚本自己控制 `STORE AUTO`），对用户是静默数据丢失。 |
+| **背景** | 机制（代码推导，非现场观测）：`ENG SELFTEST` 跑完会调 `selftest_restore()`，把本 TU 的 `.data/.bss`（`linker.lf` 的 `SURROUND(sloop_selftest_bss)` 窗口）与 DSP 状态**回滚到 init 快照**——自检本义就是「从工厂态重跑 golden」。于是自检结束时：①引擎的实时状态（`trk[].p[]/step[]`、`song.g[]`）= 工厂态；②自动存档的「上次写过的 hash」`s_auto_hash` 在 `.noinit`（ADR-009 §8，正是为了不被 restore 清零），仍是自检前那个用户工程的 hash。两者不同 ⇒ 自检结束后的第一个满足门限的窗口（idle 2.5s + gap 20s + 无发声）会把工厂态 `st_save` 进 `OBJ_AUTOSAVE`，覆盖用户上次的工作工程；下次上电 `autosave_resume` 恢复的就是工厂态。**同一回滚也清掉 FM6 银行的读取钩子**（Task 7 评审 R25）：`eng_fm6.c` 的 `fm6_bank_read` 指针与 `fm6_bank.c` 的 `fm6_bank_cur/used` 都在同一快照窗口内，只有 `fm6_bank_boot()` 会重新安装它们——而它只由 `sloop_store_init`（上电）与 bank 公共入口（`STORE BANK …` / `sloop_store_bank_*`，ADR-009 §8 的入口重扫）调用。故**自检之后、下一次 bank API 调用或重启之前**，PTCH ≥ 8 的轨载入的是 `FM6_INIT`（钩子为 NULL 时的兜底）而不是银行槽里的 patch；bank 对象本身与 flash 字节不受影响，入口重扫后即恢复（`store` 场景 ⑫d 已覆盖）。 |
+| **影响面** | 只有诊断入口 `ENG SELFTEST`（`device-selftest.py` 门禁也会跑它）。正常使用（上电/编辑/播放/切页）不触发。后果有两级：①「跑一次自检 = 用户工作工程被工厂态覆盖」，掉电重启后回到工厂态；②「跑一次自检 = 引用银行槽的音色改为播 init voice」，直到下一次 `STORE BANK …`（或任何 `sloop_store_bank_*` 调用）或重启。对开发与门禁无害（脚本自己控制 `STORE AUTO`，bank 段的断言都经 bank 入口），对用户是静默数据/音色变化。 |
 | **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」）。修法牵涉一个产品判断（自检算不算一次会话语义上的「新状态」），与 P4-E 的设置/会话层同批做更合适；现在改会把「诊断命令」与「存储语义」两件事耦在一起。 |
-| **解决方向** | 三选一（P4-E 决策时记入 ADR）：(a) `selftest_restore()` 尾部用 restore 后的引擎状态 `proj_capture` 并刷新 `s_auto_hash`（= 自检结果不进 autosave，最省事）；(b) 自检结束时把 `s_auto_on` 置 0 且**不**恢复（用户须显式 `STORE AUTO ON`）；(c) 自检前把 autosave 对象备份到暂存、结束时写回（成本高，不推荐）。优先 (a)，并在 `store.sh` 的 ⑨f' 之后加一条「自检后 `autosave_hash` 不变」的断言。 |
+| **解决方向** | 三选一（P4-E 决策时记入 ADR）：(a) `selftest_restore()` 尾部用 restore 后的引擎状态 `proj_capture` 并刷新 `s_auto_hash`（= 自检结果不进 autosave，最省事）；(b) 自检结束时把 `s_auto_on` 置 0 且**不**恢复（用户须显式 `STORE AUTO ON`）；(c) 自检前把 autosave 对象备份到暂存、结束时写回（成本高，不推荐）。优先 (a)，并在 `store.sh` 的 ⑨f' 之后加一条「自检后 `autosave_hash` 不变」的断言；②的修法同批：`selftest_restore()` 之后补一次 `fm6_bank_boot()`（重新安装 `fm6_bank_read` 并扫 used 位），或在 `sloop_core_selftest` 收尾处调 bank 入口的重扫钩子。 |
 | **触发条件** | 用户在设备上跑过 `ENG SELFTEST`（含 `device-selftest.py` 门禁）之后继续使用并掉电重启；或 P4-E 处理「自检/会话」语义时一并解决。 |
-| **参考** | ADR-009 §5（自动存档阈值与启动顺序）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
-| **登记** | 2026-11-21（P4-B Task 6 落地时按代码推导确认；Task 6 评审 R21 修正措辞——不声称设备实测） |
+| **参考** | ADR-009 §5（自动存档阈值与启动顺序）、ADR-009 §8（`.bss` 快照窗口与 bank 入口重扫、R24 裁决）、`docs/dev/verify/4-pb-2026-11-21/task-7-mutation-probe.txt`（变异探针：删掉入口重扫后 selftest 之后的写丢同银行其它槽）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
+| **登记** | 2026-11-21（P4-B Task 6 落地时按代码推导确认；Task 6 评审 R21 修正措辞——不声称设备实测）；2026-11-22 Task 7 评审 R25 补入「FM6 读取钩子同批回滚」一项（标题与影响面扩为两级症状） |

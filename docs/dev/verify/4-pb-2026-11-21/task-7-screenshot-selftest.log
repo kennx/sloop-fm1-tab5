@@ -1,0 +1,9 @@
+  [fw] boot noise line
+  帧缓冲: 4x2 rgb565 (16 字节)
+已保存: /tmp/tmpqjx4bnvu/out.png
+  帧缓冲: 4x2 rgb565 (16 字节)
+  帧缓冲: 4x2 rgb565 (16 字节)
+  失败证据: /tmp/tmpwq2fenf3/x-fail.bin（已收 8 字节）
+  失败证据: /tmp/tmpoiptoex5/void-fail.txt（无帧数据，记录错误）
+自测断言全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、响应头数值非法干净报错、像素抽检、首轮坏次轮好重试恢复、重试耗尽失败证据（含零字节 -fail.txt）、--retry 0 单次尝试、--retry 负数拒绝）
+selftest OK

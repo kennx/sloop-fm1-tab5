@@ -1094,6 +1094,14 @@ def param_tap_step(s: Session, xy: tuple, slot: int, param_id: int, delta: int, 
     s.expect(rf"-> PARAM slot={slot} id={param_id} delta=[+-]1 value={want}", label)
 
 
+# GLOBAL 页「旋钮 0 弧线底（环顶）」探针按**工厂 BPM 的弧长**设计（环顶 12 点方向必须是面板
+# 底色）。BPM 高到一定程度后弧线会盖住那一点：同一个探针在 bpm=90/137 绿、140 红（实测）。
+# `STORE` 场景的最后一次自动存档是 bpm=140（⑪f），复位后 autosave_resume 会把它带进新会话
+# ——故本场景先把 BPM 归一到 TP 默认值（与 ENG_LEVEL_DEF 同一口径），否则同一条命令会随
+# 上一场景的状态时红时绿。
+PARAM_BPM_DEF = 90
+
+
 def run_params(s: Session) -> None:
     """④ 参数页：GLOBAL/FX/ANALOG 构建 + TAP ± / 键盘编辑生效 + 池水位 + 截屏。"""
     # 归一到轨 0（三页都按选中轨显示；TRACKS 卡 0 = x=24+148, y=72+40+235）
@@ -1103,6 +1111,10 @@ def run_params(s: Session) -> None:
     s.expect(r"-> TRACKS select track=0 CMD_SELECT_TRACK", "TAP 卡 0")
     s.cmd("STATE SNAP")
     s.expect_int(r"selected_track=(\d+)", 0, "STATE SNAP selected_track=0")
+    # BPM 回到 TP 默认（截图探针的弧长前提，见 PARAM_BPM_DEF 的注释）
+    s.cmd(f"PARAM GLOBAL 0 {PARAM_BPM_DEF}")
+    param_expect_value(s, "PARAM GLOBAL 0", PARAM_BPM_DEF,
+                       f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
     (s.ok if mem0["head"]["registered"] == 9 else s.fail)(
@@ -2018,12 +2030,17 @@ def run_store(s: Session) -> None:
        `ENG TRACK` 应用后的 p[]（71/71）+ param_kept 保留 + 换引擎 + **独立上游表 oracle**
        （R17）+ 发声时换预置的 panic 路径（`ENG SNAP` 的 voices 归零）+ **project_load 的
        两条 fallback**（R18：`STORE PROJ SYNTH fmt1|foreign`，诊断槽 3）。
-    ⑪ 自动存档与上电恢复（run_store_autosave，最后跑）：空闲写 / 20s gap / 同态不写 /
+    ⑪ 自动存档与上电恢复（run_store_autosave）：空闲写 / 20s gap / 同态不写 /
        播放与发声抑制 / `STORE AUTO OFF` 抑制（每一条都只有被测的那道门能拦住写入，
        见该函数的 docstring）/ 硬复位后 LIVEHASH+bpm+步表恢复且开机不重写。
        它留一个 autosave 对象，故**第二次运行起** ⓪ 的「硬复位到工厂态」实际是「硬复位到
        上一轮 ⑪ 结束时的状态」——本场景的断言全是同轮相对比较（h0/h1/h2 只在同轮内比），
        不受影响；证据里的 h0 从第 2 轮起稳定。
+    ⑫ FM6 银行 27 槽（run_store_bank，最后跑）：live patch → PUT/GET 往返 → LIST →
+       自检后**紧跟**写（`.bss` 的 used 位回滚，ADR-009 §8）→ 硬复位后仍 USED →
+       PTCH=11 读回槽 3 的字节 → ERASE/空槽/越界/播放与鼓轨拒绝。本段全程
+       `STORE AUTO OFF`（它改了轨 1 的引擎；AUTO 开着会把它写进 autosave 漂进下一轮），
+       结束时槽 3/4/5 已擦除。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
        引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
@@ -2154,6 +2171,7 @@ def run_store(s: Session) -> None:
 
     run_store_presets(s)
     run_store_autosave(s)
+    run_store_bank(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -2543,6 +2561,250 @@ def run_store_autosave(s: Session) -> None:
         f"⑪h boot gap 过后 autosave_writes={st['writes']}（0 = resume 的 hash 让第一拍跳过）")
     (s.ok if st["hash"] == live else s.fail)(
         f"⑪h autosave_hash 仍为 {st['hash']:08X}")
+
+
+# ---- FM6 银行 27 槽（上游 fm6_bank.c，Task 7） ----
+# console 契约（main/console.c 的 STORE BANK）：
+#   STORE BANK LIST     -> 27 行 "B<k> USED" / "B<k> EMPTY" + "BANK COUNT used=n total=27"
+#   STORE BANK PUT n    -> "BANK n SAVED"（选中轨 live patch；播放中 "STORE ERR playing"）
+#   STORE BANK GET n    -> "BANK n GET <256 hex>"；空槽 "STORE ERR empty"
+#   STORE BANK LIVE     -> "BANK LIVE <256 hex>"（选中轨当前 packed patch，不写 flash）
+#   STORE BANK ERASE n  -> "BANK n ERASED"
+# 上游语义：27 个 128B packed patch 在一个 storage.c 对象里（A/B 0xE5000/0xE6000）；
+# **PTCH = 8 + 槽号**（fm6_slot_get：< 8 是工厂槽 F1..F8）。PTCH 是 FM6 的 P_E7
+# （core.h 的引擎槽第 8 项，参数 id 70）——`ENG TRACK 1 9 <preset>` 选的是**工厂预置**
+# （FM6_PRESETS[i] 把 P_E7 写成 i），故 PTCH=11 要经 `PARAM 70 11`。
+BANK_SLOTS = 27
+BANK_PACKED_HEX = 256   # 128B packed 记录 = 256 个 hex 字符
+BANK_PTCH_ID = 70       # P_E7：FM6 引擎的 8 号槽（描述符名 PTCH，范围 0..34）
+BANK_PTCH_BASE = 8      # PTCH ≥ 8 读银行（FM6_NFACTORY）
+
+
+def bank_hex(s: Session, cmd: str, pattern: str, label: str) -> str:
+    """发命令并取回显里的 hex 记录。
+
+    回显里**没有** hex 行（命令缺失/回 STORE ERR）时抛 InjectError——拿不到值就没法继续
+    断言（RED 阶段固件还没有该命令，就在这里失败）；长度不是 128 字节只记 FAIL 并返回，
+    让后续的字节比较也把差异暴露出来（不掩盖「读到了但读错了」）。"""
+    s.cmd(cmd)
+    m = re.search(pattern, s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"{label}: 回显缺少 hex 记录（{s.last.strip()!r}）")
+    val = m.group(1).upper()
+    (s.ok if len(val) == BANK_PACKED_HEX else s.fail)(
+        f"{label}: {len(val)} hex 字符（{BANK_PACKED_HEX // 2} 字节 packed 记录）")
+    return val
+
+
+def bank_live(s: Session) -> str:
+    return bank_hex(s, "STORE BANK LIVE", r"^BANK LIVE ([0-9A-Fa-f]+)\r?$", "STORE BANK LIVE")
+
+
+def bank_get(s: Session, slot: int) -> str:
+    return bank_hex(s, f"STORE BANK GET {slot}", rf"^BANK {slot} GET ([0-9A-Fa-f]+)\r?$",
+                    f"STORE BANK GET {slot}")
+
+
+def bank_list(s: Session) -> tuple:
+    """`STORE BANK LIST` → ({槽号: used}, (used, total))。缺行由调用方的数量断言暴露。"""
+    s.cmd("STORE BANK LIST")
+    used = {}
+    for raw in s.last.splitlines():
+        m = re.match(r"^B(\d+) (USED|EMPTY)$", raw.strip())
+        if m:
+            used[int(m.group(1))] = m.group(2) == "USED"
+    m = re.search(r"^BANK COUNT used=(\d+) total=(\d+)\r?$", s.last, re.MULTILINE)
+    count = (int(m.group(1)), int(m.group(2))) if m else None
+    return used, count
+
+
+def bank_wait_live(s: Session, want: str, timeout: float = 1.0) -> str:
+    """轮询 `STORE BANK LIVE` 到 want：PTCH 改动后 patch 由渲染拍的 fm6_poll 载入
+    （`fm6_poll` 在主循环/引擎锁内），命令返回不等于已经过了下一拍。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        got = bank_live(s)
+        if got == want or time.monotonic() >= deadline:
+            return got
+        time.sleep(0.02)
+
+
+def bank_normalize_fm6(s: Session, preset: int = 0) -> None:
+    """把选中轨归一到 FM6 工厂预置 `preset`（FM6_PRESETS[i] 把 P_E7 写成 i ⇒ PTCH=i ⇒
+    工厂 patch F<preset+1>，同步载入）。
+
+    **两步**是必须的：`sloop_core_track` 只在 (engine, preset) 变化时应用预置，而
+    `fm6_track_loaded` 才把 patch 同步写进 fm6_patch（引擎未变则是无操作）。上一轮结束时
+    轨 1 就是 FM6 的某个预置（只是 PTCH 被改成 11），直接 `ENG TRACK 1 9 n` 会什么都不做、
+    LIVE 读到的仍是银行槽的 patch。先换到 DIGITAL 再换回 FM6 ⇒ 必定走一次引擎变更。
+    """
+    s.cmd("ENG TRACK 1 1 0")
+    s.expect(r"ENG TRACK k=1 engine=1 preset=0 OK",
+             "⑫ ENG TRACK 1 1 0（先离开 FM6：保证下一步是「换引擎」而不是无操作）")
+    s.cmd(f"ENG TRACK 1 9 {preset}")
+    s.expect(rf"ENG TRACK k=1 engine=9 preset={preset} OK",
+             f"⑫ ENG TRACK 1 9 {preset}（FM6 预置 {preset} ⇒ PTCH={preset} ⇒ 工厂 patch "
+             f"F{preset + 1} 同步载入）")
+
+
+def run_store_bank(s: Session) -> None:
+    """⑫ FM6 银行 27 槽（上游 fm6_bank.c，Task 7）：
+
+    ① 归一：`STORE AUTO OFF`（本段改轨 1 的引擎，AUTO 开着会把它写进 autosave、漂到下一轮
+       的 ② h0）；槽 3/4/5 若 USED 先 ERASE；选中轨 1 → FM6 工厂预置 0（`bank_normalize_fm6`）
+       ⇒ `STORE BANK LIVE` = L（工厂 patch F1 的 packed 记录）；空槽 GET 3 ⇒ `STORE ERR empty`；
+    ② PUT 3（L）→ GET 3 == L（PUT/GET 往返字节一致）→ LIST `B3 USED` + COUNT used=1；
+    ③ 换工厂预置 1（PTCH=1 ⇒ patch F2）⇒ L2 ≠ L（两个槽的内容可区分）→ PUT 4（L2）⇒
+       GET 3 仍是 L（整银行重写不碰别的槽）、GET 4 == L2、LIST B3+B4、COUNT used=2；
+    ④ 单例 ENG SELFTEST 之后**紧跟** PUT 5（中间不做任何银行读）：自检 restore 把
+       `fm6_bank_cur/fm6_bank_used`（fm6_bank.c 的普通 .bss）清成 -1/0，写路径若不重扫就会
+       从空副本起笔、把 B3/B4 抹掉——LIST 必须仍是 B3+B4+B5（ADR-009 §8 的判别口）；
+    ⑤ ERASE 5 ⇒ B3+B4、GET 5 → empty；从未用过的槽 GET 26 → empty；
+    ⑥ esptool 硬复位（`fm6_bank_boot` 的开机扫描证据）⇒ LIST 仍 B3+B4、GET 3/4 字节不变；
+    ⑦ PTCH=11（= bank 槽 3）⇒ `STORE BANK LIVE` 从 F2（归一到 PTCH=1 时同步载入的工厂
+       patch）变成槽 3 的 L（**银行槽的字节真的载入了轨道**，不是 init voice、也不是停在
+       F2——R24：归一到 F1 会让这条断言假绿）+ `ENG TRIG synth 1 60` 出声无错；
+    ⑧ ERASE 3/4 ⇒ COUNT used=0、GET 3 → empty；槽号越界（27）⇒ `STORE ERR invalid`；
+    ⑨ 播放守卫：PLAY 中 PUT/ERASE ⇒ `STORE ERR playing`，停止后 COUNT 仍 0（未写）；
+    ⑩ 鼓轨（选中轨 3）PUT/LIVE ⇒ `STORE ERR drum`（fm6_patch 只对合成轨存在）。
+    """
+    s.ser.note("⑫ FM6 银行 27 槽：live patch → PUT/GET → LIST → 自检后写路径 → 复位 → PTCH=11")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑫ STORE AUTO OFF（本段免自动存档干扰）")
+    select_track(s, 1)
+    bank_normalize_fm6(s)
+
+    used, _ = bank_list(s)
+    for k in (3, 4, 5):
+        if used.get(k):
+            store_cmd(s, f"STORE BANK ERASE {k}", rf"^BANK {k} ERASED\r?$", f"⑫ 归一 ERASE {k}")
+    used, count = bank_list(s)
+    (s.ok if set(used) == set(range(BANK_SLOTS)) else s.fail)(
+        f"⑫ LIST 列出全部 {BANK_SLOTS} 槽（实得 {len(used)}）")
+    (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+        f"⑫ 归一后 27 槽全 EMPTY（实得 used={[k for k, v in used.items() if v]} count={count}）")
+
+    s.ser.note("⑫a 空槽 GET / LIVE：空槽回 STORE ERR empty，LIVE = 工厂 patch F1 的 packed 记录")
+    store_cmd(s, "STORE BANK GET 3", r"^STORE ERR empty\r?$", "⑫ 空槽 GET 3 → STORE ERR empty")
+    live1 = bank_live(s)
+    print(f"  [NOTE] ⑫ L(F1)={live1[:32]}…")
+
+    s.ser.note("⑫b PUT 3（选中轨 live patch）→ GET 3 == LIVE")
+    store_cmd(s, "STORE BANK PUT 3", r"^BANK 3 SAVED\r?$", "⑫ PUT 3")
+    (s.ok if bank_get(s, 3) == live1 else s.fail)("⑫ GET 3 == LIVE（PUT/GET 往返字节一致）")
+    used, count = bank_list(s)
+    (s.ok if used.get(3) and count == (1, BANK_SLOTS) else s.fail)(
+        f"⑫ LIST → B3 USED、COUNT used=1（实得 {used.get(3)} count={count}）")
+
+    s.ser.note("⑫c 换工厂预置 1（PTCH=1 ⇒ F2）→ L2 ≠ L → PUT 4：不碰槽 3")
+    s.cmd("ENG TRACK 1 9 1")
+    s.expect(r"ENG TRACK k=1 engine=9 preset=1 OK", "⑫ ENG TRACK 1 9 1（FM6 预置 1 ⇒ PTCH=1）")
+    live2 = bank_live(s)
+    (s.ok if live2 != live1 else s.fail)(
+        f"⑫ 工厂 patch F2 的 packed 记录 ≠ F1（{live2[:16]}… vs {live1[:16]}…）")
+    store_cmd(s, "STORE BANK PUT 4", r"^BANK 4 SAVED\r?$", "⑫ PUT 4（F2）")
+    (s.ok if bank_get(s, 3) == live1 else s.fail)("⑫ PUT 4 后 GET 3 不变（整银行重写不碰别的槽）")
+    (s.ok if bank_get(s, 4) == live2 else s.fail)("⑫ GET 4 == LIVE2")
+    used, count = bank_list(s)
+    (s.ok if used.get(3) and used.get(4) and count == (2, BANK_SLOTS) else s.fail)(
+        f"⑫ LIST → B3+B4 USED、COUNT used=2（实得 {sorted(k for k, v in used.items() if v)} "
+        f"count={count}）")
+
+    s.ser.note("⑫d 单例 SELFTEST 后**紧跟** PUT 5（中间不做银行读）：写路径必须自己重扫")
+    s.cmd("ENG AUDIO OFF")
+    s.expect(r"ENG AUDIO streaming=0", "⑫ ENG AUDIO OFF")
+    s.cmd("ENG SELFTEST preset/ANALOG/00_808_BOOM", timeout=90)
+    store_expect(s, r"^ENG SELFTEST .*result=PASS\r?$", "⑫ 单例 selftest PASS")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⑫ ENG AUDIO ON")
+    # selftest restore 把引擎回滚到工厂态（选中轨 0、轨 1 = DIGITAL）：重新归一到 FM6 F1；
+    # 这两条命令都不读银行（PTCH=0 < FM6_NFACTORY 走工厂表），故 PUT 仍是「紧跟」。
+    select_track(s, 1)
+    bank_normalize_fm6(s)
+    store_cmd(s, "STORE BANK PUT 5", r"^BANK 5 SAVED\r?$",
+              "⑫ 自检后紧跟 PUT 5（未经过任何银行读）")
+    used, count = bank_list(s)
+    (s.ok if used.get(3) and used.get(4) and used.get(5) and count == (3, BANK_SLOTS) else s.fail)(
+        f"⑫ 自检后 PUT 5：B3/B4/B5 均 USED（实得 "
+        f"{sorted(k for k, v in used.items() if v)} count={count}）")
+    (s.ok if bank_get(s, 3) == live1 else s.fail)("⑫ 自检后 GET 3 仍是 L（同银行其它槽未丢）")
+    (s.ok if bank_get(s, 4) == live2 else s.fail)("⑫ 自检后 GET 4 仍是 L2")
+
+    s.ser.note("⑫e ERASE 5 → B3+B4；GET 5/26 → STORE ERR empty")
+    store_cmd(s, "STORE BANK ERASE 5", r"^BANK 5 ERASED\r?$", "⑫ ERASE 5")
+    used, count = bank_list(s)
+    (s.ok if used.get(3) and used.get(4) and not used.get(5) and count == (2, BANK_SLOTS) else s.fail)(
+        f"⑫ ERASE 5 后 B3+B4 USED、B5 EMPTY（实得 "
+        f"{sorted(k for k, v in used.items() if v)} count={count}）")
+    store_cmd(s, "STORE BANK GET 5", r"^STORE ERR empty\r?$", "⑫ ERASE 后 GET 5 → empty")
+    store_cmd(s, "STORE BANK GET 26", r"^STORE ERR empty\r?$", "⑫ 从未用过的槽 GET 26 → empty")
+
+    s.ser.note("⑫f esptool 硬复位 → LIST 仍 B3+B4（fm6_bank_boot 的开机扫描）+ 字节不变")
+    s.reboot()
+    store_cmd(s, "STORE STATS", r"^STORE STATS ready=1 ", "⑫ 复位后 STORE STATS ready=1")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑫ 复位后 STORE AUTO OFF")
+    used, count = bank_list(s)
+    (s.ok if used.get(3) and used.get(4) and count == (2, BANK_SLOTS) else s.fail)(
+        f"⑫ 复位后 LIST → B3+B4 USED（实得 {sorted(k for k, v in used.items() if v)} count={count}）")
+    (s.ok if bank_get(s, 3) == live1 else s.fail)("⑫ 复位后 GET 3 == L（flash 里的字节）")
+    (s.ok if bank_get(s, 4) == live2 else s.fail)("⑫ 复位后 GET 4 == L2")
+
+    # R24：归一到 PTCH=0（F1）时，槽 3 里存的正是 F1 的字节——即使 PTCH→银行的重载是死的，
+    # LIVE 也仍是归一时同步载入的 F1，断言会**假绿**。故先把轨归一到 PTCH=1（工厂 F2）、
+    # 断言 LIVE 是 F2 的字节（且 ≠ 槽 3 的 F1），再 `PARAM 70 11`：LIVE 必须从 F2 变成槽 3 的
+    # F1'（= ⑫b 存下的 L）——只有「真的去读了银行」才会发生。
+    s.ser.note("⑫g PTCH=1（工厂 F2）→ PARAM 70 11（银行槽 3）⇒ LIVE 从 F2 变成槽 3 的 F1'")
+    select_track(s, 1)
+    bank_normalize_fm6(s, 1)
+    live_f2 = bank_live(s)
+    (s.ok if live_f2 == live2 else s.fail)(
+        f"⑫ 前提：PTCH=1 的 LIVE 是 F2 的字节（== ⑫c 的 L2 {live2[:16]}…；实得 {live_f2[:16]}…）")
+    (s.ok if live_f2 != live1 else s.fail)(
+        f"⑫ 前提：F2（{live_f2[:16]}…）≠ 槽 3 里的 F1（{live1[:16]}…）⇒ 切换可观测")
+    s.cmd(f"PARAM {BANK_PTCH_ID} 11")
+    s.expect(rf"PARAM track=1 id={BANK_PTCH_ID} value=11 applied=11 ", "⑫ PARAM 70 11（PTCH=11）")
+    got = bank_wait_live(s, live1)
+    (s.ok if got == live1 else s.fail)(
+        f"⑫ PTCH=11 后 LIVE 轮询到槽 3 的字节（实得 {got[:16]}…，期望 {live1[:16]}…）")
+    (s.ok if got != live_f2 else s.fail)(
+        f"⑫ 真的发生了 F2 → 槽 3 的切换（不是停在归一后的 F2：{got[:16]}…）")
+    s.cmd("ENG TRIG synth 1 60")
+    store_expect(s, r"^ENG TRIG synth track=1 note=60 .* OK\r?$", "⑫ PTCH=11 时 ENG TRIG 出声无错")
+
+    s.ser.note("⑫h ERASE 3/4 → COUNT used=0；槽号越界 → STORE ERR invalid")
+    store_cmd(s, "STORE BANK ERASE 3", r"^BANK 3 ERASED\r?$", "⑫ ERASE 3")
+    store_cmd(s, "STORE BANK ERASE 4", r"^BANK 4 ERASED\r?$", "⑫ ERASE 4")
+    used, count = bank_list(s)
+    (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+        f"⑫ 收口后 27 槽全 EMPTY（实得 {sorted(k for k, v in used.items() if v)} count={count}）")
+    store_cmd(s, "STORE BANK GET 3", r"^STORE ERR empty\r?$", "⑫ ERASE 后 GET 3 → empty")
+    store_cmd(s, "STORE BANK GET 27", r"^STORE ERR invalid\r?$", "⑫ 槽号越界 GET 27 → invalid")
+    store_cmd(s, "STORE BANK PUT 27", r"^STORE ERR invalid\r?$", "⑫ 槽号越界 PUT 27 → invalid")
+    store_cmd(s, "STORE BANK ERASE 27", r"^STORE ERR invalid\r?$", "⑫ 槽号越界 ERASE 27 → invalid")
+
+    s.ser.note("⑫i 播放守卫：PLAY 中 PUT/ERASE ⇒ STORE ERR playing，存储不变")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑫ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑫ TAP PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑫ STATE SNAP playing=1")
+    store_cmd(s, "STORE BANK PUT 3", r"^STORE ERR playing\r?$", "⑫ 播放中 PUT → playing")
+    store_cmd(s, "STORE BANK ERASE 3", r"^STORE ERR playing\r?$", "⑫ 播放中 ERASE → playing")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑫ UI transport（收口）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑫ TAP STOP")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑫ STATE SNAP playing=0")
+    used, count = bank_list(s)
+    (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+        f"⑫ 被拒的 PUT/ERASE 未写存储（实得 {sorted(k for k, v in used.items() if v)} count={count}）")
+
+    s.ser.note("⑫j 鼓轨（选中轨 3）：fm6_patch 只对合成轨存在 ⇒ PUT/LIVE 回 STORE ERR drum")
+    select_track(s, 3)
+    store_cmd(s, "STORE BANK PUT 3", r"^STORE ERR drum\r?$", "⑫ 鼓轨 PUT → STORE ERR drum")
+    store_cmd(s, "STORE BANK LIVE", r"^STORE ERR drum\r?$", "⑫ 鼓轨 LIVE → STORE ERR drum")
+    select_track(s, 0)
 
 
 SCENARIOS = {

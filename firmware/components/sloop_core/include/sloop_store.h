@@ -18,6 +18,8 @@
 
 #define SLOOP_STORE_PROJECTS 4u
 #define SLOOP_STORE_PRESETS 32u
+#define SLOOP_STORE_BANK_SLOTS 27u
+#define SLOOP_STORE_BANK_PACKED 128u
 
 typedef struct {
     bool ready;               /* PSRAM 槽/暂存已分配且分区 mmap 就绪 */
@@ -80,6 +82,28 @@ uint8_t sloop_store_preset_engine(uint32_t slot); /* 引擎号；空槽 0xFF */
 esp_err_t sloop_store_preset_store(uint32_t slot);
 esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track);
 esp_err_t sloop_store_preset_erase(uint32_t slot);
+
+/* FM6 银行 0..26（上游 fm6_bank.c：27 个 128B packed patch 在**一个** storage.c 对象里，
+ * `FM6B`/ver 1 布局原样，XIP 原地读，写 = 整银行重写 + 回读校验）。
+ * 槽 k 的音源选择是 PTCH = 8 + k（上游 fm6_slot_get：< 8 是工厂槽 F1..F8；PTCH 即本
+ * 引擎的 P_E7，参数 id 70）。put/erase 走带中拒绝（ESP_ERR_INVALID_STATE；擦写前必须停
+ * 走带，sector erase 会静音）；put 的 packed 记录须是 fm6_pack 的 128B 口径。
+ * 读入口（used/get）只读 mmap，但会在存储锁内重扫银行索引（`.bss` 回滚，见下）。
+ * get 失败（空槽/槽号越界/未就绪）时 **out 不被写**——调用方不得把上一次的内容当结果。
+ * bank_current 把**选中轨**的 live patch（fm6_patch，可来自工厂槽或银行槽）打包成 128B
+ * ——PUT 的输入；选中鼓轨时输出全 0（鼓轨没有 patch），console 在调用前就拒绝。
+ * bank_current **不依赖存储就绪**（只读引擎状态、只取引擎锁）：分区/mmap 不可用时仍可
+ * 导出当前音色；需要存储的是 put/erase（未就绪回 ESP_ERR_INVALID_STATE）。
+ * 银行索引 `fm6_bank_cur/used` 是 fm6_bank.c 的普通 `.bss`，`ENG SELFTEST` 的 restore 会
+ * 清空它（ADR-009 §8）：故**每个**入口在存储锁内重跑 `fm6_bank_boot()` 重扫（写入口尤其必须：
+ * 上游从「当前副本」起笔，空索引会把同银行的其它槽抹掉）。同一回滚也清掉 `fm6_bank_read`
+ * 钩子 ⇒ **自检之后、下一次 bank 入口或重启之前**，PTCH ≥ 8 的轨载入的是 `FM6_INIT`
+ * （DI-20 的第二个症状；bank 对象与 flash 字节不受影响）。 */
+bool sloop_store_bank_used(uint32_t slot);
+bool sloop_store_bank_get(uint32_t slot, uint8_t out[SLOOP_STORE_BANK_PACKED]);
+esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed);
+esp_err_t sloop_store_bank_erase(uint32_t slot);
+void sloop_store_bank_current(uint8_t *packed);
 
 /* 自动存档与上电恢复（上游 `project.c` 的 autosave_tick/autosave_resume，语义照抄）：
  * 条件全满足才把当前工作工程写进 `OBJ_AUTOSAVE`——非播放（`!song.playing &&

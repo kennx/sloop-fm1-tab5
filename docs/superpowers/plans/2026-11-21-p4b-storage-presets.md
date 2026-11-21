@@ -428,11 +428,11 @@ git push origin feat/phase4b
 
 - [ ] **Step 1: 失败断言**
 
-`ENG TRACK 1 9 0`（FM6 工厂 patch）→ `STORE BANK LIVE` 得 hex L → `STORE BANK PUT 3` → `STORE BANK GET 3` == L；`BANK LIST` 含 `B3 USED`；重新上电后仍 USED；`BANK ERASE 3` 后 GET 返回 `STORE ERR empty`；`ENG TRACK 1 9 11`（PTCH=11 → bank 槽 3）+ `ENG TRIG` 无错误；无 patch 槽 GET 为空。运行确认 FAIL。
+`ENG TRACK 1 9 0`（FM6 工厂 patch F1）→ `STORE BANK LIVE` 得 hex L → `STORE BANK PUT 3` → `STORE BANK GET 3` == L；`BANK LIST` 含 `B3 USED`；重新上电后仍 USED；`BANK ERASE 3` 后 GET 返回 `STORE ERR empty`；**PTCH=11（= bank 槽 3）经 `PARAM 70 11`**（`ENG TRACK` 的第 4 参数是**工厂预置号**、且 `preset_apply` 会 `pi %= 8`，写 `ENG TRACK 1 9 11` 只得到 PTCH=3）——归一到 PTCH=1（工厂 F2）取 `LIVE` 得 L2 ≠ L，再 `PARAM 70 11` ⇒ `LIVE` 必须变成槽 3 的字节 L（F2→F1' 的真切换；否则 PTCH→银行的重载是死的也照样绿）+ `ENG TRIG` 无错误；无 patch 槽 GET 为空。运行确认 FAIL。
 
 - [ ] **Step 2: include 上游并实现**
 
-`store_tab5.c` 在 `upreset.c` 之后定义 `FM6_BANK_XIP(copy)`（= map + (0xE5000 + copy*4096) − base），`#include "fm6_bank.c"`；`sloop_store_init` 末尾加 `fm6_bank_boot()`。API 包装 `fm6_bank_put/fm6_bank_get/has`；`bank_current` 引擎锁内 `fm6_pack(fm6_patch[track], out)`（同 TU 可见）。播放中拒绝；`fm6_bank_put` 1→`ESP_ERR_INVALID_ARG`、2→`ESP_ERR_NOT_FINISHED`。
+`store_tab5.c` 在 `upreset.c` 之后定义 `FM6_BANK_XIP(copy)`（= map + (0xE5000 + copy*4096 + **ST_PAYLOAD_OFF(256)**) − base——payload 从扇区偏移 256 起，与上游 `fm6_bank.c` 的兜底 `st_sector(...) + ST_PAYLOAD_OFF` 同义，漏掉 256 会读成错位视图），`#include "fm6_bank.c"`；`sloop_store_init` 末尾加 `fm6_bank_boot()`。API 包装 `fm6_bank_put/fm6_bank_get/has`；`bank_current` 引擎锁内 `fm6_pack(fm6_patch[track], out)`（同 TU 可见）。播放中拒绝；`fm6_bank_put` 1→`ESP_ERR_INVALID_ARG`、2→`ESP_ERR_NOT_FINISHED`。
 
 - [ ] **Step 3: console**
 

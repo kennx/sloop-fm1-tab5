@@ -90,9 +90,14 @@ static int param_kept(uint32_t i)
 }
 
 /* XIP：st_xip 在上游 flash 里原地读 payload（upreset.c 的 up_bank_find / fm6_bank.c
- * 依赖它，省掉 RAM 镜像）。Tab5 上就是 sloopstore 的 mmap 窗口（ADR-009 §2）。 */
+ * 依赖它，省掉 RAM 镜像）。Tab5 上就是 sloopstore 的 mmap 窗口（ADR-009 §2）。
+ * FM6 银行的 payload 从扇区偏移 **256** 起（storage.c 的 ST_PAYLOAD_OFF：32B 提交头 +
+ * 提交头与 payload 之间的 side/留空区）——上游 fm6_bank.c 的宿主兜底正是
+ * `fm1_xip_ptr(st_sector(OBJ_FM6BANK, copy) + ST_PAYLOAD_OFF)`。少了这 256 字节就是
+ * 一个错位视图：GET 读到别的槽（前两槽落在提交头/空区），写路径从错位副本起笔会把
+ * 0xFF 带进 payload、让整个银行校验失败（读成空）。 */
 #define ST_XIP_PTR(off) (sloop_hal_storage_map() + ((off) - sloop_hal_storage_base()))
-#define FM6_BANK_XIP(copy) (ST_XIP_PTR(0xE5000u + (copy) * 4096u))
+#define FM6_BANK_XIP(copy) (ST_XIP_PTR(0xE5000u + (copy) * 4096u + 256u))
 
 /* ---- hooks：storage.c 的三个 flash 入口（偏移一律是上游 flash-map 逻辑偏移） ------ */
 static int st_read(uint32_t off, void *dst, uint32_t n)
@@ -145,6 +150,18 @@ static int arp_is_sounds(const track_t *t);
 
 _Static_assert(SLOOP_STORE_PRESETS == UP_SLOTS, "公共 API 的预置槽数与上游 upreset.c 一致");
 _Static_assert(sizeof(proj_tmp) >= sizeof(up_bank_t), "暂存装得下用户预置银行（3,080B）");
+
+/* ---- 上游 FM6 银行（fm6_bank.c，27 槽 / 一个 A/B 对象） --------------------------- */
+/* fm6_bank.c 只被上游 project.c 在 `FELUCCA_FLASH && !PROJ_HOST` 下 include；本 TU 用
+ * PROJ_HOST 编 project.c，故这里显式编入（上面的 FM6_BANK_XIP 把 0xE5000 + copy×4096
+ * 的 payload 落到 sloopstore 的 mmap 窗口）。它需要：proj_tmp（暂存 ≥ 3,472B，文件内有
+ * 静态断言）、flash_ok、st_buf/st_current/st_save（storage.c）与 eng_fm6.c 的
+ * fm6_unpack/fm6_pack/fm6_slot/fm6_bank_read（本 TU 由 engines.c → eng_fm6.c 编入，
+ * 都在上面可见）。`fm6_bank_read` 钩子由 fm6_bank_boot() 安装（下面 init 里调）。 */
+#include "fm6_bank.c"
+
+_Static_assert(SLOOP_STORE_BANK_SLOTS == FM6_BANK_N, "公共 API 的银行槽数与上游 fm6_bank.c 一致");
+_Static_assert(SLOOP_STORE_BANK_PACKED == FM6_PACKED, "公共 API 的 packed 记录长度与上游一致");
 
 /* 上游 ui.c:24：轨的声音来自哪个用户预置（UP_SLOTS = 不是用户预置） */
 static uint32_t user_of(const track_t *t)
@@ -461,6 +478,9 @@ esp_err_t sloop_store_init(void)
     /* 用户预置银行的开机扫描（上游 persist_boot 同语义）：把两个银行在 XIP 窗口里的
      * 当前副本地址装进 up_bank_xip。必须在 flash_ok=1 之后（up_bank_find 读它）。 */
     up_boot();
+    /* FM6 银行同理（上游 persist_boot）：找到当前副本、扫 used 位、装好 fm6_bank_read
+     * 钩子——否则 PTCH ≥ 8 播 init voice。 */
+    fm6_bank_boot();
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
     /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
      * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
@@ -836,6 +856,105 @@ esp_err_t sloop_store_preset_erase(uint32_t slot)
     int rc = up_put(slot, NULL);
     store_unlock();
     return preset_put_rc(rc, "ERASE", slot);
+}
+
+/* ------------------------------------------------ FM6 银行 0..26（fm6_bank.c） --- */
+/* 上游语义（fm6_bank.c）：27 个 128B packed patch 都在**一个** storage.c 对象里
+ * （OBJ_FM6BANK，A/B 扇区 0xE5000/0xE6000）；读是 XIP 原地（FM6_BANK_XIP），写 = 从当前
+ * 副本拷进 proj_tmp → 改一个槽 → st_save（整银行 3,472B + 回读校验）；`fm6_bank_read`
+ * 钩子（fm6_bank_boot 安装）供 eng_fm6.c 的 fm6_slot_get 在 PTCH ≥ 8 时读取。
+ *
+ * `.bss` 回滚（ADR-009 §8，与 Task 4 的 up_bank_xip 同型）：`fm6_bank_cur/fm6_bank_used` 是
+ * fm6_bank.c 的普通静态，本 TU 的 .bss 在 `ENG SELFTEST` 的 SURROUND(sloop_selftest_bss)
+ * 快照窗口里，restore 会清成 -1/0——`fm6_bank_read` 钩子指针（eng_fm6.c）同理被清成
+ * NULL。读路径清成 -1 ⇒ 银行读成空；写路径更危险：`fm6_bank_put` 从 cur=-1 起笔会
+ * memset 整银行，把同一银行里已用的其它槽静默抹掉。上游的声明没有 section 属性、宏
+ * 重定向搬不走，故**每个**公共入口在存储锁内 `fm6_bank_boot()` 重扫（两次头校验 +
+ * 3,472B CRC，微秒级）。这也让「刚写下的银行立刻可见」。注意同一回滚也清掉
+ * `fm6_bank_read` 钩子：自检之后到下一次 bank 入口（或重启）之前，PTCH ≥ 8 载入的是
+ * `FM6_INIT`（DI-20 的第二个症状；存储里的银行字节不受影响）。
+ *
+ * 锁序同工程/预置（ADR-009 §3）：存储锁 → 擦/写 flash 期间**不持引擎锁**（本板渲染持
+ * 引擎锁，一次擦写 50ms 必然 xrun）；live patch 的 128B 拷贝在引擎锁内。
+ * 已知的良性竞态：`fm6_bank_put` 末尾的 `fm6_bank_changed()` 是 vendored 代码，直接写
+ * `fm6_slot[]`（把引用银行槽的轨标成 0xFF 让 fm6_poll 重载），而本板的 fm6_poll 在渲染
+ * 路径的引擎锁内——这次的字节写落在锁外（擦写不能持引擎锁）。最坏结果是某一轨这次没被
+ * 标脏、继续用它 fm6_patch 里的旧声音（音频本来就发的是那个声音），下一次 PTCH 变动即
+ * 恢复；无内存安全风险。 */
+
+bool sloop_store_bank_used(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_BANK_SLOTS || !sloop_store_ready()) return false;
+    store_lock();
+    fm6_bank_boot();
+    bool used = fm6_bank_has(slot) != 0;
+    store_unlock();
+    return used;
+}
+
+/* 失败（空槽/槽号越界/未就绪/out == NULL）时 **out 不被写**：调用方不能拿上一次的内容
+ * 当结果（console 只在返回 true 时打印 hex）。 */
+bool sloop_store_bank_get(uint32_t slot, uint8_t out[SLOOP_STORE_BANK_PACKED])
+{
+    if (out == NULL || slot >= SLOOP_STORE_BANK_SLOTS || !sloop_store_ready()) return false;
+    store_lock();
+    fm6_bank_boot();
+    bool got = fm6_bank_get(slot, out) == 0;
+    store_unlock();
+    return got;
+}
+
+/* 选中轨的 live patch → 128B packed（PUT 的输入；console 的 `STORE BANK LIVE`）。
+ * 只读引擎状态（fm6_patch，不改任何东西），128B 拷贝在引擎锁内。**不经过存储层**：没有
+ * 分区/mmap 时 live patch 照样可读（诊断面与 P4-D 的「导出当前音色」都需要），故不判
+ * sloop_store_ready()；PUT 才需要存储。
+ * 鼓轨（song.sel ≥ NPART）没有 patch：fm6_patch 只对 NPART 个合成轨存在，输出全 0
+ * （console 在调用前就回 drum）。 */
+void sloop_store_bank_current(uint8_t *packed)
+{
+    if (packed == NULL) return;
+    memset(packed, 0, SLOOP_STORE_BANK_PACKED);
+    engine_lock(); /* 取锁前 core 未 init 时是空操作（s_engine_lock == NULL），song.sel 是 .bss 的 0 */
+    if (song.sel < NPART) fm6_pack(fm6_patch[song.sel], packed);
+    engine_unlock();
+}
+
+/* fm6_bank_put 的返回码（0 ok / 1 槽号坏 / 2 flash 错或未就绪，银行保持原样）→ esp_err_t。
+ * rc=1 在这里是**防御**：两个公共入口都已先判 `slot < SLOOP_STORE_BANK_SLOTS`，上游的
+ * rc=1 不可达；保留映射是为了不把「坏槽号」误报成 flash 失败（上游若改判定也不静默）。 */
+static esp_err_t bank_put_rc(int rc, const char *what, uint32_t slot)
+{
+    if (rc == 0) return ESP_OK;
+    if (rc == 1) return ESP_ERR_INVALID_ARG;
+    ESP_LOGE(TAG, "BANK %u %s 失败 rc=%d（银行保持原样）", (unsigned)slot, what, rc);
+    return ESP_ERR_NOT_FINISHED;
+}
+
+/* PUT n：packed（128B）→ 槽 n。写入口的 fm6_bank_boot() 是必须的：上游从「当前副本」
+ * 起笔，索引为空（自检 restore 之后）会 memset 整银行。 */
+esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed)
+{
+    if (slot >= SLOOP_STORE_BANK_SLOTS || packed == NULL) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    store_lock();
+    fm6_bank_boot();
+    int rc = fm6_bank_put(slot, packed); /* 擦/写 flash：不持引擎锁 */
+    store_unlock();
+    return bank_put_rc(rc, "PUT", slot);
+}
+
+/* ERASE n = 上游 `fm6_bank_put(n, NULL)`（整银行重写，槽 n 清空、used 位清）。 */
+esp_err_t sloop_store_bank_erase(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_BANK_SLOTS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    store_lock();
+    fm6_bank_boot(); /* 同上：擦除也是整银行重写，必须从当前副本起笔 */
+    int rc = fm6_bank_put(slot, NULL);
+    store_unlock();
+    return bank_put_rc(rc, "ERASE", slot);
 }
 
 /* ------------------------------------------------ 自动存档与上电恢复（Task 6） --- */

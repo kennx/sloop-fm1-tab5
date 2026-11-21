@@ -104,8 +104,13 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   "sloopstore")` → `esp_partition_mmap(part, 0, 0x68000, ESP_PARTITION_MMAP_DATA, &map,
   &handle)`；映射句柄常驻，`sloop_hal_storage_map()` 返回基址。
 - `st_read` = 边界检查后从映射区 `memcpy`；`ST_XIP_PTR(off)` = `map + (off - 0x97000)`；
-  `FM6_BANK_XIP(copy)` 同法落到 `0xE5000 + copy×4096`。这样上游「从 flash 原地读 payload」
-  的语义**零成本保留**，不需要 6,160B RAM 镜像，也不改 `upreset.c`/`fm6_bank.c`。
+  `FM6_BANK_XIP(copy)` = `ST_XIP_PTR(0xE5000 + copy×4096 + **256**)`——payload 从扇区偏移
+  `ST_PAYLOAD_OFF = 256` 起（32B 提交头之后），与上游 `fm6_bank.c` 的兜底
+  `fm1_xip_ptr(st_sector(OBJ_FM6BANK, copy) + ST_PAYLOAD_OFF)` 同义。**少的这 256 字节
+  是一个错位视图**：槽 k 读到别的槽、写路径从错位副本起笔把提交头/留空区的 0xFF 带进
+  payload，整个银行校验失败读成空（Task 7 的 GREEN 首轮实测，ADR §8 同款修正）。这样
+  上游「从 flash 原地读 payload」的语义**零成本保留**，不需要 6,160B RAM 镜像，也不改
+  `upreset.c`/`fm6_bank.c`。
 - mmap 失败（找不到分区/映射越界）→ `ready=false`，所有上层 API 按「空存储」返回：
   UI 显示 `NO STORAGE`、console `STORE ERR no_storage`；引擎与音频照常，不崩溃、不重启。
 
@@ -255,9 +260,19 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   不走）只能**每次公共预置入口在存储锁内重扫** `up_boot()`（两次头校验 + 3,080B CRC，
   微秒级）。**写入口也必须重扫**：`up_put` 把整银行重写一遍、从当前 XIP 副本起笔，索引为
   NULL 时会静默抹掉同银行里已用的其它槽（设备实测：selftest 后直接 SAVE 1 丢掉槽 0，
-  `4-pb-2026-11-21/task-4-saveafter-red-run.txt`）。**FM6 银行有同型风险**（Task 7）：
-  `fm6_bank.c` 的 `fm6_bank_used` 也是普通 `.bss`，自检 restore 后须重跑
-  `fm6_bank_boot()`。实测：`nm` 显示 `up_bank_xip` 地址落在
+  `4-pb-2026-11-21/task-4-saveafter-red-run.txt`）。**FM6 银行有同型风险，Task 7 裁决
+  (a)**：`fm6_bank.c` 的 `fm6_bank_cur/fm6_bank_used` 与 `eng_fm6.c` 的 `fm6_bank_read`
+  钩子也是普通 `.bss`（同一快照窗口）——restore 之后银行读成空、`fm6_bank_put` 从空副本
+  起笔会抹掉同银行其它槽（与预置两个症状完全同型）。**每个公共入口（used/get/put/erase）
+  在 `s_store_lock` 内重跑 `fm6_bank_boot()`**（两次头校验 + 3,472B CRC，微秒级），不给
+  vendored 声明加 section 属性（ADR-004 零修改）；写入口是必须的，读入口顺带让「刚写下
+  的槽立刻可见」（与预置同一取舍）。判别口是 `store` 场景的 ⑫d：自检后**紧跟**
+  `STORE BANK PUT 5`（中间无银行读）⇒ LIST 仍 B3+B4+B5（不重扫时只剩 B5）。另一个已知
+  的良性竞态：`fm6_bank_put` 末尾的 `fm6_bank_changed()`（vendored）直接写 `fm6_slot[]`，
+  而本板的 `fm6_poll` 在渲染路径的引擎锁内——这次字节写落在锁外（擦写不能持引擎锁），
+  最坏结果是某一轨这次没被标脏、继续用 `fm6_patch` 里的旧声音，下次 PTCH 变动即恢复；
+  无内存安全风险（详见 `store_tab5.c` 的 bank 小节注释）。实测：`nm` 显示
+  `up_bank_xip` 地址落在
   `_sloop_selftest_bss_start..end` 内，`flash_ok` 在窗口之前的 `.noinit`
   （`docs/dev/verify/4-pb-2026-11-21/task-4-memory.txt`）。
   纯展示性 shim（`up_gen/ui.force/sync_reload`）回滚无害，仍留 `.bss`。

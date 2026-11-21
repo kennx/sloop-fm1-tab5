@@ -1,0 +1,83 @@
+# P4-B Task 7 变异探针（DI-18 判别力）：把 sloop_store_bank_put 入口的 fm6_bank_boot() 删掉
+# 受测固件＝本任务源码 + 仅此一处变异；时序：⑫d（selftest 后紧跟 PUT 5，中间无银行读）
+# 无变异（提交固件）：after_selftest_put5=[3, 4, 5]；变异后：B3/B4 丢失，只剩 [5] ⇒ ⑫d 不是自证
+
+>>> STORE AUTO OFF
+STORE AUTO OFF
+STORE AUTO off
+sloop>
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+>>> ENG TRACK 1 1 0
+ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>
+>>> ENG TRACK 1 9 0
+ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>
+>>> STORE BANK ERASE 3
+STORE BANK ERASE 3
+BANK 3 ERASED
+sloop>
+>>> STORE BANK ERASE 4
+STORE BANK ERASE 4
+BANK 4 ERASED
+sloop>
+>>> STORE BANK ERASE 5
+STORE BANK ERASE 5
+BANK 5 ERASED
+sloop>
+>>> STORE BANK LIST → used=[] count=(0, 27)
+>>> STORE BANK PUT 3
+STORE BANK PUT 3
+BANK 3 SAVED
+sloop>
+>>> ENG TRACK 1 9 1
+ENG TRACK 1 9 1
+ENG TRACK k=1 engine=9 preset=1 OK
+sloop>
+>>> STORE BANK PUT 4
+STORE BANK PUT 4
+BANK 4 SAVED
+sloop>
+>>> STORE BANK LIST → used=[3, 4] count=(2, 27)
+>>> ENG AUDIO OFF
+ENG AUDIO OFF
+I (7071) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=2 OK
+sloop>
+>>> ENG SELFTEST: ['ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS']
+>>> ENG AUDIO ON
+ENG AUDIO ON
+I (7881) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=2 OK
+sloop>
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+>>> ENG TRACK 1 1 0
+ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>
+>>> ENG TRACK 1 9 0
+ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>
+>>> STORE BANK PUT 5
+STORE BANK PUT 5
+BANK 5 SAVED
+sloop>
+>>> STORE BANK LIST → used=[5] count=(1, 27)
+
+before=[] after_put=[3, 4] after_selftest_put5=[5]
+RESULT: B3/B4 LOST — put staged from an empty copy (mutation: no fm6_bank_boot in PUT)
+>>> STORE BANK LIST → used=[5] count=(1, 27)
+>>> STORE BANK LIST → used=[5] count=(1, 27)
+>>> STORE BANK LIST → used=[5] count=(1, 27)
+>>> STORE BANK ERASE 5
+STORE BANK ERASE 5
+BANK 5 ERASED
+sloop>
+>>> STORE BANK LIST → used=[] count=(0, 27)

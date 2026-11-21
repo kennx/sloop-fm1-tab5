@@ -20,6 +20,10 @@
 #      改值 → LOAD 0 0（8 参数逐项还原）→ ERASE 0 → 鼓轨 SAVE/LOAD 回 STORE ERR drum →
 #      ENG SELFTEST 之后 LIST 仍 USED → esptool 硬复位后 LIST 仍 USED（up_boot）且
 #      LOAD 还原同一组值
+#   ⑪ 自动存档：空闲写 / 20s gap / 同态不写 / 播放与发声抑制 / STORE AUTO OFF / 复位恢复
+#   ⑫ FM6 银行 27 槽：live patch → PUT/GET 往返（字节一致）→ LIST → 自检后紧跟 PUT（写路径
+#      必须重扫 .bss 的 used 位，DI-18）→ 硬复位后仍 USED → PTCH=11 轮询 LIVE 到槽 3 的字节 +
+#      ENG TRIG 出声 → ERASE/空槽/越界/播放与鼓轨拒绝
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

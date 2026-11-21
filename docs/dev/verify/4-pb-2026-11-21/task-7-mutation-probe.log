@@ -1,0 +1,307 @@
+I (103) esp_image: segment 3: paddr=000a0020 vaddr=40000020 sizeI (2981) M5Stack Tab5: Display initialized with resolution 720x1280
+I (2981) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (2981) ST7123: Touch panel create success, version: 1.0.2
+I (2981) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3131) M5Stack Tab5: Setting LCD backlight: 100%
+I (3131) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3131) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  I (4131) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4131) sloop_tab5: keyboard: OK (0x6D)
+W (4131) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+sloop>  W (4141) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4151) I2S_IF: Paired data: 0x4ff28404, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4151) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4151) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4161) ES8388: Start on mode:2
+I (4161) Adev_Codec: Open codec device OK
+I (4161) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4181) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x40170000 handle=1341783920 base=0x97000 span=0x68000
+I (4191) sloop_store: ready: slots=0x48344eec(15264B) stage=0x48348af0 v3=0x483444a8(2584B) auto=0x48349af4(3816B) base=0x97000 span=0x68000
+I (4191) sloop_store: autosave 恢复：hash=CBED18AE sel=0 bpm=140
+I (4191) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4201) sloop_audio_stream: stream started, half=256 frames
+I (4201) sloop_tab5: UI 启动前内部堆剩余 105343 字节
+I (4211) sloop_ui: 页面构建 page=PLAY(0) 池增量=2508B 预算=3072B 池剩余=47144B
+I (4221) sloop_ui: UI 就绪: 9 页注册/1 已建 @1280x720, LVGL 池已用 15716/62820 字节, 内部堆剩余 105343 字节
+I (4251) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4411) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  STORE AUTO OFF
+STORE AUTO off
+sloop>  UI tracks
+I (5381) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=41352B
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  STORE BANK ERASE 3
+BANK 3 ERASED
+sloop>  STORE BANK ERASE 4
+BANK 4 ERASED
+sloop>  STORE BANK ERASE 5
+BANK 5 ERASED
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  STORE BANK PUT 3
+BANK 3 SAVED
+sloop>  ENG TRACK 1 9 1
+ENG TRACK k=1 engine=9 preset=1 OK
+sloop>  STORE BANK PUT 4
+BANK 4 SAVED
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 USED
+B4 USED
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=2 total=27
+sloop>  ENG AUDIO OFF
+I (7071) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=2 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (7171) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (7781) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (7881) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=2 OK
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  STORE BANK PUT 5
+BANK 5 SAVED
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 USED
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=1 total=27
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 USED
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=1 total=27
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 USED
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=1 total=27
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 USED
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=1 total=27
+sloop>  STORE BANK ERASE 5
+BANK 5 ERASED
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  

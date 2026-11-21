@@ -135,6 +135,7 @@ void      sloop_hal_storage_fault_clear(void);
 #define SLOOP_STORE_PROJECTS 4u
 #define SLOOP_STORE_PRESETS  32u
 #define SLOOP_STORE_BANK_SLOTS 27u
+#define SLOOP_STORE_BANK_PACKED 128u   /* fm6_pack 的 128B packed 记录（Task 7） */
 
 typedef struct {
     bool ready; uint32_t objects_ok, faults_armed, faults_taken;
@@ -166,12 +167,13 @@ esp_err_t sloop_store_preset_store(uint32_t slot);
 esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track);
 esp_err_t sloop_store_preset_erase(uint32_t slot);
 
-/* FM6 银行（packed 128B 记录，槽 0..26）。 */
+/* FM6 银行（packed 128B 记录，槽 0..26；PTCH = 8 + 槽号）。入口在存储锁内重扫
+ * fm6_bank_boot()（.bss 回滚，ADR-009 §8）；put/erase 走带中拒绝。 */
 bool     sloop_store_bank_used(uint32_t slot);
-bool     sloop_store_bank_get(uint32_t slot, uint8_t out[128]);
-esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed);
+bool     sloop_store_bank_get(uint32_t slot, uint8_t out[SLOOP_STORE_BANK_PACKED]);
+esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed);   /* 1→INVALID_ARG, 2→NOT_FINISHED */
 esp_err_t sloop_store_bank_erase(uint32_t slot);
-void     sloop_store_bank_current(uint8_t *packed);  /* 选中轨当前 patch 打包（存 bank 用） */
+void     sloop_store_bank_current(uint8_t *packed);  /* 选中轨当前 patch 打包（存 bank 用；鼓轨全 0） */
 
 /* 自动存档（上游 autosave_tick/autosave_resume 语义）：停走带 + 无输入 ≥2.5s +
  * 距上次保存 ≥20s + 无发声 + 捕获 hash 与上次不同才写 OBJ_AUTOSAVE；
