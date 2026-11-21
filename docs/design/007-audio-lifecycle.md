@@ -48,6 +48,13 @@ A。落地形态：
     TAP/KEY 注入回 `TAP ERR quiesced` / `KEY ERR quiesced`（不派发）。
   - quiesce(off)：`lvgl_port_resume()` + `lv_timer_resume`（下一拍重新 `state_sync` 并
     刷新已建页），通知 input 任务恢复，清零并打印诊断期丢弃的事件数。
+  - **返回值与失败路径**（P4-A 终审修复）：`sloop_ui_quiesce` 返回 bool。on 的
+    `bsp_display_lock(1000)` 超时 → 回滚输入静默、不置 `s_quiesced`、返回 false，
+    `sloop_core_selftest` 据此回 `cases=0 result=FAIL reason=quiesce` 并**不冻结引擎**
+    （定时器仍在跑，冻结后它会读 base-0 步窗快照 → STEP 列错位）。off 取锁失败会重试
+    3 次，仍失败则保持静默态（返回 false，可再次 `UI QUIESCE off`），绝不留下「定时器
+    暂停但标志已清」的半恢复态。复验入口：`UI LOCKHOLD <ms>` 让辅助任务持 LVGL 锁，
+    紧随 `ENG SELFTEST` 断言拒绝路径。
   - 构型：`sloop_core` 不依赖 `sloop_ui`（依赖方向相反），只提供
     `sloop_core_diag_quiesce_hook()`；`sloop_ui_start()` 成功后注册 `sloop_ui_quiesce`。
     钩子指针与冻结标志同放 `.noinit`（注册发生在 init 快照之后，普通静态会被自检开头的

@@ -53,7 +53,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 - 注册顺序 = 页签顺序；页签文本/数量由注册表派生（4 页时宽度仍是 176px，像素不变；
   注册页更多时按可用宽度收窄，并给右侧 SLOOP 标题/层提示留 `UI_TAB_RIGHT_RESERVE`
-  =150px——7 页时 150px、9 页时 114px，见 §8.1）。**注册表只增不删**：
+  =220px——7 页时 140px、9 页时 107px，见 §8.1）。**注册表只增不删**：
   外部组件可在 `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册
   幂等（`static done` 标志 + 按 id 去重），不会重置/清空已注册项——预注册页保持原位
   （页签顺序在 PLAY 之前）。输入层的 tab 轮转按 `sloop_ui_page_count()`（注册表计数），
@@ -87,22 +87,23 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 |---|---|---|---|---|
 | PLAY | 2,508 B | 3,072 B | +22% | 6 标签 + 1 电平条 + 音符指示盒（7 对象） |
 | TRACKS | 6,040 B | 7,168 B | +19% | 4 卡 × 4 子对象 + 4 电平条 |
-| STEP | 21,836 B | 24,064 B | +10% | 75 对象（64 格 + 标签）+ 12 个共享 `lv_style_t` 的实例引用（est 见下方注） |
+| STEP | 21,836 B | 23,040 B | +5.4% | 75 对象（64 格 + 标签）+ 12 个共享 `lv_style_t` 的实例引用（est 见下方注；9 页末页自由量只够 5.4% 余量） |
 | TRANSPORT | 3,788 B | 4,608 B | +22% | 6 按钮（含标签）+ 4 标签 |
 | GLOBAL | 2,856 B | 3,584 B | +25% | 8 旋钮（单对象自绘）+ 页眉 + 2 个 ± 按钮（Task 10） |
 | FX | 2,856 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
 | ANALOG | 2,868 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,868） |
 | FM6 | 2,864 B | 3,584 B | +25% | 8 旋钮（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH，Task 11） |
 | SAMPLE | 2,432 B | 3,072 B | +26% | 6 旋钮（空槽 edit[5]/edit[7] 不建，Task 11） |
-| **合计** | **48,048 B** | **56,320 B** | — | 九页全建后 `UI MEM` 同次输出：pool_used 55,064 / pool_free **2,816** / pool_total 57,880，reserve（total − sum_est）**1,560**（Task 11 `task-11-inject-params.log` 第 455–464 行）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
+| **合计** | **48,048 B** | **55,296 B** | — | 九页全建后 `UI MEM` 同次输出（Task 11）：pool_used 55,064 / pool_free **2,816** / pool_total 57,880。**reserve（total − sum_est）不是可用余量**（见 §5 invariant 1）；P4-A 终审轮 STEP est 再下调到 23,040 后，九页全建 `pool_free` 实测 2.2–2.7KB 量级（终审轮 2,628–2,644B）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
 
-> **STEP 的 est 在 9 页口径下调到 24,064**（Task 11）：**其它八页建完、STEP 尚未建
-> 时** free 约 24.2KB（`task-11-fix-steplast.log` 的 STEP-last 实测 transcript），
-> 若按实测 delta 21,836B 加 13% 仍取 24,576，则「STEP 最后建」会被预算门槛误拒
-> （门槛落在池历史 ±400B 抖动带上：调参前同一顺序出现过一次
-> `池剩余=24248B 预算=24576B` 的拒绝）。取 24,064（delta + 10.2%）把这个边界移出
-> 抖动带；实际构建余量约 2.4KB（STEP-last 该次 free 24,272、池增量 21,864B
-> → 余 2,408B；est 24,064 比基准 delta 21,836B 高 2,228B）；**9 页是当前池的容量天花板**，
+> **STEP 的 est 在 9 页口径两次下调：24,576 → 24,064（Task 11）→ 23,040（P4-A 终审
+> 修复轮）**。**其它八页建完、STEP 尚未建时** free 实测 **24,044B**（终审轮 params
+> 场景顺序：`池剩余=24044B 预算=24064B` 被拒 20B）到 24,272B（Task 11 STEP-last
+> transcript）。24,064 已经高于「delta 21,864 + 10% = 24,050B」，在 free 下沿
+> 根本放不下——**STEP 在 9 页末页无法保留 10% 余量**。取 23,040（= 最大实测 delta
+> 21,864B + 1,176B / +5.4%，512 对齐；实测 delta 21,484–21,864B）：对 free 下沿
+> 24,044B 余 1,004B（冷启动 STEP-last：free 24,112B、delta 21,484B、余 1,072B），
+> STEP 建完瞬间 free 2.2–2.6KB。这是经验可行的下沿，不是不变量允许的裕量；**9 页是当前池的容量天花板**，
 > 再加页/扩控件前必须按 §5 rule 4 做设计决策（DI-17）。
 
 > 2026-11-21 P4-0 Task 5（步窗）后复测：STEP 首次构建 `池增量=21832B 预算=24576B`
@@ -114,17 +115,26 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 预算规则：
 
 - `est_bytes` = 实测 delta × 1.10–1.23、512 对齐；预算是**构建前门槛**，不是精确账本
-  （STEP 在 9 页口径取 24,064 = delta + 10%，见 §3 注）。
-- **Σ est_bytes < 池可用总量**（Task 11 后九页口径 56,320 < ≈57.9KB，reserve 1,560B）。
-  这是「任意一页
-  都能在其它页已建之后仍被允许构建」的**充分条件**（其它页实际占用 ≤ Σ其它 est ≤ Σ其它
-  预算），不是必要条件：实际占用小于 est 的页即使 Σ est ≥ 池也可能构建成功——预算门槛
-  只是保守拒绝，不承诺「Σ est ≥ 池即必然失败」。
+  （STEP 在 9 页口径取 23,040 = 最大实测 delta + 5.4%——末页自由量放不下 10%，见 §3 注）。
+- **真门禁是逐页的 `free_size ≥ est_bytes`（构建前检查）**，不是「Σ est < 池总量」。
+  后者算错了基数与固定开销：TLSF 池可用总量是 63,120B（不是 `CONFIG_LV_MEM_SIZE`
+  的 65,536B），且非页面的基础占用（根/页签条/错误状态条/字体等）不计入 Σ est——
+  同一次 `UI MEM` 实测 **7,016B = pool_used 55,064 − Σdelta 48,048**。按 Task 11 的
+  est 之和（56,320B），真实账面 **63,120 − 7,016 − 56,320 = −216B**——当时「九页
+  全建」在静态账面上是负的，端到端能落地（实测 `pool_free 2,816B`）只因**真实
+  delta（48,048B）小于 est 之和**：est 每页留了余量，Σ est 不是占用预测。P4-A 终审
+  轮把 STEP est 下调到 23,040 后，保守账面变为 **63,120 − 7,016 − 55,296 = +808B**
+  （基础占用漂移到 7,112B 时 +712B；勉强为正），但 ~800B 不是可用余量：逐页构建
+  时的池历史才是。实测下沿 = 其它八页建完时 free 24,044B，STEP（est 23,040）门槛
+  余量 **1,004B**（冷启动 STEP-last 1,072B）；STEP 建完瞬间 free 2.2–2.6KB。因此「9 页可用」仍是**经验结论**（每页 delta ≤ est 且最坏页序过门槛），
+  不是任何一条静态不等式推出的；保守替代（Σ est + 基础占用 ≤ 63,120）在 Task 11 的
+  est 下就失败，现在也只余 808B，都不能替代构建前逐页检查。
 - 构建前检查 `free_size < est_bytes` → 直接拒绝（`原因=budget`），不做半途分配：
   池碎片化时中途失败的代价（半成品容器 + 后续分配面更小）比拒绝更高。
-- 参数页落地后增表行；`UI MEM` 的 `sum_est`/`reserve` 行是现场校验入口。
-- 超出预算的页面（或 Σ est 逼近池总量）**必须先做设计决策**（拆页/共享样式/对象复用/
-  驱逐策略），不得直接调大 est 或调大池——后者已实测把内部 RAM 撑爆。
+- 参数页落地后增表行；`UI MEM` 的 `pool_free`/`sum_est` 是现场校验入口（`reserve`
+  仅是 total − sum_est 的展示值，**不**代表可用余量）。
+- 超出预算的页面（或九页全建后 free 逼近 2KB）**必须先做设计决策**（拆页/共享样式/
+  对象复用/驱逐策略），不得直接调大 est 或调大池——后者已实测把内部 RAM 撑爆（DI-17）。
 
 ### 4. 失败可见性（不静默空白页）
 
@@ -161,17 +171,21 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 - 池配置保持 `CONFIG_LV_USE_STDLIB_MALLOC=0` + `CONFIG_LV_MEM_SIZE=65536`（TLSF 可用
   63,120B）。不改配置：96KB 实测链接期 `.bss` 溢出。
 - 不变量（`UI MEM` 可复核；Task 11 后为**九页**口径）：
-  1. `pool_total - sum_est > 0`（`UI MEM reserve`；九页口径 1,560 B，`pool_total`
-     随 TLSF 块负载浮动——Task 11 归档 `UI MEM` 实测 57,876–59,436 B
-     （`task-11-inject-params.log` 见 59,172/59,436，`task-11-forcefail.log` 见
-     57,876），取同一次输出的值）；
-  2. 每页 `delta <= est`（九页全部成立，余量 10–26%）；
+  1. **构建前门槛 `free_size ≥ est_bytes`**（逐页、按实际构建顺序）——这才是真门禁。
+     旧注「`pool_total − Σ est > 0`」**不是**不变量：它用 TLSF 块负载口径的
+     `total_size`（59K 上下浮动，非池容量 63,120B）并忽略 7,016B 基础占用；按 Task 11
+     的 est 之和真实账面 63,120 − 7,016 − 56,320 = **−216B**（终审轮 est 下调后为
+     +712–808B，仍不是可用余量）。九页端到端可用是经验结论：实测 Σdelta 48.0–48.1KB、
+     其它八页建完时 free 下沿 24,044B（冷启动 STEP-last 实测 24,112B）、STEP 门槛
+     余量 **1,004–1,072B**（est 23,040；STEP delta 实测 21,484–21,864B）。
+     更保守的替代（Σ est + 基础占用 ≤ 63,120）在 Task 11 的 est 下就失败，不能
+     作为门禁；
+  2. 每页 `delta <= est`（九页全部成立，余量 5.4–26%；STEP 例外见 §3 注）；
   3. 九页全建后 `pool_free > 0`（Task 11 实测 2,816 B）；
-  4. 再加页/改控件前重新核对以上三条并把新行写入本表。**9 页已到容量天花板**：
-     同一次 `UI MEM` 的 `pool_used 55,064 − Σdelta 48,048 = 7,016 B` 是非页面基础
-     占用（不在 Σ est 内），STEP 作为最后建的一页只剩约 200B 门槛余量（free 24,272
-     − est 24,064 = 208B，`task-11-fix-steplast.log`）。再加页必须先做设计决策
-     （拆页/共享样式/对象复用/驱逐），不得只调 est 或池；登记 DI-17。
+  4. 再加页/改控件前重新核对以上三条并把新行写入本表。**9 页已到容量天花板**
+     （STEP 门槛余量 1,004B 量级，且页签宽度在 10 页时已不足——见 ADR-005「导航信息架构」）：
+     再加页必须先做设计决策（拆页/共享样式/对象复用/驱逐），不得只调 est 或池；
+     登记 DI-17（该条只门禁内存/池，不覆盖页签信息架构）。
 - 阶段 4 参数页的硬性规则：
   1. 每页一个注册表条目，`est_bytes` 必须来自本机 `UI MEM` 实测（同方法），不得拍脑袋；
   2. `build()` 内每个 `lv_*_create` 用 `UI_BUILD_CHECK()` 检查，并复位本页脏检查缓存；
@@ -249,10 +263,11 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
   - 家族页取 **GLOBAL + FX**（而非 MASTER）：上游 MASTER 的 8 个宏是全局/轨道混排，
     GLOBAL 与 FX 已覆盖其大部分语义（FX 页含输出条 LVL/PAN/ATK，主电平/声像在
     此），故 P4-A 的「一个家族页」口径由 GLOBAL+FX 两页共同满足（spec §3）。
-- 页签：9 页时 `tab_w = min(176, (1280 - 2·16 - 150 - 8·8)/9) = 114`；右侧 150px 留给
-  SLOOP 标题/层提示（`theme.h` 的 `UI_TAB_RIGHT_RESERVE`）。注入脚本的页签几何/探针
-  已同步（`scripts/inject/inject.py`，探针取页签左缘内 8px 的填充色；9 页 y=36 行
-  的 x 依次为 24/146/268/390/512/634/756/878/1000）。
+- 页签：9 页时 `tab_w = min(176, (1280 - 2·16 - 220 - 8·8)/9) = 107`；右侧 220px 留给
+  SLOOP 标题/层提示（`theme.h` 的 `UI_TAB_RIGHT_RESERVE`）。层提示 16pt + 宽度封顶 +
+  省略号截断，四层键同按也不压页签（ADR-005「导航信息架构」节）。注入脚本的页签
+  几何/探针已同步（`scripts/inject/inject.py`，探针取页签左缘内 8px 的填充色；9 页
+  y=36 行的 x 依次为 24/139/254/369/484/599/714/829/944）。
 
 #### 8.2 旋钮控件（`knob.c`）
 
@@ -368,10 +383,22 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 - **动态描述符钩子不投影**：上游 `params.c` 的 `track_desc()` 会在 `ins_desc()`
   （INSERT A/B/C 随 P_ITYPE）、`ESYNC_DESC[]`（ENV SYNC 的 ATK/DEC/REL）与
   `engine->desc()`（引擎 mode 依赖 label/names）处替换静态表；本投影只给静态
-  `TP[]`/`GP[]`/`edit[]`。前提是这些动态描述符的 **min/max 与静态表相同**（上游
-  现状只换 label/names/unit）。若上游改变范围，`sloop_core_set_params` 的钳位会与
-  参数页显示范围不一致——届时须把动态钩子纳入（需要 track 上下文），并重跑设备
-  参数断言。
+  `TP[]`/`GP[]`/`edit[]`。**动态描述符不仅能换 label/names/unit，也会换 fmt/unit
+  语义**：`ESYNC_DESC[P_ATK]` 是 `F_INT` + 音符名表（单位 1/384 小节），而静态
+  `TP[P_ATK]` 是 `F_TIME`（ms）——min/max（0..127）相同，但「这个数字是什么意思」
+  完全不同。因此本投影的前提只是 **min/max 相同**（钳位安全）；fmt/unit 的差异
+  必须由使用方处理：
+  - 现状（P4-A）：FX 页在选中轨 `P_ESYNC != 0` 时把 ATK 槽标注为 `ATK/ESYNC` 并按
+    `F_INT` 原始值 0..127 显示（无 ms 后缀，`page_params.c` 的 `slot_desc`），
+    绝不把音符值显示成毫秒。**运行中翻转**（console `PARAM 59` 注入或后续 FM-1
+    同步）：`page_params_update` 把 `P_ESYNC` 纳入页面上下文键，位变化时重新解析
+    已建槽的描述符并按 label/fmt/unit 差异重绘，不要求重进页面（P4-A 无 ENV 编辑页，
+    但注入路径今天就能走到）。
+  - **P4-B 复核项（route a）**：把动态钩子纳入投影需要 track 上下文（desc API 增
+    track 参数或新增 `sloop_core_desc_track(track, id, out)`），届时 ATK/DEC/REL
+    可直接显示上游音符名（`ESYNC_NAMES`）；同时 `sloop_core_set_params` 的钳位
+    也应换用同一动态表。任何情况下 `sloop_core_set_params` 的 min/max 前提若被
+    上游改变，必须立即切到动态表并重跑设备参数断言。
 
 ## 迁移与回归（不改渲染）
 
@@ -397,7 +424,7 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 - `UI MEM`/`UI FORCEFAIL` 是 console 诊断面：前者只读，后者一次性注入、默认关闭，
   不影响产品行为。
 - Task 11 后：参数页每页 2.4–2.9KB（est 3,072–3,584B），九页全建 free 2,816B；
-  页签 9 页时收窄到 114px（右侧留 150px 给 SLOOP/层提示）。参数页的控件选择见 §8.2 的预算决策
+  页签 9 页时收窄到 107px（右侧留 220px 给 SLOOP/层提示；10 页放不下，见 ADR-005「导航信息架构」）。参数页的控件选择见 §8.2 的预算决策
   （单对象自绘旋钮），**不要**退回 `lv_arc`+`lv_label`（会撑爆池）。新增参数页的
   步骤：布局表加一行 X 宏（id/title/est + 8 槽）→ `PARAM_PAGE_COUNT` 与
   `app_page_t`/`APP_STATE_PAGES` 同步 → console 页名表 → 实测 est。
