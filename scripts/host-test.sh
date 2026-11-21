@@ -47,6 +47,9 @@ run "sequencer 2.0" "$OUT/seq2_test"
 compile project_test tests/project_test.c -lm
 run "project formats, capture / apply, autosave" "$OUT/project_test"
 
+run "old-format project fixtures (FUN5/FUN4/FUN1) import to the generated fields" \
+    python3 "$ROOT_DIR/scripts/gen_project_fixtures.py" --out "$OUT/fixtures" --host-check
+
 compile storage_test tests/storage_test.c
 run "flash storage (A/B, torn writes)" "$OUT/storage_test"
 

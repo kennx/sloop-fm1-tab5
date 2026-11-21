@@ -12,8 +12,11 @@
  *   ESP_OK                 成功
  *   ESP_ERR_NOT_FOUND      槽为空（RAM 槽无效且 flash 无有效副本）
  *   ESP_ERR_INVALID_STATE  走带中（对齐上游 "STOP BEFORE SAVE"）或存储未就绪
- *   ESP_ERR_INVALID_ARG    槽号越界
  *   ESP_ERR_NOT_FINISHED   flash 擦/写/回读校验失败（RAM 槽保留新值，与上游一致）
+ *   ESP_ERR_INVALID_ARG    槽号/对象名越界；或 flash 对象存在但 `proj_import` 拒绝
+ *                          （任何已知格式都不匹配 ⇒ `STORE ERR invalid`，与空槽的
+ *                          `ESP_ERR_NOT_FOUND`/`empty` 区分）
+ *   ESP_ERR_INVALID_SIZE   `STORE RAW` 的长度/块越界（`STORE ERR size`）
  * 所有 API 不得在 ISR 中调用；写操作由存储锁串行化（console/UI/自动存档共用）。 */
 
 #define SLOOP_STORE_PROJECTS 4u
@@ -67,6 +70,48 @@ typedef struct {
     } trk[4];
 } sloop_store_synth_t;
 esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *out);
+
+/* 旧格式/工程字段诊断（`STORE PROJ FIELDS n`，spec §6.3）：只读**flash 对象**
+ * （`st_load` → `proj_import`），**不改引擎、不改 RAM 槽**——故它是「旧格式 fixture 被
+ * 正确转换」的机器判据，与 `STORE PROJ LOAD`（会 proj_apply）分开。fmt 由对象魔数判定
+ * （1/4/5/6）；空槽（无有效副本）ESP_ERR_NOT_FOUND，对象存在但导入失败 ESP_ERR_INVALID_ARG，
+ * 槽号越界 ESP_ERR_INVALID_ARG，未就绪 ESP_ERR_INVALID_STATE。`out` 只在成功时写。 */
+typedef struct {
+    uint8_t fmt, sel;        /* 原始格式号；选中轨（格式 1 没有 sel ⇒ 0） */
+    int16_t bpm, swing, dust; /* G_BPM / G_SWING / G_DUST（格式 1..3 的 SWING 已按 MPC 缩放） */
+    uint8_t drdly;           /* 2.5 的 G_DRDLY（格式 <5 没有这个字节 ⇒ 0） */
+    struct {
+        uint8_t engine, preset;
+        int16_t level, atk;  /* P_LEVEL / P_ATK（上游 TP 默认值或工程里的值） */
+        int16_t e0, e1;      /* P_E0 / P_E1（格式 5/4 的 P_E0.. 搬移、格式 1 的引擎默认） */
+        uint8_t n[8];        /* 前 8 步：合成轨 step.n；鼓轨 = 置位 lane 数 */
+        uint16_t v[8];       /* 合成轨 step.note[0]；鼓轨 = lane 掩码（on[0] | on[1] << 8） */
+    } trk[4];
+} sloop_store_fields_t;
+esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
+
+/* RAW 上传通道（`STORE RAW BEGIN/<hex>/END`，spec §4.4）：把任意对象 payload 分块搬进
+ * 4,096B 暂存，再以 `st_save` **原样**写入（CRC/提交头由 storage.c 生成）。用途：旧格式
+ * 工程 fixture（3,816B 级）放不进 console 单行。语义：
+ *   begin(len)  —— len 1..SLOOP_STORE_RAW_MAX；重复 begin 覆盖上一次；
+ *   append(..)  —— 累计收到的字节数，超过 begin 声明的 len ⇒ ESP_ERR_INVALID_SIZE（状态
+ *                  保持，调用方可 ABORT 重来）；未 begin ⇒ ESP_ERR_INVALID_ARG；
+ *   end(obj,n)  —— 必须已收到恰好 len 字节；`obj` 目前只支持 "project"（→
+ *                  OBJ_PROJECT0 + slot，slot 0..3，工程槽的 RAM 缓存按开机 fetch 的语义
+ *                  重新 `proj_import`，导入失败则槽无效 ⇒ 之后 LOAD 走 flash 并回
+ *                  invalid）；**只写请求的那一个对象**；走带中拒绝 =
+ *                  ESP_ERR_INVALID_STATE（与其它写 API 同序）；
+ *   abort()     —— 丢弃暂存状态（幂等）。
+ * 暂存是与 `up_stage()`/`proj_tmp` **共用**的 4,096B（PSRAM）：begin/append 只写暂存、
+ * 不取存储锁，故调用方必须与其它存储操作**串行**（当前唯一调用方是 console 单任务；
+ * 若将来加 UI 入口，需要给暂存另开一块或把整段上传放进存储锁）。end 持存储锁；
+ * 擦写期间绝不持引擎锁。`received` 供 console 回显。 */
+#define SLOOP_STORE_RAW_MAX 4096u
+esp_err_t sloop_store_raw_begin(uint32_t len);
+esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);
+uint32_t sloop_store_raw_received(void);
+esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot);
+void sloop_store_raw_abort(void);
 
 /* 用户预置 0..31（上游 upreset.c：32 槽 / 2 个银行对象，`UPB1` 记录布局原样）。
  * 写 = 当前**选中轨**的声音（引擎 + 除混音/图案参数外的全部参数 + 前 16 步图案）；

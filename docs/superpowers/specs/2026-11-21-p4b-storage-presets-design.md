@@ -249,12 +249,16 @@ STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n
 STORE BANK LIST|PUT n|GET n|LIVE|ERASE n    # PUT 取选中轨当前 live patch；GET/LIVE 打印 128B hex
 STORE LIVEHASH                   # 当前引擎捕获 hash（往返门禁用）
 STORE RAW BEGIN <len>            # 分块上传任意对象 payload（旧格式 fixture 用）
-STORE RAW <hex>                  # 追加一块（≤480 hex 字符）；可重复
+STORE RAW <hex>                  # 追加一块（≤240 hex 字符 = 120B）；可重复
 STORE RAW END <obj> <slot>       # 以 st_save 原样写入该 payload（CRC/头由 storage.c 生成）
 STORE RAW ABORT
 STORE TEST                       # 设备 torn-write 套件（破坏 OBJ_AUTOSAVE）
 STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 ```
+
+> 块大小的真正上限不是 console 行缓冲（256）而是 **USB-Serial-JTAG 驱动 RX 环 256B**：
+> 整行要在一次突发里装进环里，设备忙（LVGL/音频）时环溢出会静默丢字符（Task 9 设备实测：
+> 490 字符的行被截到 256）。240 hex + `STORE RAW ` + `\n` = 251B < 256B，与调度时序无关。
 
 ### 4.5 UI（`sloop_ui`）
 
@@ -286,7 +290,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
    - 基线：改 BPM/参数/步/选轨，`STORE LIVEHASH` = h0；`STORE PROJ SAVE 0`；`STORE PROJ HASH 0` == h0；
    - 破坏：再改 BPM/参数/步 → `STORE LIVEHASH` = h1 ≠ h0；
    - 恢复：`STORE PROJ LOAD 0` → `STORE LIVEHASH` == h0；`STATE SNAP` 的 p/g 与保存前逐项一致；
-   - **旧格式兼容**：`scripts/gen_project_fixtures.py` 生成 FUN5/FUN4/FUN1 三个 fixture（逻辑取自上游 `tests/project_test.c` 的构造器），`scripts/store_raw.py` 经 `STORE RAW BEGIN/<hex>/END` 写入槽 3，`STORE PROJ LOAD 3` 后 `STORE PROJ FIELDS 3` 与生成器给出的期望字段逐项比对（引擎/预置/全局/首步/参数代表值），并确认 `proj_import` 转换成功（槽 3 为诊断专用，不参与用户数据断言）。
+   - **旧格式兼容**：`scripts/gen_project_fixtures.py` 生成 FUN5/FUN4/FUN1 三个 fixture（逻辑取自上游 `tests/project_test.c` 的构造器），`scripts/store_raw.py` 经 `STORE RAW BEGIN/<hex>/END` 写入槽 3，`STORE PROJ LOAD 3` 后 `STORE PROJ FIELDS 3` 与生成器给出的期望字段逐项比对（引擎/预置/全局/首步/参数代表值），并确认 `proj_import` 转换成功（槽 3 为诊断专用，不参与用户数据断言）。生成器的期望值用 Python **独立实现**上游格式转换从生成的字节算出（不是固件输出）；`gen_project_fixtures.py --host-check` 另用 vendored `project.c` 的宿主程序导入同一批字节并交叉校验（随 `scripts/host-test.sh` 跑）。
 4. **预置与工厂预置**：`ENG PRESET 0 2 1` 输出该预置在同一 `p[]` 基底上的完整期望向量（与 `preset_apply` 共用 `preset_values`，无副作用），`ENG TRACK 0 2 1` 后 `STATE SNAP` 的 p[] 必须逐项等于它（71/71）——这是「换预置=换声音」的机器断言；再存槽 k（选中轨 ANALOG）→ 改 8 个参数 → load → p[] 与存档前一致；`STORE PRESET LIST` 显示 used/name/engine；鼓轨 store 返回 `DRUM TRACK` 错误；跨轨 load（track 1）只改该轨、不动选中轨参数。
 5. **FM6 bank**：设 bank 目标槽 3 → `STORE BANK PUT 3`（当前 live patch）→ `STORE BANK GET 3` 与 `STORE BANK LIVE`（同一 patch 的另一路导出）字节一致 → 重新上电后 `BANK LIST` 仍 used；`PTCH` 选到该槽（PTCH=11）后 `ENG TRIG` 出声且 `ENG SNAP` 的 preset/patch 指示正确；对无 patch 的槽 `BANK GET` 返回 empty。
 6. **UI（§5.4）**：`UI file` → `UI projects` 截屏（空/used/播放中拒绝）→ `TAP` 点 SAVE/LOAD/ERASE → `SCR` + `--check` 像素抽检；`UI presets` 同；`UI MEM` 断言 FILE 组 Σdelta ≤ 预算、组作用域（离开 FILE 后 PROJECTS/PRESETS 回 UNBUILT）；新 `scripts/inject/store.sh` 退出码 0；`nav.sh` 四用例按新语义更新并通过。

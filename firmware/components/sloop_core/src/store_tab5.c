@@ -567,7 +567,15 @@ esp_err_t sloop_store_project_load(uint32_t slot)
     project_t *p = &proj_slot[slot];
     if (!proj_ok(p)) { /* RAM 槽无效才回落 flash（上游 project_load） */
         int n = st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp);
-        if (!proj_import(p, &proj_tmp, n)) p->magic = 0;
+        if (n <= 0) { /* 没有有效副本 / 空对象（len=0）：空槽（与「对象存在但格式不认识」区分） */
+            store_unlock();
+            return ESP_ERR_NOT_FOUND;
+        }
+        if (!proj_import(p, &proj_tmp, n)) {
+            p->magic = 0;
+            store_unlock();
+            return ESP_ERR_INVALID_ARG; /* 截断/损坏的旧格式 fixture：LOAD 回 invalid */
+        }
     }
     if (!proj_ok(p)) {
         store_unlock();
@@ -694,7 +702,128 @@ esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *
     return ESP_OK;
 }
 
-/* ---- 用户预置 0..31（upreset.c）--------------------------------------------------- */
+/* ---- 旧格式/工程字段诊断 + RAW 上传（spec §4.4/§6.3，Task 9） --------------------- */
+/* 两个入口共用一条纪律：只读/只写调用方指定的那个 flash 对象；`s_store_lock` 串行化，
+ * **不取引擎锁**（FIELDS 连 RAM 槽都不写；RAW END 的擦写期间持引擎锁必然 xrun）。 */
+
+/* FIELDS 的导入目标：复用自动存档捕获缓冲 s_auto（3,816B）。本函数持存储锁，而
+ * autosave_tick/autosave_resume 的每一次 s_auto 访问都在同一把锁内（拿不到锁就跳过），
+ * 故不会并发使用。不给 FIELDS 另开 3.8KB（ADR-009 §7 的 PSRAM 预算）。 */
+esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out)
+{
+    if (out == NULL || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    memset(out, 0, sizeof *out);
+    store_lock();
+    int n = st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp);
+    if (n <= 0) {
+        store_unlock();
+        return ESP_ERR_NOT_FOUND; /* 空槽：没有有效副本（或空提交 len=0） */
+    }
+    /* 原始格式号必须在导入**之前**从对象魔数判定（导入后一律是 FUN6） */
+    uint32_t magic;
+    memcpy(&magic, &proj_tmp, sizeof magic);
+    out->fmt = magic == PROJ_MAGIC ? 6u : magic == PROJ_MAGIC_V5 ? 5u : magic == PROJ_MAGIC_V4 ? 4u :
+               magic == PROJ_MAGIC_V3 ? 3u : magic == PROJ_MAGIC_V2 ? 2u : magic == PROJ_MAGIC_V1 ? 1u : 0u;
+    project_t *p = s_auto;
+    if (!proj_import(p, &proj_tmp, n)) {
+        store_unlock();
+        return ESP_ERR_INVALID_ARG; /* 对象存在，但不是任何已知格式（截断/损坏） */
+    }
+    out->sel = p->sel;
+    out->bpm = p->g[G_BPM];
+    out->swing = p->g[G_SWING];
+    out->dust = p->g[G_DUST];
+    out->drdly = p->drdly;
+    for (uint32_t k = 0; k < NTRK; k++) {
+        const proj_trk_t *t = &p->t[k];
+        out->trk[k].engine = t->engine;
+        out->trk[k].preset = t->preset;
+        out->trk[k].level = pt_get(t, P_LEVEL);
+        out->trk[k].atk = pt_get(t, P_ATK);
+        out->trk[k].e0 = t->e[0];
+        out->trk[k].e1 = t->e[1];
+        for (uint32_t i = 0; i < 8u; i++) {
+            if (k == TRK_DRUM) {
+                uint16_t m = (uint16_t)(t->dstep[i].on[0] | (uint16_t)t->dstep[i].on[1] << 8);
+                uint32_t c = 0;
+                for (uint32_t b = 0; b < 16u; b++) c += (m >> b) & 1u;
+                out->trk[k].n[i] = (uint8_t)c;
+                out->trk[k].v[i] = m;
+            } else {
+                out->trk[k].n[i] = t->step[i].n;
+                out->trk[k].v[i] = t->step[i].note[0];
+            }
+        }
+    }
+    store_unlock();
+    return ESP_OK;
+}
+
+/* RAW 状态：`.noinit`（本 TU 的 .bss 会被 `ENG SELFTEST` 的 restore 回滚；上传中间夹
+ * 一次自检时，半截状态必须保留——否则 END 会把未收满的暂存写进 flash）。 */
+static uint32_t s_raw_len __attribute__((section(".noinit")));
+static uint32_t s_raw_got __attribute__((section(".noinit")));
+static bool s_raw_on __attribute__((section(".noinit")));
+
+void sloop_store_raw_abort(void)
+{
+    s_raw_on = false;
+    s_raw_len = 0;
+    s_raw_got = 0;
+}
+
+esp_err_t sloop_store_raw_begin(uint32_t len)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (len == 0 || len > SLOOP_STORE_RAW_MAX) {
+        sloop_store_raw_abort();
+        return ESP_ERR_INVALID_SIZE;
+    }
+    s_raw_len = len;
+    s_raw_got = 0;
+    s_raw_on = true;
+    return ESP_OK;
+}
+
+esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (!s_raw_on || data == NULL) return ESP_ERR_INVALID_ARG;
+    if (n > s_raw_len - s_raw_got) return ESP_ERR_INVALID_SIZE; /* 状态保持：调用方可 ABORT */
+    memcpy(s_stage->raw + s_raw_got, data, n);
+    s_raw_got += n;
+    return ESP_OK;
+}
+
+uint32_t sloop_store_raw_received(void)
+{
+    return s_raw_on ? s_raw_got : 0u;
+}
+
+esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    if (!s_raw_on || s_raw_got != s_raw_len || obj == NULL) return ESP_ERR_INVALID_ARG;
+    if (strcmp(obj, "project") != 0 || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    uint32_t len = s_raw_len;
+    s_raw_on = false; /* 无论成败都退出上传态：重试必须重新 BEGIN */
+    store_lock();
+    int rc = st_save(OBJ_PROJECT0 + slot, s_stage->raw, len);
+    if (rc == 0) {
+        /* RAW 对象绕过了 proj_capture：按开机 fetch 的语义把槽的 RAM 缓存对齐到 flash
+         * （导入失败 = 槽无效，之后的 LOAD 会走 flash 回落并回 invalid）。 */
+        if (!proj_import(&proj_slot[slot], &s_stage->raw, (int)len)) memset(&proj_slot[slot], 0, sizeof(project_t));
+    }
+    store_unlock();
+    if (rc != 0) {
+        ESP_LOGE(TAG, "RAW END project %u 失败 rc=%d", (unsigned)slot, rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+    return ESP_OK;
+}
+
 /* 上游语义（upreset.c）：
  *   up_store(k, 0)      = 选中轨的声音 → 槽 k（鼓轨返回 1）；
  *   up_load_to(t, k)    = 槽 k → 轨 t 的声音（引擎 + 除混音/图案参数外的参数 + PTCH；

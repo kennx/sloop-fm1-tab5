@@ -318,6 +318,17 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   绝对地址**；OTA staging（`[0xE0000, 0xE5000)`）不属于 SLOOP 数据区，测试不得触碰。
 - 写失败（擦/写/回读不符）返回 `ESP_ERR_NOT_FINISHED`，RAM 槽与旧 flash 副本保持可读
   （与上游一致）；不静默报成功。
+- **旧格式 fixture 的入设备通道（Task 9）**：`STORE RAW BEGIN <len> | <hex> | END <obj> <slot>
+  | ABORT` 把任意对象 payload（≤4KB）分块搬进 PSRAM 暂存，`END` 以 `st_save` 原样写入**请求
+  的那一个对象**（`project` → `OBJ_PROJECT0 + slot`；工程槽的 RAM 缓存随后按开机 fetch 的
+  语义重新 `proj_import`）。写操作持存储锁、不取引擎锁、播放中拒绝。一行 ≤240 hex = 120B：
+  真正的上限是 **USB-Serial-JTAG 驱动 RX 环 256B**（整行须一次入环；设备忙时溢出会静默丢
+  字符，Task 9 实测 490 字符的行被截到 256），不是 console 行缓冲。
+- `STORE PROJ FIELDS n` 是 `st_load` + `proj_import` 的**只读投影**（不动引擎/RAM 槽），按固定
+  顺序打印 fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步，
+  供 `scripts/gen_project_fixtures.py` 的 `expected.json` 逐项比对（FUN5/FUN4/FUN1 的设备侧
+  兼容门禁）。空槽/空提交 = `empty`，对象存在但任何已知格式都不匹配（截断/损坏）= `invalid`
+  ——`project_load` 用同一口径（导入失败时引擎从未被 `proj_apply`）。
 - **测试专用诊断**：`STORE PROJ SYNTH <fmt1|foreign>`（`sloop_store_project_synth`）
   以当前引擎状态捕获内存工程、改写出 `project_load` 的两条 fallback 边界（格式 1 的
   `preset == 0xFF`、引擎号 ≥ NENGINES）、存到**诊断槽 3**（破坏性；槽 0–2 不碰）、清

@@ -27,6 +27,10 @@
 #   ⑬ 设备侧 torn-write 套件：STORE FAULT 1 + PROJ ERASE 3 的 HAL 探针（STORE ERR save、
 #      STORE STATS faults=1 armed=0）→ STORE TEST 六场景 PASS 6/6（两次）→ 播放中拒绝 →
 #      停止后仍 PASS（对象 = OBJ_SETTINGS，套件内部快照/恢复；破坏性诊断）
+#   ⑭ 旧格式兼容门禁：gen_project_fixtures.py 生成 FUN5/FUN4/FUN1（+ expected.json）→
+#      store_raw.py 的 STORE RAW BEGIN/<hex>/END 写诊断槽 3 → STORE PROJ LOAD 3 →
+#      STORE PROJ FIELDS 3 与 62 项期望逐项比对（键顺序也判）；截断 fun5[:100] ⇒
+#      LOAD 3 回 STORE ERR invalid 且 LIVEHASH 不变；槽 0–2 不动、收口 ERASE 3
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

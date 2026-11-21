@@ -64,6 +64,14 @@
  *    套件只快照/恢复该对象的 **payload**——settings 的 side record（副本扇区 64..255，
  *    P4-E 的主题/收藏）不被保存，跑一次即清掉；需停走带）：六场景全过回
  *    "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。
+ *    STORE PROJ FIELDS n 是旧格式/工程字段诊断（spec §6.3）：st_load + proj_import 后
+ *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
+ *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
+ *    对象存在但任何格式都不匹配（截断/损坏）回 invalid。
+ *    STORE RAW BEGIN <len> | <hex> | END <project> <slot> | ABORT 是分块上传通道
+ *    （旧格式 fixture 的唯一入设备通道；一行 ≤240 hex = 120B，受 USJ 驱动 RX 环 256B
+ *    约束）：
+ *    END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
@@ -1337,6 +1345,7 @@ static const char *store_err(esp_err_t err)
     case ESP_ERR_INVALID_STATE: return "playing";
     case ESP_ERR_NOT_FOUND: return "empty";
     case ESP_ERR_NOT_FINISHED: return "save";
+    case ESP_ERR_INVALID_SIZE: return "size"; /* STORE RAW 的长度/块越界 */
     default: return "invalid";
     }
 }
@@ -1345,6 +1354,30 @@ static int store_err_print(esp_err_t err)
 {
     printf("STORE ERR %s\n", store_err(err));
     return 1;
+}
+
+/* `STORE PROJ FIELDS n`（spec §6.3）：stored 对象 → FUN6 视图的固定顺序 key=value 一行。
+ * 只读 flash（st_load + proj_import），**不动引擎/RAM 槽**；脚本按
+ * gen_project_fixtures.py 的 field_keys() 顺序逐项比对（顺序错也算失败）。 */
+static int store_fields(uint32_t slot)
+{
+    sloop_store_fields_t f;
+    esp_err_t err = sloop_store_project_fields(slot, &f);
+    if (err != ESP_OK) return store_err_print(err);
+    printf("PROJ %u FIELDS fmt=%u sel=%u bpm=%d swing=%d dust=%d drdly=%u", (unsigned)slot,
+           (unsigned)f.fmt, (unsigned)f.sel, (int)f.bpm, (int)f.swing, (int)f.dust,
+           (unsigned)f.drdly);
+    for (uint32_t k = 0; k < 4u; k++) {
+        printf(" t%u.eng=%u t%u.pre=%u t%u.lvl=%d t%u.atk=%d t%u.e0=%d t%u.e1=%d", (unsigned)k,
+               (unsigned)f.trk[k].engine, (unsigned)k, (unsigned)f.trk[k].preset, (unsigned)k,
+               (int)f.trk[k].level, (unsigned)k, (int)f.trk[k].atk, (unsigned)k,
+               (int)f.trk[k].e0, (unsigned)k, (int)f.trk[k].e1);
+        for (uint32_t i = 0; i < 8u; i++)
+            printf(" t%u.s%u=%u:%u", (unsigned)k, (unsigned)i, (unsigned)f.trk[k].n[i],
+                   (unsigned)f.trk[k].v[i]);
+    }
+    printf("\n");
+    return 0;
 }
 
 static int store_proj(int argc, char **argv)
@@ -1373,9 +1406,18 @@ static int store_proj(int argc, char **argv)
                    (unsigned)r.trk[k].steps, (int)r.trk[k].atk, (int)r.trk[k].e0);
         return 0;
     }
+    if (argc == 4 && strcasecmp(argv[2], "fields") == 0) {
+        /* 旧格式/工程字段（spec §6.3）：只读 flash 对象（st_load + proj_import），
+         * 不动引擎与 RAM 槽；固定顺序的 key=value 一行（gen_project_fixtures.py 的
+         * expected.json 按同一顺序逐项比对）。 */
+        uint32_t slot;
+        if (!eng_uint(argv[3], SLOOP_STORE_PROJECTS - 1u, &slot))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        return store_fields(slot);
+    }
     if (argc != 4) {
         printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
-               "SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
+               "FIELDS n | SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
         return 1;
     }
     uint32_t slot;
@@ -1403,7 +1445,7 @@ static int store_proj(int argc, char **argv)
         return 0;
     }
     printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
-           "SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
+           "FIELDS n | SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
     return 1;
 }
 
@@ -1606,6 +1648,84 @@ static int store_test_cmd(void)
     return store_err_print(err);
 }
 
+/* STORE RAW：分块上传任意对象 payload（spec §4.4；旧格式 fixture 的唯一入设备通道）。
+ *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX）
+ *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
+ *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
+ *   ABORT              → "STORE RAW ABORTED"
+ * 一行 ≤240 hex = 120B：真正的上限不是 console 行缓冲（256），而是 USB-Serial-JTAG
+ * **驱动 RX 环 256B**——整行要在一次突发里装进环里，否则设备忙（LVGL/音频）时环溢出、
+ * 字符被静默丢掉（实测 490 字符的行被截到 256 字符）。240 hex + "STORE RAW " + '\n'
+ * = 251B < 256B，故与调度时序无关。 */
+#define STORE_RAW_HEX_MAX 240u
+#define STORE_RAW_BUF (STORE_RAW_HEX_MAX / 2u)
+
+static int store_hex_nibble(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static int store_raw_usage(void)
+{
+    printf("用法: STORE RAW BEGIN <len=1..%u> | STORE RAW <hex≤%u> | "
+           "STORE RAW END <project> <slot=0..%u> | STORE RAW ABORT\n",
+           (unsigned)SLOOP_STORE_RAW_MAX, (unsigned)STORE_RAW_HEX_MAX,
+           (unsigned)(SLOOP_STORE_PROJECTS - 1u));
+    return 1;
+}
+
+static int store_raw(int argc, char **argv)
+{
+    if (argc >= 3 && strcasecmp(argv[2], "begin") == 0) {
+        uint32_t len;
+        if (argc != 4) return store_raw_usage();
+        if (!eng_uint(argv[3], SLOOP_STORE_RAW_MAX, &len) || len == 0)
+            return store_err_print(ESP_ERR_INVALID_SIZE);
+        esp_err_t err = sloop_store_raw_begin(len);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW BEGIN len=%u\n", (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "end") == 0) {
+        uint32_t slot;
+        if (argc != 5) return store_raw_usage();
+        if (!eng_uint(argv[4], SLOOP_STORE_PROJECTS - 1u, &slot)) {
+            sloop_store_raw_abort();
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        }
+        uint32_t len = sloop_store_raw_received(); /* 成功时 == 声明长度（end 已校验） */
+        esp_err_t err = sloop_store_raw_end(argv[3], slot);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW END %s %u saved len=%u\n", argv[3], (unsigned)slot, (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "abort") == 0) {
+        if (argc != 3) return store_raw_usage();
+        sloop_store_raw_abort();
+        printf("STORE RAW ABORTED\n");
+        return 0;
+    }
+    if (argc == 3) {
+        const char *hex = argv[2];
+        size_t n = strlen(hex);
+        uint8_t buf[STORE_RAW_BUF];
+        if (n == 0 || (n & 1u) != 0u || n / 2u > sizeof buf) return store_err_print(ESP_ERR_INVALID_SIZE);
+        for (size_t i = 0; i < n; i += 2u) {
+            int hi = store_hex_nibble(hex[i]), lo = store_hex_nibble(hex[i + 1u]);
+            if (hi < 0 || lo < 0) return store_err_print(ESP_ERR_INVALID_ARG);
+            buf[i / 2u] = (uint8_t)((hi << 4) | lo);
+        }
+        esp_err_t err = sloop_store_raw_append(buf, (uint32_t)(n / 2u));
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW received=%u\n", (unsigned)sloop_store_raw_received());
+        return 0;
+    }
+    return store_raw_usage();
+}
+
 static int store_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
@@ -1616,6 +1736,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "raw") == 0) return store_raw(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -1630,9 +1751,10 @@ static int store_command(int argc, char **argv)
         return 0;
     }
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
-           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | "
+           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
            "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
+           "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
            "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，只快照/恢复 "
            "payload；settings side record 不保） | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",

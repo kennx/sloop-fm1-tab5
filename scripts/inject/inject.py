@@ -38,6 +38,8 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 import screenshot as shot  # noqa: E402
+import gen_project_fixtures as fixtures  # noqa: E402
+import store_raw  # noqa: E402
 
 BAUD = 115200
 
@@ -2044,6 +2046,10 @@ def run_store(s: Session) -> None:
     ⑬ 设备侧 torn-write 套件（run_store_torn，最后跑）：显式 HAL 故障探针（`FAULT 1`
        + `PROJ ERASE 3` ⇒ `STORE ERR save`、`STORE STATS faults=1 armed=0`）→
        `STORE TEST` 六场景 PASS 6/6（两次）→ 播放中拒绝 → 停止后仍 PASS。
+    ⑭ 旧格式兼容门禁（run_store_fields，最后跑）：FUN5/FUN4/FUN1 fixture 经
+       `STORE RAW BEGIN/<hex>/END` 写诊断槽 3 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3`
+       与 `gen_project_fixtures.py` 的 62 项期望逐项比对；截断 fixture ⇒ LOAD 回
+       `STORE ERR invalid` 且 `LIVEHASH` 不变；槽 0–2 不动、收口 ERASE 3。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
        引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
@@ -2176,6 +2182,7 @@ def run_store(s: Session) -> None:
     run_store_autosave(s)
     run_store_bank(s)
     run_store_torn(s)
+    run_store_fields(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -2895,6 +2902,148 @@ def run_store_torn(s: Session) -> None:
               "⑬d 停止后 STORE TEST PASS 6/6（播放中的拒绝早于取锁/快照，套件仍可跑）")
     s.cmd("STORE PROJ LIST")
     store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑬d 收口 LIST 槽 3 EMPTY")
+
+
+# ------------------------------------------------ ⑭ 旧格式 fixture（FUN5/FUN4/FUN1） ---
+def store_proj_slots(s: Session) -> dict:
+    """`STORE PROJ LIST` → {槽号: "USED hash=XXXXXXXX" / "EMPTY"}（槽 0–2 的「未被动过」判据）"""
+    s.cmd("STORE PROJ LIST")
+    out = {}
+    for raw in s.last.splitlines():
+        m = re.match(r"^PROJ (\d+) (USED hash=[0-9A-F]{8}|EMPTY)\r?$", raw.strip())
+        if m:
+            out[int(m.group(1))] = m.group(2)
+    return out
+
+
+def store_fields_read(s: Session, slot: int = 3):
+    """`STORE PROJ FIELDS <slot>` → (键顺序列表, {key: value}, 原始行)。
+
+    行首 `PROJ <slot> FIELDS ` 之后的每个 token 是 `key=value`；键顺序即固件的固定打印序
+    （脚本与生成器共用 field_keys()，顺序错也判失败）。"""
+    s.cmd(f"STORE PROJ FIELDS {slot}")
+    line = None
+    for raw in s.last.splitlines():
+        if raw.strip().startswith(f"PROJ {slot} FIELDS "):
+            line = raw.strip()
+    if line is None:
+        raise InjectError(f"STORE PROJ FIELDS {slot}: 回显缺少 `PROJ {slot} FIELDS ` 行"
+                          f"（响应 {s.last.strip()[-300:]!r}）")
+    keys, vals = [], {}
+    for tok in line.split()[3:]:
+        key, sep, value = tok.partition("=")
+        if not sep:
+            raise InjectError(f"STORE PROJ FIELDS {slot}: token {tok!r} 不是 key=value")
+        keys.append(key)
+        vals[key] = value
+    return keys, vals, line
+
+
+def store_fields_expect(s: Session, expected: dict, order: list, label: str) -> None:
+    """逐项比对：键顺序一致 + 62 项全部相等（任何一项不同都单独 FAIL，带值）。"""
+    keys, vals, line = store_fields_read(s)
+    (s.ok if keys == order else s.fail)(
+        f"{label} 键顺序 == 生成器的 field_keys()（实得 {len(keys)} 键）")
+    bad = [(k, expected.get(k), vals.get(k)) for k in order if vals.get(k) != str(expected.get(k))]
+    for k in order:
+        (s.ok if vals.get(k) == str(expected.get(k)) else s.fail)(
+            f"{label} {k}={vals.get(k)}（期望 {expected.get(k)}）")
+    s.ser.note(f"{label} 行（{len(keys)} 项，{len(bad)} 项不符）：{line}")
+
+
+def store_raw_grammar(s: Session) -> None:
+    """RAW 通道的语法/错误令牌（不含 fixture）：超长、越界块、未 BEGIN、不完整、ABORT。"""
+    s.ser.note("⑭a STORE RAW 语法与错误令牌：size / invalid / ABORT")
+    store_cmd(s, "STORE RAW BEGIN 4097", r"^STORE ERR size\r?$",
+              "⑭a BEGIN 4097（> 4096）→ STORE ERR size")
+    store_cmd(s, "STORE RAW BEGIN 2", r"^STORE RAW BEGIN len=2\r?$", "⑭a BEGIN 2")
+    store_cmd(s, "STORE RAW 010203", r"^STORE ERR size\r?$",
+              "⑭a 追加 3B 超过声明的 2B → STORE ERR size")
+    store_cmd(s, "STORE RAW ABORT", r"^STORE RAW ABORTED\r?$", "⑭a ABORT")
+    store_cmd(s, "STORE RAW END project 3", r"^STORE ERR invalid\r?$",
+              "⑭a 未 BEGIN 的 END → STORE ERR invalid")
+    store_cmd(s, "STORE RAW BEGIN 4", r"^STORE RAW BEGIN len=4\r?$", "⑭a BEGIN 4")
+    store_cmd(s, "STORE RAW 0102", r"^STORE RAW received=2\r?$", "⑭a 追加 2B")
+    store_cmd(s, "STORE RAW END project 3", r"^STORE ERR invalid\r?$",
+              "⑭a 只收到 2/4 字节的 END → STORE ERR invalid（不写 flash）")
+    store_cmd(s, "STORE RAW ABORT", r"^STORE RAW ABORTED\r?$", "⑭a 收口 ABORT")
+    s.cmd("STORE PROJ LIST")
+    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑭a 被拒的 END 没写槽 3（仍 EMPTY）")
+
+
+def run_store_fields(s: Session) -> None:
+    """⑭ 旧格式兼容门禁（Task 9，spec §6.3）：FUN5/FUN4/FUN1 fixture 经 `STORE RAW` 上传到
+    诊断槽 3 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3` 与生成器的 62 项期望逐项比对。
+
+    为什么需要这条通道：console 单行放不下 3,816B（一行 ≤240 hex = 120B：USB-Serial-JTAG
+    驱动 RX 环 256B，整行必须一次入环），firmware 用 `STORE RAW BEGIN/<hex>/END` 把
+    payload 原样交给 `st_save`（CRC/提交头由 storage.c 生成），`scripts/store_raw.py`
+    是同一实现（独立入口/注入场景共用）。
+
+    期望值的来源（独立性）：`scripts/gen_project_fixtures.py` 按上游 `project.c` 的
+    结构体与 `tests/project_test.c` 的构造器**生成字节**，再用 Python 独立实现的上游
+    转换（proj_from_v5/v4、v1→v3→v6）从字节算出字段；`--host-check` 另用 vendored
+    `project.c` 的宿主程序交叉校验（`scripts/fixture_host_check.c`）。故固件侧 FIELDS
+    若错（字段/偏移/转换），比对必红——不是拿固件输出当期望。
+
+    断言：
+      ① 槽 0–2 的 `PROJ LIST` 行逐字节不变（诊断槽 3 专用）；
+      ② 三个 fixture 各：RAW 上传 → LOAD 3 回 `PROJ 3 LOADED` → LIST 槽 3 USED →
+         FIELDS 3 的 62 项（含键顺序）与 expected.json 一致；
+      ③ 截断 fixture（fun5[:100]）：`STORE PROJ LOAD 3` 回 `STORE ERR invalid`（对象存在但
+         不是任何已知格式——与「空槽」的 empty 区分），`STORE LIVEHASH` 不变（LOAD 在
+         导入失败处退出，从未 proj_apply），`FIELDS 3` 同样回 invalid；收口 ERASE 3。
+    """
+    s.ser.note("⑭ 旧格式兼容：生成 FUN5/FUN4/FUN1 fixture（含 expected.json）")
+    out_dir = s.out_dir / f"fixtures-{s.stamp}"
+    doc = fixtures.generate(out_dir)
+    order = doc["order"]
+    print(f"  [NOTE] ⑭ fixtures → {out_dir}（{len(order)} 项/格式）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑭ STORE AUTO OFF（本段不写 autosave）")
+    ensure_stopped(s)
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭ 归一 ERASE 3")
+    before = store_proj_slots(s)
+    (s.ok if all(i in before for i in range(4)) else s.fail)(
+        f"⑭ PROJ LIST 列出 4 槽（{before}）")
+
+    store_raw_grammar(s)
+
+    for key in ("fun5", "fun4", "fun1"):
+        data = (out_dir / f"{key}.bin").read_bytes()
+        s.ser.note(f"⑭b {key}.bin（{len(data)}B）→ STORE RAW → LOAD 3 → FIELDS 3")
+        store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", f"⑭ {key} 归一 ERASE 3")
+        store_raw.upload_raw(s.cmd, data, "project", 3)
+        s.ok(f"⑭ {key} STORE RAW 上传（{len(data)}B，{(len(data) + 119) // 120} 块）")
+        store_cmd(s, "STORE PROJ LOAD 3", rf"^PROJ 3 LOADED hash={STORE_HASH8}\r?$",
+                  f"⑭ {key} LOAD 3（proj_import + proj_apply）")
+        slots = store_proj_slots(s)
+        (s.ok if slots.get(3, "").startswith("USED") else s.fail)(
+            f"⑭ {key} LIST 槽 3 USED（{slots.get(3)}）")
+        store_fields_expect(s, doc["fixtures"][key], order, f"⑭ {key} FIELDS 3")
+
+    s.ser.note("⑭c 截断 FUN5（前 100B）：LOAD 3 → STORE ERR invalid，LIVEHASH 不变")
+    truncated = (out_dir / "fun5.bin").read_bytes()[:100]
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭c 归一 ERASE 3")
+    live = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⑭c 截断前的 LIVEHASH")
+    store_raw.upload_raw(s.cmd, truncated, "project", 3)
+    s.ok(f"⑭c 截断 fixture 上传（{len(truncated)}B）")
+    store_cmd(s, "STORE PROJ LOAD 3", r"^STORE ERR invalid\r?$",
+              "⑭c 截断对象 LOAD 3 → STORE ERR invalid（不是空槽的 empty）")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⑭c LOAD 失败后的 LIVEHASH") == live else s.fail)(
+        f"⑭c LIVEHASH 不变（{live:08X}；LOAD 在导入失败处退出，从未 proj_apply）")
+    store_cmd(s, "STORE PROJ FIELDS 3", r"^STORE ERR invalid\r?$",
+              "⑭c FIELDS 3 也回 STORE ERR invalid（st_load 成功但 proj_import 拒绝）")
+    store_cmd(s, "STORE PROJ LOAD 9", r"^STORE ERR invalid\r?$", "⑭c 槽号越界 LOAD 9 → invalid")
+
+    s.ser.note("⑭d 收口：ERASE 3；槽 0–2 与 ⑭ 开始时逐字节相同")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭d 收口 ERASE 3")
+    after = store_proj_slots(s)
+    untouched = {i: before.get(i) for i in range(3)}
+    (s.ok if {i: after.get(i) for i in range(3)} == untouched else s.fail)(
+        f"⑭d 槽 0–2 未被触碰（{untouched} vs { {i: after.get(i) for i in range(3)} }）")
+    (s.ok if after.get(3) == "EMPTY" else s.fail)(
+        f"⑭d 槽 3 收口 EMPTY（{after.get(3)}）")
 
 
 SCENARIOS = {
