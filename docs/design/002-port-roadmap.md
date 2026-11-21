@@ -21,7 +21,7 @@
 | 1 | 平台 bring-up | Tab5 成为**可观测、可验证**的目标机：屏/触摸/键盘/音频/截屏/分区 | SCR 截屏视觉检查；按键触摸日志；听音 | 🔶 机器侧完成 + 听音✅；余 3 项人测（见下注） |
 | 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | 🔶 机器侧完成（设备/host 182/182 同源哈希 + PERF；人耳待办，见下注） |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | 🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）；人测 4 项（见下注） |
-| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B–F 待开工 |
+| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 开工（`feat/phase4b`）；P4-C–F 待开工 |
 | 5 | 联动模式 | FM-1 双机同步（编辑器协议双向 + UAC1 采集） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
 
 > 排序与门禁优先于日历估时（不设假精度的工期）：阶段 2 与阶段 4 体量最大（引擎对齐 / 功能对齐），阶段 1、3 次之，阶段 5 含 DI-1 驱动自研的不确定面。
@@ -32,7 +32,7 @@
 >
 > **阶段 3 状态**：🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）：四屏 PLAY/TRACKS/STEP/TRANSPORT 截屏矩阵 + 像素抽检、`KEY`/`TAP`/`UI` 注入与三条场景脚本（`scripts/inject/`）、EditCmd 层等价性（ADR-005）与切页确定性（ADR-006）全绿；`host-test` / `state-test` / `screenshot.py --selftest` 全绿；30min soak（`scripts/soak.py`）内部堆非单调下降、xrun=0、无 WDT/panic（`docs/dev/verify/3-mvp-2026-11-21/`）。**人测待办**：① 真实键盘弹奏手感与 70 键矩阵（DI-4）；② 物理触摸（四角校准 + DI-10 幽灵按压复核）；③ 四屏目检（§5.4(2) 人眼复看可读性/观感）；④ 听感（合成/鼓/采样，DI-7 收尾）。
 >
-> **阶段 4 状态**：🔶 P4-0 + P4-A 完成（2026-11-21，`feat/phase4`，Task 11 收口）。P4-0：全量 `ENG SELFTEST` 182/182 在 **UI live** 下通过（诊断期 quiesce，157s，DI-11 删除）、懒建/每页预算框架落地（9 页全建池 free 2,816B）、步窗抽象与 `nav.sh` 四导航用例绿、SCR 重试硬化、DI-9/DI-5 闭环。P4-A：描述符驱动参数页框架证明——**3 个引擎页（ANALOG/FM6/SAMPLE）+ GLOBAL + 家族页 FX** 可编辑生效（TAP ±/键盘/触摸相对拖拽，`PARAM`/`STATE SNAP` 断言），五页截屏 + 像素抽检 + 九页池水位证据入库（`docs/dev/verify/4-p0-2026-11-21/task-10-*`、`task-11-*`）；`knob-test`/`state-test`/`host-test`/`desc-check`/五条注入脚本/soak 120s 全绿。**9 页是当前 LVGL 池的容量天花板**（DI-17），P4-B–F 开工时按 ADR-008 §5 rule 4 先做容量设计决策。人测项延续阶段 3 清单（键盘手感/物理触摸/目检/听感）+ 参数页旋钮物理手感（DI-16）。
+> **阶段 4 状态**：🔶 P4-0 + P4-A 完成（2026-11-21，`feat/phase4`，Task 11 收口）。P4-0：全量 `ENG SELFTEST` 182/182 在 **UI live** 下通过（诊断期 quiesce，157s，DI-11 删除）、懒建/每页预算框架落地（9 页全建池 free 2,816B）、步窗抽象与 `nav.sh` 四导航用例绿、SCR 重试硬化、DI-9/DI-5 闭环。P4-A：描述符驱动参数页框架证明——**3 个引擎页（ANALOG/FM6/SAMPLE）+ GLOBAL + 家族页 FX** 可编辑生效（TAP ±/键盘/触摸相对拖拽，`PARAM`/`STATE SNAP` 断言），五页截屏 + 像素抽检 + 九页池水位证据入库（`docs/dev/verify/4-p0-2026-11-21/task-10-*`、`task-11-*`）；`knob-test`/`state-test`/`host-test`/`desc-check`/五条注入脚本/soak 120s 全绿。**9 页曾是 LVGL 池的容量天花板**（原延迟条目，已随 P4-B 导航决策关闭）。人测项延续阶段 3 清单（键盘手感/物理触摸/目检/听感）+ 参数页旋钮物理手感（DI-16）。**P4-B 开工**（2026-11-21，`feat/phase4b`）：导航/容量决策落 ADR-005（分组页签 + 组作用域，5 组/11 页；不变量 `base + max_group Σest + 4KB ≤ 63,120`），存储后端落 ADR-009（原始分区 `sloopstore` + mmap/XIP），原 9 页池容量天花板条目关闭。
 
 ## 2. 阶段 0 — 工程骨架（✅ 已完成，2026-11-19）
 
@@ -44,7 +44,7 @@
 
 | 任务 | 内容 | 验证 |
 |---|---|---|
-| P1-1 分区表 | `partitions.csv`：**OTA 姿态定为单 factory app（无 A/B 槽）**——开发期 USB 常在，回滚路径 = esptool 重烧；未来确需 OTA 时再重划分区（资产重烧成本已知，可接受）。示例布局：factory app 8MB + FATFS 资产 ~7.9MB + NVS（实现时定稿并回写本文）；FATFS 取大值，使 P2-5 无论资产主力在 flash 还是 SD 均容纳（SD 为独立硬件，后加无损现有分区） | 烧录后分区日志正常；app 摆脱 1MB 默认上限 |
+| P1-1 分区表 | `partitions.csv`：**OTA 姿态定为单 factory app（无 A/B 槽）**——开发期 USB 常在，回滚路径 = esptool 重烧；未来确需 OTA 时再重划分区（资产重烧成本已知，可接受）。示例布局：factory app 8MB + FATFS 资产 ~7.9MB + NVS（实现时定稿并回写本文）；FATFS 取大值，使 P2-5 无论资产主力在 flash 还是 SD 均容纳（SD 为独立硬件，后加无损现有分区）。**P4-B 按 ADR-009 落定**：`sloopstore`（data/0x99）`0x810000/0x68000` 承载上游 flash map，FAT 让位到 `0x878000/0x788000`（不再承载 SLOOP 数据） | 烧录后分区日志正常；app 摆脱 1MB 默认上限 |
 | P1-2 显示点亮 | `bsp_display_start()`（MIPI-DSI + esp_lvgl_port）；确认日志 `Discovered board version 3 (LCD ST7121…)`（批次探测，见 device-notes §1）；画测试图（彩条 + 几何图形 + 文本标签） | SCR 截屏视觉检查：彩条颜色顺序正确、无花屏撕裂、文本可读 |
 | P1-3 SCR 命令 | console 注册 `SCR`（§5.3 协议）：从显示控制器取完整稳定帧，rgb565 小端输出；LVGL 双缓冲下取非活动帧避免撕裂；扩展 `scripts/screenshot.py` 支持像素抽检（如 `--check <x>,<y>,<r>,<g>,<b>`），已知色块可机检 | `screenshot.py` 出图且像素抽检通过（程序化 + 视觉检查；scripts 门禁 selftest 仍须过） |
 | P1-4 触摸 | BSP 触摸 indev；触摸处画十字准星 + 坐标日志 | 点四角/中心 → 截屏中准星位置与手指一致（坐标映射无旋转/镜像错误） |
@@ -116,7 +116,7 @@
   （LVGL 池 68% 已用：懒建拆页/扩容/共享池化三选一 + 每页预算表）；扩 STEP 网格之前先在
   状态层/快照引入 `{bank, window_start, window_len}` 视窗抽象（页面、hit-test、注入脚本同源，
   列 ≥ LEN 的格沿用阶段 3 的 dim 判定）；
-- 引擎特性补齐：TIE/SLIDE/SLICER、FM6/DSYN 参数面、用户预置存取（FATFS）；
+- 引擎特性补齐：TIE/SLIDE/SLICER、FM6/DSYN 参数面、用户预置存取（原始分区 + mmap，ADR-009）；
 - 视觉：全页面截屏套件（页面 × 关键状态矩阵），证据按 §8 晋升入库；
 - 稳定性：长时 soak（数小时，量化口径同阶段 3）+ 堆/PSRAM 水位记录；顺带记录 INA226 电流与芯片温度（板载即有，tab5-hardware §3.6）；供电姿态：标准版无 NP-F550 电池，长 soak 须外接电源；
 - 仅在此之后做性能优化（§0.1）。

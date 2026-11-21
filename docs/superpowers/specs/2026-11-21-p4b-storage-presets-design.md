@@ -2,7 +2,7 @@
 
 > 日期：2026-11-21 ｜ 状态：草案（待项目负责人评审）
 > 上位文档：`docs/design/002-port-roadmap.md` §6（P4-B 行，权威）；`docs/superpowers/specs/2026-11-21-phase4-feature-parity-design.md` §3/§4.3（P4-B 的框架定义，本 spec 取代其 §4.3 的「FATFS 文件内 A/B」措辞，见 §3.1）；
-> ADR-005「导航信息架构」、ADR-008（池预算）、`docs/deferred-issues.md` DI-17。
+> ADR-005「导航信息架构」、ADR-008（池预算）、ADR-009（存储后端）；原「9 页参数页框架已达 LVGL 池容量天花板」延迟条目已关闭（决策见 ADR-005「导航决策」）。
 > 前置结论：P4-A 已把页签推到 9 张（107px/张）并实测 9 页全建 `pool_free` 2.2–2.7KB；**P4-B 必须先把导航信息架构与容量决策落地**（ADR-005 已登记为 P4-B 决策门）。
 
 ## 1. 目标与非目标
@@ -15,7 +15,7 @@
 4. FM6 预置银行 27 槽（存/取/擦，按上游 `FM6B` 记录布局），开机扫描（`fm6_bank_boot`）；
 5. **工厂预置/鼓 kit 浏览真正改变声音**：移植上游 `apply_preset_to`/`set_engine_of`/`TRK_DEF`/`preset_extras`/`param_kept`/`arp_is_sounds` 语义，修正 `sloop_core_track`（现在只切索引、不载参数——见 §2）；
 6. 掉电中断不破坏旧副本（沿用上游 A/B + CRC + 回读校验语义）；
-7. 导航：分组页签 + 组内子页签 + **组作用域页面生命周期**，解开 DI-17 的 9 页天花板，为 P4-B–E 的新页面让路；
+7. 导航：分组页签 + 组内子页签 + **组作用域页面生命周期**，解开 9 页池容量天花板，为 P4-B–E 的新页面让路；
 8. 机器可复现的验证入口：console `STORE …` 命令族 + 设备侧 torn-write 故障注入套件 + 注入脚本/截屏。
 
 **非目标（本阶段明确不做）**：
@@ -23,7 +23,7 @@
 - 上游 settings 对象（`persist_t`/panel/DSYN kit/MIDI LEARN）——归 P4-E；**决策：P4-E 也走 `OBJ_SETTINGS` 上游格式（保证与 FM-1 备份/编辑器互通），NVS 不承担 SLOOP 状态**；
 - 编排 sections/song 落盘（`sections_write`、`arranger_scene`）——归 P4-C；
 - FM6 patch 编辑面与 DSYN 编辑面——归 P4-D（本阶段只做 bank 的存/取/擦）；
-- 采样槽上传/擦除——归 P4-D（本阶段只为 FATFS 分区保留布局）；
+- 采样槽上传/擦除——归 P4-D（本阶段只为上游 USR1–4 原始槽保留布局：USR1–3 `0xA0000..0xDC000`、USR4 `0xE7000..0xFB000`，见 §3.1）；
 - 联动模式（编辑器协议的文件类命令）——阶段 5；本阶段的对象 id/格式已按上游对齐，届时可直接复用。
 
 **反目标**：把上游 `project.c` 整文件编入并连带 `ui.c/panel.c`（240×240 UI 与硬件假设）；自造第二套工程/预置格式；在 UI 任务里直接写 flash；用扩大 LVGL 池解决页面容量（ADR-008 已实测 96KB 链接溢出）。
@@ -42,12 +42,12 @@
 上游关键契约（精读结论，`third_party/sloop-fm1/firmware/src/`）：
 
 - **storage.c**：每个对象一对 4KB 扇区；写入 = 擦非当前副本 → 从偏移 256 起写 payload → **最后**写 32B 头（提交记录）；加载取「头合法且 seq 最大」的副本；`st_save` 写后回读比对（写保护/坏片不得报 SAVED）；`st_xip` 需要在 flash 中**原地读** payload（`upreset.c`/`fm6_bank.c` 依赖，省 6,160B RAM）；`st_buf` 用主循环 scratch（3,840B，**必须能在关闭 cache 期间访问 → 内部 SRAM**）。
-- **flash map**（绝对偏移）：settings `0xFC000/0xFD000`，projects `0x97000..0x9EFFF`，user samples `0xA0000..0xDBFFF`，user preset banks `0xDC000..0xDFFFF`，autosave A `0x9F000` / B `0xFE000`，FM6 bank `0xE5000/0xE6000`。本阶段实际用到 `[0x97000, 0xFF000)`（= 416KB，含空洞）。
+- **flash map**（逻辑绝对偏移，区间含首不含尾；权威 `hal/fm1_flash.h` 的 `FL_*` 与 `src/eng_sample.c` 的 USR 基址）：`FL_DATA [0x97000,0xE0000)` = projects `0x97000..0x9F000` + autosave A `0x9F000..0xA0000` + USR1–3 `0xA0000..0xDC000` + 用户预置银行 `0xDC000..0xE0000`；`FL_OTA [0xE0000,0xE5000)`（升级 loader staging，本阶段**未使用**，禁止 FM-1 更新）；`FL_FM6 [0xE5000,0xE7000)`（A/B `0xE5000/0xE6000`）；`FL_USR4 [0xE7000,0xFB000)`；空闲扇区 `0xFB000..0xFC000`；`FL_GLOB [0xFC000,0xFF000)` = settings A/B `0xFC000/0xFD000` + autosave B `0xFE000..0xFF000`。本阶段实际用到 `[0x97000, 0xFF000)`（= 416KB，含空洞）。
 - **project.c**：`PROJ_HOST` 以上部分（≈554 行）是纯格式层 + `proj_capture/proj_apply`，`tests/project_test.c` 已证明它只需 `core.h + params.c + drums.c + engines + trk_def_engine` 即可编译；`PROJ_HOST` 以下（settings/panel/autosave/sections/arranger/DSYN/MIDI）依赖上游 UI 与硬件，**不整段编入**——其中 **autosave（690–754 行）与 `proj_foreign_parts`（639–647 行）按原语义移植到 adapter**（见 §1 目标 2/5），settings/sections/arranger/DSYN/MIDI 留阶段 4 后续。
 - **upreset.c**：`UP_HOST` 以上只有纯记录工具；**写/载逻辑在 `UP_HOST` 以下**，需 `TSEL/sound_change/arp_is_sounds/param_kept/p_lockable/fm6_track_loaded/sync_reload/ui_message/ui_say/ui.force/up_gen/up_stage/flash_ok/st_xip`——前 8 个在 `ui.c/seq.c`，未编译，需薄 shim；`up_stage` 由 project.c 在 `FELUCCA_FLASH` 下提供，`PROJ_HOST` 下没有，需我们定义。**`up_bank_find` 在 `#if FELUCCA_FLASH` 内才走 `st_xip` → TU 必须 `#define FELUCCA_FLASH 1`，并在 init 调 `up_boot()`**；否则预置永远读为空。
 - **fm6_bank.c**：由 `project.c` 在 `FELUCCA_FLASH && !PROJ_HOST` 下 include；依赖 `proj_tmp`、`st_current/st_sector/st_buf`、`fm6_slot/fm6_unpack/fm6_pack/fm6_bank_read`（`eng_fm6.c`，已编入）、`flash_ok`、`FM6_BANK_XIP`。**init 必须调 `fm6_bank_boot()`**（安装 `fm6_bank_read` 钩子并扫描 used 位），否则 PTCH≥8 播 init voice。
 - **`apply_preset_to`/`set_engine_of`/`TRK_DEF`/`param_kept`/`arp_is_sounds`/`user_of` 在 `ui.c`**（未编入）：这是「换预置=换声音」的唯一实现（`sloop_core_track` 缺的正是它），必须原样移植到 adapter；`preset_extras`/`preset_trim`/`locks_restore`/`sound_change`/`steps_clear` 已在 `params.c/seq.c/voice.c`，可直接用。
-- **`PROJ_HOST` 的静态开销陷阱**：`project.c` 的 `proj_slot[4]`（4×3,816=**15,264B**，`section(".noinit")`）与 `proj_v3_tmp`（**2,584B**，旧格式转换用）都在 `#ifndef PROJ_HOST` **之上**，定义 `PROJ_HOST` 不会去掉它们。`proj_slot` 在 P4-B 用不到（sections 属 P4-C），且 `.noinit` 与 `selftest.c` 的 `ctl/s_quiesce_hook` 同段、无法被 `--gc-sections` 单独回收；`proj_v3_tmp` 被 `proj_from_v2/v1` 真实引用。解法（不碰 vendored）：include 前用宏把它们重定向成**指针**，实体放 PSRAM（`proj_tmp` 同法），见 §4.2。
+- **`PROJ_HOST` 的静态开销陷阱**：`project.c` 的 `proj_slot[4]`（4×3,816=**15,264B**，`section(".noinit")`）与 `proj_v3_tmp`（**2,584B**，旧格式转换用）都在 `#ifndef PROJ_HOST` **之上**，定义 `PROJ_HOST` 不会去掉它们。`proj_slot` 就是 P4-B 的 4 个工程 RAM 槽（sections 属 P4-C，但槽本身在 P4-B 即用），且 `.noinit` 与 `selftest.c` 的 `ctl/s_quiesce_hook` 同段、无法被 `--gc-sections` 单独回收；`proj_v3_tmp` 被 `proj_from_v2/v1` 真实引用。解法（不碰 vendored）：include 前用宏把它们重定向成**指针**，实体放 PSRAM（`proj_tmp` 同法），见 §4.2。
 - **ESP-IDF 5.5.5（esp32p4）**：`esp_partition_mmap()` 对任意数据分区可用（64KB MMU 页，内部按页对齐），`esp_flash_write/erase` 完成后按地址范围失效 cache（`flash_end_flush_cache`），因此「原始分区 + mmap」可以同时提供 `st_read` 与 `st_xip` 语义。擦除/写入期间 cache 关闭、双核停顿（上游注释的 ~50ms），音频需静音。
 
 ## 3. 方案（Approaches）
@@ -60,7 +60,7 @@
 | B. FATFS 单文件内 A/B 双槽 | 文件层 A/B 与 storage.c 的 A/B 重复；无 mmap → `st_xip` 必须改成 6KB RAM 镜像（`upreset.c/fm6_bank.c` 需改）；整镜像/扇区写入无原子性，掉电窗口比原始扇区更大；FATFS 元数据损坏面更大 |
 | C. NVS 分块存 blob | 无擦除语义（storage.c 的 `st_erase` 语义要另造）；NVS 容量/寿命/键数限制；无 XIP；不选 |
 
-**决策 A**。配套：`partitions.csv` 调整为 `sloopstore` @ `0x810000` size `0x68000`，FAT `storage` 移到 `0x878000` size `0x788000`（均 4KB 对齐；FAT 本阶段不使用，留给非 SLOOP 资产；**P4-D 的用户采样按上游原样走 `0xA0000..0xDBFFF` 原始槽**，不依赖 FAT）。NVS 保持 `0x9000/0x6000` 但不承载 SLOOP 状态（P4-E 的设置也用 `OBJ_SETTINGS`）。分区表变更需 `scripts/build.sh --clean`；`sloopstore` 首次写入前由 storage.c 自行擦除，无需整片 erase-flash。
+**决策 A**。配套：`partitions.csv` 调整为 `sloopstore` @ `0x810000` size `0x68000`，FAT `storage` 移到 `0x878000` size `0x788000`（均 4KB 对齐；FAT 本阶段不使用，留给非 SLOOP 资产；**P4-D 的用户采样按上游原样走 USR1–4 原始槽**：USR1–3 `0xA0000..0xDC000`、USR4 `0xE7000..0xFB000`，不依赖 FAT）。NVS 保持 `0x9000/0x6000` 但不承载 SLOOP 状态（P4-E 的设置也用 `OBJ_SETTINGS`）。分区表变更需 `scripts/build.sh --clean`；`sloopstore` 首次写入前由 storage.c 自行擦除，无需整片 erase-flash。
 
 > 该决策取代 phase-4 spec §4.3 的「FATFS 分区文件内 A/B 双槽 + CRC」：**语义完全保留上游（A/B + CRC + 回读），承载介质改为原始分区**。FATFS 不再承担 SLOOP 数据；NVS 不承担 SLOOP 状态（P4-E 设置走 `OBJ_SETTINGS`，与 FM-1 备份/编辑器互通）。
 
@@ -74,20 +74,22 @@
 
 **决策 A**。`project.c` 用 `PROJ_HOST` 意味着不整段编入 settings/panel/sections/arranger/DSYN/MIDI 部分（见非目标）；`proj_capture/proj_apply` 在 `PROJ_HOST` 之前可用；**autosave 与 `proj_foreign_parts` 按原语义移植到 adapter**（目标 2/5）。adapter 另需 `#define FELUCCA_FLASH 1`（供 `upreset.c` 的 `up_bank_find` 与 `fm6_bank.c` 的 flash 分支），并在 init 调 `up_boot()`/`fm6_bank_boot()`。
 
-### 3.3 导航信息架构与页面容量（DI-17 硬前置）
+### 3.3 导航信息架构与页面容量（池容量硬前置）
 
 | 选项 | 评估 |
 |---|---|
-| **A. 分组页签 + 组内子页签 + 组作用域生命周期（采纳）** | 顶层 5 组：`PLAY / TRACKS / EDIT / SEQ / FILE`（`SYS` 待 P4-E 有页面时加入）。**子页签放在现有 72px 页签条内做成两行**（上行组、下行子页，各约 34/30px，16pt 标签 ~20px 高），**页面区起点仍是 y=72，现有九页布局零改动**。EDIT = GLOBAL/FX/ANALOG/FM6/SAMPLE（后续引擎页），SEQ = STEP/TRANSPORT（后续 SONG），FILE = PROJECTS/PRESETS。**离开组时销毁该组已建页面**（回 UNBUILT），进入时懒建并保留。内存不变量从「9 页全建」变为「基础占用 + 单组 Σ est ≤ 池可用」，FILE 只花 8KB，未来页面有确定预算 |
+| **A. 分组页签 + 组内子页签 + 组作用域生命周期（采纳）** | 顶层 5 组：`PLAY / TRACKS / EDIT / SEQ / FILE`（`SYS` 待 P4-E 有页面时加入）。**子页签放在现有 72px 页签条内做成两行**（上行组、下行子页，各约 34/30px，16pt 标签 ~20px 高），**页面区起点仍是 y=72，现有九页布局零改动**。EDIT = GLOBAL/FX/ANALOG/FM6/SAMPLE（后续引擎页），SEQ = STEP/TRANSPORT（后续 SONG），FILE = PROJECTS/PRESETS。**离开组时销毁该组已建页面**（先建/切目标页，再销毁源组**全部**已建页，含原当前页 → 回 UNBUILT），进入时懒建并保留。内存不变量从「9 页全建」变为「基础占用 + 单组 Σ est + 单页 est ≤ 池可用（跨组切换的过渡峰值，见 §5）」，FILE 两页 est 合计 9,728B（4,608 + 5,120），未来页面有确定预算 |
 | B. 保留平铺页签 + 预算失败时 LRU 驱逐 | 不改页签语义；但驱逐时机不可预测（用户切到第 10 页才失败/重建），焦点状态丢失不可控，且页签宽度墙（N=10=95px）仍然无解 |
 | C. 两行页签（页面区下移 44px） | 现有页把页面区用到像素级（参数页 `52+2×298=648` = `UI_H−72`；STEP 数字 y=568、提示 y=606），下移会裁掉底行并迫使九页重排 + 全部 TAP/探针几何重算；否决。**采纳方案 A 的两行页签是「在 72px 页签条内分两行」，不是本项** |
 | D. 溢出菜单 | 需要新的焦点/菜单语义与可发现性设计，P4-B 不引入 |
 
-**决策 A**。键盘 `TAB` 语义改为「按组顺序的扁平轮转」：组内最后一页的下一张 = 下一组第一页（保留现有「tab 轮转」心智与 `nav.sh` 用例形态，更新期望序列）；点顶层页签进入该组（记住组内上次子页），点子页签切换。页签宽度 N=5 时 min(176, 160px)，标签 `PLAY/TRACKS/EDIT/SEQ/FILE` 均远小于 160px。
+**决策 A**。键盘 `TAB` 语义改为「按组顺序的扁平轮转」：组内最后一页的下一张 = 下一组第一页（保留现有「tab 轮转」心智与 `nav.sh` 用例形态，更新期望序列）；点顶层页签进入该组（记住组内上次子页），点子页签切换。页签宽度 N=5 时 `min(176, (1280−32−220−4×8)/5) = 176px`，标签 `PLAY/TRACKS/EDIT/SEQ/FILE` 均远小于该宽度。组作用域生命周期的执行顺序固定为「建目标页 → 切到目标页 → 销毁源组全部已建页（含原当前页）」，故离开组后源组 `built=0`（见 §4.5）。
 
-**DI-17 收口**：组作用域生命周期把「9 页 = 池顶」变成可维护的不变量：
-`base(≈7.0KB) + max_group Σ est + 4KB 余量 ≤ 63,120B`，且每页仍保留 `free ≥ est` 的构建前检查。
-当前最大值 SEQ = `23,040 + 4,608 = 27,648B`，FILE 预计 ≤ 8KB。ADR-005 记录决策与不变量，ADR-008 记录组作用域对预算表的影响；**DI-17 删除**（条目要求「解决后删除；方案选型先沉淀 ADR」）。
+**容量天花板条目收口**：组作用域生命周期把「9 页 = 池顶」变成可维护的不变量：
+`base(≈7.0KB) + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B`，且每页仍保留 `free ≥ est` 的构建前检查。
+当前最大值 SEQ = `23,040 + 4,608 = 27,648B`，`max_single_page_est` 保守取 STEP **23,040B**：
+`7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`（余 **1,320B**；真实最坏对 SEQ→EDIT 更小）。
+源组页面在切换后才释放（见 §4.5），峰值是瞬态但必须被上式覆盖。ADR-005 记录决策与不变量，ADR-008 记录组作用域对预算表的影响；**原延迟条目已删除**（条目要求「解决后删除；方案选型先沉淀 ADR」）。
 
 ### 3.4 写入路径与并发
 
@@ -136,6 +138,7 @@ void      sloop_hal_storage_fault_clear(void);
 
 typedef struct {
     bool ready; uint32_t objects_ok, faults_armed, faults_taken;
+    uint32_t autosave_writes, autosave_hash; bool autosave_on;   /* P4-B Task 6 扩展（STORE STATS 同源） */
 } sloop_store_stats_t;
 
 esp_err_t sloop_store_init(void);            /* sloop_core_init 内调用：HAL init + PSRAM 槽/暂存
@@ -199,7 +202,7 @@ esp_err_t sloop_store_test(sloop_store_test_t *out);
    #define proj_v3_tmp   (*s_v3_ps)     /* static project_v3_t proj_v3_tmp; → static project_v3_t (*s_v3_ps); */
    #define proj_slot     (*s_slot_ps)   /* project_t proj_slot[4] …;          → project_t (*s_slot_ps)[4] …;  */
    ```
-   两行各只占 4B（`.noinit` 的 15,264B 与 `.bss` 的 2,584B 都消失）；`sloop_store_init` 里 `s_v3_ps = heap_caps_malloc(sizeof *s_v3_ps, MALLOC_CAP_SPIRAM)`，`s_slot_ps` 保持 NULL（P4-B 无引用，sections 属 P4-C）。宏包裹的是**整个对象**，上游全部引用形如 `&obj[...]`/`sizeof obj[i]`（已逐行核对），替换后取址与 `sizeof` 语义不变。
+   两行各只占 4B（`.noinit` 的 15,264B 与 `.bss` 的 2,584B 都消失）；`sloop_store_init` 里 `s_v3_ps`（2,584B）、`s_slot_ps`（4×project_t = 15,264B，工程 RAM 槽）与 `s_stage`（4,096B）全部 `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)`。宏包裹的是**整个对象**，上游全部引用形如 `&obj[...]`/`sizeof obj[i]`（已逐行核对），替换后取址与 `sizeof` 语义不变。
 3. 自有暂存（PSRAM，init 时 `heap_caps_malloc(4096, MALLOC_CAP_SPIRAM)`）：
    ```c
    typedef union { project_v5_t v5; uint8_t raw[4096]; } proj_stage_t;
@@ -233,7 +236,8 @@ esp_err_t sloop_store_test(sloop_store_test_t *out);
 ### 4.4 console（`main/console.c`）
 
 ```
-STORE STATS                      # ready/分区/mmap/对象统计/故障与 xrun 增量
+STORE STATS                      # ready/分区/mmap/对象统计/故障与 xrun 增量（含 autosave 字段）
+STORE AUTO ON|OFF                # 自动存档开关（默认 ON；测试用）
 STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n
 STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n
 STORE BANK LIST|PUT n|GET n|LIVE|ERASE n    # PUT 取选中轨当前 live patch；GET/LIVE 打印 128B hex
@@ -249,7 +253,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 ### 4.5 UI（`sloop_ui`）
 
 - **导航壳**：`ui.c` 增加组模型（`k_groups[]`：标题 + 页面 id 列表）；**两行页签复用现有 72px 页签条**（上行 group 按钮 ~34px，下行 sub 按钮 ~30px；只有 1 页的组下行留空、右侧继续显示层键提示）；页面区起点与尺寸不变（`UI_TAB_BAR_H` 保持 72），hit-test 原点不变。
-- **组作用域生命周期**：切组/切页时，`page_leave_group(group)` 销毁该组内**非当前**已建页面（`lv_obj_del` + 复位 `s_page_obj/state/delta`），当前页保留。PLAY 组单页仍在启动时构建。
+- **组作用域生命周期**：切组时按固定顺序执行——**建目标页 → 切到目标页 → 销毁源组的全部已建页**（含刚离开的当前页；`lv_obj_del` + 复位 `s_page_obj/state/delta`）。因此离开组后源组 `built=0`。顺序不可交换：先销毁会在切页时出现空白帧、输入路径在跨组切换期间失去活页；代价是切换瞬间的峰值 = 源组已建 Σ + 目标页 est（源组页面在切换后才释放，峰值是瞬态，由 §5 的峰值不变量覆盖）。组内首次访问兄弟页时构建它；同组后续切换只改显隐。PLAY 组单页仍在启动时构建。≤100ms 构建预算适用于跨组切换与组内首次构建兄弟页。
 - **PROJECTS 页**（FILE 组）：4 张卡片（A–D，标签 + 状态「EMPTY / USED」+ hash 前 4 位），每卡 3 个按钮 `SAVE / LOAD / ERASE`；播放中按钮动作显示 `STOP BEFORE SAVE/LOAD/ERASE`；点击卡片设选中槽（键盘 ←/→ 也可）。
 - **PRESETS 页**（FILE 组）：32 槽 4×8 网格，显示 `U01..U32` + 引擎名/空；选中槽后 `LOAD`（载入选中轨）/`SAVE`（存选中轨，鼓轨提示 `DRUM TRACK: NO SOUND`）/`ERASE`。
 - **FM6 页**：现有 8 旋钮页底部加一行 **bank 目标槽选择（`BANK - / +`，0..26）+ `BANK SAVE / BANK ERASE`**。`BANK SAVE` 把**当前 live patch**（`fm6_patch[track]` 经 `fm6_pack`，可来自工厂槽 F1–F8 或宏改动后的声音）写入目标槽；`PTCH` 旋钮仍是**音源选择**（PTCH = 8 + bank 槽）。状态行显示 `SAVED B12 / ERASED B12 / BANK FULL?` 等。
@@ -259,8 +263,8 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 ## 5. 约束
 
 - **门禁**：`scripts/build.sh` ×2 零新增警告；`scripts/host-test.sh` 全绿（上游 4 个存储相关测试本就覆盖 A/B/torn-write）；设备 `ENG SELFTEST` 182/182 不得回退；`scripts/device-selftest.py` 全量；`scripts/state-test.sh`/`knob-test.sh` 绿。
-- **池**：FILE 组两页 est 初始预算 `PROJECTS 4,608 / PRESETS 5,120`（构建前 `free ≥ est`）；新不变量 `base + max_group Σest + 4KB ≤ 63,120`；`UI MEM` 增加分组 Σ。
-- **内部 RAM**：新增内部 SRAM 仅 `main_scratch` 3,840B + 指针/小静态（≈4.2KB 总计）；`proj_tmp`/`proj_v3_tmp` 在 PSRAM（宏重定向，§4.2），`proj_slot` 实体不分配；不改 LVGL 池；idle 内部堆地板 61,440B 不变。
+- **池**：FILE 组两页 est 初始预算 `PROJECTS 4,608 / PRESETS 5,120`（构建前 `free ≥ est`）；跨组切换的**过渡峰值**不变量 `base + max_group Σest + max_single_page_est + 4KB ≤ 63,120`（当前 `7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`，余 1,320B）；`UI MEM` 增加分组 Σ。
+- **内部 RAM**：新增内部 SRAM 仅 `main_scratch` 3,840B + 指针/小静态（≈4.2KB 总计）；`proj_slot`（4 槽 = 15,264B）、`proj_tmp`、`proj_v3_tmp` 在 PSRAM（宏重定向，§4.2）；不改 LVGL 池；idle 内部堆地板 61,440B 不变。
 - **自动存档**：仅 `song.playing || transport_req || !audio_quiet() || store 忙 || s_frozen` 任一为真时不写；两次写间隔 ≥20s、无输入 ≥2.5s；写前快照 hash 与上次相同不写；只写 `OBJ_AUTOSAVE`，不碰 A–D。
 - **换音语义**：`sloop_core_track(k,e,p)` 与 `sloop_core_set_engine/apply_preset` 必须在引擎锁内完成 `locks_restore + sound_change + p[] 写入 + fm6_track_loaded`，不得只写索引（现状缺陷）。
 - **时序**：保存动作（擦+写+回读）实测目标 ≤ 150ms（4KB 擦 + 3.8KB 写 + 回读）；擦/写期间 codec mute。**xrun 口径**：擦除会关 cache、音频任务停顿，`xrun` 必然增长——门禁改为「无存储动作窗口 `xrun=0`；每次保存的 `xrun` 增量 ≤ 16 且随后 `streaming=1`、渲染恢复」，`STORE STATS` 报告每次保存的 xrun 增量（ADR-009 记录；`soak.py` 增加显式保存窗口参数）。
@@ -297,7 +301,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 | 自动存档的 flash 寿命 | 与上游同阈值（≥20s 间隔、仅静默且 hash 变化时写）；`STORE STATS` 暴露写入计数；soak 观察（每次写 = 1 扇区擦 + 2 次 prog） |
 | 自动存档与 selftest/命令竞态 | 全程 `s_store_lock`；`s_frozen`/播放/发声/存储忙时跳过；selftest quiesce 期间 UI/输入已停，tick 任务也跳过 |
 | `PROJ_HOST` 编译缺符号（上游升级） | 编译期即暴露；shim 清单集中在 `store_tab5.c` 顶部，升级时只补此文件 |
-| 组作用域生命周期引入切页重建延迟/状态丢失 | 切页计时探针（`UI MEM` 增加 build_ms）；目标 ≤100ms；子页焦点由 state 重建；`nav.sh` 覆盖往返 |
+| 组作用域生命周期引入切页重建延迟/状态丢失 | 切页计时探针（`UI MEM` 增加 build_ms）；跨组切换与组内首次构建兄弟页目标 ≤100ms（同组后续切换零重建）；子页焦点由 state 重建；`nav.sh` 覆盖往返 |
 | UI 直接读存储列表与写操作竞争 | 列表查询只读 mmap、无写；写期间 UI 任务被 cache 停顿，不存在半写视图 |
 | 保存时正在录音/播放 | 统一 `ESP_ERR_INVALID_STATE` + UI 状态行 `STOP BEFORE …`；console 脚本断言错误码 |
 
@@ -305,12 +309,12 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 
 目标函数：**最大程度移植 SLOOP FM-1**（功能与数据语义等价优先于实现省事）。据此定案：
 
-1. **存储后端 = 原始分区 + mmap + 上游 storage.c 原样**。FATFS 文件方案、NVS 方案否决（前者重复 A/B 且丢 XIP，后者无擦除语义）。FAT 分区保留但不再承载 SLOOP 数据；P4-D 用户采样走上游原始槽 `0xA0000..0xDBFFF`。
+1. **存储后端 = 原始分区 + mmap + 上游 storage.c 原样**。FATFS 文件方案、NVS 方案否决（前者重复 A/B 且丢 XIP，后者无擦除语义）。FAT 分区保留但不再承载 SLOOP 数据；P4-D 用户采样走上游 USR1–4 原始槽（USR1–3 `0xA0000..0xDC000`、USR4 `0xE7000..0xFB000`）。
 2. **设置/偏好走 `OBJ_SETTINGS` 上游格式**（P4-E 实施），NVS 不承载 SLOOP 状态——保证与 FM-1 备份、编辑器协议对象互通。
 3. **本阶段做自动存档与上电恢复**（上游 2.5s/20s/静默/停走带/hash 变化判据），不再推迟到 P4-C。启动顺序：工厂态 snapshot → store init → autosave resume（§4.2）。
 4. **本阶段补「换预置=换声音」**：移植 `apply_preset_to/set_engine_of/TRK_DEF/param_kept/arp_is_sounds/user_of`，修正 `sloop_core_track`。这是既有缺陷修复，也是工厂预置浏览的前提。
 5. **工程 4 槽保留 RAM 缓存**（PSRAM，`proj_slot` 语义不变），开机 fetch 全部；A–D 的 save/load 与上游双层语义一致。
-6. **组作用域销毁**：离开组即销毁该组已建页面（不是 LRU）。若实测切页重建 >100ms，退化为「每组保留最近 1 页」。
+6. **组作用域销毁**：切组顺序固定为「建目标页 → 切到目标页 → 销毁源组全部已建页（含原当前页）」；不是 LRU。若实测切页重建 >100ms（跨组切换与组内首次构建兄弟页），退化为「每组保留最近 1 页」。
 7. **两行页签复用现有 72px**，页面区与九页布局零改动；`TAB` 为组顺序扁平轮转。
 8. **用户预置写入口径 = 当前选中轨**（上游 `up_store` 亦是 `TSEL`）；读可指定任意合成轨。
 9. **FM6 bank**：bank 目标槽（0..26）与 `PTCH` 音源分离；`BANK SAVE` 写当前 live patch。

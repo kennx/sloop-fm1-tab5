@@ -6,7 +6,7 @@
 
 ## 1. 目标
 
-独立模式达到与 FM-1 上 SLOOP **等价**的完整体验：全页面（参数编辑、音序/编排、采样/鼓合成、FM6、设置、歌曲）、引擎特性补齐（TIE/SLIDE/SLICER、参数锁、微时序、fill）、预置/工程存取（FATFS/NVS）、全页面截屏套件、数小时级 soak + 电源/温度记录；**性能优化只在此之后**（roadmap §0.1）。
+独立模式达到与 FM-1 上 SLOOP **等价**的完整体验：全页面（参数编辑、音序/编排、采样/鼓合成、FM6、设置、歌曲）、引擎特性补齐（TIE/SLIDE/SLICER、参数锁、微时序、fill）、预置/工程存取（原始分区 + mmap，ADR-009）、全页面截屏套件、数小时级 soak + 电源/温度记录；**性能优化只在此之后**（roadmap §0.1）。
 
 **完成判据（roadmap §6）**：功能对齐清单全绿；全页面截屏套件通过且证据入库；soak 量化判据通过；**强制里程碑：dev → main 合并**。
 
@@ -18,7 +18,7 @@
 | 组件编译集 | `libc/core/engines/drums/params/voice/slicer/fx/usb/midi_uart/seq`（+regress） | `project.c`、`storage.c`、`upreset.c`、`arranger.c(+scene)`、`fm6_bank.c` **未编译**；无存储后端 |
 | 音序深度 | STEP 网格 16 列；toggle/erase 对齐上游 | LEN/DIV 编辑、TIE/SLIDE、per-note lvl/rat、nudge、fill、参数锁、64 步分窗 |
 | 引擎特性 | 12 引擎/鼓/DSYN 引擎侧就绪（导出 API 有限） | FM6 patch 编辑面、DSYN 编辑面、SMP 槽管理、预置/工程加载的 golden 覆盖 |
-| 存储 | 无（全部 RAM） | FATFS/NVS 后端；A/B 提交语义；11 类备份对象兼容（阶段 5 互通） |
+| 存储 | 无（全部 RAM） | 原始分区 + mmap 后端（ADR-009）；A/B 提交语义；11 类备份对象兼容（阶段 5 互通） |
 | UI 容量 | LVGL 池 68%（64KB）；四页 eager 创建 | 参数页等重页面必须**懒建/预算**（ADR-005 已列决策，未实现） |
 | 设备门禁 | 单例 SELFTEST（DI-11：全量+UI live 楔死） | DI-11 修复后方可依赖全量门禁 |
 | soak | 30min 通过 | 数小时 + INA226 电流/温度（BSP 无驱动，需自写最小驱动） |
@@ -29,11 +29,11 @@
 |---|---|---|---|
 | **P4-0 前置清账** | ① DI-11：**不升级 IDF**（工具链迁移会使 golden 基线与全部证据失效、ADR-001 改版——代价不可接受），修复限定在 5.5.5 内、firmware 侧：selftest 运行期 **quiesce**（挂起 input 任务 + 暂停 UI 定时器 + 冻结写），跑完全量 182 后恢复——「UI 共存」口径=UI 存在且运行，诊断期间被暂停，不要求渲染与 selftest 并发；② DI-9：引擎三写路径（`song.sel`/`P_MUTE`/`song.solo`，`trk_silent()` 口径），机器侧断言=写后 `ENG SNAP` 反映值（可听人测列为外部门禁）；③ LVGL 懒建/预算框架落地；④ `{bank,window_start,window_len}` 步窗抽象并被 STEP 页消费；⑤ `nav.sh`：四用例=tab 栏 miss、鼓轨只读、tab+PANIC 同 tick、单 tick 三次 tab（防路由重构回归）；⑥ DI-5 SCR 重试硬化（脚本级重试 + RTS 复位；P4-F 无人值守截屏矩阵的前置）；⑦ 阶段 3 机器侧残留小项（文档/证据口径） | DI-11 删除（全量 182 + quiesce 流程 PASS）；mute/solo 写入可见；步窗抽象被消费；nav.sh 四用例绿；state-test/host-test 绿 | 阶段 3 | ✅ 完成（2026-11-21；全量 182 + quiesce，DI-11 删除） |
 | **P4-A 参数页框架** | 引擎 DESC 读取 API（`sloop_core_desc`）+ **批量设置 API**（`sloop_core_set_params`，一次锁内 N 对）；描述符驱动的旋钮页；页面懒建 + 池预算；键盘/触摸值编辑（粗调/细调）；值回读脏同步；`sloop_ui` 自带**策展布局表**（映射上游 page 划分，不入引擎） | **框架证明口径**：3 个引擎页（ANALOG/FM6/SAMPLE）+ GLOBAL 页 + 一个家族页（MASTER/FX 二选一）可编辑且生效；全 12 引擎×全页覆盖列为 P4-C/D/F 的功能对齐清单条目，逐条打勾；截屏+探针；池占用记录 | P4-0 | ✅ 完成（2026-11-21；ANALOG/FM6/SAMPLE + GLOBAL + FX，Task 11 收口） |
-| **P4-B 存储与预置** | `storage.c`/`project.c`/`upreset.c`/`fm6_bank.c` 编入；FATFS/NVS 后端（A/B 提交、CRC）；工程 A–D 存读（FUN 格式兼容）；用户预置 32 槽；FM6 银行；工厂预置/kit 浏览 | 存/读往返 hash 一致；掉电中断不破坏旧副本（torn-write 测试沿用上游 storage_test）；预置加载改变声音 | P4-A（UI 入口）/ P4-0 | ⬜ 未开工（入口：ADR-009） |
+| **P4-B 存储与预置** | `storage.c`/`project.c`/`upreset.c`/`fm6_bank.c` 编入；原始分区 + mmap 后端（A/B 提交、CRC；ADR-009）；工程 A–D 存读（FUN 格式兼容）；用户预置 32 槽；FM6 银行；工厂预置/kit 浏览 | 存/读往返 hash 一致；掉电中断不破坏旧副本（torn-write 测试沿用上游 storage_test）；预置加载改变声音 | P4-A（UI 入口）/ P4-0 | 🔶 开工（2026-11-21，`feat/phase4b`；ADR-009 已定稿） |
 | **P4-C 音序/编排深化** | 64 步分窗编辑；LEN/DIV；TIE/SLIDE；per-note lvl/rat；nudge ±1/64；fill 条件；参数锁（24/轨）；pattern shift/len/transpose 工具；arranger A–D + chain + SONG REC（`arranger.c` 编入） | 上游 seq2/arranger 测试概念在设备侧 smoke；注入脚本矩阵；编排播放截屏 | P4-A、P4-B | ⬜ 未开工 |
 | **P4-D 采样/鼓合成/FM6** | SMP 槽（USR1–4）状态/擦除/上传（串口脚本，镜像 SMP_BEGIN/WRITE/END）；DSYN 22 参数编辑面；FM6 patch 编辑面（算法/算子宏） | 采样上传后 TRIG 出声；DSYN/FM6 编辑生效；许可与体积复核 | P4-B | ⬜ 未开工 |
-| **P4-E 设置页** | SCREEN（亮度/主题）、AUDIO（音量/输出）、SYSTEM（版本/自检入口）、LIGHTS（键盘 RGB 可选） | 设置持久化（NVS）；重启保持 | P4-B | ⬜ 未开工 |
-| **P4-F 收口** | 功能对齐清单全绿；全页面截屏套件（页面×关键状态矩阵）；数小时 soak（外接电源）+ INA226 电流/温度；证据晋升；**dev→main 强制合并** | roadmap §6 完成判据 | 全部 | ⬜ 未开工（dev→main 强制合并点；先决 DI-17 容量决策） |
+| **P4-E 设置页** | SCREEN（亮度/主题）、AUDIO（音量/输出）、SYSTEM（版本/自检入口）、LIGHTS（键盘 RGB 可选） | 设置持久化（`OBJ_SETTINGS` 上游格式，ADR-009；NVS 不承载 SLOOP 状态）；重启保持 | P4-B | ⬜ 未开工 |
+| **P4-F 收口** | 功能对齐清单全绿；全页面截屏套件（页面×关键状态矩阵）；数小时 soak（外接电源）+ INA226 电流/温度；证据晋升；**dev→main 强制合并** | roadmap §6 完成判据 | 全部 | ⬜ 未开工（dev→main 强制合并点；容量/存储决策已落 ADR-005/009） |
 
 **顺序理由**：P4-0 先清阶段 3 欠账（否则后续页面建在失效门禁与容量悬崖上）；A 的 DESC 框架是 B–E 全部页面的地基；B 的存储是 C（编排保存）与 D（采样槽）的前置；E 最小；F 收口。性能优化不在本阶段（roadmap §0.1）。
 
@@ -69,9 +69,9 @@ void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *va
 - 值编辑：拖动/按键改值 → `CMD_SET_PARAM_BATCH`（状态层已有扩展点）→ 引擎；回读快照脏检查。
 - FM6/DSYN 等特殊面单独页，不复用旋钮框架的形状约束（可嵌）。
 
-### 4.3 存储后端（ADR-009 草案）
+### 4.3 存储后端（ADR-009 已定稿）
 
-`storage.c` 的 `st_read/st_erase/st_prog` 由 `sloop_hal_tab5` 存储后端实现：FATFS 分区文件内 A/B 双槽 + CRC（保持上游语义与 torn-write 测试）；工程/预置/FM6 银行对象映射同上游 11 类备份对象 id（阶段 5 互通）。NVS 用于小设置（P4-E）。
+存储后端由 ADR-009 定义（原始分区 `sloopstore` + mmap/XIP + 上游 A/B+CRC 原样，取代本文原 FATFS 文件措辞；设置对象走 `OBJ_SETTINGS`，NVS 不承载 SLOOP 状态）。
 
 ## 5. 约束
 
@@ -89,7 +89,7 @@ void sloop_core_set_params(uint32_t track, const uint8_t *ids, const int16_t *va
 | 风险 | 对策 |
 |---|---|
 | LVGL 池在参数页下溢出 | P4-0 先落懒建/预算；每页进入前后记录池水位；池改大不可行（内部 RAM） |
-| 存储代码的 A/B 语义移植错 | 沿用 `storage_test` torn-write 用例作设备侧 smoke；FATFS 文件模拟扇区边界 |
+| 存储代码的 A/B 语义移植错 | 沿用 `storage_test` torn-write 用例作设备侧 smoke；设备侧由 HAL 故障注入在原始分区上复验 A/B 扇区边界 |
 | 参数页数量爆炸（12 引擎 × 参数组） | 描述符驱动生成，不手写每页；枚举格式化复用 fmt |
 | 接入上游 TU 改变 golden | 用容差通道 + 逐用例留痕；新 TU 若影响 DSP 路径需先 host 对拍 |
 | 数小时 soak 需要外接电源 | 计划内标注；无电源时降级 ≥1h 并记录 |
