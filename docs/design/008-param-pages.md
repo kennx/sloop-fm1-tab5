@@ -180,7 +180,10 @@ UI MEM page id=2 title=STEP state=built est=24576 delta=21760
 - 投影跟着**选中轨**：参数页显示 p[] 时，选轨变化后下一拍 sync 换成新轨的值
   （参数页的 update 只需按 `core.selected_track` 刷新标题）。
 - 设备诊断入口：console `PARAM <id> <value>` / `PARAM BATCH <id> <value> …`（选中轨；
-  回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）。
+  回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）；
+  `PARAM RAW <id> <value>` 跳过 desc 预判，用于复验引擎对无描述符 id 的忽略路径。
+- 选轨即刷投影：`CMD_SET_TRACK`/`CMD_SELECT_TRACK` 在引擎选轨落地后**立即**回读
+  参数（不等下一拍 sync），避免参数页出现「标题=新轨、参数=旧轨」的帧。
 
 ## 迁移与回归（不改渲染）
 

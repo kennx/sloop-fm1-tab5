@@ -95,3 +95,14 @@
 | **解决方向** | ① 构建末尾做「文本哨兵」：每页把首个标签设成已知串再 `lv_label_get_text()` 比对（失败即当作构建失败删除半成品）；错误状态条自身也属同一类：`UI_ERROR` 文本缓冲分配失败时只剩 ERROR 日志 + console 令牌（画面为无控件页面区，非静默成功；标签对象都建不出时回退 bring-up 测试图），见 ADR-008 §4；② 或在 `theme.h` 提供 `UI_BUILD_TEXT(label, str)` 宏，把「set + 回读非空」合并成一处纪律；③ 诊断期可临时把 `LV_LOG_LEVEL` 调到 INFO 观察 `couldn't allocate memory` 日志。选型须在第一个参数页落地时一并决定（可写入 ADR-008 修订或新 ADR）。 |
 | **触发条件** | 第一个参数页落地时；或出现「页面控件在但文本缺失」/`UI MEM` 的 free 低于单页 est 的现象时立即升级处理。 |
 | **登记** | 2026-11-21（P4-0 Task 4，ADR-008 §4 已记录该边界） |
+
+## DI-15: `ENG DESC` 枚举名首/末元素回显缺越界兜底（console 诊断边界）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | Task 8 的 console `ENG DESC` 回显按 `d.enums[d.enum_count - 1]` 取末元素。`enum_count` 对 `F_ENUM` 按 `max - min + 1` 计数（`PE()` 约定，不依赖终止符）；若上游某引擎的 `edit[]` 用了 `F_ENUM` 但 names 表短于值域，console 会读到静态表末尾之外（`sloop_core_desc` 本身只做指针投影，不读元素）。当前 12 引擎 + `DRUM_KIT_DESC` 的名字表长度都与值域一致（`desc-check.py` 10 项抽样 + 4 越界不会覆盖此边界）。 |
+| **影响面** | 仅 console 诊断命令（`ENG DESC` 的 `first`/`last` 字段）；引擎参数读写/UI 投影不受影响。上游 `param_desc_t` 变更（新增 F_ENUM 引擎参数且漏名字）时才会触发。 |
+| **为何可延迟** | 现状无触发条件；`ENG DESC` 是排障入口，不参与产品行为；修复需要先定「名字表长度可信来源」的口径（终止符 vs 值域），与 Task 10/11 的参数页 desc 扩展同一决策面。 |
+| **解决方向** | ① console 侧保守化：先按 0 终止表扫描（上限 64）得到可用长度，`first/last` 只在该长度内取，越界打印 `-`；② 或让 `sloop_core_desc` 返回实际可读的 `enum_count`（F_ENUM 也按终止符校验，不一致时截断并在 desc-check 增加负例）。选型随参数页（Task 10/11）的 desc 扩展一并落地，并补 `desc-check.py` 用例。 |
+| **触发条件** | 第一次出现「`ENG DESC` 末枚举名乱码/越界字符串」，或上游新增带 names 的 `F_ENUM` 引擎参数时；最迟在 Task 11（3 引擎页 + desc 收口）前处理。 |
+| **登记** | 2026-11-21（P4-A Task 9 评审：由 Task 8 carry 项升级为条目） |

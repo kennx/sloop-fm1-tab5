@@ -135,3 +135,46 @@ python3 scripts/screenshot.py --selftest
 4. Task 8 carry 的 console `first`/`last` 枚举名末元素解引用兜底未在本任务处理（未触
    该路径；建议随 Task 10/11 的 desc 扩展一并修）。
 5. 鼓轨 P_E1..P_E7 在设备上被拒绝（`invalid_id`）是保守选择（上游鼓轨无引擎槽）。
+
+## 7. 评审修复轮（1 Important + minors）
+
+**Important：选轨后参数投影滞后一拍。** 旧实现 `cmd_select_track` 只写
+`core.selected_track`，`p[]` 要等下一拍 30ms sync 才换成新轨——参数页/`STATE SNAP`
+可能落在「标题=新轨、参数=旧轨」的一帧。修复：选轨落地后在同一 state 锁内立即
+`sloop_core_read_params(track, p, g)`（与其它编辑写路径相同的 state→engine 锁序）。
+state-test 新增 k=12：轨 0/1/2 各设不同参数，`CMD_SET_TRACK 2` 后**不调 sync** 即断言
+`p[0]/p[1]` 为轨 2 的值，`CMD_SELECT_TRACK 1` 同理。
+
+| 证据 | 结果 |
+|---|---|
+| `task-9-fix-state-test-red.log` | 仅回退 `cmd_select_track` 的刷新调用 → `13 passed, 1 failed`（k=12 三条断言 `got 11 want 33/44/22`），其余用例保持绿 |
+| `task-9-fix-state-test-green1.log` / `green2.log` | 均 `14 passed, 0 failed`，两日志逐字节相同 |
+| `task-9-fix-build-clean.log` / `task-9-fix-build-incremental.log` | 均 rc=0，警告 **0**；镜像 `0x173980`（82% 余量） |
+| `task-9-fix-flash.log` / `task-9-fix-boot-log.txt` | 3× `Hash of data verified`；`App version: 2b455bf-dirty`、`stream started`、`UI 就绪 4 页/1 已建`、`InputManager 55 条映射`、`触摸反馈 OFF`；无 fatal/abort/backtrace/panic/task_wdt |
+| `task-9-fix-device-check.py` / `-transcript.log` / `-device-check.txt` | **41/41 PASS**：每轨不同 ATK（11/22/33/44）→ TAP 选轨后**紧接** `STATE SNAP` 显示 `param trk=N atk=对应值`；`PARAM RAW 200 7` → `applied=n/a` 且参数不变；鼓轨 `PARAM RAW 64 5` → `applied=0`（未写）；`PARAM RAW 63 99` → 45；原有钳位/非法 id/批量断言与收尾还原全过 |
+| `task-9-fix-host-test.log` / `-device-selftest.log` / `-screenshot-selftest.log` / `-manifest.txt` | host-test `ALL HOST TESTS PASSED (subset)`；SELFTEST 单例 `identical=1 mismatch=0 result=PASS`；screenshot 自测全过；manifest 233/233 |
+
+**Minors 处理**
+
+1. `sloop_core_read_params`：取锁后**复核** `s_frozen`（与 `sloop_core_read` 同口径），
+   冻结在持锁期间置位时返回已清零缓冲、不读引擎。
+2. 批量用例首项 id 由 0 改为 **2**（丢首项/错序必失败），相应投影/落值断言同步改为 id 2。
+3. 引擎「无描述符 id 逐条忽略」路径：新增 console `PARAM RAW <id> <value>`（跳过 desc
+   预判直下状态层命令），设备上实际走到引擎 NULL 分支（`200` 越界、鼓轨 `64`），
+   `applied` 与 `value` 不同即证明未写；`sloop_core_set_params` 的 NULL 分支注释指向该证据。
+4. stub 的 kit 钳位改为 **0..45**（与上游 `DRUM_KIT_DESC` 一致）；state_test 用
+   `STUB_ENGINE_P_E0` 常量替代字面量 63。
+5. 文档 nit：`stub_engine.h` 头部函数计数改为 **12**；本 readme/Task 9 报告中的
+   「REPL 栈 4096B」更正为 **16,384B**（`console.c` 的 `repl_cfg.task_stack_size = 16384`）；
+   `PARAM BATCH` 的 pair 上限按 esp_console 默认 `max_cmdline_args=32` 记为 ≤15 对
+   （不是先前推断的 4 对）。
+6. `docs/deferred-issues.md` 新增 **DI-15**：`ENG DESC` 枚举名首/末元素回显缺越界兜底
+   （Task 8 carry 项，触发条件=上游新增带 names 的 F_ENUM 参数或 Task 11 desc 收口前）。
+7. `param_desc_at` 注释点名上游动态描述符来源（`ins_desc()` / `ESYNC_DESC[]` /
+   `engine->desc()`），并写明「钳位等价」前提（动态描述符目前只换 label/names/unit，
+   min/max 与静态表相同）；上游一旦改变范围须纳入动态钩子。
+8. `state_sync_from_engine` 注释显式写明「窗口快照 + 参数快照是两次取锁」的 ≤1 拍
+   陈旧窗口与自愈语义，并注明选轨路径已即时刷新、不会出现跨轨帧。
+
+修复轮提交：`cb2b960` `fix(components/sloop_state): 选轨即刷参数投影与覆盖补强`
+（见 `docs/dev/verification-log.md` 的 Task 9 修复行）。
