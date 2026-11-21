@@ -123,7 +123,7 @@
 
 | 项 | 内容 |
 |---|---|
-| **背景** | P4-A Task 11 收口时注册表 9 页（PLAY/TRACKS/STEP/TRANSPORT + GLOBAL/FX/ANALOG/FM6/SAMPLE）全建后 `UI MEM`：pool_used 55,064 / free **2,816** / total 57,880，Σ est 56,320、reserve 1,560（`docs/dev/verify/4-p0-2026-11-21/task-11-inject-params.log`）。非页面的基础占用约 8–13KB（根/页签条/错误状态条/字体等）没有计入 Σ est，因此「任意一页最后建」的余量已被压缩：STEP（est 24,064）作为最后一页时门槛余量仅约 200B（Task 11 实测同状态 free 24,248–24,652 随池历史抖动，旧 est 24,576 出现过一次「池剩余 24,248 < 预算」的误拒，故 est 下调到 24,064 = delta + 10%）。 |
+| **背景** | P4-A Task 11 收口时注册表 9 页（PLAY/TRACKS/STEP/TRANSPORT + GLOBAL/FX/ANALOG/FM6/SAMPLE）全建后 `UI MEM`：pool_used 55,064 / free **2,816** / total 57,880，Σ est 56,320、reserve 1,560（`docs/dev/verify/4-p0-2026-11-21/task-11-inject-params.log`）。非页面的基础占用（根/页签条/错误状态条/字体等）没有计入 Σ est，同一次 `UI MEM` 的算术为 **7,016B = pool_used 55,064 − Σdelta 48,048**，因此「任意一页最后建」的余量已被压缩：STEP（est 24,064）作为最后一页时门槛余量约 200B（free 24,272 − est 24,064 = 208B，STEP-last 实测 transcript `task-11-fix-steplast.log`；旧 est 24,576 在调参前的同一顺序上出现过一次「池剩余 24,248 < 预算」的误拒，故 est 下调到 24,064 = delta + 10.2%）。 |
 | **影响面** | 再加参数页 / 给现有页加控件（尤其 STEP 扩列、全局页扩槽）会直接撞池顶：要么构建被预算拒绝（`UI ERR page_build N` 原因=budget），要么在构建中途触发 LVGL 二级分配失败（DI-13）。P4-B–F 的页面（预置/编排/采样/设置）都属这一类。 |
 | **为何可延迟** | 当前 9 页在真机上全建可用（free 2,816B > 0，五页参数页 + 四基础页的注入/截屏门禁全绿）；P4-B–F 尚未开工，无需现在改动既有页面结构。ADR-008 §5 rule 4 已明确：不得直接调大 est 或池（96KB 实测链接期 `.bss` 溢出）。 |
 | **解决方向** | 按 ADR-008 §5 rule 4 先写设计决策（新 ADR 或修订 ADR-008）：① 跨页共享控件/样式池（例如参数页共用一个旋钮样式与页眉模板）；② 离页销毁 + 状态保存（ADR-008 原选项 D，需设计焦点/滚动保存）；③ 拆页（把 8 槽页拆成 4 槽 + 滚动）；④ 把参数面搬到独立 LVGL display/缓冲，或改用自带分配的字体/图标方案降低基础占用。任何方案落地后必须用 `UI MEM` 重测全部页 delta 并把新表写入 ADR-008 §3。 |

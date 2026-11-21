@@ -1,0 +1,16 @@
+  [fw] SCR
+  [fw] I (18390) sloop_console: SCR: 传输前 PSRAM 剩余 28261112 字节
+UI fx
+UI page=fx (5)
+sloop>  PARAM 0
+PARAM track=0 id=0 value=104 min=0 max=127
+sloop>  PARAM 0 111
+PARAM track=0 id=0 value=111 applied=111 min=0 max=127
+sloop>  PARAM 0
+PARAM track=0 id=0 value=111 min=0 max=127
+sloop>  TAP 482 528
+TAP 482,528 page=5 -> PARAM slot=5 focus
+sloop>  UI KNOB 5 press 0 -73
+UI KNOB page=5 slot=5 press dx=0 dy=-73 value=111
+sloop>    帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-fix-smoke-fix-fx-level111.png  (1280x720 rgb565)

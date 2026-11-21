@@ -96,12 +96,13 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | SAMPLE | 2,432 B | 3,072 B | +26% | 6 旋钮（空槽 edit[5]/edit[7] 不建，Task 11） |
 | **合计** | **48,048 B** | **56,320 B** | — | 九页全建后 `UI MEM` 同次输出：pool_used 55,064 / pool_free **2,816** / pool_total 57,880，reserve（total − sum_est）**1,560**（Task 11 `task-11-inject-params.log` 第 455–464 行）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
 
-> **STEP 的 est 在 9 页口径下调到 24,064**（Task 11）：页面全建后 free 只有约
-> 24.2KB，若按实测 delta（21,808–21,836B）加 13% 仍取 24,576，则「STEP 最后建」
-> 会被预算门槛误拒——Task 11 实测到一次 `池剩余=24248B 预算=24576B` 的拒绝
-> （早于本次调参的参数页注入输出），而另一次同状态 free=24,652B 又会放行：门槛
-> 落在池历史的 ±400B 抖动带上。取 24,064（delta + 10%）把这个边界移出抖动带，
-> 实际构建仍余约 2.2KB（21,836 vs 24,064）；**9 页是当前池的容量天花板**，
+> **STEP 的 est 在 9 页口径下调到 24,064**（Task 11）：**其它八页建完、STEP 尚未建
+> 时** free 约 24.2KB（`task-11-fix-steplast.log` 的 STEP-last 实测 transcript），
+> 若按实测 delta 21,836B 加 13% 仍取 24,576，则「STEP 最后建」会被预算门槛误拒
+> （门槛落在池历史 ±400B 抖动带上：调参前同一顺序出现过一次
+> `池剩余=24248B 预算=24576B` 的拒绝）。取 24,064（delta + 10.2%）把这个边界移出
+> 抖动带；实际构建余量约 2.4KB（free 24,272 − delta 21,864 = 2,408B；est 比 delta
+> 高 2,228B）；**9 页是当前池的容量天花板**，
 > 再加页/扩控件前必须按 §5 rule 4 做设计决策（DI-17）。
 
 > 2026-11-21 P4-0 Task 5（步窗）后复测：STEP 首次构建 `池增量=21832B 预算=24576B`
@@ -161,13 +162,16 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   63,120B）。不改配置：96KB 实测链接期 `.bss` 溢出。
 - 不变量（`UI MEM` 可复核；Task 11 后为**九页**口径）：
   1. `pool_total - sum_est > 0`（`UI MEM reserve`；九页口径 1,560 B，`pool_total`
-     随 TLSF 块负载浮动——同状态实测 57,804–58,880 B，取同一次输出的值）；
+     随 TLSF 块负载浮动——Task 11 归档 `UI MEM` 实测 57,876–59,436 B
+     （`task-11-inject-params.log` 见 59,172/59,436，`task-11-forcefail.log` 见
+     57,876），取同一次输出的值）；
   2. 每页 `delta <= est`（九页全部成立，余量 10–26%）；
   3. 九页全建后 `pool_free > 0`（Task 11 实测 2,816 B）；
-  4. 再加页/改控件前重新核对以上三条并把新行写入本表。**9 页已到容量天花板**
-     （非页面的基础占用约 8–13KB 不在 Σ est 内，STEP 作为最后建的一页只剩
-     ~200B 门槛余量），再加页必须先做设计决策（拆页/共享样式/对象复用/驱逐），
-     不得只调 est 或池；登记 DI-17。
+  4. 再加页/改控件前重新核对以上三条并把新行写入本表。**9 页已到容量天花板**：
+     同一次 `UI MEM` 的 `pool_used 55,064 − Σdelta 48,048 = 7,016 B` 是非页面基础
+     占用（不在 Σ est 内），STEP 作为最后建的一页只剩约 200B 门槛余量（free 24,272
+     − est 24,064 = 208B，`task-11-fix-steplast.log`）。再加页必须先做设计决策
+     （拆页/共享样式/对象复用/驱逐），不得只调 est 或池；登记 DI-17。
 - 阶段 4 参数页的硬性规则：
   1. 每页一个注册表条目，`est_bytes` 必须来自本机 `UI MEM` 实测（同方法），不得拍脑袋；
   2. `build()` 内每个 `lv_*_create` 用 `UI_BUILD_CHECK()` 检查，并复位本页脏检查缓存；
@@ -303,9 +307,9 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 | F_ENUM | `enums[v-min]` + desc.unit | WAVE `SAW`；CLICK `OFF` |
 | F_PCT | `(v*100 + max/2)/max` + `%` | SUS 90 → `71%` |
 | F_BIPCT | `v*100/64` + `%`（仅 v>0 加 `+`） | PAN 0 → `0%`；+32 → `+50%` |
-| F_DB | 0 = `OFF`；其余 `LEVEL_DB_X10[v]`（上游表） | LVL 104 → `-4.0dB` |
+| F_DB | 0 = `OFF`；其余 `LEVEL_DB_X10[v]`（上游表） | LVL 104 → `-4.0dB`；111 → `-0.5dB` |
 | F_TIME | `TIME_MS_X10[v]`（上游表）：<10ms 1 位小数 / <1s 整数 ms / <10s 2 位小数 s / 其余 1 位小数 s | ATK 10 → `2.1ms`；127 → `10.0s` |
-| F_CUTOFF | `CUTOFF_HZ[v]`（上游表）→ Hz/kHz | CUT 90 → `2.6kHz` |
+| F_CUTOFF | `CUTOFF_HZ[v]`（上游表）→ Hz/kHz | CUT 90 → `2.5kHz`（截断） |
 | F_LFOHZ | `LFO_HZ_X100[v]`（上游表）→ Hz | RATE 60 → `1.18Hz` |
 | F_SEMI / F_BPM / F_NOTE / F_ONOFF / F_STEPS / F_SWING / F_FILT | 上游 param_format 同口径（SEMI 仅 v>0 加 `+`） | `0st`/`+2st` / `90BPM` / `C` / `ON` / `16STEP` / `50` / `LP50%` |
 | F_INT（含 0 终止 names）与未知 fmt | 原始整数（+ desc.unit） | DTN 10 → `10ct` |
@@ -321,6 +325,11 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
   （不是 1.89）、CUTOFF 90（2,568）→ `2.5kHz`（不是 2.6）、LFOHZ 105（1,257）→
   `12.5Hz`（不是 12.6）。`knob-test.sh` 用这三个值钉住截断口径；<10Hz 的 LFOHZ
   （h/100 恰两位）与 <10ms 的 TIME（ms10/10 恰一位）两档在截断/舍入下同值。
+- **负数且 |v| < 一个显示单位**（整数部分为 0）时符号单独补：`format_fixed` 在
+  `v < 0 && ip == 0` 时输出 `-0.5`（上游 `fmt_fix` 输出 `-.5`，同值、可读）。
+  F_DB 的 `LEVEL_DB_X10[111] = -5` 是设备上唯一的次单位负值（TIME/CUTOFF/LFOHZ
+  生成表全为非负），由 `knob-test` 的 `DB 111 → -0.5dB` 与 `DB 110 → -1.0dB`
+  边界用例钉住。
 - `fmt` 的上游编码由 `sloop_core.h` 的 `sloop_desc_fmt_t` 镜像，`selftest.c` 静态
   断言与 `F_*` 逐项一致（换上游版本编译期暴露）。单位只由 fmt 决定（desc.unit 只
   用于 F_INT/F_ENUM），不额外加 fmt 不隐含的后缀。

@@ -5,6 +5,9 @@
 
 > 本目录的任务 11 证据均在**同一固件**（clean 构建 → 烧录 → 启动后连续跑完）上采集；
 > `task-11-*` 全部文件的 SHA256 见本目录 `SHA256SUMS`。
+>
+> **修复轮**（评审 Important 1–4 + minors）：受测固件 **`a00df79-dirty`**，证据为
+> `task-11-fix-*`，见 §6；§1–§5 的矩阵是首轮（`758b81d-dirty`）证据。
 
 ## 1. 结论
 
@@ -24,8 +27,9 @@
   `fmt_fix` 相同的**截断**（TIME 104 → `1.88s`、CUTOFF 90 → `2.5kHz`、LFOHZ 105 →
   `12.5Hz`），三个值由 `knob-test.sh` 钉住。
 - **池容量**：9 页 Σ est = 56,320B，`reserve` 1,560B；STEP est 从 24,576 下调到 24,064
-  （delta + 10%），因为 9 页全建后 free 只有约 24.2KB，旧 est 落在池历史 ±400B 抖动带
-  上出现过一次误拒。**9 页是当前池的容量天花板**，登记 DI-17。
+  （delta + 10%），因为**其它八页建完、STEP 尚未建时** free 只有约 24.2KB
+  （`task-11-fix-steplast.log` 实测 24,272B），旧 est 落在池历史 ±400B 抖动带上出现过
+  一次误拒。**9 页是当前池的容量天花板**，登记 DI-17。
 - 全门禁绿：build ×2 零警告、knob/state/host 测试、`screenshot.py --selftest`、
   `desc-check`、**全量 SELFTEST 182/182（UI live + quiesce，157.2s）**、soak 120s、
   五条注入脚本（tracks 11 / transport 28 / step_edit 75 / nav 40 / params **142** PASS，0 FAIL）。
@@ -72,11 +76,14 @@
 `UI MEM pool_used=55064 pool_free=2816 pool_total=57880 registered=9 built=9 failed=0
 sum_est=56320 reserve=1560`（`task-11-inject-params.log` 第 455–464 行）。
 
-**STEP est 的调整依据**：9 页全建后 free 只有约 24.2KB；`params` 场景曾在
-「参数页全部建完 → 最后建 STEP」的顺序上出现 `页面构建失败 page=STEP(2) 原因=budget
-池剩余=24248B 预算=24576B`（工具输出当时记录），而同一状态另一次 free=24,652B 又会
-放行——旧 est 正落在池历史的抖动带上。改为 24,064（delta + 10%）后两次复跑均通过，
-实际构建余量 ~2.2KB。该项与「9 页容量天花板」一起写入 ADR-008 §3/§5 与 DI-17。
+**STEP est 的调整依据**：其它八页建完、STEP 尚未建时 free 只有约 24.2KB；修复轮归档了
+**STEP-last 实测 transcript**（`task-11-fix-steplast.log`）：`built=8`、STEP `unbuilt`
+时 `pool_free=24,272`，`est=24,064` → 构建成功（池增量 21,864B，构建后 free 2,408B）。
+若 est 仍是 24,576，同一状态 24,272 < 24,576 会被预算拒绝；调参前同顺序**实际出现过
+一次** `页面构建失败 page=STEP(2) 原因=budget 池剩余=24248B 预算=24576B`（工具 stdout，
+未留存原始 transcript——本轮归档的 24,272B transcript 是同一状态的实测复现，算术上
+必然拒绝）。改为 24,064（delta 21,836B + 10.2%）后本场景与参数页注入两次复跑均通过，
+实际构建余量 ~2.4KB。该项与「9 页容量天花板」一起写入 ADR-008 §3/§5 与 DI-17。
 
 ## 4. 验证矩阵（最终固件 `758b81d-dirty`）
 
@@ -139,3 +146,45 @@ sum_est=56320 reserve=1560`（`task-11-inject-params.log` 第 455–464 行）�
 - 物理触摸手感（DI-16）、人眼目检、听感仍为外部门测项（本会话无图像查看工具；
   截屏用像素统计 + 二值化字形复原核对，与 Task 10 同口径）。
 - 9 页容量天花板（DI-17）：P4-B–F 加页前须先做容量设计决策。
+
+## 6. 修复轮（评审 Important 1–4 + minors，2026-11-21）
+
+受测固件 **`a00df79-dirty`**（dev HEAD；`task-11-fix-boot-log.txt` 第 6 行
+`App version: a00df79-dirty`）。改动仅显示层（`knob_math.c` 定点小数符号）与注释/
+布局表排版/文档口径；不动 DSP、不动页面结构。
+
+### 6.1 修复项
+
+| # | 问题 | 修复 | 证据 |
+|---|---|---|---|
+| I1 | `format_fixed` 丢负数且 |v|<一个显示单位时的符号（F_DB raw 111 显示 `0.5dB`，上游给 `-.5`） | `format_fixed` 在 `v<0 && ip==0` 时单独补 `-`（输出 `-0.5dB`，同值可读）；`knob_test` 新增 raw 111（`-0.5dB`）与 raw 110 边界（`-1.0dB`） | `task-11-fix-knob-test-red.log`（RED：`got "0.5dB" want "-0.5dB"`）、`-green{1,2}.log`（逐字节相同 5 passed） |
+| I2 | ADR-008 §8.3 `CUT 90 → 2.6kHz` 与 §8.2/测试的 2.5kHz 矛盾 | 改为 `2.5kHz`（截断） | ADR-008 §8.3 |
+| I3 | 「9 页全建后 free ≈24.2KB」与九页全建 2,816B 矛盾 | 三处改为「**其它八页建完、STEP 尚未建时** free ≈24.2KB」 | ADR-008 §3、`ui.c` 注释、本 readme §1/§3 |
+| I4 | 容量拒绝无归档 transcript、params 场景并非 STEP-last | 新增 STEP-last 实测 transcript：`UI tracks`→`transport`→`global`→`fx`→`analog`→`fm6`→`sample` → `UI MEM`（built=8、STEP unbuilt、free 24,272）→ `UI step`（池增量 21,864B，预算 24,064）→ `UI MEM`（built=9、free 2,788） | `task-11-fix-steplast.log` 95dc8572…、`-run.txt` 7c564cfe… |
+| m5 | `params.sh` 头注「三张 PNG」 | 改为五页 + 八张 PNG（global/fx/analog/fm6/fm6-alg/fm6-locked/sample/sample-set） | `scripts/inject/params.sh` |
+| m6 | ADR §5 的 `pool_total 57,804–58,880` 无归档出处 | 改为 Task 11 归档 `UI MEM` 实测 **57,876–59,436 B** 并点名日志 | ADR-008 §5 |
+| m7 | `ui.c` 写 delta 21,808B、ADR 写 21,836B | 统一为归档值 **21,836B（+10.2%）**（21,836/24,064 = +10.20%） | `ui.c`、ADR-008 §3 |
+| m8 | `page_layout.c` SAMPLE 续行反斜杠未对齐（97 vs 95 列） | 逐槽一行、反斜杠对齐 95 列 | `page_layout.c` |
+| m9 | DI-17「基础占用约 8–13KB」口径模糊 | 补同一次 `UI MEM` 算术 **7,016B = pool_used 55,064 − Σdelta 48,048** | DI-17、ADR-008 §5 |
+
+补充：F_DB 是唯一带负值的定点格式（TIME/CUTOFF/LFOHZ 的生成表全为非负），故
+次单位负数只有 raw 111 一个可辨值；raw 110（`-1.0dB`）钉住 `ip=-1` 边界。
+
+### 6.2 验证（`a00df79-dirty`）
+
+| 门禁 | 结果 | 证据 |
+|---|---|---|
+| knob-test RED→GREEN×2 | RED：`4 passed, 1 failed`（k=5 `DB 111 got "0.5dB"`）；GREEN×2：`5 passed, 0 failed`，两日志逐字节相同 | `task-11-fix-knob-test-red.log` fb607870…、`-green{1,2}.log` 2cf13b59… |
+| build ×2 | clean rc=0 / 增量 rc=0；`warning:` 0 / 0；增量遍 0 kconfig 提示；镜像 `0x176bb0`（82% 余量） | `task-11-fix-build-clean.log` 5b98b3f1…、`-build-incremental.log` 8612bb57… |
+| 烧录 + 启动 | 三段 `Hash of data verified`；`App version: a00df79-dirty`；`UI 就绪: 9 页注册/1 已建`（15,556/62,820）、内部堆 115,483B；无 fatal/abort/WDT | `task-11-fix-flash.log` 28ec88b6…、`-boot-log.txt` 43d2a8b8… |
+| STEP-last 容量实测 | 见 §6.1 I4 | `task-11-fix-steplast.log` 95dc8572… |
+| FX LEVEL=111 显示 smoke | `PARAM 0 111` → `applied=111`；`UI KNOB 5 press` value=111；截屏值文本字形复原为 `- 0 . 5 d B`（负号独立 glyph 在最左，随后 `0.5dB`） | `task-11-fix-smoke-fx-level111.png` 38ab103d…、`task-11-fix-smoke.log` ea3ca7ca…、`-smoke-run.txt` 8097b83c… |
+| 参数页注入回归 | `params.sh` 退出码 0：**142 PASS / 0 FAIL**（五页编辑、九页池水位、锁定令牌、截屏抽检全过） | `task-11-fix-inject-params.log` df8a031e…、`-run.txt` 043895f7… |
+| state / host / 工具 / 完整性 | state-test ×2 `15 passed` 逐字节相同；host-test `ALL HOST TESTS PASSED (subset)`；`screenshot.py --selftest` 全过；manifest 233/233 | `task-11-fix-state-test-green{1,2}.log` d22d9432…、`-host-test.log` 6b965530…、`-screenshot-selftest.log` bf7448d8…、`-manifest.txt` 11007999… |
+
+### 6.3 未覆盖
+
+- 修复只改**显示文本**：值路径（`PARAM` 回读）与引擎真值不变，故未重跑全量 SELFTEST
+  与 soak（首轮 182/182 + 120s 的证据仍对同一代码路径有效；本次改动不触及引擎/音频）。
+- `-0.5dB` 的设备侧判读用像素字形复原完成（本会话无图像查看工具）；人眼目检仍为外部
+  门禁。

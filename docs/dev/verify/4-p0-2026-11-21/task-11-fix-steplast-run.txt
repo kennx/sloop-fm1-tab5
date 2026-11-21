@@ -1,0 +1,47 @@
+UI tracks
+I (9870) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=41512B
+UI page=tracks (1)
+sloop>  UI transport
+I (10080) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3792B 预算=4608B 池剩余=37828B
+UI page=transport (3)
+sloop>  UI global
+I (10270) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2872B 预算=3584B 池剩余=35088B
+UI page=global (4)
+sloop>  UI fx
+I (10510) sloop_ui: 页面构建 page=FX(5) 池增量=2852B 预算=3584B 池剩余=32284B
+UI page=fx (5)
+sloop>  UI analog
+I (10740) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2852B 预算=3584B 池剩余=29472B
+UI page=analog (6)
+sloop>  UI fm6
+I (10960) sloop_ui: 页面构建 page=FM6(7) 池增量=2856B 预算=3584B 池剩余=26652B
+UI page=fm6 (7)
+sloop>  UI sample
+I (11180) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=2416B 预算=3072B 池剩余=24256B
+UI page=sample (8)
+sloop>  UI MEM
+UI MEM pool_used=36052 pool_free=24272 pool_total=60324 registered=9 built=8 failed=0 sum_est=56320 reserve=4004
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=unbuilt est=24064 delta=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3792
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2872
+UI MEM page id=5 title=FX state=built est=3584 delta=2852
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2852
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2856
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2416
+sloop>  UI step
+I (11530) sloop_ui: 页面构建 page=STEP(2) 池增量=21864B 预算=24064B 池剩余=2408B
+UI page=step (2)
+sloop>  UI MEM
+UI MEM pool_used=55012 pool_free=2788 pool_total=57800 registered=9 built=9 failed=0 sum_est=56320 reserve=1480
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2508
+UI MEM page id=1 title=TRACKS state=built est=7168 delta=6064
+UI MEM page id=2 title=STEP state=built est=24064 delta=21864
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3792
+UI MEM page id=4 title=GLOBAL state=built est=3584 delta=2872
+UI MEM page id=5 title=FX state=built est=3584 delta=2852
+UI MEM page id=6 title=ANALOG state=built est=3584 delta=2852
+UI MEM page id=7 title=FM6 state=built est=3584 delta=2856
+UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2416
+sloop>  
