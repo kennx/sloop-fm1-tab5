@@ -33,6 +33,11 @@
 #      LOAD 3 回 STORE ERR invalid 且 LIVEHASH 不变；槽 0–2 不动、收口 ERASE 3
 #      另含 R27/R28：BEGIN 3,841 ⇒ size、BEGIN 3,840 接受；上传中途穿插 STORE PROJ LIST ⇒
 #      上传被丢弃（后续追加/END 回 invalid、不落盘、可重新上传）；播放中 END ⇒ playing
+#   ⓯ FILE 组两页（Task 12）：`UI projects` 空/used 截屏 + TAP 卡/SAVE/LOAD/ERASE（与 console
+#      命令同一动作函数的机器证明：LIST 的 USED/hash、LIVEHASH 往返）+ 键盘 ←/→ 选槽与
+#      ENTER=LOAD + 播放中 TAP SAVE ⇒ 状态行 STOP BEFORE SAVE 且 LIST 不变；`UI presets`
+#      32 槽 + TAP SAVE/LOAD（换引擎后回到预置的引擎）/ERASE + 鼓轨 `DRUM TRACK: NO SOUND`
+#      + 播放中拒绝 + `UI MEM` 的 FILE 组水位；离开 FILE 后两页回 UNBUILT
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

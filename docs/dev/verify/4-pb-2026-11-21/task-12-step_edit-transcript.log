@@ -1,0 +1,250 @@
+
+sloop>  # [inject] 场景 step_edit 开始
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI tracks
+I (636918) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6096B 预算=7168B 池剩余=32640B 耗时=9ms
+I (636918) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  PARAM 29 16
+PARAM track=0 id=29 value=16 applied=16 min=1 max=64
+sloop>  PARAM 30 2
+PARAM track=0 id=30 value=2 applied=2 min=0 max=8
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  PARAM 29 16
+PARAM track=1 id=29 value=16 applied=16 min=1 max=64
+sloop>  PARAM 30 2
+PARAM track=1 id=30 value=2 applied=2 min=0 max=8
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  PARAM 29 16
+PARAM track=2 id=29 value=16 applied=16 min=1 max=64
+sloop>  PARAM 30 2
+PARAM track=2 id=30 value=2 applied=2 min=0 max=8
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI step
+I (638768) sloop_ui: 页面构建 page=STEP(2) 池增量=21720B 预算=23040B 池剩余=13384B 耗时=28ms
+I (638768) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 1 5
+ENG STEP k=1 i=5 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  # [inject] 基线：有格已亮，先点灭使脚本可重复
+TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  ENG STEP 1 5
+ENG STEP k=1 i=5 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  ENG STEP 1 5
+ENG STEP k=1 i=5 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  TAP 1 700
+TAP miss 1,700 page=2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261122-060949-step-two-on.png
+SCR
+I (640228) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI WINDOW 16 16
+UI WINDOW bank=1 start=16 len=16
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  ENG STEP 0 16
+ENG STEP k=0 i=16 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  # [inject] 基线：轨 0 绝对步 16 已亮，先点灭
+TAP 121 208
+TAP 121,208 page=2 -> STEP track=0 step=16 CMD_TOGGLE_STEP
+sloop>  TAP 121 208
+TAP 121,208 page=2 -> STEP track=0 step=16 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 16
+ENG STEP k=0 i=16 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261122-060949-step-bank1.png
+SCR
+I (657478) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI WINDOW 0 8
+UI WINDOW bank=0 start=0 len=8
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=8
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  TAP 705 208
+TAP miss 705,208 page=2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  ENG STEP 1 7
+ENG STEP k=1 i=7 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  TAP 632 332
+TAP 632,332 page=2 -> STEP track=1 step=7 CMD_TOGGLE_STEP
+sloop>  ENG STEP 1 7
+ENG STEP k=1 i=7 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261122-060949-step-len8.png
+SCR
+I (675138) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 632 332
+TAP 632,332 page=2 -> STEP track=1 step=7 CMD_TOGGLE_STEP
+sloop>  ENG STEP 1 7
+ENG STEP k=1 i=7 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  UI WINDOW 16 16
+UI WINDOW bank=1 start=16 len=16
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=7 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  TAP 121 208
+TAP 121,208 page=2 -> STEP track=0 step=16 CMD_TOGGLE_STEP
+sloop>  ENG STEP 0 16
+ENG STEP k=0 i=16 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  UI transport
+I (692288) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3836B 预算=4608B 池剩余=15604B 耗时=6ms
+I (692288) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=8ms
+UI page=transport (3)
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI step
+UI page=step (2)
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261122-060949-step-bank0-playhead.png
+SCR
+I (693428) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI WINDOW 16 16
+UI WINDOW bank=1 start=16 len=16
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=1 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  # [inject] SCR 截屏 -> inject-step_edit-20261122-060949-step-bank1-no-playhead.png
+SCR
+I (710188) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI transport
+UI page=transport (3)
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=1 window_start=16 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=40
+sloop>  UI play
+I (727058) sloop_ui: 页面构建 page=PLAY(0) 池增量=2488B 预算=3072B 池剩余=13272B 耗时=5ms
+I (727068) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  # [inject] 场景 step_edit 结束 failures=0

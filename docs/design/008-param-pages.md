@@ -107,6 +107,24 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 > 再加页/扩控件前必须按 §5 rule 4 做设计决策（原「9 页参数页框架已达 LVGL 池容量
 > 天花板」条目已随 ADR-005 的 P4-B 导航决策关闭）。
 
+**FILE 组两页（P4-B Task 12，2026-11-22 实测；组作用域口径，不是九页平铺）**：
+
+| 页 | 实测 delta（首次构建，`UI MEM`） | est_bytes | 余量 | 说明 |
+|---|---|---|---|---|
+| PROJECTS | 7,572–7,764 B（四次运行） | 8,192 B | +5.5% | 4 卡（字母/详情 2 label + 3 个单对象按钮）+ 状态行 = 26 对象；静态样式只 init 一次 |
+| PRESETS | 12,228–12,276 B（四次运行） | 12,800 B | +4.4% | 32 格（单对象可点击 label，两行文本）+ 3 按钮 + 状态行 = 36 对象 |
+| **FILE 组 Σ** | **19.8–20.0 KB** | **20,992 B** | — | 两页同时已建（组内切页只改显隐）；过渡峰值见 ADR-005 §5（free 7,308–7,840B） |
+
+> **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
+> 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
+> 重跑 `lv_style_init` 会丢掉静态样式已分配的 props 数组（实测 PLAY↔TRACKS 每往返漏 ~300B）；
+> 修复后 10 次往返 `UI MEM` 的 `pool_free` 变化 = 0（证据 `4-pb-2026-11-21/task-12-di25-leak.txt`）。
+> 初版 est `PROJECTS 4,608 / PRESETS 5,120`（spec §5 的下限估算）在对象数实测后不可达：
+> 一个 lv 对象 ≈ 300B，32 格网格任何「object + label」两层写法都会翻倍到 ~24KB。
+> 两页的优化路径是**单对象**（可点击 label 当按钮/格子）与**去掉页眉/提示 label**
+> （页名由下行子签承担）——这不是放宽门禁，而是把 est 按实测重订并把组不变量重算
+> （ADR-005 §5：最坏有序对变成 FILE 全建 → SEQ 首建 STEP，账面余 1,192B）。
+
 > 2026-11-21 P4-0 Task 5（步窗）后复测：STEP 首次构建 `池增量=21832B 预算=24576B`
 > （列号改为单行绝对步号后 TLSF 分配序变化，对象数不变；delta ≤ est 仍成立），
 > 其余三页页面代码未改（池历史不同，实测 delta 可轻微漂移——同日志 TRANSPORT 复测
@@ -117,6 +135,11 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 - `est_bytes` = 实测 delta × 1.10–1.23、512 对齐；预算是**构建前门槛**，不是精确账本
   （STEP 在 9 页口径取 23,040 = 最大实测 delta + 5.4%——末页自由量放不下 10%，见 §3 注）。
+  **组作用域口径的例外（P4-B Task 12）**：FILE 两页取 +5.5% / +4.4%（8,192 / 12,800）——
+  它们参与「FILE 全建 → 首建 STEP」这个新的最坏有序对，余量从 STEP 的 4,776B 压到 1,192B；
+  再加 10% 会把不变量顶破（`13,800 + 22,528 + 23,040 + 4,096 = 63,464 > 63,120`）。判据
+  仍是「delta ≤ est 且逐页 `free ≥ est`」，余量不足用**实证峰值**（free 7,308–7,840B ≥ 4KB）
+  兜底，而不是放宽门禁。
 - **真门禁是逐页的 `free_size ≥ est_bytes`（构建前检查）**，不是「Σ est < 池总量」。
   后者算错了基数与固定开销：TLSF 池可用总量是 63,120B（不是 `CONFIG_LV_MEM_SIZE`
   的 65,536B），且非页面的基础占用（根/页签条/错误状态条/字体等）不计入 Σ est——
@@ -142,9 +165,11 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 **按组核算**——跨组切换的**过渡峰值**不变量
 `base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（base **两行页签实测
 13,800B**，2026-11-22 Task 11 最终固件；旧值 7,016B 是 `pool_used` 口径的低估，见
-ADR-005 §5）。最坏有序对 = EDIT 全建 → 首建 STEP：`13,800 + 17,408 + 23,040 +
-4,096 = 58,344 ≤ 63,120`（余 4,776B）；实测过渡峰值 `pool_free 12,356B`；每页
-`free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
+ADR-005 §5）。**最坏有序对 = FILE 两页全建 → 首建 STEP**（P4-B Task 12 起）：
+`13,800 + (8,192+12,800) + 23,040 + 4,096 = 61,928 ≤ 63,120`（余 1,192B；base 取
+保守上界 14,112B 时余 880B）；实测过渡峰值 `pool_free 7,308–7,840B`（`store` 场景 ⓯ 断言
+≥4,096B），仍是弧线 mask 峰值（≈2.6KB）的 2.8 倍。次坏两对是 EDIT→STEP 与
+SEQ→PRESETS（各 40,448B，余 4,776B）。每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
 目标页 → 销毁源组**全部**已建页（含原当前页）」——源组页面在**切换之后**才释放（先销毁
 会出现空白帧、输入路径在跨组切换期间失去活页），故峰值是瞬态且必须被上式覆盖；离开组后
 源组 `built=0`。组内首次访问兄弟页时构建、同组后续切换只改显隐。`UI MEM` 增加
@@ -206,8 +231,9 @@ ADR-005 §5）。最坏有序对 = EDIT 全建 → 首建 STEP：`13,800 + 17,40
      做设计决策，不得只调 est 或池；
   5. **组作用域（P4-B 起）**：跨组切换的**过渡峰值**不变量
      `base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（两行页签实测
-     `13,800 + 17,408 + 23,040 + 4,096 = 58,344 ≤ 63,120`，余 4,776B；最坏对 =
-     EDIT 全建 → 首建 STEP，实测峰值 `pool_free 12,356B`）。源组页面在切换后才释放，
+     `13,800 + (8,192+12,800) + 23,040 + 4,096 = 61,928 ≤ 63,120`，余 1,192B；
+     最坏对 = FILE 全建 → 首建 STEP，实测峰值 `pool_free 7,308–7,840B`；Task 12 前是
+     EDIT 全建 → 首建 STEP，58,344 / 实测 12,356B）。源组页面在切换后才释放，
      峰值是瞬态但必须被覆盖；稳态回落为 `base + max_group Σ est = 41,448B`。且离开组后
      该组 `built=0`（含原当前页；`UI MEM` 分组行可复核）——这是把「九页全建」的经验
      下沿换成可复核预算（ADR-005「导航决策」§5）。
@@ -244,14 +270,15 @@ UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
 UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
 UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=10
 UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3828 build_ms=9
-UI MEM GROUP FILE built=0 sum_est=0 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3828 build_ms=6
 …（其余页 state=unbuilt delta=0 build_ms=0）
 ```
 
 （`group=<name>` = 当前页所属组；`sum_est` = 组内已注册成员 est，`sum_delta` = 已建
-成员池增量；离开组后该组 `built=0`、`sum_delta=0`。FILE 在 Task 12 注册前
-`sum_est=0` 且组签不显示。）
+成员池增量；离开组后该组 `built=0`、`sum_delta=0`。**交付态**（P4-B Task 12 起）：
+FILE 两页已注册 ⇒ `sum_est = 8,192 + 12,800 = 20,992`、上行 FILE 组签常显、
+`TAB` 轮转含两页；上面示例是 Task 11 时点（`sum_est=0`）的形状，保留为历史口径。）
 
 ### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
 

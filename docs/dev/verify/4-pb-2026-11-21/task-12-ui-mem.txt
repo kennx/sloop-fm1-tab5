@@ -1,0 +1,38 @@
+sloop>  # [inject] ⑧ 诊断期 selftest 之后存储仍可用（.noinit 指针/RAM 槽不被 restore 回滚）
+I (8498) sloop_ui: 页面构建 page=STEP(2) 池增量=21784B 预算=23040B 池剩余=21324B 耗时=30ms
+I (68618) sloop_ui: 页面构建 page=STEP(2) 池增量=21308B 预算=23040B 池剩余=21248B 耗时=29ms
+I (69428) sloop_ui: 页面构建 page=STEP(2) 池增量=21320B 预算=23040B 池剩余=21136B 耗时=29ms
+I (70228) sloop_ui: 页面构建 page=STEP(2) 池增量=21300B 预算=23040B 池剩余=21104B 耗时=30ms
+I (70938) sloop_ui: 页面构建 page=STEP(2) 池增量=21288B 预算=23040B 池剩余=21116B 耗时=29ms
+I (28638) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7748B 预算=8192B 池剩余=35344B 耗时=12ms
+UI MEM GROUP FILE built=1 sum_est=20992 sum_delta=7748 build_ms=15
+UI MEM page id=9 title=PROJECTS state=built est=8192 delta=7748 build_ms=12
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+TAP 392,242 page=9 -> FILE projects slot=1 select
+TAP 796,362 page=9 -> FILE projects slot=2 action=save status="SAVE OK"
+TAP 796,426 page=9 -> FILE projects slot=2 action=load status="LOAD OK"
+TAP 796,490 page=9 -> FILE projects slot=2 action=erase status="ERASE OK"
+TAP 1108,362 page=9 -> FILE projects slot=3 action=save status="SAVE OK"
+I (63568) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7572B 预算=8192B 池剩余=38608B 耗时=13ms
+TAP 1108,426 page=9 -> FILE projects slot=3 action=load status="STOP BEFORE LOAD"
+TAP 1108,362 page=9 -> FILE projects slot=3 action=save status="STOP BEFORE SAVE"
+TAP 1108,490 page=9 -> FILE projects slot=3 action=erase status="ERASE OK"
+I (82978) sloop_ui: 页面构建 page=PRESETS(10) 池增量=12228B 预算=12800B 池剩余=29020B 耗时=18ms
+UI MEM GROUP FILE built=2 sum_est=20992 sum_delta=19800 build_ms=32
+UI MEM page id=9 title=PROJECTS state=built est=8192 delta=7572 build_ms=13
+UI MEM page id=10 title=PRESETS state=built est=12800 delta=12228 build_ms=18
+TAP 558,196 page=10 -> FILE presets slot=3 select
+TAP 190,552 page=10 -> FILE presets slot=3 action=save status="SAVE OK"
+TAP 74,552 page=10 -> FILE presets slot=3 action=load status="LOAD OK"
+TAP 102,196 page=10 -> FILE presets slot=0 select
+TAP 306,552 page=10 -> FILE presets slot=3 action=erase status="ERASE OK"
+TAP 190,552 page=10 -> FILE presets slot=3 action=save status="DRUM TRACK: NO SOUND"
+TAP 74,552 page=10 -> FILE presets slot=3 action=load status="DRUM TRACK: NO SOUND"
+TAP 190,552 page=10 -> FILE presets slot=3 action=save status="SAVE OK"
+TAP 74,552 page=10 -> FILE presets slot=3 action=load status="LOAD OK"
+TAP 190,552 page=10 -> FILE presets slot=3 action=save status="STOP BEFORE SAVE"
+sloop>  # [inject] ⓯ 过渡峰值：FILE 两页全建 → 跨组首建 STEP（销毁源组之前的 free）
+I (105188) sloop_ui: 页面构建 page=STEP(2) 池增量=21728B 预算=23040B 池剩余=7840B 耗时=29ms
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=32
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0

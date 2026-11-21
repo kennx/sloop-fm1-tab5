@@ -10,7 +10,8 @@
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
- * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）都在
+ * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
+ * FILE 组 PROJECTS|PRESETS（page_projects.c / page_presets.c，P4-B Task 12）都在
  * 组表 k_groups[] 里声明；组顺序 = 子签顺序 = `TAB` 扁平轮转顺序。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
@@ -79,11 +80,17 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
     {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 23040},
     {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
+    /* FILE 组（P4-B Task 12）：est = 实测首次构建 delta + 5.5%/4.4%、512 对齐
+     * （PROJECTS 7,764B → 8,192；PRESETS 12,260B → 12,800；ADR-008 §3 表）。两页都
+     * 不含 lv_button 的子 label——按钮/格子用单对象（见各页头部的内存注），组预算下
+     * FILE 与 SEQ 的最坏有序对（ADR-005 §5）才留得住余量。 */
+    {APP_PAGE_PROJECTS, "PROJECTS", page_projects_build, page_projects_update, 8192},
+    {APP_PAGE_PRESETS, "PRESETS", page_presets_build, page_presets_update, 12800},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
- * 组内顺序 = 下行子签顺序。FILE 组的两页在 Task 12 注册前 group_size()==0，
- * 组签不显示、TAB 也跳过（注册表是可发现性的唯一来源）。
+ * 组内顺序 = 下行子签顺序。没有已注册成员的组 group_size()==0：组签不显示、
+ * `TAB` 也跳过（注册表是可发现性的唯一来源）。
  * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，theme.h 有断言）；
  * SYS 组待 P4-E 有设置页时再加入。 */
 typedef struct {
@@ -203,8 +210,11 @@ static uint8_t group_member_at(uint8_t g, uint8_t idx)
     return 0xFF;
 }
 
-/* 上行组签 + 下行子签的选中态与可见性（组签宽度按已注册组数排布；FILE 在 Task 12
- * 注册前不显示，TAB 也跳过它的成员）。页签对象固定创建，切换只改位置/文本/颜色。 */
+static uint8_t sub_tab_count(uint8_t g);
+
+/* 上行组签 + 下行子签的选中态与可见性（组签宽度按已注册组数排布）。页签对象固定
+ * 创建，切换只改位置/文本/颜色。子行只显示**多页组**的成员（单页组留空，ADR-005
+ * §2）——可见子签数直接取 sub_tab_count()（与命中/`UI SUB` 的单一来源）。 */
 static void refresh_tabs(void)
 {
     int8_t cur = group_of(s_page);
@@ -225,8 +235,7 @@ static void refresh_tabs(void)
 
     /* 子行只显示当前组的**多页**成员：单页组（PLAY/TRACKS）下行留空（ADR-005 §2），
      * 选中态由上行组签承担。 */
-    uint8_t n = cur >= 0 ? group_size((uint8_t)cur) : 0;
-    if (n < 2) n = 0;
+    uint8_t n = cur >= 0 ? sub_tab_count((uint8_t)cur) : 0;
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_set_hidden(s_sub_tabs[i], i >= n);
         if (i >= n) continue;
@@ -391,7 +400,7 @@ static esp_err_t show_page(uint8_t page)
 }
 
 /* 组签动作（物理点击与 console `UI TAB <group>` 共用，R32）：进入该组上次的子页
- * （未记录/已未注册则首个已注册成员）；空组返回 INVALID_ARG（FILE 在 Task 12 前）。
+ * （未记录/已未注册则首个已注册成员）；空组（没有已注册页）返回 INVALID_ARG。
  * 调用方已持 LVGL 锁。 */
 static esp_err_t group_select_locked(uint8_t g)
 {
@@ -758,6 +767,8 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_STEP: return page_step_tap(x, py, out);
     case APP_PAGE_TRACKS: return page_tracks_tap(x, py, out);
     case APP_PAGE_TRANSPORT: return page_transport_tap(x, py, out);
+    case APP_PAGE_PROJECTS: return page_projects_tap(x, py, out);
+    case APP_PAGE_PRESETS: return page_presets_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -904,7 +915,7 @@ uint8_t sloop_ui_page_order_next(uint8_t page)
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         for (uint8_t i = 0; i < k_groups[g].count; i++) {
             uint8_t pid = k_groups[g].pages[i];
-            if (page_def(pid) == NULL) continue; /* 未注册页（FILE 在 Task 12 前）不参与 */
+            if (page_def(pid) == NULL) continue; /* 未注册页不参与轮转 */
             if (first == 0xFF) first = pid;
             if (seen) return pid;
             if (pid == page) seen = true;
@@ -916,6 +927,35 @@ uint8_t sloop_ui_page_order_next(uint8_t page)
 uint8_t sloop_ui_current_page(void)
 {
     return s_started ? s_page : 0xFF;
+}
+
+/* FILE 页路由（InputManager 调用，不取 LVGL 锁）：只读单字节 s_page（与
+ * sloop_ui_current_page 同一纪律）+ 改页内局部态；控件由 30ms 定时器刷新。 */
+bool sloop_ui_file_page_active(void)
+{
+    return s_started && (s_page == APP_PAGE_PROJECTS || s_page == APP_PAGE_PRESETS);
+}
+
+void sloop_ui_file_slot_move(int8_t delta)
+{
+    if (!s_started) return;
+    if (s_page == APP_PAGE_PROJECTS) page_projects_slot_move(delta);
+    else if (s_page == APP_PAGE_PRESETS) page_presets_slot_move(delta);
+}
+
+void sloop_ui_file_load(void)
+{
+    if (!s_started) return;
+    if (s_page == APP_PAGE_PROJECTS) page_projects_load();
+    else if (s_page == APP_PAGE_PRESETS) page_presets_load();
+}
+
+const char *sloop_ui_file_status_text(void)
+{
+    if (!s_started) return NULL;
+    if (s_page == APP_PAGE_PROJECTS) return page_projects_status_text();
+    if (s_page == APP_PAGE_PRESETS) return page_presets_status_text();
+    return NULL;
 }
 
 uint8_t sloop_ui_group_count(void)

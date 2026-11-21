@@ -57,6 +57,13 @@ static bool s_valid;
 
 static void styles_init(void)
 {
+    /* 只初始化一次（R34/ADR-008 §3）：组作用域生命周期会反复销毁/重建本页，
+     * `lv_style_init` 是 memzero——重跑会丢掉静态样式已分配的 props 数组
+     * （`lv_style_set_prop` 走 lv_realloc），每次跨组往返漏约 300B LVGL 池。 */
+    static bool done;
+    if (done) return;
+    done = true;
+
     for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
         lv_style_init(&s_st_card[k]);
         lv_style_set_radius(&s_st_card[k], 20);

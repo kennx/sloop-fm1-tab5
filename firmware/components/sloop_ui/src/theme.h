@@ -10,6 +10,9 @@
  */
 #pragma once
 
+#include <stddef.h>
+#include <stdio.h>
+
 #include "lvgl.h"
 #include "sloop_state.h"
 #include "sloop_ui.h"
@@ -73,6 +76,63 @@ void page_step_update(const app_state_t *st);
 
 lv_obj_t *page_transport_build(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
+
+/* FILE 组两页（P4-B Task 12）：PROJECTS / PRESETS（组表 k_groups[] 的 FILE 成员）。
+ * build/update 契约同上；slot_move/load 是 InputManager 的 FILE 页路由（←/→ 选槽、
+ * ENTER = LOAD），在输入任务上下文调用、**不碰控件**（局部态由下一拍 update 渲染）。 */
+lv_obj_t *page_projects_build(lv_obj_t *parent);
+void page_projects_update(const app_state_t *st);
+bool page_projects_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+void page_projects_slot_move(int8_t delta);
+void page_projects_load(void);
+const char *page_projects_status_text(void); /* console TAP 回显（状态行文本，同源） */
+
+lv_obj_t *page_presets_build(lv_obj_t *parent);
+void page_presets_update(const app_state_t *st);
+bool page_presets_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+void page_presets_slot_move(int8_t delta);
+void page_presets_load(void);
+const char *page_presets_status_text(void);
+
+/* FILE 页状态行的单一映射（屏幕文本与 console `TAP … status="…"` 回显都从这里出）：
+ * act = 本页最后一次动作（0 SAVE / 1 LOAD / 2 ERASE / 其它 = 尚无动作）；
+ * status = app_state_t.store_status；ready = sloop_store_ready()——status 3 同时涵盖
+ * 「走带中」与「存储未就绪」（sloop_state.h 的契约），后者必须显示 NO STORAGE 而不是
+ * STOP BEFORE …。返回 buf（静态调用的调用方负责缓冲区生命周期）。 */
+static inline const char *ui_file_status_text(char *buf, size_t n, uint8_t act, uint8_t status,
+                                              bool ready)
+{
+    static const char *const k_actions[] = {"SAVE", "LOAD", "ERASE"};
+    if (act > 2) {
+        snprintf(buf, n, "SELECT A SLOT");
+        return buf;
+    }
+    switch (status) {
+    case APP_STORE_STATUS_OK: snprintf(buf, n, "%s OK", k_actions[act]); break;
+    case APP_STORE_STATUS_EMPTY: snprintf(buf, n, "EMPTY"); break;
+    case APP_STORE_STATUS_PLAYING:
+        if (!ready) snprintf(buf, n, "NO STORAGE");
+        else snprintf(buf, n, "STOP BEFORE %s", k_actions[act]);
+        break;
+    case APP_STORE_STATUS_ERROR: snprintf(buf, n, "%s ERROR", k_actions[act]); break;
+    case APP_STORE_STATUS_DRUM: snprintf(buf, n, "DRUM TRACK: NO SOUND"); break;
+    default: snprintf(buf, n, "SELECT A SLOT"); break;
+    }
+    return buf;
+}
+
+/* 状态行颜色（同一映射的视觉侧）：OK 绿 / DRUM 强调黄 / 走带与失败红 / 其余灰。 */
+static inline uint32_t ui_file_status_color(uint8_t act, uint8_t status, bool ready)
+{
+    if (act > 2) return UI_TEXT_DIM;
+    switch (status) {
+    case APP_STORE_STATUS_OK: return ui_track_color(1);
+    case APP_STORE_STATUS_DRUM: return UI_ACCENT;
+    case APP_STORE_STATUS_PLAYING: return UI_ERROR; /* 走带中或存储未就绪：都是红字 */
+    case APP_STORE_STATUS_ERROR: return UI_ERROR;
+    default: return UI_TEXT_DIM;
+    }
+}
 
 /* 构建期分配检查：NULL 即中止本页构建（半成品容器由 ui.c 删除回收） */
 #define UI_BUILD_CHECK(obj) do { if ((obj) == NULL) return NULL; } while (0)

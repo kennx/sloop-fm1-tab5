@@ -21,6 +21,10 @@
  * 移动焦点、↑/↓ 调焦点槽的值（经 sloop_ui_param_*，只写状态层；控件由 30ms UI
  * 定时器刷新），不再驱动 STEP 焦点列/轨焦点。
  *
+ * FILE 页路由（P4-B Task 12）：当前页是 PROJECTS/PRESETS 时 ←/→ 选槽、ENTER = LOAD
+ * （经 sloop_ui_file_*，同样只写状态层/页内局部态；SAVE/ERASE 只走触摸按钮与 console，
+ * 避免与演奏键冲突——spec §4.5）。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -99,6 +103,7 @@ static const char *TAG = "sloop_input";
 #define K_DOWN  0x4B
 #define K_RIGHT 0x4C
 #define K_SPACE 0x4D
+#define K_ENTER 0x3D /* 键名表第 3 行第 13 列（"enter"）：FILE 页 = LOAD */
 
 typedef enum {
     ACT_LAYER,       /* param=APP_LAYER_*，按住置位/松开清位 */
@@ -106,8 +111,9 @@ typedef enum {
     ACT_PLAY_TOGGLE, /* space：播放/停止 */
     ACT_PAGE_PLAY,   /* esc */
     ACT_PAGE_NEXT,   /* tab */
-    ACT_FOCUS_STEP,  /* 左右：param=±1 */
+    ACT_FOCUS_STEP,  /* 左右：param=±1（FILE 页改为选槽，见 ACT_FILE 路由） */
     ACT_FOCUS_TRACK, /* 上下：param=±1（只走三条合成轨） */
+    ACT_FILE_LOAD,   /* enter：FILE 页 = LOAD 选中槽（其它页无动作） */
     ACT_SELECT,      /* SEL 层 1–4：param=轨号 */
     ACT_MUTE,        /* GLO 层 1–4：param=轨号 */
     ACT_SOLO,        /* GLO 层 5–8：param=轨号 */
@@ -161,6 +167,7 @@ static const key_binding_t k_bindings[] = {
     {K_RIGHT, 0, ACT_FOCUS_STEP, 1},
     {K_UP, 0, ACT_FOCUS_TRACK, -1},
     {K_DOWN, 0, ACT_FOCUS_TRACK, 1},
+    {K_ENTER, 0, ACT_FILE_LOAD, 0},
 };
 
 #define BINDING_COUNT (sizeof(k_bindings) / sizeof(k_bindings[0]))
@@ -313,8 +320,9 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4：PLAY→TRACKS→GLOBAL→FX→
-         * ANALOG→FM6→SAMPLE→STEP→TRANSPORT→[FILE]→PLAY，跳过未注册页）。
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的最终 11 页顺序：
+         * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→
+         * PRESETS→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
         uint8_t next = sloop_ui_page_order_next(sloop_ui_current_page());
@@ -322,12 +330,19 @@ static void dispatch(const key_binding_t *b, bool down)
         break;
     }
     case ACT_FOCUS_STEP:
-        /* 参数页：←/→ 在 8 槽间移动焦点（不再驱动 STEP 焦点列） */
-        if (sloop_ui_param_page_active()) {
+        /* FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；参数页：←/→ 在 8 槽间移动
+         * 焦点（不再驱动 STEP 焦点列） */
+        if (sloop_ui_file_page_active()) {
+            sloop_ui_file_slot_move(b->param);
+        } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_focus_move(b->param);
         } else {
             act_focus(true, b->param);
         }
+        break;
+    case ACT_FILE_LOAD:
+        /* enter（spec §4.5：FILE 页 = LOAD）。其它页保持无动作——不抢走演奏键。 */
+        if (sloop_ui_file_page_active()) sloop_ui_file_load();
         break;
     case ACT_FOCUS_TRACK:
         /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新） */

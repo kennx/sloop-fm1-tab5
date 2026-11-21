@@ -33,9 +33,10 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | EDIT 层 | Aa + a 0x32 / b 0x46 / c 0x44 / d 0x34 / e 0x23 / f 0x35 / g 0x36 | 音名 A/B/C/D/E/F/G：按**音级**擦除聚焦步里的同名音（跨八度；命令 `CMD_ERASE_NOTE` 按精确音符，逐音符发） |
 | SEL 层 | Ctrl + 1..4（0x01..0x04） | 选轨 0..3（`CMD_SELECT_TRACK`，同时设焦点轨） |
 | GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；引擎写入口 `sloop_core_set_mute/set_solo`，`STATE SNAP`/`ENG SNAP` 同源） |
-| 走带 | space 0x4D | 播放/停止切换（`CMD_PLAY`/`CMD_STOP`）；enter 0x3D 未映射（原计划的 REC 占位在 MVP 移除） |
-| 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→[PROJECTS→PRESETS]→PLAY（ADR-005 §4，跳过未注册页） |
-| 焦点 | ← 0x4A / → 0x4C 移焦点步（0..15 环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` |
+| 走带 | space 0x4D | 播放/停止切换（`CMD_PLAY`/`CMD_STOP`） |
+| FILE 页动作 | enter 0x3D | **FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；其它页无动作（不抢演奏键）。SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
+| 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 11 页** PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS→PLAY（ADR-005 §4；FILE 两页 P4-B Task 12 已注册，跳过未注册页） |
+| 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` / `sloop_ui_file_slot_move()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
 
 八度切换（原计划的 OCT±）**未实现**：键表里 `-` 0x0B / `+` 0x0C（以及 0 0x0A 等）仍空闲，
 本可分配；真实原因是 MVP 裁定未包含八度切换，留给阶段 4 与完整层键位子集一起定
@@ -83,8 +84,8 @@ InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll(
 输入路径不取 LVGL 锁，切页走 `sloop_ui_request_page()` 邮箱，由 30ms UI 定时器执行：
 
 - **一拍一页**：tab 的目标页按「当前页在组顺序扁平轮转里的下一张」计算
-  （`sloop_ui_page_order_next()`，PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→
-  TRANSPORT→[FILE]→PLAY，跳过未注册页），邮箱只保留最后一次请求——同一 30ms
+  （`sloop_ui_page_order_next()`，最终 11 页 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→
+  SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS→PLAY，跳过未注册页），邮箱只保留最后一次请求——同一 30ms
   周期内的 N 次 tab 只前进一页（不是 N 页）。需要一次跨多页请用 console `UI`（同步切页）。
 - **esc = PLAY**：组与子页随页面复位（PLAY 组只有一页）；不改变「点组签记住组内
   上次子页」的记忆（那是组签/子签的触摸语义，不是 esc 的）。

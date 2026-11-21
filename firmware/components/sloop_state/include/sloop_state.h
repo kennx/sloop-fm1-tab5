@@ -30,9 +30,8 @@
 
 /* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）+ 5 参数页（GLOBAL/FX/ANALOG/FM6/
  * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
- * P4-B Task 10 只扩 id；页面由 P4-B Task 12 注册，此前 `UI projects` 回
- * `not_registered` 属预期）。加页时同步 app_page_t、本宏与 console 的页名表
- * （后者有静态断言兜底）。 */
+ * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）。加页时同步 app_page_t、本宏与
+ * console 的页名表（后者有静态断言兜底）。 */
 #define APP_STATE_PAGES 11u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
@@ -193,8 +192,7 @@ typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
     /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致） */
     APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
-    /* FILE 组（P4-B Task 10 只扩 id：页面注册与页签在 Task 11/12；未注册期间
-     * `UI projects` 回 not_registered，属预期） */
+    /* FILE 组（P4-B：Task 10 扩 id、Task 11 组模型、Task 12 注册页面与页签） */
     APP_PAGE_PROJECTS, APP_PAGE_PRESETS,
 } app_page_t;
 _Static_assert(APP_PAGE_PRESETS + 1 == APP_STATE_PAGES,

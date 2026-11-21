@@ -36,7 +36,10 @@
  *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
  *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
- *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
+ *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。FILE 页
+ *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
+ *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
+ *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -1137,7 +1140,7 @@ static int ui_command(int argc, char **argv)
         } else if (ret == ESP_ERR_INVALID_STATE) {
             printf("UI ERR not_started\n");
         } else {
-            /* 组存在但没有已注册页（FILE 在 Task 12 前）：组签也不显示，不可点击 */
+            /* 组存在但没有已注册页：组签也不显示，不可点击（空组） */
             printf("UI ERR group %s\n", sloop_ui_group_name(found));
         }
         return 1;
@@ -1149,8 +1152,10 @@ static int ui_command(int argc, char **argv)
         }
         char *end = NULL;
         long idx = strtol(argv[2], &end, 0);
-        if (end == argv[2] || *end != '\0' || idx < 0 || idx >= 8) {
-            printf("用法: UI SUB <index=0..7>（当前组的子签下标；当前最大组 5 张 ⇒ 0..4）\n");
+        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT 5 页）：
+         * 0..4 之外的 index 一律用法错误（与 sloop_ui_sub_select 的上界同口径）。 */
+        if (end == argv[2] || *end != '\0' || idx < 0 || idx > 4) {
+            printf("用法: UI SUB <index=0..4>（当前组的子签下标；组内最多 5 页）\n");
             return 1;
         }
         esp_err_t ret = sloop_ui_sub_select((uint8_t)idx);
@@ -1173,7 +1178,7 @@ static int ui_command(int argc, char **argv)
         return 1;
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
-           "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index> | "
+           "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
@@ -1320,6 +1325,23 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (engine page N/A)\n", x, y, page,
                (unsigned)r.a);
         break;
+    case SLOOP_TAP_FILE_SLOT:
+        /* FILE 页（PROJECTS/PRESETS）：槽位选中。状态行文本/引擎结果另由 STORE/STATE
+         * 断言（槽列表与 hash 才是存储真值）。 */
+        printf("TAP %ld,%ld page=%u -> FILE %s slot=%u select\n", x, y, page,
+               page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)r.b);
+        break;
+    case SLOOP_TAP_FILE_ACTION: {
+        /* 动作按钮：把页面状态行文本一起回显（与屏幕同源：sloop_ui_file_status_text）
+         * ——播放中拒绝（STOP BEFORE SAVE）、鼓轨（DRUM TRACK: NO SOUND）、NO STORAGE
+         * 都能被脚本按文本断言，而不是只看像素。 */
+        static const char *const acts[] = {"save", "load", "erase"};
+        const char *text = sloop_ui_file_status_text();
+        printf("TAP %ld,%ld page=%u -> FILE %s slot=%u action=%s status=\"%s\"\n", x, y, page,
+               page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)r.b,
+               (unsigned)r.v < 3 ? acts[r.v] : "?", text != NULL ? text : "?");
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;

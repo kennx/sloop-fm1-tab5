@@ -1,0 +1,7 @@
+3366:sloop>  UI projects
+3367-UI ERR not_registered 9
+---
+  [FAIL] ⓯ UI projects（FILE 组页面已注册）（响应未匹配，见日志）
+  [FAIL] ⓯ UI MEM group=TRACKS（期望 FILE）
+KeyError: 'page_count'
+EXIT=1

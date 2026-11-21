@@ -254,19 +254,26 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会漏计
   TLSF 块头，是低估，已作废；两行页签后已按本值重测回写。
 - 组 est：PLAY 3,072 / TRACKS 7,168 / EDIT `4×3,584+3,072 = 17,408` / SEQ
-  `STEP 23,040 + TRANSPORT 4,608 = 27,648` / FILE 初始 `PROJECTS 4,608 + PRESETS 5,120
-  = 9,728`（构建前实测 est 以 ADR-008 表为准）。
-- **最坏有序对 = EDIT（已全建）→ SEQ 首建 STEP**：`17,408 + 23,040 = 40,448B`；账面
-  `13,800 + 40,448 + 4,096 = 58,344 ≤ 63,120`（余 **4,776B**；base 取保守上界
-  14,112B 时为 58,656B，余 4,464B）。反方向 SEQ（全建）→
-  EDIT 首建 GLOBAL 只有 `27,648 + 3,584 = 31,232B`。（STEP 属 SEQ，所以它不可能是
-  「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ 的目标——最坏对必须按有序对枚举，
-  旧式「任意单页上限 + 任意最大组」是病态上界。）
-- **实测过渡峰值**（2026-11-22 Task 11 最终固件，`UI MEM`/构建日志）：
-  EDIT 五页全建 `pool_free 34,212B` → 跨组建 STEP（delta 21,856B、耗时 30ms）后、
-  销毁 EDIT 前 **`pool_free 12,356B`**；SEQ 两页全建 `pool_free 23,376B` → 跨组建
-  GLOBAL（delta 2,848B）后 `pool_free 20,528B`。最坏观测 **12,356B free**——是 DI-19
-  弧线 mask 峰值（≈2.6KB，取 4KB 余量）的 3 倍以上。
+  `STEP 23,040 + TRANSPORT 4,608 = 27,648` / FILE `PROJECTS 8,192 + PRESETS 12,800
+  = 20,992`（P4-B Task 12 按实测定稿：首次构建 delta 7,764B / 12,260B，est = +5.5% /
+  +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，实测对象数（26/36 个）远超，见
+  ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
+- **最坏有序对 = FILE（两页全建）→ SEQ 首建 STEP**（P4-B Task 12 起）：
+  `20,992 + 23,040 = 44,032B`；账面 `13,800 + 44,032 + 4,096 = 61,928 ≤ 63,120`
+  （余 **1,192B**；base 取保守上界 14,112B 时为 62,240B，余 880B）。
+  次坏两对都恰是 `40,448B`（账面 58,344、余 4,776B）：EDIT 全建 →
+  SEQ 首建 STEP（`17,408 + 23,040`）与 SEQ 全建 → PRESETS 首建（`27,648 + 12,800`）。
+  反方向 SEQ（全建）→ EDIT 首建 GLOBAL 只有 `27,648 + 3,584 = 31,232B`。（STEP 属
+  SEQ，所以它不可能是「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ / FILE→SEQ 的目标
+  ——最坏对必须按有序对枚举，旧式「任意单页上限 + 任意最大组」是病态上界。）
+- **实测过渡峰值**（构建日志的「池剩余」= 销毁源组之前的 free）：
+  2026-11-22 Task 11 最终固件：EDIT 五页全建 `pool_free 34,212B` → 跨组建 STEP
+  （delta 21,856B、耗时 30ms）后 **`pool_free 12,356B`**；SEQ 两页全建
+  `pool_free 23,376B` → 跨组建 GLOBAL（delta 2,848B）后 `pool_free 20,528B`。
+  Task 12（FILE 组落地）：FILE 两页全建 `pool_free 28,424–29,112B` → 跨组建 STEP
+  （delta 21,716–21,732B、31ms）后 **`pool_free 7,308–7,840B`**（四次运行）——当前最坏**实测**峰值
+  （`store` 场景 ⓯ 断言 ≥4,096B），仍是 DI-19 弧线 mask 峰值（≈2.6KB，取 4KB 余量）
+  的 2.8 倍。
 - **为什么必须按峰值核算**：切组顺序是「建目标页 → 切到目标页 → 销毁源组页面」，源组的
   池占用在**切换之后**才释放；若在切换前释放，会出现空白帧、输入路径在跨组切换期间
   没有活页。因此峰值 = 源组已建 Σ + 目标页实际构建量，是瞬态但必须被上式覆盖；切换
@@ -293,7 +300,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 
 - 组表 `k_groups[]`（ui.c）：PLAY{PLAY} / TRACKS{TRACKS} / EDIT{GLOBAL,FX,ANALOG,FM6,
   SAMPLE} / SEQ{STEP,TRANSPORT} / FILE{PROJECTS,PRESETS}。组签固定 5 槽（176×32 @ y=4），
-  无已注册页的组隐藏并压缩排布（FILE 在 Task 12 前不显示、`TAB` 跳过）；子签固定 5 槽
+  无已注册页的组隐藏并压缩排布（Task 12 起 FILE 已注册，5 个组签常显）；子签固定 5 槽
   复用（176×30 @ y=38），**单页组（PLAY/TRACKS）子行留空**；层键提示在下行右侧
   （x∈[936,1170]，LONG_DOT），SLOOP 标题在上行右侧（−24,6）。页面区仍是 y=72、1280×720。
 - `TAP` 对 y<72 一律 miss（页签切换走 LVGL 回调 / `UI` / `KEY tab`）；面板命中几何
@@ -310,8 +317,29 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 切页作废旧请求（R30）：`show_page()` 顶部 `sloop_ui_cancel_pending_page()`——同一
   30ms 拍内 `KEY tab` 排队后紧跟手指点击时，点击胜出、待切页被丢弃（定时器路径
   邮箱已消费，为 no-op；console 同步切页另有一次幂等清空）。
-- 验证：`nav.sh` ①–⑥（⑤ 组作用域：EDIT→SEQ 后 EDIT built=0、同组只改显隐、
+- 验证：`nav.sh` ①–⑦（⑤ 组作用域：EDIT→SEQ 后 EDIT built=0、同组只改显隐、
   build_ms `0 < x ≤100ms`；⑥ 手指导航：点组进上次子页且记忆跨往返、跨组点组销毁
-  源组并建目标首个子页、子签同组切换不重建、同拍 `KEY tab` + `UI TAB` 点击胜出）；
-  `params.sh` 的池口径改为组作用域（同时只常驻一个组，`GROUP EDIT sum_delta` +
-  `pool_free ≥20KB`）；DI-19 由「store→params 不重启」现场收口。
+  源组并建目标首个子页、子签同组切换不重建、同拍 `KEY tab` + `UI TAB` 点击胜出；
+  ⑦ TAB 全 11 页轮转 `…→TRANSPORT→PROJECTS→PRESETS→PLAY`，异步切页用
+  `STATE SNAP` 轮询等落地）；`params.sh` 的池口径改为组作用域（同时只常驻一个组，
+  `GROUP EDIT sum_delta` + `pool_free ≥20KB`）；DI-19 由「store→params 不重启」现场收口。
+
+#### 7.1 FILE 组两页落地（P4-B Task 12，2026-11-22）
+
+- `k_builtin_pages[]` 追加 `{APP_PAGE_PROJECTS,"PROJECTS",…,8192}` 与
+  `{APP_PAGE_PRESETS,"PRESETS",…,12800}`；FILE 组签从此显示、`TAB` 轮转含两页、
+  `UI MEM GROUP FILE` 给 built/sum_est/sum_delta/build_ms。
+- 页内只留状态行（页名由下行子签承担）、按钮/格子用**单对象可点击 label**（不带
+  `lv_button` 的子 label）：36 个对象（32 格 + 状态 + 3 按钮）压到 12.3KB。样式
+  `lv_style_t` 只初始化一次（`static bool done`）——组作用域会反复销毁/重建页面，
+  重跑 `lv_style_init` 会漏掉已分配的 props 数组。该纪律现在**全部页面**遵守
+  （评审 R34 补齐 TRACKS/STEP；10 次 PLAY↔TRACKS 往返 `pool_free` 变化 0，见 ADR-008 §3 注）。
+- `TAP` kind：`SLOOP_TAP_FILE_SLOT`（a=页 b=槽）与 `SLOOP_TAP_FILE_ACTION`
+  （a=页 b=槽 v=0 save/1 load/2 erase）；PRESETS 的版面顺序（LOAD/SAVE/ERASE）与
+  动作语义（0/1/2）由 `k_btn_act[]` 显式映射（首轮设备实测踩到：按版面当语义 ⇒
+  SAVE 按钮发出了 LOAD）。console 回显 `-> FILE <page> slot=k select|action=… status="…"`。
+- 状态行 `theme.h` 的 `ui_file_status_text` 单点映射（屏幕文本 + TAP 回显同源）；
+  键盘 ←/→ 选槽、`ENTER` = LOAD（`sloop_ui_file_{slot_move,load}`，输入路径不碰控件）。
+- 预算与峰值见 §5；实测：`store` 场景 ⓯ 的 FILE sum_delta 19,936B ≤ sum_est 20,992B，
+  两页 delta 7,572–7,764 / 12,228–12,276 ≤ 8,192/12,800，过渡峰值 free 7,308–7,840B；
+  PLAY↔TRACKS ×10 的 `pool_free` 变化 ≤84B（`styles_init` 每页只跑一次，评审 R34）。

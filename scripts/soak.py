@@ -46,7 +46,8 @@ sys.path.insert(0, str(SCRIPTS_DIR / "inject"))
 import inject  # noqa: E402
 
 PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
-         "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8}
+         "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8,
+         "projects": 9, "presets": 10}  # FILE 组两页（P4-B Task 12）
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -115,7 +116,7 @@ def switch(s, page: str) -> None:
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 9 页都访问一遍（每页的首次构建都过一次分配面），最终停在 TRANSPORT
+    """采样前把 11 页都访问一遍（每页的首次构建都过一次分配面），最终停在 TRANSPORT
     ——组作用域（ADR-005 §5）下采样时只驻留 SEQ 组的页面；`UI MEM` 的分组行给出
     该组的 built/sum_delta。"""
     for page in PAGES:

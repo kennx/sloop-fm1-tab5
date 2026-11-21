@@ -2,9 +2,9 @@
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：分组页签 + 页面注册表）
  *
  * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 5 个组签
- * PLAY|TRACKS|EDIT|SEQ|FILE（无已注册页的组不显示，FILE 待 Task 12），下行显示
- * 当前组的已注册子页；组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
- * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT[→FILE]→PLAY）。
+ * PLAY|TRACKS|EDIT|SEQ|FILE（无已注册页的组不显示），下行显示当前组的已注册子页；
+ * 组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
+ * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS→PLAY）。
  * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
  * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
  * sloop_ui_start() 内立即构建，保证开机首帧非空白。池增量与构建耗时记入
@@ -53,8 +53,8 @@ esp_err_t ui_page_register(const ui_page_t *page);
 uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
- * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→[PROJECTS→PRESETS]
- * →PLAY，**跳过未注册页**（FILE 组在 Task 12 前不参与）。page 未注册/非法时返回
+ * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS
+ * →PLAY，**跳过未注册页**。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
 
@@ -64,9 +64,10 @@ uint8_t sloop_ui_page_order_next(uint8_t page);
  * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/SEQ/FILE），
  *   名字为静态生命周期；越界 name 返回 NULL。
  * - group_select(group)：进入该组上次的子页（未记录/已未注册则首个已注册成员）；
- *   空组（FILE 在 Task 12 前）返回 ESP_ERR_INVALID_ARG。
+ *   空组（没有已注册页的组）返回 ESP_ERR_INVALID_ARG。
  * - sub_select(index)：切到**当前组**第 index 张子签（0 起）；单页组子行为空 ⇒ 任何
- *   index 都返回 ESP_ERR_INVALID_ARG（与视觉/命中一致），index ≥ UI_GROUP_MAX 同样。
+ *   index 都返回 ESP_ERR_INVALID_ARG（与视觉/命中一致），index ≥ 5（下行固定 5 个
+ *   子签槽位，组内最多 5 页）同样。
  * 两者：ESP_ERR_INVALID_STATE（UI 未启动）、ESP_ERR_TIMEOUT（LVGL 锁超时，未派发）、
  * ESP_ERR_NO_MEM（目标页构建失败，页面已切到错误状态条）。切页内部分别经 show_page，
  * 会作废同一 30ms 拍内排队的异步切页（R30）。 */
@@ -191,6 +192,10 @@ typedef enum {
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
     SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
     SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
+    SLOOP_TAP_FILE_SLOT,     /* FILE 页槽位（PROJECTS 卡 A–D / PRESETS 格）：
+                              * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
+    SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
+                              * 动作后 store_status 的变化再由状态行/console 回显体现 */
 } sloop_tap_kind_t;
 
 typedef struct {
@@ -209,6 +214,18 @@ typedef enum {
 } sloop_tap_result_status_t;
 
 sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+
+/* FILE 页上下文（InputManager 路由，P4-B Task 12）：当前页是 PROJECTS/PRESETS 时
+ * ←/→ 在槽位间移动选中槽、ENTER = LOAD（SAVE/ERASE 只走触摸按钮与 console，避免与
+ * 演奏键冲突）。
+ * 三个函数都不取 LVGL 锁（可在输入任务调用）：选中槽是 UI 局部态，页面描边由 30ms
+ * UI 定时器的 update() 落地；LOAD 走状态层 CMD_PRESET_LOAD/CMD_PROJECT_LOAD。
+ * 非 FILE 页/UI 未启动时为空操作。sloop_ui_file_status_text 返回当前 FILE 页状态行
+ * 文本（console `TAP` 回显与屏幕文本同源）；非 FILE 页返回 NULL。 */
+bool sloop_ui_file_page_active(void);
+void sloop_ui_file_slot_move(int8_t delta); /* ←/→：±1 槽位（环绕） */
+void sloop_ui_file_load(void);              /* ENTER：LOAD 选中槽 */
+const char *sloop_ui_file_status_text(void);
 
 /* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/ANALOG…）
  * 时 ←/→ 选槽、↑/↓ 调值，不再驱动 STEP 焦点/轨焦点。

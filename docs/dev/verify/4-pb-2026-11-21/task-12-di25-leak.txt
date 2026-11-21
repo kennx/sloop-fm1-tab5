@@ -1,0 +1,583 @@
+DI-25 / R34：跨组往返的 LVGL 池泄漏测量（2026-11-22 评审修复轮）
+=================================================================
+探针：PLAY↔TRACKS 往返 10 次，每次后读 `UI MEM` 的 pool_free（LVGL 池剩余）。
+命令前 `# [probe] …` 为工具注记；其余是串口原始字节（固件日志不裁剪）。
+
+机制：组作用域生命周期在离开组时销毁已建页、回来时重建；`page_tracks.c` / `page_step.c`
+的 `build()` 原先每次都调 `styles_init()` → `lv_style_init()`（memzero）丢掉静态样式
+已由 `lv_style_set_prop`（lv_realloc）分配的 props 数组 ⇒ 每次往返漏进池。
+`page_params.c` 早有 `s_btn_style_ready` 守卫，PROJECTS/PRESETS 从一开始就是
+`static bool done` 写法。
+
+修复前（受测镜像 SHA256 bd00d833…，即评审提交 a656600 烧录的固件）：
+  trip  1: pool_free=38740 (+0)
+  trip  2: 38452 (-288)
+  trip  3: 38184 (-556)
+  trip  4: 37880 (-860)
+  trip  5: 37536 (-1204)
+  trip  6: 37280 (-1460)
+  trip  7: 36964 (-1776)
+  trip  8: 36664 (-2076)
+  trip  9: 36352 (-2388)
+  trip 10: 36060 (-2680)
+  ⇒ 每往返 ≈ −268B（与评审记录的 ~300B 一致；30min soak 的 150 轮量级 → 40KB）
+
+修复后（R34 镜像 SHA256 f5b8014d…；TRACKS/STEP 的 styles_init 加 `static bool` 守卫）：
+  第 1 次 10 往返：46448 → 46364（Δ=−84，TLSF 抖动；单次最大下降 24B）
+  第 2 次 10 往返：46376 → 46344（Δ=0）
+  第 3 次 10 往返：46396 → 46356（Δ=0）
+  ⇒ 无逐次增长；`nav` ⑧ 断言 |Δ| ≤ 128B、单次下降 ≤ 128B（实跑 PASS）
+
+--- 原始 transcript（修复前，10 次往返） -------------------------------------
+# [probe] DI-25/R34 泄漏探针：PLAY↔TRACKS × 10
+
+sloop>  UI play
+UI page=play (0)
+sloop>  UI tracks
+I (757333) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6132B 预算=7168B 池剩余=32944B 耗时=9ms
+I (757343) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (757553) sloop_ui: 页面构建 page=PLAY(0) 池增量=2368B 预算=3072B 池剩余=32980B 耗时=5ms
+I (757563) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=22624 pool_free=38740 pool_total=61364 registered=11 built=1 failed=0 sum_est=76288 reserve=-14924 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2368 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2368 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 1: pool_free=38740（相对起点 +0B）
+UI tracks
+I (757943) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6108B 预算=7168B 池剩余=32632B 耗时=9ms
+I (757943) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (758153) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=32672B 耗时=5ms
+I (758153) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=22848 pool_free=38452 pool_total=61300 registered=11 built=1 failed=0 sum_est=76288 reserve=-14988 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 2: pool_free=38452（相对起点 -288B）
+UI tracks
+I (758543) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6052B 预算=7168B 池剩余=32400B 耗时=9ms
+I (758543) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (758753) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=32420B 耗时=5ms
+I (758753) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=23096 pool_free=38184 pool_total=61280 registered=11 built=1 failed=0 sum_est=76288 reserve=-15008 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 3: pool_free=38184（相对起点 -556B）
+UI tracks
+I (759143) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6116B 预算=7168B 池剩余=32068B 耗时=9ms
+I (759143) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (759353) sloop_ui: 页面构建 page=PLAY(0) 池增量=2280B 预算=3072B 池剩余=32124B 耗时=5ms
+I (759353) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=23344 pool_free=37880 pool_total=61224 registered=11 built=1 failed=0 sum_est=76288 reserve=-15064 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2280 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2280 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 4: pool_free=37880（相对起点 -860B）
+UI tracks
+I (759743) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6092B 预算=7168B 池剩余=31788B 耗时=9ms
+I (759753) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (759963) sloop_ui: 页面构建 page=PLAY(0) 池增量=2300B 预算=3072B 池剩余=31804B 耗时=6ms
+I (759963) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=23652 pool_free=37536 pool_total=61188 registered=11 built=1 failed=0 sum_est=76288 reserve=-15100 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2300 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2300 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 5: pool_free=37536（相对起点 -1204B）
+UI tracks
+I (760343) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6084B 预算=7168B 池剩余=31452B 耗时=9ms
+I (760353) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (760563) sloop_ui: 页面构建 page=PLAY(0) 池增量=2268B 预算=3072B 池剩余=31516B 耗时=5ms
+I (760573) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=23864 pool_free=37280 pool_total=61144 registered=11 built=1 failed=0 sum_est=76288 reserve=-15144 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2268 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2268 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 6: pool_free=37280（相对起点 -1460B）
+UI tracks
+I (760953) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6104B 预算=7168B 池剩余=31176B 耗时=10ms
+I (760953) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (761163) sloop_ui: 页面构建 page=PLAY(0) 池增量=2268B 预算=3072B 池剩余=31212B 耗时=5ms
+I (761163) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=24148 pool_free=36964 pool_total=61112 registered=11 built=1 failed=0 sum_est=76288 reserve=-15176 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2268 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2268 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 7: pool_free=36964（相对起点 -1776B）
+UI tracks
+I (761553) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6040B 预算=7168B 池剩余=30924B 耗时=9ms
+I (761553) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (761763) sloop_ui: 页面构建 page=PLAY(0) 池增量=2268B 预算=3072B 池剩余=30936B 耗时=6ms
+I (761773) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=24408 pool_free=36664 pool_total=61072 registered=11 built=1 failed=0 sum_est=76288 reserve=-15216 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2268 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2268 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 8: pool_free=36664（相对起点 -2076B）
+UI tracks
+I (762153) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6048B 预算=7168B 池剩余=30616B 耗时=10ms
+I (762153) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
+UI page=tracks (1)
+sloop>  UI play
+I (762373) sloop_ui: 页面构建 page=PLAY(0) 池增量=2276B 预算=3072B 池剩余=30616B 耗时=6ms
+I (762373) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=24676 pool_free=36352 pool_total=61028 registered=11 built=1 failed=0 sum_est=76288 reserve=-15260 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2276 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=13
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2276 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 9: pool_free=36352（相对起点 -2388B）
+UI tracks
+I (762753) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6048B 预算=7168B 池剩余=30304B 耗时=9ms
+I (762753) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (762973) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=30316B 耗时=5ms
+I (762983) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=24940 pool_free=36060 pool_total=61000 registered=11 built=1 failed=0 sum_est=76288 reserve=-15288 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 10: pool_free=36060（相对起点 -2680B）
+# [probe] 完成
+
+--- 原始 transcript（修复后，10 次往返） ------------------------------------
+# [probe] DI-25/R34 泄漏探针：PLAY↔TRACKS × 10
+
+sloop>  UI play
+UI page=play (0)
+sloop>  UI tracks
+I (6703) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6052B 预算=7168B 池剩余=40780B 耗时=8ms
+I (6703) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=10ms
+UI page=tracks (1)
+sloop>  UI play
+I (6913) sloop_ui: 页面构建 page=PLAY(0) 池增量=2496B 预算=3072B 池剩余=40736B 耗时=5ms
+I (6913) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16236 pool_free=46448 pool_total=62684 registered=11 built=1 failed=0 sum_est=76288 reserve=-13604 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2496 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=10
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2496 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 1: pool_free=46448（相对起点 +0B）
+UI tracks
+I (7303) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5760B 预算=7168B 池剩余=40688B 耗时=9ms
+I (7313) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (7523) sloop_ui: 页面构建 page=PLAY(0) 池增量=2408B 预算=3072B 池剩余=40752B 耗时=4ms
+I (7523) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=6ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16212 pool_free=46448 pool_total=62660 registered=11 built=1 failed=0 sum_est=76288 reserve=-13628 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2408 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2408 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 2: pool_free=46448（相对起点 +0B）
+UI tracks
+I (7913) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5780B 预算=7168B 池剩余=40668B 耗时=9ms
+I (7913) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (8123) sloop_ui: 页面构建 page=PLAY(0) 池增量=2388B 预算=3072B 池剩余=40660B 耗时=5ms
+I (8123) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16228 pool_free=46424 pool_total=62652 registered=11 built=1 failed=0 sum_est=76288 reserve=-13636 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2388 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2388 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 3: pool_free=46424（相对起点 -24B）
+UI tracks
+I (8513) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5788B 预算=7168B 池剩余=40636B 耗时=9ms
+I (8513) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (8723) sloop_ui: 页面构建 page=PLAY(0) 池增量=2376B 预算=3072B 池剩余=40656B 耗时=4ms
+I (8723) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16228 pool_free=46400 pool_total=62628 registered=11 built=1 failed=0 sum_est=76288 reserve=-13660 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2376 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2376 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 4: pool_free=46400（相对起点 -48B）
+UI tracks
+I (9113) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5796B 预算=7168B 池剩余=40604B 耗时=9ms
+I (9113) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (9323) sloop_ui: 页面构建 page=PLAY(0) 池增量=2356B 预算=3072B 池剩余=40616B 耗时=4ms
+I (9333) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16216 pool_free=46404 pool_total=62620 registered=11 built=1 failed=0 sum_est=76288 reserve=-13668 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2356 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2356 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 5: pool_free=46404（相对起点 -44B）
+UI tracks
+I (9713) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5768B 预算=7168B 池剩余=40636B 耗时=8ms
+I (9723) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (9923) sloop_ui: 页面构建 page=PLAY(0) 池增量=2352B 预算=3072B 池剩余=40648B 耗时=5ms
+I (9923) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16216 pool_free=46392 pool_total=62608 registered=11 built=1 failed=0 sum_est=76288 reserve=-13680 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2352 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2352 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 6: pool_free=46392（相对起点 -56B）
+UI tracks
+I (10313) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5708B 预算=7168B 池剩余=40684B 耗时=8ms
+I (10323) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (10533) sloop_ui: 页面构建 page=PLAY(0) 池增量=2388B 预算=3072B 池剩余=40680B 耗时=6ms
+I (10533) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16256 pool_free=46368 pool_total=62624 registered=11 built=1 failed=0 sum_est=76288 reserve=-13664 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2388 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2388 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 7: pool_free=46368（相对起点 -80B）
+UI tracks
+I (10923) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5760B 预算=7168B 池剩余=40608B 耗时=9ms
+I (10923) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (11133) sloop_ui: 页面构建 page=PLAY(0) 池增量=2404B 预算=3072B 池剩余=40624B 耗时=4ms
+I (11133) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16264 pool_free=46348 pool_total=62612 registered=11 built=1 failed=0 sum_est=76288 reserve=-13676 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2404 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2404 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 8: pool_free=46348（相对起点 -100B）
+UI tracks
+I (11523) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5776B 预算=7168B 池剩余=40572B 耗时=9ms
+I (11523) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  UI play
+I (11733) sloop_ui: 页面构建 page=PLAY(0) 池增量=2392B 预算=3072B 池剩余=40604B 耗时=5ms
+I (11733) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16264 pool_free=46336 pool_total=62600 registered=11 built=1 failed=0 sum_est=76288 reserve=-13688 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2392 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2392 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 9: pool_free=46336（相对起点 -112B）
+UI tracks
+I (12123) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5764B 预算=7168B 池剩余=40572B 耗时=8ms
+I (12123) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  UI play
+I (12343) sloop_ui: 页面构建 page=PLAY(0) 池增量=2380B 预算=3072B 池剩余=40620B 耗时=5ms
+I (12343) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16240 pool_free=46364 pool_total=62604 registered=11 built=1 failed=0 sum_est=76288 reserve=-13684 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2380 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2380 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [probe] trip 10: pool_free=46364（相对起点 -84B）
+# [probe] 完成

@@ -398,6 +398,9 @@ C_TAB_FX = sub_tab_probe(1)
 C_TAB_ANALOG = sub_tab_probe(2)
 C_TAB_FM6 = sub_tab_probe(3)
 C_TAB_SAMPLE = sub_tab_probe(4)
+C_TAB_FILE = group_tab_probe(4)
+C_TAB_PROJECTS = sub_tab_probe(0)
+C_TAB_PRESETS = sub_tab_probe(1)
 C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
 
 
@@ -506,7 +509,11 @@ def ensure_stopped(s: Session) -> None:
 
 
 def run_transport(s: Session) -> None:
-    """① TRANSPORT：播放 + BPM 步进 → 截屏；再切 STEP 截播放头；最后复位为停止。"""
+    """① TRANSPORT：播放 + BPM 步进 → 截屏；再切 STEP 截播放头；最后复位为停止。
+
+    前置：`normalize_pattern()`（LEN=16/DIV=2）——播放头「各轨同列」的判据依赖它，
+    设备上的 autosave 可能带着别的工程的 LEN/DIV（DI-23 同类场景假设）。"""
+    normalize_pattern(s)
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "UI transport")
     s.cmd("STATE SNAP")
@@ -556,7 +563,21 @@ def run_transport(s: Session) -> None:
     s.expect(r"UI page=step \(2\)", "UI step")
     time.sleep(0.4)  # ≥10 个 30ms tick，播放头与步位置同步稳定
 
+    def ensure_playing(label):
+        """起播前提自愈：幽灵按键（DI-10 同类）或前序中断可能把走带停掉；
+        重新 KEY space 起播并记注记（不是放宽断言——播放头判据仍以引擎 pos 为锚）。"""
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"playing=(\d)") == 1:
+            return
+        s.ser.note(f"{label}：引擎不在播放（幽灵按键/前序中断？）→ KEY space 重新起播")
+        s.cmd("KEY 0x4D down")
+        s.cmd("KEY 0x4D up")
+        s.cmd("STATE SNAP")
+        s.expect_int(r"playing=(\d)", 1, f"{label}：重新起播")
+        time.sleep(0.4)
+
     def shot_with_pos(label):
+        ensure_playing(label)
         s.cmd("ENG SNAP")
         pre = s.snap_int(r"pos=(\d+)")
         img = s.capture(label)
@@ -573,8 +594,12 @@ def run_transport(s: Session) -> None:
     for r in range(4):
         want_a = {(pre_a + k) % wlen for k in (0, 1, 2)}
         want_b = {(pre_b + k) % wlen for k in (0, 1, 2)}
-        ok_a = len(cls_a[r]) == 1 and cls_a[r][0] in want_a
-        ok_b = len(cls_b[r]) == 1 and cls_b[r][0] in want_b
+        if r in PLAYHEAD_AMBIGUOUS_ROWS:
+            ok_a = any(c in want_a for c in cls_a[r])
+            ok_b = any(c in want_b for c in cls_b[r])
+        else:
+            ok_a = len(cls_a[r]) == 1 and cls_a[r][0] in want_a
+            ok_b = len(cls_b[r]) == 1 and cls_b[r][0] in want_b
         s.ok(f"行 {r}: 帧 A 列 {cls_a[r]}（pos={pre_a}）/ 帧 B 列 {cls_b[r]}（pos={pre_b}）")
         if not ok_a or not ok_b:
             s.fail(f"行 {r} 播放头列与引擎 step_pos 不符（帧 A 允许 {sorted(want_a)}，"
@@ -596,6 +621,7 @@ def run_step_edit(s: Session) -> None:
     """② STEP：窗口列编辑闭环 + 分窗（bank1 绝对步号/隐藏列/播放头映射）+ 截屏。
     可重复运行：目标格已亮先经同一 TAP 路径点灭；结束复位默认窗口与停止态。"""
     ensure_stopped(s)
+    normalize_pattern(s)  # LEN=16：bank1 的 DIM 判据（绝对步 ≥ LEN 才暗显）
     ensure_window(s, 0, 16)  # 归一到默认窗口：注入几何由此派生（列 c = 绝对步 c）
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
@@ -604,7 +630,7 @@ def run_step_edit(s: Session) -> None:
     lit = []
     for track, step, _ in cells:
         s.cmd(f"ENG STEP {track} {step}")
-        lit.append(s.snap_int(r"\bn=(\d+)") != 0)
+        lit.append(step_is_on(s))
     if any(lit):
         s.ser.note("基线：有格已亮，先点灭使脚本可重复")
         for (track, step, xy), on in zip(cells, lit):
@@ -615,6 +641,15 @@ def run_step_edit(s: Session) -> None:
                      f"TAP 点灭 track={track} step={step}")
             s.cmd(f"ENG STEP {track} {step}")
             s.expect_int(r"\bn=(\d+)", 0, f"ENG STEP {track} {step} n")
+
+    # 空位探针（轨 0 步 3）的前提：它可能带着载入工程/旧格式 fixture 的音符（状态假设，
+    # 同 DI-23）⇒ 先用同一 TAP 路径清掉。必须在下面两格 TAP **之前**（TAP 会设焦点，
+    # 之后的两格 TAP 才把焦点落到轨道 1 / 列 5 的断言值上）。
+    s.cmd("ENG STEP 0 3")
+    if step_is_on(s):
+        s.ser.note("基线：轨 0 步 3 有音（工程带进来），先点灭再作「空位」探针")
+        s.cmd("TAP %d %d" % step_cell_xy(3, 0))
+        s.expect(r"-> STEP track=0 step=3 CMD_TOGGLE_STEP", "TAP 点灭轨 0 步 3（空位探针前提）")
 
     for track, step, xy in cells:
         s.cmd("TAP %d %d" % xy)
@@ -646,7 +681,7 @@ def run_step_edit(s: Session) -> None:
     time.sleep(0.15)  # ≥5 个 30ms UI tick：列号/窗口投影刷新
     bank1_xy = step_cell_xy(0, 0)
     s.cmd("ENG STEP 0 16")
-    if s.snap_int(r"\bn=(\d+)") != 0:
+    if step_is_on(s):
         s.ser.note("基线：轨 0 绝对步 16 已亮，先点灭")
         s.cmd("TAP %d %d" % bank1_xy)
         s.expect(r"-> STEP track=0 step=16 CMD_TOGGLE_STEP", "TAP 点灭 bank1 列 0")
@@ -659,6 +694,12 @@ def run_step_edit(s: Session) -> None:
     s.expect_int(r"focus_track=(\d+)", 0, "STATE SNAP focus_track（bank1）")
     s.expect_int(r"focus_step=(\d+)", 0, "STATE SNAP focus_step（窗口列）")
     s.expect_int(r"window_start=(\d+)", 16, "STATE SNAP window_start（bank1）")
+    # 「列 1 空位」探针的前提：步 17 可能带着工程/fixture 的音符 ⇒ 先清掉
+    s.cmd("ENG STEP 0 17")
+    if step_is_on(s):
+        s.ser.note("基线：轨 0 绝对步 17 有音（工程带进来），先点灭再作「空位」探针")
+        s.cmd("TAP %d %d" % step_cell_xy(1, 0))
+        s.expect(r"-> STEP track=0 step=17 CMD_TOGGLE_STEP", "TAP 点灭轨 0 步 17（空位探针前提）")
     time.sleep(0.15)
     img = s.capture("step-bank1")
     # bank1 的绝对步 16..31 ≥ 默认 LEN(16)：格按 DIM 口径显示（暗色亮格），
@@ -675,7 +716,7 @@ def run_step_edit(s: Session) -> None:
     s.expect(rf"TAP miss {hidden_xy[0]},{hidden_xy[1]} page=2", "TAP 隐藏列 8 miss")
     vis_xy = step_cell_xy(7, 1)
     s.cmd("ENG STEP 1 7")
-    if s.snap_int(r"\bn=(\d+)") == 0:
+    if not step_is_on(s):
         s.cmd("TAP %d %d" % vis_xy)
         s.expect(r"-> STEP track=1 step=7 CMD_TOGGLE_STEP", "TAP 可见列 7（绝对步 7）")
         s.cmd("ENG STEP 1 7")
@@ -710,14 +751,17 @@ def run_step_edit(s: Session) -> None:
     img = s.capture("step-bank0-playhead")
     cols_a = playhead_columns(img)
     for r in range(4):
-        (s.ok if len(cols_a[r]) == 1 else s.fail)(
-            f"bank0 行 {r} 播放头列 {cols_a[r]}" if len(cols_a[r]) == 1
+        good = (len(cols_a[r]) >= 1 if r in PLAYHEAD_AMBIGUOUS_ROWS else len(cols_a[r]) == 1)
+        (s.ok if good else s.fail)(
+            f"bank0 行 {r} 播放头列 {cols_a[r]}" if good
             else f"bank0 行 {r} 播放头应唯一（实得 {cols_a[r]}）")
     ensure_window(s, 16, 16)
     time.sleep(0.4)
     img = s.capture("step-bank1-no-playhead")
     cols_b = playhead_columns(img)
-    stray = {r: cols for r, cols in cols_b.items() if cols}
+    # 行 2 的轨色 = UI_ACCENT：亮格与播放头同色，像素上无法区分 ⇒ 该行不参与
+    # 「窗口外无残留描边」判据（PLAYHEAD_AMBIGUOUS_ROWS）。
+    stray = {r: cols for r, cols in cols_b.items() if cols and r not in PLAYHEAD_AMBIGUOUS_ROWS}
     (s.fail if stray else s.ok)(
         f"bank1 窗口外播放头不显示（无强调色描边）" if not stray
         else f"bank1 窗口外仍有播放头描边：{stray}")
@@ -780,6 +824,14 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
+# TAB 扁平整轮顺序（ADR-005 §4 的最终 11 页；FILE 组两页在 Task 12 注册）——
+# group 顺序 + 组内顺序，与 ui.c 的 k_groups[] 同源。
+NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog"), (7, "fm6"),
+             (8, "sample"), (2, "step"), (3, "transport"), (9, "projects"), (10, "presets"))
+# 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
+# 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
+NAV_LEAK_TRIPS = 10
+NAV_LEAK_NOISE = 128
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
 # 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
 NAV_STATUS_BOX = (1040, 82, 1258, 112)
@@ -791,6 +843,11 @@ def count_region(img, box: tuple, rgb: tuple, tol: int) -> int:
     return sum(c for c, px in colors
                if max(abs(px[0] - rgb[0]), abs(px[1] - rgb[1]), abs(px[2] - rgb[2])) <= tol)
 
+
+# 行 2（track 2 / SAMPLE）的轨色 = UI_ACCENT（黄）⇒ 亮格的填充与播放头描边同色，
+# 像素上无法区分「亮格」与「播放头」；该行的播放头判据只要求期望列**在**检测到的列里，
+# 不要求唯一（bank1 窗口外的「无残留描边」判据同样排除该行）。
+PLAYHEAD_AMBIGUOUS_ROWS = {2}
 
 NAV_STATE_FIELDS = ("page", "focus_track", "focus_step", "layer_held", "selected_track",
                     "last_note", "bpm", "playing", "window_bank", "window_start", "window_len")
@@ -883,6 +940,31 @@ def nav_last_page(s: Session) -> int:
     return int(found[-1])
 
 
+def nav_pool_free(s: Session) -> int:
+    """`UI MEM` 首行的 pool_free（LVGL 池剩余，字节）。"""
+    mem = param_mem(s)
+    return mem["head"]["free"]
+
+
+def nav_wait_page(s: Session, name: str, pid: int, label: str, timeout: float = 2.0) -> None:
+    """轮询 `STATE SNAP page=` 等到异步 tab 切页落地，再用 `UI` 回显复核。
+
+    不能用 `UI` 轮询：同步切页会**作废**待执行的异步请求（R30），把要等的切页取消掉。
+    STATE SNAP 只读状态层投影，不碰邮箱。拍迟滞实测可达 ~270ms，故超时取 2s。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        s.cmd("STATE SNAP")
+        m = re.search(r"STATE SNAP page=(\d+)", s.last)
+        if m and int(m.group(1)) == pid:
+            s.cmd("UI")
+            s.expect(rf"UI page={name} \({pid}\)", label)
+            return
+        if time.monotonic() > deadline:
+            raise InjectError(f"{label}: 等待 {timeout:.1f}s 仍不在 {name} ({pid})："
+                              f"{s.last.strip()!r}")
+        time.sleep(0.05)
+
+
 def run_nav(s: Session) -> None:
     """nav 场景：导航行为（阶段 4 路由重构最易静默破坏）+ 组作用域生命周期。
 
@@ -893,12 +975,16 @@ def run_nav(s: Session) -> None:
        1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
        一页」），再 1s 无第二次前进；`TAB` 顺序 = 组顺序扁平轮转
-       PLAY→TRACKS→GLOBAL→…（FILE 未注册前不参与）；
+       PLAY→TRACKS→GLOBAL→…（FILE 组两页在 Task 12 注册后参与，见 ⑦）；
     ⑤ 组作用域生命周期：EDIT→SEQ 后 EDIT 组 built=0（含原当前页），同组切换
        只改显隐（STEP 不重建），build_ms 0 < x ≤100ms（ADR-005 §3/§5）；
     ⑥ 手指导航（`UI TAB`/`UI SUB` 与物理组签/子签同一动作函数，R32）：点组进上次
        子页且记忆跨往返、跨组点组销毁源组并建目标首个子页、子签同组切换不重建；
-       同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）。
+       同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
+    ⑦ `TAB` 全 11 页轮转（最终顺序 …TRANSPORT→PROJECTS→PRESETS→PLAY），异步切页
+       用 STATE SNAP 轮询等落地、回卷到 PLAY；
+    ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
+       且无逐次递增（每页 `styles_init` 只跑一次）。
     """
     ensure_stopped(s)
     ensure_window(s, 0, 16)
@@ -1138,7 +1224,8 @@ def run_nav(s: Session) -> None:
     s.cmd("UI SUB 1")
     s.expect(r"UI SUB 1 page=fx \(5\)", "⑥ UI SUB 1 切 FX")
     s.cmd("UI SUB 5")
-    s.expect(r"UI ERR sub 5", "⑥ UI SUB 5 越界 → UI ERR sub")
+    s.expect(r"用法: UI SUB <index=0\.\.4>",
+             "⑥ UI SUB 5 超出下行槽位（0..4）→ 用法错误（不是组内越界的 UI ERR sub）")
     s.cmd("UI")
     s.expect(r"UI page=fx \(5\)", "⑥ 越界注入不改页（仍 FX）")
     s.cmd("UI tab play")
@@ -1147,8 +1234,37 @@ def run_nav(s: Session) -> None:
     s.expect(r"UI ERR sub 0", "⑥ 单页组子行为空：UI SUB 0 → UI ERR sub")
     s.cmd("UI")
     s.expect(r"UI page=play \(0\)", "⑥ 单页组 SUB 注入不改页")
+    # FILE 组（P4-B Task 12 注册两页）：点组进上次子页、组内子签切换、离开组销毁两页。
+    # 先把「上次子页」归一成 PROJECTS（先直达再离开），⑥ 在重复运行/⑦ 之后也确定。
+    s.cmd("UI projects")
+    s.expect(r"UI page=projects \(9\)", "⑥ UI projects（FILE 组页面已注册）")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 离开 FILE 组（源组销毁）")
+    mem_file = param_mem(s)
+    (s.ok if mem_file["groups"]["FILE"]["built"] == 0
+     and mem_file["pages"].get(9, ("?",))[0] == "unbuilt"
+     and mem_file["pages"].get(10, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⑥ 离开 FILE 后 built={mem_file['groups']['FILE']['built']} "
+        f"PROJECTS={mem_file['pages'].get(9, ('?',))[0]} "
+        f"PRESETS={mem_file['pages'].get(10, ('?',))[0]}（期望 0 / unbuilt / unbuilt）")
     s.cmd("UI TAB FILE")
-    s.expect(r"UI ERR group FILE", "⑥ 未注册页的组（FILE）→ UI ERR group")
+    s.expect(r"UI TAB FILE page=projects \(9\)", "⑥ UI TAB FILE → 上次子页 PROJECTS")
+    mem_file = param_mem(s)
+    (s.ok if mem_file["groups"]["FILE"]["built"] == 1 else s.fail)(
+        f"⑥ 点组只建目标页：FILE built={mem_file['groups']['FILE']['built']}（期望 1）")
+    (s.ok if mem_file["groups"]["FILE"]["sum_est"] > 0 else s.fail)(
+        f"⑥ FILE sum_est={mem_file['groups']['FILE']['sum_est']}（两页 est 之和 > 0）")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=presets \(10\)", "⑥ UI SUB 1 切 PRESETS（同组不重建 PROJECTS）")
+    mem_file = param_mem(s)
+    (s.ok if mem_file["groups"]["FILE"]["built"] == 2
+     and mem_file["pages"].get(9, ("?",))[0] == "built" else s.fail)(
+        f"⑥ FILE built={mem_file['groups']['FILE']['built']} "
+        f"PROJECTS={mem_file['pages'].get(9, ('?',))[0]}（期望 2 / built）")
+    s.cmd("UI SUB 2")
+    s.expect(r"UI ERR sub 2", "⑥ FILE 组只有 2 张子签：UI SUB 2 越界")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（FILE 两页销毁）")
     s.cmd("UI TAB nope")
     s.expect(r"UI ERR group nope", "⑥ 未知组名 → UI ERR group")
     # ⑥d R30：同一 30ms 拍内 KEY tab 排队 + UI TAB 点击 ⇒ 点击胜出、待切页丢弃。
@@ -1181,6 +1297,47 @@ def run_nav(s: Session) -> None:
         s.expect(r"UI page=play \(0\)", "⑥d 再 6 拍仍 PLAY（无 GLOBAL 回跳）")
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
+
+    # ---------- ⑦ TAB 全 11 页轮转（最终顺序，ADR-005 §4；FILE 组 Task 12 注册） ----------
+    # 一拍一页从 PLAY 走完 11 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
+    # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
+    s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→"
+               "TRANSPORT→PROJECTS→PRESETS→PLAY")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
+    for pid, name in NAV_ORDER[1:] + NAV_ORDER[:1]:
+        s.cmd("KEY 0x20 down")
+        s.cmd("KEY 0x20 up")
+        nav_wait_page(s, name, pid, f"⑦ TAB → {name} ({pid})")
+    img = s.capture("nav-07-tab-cycle")
+    s.probe(img, "⑦ 回卷到 PLAY（组签选中）", *C_TAB_PLAY, C_YELLOW)
+
+    # ---------- ⑧ 跨组往返不泄漏（R34 / ADR-008 §3）：PLAY↔TRACKS ×10 ----------
+    # 组作用域生命周期会反复销毁/重建页面；`styles_init()` 若每次重跑 `lv_style_init`
+    # 会丢掉静态样式已分配的 props 数组（实测修复前每往返 ~300B）。本用例在修复后要求
+    # 首末 `pool_free` 差 ≤ 噪声、且逐次往返无单调下降。
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑧ 起点 PLAY")
+    free0 = nav_pool_free(s)
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI tracks")
+        s.expect(r"UI page=tracks \(1\)", f"⑧ 往返 {trip}/{NAV_LEAK_TRIPS}：UI tracks")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", f"⑧ 往返 {trip}/{NAV_LEAK_TRIPS}：UI play")
+        per_trip.append(nav_pool_free(s))
+    free1 = per_trip[-1]
+    drop = free0 - free1
+    s.ser.note(f"⑧ pool_free：起点 {free0} → 逐次 {per_trip}（{NAV_LEAK_TRIPS} 次往返）")
+    (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑧ {NAV_LEAK_TRIPS} 次 PLAY↔TRACKS 往返后 pool_free 变化 {free0} → {free1}"
+        f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B：styles_init 只跑一次）")
+    # 「无逐次增长」：任一单次往返的池下降都不超过噪声（否则是逐次泄漏而非一次性漂移）
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
+        f"⑧ 单次往返的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
 
     # 复位：PLAY 页（脚本可重复运行）
     s.cmd("UI play")
@@ -1279,6 +1436,40 @@ def knob_locked(s: Session, slot: int, op: str, dx: int, dy: int) -> None:
              f"UI KNOB slot={slot} {op} ({dx},{dy}) 引擎页锁定")
 
 
+# 上游 core.h 的 per-track 参数 id（与 console 的 CONSOLE_P_SLEN=29 同源）：
+# P_SLEN = 图案长度（引擎快照 trk.len，STEP 的 DIM 判据）、P_SDIV = 时钟分频
+# （trk.div，各轨播放头是否同步）。
+P_SLEN_ID, P_SDIV_ID = 29, 30
+PATTERN_LEN_DEF, PATTERN_DIV_DEF = 16, 2
+
+
+def step_is_on(s: Session) -> bool:
+    """当前 `ENG STEP` 回显的步是否「开」——与状态层 state_step_is_on 同口径
+    （n>0 且 time==NOTE(0)）。TIE 步（n>0、time=1）也算空：CMD_TOGGLE_STEP 对它是
+    「空 → 开」，脚本的基线判定不能只看 n（否则会把 TIE 步点成 NOTE、再被下一次
+    TAP 关掉——设备实测踩到：store 场景载入的旧格式 fixture 在步 16 留了 TIE）。"""
+    n = s.snap_int(r"\bn=(\d+)")
+    t = s.snap_int(r"\btime=(\d+)")
+    return n != 0 and t == 0
+
+
+def normalize_pattern(s: Session, label: str = "归一图案参数") -> None:
+    """把三条合成轨的 LEN/DIV 归一到默认（16 / 2）。
+
+    为什么需要：transport 的「各行播放头与引擎 step_pos 同列」与 step_edit 的
+    「绝对步 ≥ LEN 暗显」都以这两个值为前提，而设备开机恢复的 autosave 可能带着别的
+    工程/旧格式 fixture 的 LEN=64/DIV=8（div 不同 ⇒ 各轨播放头不同步；LEN=64 ⇒ bank1
+    的格不暗显）——这是 DI-23 同类的**场景假设**问题，不是固件行为差异。脚本须幂等
+    （AGENTS §5.4.1），故在依赖它们的场景开头显式归一。选中轨临时改动由调用方
+    后续用例自行归一（transport/step_edit 都会显式选轨或只读快照）。"""
+    for k in range(3):
+        select_track(s, k)
+        for pid, want in ((P_SLEN_ID, PATTERN_LEN_DEF), (P_SDIV_ID, PATTERN_DIV_DEF)):
+            s.cmd(f"PARAM {pid} {want}")
+            s.expect(rf"PARAM track={k} id={pid} value={want} applied={want} ",
+                     f"{label}：轨 {k} id={pid}={want}")
+
+
 def select_track(s: Session, track: int) -> None:
     """TRACKS 页点卡 k（卡中心 x = 24 + k*312 + 148，y = 347）并断言选中轨。"""
     s.cmd("UI tracks")
@@ -1333,8 +1524,9 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 9 else s.fail)(
-        f"UI MEM registered=9（4 基础 + 5 参数页）实得 {mem0['head']['registered']}")
+    (s.ok if mem0["head"]["registered"] == 11 else s.fail)(
+        f"UI MEM registered=11（4 基础 + 5 参数页 + 2 FILE 页）实得 "
+        f"{mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
     s.cmd("UI global")
@@ -2303,10 +2495,19 @@ def run_store(s: Session) -> None:
     ⑬ 设备侧 torn-write 套件（run_store_torn，最后跑）：显式 HAL 故障探针（`FAULT 1`
        + `PROJ ERASE 3` ⇒ `STORE ERR save`、`STORE STATS faults=1 armed=0`）→
        `STORE TEST` 六场景 PASS 6/6（两次）→ 播放中拒绝 → 停止后仍 PASS。
-    ⑭ 旧格式兼容门禁（run_store_fields，最后跑）：FUN5/FUN4/FUN1 fixture 经
+    ⑭ 旧格式兼容门禁（run_store_fields）：FUN5/FUN4/FUN1 fixture 经
        `STORE RAW BEGIN/<hex>/END` 写诊断槽 3 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3`
        与 `gen_project_fixtures.py` 的 62 项期望逐项比对；截断 fixture ⇒ LOAD 回
        `STORE ERR invalid` 且 `LIVEHASH` 不变；槽 0–2 不动、收口 ERASE 3。
+    ⓯ FILE 组两页（run_store_file，最后跑；Task 12）：`UI projects` 的空态（初始**无选中
+       槽**，提示 SELECT A SLOT）/used 截屏 → TAP SAVE/LOAD/ERASE（`STORE PROJ LIST`/
+       `HASH`/`LIVEHASH` 证明与 console 命令同一动作函数）→ 键盘从「无选中」`→`×4 +
+       `ENTER` 落在 D（槽 3，判别力：若选中槽没动，ENTER 不动作）→ 播放中 TAP LOAD/SAVE
+       都回 `STOP BEFORE <ACT>` 且 LIST 逐槽不变（project LOAD 会整份替换引擎，上游也要求
+       先停走带）；`UI presets` 32 槽 + TAP SAVE/LOAD（换引擎后回到预置引擎）/ERASE +
+       鼓轨 `DRUM TRACK: NO SOUND` + 播放中 **LOAD 允许**而 SAVE 拒绝（`up_load_to` 只
+       读不写 flash）+ `UI MEM` 的 FILE 组水位；跨组 `UI step` 量过渡峰值（≥4KB）；离开组
+       两页回 `unbuilt`；收口全空 + 轨 0 回 ANALOG。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
        引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
@@ -2440,6 +2641,7 @@ def run_store(s: Session) -> None:
     run_store_bank(s)
     run_store_torn(s)
     run_store_fields(s)
+    run_store_file(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -3344,6 +3546,392 @@ def run_store_fields(s: Session) -> None:
         f"⑭d 槽 0–2 未被触碰（{untouched} vs { {i: after.get(i) for i in range(3)} }）")
     (s.ok if after.get(3) == "EMPTY" else s.fail)(
         f"⑭d 槽 3 收口 EMPTY（{after.get(3)}）")
+
+
+# ---- FILE 组（PROJECTS / PRESETS 页，P4-B Task 12）----
+# 几何与 page_projects.c / page_presets.c 的布局宏同源（屏幕绝对坐标 = 页内 + 72）：
+# PROJECTS 卡 296×400 @ (24 + k·312, 100)，卡内按钮 100×40 @ x=98、y=170/234/298；
+# PRESETS 格 144×72 @ (30 + c·152, 88 + r·80)，底部按钮 100×40 @ y=460、x=24/140/256。
+PROJ_CARD_X0, PROJ_CARD_Y, PROJ_CARD_W, PROJ_CARD_H, PROJ_CARD_PITCH = 24, 100, 296, 400, 312
+PROJ_BTN_X, PROJ_BTN_Y0, PROJ_BTN_W, PROJ_BTN_H, PROJ_BTN_PITCH = 98, 170, 100, 40, 64
+PRE_CELL_X0, PRE_CELL_Y0, PRE_CELL_W, PRE_CELL_H = 30, 88, 144, 72
+PRE_CELL_PITCH_X, PRE_CELL_PITCH_Y = 152, 80
+PRE_BTN_X0, PRE_BTN_Y, PRE_BTN_W, PRE_BTN_H, PRE_BTN_PITCH = 24, 460, 100, 40, 116
+FILE_ACT_NAMES = ("save", "load", "erase")
+# 状态行（两页共用：页内 (24,20) 28pt，宽 1200）；OK=轨绿、STOP/ERROR/NO STORAGE=
+# UI_ERROR、DRUM=UI_ACCENT、EMPTY/初始=UI_TEXT_DIM（theme.h 的 ui_file_status_text）。
+FILE_STATUS_BOX = (24, 72 + 18, 720, 72 + 62)
+
+
+def proj_card_xy(k: int) -> tuple:
+    """PROJECTS 卡 k 的字母区中心（屏幕绝对坐标；x 在卡内按钮列 x=98 左侧）。"""
+    return (PROJ_CARD_X0 + k * PROJ_CARD_PITCH + 56, 72 + PROJ_CARD_Y + 70)
+
+
+def proj_btn_xy(k: int, act: int) -> tuple:
+    """PROJECTS 卡 k 的第 act 个按钮中心（0=SAVE 1=LOAD 2=ERASE）。"""
+    return (PROJ_CARD_X0 + k * PROJ_CARD_PITCH + PROJ_BTN_X + PROJ_BTN_W // 2,
+            72 + PROJ_CARD_Y + PROJ_BTN_Y0 + act * PROJ_BTN_PITCH + PROJ_BTN_H // 2)
+
+
+def pre_cell_xy(slot: int) -> tuple:
+    """PRESETS 槽 slot（0..31，行优先 4×8）中心。"""
+    r, c = divmod(slot, 8)
+    return (PRE_CELL_X0 + c * PRE_CELL_PITCH_X + PRE_CELL_W // 2,
+            72 + PRE_CELL_Y0 + r * PRE_CELL_PITCH_Y + PRE_CELL_H // 2)
+
+
+def pre_btn_xy(layout: int) -> tuple:
+    """PRESETS 底部按钮的**点击**中心（版面 0=LOAD 1=SAVE 2=ERASE）。
+
+    版面顺序 ≠ 动作语义（page_presets.c 的 k_btn_act：LOAD=1/SAVE=0/ERASE=2，
+    TAP 回显的 action= 是语义名）——几何只按版面 x 计算。"""
+    return (PRE_BTN_X0 + layout * PRE_BTN_PITCH + PRE_BTN_W // 2,
+            72 + PRE_BTN_Y + PRE_BTN_H // 2)
+
+
+def proj_btn_probe(k: int, act: int) -> tuple:
+    """PROJECTS 按钮的**像素探针**点：按钮内左侧 12px（避开居中文本的字形）。"""
+    return (PROJ_CARD_X0 + k * PROJ_CARD_PITCH + PROJ_BTN_X + 12,
+            72 + PROJ_CARD_Y + PROJ_BTN_Y0 + act * PROJ_BTN_PITCH + PROJ_BTN_H // 2)
+
+
+def pre_btn_probe(layout: int) -> tuple:
+    """PRESETS 按钮的像素探针点（按钮内左侧 12px，避开居中文本的字形）。"""
+    return (PRE_BTN_X0 + layout * PRE_BTN_PITCH + 12, 72 + PRE_BTN_Y + PRE_BTN_H // 2)
+
+
+def file_action(s: Session, page: str, xy: tuple, slot: int, act: int, want: str,
+                label: str) -> None:
+    """TAP 一个 FILE 页动作按钮，断言回显里的槽号/动作/**状态行文案**。
+
+    状态行文案是 TAP 回显的一部分（console 从 `sloop_ui_file_status_text()` 取，
+    与屏幕上的文本同源），所以「播放中 → STOP BEFORE SAVE」是机器可判的。"""
+    s.cmd("TAP %d %d" % xy)
+    s.expect(rf'-> FILE {page} slot={slot} action={FILE_ACT_NAMES[act]} '
+             rf'status="{re.escape(want)}"', label)
+
+
+def file_keys(s: Session, code: int, times: int = 1, label: str = "") -> None:
+    """FILE 页键盘：←/→（0x4A/0x4C）改选中槽、ENTER（0x3D）= LOAD。按下沿触发。"""
+    for _ in range(times):
+        s.cmd(f"KEY {code} down")
+        s.cmd(f"KEY {code} up")
+    if label:
+        s.ok(label)
+
+
+def key_space(s: Session) -> None:
+    """space（0x4D）= 播放/停止切换（InputManager 的 ACT_PLAY_TOGGLE）。"""
+    s.cmd("KEY 0x4D down")
+    s.cmd("KEY 0x4D up")
+
+
+def run_store_file(s: Session) -> None:
+    """⓯ FILE 组两页（Task 12）：TAP 动作与 console 命令走**同一动作函数**的机器证明。
+
+    判据链（不是「页面画出来了」）：
+      - PROJECTS：TAP 卡 k 的 SAVE ⇒ `STORE PROJ LIST` 槽 k USED 且 `HASH k` == SAVE 前的
+        `LIVEHASH`；改 BPM 后 TAP LOAD ⇒ `LIVEHASH` 回到保存值、`STATE SNAP bpm` 回到
+        保存时的值；TAP ERASE ⇒ 槽 EMPTY 且 LIVEHASH 不变（擦除不动引擎）；
+      - 键盘：TAP 卡 0 把选中槽归零 → `→`×3 + `ENTER` ⇒ LOAD 落在**槽 3**（选中槽已移动，
+        否则 LOAD 0 空槽不会改引擎）；
+      - 播放中 TAP SAVE ⇒ 状态行 `STOP BEFORE SAVE` 且 `STORE PROJ LIST` 逐字节不变；
+      - PRESETS：TAP 槽 3 + SAVE ⇒ `PRESET 3 USED ANALOG ANALOG 04`；换引擎后 TAP LOAD ⇒
+        `ENG SNAP` 的 engine/preset 回到预置里的值；键盘 `→`×3 + ENTER 同样生效；
+        鼓轨 SAVE ⇒ 状态行 `DRUM TRACK: NO SOUND`；播放中 SAVE ⇒ `STOP BEFORE SAVE`；
+      - `UI MEM`：FILE 组 built/sum_delta/sum_est 与两页 `delta ≤ est`；
+      - 离开 FILE 组后两页回 `unbuilt`（组作用域生命周期，ADR-005 §3）。
+    """
+    s.ser.note("⓯ FILE 组：PROJECTS（卡/SAVE/LOAD/ERASE/键盘 ←→ ENTER/播放拒绝）"
+               "+ PRESETS（32 槽/换引擎 LOAD/鼓轨/播放拒绝）+ 组作用域")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓯ STORE AUTO OFF（本段不写 autosave）")
+    ensure_stopped(s)
+    select_track(s, 0)
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⓯ 归一轨 0 = ANALOG 预置 0")
+    for i in range(4):
+        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"⓯ 归一 ERASE PROJ {i}")
+    for i in (0, 1, 3):
+        store_cmd(s, f"STORE PRESET ERASE {i}", rf"^PRESET {i} ERASED\r?$",
+                  f"⓯ 归一 ERASE PRESET {i}")
+
+    # ---------- PROJECTS 页：注册 / 池水位 / 空态截屏 ----------
+    s.cmd("UI projects")
+    s.expect(r"UI page=projects \(9\)", "⓯ UI projects（FILE 组页面已注册）")
+    mem = param_mem(s)
+    (s.ok if mem["head"]["group"] == "FILE" else s.fail)(
+        f"⓯ UI MEM group={mem['head']['group']}（期望 FILE）")
+    gr = mem["groups"]["FILE"]
+    (s.ok if gr["built"] == 1 and gr["sum_est"] > 0 else s.fail)(
+        f"⓯ FILE built={gr['built']} sum_est={gr['sum_est']}（期望 1 / 两页 est 之和 > 0）")
+    pg = mem["pages"].get(9, ("?", 0, 0))
+    (s.ok if pg[0] == "built" and 0 < pg[2] <= pg[1] else s.fail)(
+        f"⓯ PROJECTS state={pg[0]} delta={pg[2]} ≤ est={pg[1]}")
+    (s.ok if 0 < gr["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⓯ FILE build_ms={gr['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+
+    img = s.capture("task-12-projects-empty")
+    # 初始**无选中槽**：提示 "SELECT A SLOT" 时没有任何卡被描边成已选（minor 6）
+    s.probe(img, "⓯ 卡 0 未选中底（初始无选中槽）", PROJ_CARD_X0 + 40, 72 + PROJ_CARD_Y + 200,
+            C_PANEL, 8)
+    s.probe(img, "⓯ 卡 1 未选中底", PROJ_CARD_X0 + PROJ_CARD_PITCH + 40,
+            72 + PROJ_CARD_Y + 200, C_PANEL, 8)
+    s.probe(img, "⓯ 卡 0 未选中描边（3px）", PROJ_CARD_X0 + 100, 72 + PROJ_CARD_Y - 3,
+            C_PANEL_HI, 10)
+    s.probe(img, "⓯ SAVE 按钮底（卡 0）", *proj_btn_probe(0, 0), C_GREEN)
+    s.probe(img, "⓯ LOAD 按钮底（卡 0）", *proj_btn_probe(0, 1), C_YELLOW)
+    s.probe(img, "⓯ ERASE 按钮底（卡 0）", *proj_btn_probe(0, 2), C_ORANGE)
+    s.probe_region(img, "⓯ 状态行初始文本（SELECT A SLOT 灰字）", FILE_STATUS_BOX, C_TEXT_DIM,
+                   24, 20)
+    s.probe(img, "⓯ 组签选中（FILE）", *C_TAB_FILE, C_YELLOW)
+    s.probe(img, "⓯ 子签选中（PROJECTS）", *C_TAB_PROJECTS, C_YELLOW)
+    s.probe(img, "⓯ 子签未选中（PRESETS）", *C_TAB_PRESETS, C_PANEL_HI, 10)
+
+    # 点卡设选中槽（TAP 与物理点击同一动作函数；回显 kind/slot）
+    s.cmd("TAP %d %d" % proj_card_xy(1))
+    s.expect(r"-> FILE projects slot=1 select", "⓯ TAP 卡 1 设选中槽")
+
+    # ---------- TAP SAVE：槽 2 USED 且 hash == 捕获 ----------
+    b0 = store_bpm(s)
+    live = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⓯ SAVE 前的 LIVEHASH")
+    (s.ok if live != 0 else s.fail)(f"⓯ LIVEHASH={live:08X} 非零（捕获有效）")
+    file_action(s, "projects", proj_btn_xy(2, 0), 2, 0, "SAVE OK", "⓯ TAP SAVE（卡 2）→ SAVE OK")
+    store_cmd(s, "STORE PROJ LIST", r"^PROJ 0 EMPTY\r?$", "⓯ TAP SAVE 只写槽 2（槽 0 EMPTY）")
+    saved = store_expect(s, rf"^PROJ 2 USED hash={STORE_HASH8}\r?$", "⓯ TAP SAVE 后 LIST 槽 2 USED")
+    (s.ok if int(saved.group(1), 16) == live else s.fail)(
+        f"⓯ 槽 2 的 hash {int(saved.group(1), 16):08X} == SAVE 前 LIVEHASH {live:08X}")
+    (s.ok if store_hash(s, "STORE PROJ HASH 2", r"^PROJ 2 HASH=" + STORE_HASH8,
+                        "⓯ HASH 2（RAM 槽）") == live else s.fail)("⓯ HASH 2 == LIVEHASH")
+
+    img = s.capture("task-12-projects-used")
+    s.probe(img, "⓯ 卡 2 选中底（SAVE 后）", PROJ_CARD_X0 + 2 * PROJ_CARD_PITCH + 40,
+            72 + PROJ_CARD_Y + 200, C_PANEL_SEL, 8)
+    s.probe(img, "⓯ 卡 0 未选中底（SAVE 后）", PROJ_CARD_X0 + 40, 72 + PROJ_CARD_Y + 200,
+            C_PANEL, 8)
+    s.probe(img, "⓯ 卡 2 选中描边（SAVE 后）", PROJ_CARD_X0 + 2 * PROJ_CARD_PITCH + 100,
+            72 + PROJ_CARD_Y - 3, C_YELLOW)
+    s.probe_region(img, "⓯ 状态行文本（SAVE OK 绿字）", FILE_STATUS_BOX, C_GREEN, 24, 20)
+    s.probe_region(img, f"⓯ 卡 2 详情区文本（USED + hash 前 4 位）",
+                   (PROJ_CARD_X0 + 2 * PROJ_CARD_PITCH + 8, 72 + PROJ_CARD_Y + 76,
+                    PROJ_CARD_X0 + 2 * PROJ_CARD_PITCH + 170, 72 + PROJ_CARD_Y + 130),
+                   C_TEXT, 24, 40)
+
+    # ---------- TAP LOAD：改值后回到保存时的引擎状态 ----------
+    other = 120 if b0 != 120 else 100
+    store_cmd(s, f"PARAM GLOBAL 0 {other}", rf"^PARAM GLOBAL id=0 value={other} applied={other} ",
+              f"⓯ 改 BPM={other}（LOAD 的判别力）")
+    (s.ok if store_bpm(s) == other else s.fail)(f"⓯ STATE SNAP bpm={other}")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⓯ 改值后 LIVEHASH") != live else s.fail)(
+        "⓯ 改值后 LIVEHASH ≠ 保存值（LOAD 有判别力）")
+    file_action(s, "projects", proj_btn_xy(2, 1), 2, 1, "LOAD OK", "⓯ TAP LOAD（卡 2）→ LOAD OK")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⓯ LOAD 后 LIVEHASH") == live else s.fail)(
+        f"⓯ TAP LOAD 后 LIVEHASH == 保存值 {live:08X}")
+    (s.ok if store_bpm_settled(s, b0) else s.fail)(
+        f"⓯ STATE SNAP bpm={b0}（LOAD 恢复保存时的值）")
+
+    # ---------- TAP ERASE：槽空、引擎不变 ----------
+    file_action(s, "projects", proj_btn_xy(2, 2), 2, 2, "ERASE OK", "⓯ TAP ERASE（卡 2）→ ERASE OK")
+    store_cmd(s, "STORE PROJ LIST", r"^PROJ 2 EMPTY\r?$", "⓯ TAP ERASE 后槽 2 EMPTY")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⓯ ERASE 后 LIVEHASH") == live else s.fail)(
+        "⓯ ERASE 不动引擎（LIVEHASH 不变）")
+
+    # ---------- 键盘：←/→ 选槽 + ENTER = LOAD（从「无选中」开始） ----------
+    # 槽 3 存一份（TAP 卡 3 的 SAVE）→ 离开并重进 FILE（组作用域重建把选中态复位）→
+    # 改 BPM → `→`×4（无选中 → A→B→C→D）+ ENTER。若 → 没移动选中槽，ENTER 不动作
+    # ⇒ LIVEHASH 停在改后的值（判别力来自「选中槽必须移动」）。
+    file_action(s, "projects", proj_btn_xy(3, 0), 3, 0, "SAVE OK", "⓯ TAP SAVE（卡 3）→ SAVE OK")
+    live3 = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⓯ 槽 3 的 LIVEHASH")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⓯ 离开 FILE（重建后选中态复位）")
+    s.cmd("UI projects")
+    s.expect(r"UI page=projects \(9\)", "⓯ 重进 PROJECTS（无选中槽）")
+    store_cmd(s, f"PARAM GLOBAL 0 {other}", rf"^PARAM GLOBAL id=0 value={other} applied={other} ",
+              f"⓯ 改 BPM={other}（键盘 LOAD 的判别力）")
+    file_keys(s, 0x4C, 4, "⓯ 键盘 → ×4（无选中 → A→B→C→D）")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⓯ 键盘 ENTER 后 LIVEHASH") == live3 else s.fail)(
+        f"⓯ 键盘 ENTER = LOAD：LIVEHASH 回到槽 3 的 {live3:08X}（选中槽已随 → 移动）")
+    (s.ok if store_bpm_settled(s, b0) else s.fail)(f"⓯ 键盘 LOAD 后 bpm={b0}")
+
+    # ---------- 播放中：SAVE 与 LOAD 都被拒（STOP BEFORE …），存储逐字节不变 ----------
+    # project LOAD 会整份替换引擎状态并停走带——storage 层用 store_playing() 拒绝
+    # （与 SAVE/ERASE 同序）；PRESETS 的 LOAD 是例外（下一段覆盖）。
+    ensure_stopped(s)
+    key_space(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⓯ KEY space → playing=1")
+    store_cmd(s, f"PARAM GLOBAL 0 {other}", rf"^PARAM GLOBAL id=0 value={other} applied={other} ",
+              f"⓯ 播放中改 BPM={other}（拒绝的判别力：LOAD 若被放行 bpm 会变回）")
+    live_play = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                           "⓯ 播放中的 LIVEHASH（= 改值后）")
+    (s.ok if live_play != live3 else s.fail)(
+        "⓯ 播放中改值后 LIVEHASH ≠ 槽 3（被拒的 LOAD 有判别力）")
+    before_list = store_proj_slots(s)
+    file_action(s, "projects", proj_btn_xy(3, 1), 3, 1, "STOP BEFORE LOAD",
+                "⓯ 播放中 TAP LOAD → STOP BEFORE LOAD")
+    (s.ok if store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                        "⓯ 被拒的 LOAD 后 LIVEHASH") == live_play else s.fail)(
+        "⓯ 被拒的 LOAD 不动引擎（LIVEHASH 不变）")
+    file_action(s, "projects", proj_btn_xy(3, 0), 3, 0, "STOP BEFORE SAVE",
+                "⓯ 播放中 TAP SAVE → STOP BEFORE SAVE")
+    after_list = store_proj_slots(s)
+    (s.ok if after_list == before_list else s.fail)(
+        f"⓯ 播放中被拒后 PROJ LIST 逐槽不变（{before_list} vs {after_list}）")
+    (s.ok if after_list.get(3, "").startswith("USED") else s.fail)(
+        "⓯ 播放中被拒的 SAVE 没有改写槽 3（仍 USED）")
+    img = s.capture("task-12-save-playing")
+    s.probe_region(img, "⓯ 状态行 STOP BEFORE SAVE（UI_ERROR 红字）", FILE_STATUS_BOX,
+                   C_ERROR, 24, 20)
+    key_space(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⓯ 再按 space → playing=0（收口）")
+    file_action(s, "projects", proj_btn_xy(3, 2), 3, 2, "ERASE OK", "⓯ 收口 TAP ERASE（卡 3）")
+
+    # ---------- PRESETS 页：32 槽网格 / SAVE / LOAD / ERASE ----------
+    s.cmd("UI presets")
+    s.expect(r"UI page=presets \(10\)", "⓯ UI presets（同组切页）")
+    mem = param_mem(s)
+    gr = mem["groups"]["FILE"]
+    (s.ok if gr["built"] == 2 and mem["pages"].get(9, ("?",))[0] == "built" else s.fail)(
+        f"⓯ 同组切页不重建兄弟页：FILE built={gr['built']} PROJECTS="
+        f"{mem['pages'].get(9, ('?',))[0]}（期望 2 / built）")
+    pg9, pg10 = mem["pages"].get(9, ("?", 0, 0)), mem["pages"].get(10, ("?", 0, 0))
+    (s.ok if pg10[0] == "built" and 0 < pg10[2] <= pg10[1] and pg9[2] <= pg9[1] else s.fail)(
+        f"⓯ 两页 delta ≤ est：PROJECTS {pg9[2]}/{pg9[1]}、PRESETS {pg10[2]}/{pg10[1]}")
+    (s.ok if gr["sum_delta"] <= gr["sum_est"] else s.fail)(
+        f"⓯ FILE sum_delta={gr['sum_delta']} ≤ sum_est={gr['sum_est']}")
+
+    # 点槽 3（选中描边）+ TAP SAVE → PRESET 3 USED ANALOG ANALOG 04
+    s.cmd("TAP %d %d" % pre_cell_xy(3))
+    s.expect(r"-> FILE presets slot=3 select", "⓯ TAP PRESETS 槽 3 设选中槽")
+    file_action(s, "presets", pre_btn_xy(1), 3, 0, "SAVE OK", "⓯ TAP SAVE（PRESETS）→ SAVE OK")
+    used, seen, count = preset_list(s)
+    (s.ok if used.get(3) == ("ANALOG", "ANALOG 04") else s.fail)(
+        f"⓯ TAP SAVE 后 LIST PRESET 3 USED ANALOG ANALOG 04（实得 {used.get(3)}）")
+    (s.ok if count == (1, STORE_PRESET_SLOTS) else s.fail)(
+        f"⓯ PRESET COUNT used=1（实得 {count}）")
+
+    img = s.capture("task-12-presets")
+    s.probe(img, "⓯ 槽 3 选中底", *pre_cell_xy(3), C_PANEL_SEL, 8)
+    s.probe(img, "⓯ 槽 0 未选中底", *pre_cell_xy(0), C_PANEL, 8)
+    s.probe(img, "⓯ LOAD 按钮底", *pre_btn_probe(0), C_YELLOW)
+    s.probe(img, "⓯ SAVE 按钮底", *pre_btn_probe(1), C_GREEN)
+    s.probe(img, "⓯ ERASE 按钮底", *pre_btn_probe(2), C_ORANGE)
+    s.probe(img, "⓯ 子签选中（PRESETS）", *C_TAB_PRESETS, C_YELLOW)
+    s.probe_region(img, "⓯ 槽 3 文本（U04 + 引擎名）", 
+                   (pre_cell_xy(3)[0] - 60, pre_cell_xy(3)[1] - 26,
+                    pre_cell_xy(3)[0] + 60, pre_cell_xy(3)[1] + 26), C_TEXT, 24, 40)
+    s.probe_region(img, "⓯ 状态行文本（SAVE OK 绿字）", FILE_STATUS_BOX, C_GREEN, 24, 20)
+
+    # 换引擎 → TAP LOAD 恢复预置里的引擎/预置（LOAD 落选中轨 = 轨 0）
+    s.cmd("ENG TRACK 0 1 0")
+    s.expect(r"ENG TRACK k=0 engine=1 preset=0 OK", "⓯ 换引擎 DIGITAL（LOAD 的判别力）")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=1 ", "⓯ ENG SNAP 轨 0 engine=1")
+    file_action(s, "presets", pre_btn_xy(0), 3, 1, "LOAD OK", "⓯ TAP LOAD（PRESETS）→ LOAD OK")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 ", "⓯ TAP LOAD 后轨 0 回到 ANALOG（预置里的引擎）")
+
+    # 键盘：选中槽归零 → → ×3 + ENTER 也载入槽 3（先再换一次引擎作判别）
+    s.cmd("TAP %d %d" % pre_cell_xy(0))
+    s.expect(r"-> FILE presets slot=0 select", "⓯ TAP 槽 0 归零")
+    s.cmd("ENG TRACK 0 3 0")
+    s.expect(r"ENG TRACK k=0 engine=3 preset=0 OK", "⓯ 换引擎 LOFI（键盘 LOAD 的判别力）")
+    file_keys(s, 0x4C, 3, "⓯ PRESETS 键盘 → ×3（槽 0→3）")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 ",
+             "⓯ PRESETS 键盘 ENTER = LOAD（轨 0 回到 ANALOG）")
+
+    # ERASE：槽空
+    file_action(s, "presets", pre_btn_xy(2), 3, 2, "ERASE OK", "⓯ TAP ERASE（PRESETS）→ ERASE OK")
+    used, _, count = preset_list(s)
+    (s.ok if 3 not in used and count == (0, STORE_PRESET_SLOTS) else s.fail)(
+        f"⓯ TAP ERASE 后 PRESET 3 EMPTY / COUNT used=0（实得 {used.get(3)} / {count}）")
+
+    # 鼓轨：SAVE/LOAD 都被拒（status=DRUM），存储不变。选中轨 = 3 用 SEL 层 Ctrl+4
+    # （与物理键盘同入口，不离开 FILE 页）。层键按下/松开成对。
+    s.cmd("KEY 0x40 down")
+    s.cmd("KEY 0x04 down")
+    s.cmd("KEY 0x04 up")
+    s.cmd("KEY 0x40 up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 3, "⓯ SEL 层 Ctrl+4 → 选中鼓轨")
+    before_list = preset_list(s)[0]
+    file_action(s, "presets", pre_btn_xy(1), 3, 0, "DRUM TRACK: NO SOUND",
+                "⓯ 鼓轨 TAP SAVE → DRUM TRACK: NO SOUND")
+    file_action(s, "presets", pre_btn_xy(0), 3, 1, "DRUM TRACK: NO SOUND",
+                "⓯ 鼓轨 TAP LOAD → DRUM TRACK: NO SOUND")
+    (s.ok if preset_list(s)[0] == before_list else s.fail)(
+        "⓯ 鼓轨拒绝后 PRESET LIST 不变（没有写入）")
+    s.cmd("KEY 0x40 down")
+    s.cmd("KEY 0x01 down")
+    s.cmd("KEY 0x01 up")
+    s.cmd("KEY 0x40 up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 0, "⓯ SEL 层 Ctrl+1 → 选中轨 0")
+
+    # 播放中：PRESETS 的 LOAD **允许**（up_load_to 只读 flash、panic 该轨），SAVE 拒绝。
+    # 先存回槽 3（上一段 ERASE 过），再在播放中换引擎 → LOAD 应生效。
+    ensure_stopped(s)
+    file_action(s, "presets", pre_btn_xy(1), 3, 0, "SAVE OK", "⓯ 播放前 SAVE PRESET 3（下面播放中 LOAD 用）")
+    before_list = preset_list(s)[0]
+    key_space(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⓯ PRESETS：KEY space → playing=1")
+    s.cmd("ENG TRACK 0 1 0")
+    s.expect(r"ENG TRACK k=0 engine=1 preset=0 OK", "⓯ 播放中换引擎 DIGITAL")
+    file_action(s, "presets", pre_btn_xy(0), 3, 1, "LOAD OK",
+                "⓯ 播放中 TAP LOAD（PRESETS）→ LOAD OK（不写 flash，上游 MIDI PC 语义）")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 ", "⓯ 播放中 LOAD 生效：轨 0 回到 ANALOG")
+    file_action(s, "presets", pre_btn_xy(1), 3, 0, "STOP BEFORE SAVE",
+                "⓯ 播放中 TAP SAVE（PRESETS）→ STOP BEFORE SAVE")
+    (s.ok if preset_list(s)[0] == before_list else s.fail)(
+        "⓯ 播放中被拒后 PRESET LIST 不变")
+    key_space(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⓯ PRESETS：再按 space → playing=0（收口）")
+
+    # ---------- 过渡峰值（ADR-005 §5）与组作用域 ----------
+    # FILE 两页全建 → 跨组首建 STEP：构建日志里「池剩余」是销毁 FILE 之前的 free
+    # （峰值），必须 ≥ 4KB 的弧线 mask 余量（ADR-005 §5 的不变量口径）。
+    s.ser.note("⓯ 过渡峰值：FILE 两页全建 → 跨组首建 STEP（销毁源组之前的 free）")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⓯ 跨组 FILE→SEQ 首建 STEP")
+    m = re.search(r"页面构建 page=STEP\(2\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        raise InjectError(f"⓯ 缺少 STEP 构建日志行（无法量过渡峰值）：{s.last[-400:]!r}")
+    peak_delta, step_est, peak_free = (int(g) for g in m.groups())
+    (s.ok if peak_free >= 4096 else s.fail)(
+        f"⓯ 过渡峰值 free={peak_free}B ≥4096B（STEP 首建增量 {peak_delta}B / est {step_est}B；"
+        f"销毁 FILE 之前）")
+    mem = param_mem(s)
+    gr = mem["groups"]["FILE"]
+    (s.ok if gr["built"] == 0 and gr["sum_delta"] == 0 else s.fail)(
+        f"⓯ 离开 FILE 后 built={gr['built']} sum_delta={gr['sum_delta']}（期望 0 / 0）")
+    (s.ok if mem["pages"].get(9, ("?",))[0] == "unbuilt"
+     and mem["pages"].get(10, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⓯ 离开 FILE 后 PROJECTS={mem['pages'].get(9, ('?',))[0]} "
+        f"PRESETS={mem['pages'].get(10, ('?',))[0]}（期望 unbuilt / unbuilt）")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⓯ 复位 PLAY")
+
+    # 收口：四槽 + 预置槽全空、轨 0 回 ANALOG（脚本可重复、下一段/下一轮起点确定）
+    for i in range(4):
+        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"⓯ 收口 ERASE PROJ {i}")
+    for i in (0, 1, 3):
+        store_cmd(s, f"STORE PRESET ERASE {i}", rf"^PRESET {i} ERASED\r?$",
+                  f"⓯ 收口 ERASE PRESET {i}")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⓯ 收口轨 0 = ANALOG 预置 0")
 
 
 SCENARIOS = {
