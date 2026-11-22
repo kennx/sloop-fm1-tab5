@@ -283,7 +283,7 @@ Run: `scripts/state-test.sh && scripts/build.sh && scripts/build.sh`；Expected 
 
 - [ ] **Step 3: 实现 console 命令**
 
-`console.c` 注册 `SMP INFO|BEGIN|DATA|HDR|END|ERASE`，解析与回显按 spec §4.5；错误令牌 `SMP ERR <no_storage|playing|frozen|size|header|crc|zones|flash|state>`。`DSYN INFO|GET|SET|KIT|STORE|AUDITION` 与 `FM6P INFO|GET|SET|ALG` 走状态层命令或只读快照；`STATE SNAP` 追加 `dsyn kit= lane= dirty=` 与 `fm6p slot= engine_ok=`。`UI DSYN KIT|LANE`、`UI FM6P OP|PAGE` 进 UI 局部态（Task 8/9 接线；本任务先定义令牌并回显）。
+`console.c` 注册 `SMP INFO|BEGIN|DATA|HDR|END|ERASE`，解析与回显按 spec §4.5；错误令牌 `SMP ERR <no_storage|playing|frozen|size|header|crc|zones|flash|state>`。`DSYN INFO|GET|SET|KIT|STORE|AUDITION` 与 `FM6P INFO|GET|SET|ALG` 走状态层命令或只读快照；`STATE SNAP` 追加 `dsyn kit= lane= dirty=` 与 `fm6p slot= engine_ok=`。`UI DSYN …`/`UI FM6P …` 的选择器令牌**不在本任务**注册（依赖 Task 9/10 的页面静态量），本任务只保证上述命令可编译运行。
 
 - [ ] **Step 4: 运行离线与构建**
 
@@ -334,20 +334,19 @@ Commit `feat(components/sloop_ui): 新增 SYNTH 组与 SAMPLE 槽管理行`。
 - Create/Modify: `firmware/components/sloop_ui/src/page_dsyn.h`（如需）
 - Modify: `firmware/components/sloop_ui/src/ui.c`（注册实体页）
 - Modify: `firmware/components/sloop_ui/src/theme.h`（DSYN tap kinds/状态文本）
-- Modify: `firmware/components/sloop_ui/src/knob_math.c` / `knob-test`
 - Modify: `firmware/main/console.c`（`UI DSYN` 选择器、`TAP` 回显、`STATE SNAP`）
 
 **Interfaces:**
 - Consumes: `app_state_t.dsyn`、`CMD_DSYN_*`、`state_set_dsyn_select`、`sloop_core_dsyn_desc/text`。
 - Produces: `page_dsyn_build/update`；`SLOOP_TAP_DSYN_SEL`；`UI DSYN KIT/LANE/PAGE`。
 
-- [ ] **Step 1: 写 knob 格式化测试（先红）**
+- [ ] **Step 1: 写失败测试（先红）**
 
-`knob-test.sh` 加 DSYN 文本断言：`DECAY` 索引 0/64/127 的 ms 单调且与 `DECAY_K` 公式一致；`FCUT=127` 输出 `CUTOFF_HZ[127]`；`LEVEL=128` → `0.0dB`、`255` → `+31.75dB`；`FLT_MODE` 7 个名字完整。运行确认失败。
+在 `synth-host-test.c`（不是 knob-test）加 DSYN 文本断言：`sloop_core_dsyn_text(DECAY,0/64/127)` 的 ms 单调且与 `DECAY_K` 公式一致；`FCUT=127` 输出 `CUTOFF_HZ[127]`；`LEVEL=128` → `0.0dB`、`255` → `+31.75dB`；`FLT_MODE` 7 个名字完整。运行 `scripts/synth-test.sh` 确认失败。
 
 - [ ] **Step 2: 实现格式化并通过**
 
-`knob_math.c` 增加 `dsyn_value_text(field,v,...)`；`knob-test.sh` 通过。
+在 `sound_tab5.c` 完成 `sloop_core_dsyn_text`（Task 2 已给骨架，本任务补齐所有索引字段）；`scripts/synth-test.sh` 通过。UI 只调用该函数，不把上游表引入 `sloop_ui`。
 
 - [ ] **Step 3: 建页面（8 旋钮 + 选择器）**
 
