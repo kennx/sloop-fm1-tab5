@@ -318,12 +318,20 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 
 ### 9. 失败可见性与诊断面
 
-- `sloop_store_stats_t { ready, objects_ok, faults_armed, faults_taken, autosave_* }` +
-  `STORE STATS`（`ready/base/span/map/objects/faults/autosave_*`）是现场核查入口。该结构体
-  在 spec §4.2 的定义上增加 `autosave_writes/autosave_hash/autosave_on`（P4-B Task 6；
-  spec §4.2 已同步）。
+- `sloop_store_stats_t { ready, objects_ok, faults_armed, faults_taken, autosave_*,
+  last_save_xrun, last_save_ms }` + `STORE STATS`（`ready/base/span/map/objects/faults/
+  autosave_* last_xrun last_save_ms`）是现场核查入口。该结构体在 spec §4.2 的定义上增加
+  `autosave_writes/autosave_hash/autosave_on`（P4-B Task 6）与写代价两项
+  `last_save_xrun/last_save_ms`（Task 14 终审；每次 save/erase/preset/bank/RAW/autosave 写
+  动作的 xrun 增量与耗时，spec §5 的 ≤150ms 口径）。
 - 未就绪（分区缺失/mmap 失败/PSRAM 分配失败）时：只读 API 返回空/空槽，写 API 返回
   `ESP_ERR_INVALID_STATE`；UI 状态行 `NO STORAGE`；console `STORE ERR no_storage`。
+- **诊断冻结**（`ENG FREEZE` / `ENG SELFTEST` 期间）：所有写/载入入口在改状态前返回
+  `ESP_ERR_INVALID_STATE`；此时存储本身 ready，console 映射为 `STORE ERR playing`
+  （`store_err()` 只在 !ready 时才报 `no_storage`）。
+- **空槽擦除**：`PROJ ERASE` 对 RAM 槽无效的槽**不写 flash**、回 `ESP_ERR_NOT_FOUND`
+  （console `STORE ERR empty`）——上游 `project_erase` 的 `EMPTY SECTION` 早退；UI 状态行
+  显示 `EMPTY`。
 - `STORE RAWTEST`：在空闲逻辑扇区 **`0xFB000`**（`sloopstore` 内偏移 `0x64000`）执行
   erase → 写 0x5A 模式 → 校验 → 再 erase。该参数是**逻辑 flash-map 偏移**（与 `STORE`
   其它偏移、`ST_XIP_PTR` 同口径，HAL 内部按 `off − 0x97000` 映射到分区），**不是芯片
@@ -344,7 +352,8 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   顺序打印 fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步，
   供 `scripts/gen_project_fixtures.py` 的 `expected.json` 逐项比对（FUN5/FUN4/FUN1 的设备侧
   兼容门禁）。空槽/空提交 = `empty`，对象存在但任何已知格式都不匹配（截断/损坏）= `invalid`
-  ——`project_load` 用同一口径（导入失败时引擎从未被 `proj_apply`）。
+  ——`project_load` 用同一口径（导入失败时引擎从未被 `proj_apply`）。**CRC 损坏的对象与
+  空槽同口径回 `empty`**（`st_load` 读不出「头合法 + CRC 对」的副本），不从坏字节里猜字段。
 - **测试专用诊断**：`STORE PROJ SYNTH <fmt1|foreign>`（`sloop_store_project_synth`）
   以当前引擎状态捕获内存工程、改写出 `project_load` 的两条 fallback 边界（格式 1 的
   `preset == 0xFF`、引擎号 ≥ NENGINES）、存到**诊断槽 3**（破坏性；槽 0–2 不碰）、清

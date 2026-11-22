@@ -60,9 +60,11 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   （`static done` 标志 + 按 id 去重）；无已注册页的组不显示。输入层的 `TAB` 轮转
   用 `sloop_ui_page_order_next()`（组顺序的**扁平**轮转：组内子页→下一组第一页），
   不按 `sloop_ui_page_count()`，也不按 `APP_STATE_PAGES`。
-- 现有四页在 `sloop_ui_start()` 内注册（`k_builtin_pages`）；`ui_page_register()` 供阶段 4
-  的参数页加入同一注册表。`id` 受 `APP_STATE_PAGES` 约束（状态层 `state_set_page`、input
-  的 tab 轮转、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
+- **6 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
+  FILE 组 PROJECTS/PRESETS）；参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE）由
+  `page_layout_register()` 注册进同一注册表——交付态共 **11 页 / 5 组**（ADR-005「导航
+  决策」）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
+  `state_set_page`、input 的组/子签、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
 
 ### 2. 懒建策略
 

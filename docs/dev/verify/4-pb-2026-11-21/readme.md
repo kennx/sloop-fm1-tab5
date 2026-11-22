@@ -95,7 +95,7 @@
 ## 最终审阅修复轮（2026-11-22，task-14fix-*）
 
 受测固件 = 本修复轮源码（HEAD `67141db` + 工作区；`App version: 67141db-dirty`），
-镜像 `0x184510`（1,591,312B）/ SHA256 见 `task-14fix-bin-sha.txt`。修复项见 `final-fix-report.md`；
+镜像 `0x184810`（1,591,312B）/ SHA256 见 `task-14fix-bin-sha.txt`。修复项见 `final-fix-report.md`；
 本目录的 `task-14fix-*` 是修复轮重跑的门禁证据。
 
 | 门禁 | 命令 | 结果 | 证据 |

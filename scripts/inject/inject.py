@@ -2605,9 +2605,10 @@ def run_store(s: Session) -> None:
        PTCH=11 读回槽 3 的字节 → ERASE/空槽/越界/播放与鼓轨拒绝。本段全程
        `STORE AUTO OFF`（它改了轨 1 的引擎；AUTO 开着会把它写进 autosave 漂进下一轮），
        结束时槽 3/4/5 已擦除。
-    ⑬ 设备侧 torn-write 套件（run_store_torn，最后跑）：显式 HAL 故障探针（`FAULT 1`
-       + `PROJ ERASE 3` ⇒ `STORE ERR save`、`STORE STATS faults=1 armed=0`）→
-       `STORE TEST` 六场景 PASS 6/6（两次）→ 播放中拒绝 → 停止后仍 PASS。
+    ⑬ 设备侧 torn-write 套件（run_store_torn，最后跑）：先 `SAVE 3`（非空槽，空槽擦除
+       现在不写 flash）→ `FAULT 1` + `PROJ ERASE 3` ⇒ `STORE ERR save`、`STORE STATS
+       faults=1 armed=0`、LIST 仍 USED + `FIELDS 3` 证 flash 侧旧副本 → `STORE TEST`
+       六场景 PASS 6/6（两次）→ 播放中拒绝 → 停止后仍 PASS。
     ⑭ 旧格式兼容门禁（run_store_fields）：FUN5/FUN4/FUN1 fixture 经
        `STORE RAW BEGIN/<hex>/END` 写诊断槽 3 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3`
        与 `gen_project_fixtures.py` 的 62 项期望逐项比对；截断 fixture ⇒ LOAD 回

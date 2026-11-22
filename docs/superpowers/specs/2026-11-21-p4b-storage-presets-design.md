@@ -299,7 +299,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 > 5 ✅ FM6 bank 字节一致（GET==LIVE）+ 断电后 used 保持 + PTCH 切槽出声；
 > 6 ✅ FILE 两页 TAP/键盘/像素抽检 + 组作用域（离开组 built=0）；`store.sh`/`nav.sh` exit 0；
 > 7 ✅ 自动存档四门（idle/gap/播放/发声）+ 硬复位恢复 + 第一拍不重写；
-> 8 ✅ soak 300s + `--save-window 60`（窗口内 SAVE/LOAD，xrun 增量 ≤16、窗口后 streaming=1、窗口外不增长；跨组池往返 ≤128B）。**矩阵顺序约束**：同一开机内先跑过全量 `ENG SELFTEST` 会让内部堆降至 60KB 以下（每次 ≈−40KB，DI-26），须复位再 soak；
+> 8 ✅ 阶段收口 soak **1800s**（AGENTS §5.5 口径，`--duration 1800 --interval 60 --save-window 60`；120s/300s 只是开发期冒烟）——窗口内 SAVE/LOAD，xrun 增量 ≤16、窗口后 streaming=1、窗口外不增长；跨组池往返 ≤128B。**矩阵顺序约束**：同一开机内先跑过全量 `ENG SELFTEST` 会让内部堆降至 60KB 以下（每次 ≈−40KB，DI-26），须复位再 soak；
 > 9 ✅ 证据包 `docs/dev/verify/4-pb-2026-11-21/`（readme + SHA256SUMS）+ verification-log 登记。
 
 1. **host（已有 + 新增）**：`host-test.sh` 的 `storage_test/project_test/upreset_test/fm6_test` 必须保持全绿（它们验证上游 A/B/torn-write/格式转换）；新增 `state-test` 用例覆盖存储命令（stub `sloop_store_*`：成功/空槽/播放中/鼓轨/越界）。
@@ -313,7 +313,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 5. **FM6 bank**：设 bank 目标槽 3 → `STORE BANK PUT 3`（当前 live patch）→ `STORE BANK GET 3` 与 `STORE BANK LIVE`（同一 patch 的另一路导出）字节一致 → 重新上电后 `BANK LIST` 仍 used；`PTCH` 选到该槽（PTCH=11）后 `ENG TRIG` 出声且 `ENG SNAP` 的 preset/patch 指示正确；对无 patch 的槽 `BANK GET` 返回 empty。
 6. **UI（§5.4）**：`UI file` → `UI projects` 截屏（空/used/播放中拒绝）→ `TAP` 点 SAVE/LOAD/ERASE → `SCR` + `--check` 像素抽检；`UI presets` 同；`UI MEM` 断言 FILE 组 Σdelta ≤ 预算、组作用域（离开 FILE 后 PROJECTS/PRESETS 回 UNBUILT）；新 `scripts/inject/store.sh` 退出码 0；`nav.sh` 四用例按新语义更新并通过。
 7. **自动存档与上电恢复**：改 BPM/步 → 等 ≥3s（无输入、停止）→ `STORE STATS` 显示 autosave 已写且 hash 与 `LIVEHASH` 一致；再改 → 等 20s → 第二次写；播放中等待 25s → hash/计数不变；同一状态不重复写（hash 相同跳过）；`STORE PROJ LOAD 0` 后工作工程变化 → 下一个 20s 窗口写一次、之后不再写；断电重启（`flash.sh` 后）→ `LIVEHASH` == 重启前 autosave hash，`STATE SNAP` 的 bpm/步正确。
-8. **稳定性**：`scripts/soak.py` 120s（其中**独立窗口**做一次保存/加载周期）无 WDT/panic、内部堆不单调下降；xrun 判据按 §5：保存窗口外 `xrun=0`，保存窗口内增量 ≤16 并在窗口后恢复 `streaming=1`；`ENG SELFTEST` 182/182 在存储初始化后仍全绿（存储不触碰 golden）。
+8. **稳定性**：阶段收口按 AGENTS §5.5 跑 `scripts/soak.py --duration 1800 --save-window 60`（**1800s 是门禁口径**；开发期 120s/300s 只是冒烟），其中**独立窗口**做一次保存/加载周期，无 WDT/panic、内部堆不单调下降；xrun 判据按 §5：保存窗口外 `xrun=0`，保存窗口内增量 ≤16 并在窗口后恢复 `streaming=1`；`ENG SELFTEST` 182/182 在存储初始化后仍全绿（存储不触碰 golden）。
 9. **证据**：`docs/dev/verify/4-pb-<日期>/`（截屏、日志、STORE TEST 输出、往返 hash、UI MEM、SHA256SUMS）+ `verification-log.md` 登记。
 
 ## 7. 风险与对策
