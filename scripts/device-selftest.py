@@ -10,7 +10,9 @@ Default is the FULL suite (182 cases): the firmware quiesces the UI for the
 diagnostic run (pauses the 30ms timer and the LVGL timers, drops input events,
 freezes engine reads/writes) and restores it afterwards, so a UI-live boot can
 run the whole gate. --case keeps the old single-case selector; the diagnostic
-mode (quiesce/freeze) applies the same way. The device path always wraps the run in ENG AUDIO OFF/ON, so the
+mode (quiesce/freeze) applies the same way. The device path disables autosave for the run (DI-20: the
+selftest restore would otherwise let the autosave tick overwrite the work project) and wraps it in
+ENG AUDIO OFF/ON, so the
 device ends in product state. --compare only re-checks a saved transcript and
 never touches the device.
 
@@ -116,6 +118,25 @@ def read_line(ser):
     return raw.decode(errors="replace").strip() if raw else ""
 
 
+def set_autosave_off(ser, timeout=10):
+    """关掉自动存档（DI-20）：自检结束时 `selftest_restore()` 把引擎回滚到工厂态，
+    autosave 的 hash 门/空闲门随后会把工厂态写回 OBJ_AUTOSAVE、覆盖用户的工作工程。
+    门禁脚本在自检前关掉它，并且**不恢复**——工作工程的原 autosave 对象因此保持原样；
+    需要自动存档的后续场景（soak 的 save 窗口等）自行开/关。"""
+    send_command(ser, "STORE AUTO OFF")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        line = read_line(ser)
+        if not line:
+            continue
+        print(line, flush=True)
+        if "STORE AUTO off" in line:
+            return True
+    print("警告: STORE AUTO OFF 未在 %ds 内确认（自检可能覆盖 autosave，DI-20）" % timeout,
+          file=sys.stderr)
+    return False
+
+
 def set_streaming(ser, on, timeout=10):
     """切 ENG AUDIO ON|OFF 并等待回执（打印读到的一切）。切不动只告警。"""
     send_command(ser, f"ENG AUDIO {'ON' if on else 'OFF'}")
@@ -143,6 +164,9 @@ def run_serial(port, case, output, timeout):
         time.sleep(5)
         ser.reset_input_buffer()
         try:
+            # DI-20：自检会把引擎回滚到工厂态；自动存档若还开着，随后会把工厂态写回
+            # OBJ_AUTOSAVE、覆盖用户的工作工程。先关掉，且不恢复（见 set_autosave_off）。
+            set_autosave_off(ser)
             # 固件开机即启流（DI-8），流式时 SELFTEST 会被拒绝：先停流
             set_streaming(ser, False)
             send_command(ser, command)
@@ -171,7 +195,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="运行设备 ENG SELFTEST 并与 host golden 比对。默认跑全量 182 例"
                     "（固件在诊断期静默 UI：暂停 UI 定时器/丢输入/冻结引擎，跑完恢复）；"
-                    "--case 走单例旧口径。设备路径先自动 ENG AUDIO OFF，结束后恢复 ENG AUDIO ON")
+                    "--case 走单例旧口径。设备路径先自动 STORE AUTO OFF（不恢复，保护工作工程）"
+                    "与 ENG AUDIO OFF，结束后恢复 ENG AUDIO ON")
     parser.add_argument("port", nargs="?")
     parser.add_argument("--case", help=f"只跑单个 use case（旧口径；默认全量 {FULL_CASES} 例）")
     parser.add_argument("--output", help="把设备回显逐行存盘（原始 transcript）")
