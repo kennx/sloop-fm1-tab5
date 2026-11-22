@@ -963,7 +963,9 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR not_started\n");
             return 1;
         }
-        if (page < APP_PAGE_GLOBAL) {
+        if (page < APP_PAGE_GLOBAL || page > APP_PAGE_SAMPLE) {
+            /* 参数页是 app_page_t 的连续段 GLOBAL..SAMPLE（page_layout.c 有静态断言）；
+             * FILE 组两页（PROJECTS/PRESETS）不是参数页，旋钮注入不适用。 */
             printf("UI ERR not_params\n");
             return 1;
         }
@@ -1376,12 +1378,12 @@ static int store_stats(void)
     sloop_store_stats_t st;
     sloop_store_stats(&st);
     printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=%u faults=%u armed=%u "
-           "autosave=%u autosave_hash=%08lX autosave_writes=%u\n",
+           "autosave=%u autosave_hash=%08lX autosave_writes=%u last_xrun=%d last_save_ms=%u\n",
            st.ready ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
            (unsigned)sloop_hal_storage_span(), (unsigned long)(uintptr_t)sloop_hal_storage_map(),
            (unsigned)st.objects_ok, (unsigned)st.faults_taken, (unsigned)st.faults_armed,
            st.autosave_on ? 1u : 0u, (unsigned long)st.autosave_hash,
-           (unsigned)st.autosave_writes);
+           (unsigned)st.autosave_writes, (int)st.last_save_xrun, (unsigned)st.last_save_ms);
     return 0;
 }
 

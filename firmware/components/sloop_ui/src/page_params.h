@@ -24,6 +24,8 @@
 /* 页构建/刷新（ui_page_t 的 build/update 经 page_layout.c 的包装传入布局表下标）。 */
 lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent);
 void page_params_update(uint8_t index, const app_state_t *st);
+/* 页面控件已销毁（组作用域 / 强制失败重建）：清本页控件指针与 bank 拒绝态。 */
+void page_params_forget(uint8_t index);
 
 /* TAP 注入（坐标为页面区相对坐标，调用方已扣页签条）：与控件回调同一动作函数。 */
 bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *out);

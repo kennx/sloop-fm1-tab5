@@ -304,6 +304,8 @@ static esp_err_t ensure_page_built(uint8_t page)
         s_page_state[page] = SLOOP_UI_PAGE_FAILED;
         s_page_fail_reason[page] = reason;
         s_page_build_ms[page] = now_ms() - t0;
+        int idx = page_layout_index(page);
+        if (idx >= 0) page_params_forget((uint8_t)idx); /* 半成品控件已删：本页指针置空 */
         ESP_LOGE(TAG, "页面构建失败 page=%s(%u) 原因=%s 池剩余=%uB 预算=%uB 耗时=%ums"
                  "（UI ERR page_build %u）",
                  def->title, (unsigned)page, reason, (unsigned)mon_before.free_size,
@@ -348,6 +350,10 @@ static void destroy_group_pages(int g, uint8_t keep)
         s_page_delta[pid] = 0;
         s_page_build_ms[pid] = 0;
         s_page_fail_reason[pid] = NULL;
+        /* 页面模块自己的控件指针也要置空：参数页的 bank 行状态访问器以「控件为 NULL」
+         * 表示「行未建」（ADR-008 §8.6），否则会对着已删除的控件读状态。 */
+        int idx = page_layout_index(pid);
+        if (idx >= 0) page_params_forget((uint8_t)idx);
     }
 }
 

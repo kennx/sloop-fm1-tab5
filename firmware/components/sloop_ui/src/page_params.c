@@ -657,6 +657,9 @@ void page_params_update(uint8_t index, const app_state_t *st)
 
     uint8_t track = st->core.selected_track < APP_STATE_TRACKS ? st->core.selected_track : 0;
     bool locked = page_locked(pg, st);
+    /* 解锁（换轨/换引擎/工程载入）后清掉上次的 NOT FM6：拒绝是「上一次动作」的结果，
+     * 不能在本页未再动作时跨上下文残留。 */
+    if (!locked && s_bank_refused) s_bank_refused = 0;
     uint8_t engine = page_engine(pg);
     bool esync = st->p[PARAM_TP_ESYNC] != 0;
     if (!ui->ctx_valid || ui->shown_track != track || ui->shown_engine != engine ||
@@ -826,6 +829,15 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
         }
     }
     return false;
+}
+
+/* 组作用域销毁页面时由 ui.c 调用：控件已随页面删除，本模块的控件指针必须置空
+ * （否则 `page_params_bank_status_text` 的「行未建」契约不成立，还留着悬垂指针）。 */
+void page_params_forget(uint8_t index)
+{
+    if (index >= PARAM_PAGE_COUNT) return;
+    memset(&s_ui[index], 0, sizeof s_ui[index]);
+    s_bank_refused = 0;
 }
 
 const char *page_params_bank_status_text(uint8_t index)
