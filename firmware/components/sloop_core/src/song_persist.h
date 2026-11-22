@@ -136,6 +136,22 @@ static song_per_kind_t song_per_kind(const uint8_t *payload, uint32_t len)
     return SONG_PER_BAD;
 }
 
+/* 上游 persist_boot 的歌曲段：**先** arr_defaults，只有合法的 PER3 才覆盖（读回值）。这里把
+ * 「读回结果」映射成生效歌曲：NEW/PER1/PER2 与对象损坏（SONG_PER_BAD）都落上游默认
+ * （count=4，entry 0..3 = A/B/C/D 各 4 小节），PER3 取 loaded（结构非法时 song_per_read
+ * 已落默认）。返回 false = 对象损坏：调用方**不得**把它当空设置覆盖（保存仍拒绝）。
+ *
+ * 为什么要有这一步：`arrangement` 是 arranger.c 的 static `.bss`，上电/自检 restore 后是
+ * 全零（count=0 的非法歌曲）——「读不到就保持默认」必须真的把默认写进去，否则日志说
+ * 「保持默认歌曲」而实际是空歌曲，歌曲模式的 ready 判定与 SONG 页会看到假状态。 */
+static bool song_per_loaded(song_per_kind_t kind, const arr_config_t *loaded, arr_config_t *out)
+{
+    arr_defaults(out);
+    if (kind == SONG_PER_BAD) return false;
+    if (kind == SONG_PER3 && loaded != 0) *out = *loaded;
+    return true;
+}
+
 /* 读回歌曲：PER3 取 48..83（结构非法 → 默认歌曲，上游 persist_boot 同口径）；
  * PER1/PER2 没有歌曲 → 默认。SONG_PER_BAD 时 *arr 不被写。 */
 static song_per_kind_t song_per_read(const uint8_t *payload, uint32_t len, arr_config_t *arr)

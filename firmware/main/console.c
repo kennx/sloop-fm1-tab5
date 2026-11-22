@@ -1809,7 +1809,7 @@ static int store_bank(int argc, char **argv)
  *   STORE SONG SAVE                  -> "STORE SONG SAVED len=<n> side=<0|1>"（上游
  *                                       arrangement_save 同义：播放中回 "STORE ERR playing"）
  *   STORE SONG LOAD                  -> 从 settings 读回（**以 flash 为准**、清 dirty；
- *                                       对象损坏时不覆盖 RAM 并回 invalid）
+ *                                       读不到/对象损坏 → 上游默认歌曲，字节不覆盖、回 invalid）
  *   STORE SONG INFO                  -> flash 对象的事实：kind=per3|per2|per1|empty|invalid、
  *                                       len、side（side record 是否自校验通过）、count/loop
  * 设置对象损坏（未知 magic/长度）时 SAVE 回 "STORE ERR invalid" 且不覆盖。 */
@@ -1846,7 +1846,7 @@ static int store_song(int argc, char **argv)
     if (argc == 3 && strcasecmp(argv[2], "save") == 0) {
         if ((err = sloop_store_song_save()) != ESP_OK) return store_err_print(err);
         sloop_store_song_info_t info;
-        if (sloop_store_song_info(&info) != ESP_OK) return store_err_print(err);
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
         printf("STORE SONG SAVED len=%u side=%u\n", (unsigned)info.len, (unsigned)info.side);
         return 0;
     }
@@ -2440,10 +2440,11 @@ esp_err_t app_console_init(void)
                 "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
                 "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n（FM6 银行 27 槽，PTCH = 8 + n）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
-                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，只快照/恢复 payload，"
-                "settings side record 不保，需停走带）；"
+                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，快照/恢复两个完整 4KB "
+                "副本扇区并逐字节校验，arrangement/DSU/尾段/side 都不丢；需停走带）；"
+                "STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] PER3 歌曲顺序（SET 只改内存、按门限落盘）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

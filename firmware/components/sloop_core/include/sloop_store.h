@@ -165,15 +165,13 @@ esp_err_t sloop_store_bank_erase(uint32_t slot);
 void sloop_store_bank_current(uint8_t *packed);
 
 /* 设备侧 torn-write 故障注入套件（**测试专用**；ADR-009 §3「掉电不破坏旧副本」）。
- * 对象 = `OBJ_SETTINGS`（P4-B 不写设置，P4-E 才用）：套件先 `st_load` 快照当前
- * payload，六个场景结束后先 `sloop_hal_storage_fault_clear()`、再用 `st_save` 恢复。
+ * 对象 = `OBJ_SETTINGS`（P4-C 起有真实写入者：PER3 歌曲 + side record）。
+ * **快照 = 两个完整 4KB 副本扇区**：套件先 `sloop_hal_storage_read` 两个扇区的原始字节
+ * （提交头 + payload + 偏移 64..255 的 side record + 擦除态；8KB 一次性 PSRAM），六个
+ * 场景结束后 `sloop_hal_storage_fault_clear()` → 每扇区擦一次 + 按 256B 块原样写回 →
+ * **逐字节读回校验**。arrangement（payload 48..83）、DSU/MIDI 尾段与 side record 因此都
+ * 逐字节不变（评审 R26 的收口判据）。
  * **破坏性**：运行期间该对象的内容被反复覆盖（跨掉电无保证；不是用户路径）。
- * **只快照/恢复 payload（`st_load` 的 len 字节）**：settings 的 **side record**（副本扇区
- * 偏移 64..255，`storage.c` 的 `ST_SIDE_OFF/ST_SIDE_MAX`，由上游 2.7 的 `st_save3` 随副本
- * 提交；P4-E 计划把主题/收藏放这里）**不被保存**——场景的扇区擦除会把它清掉。P4-B
- * 没有任何 side record 写入者（不可达）；**P4-E 给 settings 写 side record 时必须把快照
- * 扩展成整扇区**（或 `st_side_load` 读回后随 `st_save3` 重写），否则跑一次 `STORE TEST`
- * 会静默丢主题/收藏（ADR-009 §3/§8 的 R26）。
  * 六个场景（每个都自己归一、自己断言前提；失败场景还必须命中预期写操作——读回
  * 扇区指纹区分 erase 与 prog，只数 faults_taken 分不出来）：
  *   1 三次提交 → 载入 seq 大者：v2 在 B（copy 1）胜、v3 回 A（copy 0）胜；
@@ -182,9 +180,11 @@ void sloop_store_bank_current(uint8_t *packed);
  *   4 头写失败 → 写失败 → 旧副本完整可读；
  *   5 写后破坏 payload → 载入报错（CRC 拒绝），不返回坏数据；
  *   6 `st_save(obj, NULL, 0)` → 对象为空（len=0）。
- * 全程持存储锁（自动存档 tick 的 trylock 会跳过，不与套件交错）。`out`：cases = 场景
- * 总数（6）、passed = 通过数、fail_case = 第一个失败场景名（全过为 NULL；快照恢复
- * 失败为 "restore-settings"）。返回：ESP_OK 全过；ESP_ERR_NOT_FINISHED 有场景失败；
+ * 全程持存储锁（自动存档/歌曲 tick 的 trylock 会跳过，不与套件交错）。`out`：cases = 场景
+ * 总数（6）、passed = 通过数、fail_case = 第一个失败场景名（全过为 NULL）；快照读失败为
+ * "snapshot-settings"，恢复或逐字节校验失败为 "restore-settings"（**恢复失败优先**——
+ * 那意味着设置对象已被留在坏状态，比任何单个场景更重要）。返回：ESP_OK 全过；
+ * ESP_ERR_NOT_FINISHED 有场景/快照/恢复失败；ESP_ERR_NO_MEM 拿不到 8KB 快照；
  * ESP_ERR_INVALID_STATE 未就绪/走带中（out->cases 已填、passed=0）；out==NULL 为
  * ESP_ERR_INVALID_ARG。不得在 ISR 调用。 */
 typedef struct {
@@ -229,8 +229,10 @@ bool sloop_store_autosave_enable(bool on);
  * 时完成（失败保留 dirty，下个窗口重试）；`song_save` 是上游 `arrangement_save` 的同义
  * 入口（停止态立即写，播放中 ESP_ERR_INVALID_STATE = `STOP BEFORE SAVE`）；
  * `song_reload` 从 flash 读回并**以 flash 为准**清 dirty（开机与 SELFTEST 之后用：
- * `arrangement` 是 arranger.c 的 static `.bss`，自检的 restore 会把它回滚到默认）；对象
- * 损坏时不覆盖 RAM、回 ESP_ERR_INVALID_ARG。
+ * `arrangement` 是 arranger.c 的 static `.bss`，自检的 restore 会把它回滚到零）。读不到时
+ * 落上游**默认歌曲**（count=4、A/B/C/D 各 4 小节；这是 `persist_boot` 的第一步，不留
+ * count=0 的非法空歌曲）；对象损坏的字节不被覆盖（不再尝试保存），回 ESP_ERR_INVALID_ARG；
+ * 读 flash 期间若来了 `song_set`，以 RAM 为准（代次守卫）。
  * `sections_tick(now_ms)` 由 1s 任务以 esp_timer 毫秒调用；诊断冻结时不写，渲染路径
  * 绝不写 flash。`song_info` 是 `STORE SONG INFO` 的诊断投影（只读 flash 对象）。 */
 #define SLOOP_SONG_ENTRIES 16u

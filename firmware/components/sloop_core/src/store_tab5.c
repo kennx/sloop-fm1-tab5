@@ -484,6 +484,11 @@ bool sloop_store_ready(void)
 
 esp_err_t sloop_store_init(void)
 {
+    /* 上游 persist_boot 的第一步（那个函数在本 TU 不编）：歌曲**先**取默认。本函数下面
+     * 任何一步失败（互斥量/PSRAM/分区）都会提前返回，而 `arrangement` 是 arranger.c 的
+     * static `.bss`——不留默认就是 count=0 的非法歌曲，日志却说「保持默认歌曲」。
+     * 默认 = arr_defaults：count=4、entry 0..3 = A/B/C/D 各 4 小节。 */
+    arr_defaults(&arrangement);
     s_init_magic = 0;
     s_ready = false;
     flash_ok = 0;
@@ -543,10 +548,11 @@ esp_err_t sloop_store_init(void)
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
     /* 歌曲顺序从 settings 读回（上游 persist_boot 的 arrangement 段）：必须在 READY
      * 置位之后（reload 走公共门），且不影响 `ENG SELFTEST` 的工厂态基线（快照在 init
-     * 之前拍完）。对象损坏只告警：歌曲保持默认，且不会被当成空设置覆盖。 */
+     * 之前拍完）。读不到/对象损坏时 reload 自己落回函数开头那个默认歌曲（不覆盖对象）。 */
     esp_err_t song_ret = sloop_store_song_reload();
     if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND)
-        ESP_LOGW(TAG, "歌曲设置读取失败: %s（保持默认歌曲）", esp_err_to_name(song_ret));
+        ESP_LOGW(TAG, "歌曲设置读取失败: %s（保持默认歌曲 count=%u loop=%u）", esp_err_to_name(song_ret),
+                 (unsigned)arrangement.count, (unsigned)arrangement.loop);
     /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
      * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
      * 入口是 sloop_store_autosave_start()，由 sloop_core_init 在 resume 之后调用。 */
@@ -1409,7 +1415,11 @@ static esp_err_t song_write_locked(bool gated)
     st_side = 0;
     st_side_len = 0;
     store_note_write(xr0, us0);
+    /* 与 song_pending_mark 同一把引擎锁：check(gen)+clear 必须原子，否则「gen 相符 → 清
+     * dirty」之间挤进来的 song_set 会被这次 clear 吞掉（修改丢了、也不再有重试）。 */
+    engine_lock();
     song_pending_done(&s_song, rc == 0, gen);
+    engine_unlock();
     if (rc != 0) {
         ESP_LOGE(TAG, "歌曲保存失败 rc=%d（保留 dirty，下个窗口重试）", rc);
         return ESP_ERR_NOT_FINISHED;
@@ -1477,27 +1487,56 @@ esp_err_t sloop_store_song_save(void)
 
 /* 从 settings 读回歌曲（开机与 SELFTEST 之后）：**以 flash 为准**，读成功后清 dirty。
  * 这在自检之后是必须的：`arrangement` 是 arranger.c 的 static `.bss`，selftest_restore()
- * 会把它回滚到 init 快照（= 零/默认）——不重载就会悄悄换成默认歌曲。代价：恰好在自检
- * 那一刻还没落盘的歌曲修改（正常 ≤5s 的延迟窗口内）随回滚丢弃；诊断命令不是用户路径。
- * 对象损坏（未知 magic/长度）时**不覆盖** RAM 里已有的歌曲，返回 invalid。 */
+ * 会把它回滚到 init 快照（= 零）——不重载就会悄悄换成默认歌曲。代价：恰好在自检那一刻
+ * 还没落盘的歌曲修改（正常 ≤5s 的延迟窗口内）随回滚丢弃；诊断命令不是用户路径。
+ *
+ * 读不到时**真的落默认**（song_per_loaded）：`!ready`（存储不可用）与对象损坏都回上游
+ * 默认歌曲，而不是把 `.bss` 的全零留在 arrangement 里。损坏对象不被当成空设置写回
+ * （清 dirty 后保存不再尝试覆盖它），返回 invalid。
+ * 代次守卫：读 flash 期间如果不巧来了 song_set（另一次修改），RAM 比 flash 新 ⇒ 不覆盖、
+ * 也不清 dirty。 */
 esp_err_t sloop_store_song_reload(void)
 {
-    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    uint8_t count, loop;
     arr_config_t a;
+    if (!sloop_store_ready()) {
+        engine_lock();
+        arr_defaults(&arrangement); /* 读不到：上游默认歌曲（不写 flash、不留全零） */
+        s_song.dirty = 0;
+        count = arrangement.count;
+        loop = arrangement.loop;
+        engine_unlock();
+        ESP_LOGW(TAG, "歌曲设置不可读（存储未就绪）：保持默认歌曲 count=%u loop=%u", (unsigned)count,
+                 (unsigned)loop);
+        return ESP_ERR_INVALID_STATE;
+    }
+    engine_lock();
+    uint32_t gen = song_pending_gen(&s_song);
+    engine_unlock();
+
     store_lock();
     int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
     song_per_kind_t kind = song_per_read(proj_tmp.raw, n > 0 ? (uint32_t)n : 0u, &a);
     store_unlock();
-    if (kind == SONG_PER_BAD) {
-        ESP_LOGW(TAG, "歌曲设置对象损坏（magic/长度不认识）：不覆盖当前歌曲");
+
+    engine_lock();
+    if (song_pending_gen(&s_song) != gen) { /* 读 flash 期间又来了一次修改：RAM 更新 */
+        engine_unlock();
+        ESP_LOGI(TAG, "歌曲设置重载跳过：读取期间有新的修改（保留 RAM）");
+        return ESP_OK;
+    }
+    bool ok = song_per_loaded(kind, &a, &arrangement); /* 损坏/无对象 → 上游默认歌曲 */
+    s_song.dirty = 0; /* RAM 与 flash（或默认）一致了；与 mark 同一把锁 */
+    s_song_refused = false;
+    count = arrangement.count;
+    loop = arrangement.loop;
+    engine_unlock();
+    if (!ok) {
+        ESP_LOGW(TAG, "歌曲设置对象损坏（magic/长度不认识）：保持默认歌曲 count=%u loop=%u",
+                 (unsigned)count, (unsigned)loop);
         return ESP_ERR_INVALID_ARG;
     }
-    engine_lock();
-    arrangement = a;
-    engine_unlock();
-    s_song.dirty = 0; /* RAM 与 flash 一致了 */
-    s_song_refused = false;
-    ESP_LOGI(TAG, "歌曲设置: 来源=%u count=%u loop=%u", (unsigned)kind, (unsigned)a.count, (unsigned)a.loop);
+    ESP_LOGI(TAG, "歌曲设置: 来源=%u count=%u loop=%u", (unsigned)kind, (unsigned)count, (unsigned)loop);
     return kind == SONG_PER_NEW ? ESP_ERR_NOT_FOUND : ESP_OK; /* 空设置 = 默认歌曲，不是错误 */
 }
 
@@ -1877,8 +1916,10 @@ esp_err_t sloop_store_test(sloop_store_test_t *out)
     store_unlock();
     heap_caps_free(snap);
     if (!restored) {
+        /* 恢复失败优先于任何单个场景：设置对象已被留在坏状态，这比某个场景挂掉更重要
+         * （脚本按 fail_case 的令牌分诊，不能被场景名掩盖）。 */
         ESP_LOGE(TAG, "STORE TEST restore-settings FAIL（两个 4KB 扇区未逐字节恢复）");
-        if (out->fail_case == NULL) out->fail_case = "restore-settings";
+        out->fail_case = "restore-settings";
     }
     if (out->fail_case != NULL) return ESP_ERR_NOT_FINISHED;
     return ESP_OK;

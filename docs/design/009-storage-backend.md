@@ -263,9 +263,23 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 | side record | 侧区**有内容就原样**随新 A/B 副本提交（含自校验不过的 2.7 beta「只有 40B 主题」记录——本固件与 P4-E 之前没有主题状态，覆盖等于删用户主题）；全 0xFF（P4-B 及更早从未写过）⇒ 写默认 80B 记录 |
 | 延迟写 | `sloop_store_sections_tick`（1s 任务，esp_timer 毫秒）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s。`arrangement_save` 同义入口 `sloop_store_song_save()` 立即写（播放中 `playing`） |
 | dirty | `.noinit` 的 `song_pending_t{dirty,gen}`：**写成功且期间无新修改**才清；失败保留、下个窗口重试（上游在写前就清，被此修正替代） |
-| SELFTEST | `arrangement` 是 `arranger.c` 的 static `.bss`，自检的 restore 会把它回滚到默认 ⇒ 自检结束后 `sloop_store_song_reload()` 从 settings 重读（以 flash 为准、清 dirty；对象损坏则不覆盖 RAM） |
+| SELFTEST | `arrangement` 是 `arranger.c` 的 static `.bss`，自检的 restore 会把它回滚到零 ⇒ 自检结束后 `sloop_store_song_reload()` 从 settings 重读（以 flash 为准、清 dirty；读不到/对象损坏 → `song_per_loaded` 落上游默认歌曲，字节不覆盖；读 flash 期间有新的 `song_set` 则由代次守卫保留 RAM） |
 | 不做 | `arrangement_enabled`（歌曲模式）、quick chain、SONG REC 临时态都不持久化（上游同）；sections A–D 的内容仍是 FUN6 工程对象（`st_save(OBJ_PROJECT0+s)`），其 dirty 门限由 Task 8 的 section 命令接入同一 tick |
 
+- **新建对象的默认值已固定**（本阶段不随设置变化）：palette/lowcut/zoom = 0、panel =
+  `panel.c` 的 `PANEL_DEFAULT` 字面量、lights = 0、DSU = `dsu_defaults()`、MIDI 尾段省略、
+  默认歌曲 = `arr_defaults()`（count=4，A/B/C/D 各 4 小节）。P4-E 接完整设置 UI 时必须
+  把这些来源换成真实状态（并同步 `song_persist.h` 的 `SONG_PANEL_DEF`），在那之前它们是
+  硬编码的「上游首次启动」快照。
+- **启动即落默认歌曲**：`sloop_store_init()` 的第一行就是 `arr_defaults(&arrangement)`（上游
+  `persist_boot` 的第一步）——本函数任何一步失败（互斥量/PSRAM/分区）都会提前返回，不能把
+  `.bss` 的全零留在 `arrangement` 里（count=0 是非法歌曲，而日志会说「保持默认歌曲」）。
+  reload 的 `!ready` 与对象损坏路径同样落默认（`song_per_loaded`），日志打印实际的
+  `count/loop` 供设备断言。
+- **锁纪律**：`song_pending_mark`（`song_set`）与 `song_pending_done`（一次写的 check+clear）
+  都在**引擎锁内**，gen 比较因此原子——否则「gen 相符 → 清 dirty」之间挤进来的修改会被吞掉
+  （修改丢失且不再重试）。`song_reload` 在读 flash 前后各取一次 gen：期间有新的 `song_set`
+  就不覆盖 RAM、也不清 dirty。
 - 新增 `.noinit` 状态：`s_song`（5B）、`s_song_tried_ms`、`s_input_ms`、`s_song_refused`
   ——本 TU 的 `.bss` 在 `ENG SELFTEST` 的快照窗口里，dirty/时间戳留在 `.bss` 会被一次自检
   清掉。PER3 的 payload 组装复用 `proj_tmp`（4,096B PSRAM，与 preset/import/RAW 同一块，

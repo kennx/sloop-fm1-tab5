@@ -369,6 +369,32 @@ int main(void)
     song_pending_done(&pend, true, gen);
     check(pend.dirty, "dirty: 写成功但期间有新修改 → 保留");
 
+    /* ---------- 7b. 读不到歌曲时落到上游默认（persist_boot 的第一步） ----------
+     * 上游 persist_boot 先 arr_defaults，只有合法 PER3 才覆盖；`arrangement` 是 `.bss`，
+     * 上电/自检 restore 后全零（count=0 非法）——「保持默认歌曲」必须真的写进去。 */
+    {
+        arr_config_t def, src, out;
+        memset(&def, 0xA5, sizeof def);
+        memset(&out, 0, sizeof out); /* 已知非默认（count=0）：缺 arr_defaults 必被抓到 */
+        check(!song_per_loaded(SONG_PER_BAD, &def, &out), "loaded: 损坏对象 → false（拒绝覆盖）");
+        check(out.count == 4u && out.loop == 0u, "loaded: 损坏对象 → 默认歌曲 count=4 loop=0");
+        check(out.entry[0].scene == 0u && out.entry[1].scene == 1u && out.entry[2].scene == 2u &&
+                  out.entry[3].scene == 3u && out.entry[0].bars == 4u && out.entry[3].bars == 4u,
+              "loaded: 默认歌曲 = A/B/C/D 各 4 小节（上游 arr_defaults）");
+        check(song_arr_valid(&out), "loaded: 默认歌曲结构合法（count 非零，可被 song_set/播放接受）");
+        memset(&out, 0, sizeof out);
+        check(song_per_loaded(SONG_PER_NEW, &def, &out) && out.count == 4u &&
+                  out.entry[2].scene == 2u && out.entry[2].bars == 4u,
+              "loaded: 空设置 → 默认歌曲（true，不是错误）");
+        memset(&src, 0, sizeof src);
+        arr_defaults(&src);
+        src.count = 2;
+        src.entry[0].scene = 3;
+        src.entry[0].bars = 7;
+        check(song_per_loaded(SONG_PER3, &src, &out) && memcmp(&out, &src, sizeof src) == 0,
+              "loaded: 合法 PER3 → 读回值原样生效");
+    }
+
     /* ---------- 8. 真实 st_save3/st_load 往返（storage.c + 假 flash） ---------- */
     flash_reset();
     len = 0;
