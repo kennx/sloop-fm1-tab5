@@ -512,7 +512,7 @@ def run_transport(s: Session) -> None:
     """① TRANSPORT：播放 + BPM 步进 → 截屏；再切 STEP 截播放头；最后复位为停止。
 
     前置：`normalize_pattern()`（LEN=16/DIV=2）——播放头「各轨同列」的判据依赖它，
-    设备上的 autosave 可能带着别的工程的 LEN/DIV（DI-23 同类场景假设）。"""
+    设备上的 autosave 可能带着别的工程的 LEN/DIV（场景假设，原 DI-23 已按此思路收口）。"""
     normalize_pattern(s)
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "UI transport")
@@ -643,7 +643,7 @@ def run_step_edit(s: Session) -> None:
             s.expect_int(r"\bn=(\d+)", 0, f"ENG STEP {track} {step} n")
 
     # 空位探针（轨 0 步 3）的前提：它可能带着载入工程/旧格式 fixture 的音符（状态假设，
-    # 同 DI-23）⇒ 先用同一 TAP 路径清掉。必须在下面两格 TAP **之前**（TAP 会设焦点，
+    # 原 DI-23）⇒ 先用同一 TAP 路径清掉。必须在下面两格 TAP **之前**（TAP 会设焦点，
     # 之后的两格 TAP 才把焦点落到轨道 1 / 列 5 的断言值上）。
     s.cmd("ENG STEP 0 3")
     if step_is_on(s):
@@ -1495,7 +1495,7 @@ def normalize_pattern(s: Session, label: str = "归一图案参数") -> None:
     为什么需要：transport 的「各行播放头与引擎 step_pos 同列」与 step_edit 的
     「绝对步 ≥ LEN 暗显」都以这两个值为前提，而设备开机恢复的 autosave 可能带着别的
     工程/旧格式 fixture 的 LEN=64/DIV=8（div 不同 ⇒ 各轨播放头不同步；LEN=64 ⇒ bank1
-    的格不暗显）——这是 DI-23 同类的**场景假设**问题，不是固件行为差异。脚本须幂等
+    的格不暗显）——这是**场景假设**问题（原 DI-23），不是固件行为差异。脚本须幂等
     （AGENTS §5.4.1），故在依赖它们的场景开头显式归一。选中轨临时改动由调用方
     后续用例自行归一（transport/step_edit 都会显式选轨或只读快照）。"""
     for k in range(3):
@@ -2201,10 +2201,20 @@ def run_store_engine(s: Session) -> None:
     ⑤ project_load 的两条 fallback（评审 R18，`STORE PROJ SYNTH fmt1|foreign`）：格式 1
        的 `preset == 0xFF` 轨取默认声音 + steps_clear、未知引擎的轨走 `proj_foreign_parts`
        （图案保留）——诊断槽 3，破坏性，收口 ERASE。
+
+    ⑩ 的起点来自开机恢复的 autosave（原 DI-23，已按此思路收口）：选中轨的 `P_MUTE` 与
+    轨 1 的步表是 `param_kept`/工程的一部分，人工改过设备或在别的注入场景之后直接跑会让
+    ④ 的 `voices≥1` 与 ⑤ 的绝对 `steps=1` 假红。故本段①显式写 `P_MUTE=0`（④ 的发声
+    前提），⑤ 先把轨 1 的步 5 清空、再保证一个非 5 的步，foreign 的步数期望 = 同轮
+    `fmt1` 捕获的轨 1 步数 + 1（只多出 diagnostic 自己放的步 5）。
     """
     s.ser.note("⑩ 换引擎/预置 = 换声音：ENG PRESET 期望向量 vs ENG TRACK 应用后的 p[]")
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑩ 归一 engine=0 preset=0（ANALOG）")
+    # 原 DI-23：P_MUTE 是 param_kept（换引擎/预置都不覆盖），autosave 恢复后可能仍置位；
+    # ④ 的「按住键 ⇒ voices≥1」需要选中轨未静音。显式清零，不依赖历史。
+    s.cmd("PARAM 40 0")
+    s.expect(r"PARAM track=0 id=40 value=0 applied=0", "⑩ 归一 P_MUTE=0（原 DI-23：④ 的发声前提）")
 
     # 评审 minor 1：诊断冻结时 `ENG PRESET` 必须明确拒绝，不得打印零向量（否则注入侧
     # 会把「全零」当成合法期望值）。冻结用 `ENG FREEZE on`（与 `ENG SELFTEST` 内部同一
@@ -2305,6 +2315,28 @@ def run_store_engine(s: Session) -> None:
     #   ② foreign：引擎号 ≥ NENGINES 的轨改回默认声音（project.c:639-647 的
     #      proj_foreign_parts，TRK_DEF[1] = DIGITAL/RHODES）——engine 1 preset 0、
     #      atk 0、e0 4（RHODES 的 ALG），而它的图案保留（steps 1）。
+    # 场景假设（原 DI-23）：⑩ 的起点来自 autosave 恢复的历史，轨 1 的图案步数不可假定；
+    # 且 `STORE PROJ SYNTH foreign` 自己会在轨 1 的**步 5** 补一个音（diagnostic 的构造），
+    # fmt1 不碰轨 1。故先把「步 5 空 + 另有一个非 5 的步」造好：foreign 的步数必须恰为
+    # fmt1 同轮捕获的轨 1 步数 +1（图案保留 + 只多了诊断自己放的那个音）。
+    s.ser.note("⑩e0 轨 1 图案归一：步 5 空、步 6 有音（foreign 的 +1 步可预测）")
+    select_track(s, 1)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩e0 UI step（轨 1）")
+    ensure_window(s, 0, 16)
+    if step_fields(s, 1, 5)[0] != 0:
+        x, y = step_cell_xy(5, 1)
+        s.cmd(f"TAP {x} {y}")
+        s.expect(r"-> STEP track=1 step=5 CMD_TOGGLE_STEP", "⑩e0 清空轨 1 步 5")
+    (s.ok if step_fields(s, 1, 5)[0] == 0 else s.fail)("⑩e0 轨 1 步 5 为空（foreign 的 +1 可预测）")
+    if step_fields(s, 1, 6)[0] == 0:
+        x, y = step_cell_xy(6, 1)
+        s.cmd(f"TAP {x} {y}")
+        s.expect(r"-> STEP track=1 step=6 CMD_TOGGLE_STEP", "⑩e0 建轨 1 步 6（图案判别力）")
+    (s.ok if step_fields(s, 1, 6)[0] != 0 else s.fail)(
+        "⑩e0 轨 1 步 6 有音（步数 ≥1，清空型错误会被抓到）")
+    select_track(s, 0)
+
     s.ser.note("⑩e R18 fmt1：preset==0xFF 的轨取默认声音 + steps_clear（诊断槽 3，破坏性）")
     store_cmd(s, "STORE PROJ SYNTH fmt1", r"^PROJ 3 SYNTH case=fmt1 OK\r?$",
               "⑩e SYNTH fmt1")
@@ -2312,13 +2344,21 @@ def run_store_engine(s: Session) -> None:
                  "⑩e 轨 0：默认声音 ANALOG 808 BOOM（e0=3）+ 工程里的 99 被覆盖 + 步清空")
     store_expect(s, r"^PROJ 3 SYNTH case=fmt1 trk k=1 engine=1 preset=1 ",
                  "⑩e 轨 1：不带 0xFF ⇒ 保留工程里的 engine/preset（1/1）")
+    m = re.search(r"^PROJ 3 SYNTH case=fmt1 trk k=1 .*?steps=(\d+)", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"⑩e 缺少轨 1 的 steps 字段（无法相对比较）：{s.last[-300:]!r}")
+    track1_steps = int(m.group(1))
+    (s.ok if track1_steps >= 1 else s.fail)(
+        f"⑩ 轨 1 的捕获含 {track1_steps} 步（≥1 = 图案保留断言有判别力）")
 
     s.ser.note("⑩f R18 foreign：引擎号 ≥ NENGINES 的轨走 proj_foreign_parts（图案保留）")
     store_cmd(s, "STORE PROJ SYNTH foreign", r"^PROJ 3 SYNTH case=foreign OK\r?$",
               "⑩f SYNTH foreign")
     store_expect(s,
-                 r"^PROJ 3 SYNTH case=foreign trk k=1 engine=1 preset=0 steps=1 atk=0 e0=4\r?$",
-                 "⑩f 轨 1：未知引擎 → DIGITAL RHODES（engine 1 preset 0、e0=4）、图案保留")
+                 rf"^PROJ 3 SYNTH case=foreign trk k=1 engine=1 preset=0 "
+                 rf"steps={track1_steps + 1} atk=0 e0=4\r?$",
+                 f"⑩f 轨 1：未知引擎 → DIGITAL RHODES（engine 1 preset 0、e0=4）、"
+                 f"图案保留（steps={track1_steps} → {track1_steps + 1}：只多了诊断放的步 5）")
     store_expect(s, r"^PROJ 3 SYNTH case=foreign trk k=0 engine=0 preset=0 ",
                  "⑩f 轨 0：不受 foreign 分支影响（engine/preset 保持 0/0）")
     store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑩f 收口 ERASE 3（诊断槽）")
@@ -2924,6 +2964,24 @@ def run_store_autosave(s: Session) -> None:
     """
     s.ser.note("⑪ 自动存档：空闲写 → gap 20s → 同态不写 → 播放/发声抑制 → OFF → 复位恢复")
     select_track(s, 0)
+    # 原 DI-23（场景假设）：⑨g 等硬复位会把 autosave 恢复的工作工程装回引擎，而
+    # P_MUTE / P_LEVEL / P_AMODE（ARP）/ P_AHOLD（KBD HOLD）都是 param_kept
+    # （`ENG TRACK` 不重置）。实测从旧格式 fixture 漂进来的 mute=1 / AMODE=14 / AHOLD=1
+    # 会让 ⑪e 的「按住 C ⇒ voices≥1」与「松开 ⇒ audio_quiet 恢复」前提不成立：
+    #   - ARP：走带停止时不发声（音符被 arp 持有）⇒ voices=0；
+    #   - KBD HOLD（`!AMODE && AHOLD`）：松开键后音符继续持有 ⇒ voice 永不释放、
+    #     audio_quiet 恒 false ⇒ ⑪e/⑪f 的写入断言假红。
+    # 四项显式归一（只影响选中轨 0）：
+    s.cmd("PARAM 40 0")
+    s.expect(r"PARAM track=0 id=40 value=0 applied=0", "⑪ 归一 P_MUTE=0（发声门前提）")
+    s.cmd(f"PARAM {ENG_P_LEVEL} {ENG_LEVEL_DEF}")
+    s.expect(rf"PARAM track=0 id={ENG_P_LEVEL} value={ENG_LEVEL_DEF} applied={ENG_LEVEL_DEF}",
+             "⑪ 归一 P_LEVEL=104（发声门前提）")
+    s.cmd("PARAM 17 0")
+    s.expect(r"PARAM track=0 id=17 value=0 applied=0", "⑪ 归一 P_AMODE=0（ARP 关）")
+    s.cmd("PARAM 23 0")
+    s.expect(r"PARAM track=0 id=23 value=0 applied=0",
+             "⑪ 归一 P_AHOLD=0（KBD HOLD 关：松开键必须释放）")
     ensure_stopped(s)
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "⑪ UI step")
@@ -3990,8 +4048,9 @@ def run_store_ui_bank(s: Session) -> None:
         鼓轨同理（同一 `page_locked` 判定）；
       - `UI fm6`（选中轨 1 = FM6 ⇒ 页面解锁）+ `UI MEM`：FM6 `delta ≤ est`、EDIT 组
         built=1；截屏抽检 BANK 行的标签/槽号/SAVE(绿)/ERASE(橙) 像素；
-      - 目标槽：`−` 从 B1 → B27（环绕）、`+` 回 B1，再 `+`×3 → B4；全程 `PARAM 70`
-        （PTCH = 音源选择）逐次不变——± 只改**目标槽**；
+      - 目标槽：`−` 从 B1 → B27（环绕）、`+` 回 B1，再 `+`×3 → B4；槽 ± 序列**前后**
+        各读一次 `PARAM 70`（PTCH = 音源选择）并断言相等——± 只改**目标槽**（单次
+        前后对照，不是每步都读）；
       - `TAP BANK SAVE` ⇒ 回显 `status="SAVE OK"`、`STORE BANK GET 3` == `STORE BANK LIVE`
         （按钮发的 CMD_BANK_PUT 与 console 的 PUT 同一存储入口，字节一致）；
       - `TAP BANK ERASE` ⇒ `status="ERASE OK"`、`GET 3` → `STORE ERR empty`；
