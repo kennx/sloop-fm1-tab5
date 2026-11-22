@@ -31,9 +31,10 @@
 
 /* 页数：4 基础页（PLAY/TRACKS/STEP/TRANSPORT）+ 5 参数页（GLOBAL/FX/ANALOG/FM6/
  * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
- * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）。加页时同步 app_page_t、本宏与
+ * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）+ SONG 编排页（P4-C Task 11，
+ * 独立顶层组，id 排在最后以保持既有页 id 不变）。加页时同步 app_page_t、本宏与
  * console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 11u
+#define APP_STATE_PAGES 12u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -259,8 +260,11 @@ typedef enum {
     APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
     /* FILE 组（P4-B：Task 10 扩 id、Task 11 组模型、Task 12 注册页面与页签） */
     APP_PAGE_PROJECTS, APP_PAGE_PRESETS,
+    /* SONG 编排页（P4-C Task 11：独立顶层组 `SONG`，页签顺序在 SEQ 与 FILE 之间；
+     * id 排在最后，既有页 id 不变） */
+    APP_PAGE_SONG,
 } app_page_t;
-_Static_assert(APP_PAGE_PRESETS + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_SONG + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 _Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
                "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");

@@ -1087,22 +1087,24 @@ static void case_store_bank(void)
     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
 }
 
-/* ⑮ 页 id 扩容（P4-B Task 10 Step 3）：FILE 组两页追加在参数页之后，容量 11。 */
+/* ⑮ 页 id 扩容（P4-B Task 10 Step 3 / P4-C Task 11）：FILE 组两页 + SONG 追加在
+ * 参数页之后，容量 12（SONG 是独立顶层组，但 id 仍排在最后，既有页 id 不变）。 */
 static void case_page_ids(void)
 {
     stub_engine_reset();
     state_init();
     app_state_t s;
 
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 11);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 12);
     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
-    state_set_page(APP_PAGE_PRESETS);
+    check_ll("SONG id", APP_PAGE_SONG, 11);
+    state_set_page(APP_PAGE_SONG);
     state_get_copy(&s);
-    check_ll("新页可设", s.page, APP_PAGE_PRESETS);
+    check_ll("新页可设", s.page, APP_PAGE_SONG);
     state_set_page(APP_STATE_PAGES);
     state_get_copy(&s);
-    check_ll("越界页仍被拒", s.page, APP_PAGE_PRESETS);
+    check_ll("越界页仍被拒", s.page, APP_PAGE_SONG);
 }
 
 static void apply_step_edit(const sloop_step_edit_t *edit)

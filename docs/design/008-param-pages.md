@@ -2,8 +2,9 @@
 
 > 状态：已接受（阶段 4，P4-0 Task 4；Task 9 补 §7 参数写/读接口与状态层投影；
 > **Task 10 定稿**：§8 参数页框架（knob/布局表/格式化/编辑路径/预算）；**Task 11 收口**：
-> 五参数页（+FM6/SAMPLE）、格式化截断口径、`UI KNOB` locked 令牌、九页预算表）｜
-> 日期：2026-11-21
+> 五参数页（+FM6/SAMPLE）、格式化截断口径、`UI KNOB` locked 令牌、九页预算表；**P4-C
+> Task 11**：SONG 页 est 12,288B 与六组页签（§3 的 SONG 行、§5 的 12 页有序对））｜
+> 日期：2026-11-21（P4-C 更新 2026-11-23）
 > 关联：ADR-005「阶段 4 容量决策」；AGENTS §5.4.1（console 注入约定）、§5.5（门禁）；
 > 代码：`firmware/components/sloop_ui/src/{ui.c,knob.c,page_layout.c,page_params.c,page_*.c}`、
 > `include/sloop_ui.h`、`src/theme.h`、`firmware/main/console.c`；证据：
@@ -51,18 +52,19 @@ typedef struct {
 esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id 唯一 */
 ```
 
-- **注册顺序 = 组内子签顺序**（P4-B Task 11 起：页签是**两行**——上行 5 个组签
-  `PLAY/TRACKS/EDIT/SEQ/FILE`，下行当前组子签；组模型在 `ui.c` 的 `k_groups[]`，页签
-  文本/数量由「组 + 组内已注册页」派生，不再由平铺注册表派生。组签宽度按 5 组算
-  （`min(176, (1280−32−220−4×8)/5)` = 176px），子签复用下行 5 个槽；右侧 220px 留给
-  SLOOP 标题/层提示，见 §8.1 与 ADR-005 §3）。**注册表只增不删**：外部组件可在
+- **注册顺序 = 组内子签顺序**（P4-B Task 11 起：页签是**两行**——上行 6 个组签
+  `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`，下行当前组子签；组模型在 `ui.c` 的 `k_groups[]`，页签
+  文本/数量由「组 + 组内已注册页」派生，不再由平铺注册表派生。组签宽度按 6 组算
+  （`min(176, (1280−32−220−5×8)/6) = 171.3 → 168px`，8 的倍数；右端 1,064 < SLOOP
+  标题起点 ~1,191），子签复用下行 5 个槽（176px，右端 928）；右侧 220px 留给
+  SLOOP 标题/层提示，见 §8.1 与 ADR-005 §2/§3）。**注册表只增不删**：外部组件可在
   `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册幂等
   （`static done` 标志 + 按 id 去重）；无已注册页的组不显示。输入层的 `TAB` 轮转
   用 `sloop_ui_page_order_next()`（组顺序的**扁平**轮转：组内子页→下一组第一页），
   不按 `sloop_ui_page_count()`，也不按 `APP_STATE_PAGES`。
-- **6 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
-  FILE 组 PROJECTS/PRESETS）；参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE）由
-  `page_layout_register()` 注册进同一注册表——交付态共 **11 页 / 5 组**（ADR-005「导航
+- **7 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
+  SONG + FILE 组 PROJECTS/PRESETS）；参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE）由
+  `page_layout_register()` 注册进同一注册表——交付态共 **12 页 / 6 组**（ADR-005「导航
   决策」）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
   `state_set_page`、input 的组/子签、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
 
@@ -122,6 +124,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | PROJECTS | 7,572–7,764 B（四次运行） | 8,192 B | +5.5% | 4 卡（字母/详情 2 label + 3 个单对象按钮）+ 状态行 = 26 对象；静态样式只 init 一次 |
 | PRESETS | 12,008–12,276 B（多次运行；Task 10 归档读数 12,008/12,044/12,276，见 `inject-nav-20261122-234244.log` 与 `task-10fix-transport-green.log`） | 12,800 B | +4.4% | 32 格（单对象可点击 label，两行文本）+ 3 按钮 + 状态行 = 36 对象 |
 | **FILE 组 Σ** | **19.8–20.0 KB** | **20,992 B** | — | 两页同时已建（组内切页只改显隐）；过渡峰值见 ADR-005 §5（free 7,308–7,840B） |
+| SONG | 11,136–11,548 B（P4-C Task 11，`song` 场景多次首建；`UI MEM` 读数 11,136/11,288/11,384/11,548） | 12,288 B | +6.4%–10.3% | 35 个单对象可点击 label（状态 1 + A–D 卡 4 + 动作 chip 8（CANCEL 常建、按态隐藏）+ 16 条目 + 配置 chip 6）+ 页容器；组预算下 FILE→STEP 不受影响，est 保持 spec 的计划上限 |
 
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
@@ -144,8 +147,9 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 - `est_bytes` = 实测 delta × 1.10–1.23、512 对齐；预算是**构建前门槛**，不是精确账本
   （STEP 在 9 页口径取 23,040 = 最大实测 delta + 5.4%——末页自由量放不下 10%，见 §3 注）。
   **组作用域口径的例外（P4-B Task 12）**：FILE 两页取 +5.5% / +4.4%（8,192 / 12,800）——
-  它们参与「FILE 全建 → 首建 STEP」这个新的最坏有序对，余量从 STEP 的 4,776B 压到 1,192B；
-  再加 10% 会把不变量顶破（`13,800 + 22,528 + 23,040 + 4,096 = 63,464 > 63,120`）。判据
+  它们参与「FILE 全建 → 首建 STEP」这个新的最坏有序对，余量从 STEP 的 4,776B 压到 1,192B（P4-B 时点；P4-C Task 11 页签单对象化后
+  base 降到 11,624B，该对余量回到 3,368B）；当时的账面（`13,800 + 22,528 + 23,040 +
+  4,096 = 63,464 > 63,120`）是这条 +4.4% 的理由。判据
   仍是「delta ≤ est 且逐页 `free ≥ est`」，余量不足用**实证峰值**（free 7,308–7,840B ≥ 4KB）
   兜底，而不是放宽门禁。
   **delta 有池历史漂移的页（P4-B Task 13，FM6）**：该页实测 **4,956–5,100B**（同一源码、
@@ -178,28 +182,31 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 **组作用域生命周期（P4-B，决策见 ADR-005「导航决策」）**：预算从「九页平铺 Σ」改为
 **按组核算**——跨组切换的**过渡峰值**不变量
-`base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（base **两行页签实测
-13,800B**，2026-11-22 Task 11 最终固件；旧值 7,016B 是 `pool_used` 口径的低估，见
-ADR-005 §5）。**最坏有序对 = FILE 两页全建 → 首建 STEP**（P4-B Task 12 起）：
-`13,800 + (8,192+12,800) + 23,040 + 4,096 = 61,928 ≤ 63,120`（余 1,192B；base 取
-保守上界 14,112B 时余 880B）；实测过渡峰值 `pool_free 7,308–7,840B`（`store` 场景 ⓯ 断言
-≥4,096B），仍是弧线 mask 峰值（≈2.6KB）的 2.8 倍。**按当前 est 表的有序对排名**
-（P4-C Task 10 起 SEQ Σest 由 27,648 抬到 32,256，排名重排）：
-① SEQ→PRESETS `45,056B`（账面 `13,800 + 45,056 + 4,096 = 62,952`、余 **168B**；保守
-base 14,112 时超 144B——TRANSPORT est 9,216 是**计划锁定的上限**，实测 delta 必须 ≤ est）。
-**已按设备实测（P4-C Task 10 fix round 1）**：SEQ 全建后首建 PRESETS 的构建日志为
-`池增量=12,276B 池剩余=6,240B`（`task-10fix-transport-green.log`）⇒ 过渡峰值
-`pool_free=6,240B ≥ 4,096`，不再只是账面值；PRESETS delta 的另一归档读数是
-12,008B / 12,044B（`inject-nav-20261122-234244.log`），即该页 delta 的归档区间
-**12,008–12,276B**。
-② FILE→STEP `44,032B`（账面 61,928、余 1,192B；保守 base 14,112 时余 880B）；
-③ EDIT→STEP `43,008B`（Task 13 的 FM6 bank 行使 EDIT Σ = 19,968B；账面
-`13,800 + 43,008 + 4,096 = 60,904`、余 **2,216B**；保守 base 余 1,904B）。每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
+`base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（base **11,624B**，
+P4-C Task 11 最终固件：boot `UI MEM` free 49,016 + PLAY delta 2,480；P4-B 的
+`lv_button + 子 label` 两对象页签同法为 13,800B，Task 11 单对象化省 2,176B；旧值
+7,016B 是 `pool_used` 口径的低估，见 ADR-005 §5）。**最坏有序对 = SEQ 两页全建 →
+首建 PRESETS**（P4-C Task 10 起）：`11,624 + (23,040+9,216) + 12,800 + 4,096 = 60,776
+≤ 63,120`（余 2,344B；保守 base 11,936 时余 2,032B）；实测过渡峰值 `pool_free 8,324B`
+（`transport` ⑩j 断言 ≥4,096B），仍是弧线 mask 峰值（≈2.6KB）的 3.2 倍。**按当前
+est 表的有序对排名**（P4-C Task 10 起 SEQ Σest 由 27,648 抬到 32,256；Task 11 加入
+SONG 后重排）：
+① SEQ→PRESETS `45,056B`（账面 `11,624 + 45,056 + 4,096 = 60,776`、余 **2,344B**；
+TRANSPORT est 9,216 是**计划锁定的上限**，实测 delta 必须 ≤ est）。
+**已按设备实测（P4-C Task 11 最终固件）**：SEQ 全建后首建 PRESETS 的构建日志为
+`池增量=12,068B 池剩余=8,324B`（`task-11-transport-green4.log`）⇒ 过渡峰值
+`pool_free=8,324B ≥ 4,096`；PRESETS delta 的归档区间 12,008–12,276B（池历史漂移；
+Task 10 读数 12,276B → 峰值 6,240B，Task 11 页签单对象化后 8,324B）。
+② SEQ→SONG `44,544B`（Task 11 新增：32,256 + SONG 12,288；账面 `11,624 + 44,544 +
+4,096 = 60,264`、余 **2,856B**；保守 base 11,936 时余 2,544B）。
+③ FILE→STEP `44,032B`（账面 59,752、余 3,368B；保守 base 11,936 时余 3,056B）；
+④ EDIT→STEP `43,008B`（Task 13 的 FM6 bank 行使 EDIT Σ = 19,968B；账面
+`11,624 + 43,008 + 4,096 = 58,728`、余 **4,392B**；保守 base 余 4,080B）。每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
 目标页 → 销毁源组**全部**已建页（含原当前页）」——源组页面在**切换之后**才释放（先销毁
 会出现空白帧、输入路径在跨组切换期间失去活页），故峰值是瞬态且必须被上式覆盖；离开组后
 源组 `built=0`。组内首次访问兄弟页时构建、同组后续切换只改显隐。`UI MEM` 增加
 `GROUP <name> built=<n> sum_est=<B> sum_delta=<B> build_ms=<ms>` 分组行。上表九页实测
-数据保留为 P4-A 终审时点的平铺历史口径；新页（FILE 组 PROJECTS/PRESETS 等）按组预算
+数据保留为 P4-A 终审时点的平铺历史口径；新页（FILE 组 PROJECTS/PRESETS、SONG 等）按组预算
 纳入，不再要求「全部页面同时已建」。
 
 **TRANSPORT 落地的预算例外（P4-C Task 10，2026-11-22 实测）**：18 个工具 chip 全用
@@ -214,15 +221,17 @@ sum_est=32,256`）——跨度来自池历史（同页源码、不同分配序�
 （逐页 `free ≥ est` 与过渡后 `pool_free ≥ 4,096B`）不变；这与 FILE 两页（+5.5%/+4.4%）
 是同一类例外。若后续再加工具，先改对象设计（合并 chip/复用绘制），不抬 est。
 
-**P4-C 12 页预算（规划，ADR-010 §5；TRANSPORT 已按 Task 10 落地）**：SONG 使用独立
-顶层组，组顺序变为 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`，不加入 SEQ 稳态；TRANSPORT est
-上限由 4,608 调整为 **9,216B**（落地实测 delta 8,248–8,716B），SONG 初估上限 **12,288B**
-（须在落地后按 `UI MEM` 实测收紧）。按 base
-13,800B 与 4,096B 切换余量，FILE→STEP 仍为 **61,928B**；SEQ（23,040+9,216）→PRESETS
-为 **62,952B**、余 168B，成为新的账面最坏有序对；SONG→PRESETS 为 **42,984B**。三者均
-≤63,120B。六个组签落地时须重测 base、逐页 `free ≥ est` 与过渡后 `pool_free ≥ 4,096`；
-超预算先改对象设计，不抬 est、不扩池。此处是 P4-C 的预算门槛，不表示本任务已注册第
-12 页或已有实测 delta。
+**P4-C 12 页预算（Task 11 已落地）**：SONG 使用独立
+顶层组，组顺序 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`，不加入 SEQ 稳态；TRANSPORT est
+上限由 4,608 调整为 **9,216B**（落地实测 delta 8,248–8,716B），SONG est **12,288B**
+（Task 11 实测 delta 11,136–11,548B，保持计划上限——它不参与最坏对，抬 est 没有收益）。
+页签从 `lv_button + 子 label` 收敛为**单对象可点击 label**（11 个对象），基础占用
+13,800 → **11,624B**（boot `UI MEM` free 49,016 + PLAY 2,480）。按 base 11,624B 与
+4,096B 切换余量：最坏 = SEQ→PRESETS `60,776B`（余 2,344B）；SEQ→SONG `60,264B`
+（余 2,856B）；FILE→STEP `59,752B`（余 3,368B）；EDIT→STEP `58,728B`；SONG→PRESETS
+`40,808B`。均 ≤63,120B。落地面测：`transport` ⑩j 的 SEQ→PRESETS 峰值
+`pool_free 8,324B`、`song` ⑩ 的 FILE→STEP 峰值 `9,348B`（均 ≥4,096B）；逐页
+`free ≥ est` 不变；超预算先改对象设计，不抬 est、不扩池。
 
 ### 4. 失败可见性（不静默空白页）
 
@@ -277,10 +286,11 @@ sum_est=32,256`）——跨度来自池历史（同页源码、不同分配序�
      架构」）：P4-B 起由组作用域生命周期解除（见下条），但单组内的加页仍须按 rule 4
      做设计决策，不得只调 est 或池；
   5. **组作用域（P4-B 起）**：跨组切换的**过渡峰值**不变量
-     `base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（两行页签实测
-     `13,800 + (8,192+12,800) + 23,040 + 4,096 = 61,928 ≤ 63,120`，余 1,192B；
-     最坏对 = FILE 全建 → 首建 STEP，实测峰值 `pool_free 7,308–7,840B`；Task 12 前是
-     EDIT 全建 → 首建 STEP，58,344 / 实测 12,356B）。源组页面在切换后才释放，
+     `base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`（P4-C Task 11
+     实测 base 11,624B：账面最坏对 = SEQ 全建 → 首建 PRESETS
+     `11,624 + 45,056 + 4,096 = 60,776`、余 2,344B；次坏 = SEQ→SONG 60,264、余
+     2,856B；FILE→STEP 59,752、余 3,368B；实测 SEQ→PRESETS 峰值 `pool_free 8,324B`、
+     FILE→STEP `9,348B`）。源组页面在切换后才释放，
      峰值是瞬态但必须被覆盖；稳态回落为 `base + max_group Σ est = 41,448B`。且离开组后
      该组 `built=0`（含原当前页；`UI MEM` 分组行可复核）——这是把「九页全建」的经验
      下沿换成可复核预算（ADR-005「导航决策」§5）。
@@ -309,8 +319,8 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 ```
 
 （上面示例的数值是 P4-A 九页平铺时点（`pool_total`/`pool_used` 随池块拆分漂移，
-`reserve` 只是展示值，门禁见 §5）。P4-B 交付态（11 页注册 + 组作用域；`store`/`nav`
-会话实测）`UI MEM` 形如：
+`reserve` 只是展示值，门禁见 §5）。P4-B 交付态（11 页注册 + 组作用域；P4-C Task 11 后 12 页，SONG 行见 §3；
+`store`/`nav`/`song` 会话实测）`UI MEM` 形如：
 
 ```
 UI MEM pool_used=33568 pool_free=26688 pool_total=60256 registered=11 built=1 failed=0 sum_est=78848 reserve=-18592 group=SEQ

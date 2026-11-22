@@ -40,6 +40,10 @@
  * page_transport.c），ENTER = +1/切换——与参数页「焦点 + ↑/↓ 调值」同一模型。
  * 动作仍是状态层命令（CMD_REC_TOGGLE/CMD_FILL_CONTROL/CMD_STEP_EDIT/…）。
  *
+ * SONG 页路由（P4-C Task 11）：←/→ 在歌曲条目间移动选中项、↑/↓ 在 A–D section 卡
+ * 间移动、ENTER = LOAD 选中 section（与页面 LOAD chip 同一条 CMD_SECTION_LOAD）。
+ * 选中项是 UI 局部态（page_song.c 静态字节），状态改写只走状态层命令。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -390,8 +394,8 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的最终 11 页顺序：
-         * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的最终 12 页顺序：
+         * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→
          * PRESETS→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
@@ -401,38 +405,47 @@ static void dispatch(const key_binding_t *b, bool down)
     }
     case ACT_FOCUS_STEP:
         /* FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；参数页：←/→ 在 8 槽间移动
-         * 焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→ 移动工具焦点字段 */
+         * 焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→ 移动工具焦点字段；
+         * SONG 页：←/→ 移动歌曲条目 */
         if (sloop_ui_file_page_active()) {
             sloop_ui_file_slot_move(b->param);
         } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_focus_move(b->param);
         } else if (sloop_ui_transport_page_active()) {
             sloop_ui_transport_focus_move(b->param);
+        } else if (sloop_ui_song_page_active()) {
+            sloop_ui_song_entry_move(b->param);
         } else {
             act_focus(true, b->param);
         }
         break;
     case ACT_FILE_LOAD:
         /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽；
-         * TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）。其它页保持无动作。 */
+         * TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；SONG 页 = LOAD 选中 section。
+         * 其它页保持无动作。 */
         if (sloop_ui_step_page_active()) {
             sloop_ui_step_drum_toggle();
         } else if (sloop_ui_file_page_active()) {
             sloop_ui_file_load();
         } else if (sloop_ui_transport_page_active()) {
             sloop_ui_transport_adjust(1);
+        } else if (sloop_ui_song_page_active()) {
+            sloop_ui_song_load();
         }
         break;
     case ACT_FOCUS_TRACK:
         /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新）；
          * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位）；
-         * TRANSPORT 页：↑/↓ 调焦点工具字段（与参数页同一「焦点 + 调值」模型） */
+         * TRANSPORT 页：↑/↓ 调焦点工具字段（与参数页同一「焦点 + 调值」模型）；
+         * SONG 页：↑/↓ 在 A–D section 卡间移动 */
         if (sloop_ui_param_page_active()) {
             sloop_ui_param_adjust((int8_t)-b->param);
         } else if (sloop_ui_transport_page_active()) {
             sloop_ui_transport_adjust((int8_t)-b->param);
         } else if (sloop_ui_step_page_active()) {
             sloop_ui_step_focus_vertical(b->param);
+        } else if (sloop_ui_song_page_active()) {
+            sloop_ui_song_section_move(b->param);
         } else {
             act_focus(false, b->param);
         }

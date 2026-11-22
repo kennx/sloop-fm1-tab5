@@ -187,7 +187,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 #### 1. 组与子页
 
-顶层 5 组（`SYS` 待 P4-E 有设置页时再加入）：
+顶层 6 组（P4-C Task 11 起含 SONG；`SYS` 待 P4-E 有设置页时再加入）：
 
 | 组 | 子页 |
 |---|---|
@@ -195,10 +195,13 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 | TRACKS | TRACKS |
 | EDIT | GLOBAL / FX / ANALOG / FM6 / SAMPLE（后续引擎页） |
 | SEQ | STEP / TRANSPORT |
+| SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
 | FILE | PROJECTS / PRESETS |
 
-- `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`，`APP_STATE_PAGES` 9→11；
-  console `UI` 页名表、`UI MEM` 的组字段、注册表顺序同源。
+- `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
+  `APP_PAGE_SONG`；`APP_STATE_PAGES` 9→11→**12**。SONG 的 id 排在最后（既有页 id
+  不变），页签顺序由组表决定（在 SEQ 与 FILE 之间）。console `UI` 页名表、`UI MEM` 的
+  组字段、注册表顺序同源。
 - 页签 = 组签（上行）+ 组内子签（下行）；注册顺序 = 组顺序，组内顺序 = 子页顺序。
 
 #### 2. 两行页签复用现有 72px
@@ -207,9 +210,11 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
   零改动**（参数页 `52+2×298=648` = `UI_H−72`、STEP 底行等像素级布局不重排）。
 - 页签命中几何：`TAP` 仍按 y<72 判页签区；组签/子签各自的矩形由同一组布局宏派生。
 - 右侧 220px 继续留给 `SLOOP` 标题（上行）与层键提示（下行）；子行只有 1 页的组留空。
-- 组行 5 个页签：`min(176, (1280 − 32 − 220 − 4×8)/5) = 176px`（最长标签 `TRACKS` 远小于
-  页签宽）；子行按组内页数等分。**不再受 N=10 时 95px < `TRANSPORT` 101.6px 的宽度墙
-  约束**——组签只有 5 个。
+- 组行 P4-B 时 5 个页签：`min(176, (1280 − 32 − 220 − 4×8)/5) = 176px`（最长标签
+  `TRACKS` 远小于页签宽）；P4-C Task 11 增至 6 组后取 `min(176, (1280 − 32 − 220 −
+  5×8)/6) = 171.3 → **168px**（8 的倍数；6×168+5×8=1,048，右端 1,064 < SLOOP 标题
+  起点 ~1,191）。子行仍是 176px（5 个复用槽，右端 928），**不受组数影响**。
+  **不再受 N=10 时 95px < `TRANSPORT` 101.6px 的宽度墙约束**。
 
 #### 3. 组作用域页面生命周期
 
@@ -230,7 +235,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 `TAB` = 按组顺序的扁平轮转，组内最后一页的下一张 = 下一组第一页：
 
 ```
-PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → PROJECTS → PRESETS → PLAY
+PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → PLAY
 ```
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
@@ -247,42 +252,48 @@ PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRA
 base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 ```
 
-- `base` = 非页面基础占用（根/两行页签条/错误状态条/字体/LVGL 内部等），**P4-B Task 11
-  两行页签落地后实测 13,800B**（＝ 63,120 − boot `UI MEM` 的 `pool_free 46,840` − PLAY
-  delta 2,480，最终固件）。九页平铺页签的 boot 基线同法为 13,196B，故两行页签的代价
-  ≈ **+604B**（第一版子行建 8 个复用槽时 15,648B；收敛为 5 槽后回落到 13,800B）。
-  「UI 就绪」那一拍的瞬时值 14,112B（含启动期临时分配，差 0.3KB）可作保守上界。
-  本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会漏计
-  TLSF 块头，是低估，已作废；两行页签后已按本值重测回写。
+- `base` = 非页面基础占用（根/两行页签条/错误状态条/字体/LVGL 内部等），**P4-C
+  Task 11 最终固件实测 11,624B**（＝ 63,120 − boot `UI MEM` 的 `pool_free 49,016` −
+  PLAY delta 2,480）。P4-B 的两行页签（组签/子签都是 `lv_button + 子 label` 两对象）
+  同法为 **13,800B**（63,120 − 46,840 − 2,480）；Task 11 把两行 11 个签收敛成
+  **单对象可点击 label**（§7.2），基础占用降 **2,176B**。九页平铺页签同法为 13,196B。
+  「UI 就绪」那一拍的瞬时值比稳态高 0.3KB 量级，保守上界取 **11,936B**（11,624 +
+  312）。本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会
+  漏计 TLSF 块头，是低估，已作废。
 - 组 est：PLAY 3,072 / TRACKS 7,168 / EDIT `3×3,584 + 6,144 + 3,072 = 19,968`
   （FM6 自 P4-B Task 13 起含 bank 存取行，est 3,584 → 6,144，实测 delta 4,956–5,100B）/ SEQ
   `STEP 23,040 + TRANSPORT 9,216 = 32,256`（TRANSPORT 自 P4-C Task 10 起含录音/fill/
-  聚焦步字段/pattern 工具；实测 delta 8,248–8,716B，见 ADR-008 §3 注）/ FILE `PROJECTS 8,192 +
-  PRESETS 12,800 = 20,992`（P4-B Task 12 按实测定稿：首次构建 delta 7,764B / 12,260B，
-  est = +5.5% / +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，实测对象数（26/36 个）
-  远超，见 ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
+  聚焦步字段/pattern 工具；实测 delta 8,248–8,716B，见 ADR-008 §3 注）/ SONG `12,288`
+  （P4-C Task 11：独立组单页；实测 delta 11,136–11,548B，见 ADR-008 §3 的 SONG 行）/
+  FILE `PROJECTS 8,192 + PRESETS 12,800 = 20,992`（P4-B Task 12 按实测定稿：首次构建
+  delta 7,764B / 12,260B，est = +5.5% / +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，
+  实测对象数（26/36 个）远超，见 ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
 - **有序对按当前 est 表重算**（每条 = 源组全建 Σest + 目标组首建页 est；账面 =
-  `base 13,800 + 对值 + 4,096`，不变量 ≤ 63,120）：
-  1. **SEQ 两页全建 → FILE 首建 PRESETS（P4-C Task 10 起的最坏）**：
-     `32,256 + 12,800 = 45,056B` ⇒ 账面 **62,952**、余 **168B**（保守 base 14,112B 时
-     63,264 **超 144B**）——TRANSPORT 从 4,608 抬到 9,216 的直接后果；余量只剩 168B，
-     故 TRANSPORT 的实测 delta 必须 ≤ est（实测 8,248–8,716B，见 ADR-008 §3 注）；
-  2. **FILE 两页全建 → SEQ 首建 STEP**：`20,992 + 23,040 = 44,032B` ⇒ 账面
-     **61,928**、余 **1,192B**（base 取保守上界 14,112B 时 62,240、余 880B）；
-  3. **EDIT 全建 → SEQ 首建 STEP**：`19,968 + 23,040 = 43,008B` ⇒ 账面 **60,904**、
-     余 **2,216B**（保守 base：61,216、余 1,904B）——Task 13 的 FM6 bank 行把 EDIT 从
-     17,408 抬到 19,968，它从旧「次坏并列（40,448）」升为单独次坏；
-  4. **SEQ 全建 → EDIT 首建 GLOBAL**：`32,256 + 3,584 = 35,840B` ⇒ 账面 53,736。
+  `base 11,624 + 对值 + 4,096`，不变量 ≤ 63,120；括号内为保守 base 11,936 时的值）：
+  1. **SEQ 两页全建 → FILE 首建 PRESETS（最坏）**：`32,256 + 12,800 = 45,056B` ⇒
+     账面 **60,776**、余 **2,344B**（61,088、余 2,032B）——TRANSPORT 的 est 9,216 与
+     Task 11 的页签单对象化共同留下的余量；实测 peak `pool_free 8,324B`（下条）；
+  2. **SEQ 两页全建 → SONG 首建**（P4-C Task 11 新增）：`32,256 + 12,288 = 44,544B` ⇒
+     账面 **60,264**、余 **2,856B**（60,576、余 2,544B）——第二坏；
+  3. **FILE 两页全建 → SEQ 首建 STEP**：`20,992 + 23,040 = 44,032B` ⇒ 账面
+     **59,752**、余 **3,368B**（60,064、余 3,056B）；
+  4. **EDIT 全建 → SEQ 首建 STEP**：`19,968 + 23,040 = 43,008B` ⇒ 账面 **58,728**、
+     余 **4,392B**（59,040、余 4,080B）——FM6 bank 行把 EDIT 抬到 19,968；
+  5. **SEQ 全建 → EDIT 首建 GLOBAL**：`32,256 + 3,584 = 35,840B` ⇒ 账面 51,560。
+  6. SONG 出发的最坏对是 SONG→STEP `12,288 + 23,040 = 35,328B` ⇒ 账面 51,048；
+     SONG→PRESETS `12,288 + 12,800 = 25,088B` ⇒ 账面 40,808。
+  页签单对象化把旧账面最坏对（62,952 / 余 168B）的余量恢复到 **2,344B**；若未来
+  再加组/页，仍按有序对与实测 peak 重算。
   （STEP 属 SEQ，所以它不可能是「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ /
   FILE→SEQ 的目标——最坏对必须按有序对枚举，旧式「任意单页上限 + 任意最大组」是
   病态上界。）
-- **有序对 1 的设备实测（P4-C Task 10 fix round 1，`transport` 场景 ⑩j）**：建满
+- **有序对 1 的设备实测（P4-C Task 11 最终固件，`transport` 场景 ⑩j）**：建满
   SEQ（STEP+TRANSPORT，`GROUP SEQ built=2 sum_est=32,256`）后从 SEQ 直接 `UI presets`
   （跨组：目标页构建期间源组仍存活）——构建日志 `页面构建 page=PRESETS(10)
-  池增量=12,276B 预算=12,800B 池剩余=6,240B`（`task-10fix-transport-green.log`），
-  即 **过渡峰值点 `pool_free=6,240B`**（≥4,096B 门禁通过）；过渡后
-  `SEQ built=0 / FILE built=1`。PRESETS delta 的另一归档读数是 12,008B / 12,044B
-  （`inject-nav-20261122-234244.log`），归档区间 **12,008–12,276B**（池历史漂移）。
+  池增量=12,068B 预算=12,800B 池剩余=8,324B`（`task-11-transport-green4.log`），
+  即 **过渡峰值点 `pool_free=8,324B`**（≥4,096B 门禁通过）；过渡后
+  `SEQ built=0 / FILE built=1`。PRESETS delta 的归档区间 12,008–12,276B
+  （池历史漂移；Task 10 读数 12,276B → 峰值 6,240B）。
 - 同批证据另覆盖：`TAP` 回显的 `status="…"` 与屏幕同源、焦点轨 ≠ 选中轨的目标、
   冻结/空步/bank1 窗口的拒绝路径（见本文末节与 `task-10-report.md`）。
 - **实测过渡峰值**（构建日志的「池剩余」= 销毁源组之前的 free）：
@@ -290,23 +301,28 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   （delta 21,856B、耗时 30ms）后 **`pool_free 12,356B`**；SEQ 两页全建
   `pool_free 23,376B` → 跨组建 GLOBAL（delta 2,848B）后 `pool_free 20,528B`。
   Task 12（FILE 组落地）：FILE 两页全建 `pool_free 28,424–29,112B` → 跨组建 STEP
-  （delta 21,716–21,732B、31ms）后 **`pool_free 7,308–7,840B`**（四次运行）——当前最坏**实测**峰值
-  （`store` 场景 ⓯ 断言 ≥4,096B），仍是 DI-19 弧线 mask 峰值（≈2.6KB，取 4KB 余量）
-  的 2.8 倍。
+  （delta 21,716–21,732B、31ms）后 **`pool_free 7,308–7,840B`**（四次运行）——P4-B 时点
+  最坏**实测**峰值（`store` 场景 ⓯ 断言 ≥4,096B），仍是 DI-19 弧线 mask 峰值
+  （≈2.6KB，取 4KB 余量）的 2.8 倍。
+  **P4-C Task 11（12 页/6 组、页签单对象化）**：`transport` ⑩j 的 SEQ→PRESETS
+  构建后 **`pool_free 8,324B`**（PRESETS delta 12,068B）；`song` ⑩ 的 FILE→STEP
+  构建后 **`pool_free 9,348B`**（STEP delta 21,664B、预算 23,040B）；两处均 ≥4,096B。
+  基础占用从 13,800 降到 11,624 后，两次最坏实测峰值从 7.3–7.8KB 抬到 8.3–9.3KB
+  （离 4KB 底线更远）。
 - **为什么必须按峰值核算**：切组顺序是「建目标页 → 切到目标页 → 销毁源组页面」，源组的
   池占用在**切换之后**才释放；若在切换前释放，会出现空白帧、输入路径在跨组切换期间
   没有活页。因此峰值 = 源组已建 Σ + 目标页实际构建量，是瞬态但必须被上式覆盖；切换
-  完成后回落为稳态 `base + max_group Σ est = 41,448B ≤ 63,120B`。
-- **P4-C 12 页预算（规划，ADR-010 §5；TRANSPORT 已按 Task 10 落地）**：SONG 使用
-  **独立顶层组**而不是加入 SEQ，组顺序变为 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；
-  TRANSPORT est 上限 **9,216B**（Task 10 实测 delta 8,248–8,716B，est 保持上限——见
-  ADR-008 §3 注）、SONG 初估 **12,288B**，落地后均按 `UI MEM` 实测收紧。有序对重算：FILE→STEP 仍
-  `20,992+23,040=44,032B`、账面 **61,928B**；SEQ（23,040+9,216）→PRESETS 为
-  `32,256+12,800=45,056B`、账面 **62,952B**、余 **168B**，成为新的账面最坏对；
-  SONG→PRESETS 为 `12,288+12,800=25,088B`、账面 **42,984B**。六个组签仍在 72px
-  页签条内，实施时须重测 base 并保留 `free ≥ est`、过渡后 `pool_free ≥4,096B` 门禁；
-  超预算先改对象设计，不扩池。本任务只确定预算，不注册 SONG 页、不改变当前 11 页。
-  P4-C 的 `TAB` 规划顺序是在 TRANSPORT 后插入 SONG，其余顺序不变。
+  完成后回落为稳态 `base + max_group Σ est = 11,624 + 32,256 = 43,880B ≤ 63,120B`。
+- **P4-C 12 页预算（Task 11 已落地）**：SONG 使用 **独立顶层组** 而不是加入 SEQ，
+  组顺序 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；TRANSPORT est 上限 **9,216B**（Task 10
+  实测 delta 8,248–8,716B，est 保持上限——见 ADR-008 §3 注）、SONG est **12,288B**
+  （Task 11 实测 delta 11,136–11,548B，保持初估上限——它不参与最坏有序对，抬 est
+  没有收益，收紧也没有必要）。基础占用 11,624B（页签单对象化）下：SEQ→PRESETS
+  `45,056B`、账面 **60,776B**、余 **2,344B**（最坏）；SEQ→SONG `44,544B`、账面
+  **60,264B**、余 2,856B；FILE→STEP `44,032B`、账面 **59,752B**、余 3,368B；
+  SONG→PRESETS `25,088B`、账面 **40,808B**。六个组签仍在 72px 页签条内（168px 宽，
+  见 §2），`free ≥ est` 与过渡后 `pool_free ≥4,096B` 门禁不变；超预算先改对象设计，
+  不扩池。
 - **每页构建前 `free ≥ est` 的检查继续保留**（真门禁不变）；组作用域只是把「同时已建
   页集合」限制在一组内。
 - `UI MEM` 增加分组行：`GROUP <name> built=<n> sum_est=<B> sum_delta=<B> build_ms=<ms>`，
@@ -328,8 +344,9 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 #### 7. 落地（P4-B Task 11，2026-11-22）
 
 - 组表 `k_groups[]`（ui.c）：PLAY{PLAY} / TRACKS{TRACKS} / EDIT{GLOBAL,FX,ANALOG,FM6,
-  SAMPLE} / SEQ{STEP,TRANSPORT} / FILE{PROJECTS,PRESETS}。组签固定 5 槽（176×32 @ y=4），
-  无已注册页的组隐藏并压缩排布（Task 12 起 FILE 已注册，5 个组签常显）；子签固定 5 槽
+  SAMPLE} / SEQ{STEP,TRANSPORT} / FILE{PROJECTS,PRESETS}。组签固定槽位（P4-B 时 5 组 176×32 @ y=4；
+  P4-C Task 11 起 6 组、168×32），无已注册页的组隐藏并压缩排布（Task 12 起 FILE 已注册、
+  Task 11 起 SONG 已注册，6 个组签常显）；子签固定 5 槽
   复用（176×30 @ y=38），**单页组（PLAY/TRACKS）子行留空**；层键提示在下行右侧
   （x∈[936,1170]，LONG_DOT），SLOOP 标题在上行右侧（−24,6）。页面区仍是 y=72、1280×720。
 - `TAP` 对 y<72 一律 miss（页签切换走 LVGL 回调 / `UI` / `KEY tab`）；面板命中几何
@@ -346,12 +363,13 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 切页作废旧请求（R30）：`show_page()` 顶部 `sloop_ui_cancel_pending_page()`——同一
   30ms 拍内 `KEY tab` 排队后紧跟手指点击时，点击胜出、待切页被丢弃（定时器路径
   邮箱已消费，为 no-op；console 同步切页另有一次幂等清空）。
-- 验证：`nav.sh` ①–⑦（⑤ 组作用域：EDIT→SEQ 后 EDIT built=0、同组只改显隐、
+- 验证：`nav.sh` ①–⑧（⑤ 组作用域：EDIT→SEQ 后 EDIT built=0、同组只改显隐、
   build_ms `0 < x ≤100ms`；⑥ 手指导航：点组进上次子页且记忆跨往返、跨组点组销毁
-  源组并建目标首个子页、子签同组切换不重建、同拍 `KEY tab` + `UI TAB` 点击胜出；
-  ⑦ TAB 全 11 页轮转 `…→TRANSPORT→PROJECTS→PRESETS→PLAY`，异步切页用
-  `STATE SNAP` 轮询等落地）；`params.sh` 的池口径改为组作用域（同时只常驻一个组，
-  `GROUP EDIT sum_delta` + `pool_free ≥20KB`）；DI-19 由「store→params 不重启」现场收口。
+  源组并建目标首个子页、子签同组切换不重建、同拍 `KEY tab` + `UI TAB` 点击胜出、
+  SONG 单页组 built=0；⑦ TAB 全 12 页轮转 `…→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY`，
+  异步切页用 `STATE SNAP` 轮询等落地；⑧ PLAY↔TRACKS ×10 的池往返）；`params.sh` 的
+  池口径改为组作用域（同时只常驻一个组，`GROUP EDIT sum_delta` + `pool_free ≥20KB`）；
+  DI-19 由「store→params 不重启」现场收口；`song.sh` 覆盖 SONG 组（见 §7.2）。
 
 #### 7.1 FILE 组两页落地（P4-B Task 12，2026-11-22）
 
@@ -372,6 +390,54 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 预算与峰值见 §5；实测：`store` 场景 ⓯ 的 FILE sum_delta 19,936B ≤ sum_est 20,992B，
   两页 delta 7,572–7,764 / 12,228–12,276 ≤ 8,192/12,800，过渡峰值 free 7,308–7,840B；
   PLAY↔TRACKS ×10 的 `pool_free` 变化 ≤84B（`styles_init` 每页只跑一次，评审 R34）。
+
+#### 7.2 SONG 页与六组导航（P4-C Task 11，2026-11-23）
+
+- **组表**：`k_groups[]` 插入 `{"SONG", 1, {APP_PAGE_SONG}}`（SEQ 与 FILE 之间）；
+  `SLOOP_UI_GROUPS` 5→6，组签宽 176→**168px**（6×168+5×8=1,048，右端 1,064；子行
+  5 槽仍是 176px/928）。`APP_STATE_PAGES` 11→12，`APP_PAGE_SONG=11`（id 排在最后，
+  既有页 id 不变），console 页名表追加 `song`；`UI TAB song` / `UI SUB` 的令牌不变
+  （单页组 `UI SUB 0` 回 `UI ERR sub 0`）。`TAB` = 组顺序扁平轮转
+  （…TRANSPORT→SONG→PROJECTS→PRESETS→PLAY）。
+- **页面**（`page_song.c`，35 个单对象可点击 label，无 `lv_button` 子对象）：
+  - 状态行 (24,20) 20pt 两行：`SONG <SONG|LOOP> <STOP|PLAY> BAR n LIVE <A-D|-> READY
+    <ABCD 位掩码>` + `REC <OFF|ARM|REC> CHAIN <n/i|-> LAST <none|NO SONG|N> | <动作结果>`；
+    存储未就绪 → `SONG  NO STORAGE`，所有动作只回状态、不发命令。
+  - A–D 卡 (24,96) 288×104：`A\nUSED[\nLIVE]`/`A\nEMPTY`，选中 = 6px UI_ACCENT 描边 +
+    UI_PANEL_SEL 底；点卡设选中 section（链采集中同一 tap = 追加进临时列表）。
+  - 动作行 y=216（140×48 ×4，x=24+i·148）：`STORE`/`LOAD`/`ERASE`/`JUMP`（JUMP =
+    live loop 播放中的下一小节 section 请求，**绝不用 project LOAD**）；右侧
+    x=640 起：`SONG`（模式切换，SONG 模式黄底）/`CHAIN`（链采集中变 `COMMIT` 并黄底）/
+    `CANCEL`（仅采集中显示）/`REC`（SONG REC，armed/recording 黄底）。
+  - 16 项歌曲顺序（2×8，148×60，x=24+c·153、y=300+r·70）：`01 A 4`；count 之外
+    `01 --` 暗色；选中 = 4px UI_ACCENT 描边。
+  - 配置行 y=456（140×52 ×6）：`SCENE`（循环 A→D）/`BARS-`/`BARS+`/`COUNT-`/`COUNT+`/
+    `LOOP`（文本随状态 `LOOP ON|OFF`，黄底 = ON）。
+- **动作 = 一条状态层命令**：STORE/LOAD/ERASE/JUMP = `CMD_SECTION_*`；SONG =
+  `CMD_SONG_MODE`；REC = `CMD_SONG_REC`；CHAIN/CANCEL = `CMD_CHAIN_*`；六个配置 chip
+  各一条 `CMD_SONG_SET`（整份 cfg 随命令下发，新增项默认 A4，count 1..16/bars 1..64
+  由状态层/引擎钳位；页面不直接写上游全局）。值一律写后回读，失败显示
+  `EMPTY/INVALID/BLOCKED/FROZEN/ERROR` 并置红字。
+- **chain = SAVE 层 begin/commit**：第一次按 CHAIN = `CMD_CHAIN_BEGIN(选中 section)`
+  （立即作为普通 `live_req` 排队、清旧 chain）；链中 tap A–D 卡只进 ≤8 项 UI 临时
+  列表（空 scene 也在列表里）；再按 = `CMD_CHAIN_COMMIT`（整份校验/原子安装）；
+  `CANCEL` = `CMD_CHAIN_CANCEL`。未播放时 begin/commit 由适配层回 blocked（可见
+  `CHAIN: BLOCKED`），空 scene 回 `CHAIN: EMPTY`（err not_found）且不装半条 chain。
+- **键盘**：←/→ 在 count 内的条目间移动、↑/↓ 在 A–D 卡间移动、ENTER = LOAD 选中
+  section（与页面 LOAD chip 同一 `CMD_SECTION_LOAD`）；SAVE/ERASE/CHAIN 只走触摸 +
+  console，避免与演奏键冲突（spec §4.5 的同一条取舍）。
+- **回显**：`-> SONG card=B select` / `-> SONG entry=1 select scene=0 bars=4` /
+  `-> SONG <ACT> [section=A] value=<写后回读> status="<屏幕状态行>"`；失败另带
+  `ERR <not_found|blocked|frozen|…>`。`sloop_ui_song_status_text()` 与屏幕同源。
+- **预算与实测**（`song` 场景）：SONG delta **11,136–11,548B ≤ est 12,288B**（+6.4%–10.3%
+  余量；构建 15–21ms）；SONG↔PLAY ×10 的 `pool_free` 首末差 **+16B**、单次最大下降 28B；
+  SEQ↔SONG ×10（SEQ 两页全建 → SONG → 回 PLAY 稳态测量）首末差 **+84B**、单次最大
+  下降 28B（无逐次增长）；FILE 两页全建 → 首建 STEP 的过渡峰值 **free 9,348B ≥4,096B**。
+  §5 的有序对按新表重排（SEQ→SONG 账面 60,264B 为次坏，SEQ→PRESETS 60,776B 仍最坏）。
+- 文档同时把「本任务只确定预算、不注册 SONG」改为落地口径；`AGENTS` §3/§5.1/§5.4.1/§5.5
+  与 ADR-008 §1/§3/§5 同步。
+- **未覆盖**：人眼视觉读图（本会话无图像查看工具，用像素区扫描 + 布局几何检查代替，
+  见 `task-11-visual-check.txt`）；物理触摸手感/长按不在 TAP 覆盖范围。
 
 ## STEP 深度呈现与鼓 lane 编辑（P4-C Task 9，2026-11-22）
 

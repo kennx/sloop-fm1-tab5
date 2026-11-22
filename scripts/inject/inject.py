@@ -356,16 +356,16 @@ C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
 # 页签条几何（ADR-005「导航决策」两行页签；theme.h UI_GROUP_*/UI_SUB_* 同源）：
-# 上行组签 y∈[4,36)、176px 宽、间距 8（5×176+4×8=912，右端 928）；下行子签
-# y∈[38,68)、同样 176px，只显示当前组已注册页（固定 5 槽复用）。页面区起点仍是
-# y=72，页内几何全部不变。
+# 上行组签 y∈[4,36)、**168px** 宽、间距 8（6×168+5×8=1,048，右端 1,064 <
+# SLOOP 标题起点 ~1,191）；下行子签 y∈[38,68)、176px，只显示当前组已注册页
+# （固定 5 槽复用，右端 928）。页面区起点仍是 y=72，页内几何全部不变。
 # 探针取页签**左上内缘**（x = 签左 + 20，y = 行顶 + 4）：避开 10px 圆角与 16pt
 # 文本行（组签文本 ≈10..30，子签 ≈43..63），命中填充色（选中 UI_ACCENT / 未选中
 # UI_PANEL_HI）而不是字形抗锯齿。
 UI_TAB_X0, UI_TAB_GAP = 16, 8
-UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 176, 32, 4
+UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 168, 32, 4
 UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
-UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SEQ", "FILE")
+UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SEQ", "SONG", "FILE")
 
 
 def group_tab_xy(i: int) -> tuple:
@@ -398,7 +398,8 @@ C_TAB_FX = sub_tab_probe(1)
 C_TAB_ANALOG = sub_tab_probe(2)
 C_TAB_FM6 = sub_tab_probe(3)
 C_TAB_SAMPLE = sub_tab_probe(4)
-C_TAB_FILE = group_tab_probe(4)
+C_TAB_SONG = group_tab_probe(4)
+C_TAB_FILE = group_tab_probe(5)
 C_TAB_PROJECTS = sub_tab_probe(0)
 C_TAB_PRESETS = sub_tab_probe(1)
 C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
@@ -773,8 +774,19 @@ def run_transport_tools(s: Session) -> None:
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑩ UI transport（回页）")
 
-    # 聚焦步 = 轨 0 / 窗口列 2（绝对步 2）：清空后经 TAP 开一步（C4=60，脚本可重复）
-    for step in (2, 3, 4, 5):
+    # 聚焦步 = 轨 0 / 窗口列 2（绝对步 2）：清空后经 TAP 开一步（C4=60，脚本可重复）。
+    # 先「开一步再清」：孤立 TIE 步（上一轮中断留下的 span 尾巴）对 `SEQ EDIT CLEAR`
+    # 是 no-op（适配层的 STEP_CLEAR 只删 note，不把 time 写回 REST；上游 `step_clear`
+    # 会 memset+REST——DI-31），直接 CLEAR 清不掉，会让 SPAN 基点从 1 变成 2+。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（归一孤立 TIE 步）")
+    for step in (1, 2, 3, 4, 5):
+        s.cmd("TAP %d %d" % step_cell_xy(step, 0))  # NOTE→清；TIE/REST→开成 NOTE
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")             # NOTE→REST
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"⑩ 归一轨 0 步 {step} 为 REST")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（归一后）")
+    for step in (1, 2, 3, 4, 5):
         s.cmd(f"SEQ EDIT CLEAR 0 {step}")
         s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"⑩ 清空轨 0 步 {step}")
     s.cmd("KEY 0x21 down")  # q = C4（设 last_note，TAP 开步用它）
@@ -1201,10 +1213,10 @@ def run_transport_tools(s: Session) -> None:
     seq_est = mem["groups"]["SEQ"]["sum_est"]
     (s.ok if seq_est == 23040 + est else s.fail)(
         f"⑩ UI MEM GROUP SEQ sum_est={seq_est}（期望 STEP 23040 + TRANSPORT {est}）")
-    pair = 13800 + seq_est + 12800 + 4096
+    pair = UI_BASE_BYTES + seq_est + 12800 + 4096
     s.ser.note(f"⑩ TRANSPORT 预算：est={est} delta={delta}（余量 "
                f"{(est - delta) * 100.0 / max(delta, 1):.1f}%）；SEQ Σest={seq_est} ⇒ "
-               f"SEQ→PRESETS 有序对 = 13800 + {seq_est} + 12800 + 4096 = {pair}B"
+               f"SEQ→PRESETS 有序对 = {UI_BASE_BYTES} + {seq_est} + 12800 + 4096 = {pair}B"
                f"（≤ 63120）")
 
     # ---------- ⑩j 跨组过渡峰值：SEQ 全建（STEP+TRANSPORT）→ 首建 PRESETS ----------------
@@ -1229,7 +1241,8 @@ def run_transport_tools(s: Session) -> None:
         (s.ok if free_after >= 4096 else s.fail)(
             f"⑩ 过渡峰值 pool_free={free_after}B（≥4,096；PRESETS delta={delta} 预算={est}）")
         s.ser.note(f"⑩ SEQ→PRESETS 过渡实测：PRESETS delta={delta}B、构建后 pool_free={free_after}B"
-                   f"（ADR-005 账面：base 13,800 + 32,256 + 12,800 + 4,096 = 62,952B、余 168B）")
+                   f"（ADR-005 账面：base {UI_BASE_BYTES} + 32,256 + 12,800 + 4,096 = "
+                   f"{UI_BASE_BYTES + 32256 + 12800 + 4096}B）")
     mem = param_mem(s)
     (s.ok if mem["groups"]["SEQ"]["built"] == 0 and mem["groups"]["FILE"]["built"] == 1 else s.fail)(
         f"⑩ 过渡后组作用域：SEQ built={mem['groups']['SEQ']['built']}、"
@@ -1269,6 +1282,13 @@ def run_step_edit(s: Session) -> None:
     ensure_stopped(s)
     normalize_pattern(s)  # LEN=16：bank1 的 DIM 判据（绝对步 ≥ LEN 才暗显）
     ensure_window(s, 0, 16)  # 归一到默认窗口：注入几何由此派生（列 c = 绝对步 c）
+    # ②e 的 CONT 前提是轨 0 为 POLY：`normalize_pattern` 末尾选中轨 2，且设备可能从
+    # 工程 fixture / 预置恢复成 MONO/LEGATO（LEGATO 的音符不会在后续音符下方延续 →
+    # span 停在下一个 NOTE，CONT 不出现）。显式选轨 0 并写 P_VOICE=POLY（脚本可重复；
+    # 状态假设原 DI-23 的同类问题）。
+    select_track(s, 0)
+    s.cmd("PARAM 37 0")  # P_VOICE = V_POLY
+    s.expect(r"PARAM track=0 id=37 value=0", "② VOICE 归一轨 0 = POLY（CONT 用例前提）")
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
 
@@ -1764,14 +1784,18 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
-# TAB 扁平整轮顺序（ADR-005 §4 的最终 11 页；FILE 组两页在 Task 12 注册）——
+# TAB 扁平整轮顺序（ADR-005 §4 的最终 12 页；SONG 独立组在 P4-C Task 11 落地）——
 # group 顺序 + 组内顺序，与 ui.c 的 k_groups[] 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog"), (7, "fm6"),
-             (8, "sample"), (2, "step"), (3, "transport"), (9, "projects"), (10, "presets"))
+             (8, "sample"), (2, "step"), (3, "transport"), (11, "song"), (9, "projects"),
+             (10, "presets"))
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
 NAV_LEAK_NOISE = 128
+# 非页面基础占用（P4-C Task 11 起页签用单对象 label）：boot `UI MEM` free 49,016 +
+# PLAY delta 2,480 ⇒ 63,120 − 49,016 − 2,480 = 11,624B（ADR-005 §5）。
+UI_BASE_BYTES = 11624
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
 # 文本由聚焦步/选中 drum lane 派生（P4-C Task 9）：合成轨 `T1 S3 NOTE C4 …`（轨色），
 # 鼓轨 `DRM S6 LANE 3 SNARE ON …`（橙）。焦点换轨即换色 ⇒ nav 用它判「焦点落到鼓轨」。
@@ -1932,7 +1956,7 @@ def run_nav(s: Session) -> None:
     ⑥ 手指导航（`UI TAB`/`UI SUB` 与物理组签/子签同一动作函数，R32）：点组进上次
        子页且记忆跨往返、跨组点组销毁源组并建目标首个子页、子签同组切换不重建；
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
-    ⑦ `TAB` 全 11 页轮转（最终顺序 …TRANSPORT→PROJECTS→PRESETS→PLAY），异步切页
+    ⑦ `TAB` 全 12 页轮转（最终顺序 …TRANSPORT→SONG→PROJECTS→PRESETS→PLAY），异步切页
        用 STATE SNAP 轮询等落地、回卷到 PLAY；
     ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
        且无逐次递增（每页 `styles_init` 只跑一次）。
@@ -2236,6 +2260,28 @@ def run_nav(s: Session) -> None:
     s.expect(r"UI ERR sub 2", "⑥ FILE 组只有 2 张子签：UI SUB 2 越界")
     s.cmd("UI tab play")
     s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（FILE 两页销毁）")
+    # SONG 独立组（P4-C Task 11）：单页组——点组进 SONG、离开后 built=0、子行为空。
+    s.cmd("UI TAB song")
+    s.expect(r"UI TAB SONG page=song \(11\)", "⑥ UI TAB song（SONG 独立组）")
+    mem_song = param_mem(s)
+    (s.ok if mem_song["groups"]["SONG"]["built"] == 1
+     and mem_song["groups"]["SONG"]["sum_est"] == 12288
+     and mem_song["pages"].get(11, ("?",))[0] == "built" else s.fail)(
+        f"⑥ SONG built={mem_song['groups']['SONG']['built']} "
+        f"sum_est={mem_song['groups']['SONG']['sum_est']} "
+        f"page={mem_song['pages'].get(11, ('?',))[0]}（期望 1 / 12288 / built）")
+    (s.ok if 0 < mem_song["groups"]["SONG"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑥ SONG build_ms={mem_song['groups']['SONG']['build_ms']}ms"
+        f"（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "⑥ SONG 单页组：UI SUB 0 → UI ERR sub")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（SONG 页销毁）")
+    mem_song = param_mem(s)
+    (s.ok if mem_song["groups"]["SONG"]["built"] == 0
+     and mem_song["pages"].get(11, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⑥ 离开 SONG 后 built={mem_song['groups']['SONG']['built']} "
+        f"page={mem_song['pages'].get(11, ('?',))[0]}（期望 0 / unbuilt）")
     s.cmd("UI TAB nope")
     s.expect(r"UI ERR group nope", "⑥ 未知组名 → UI ERR group")
     # ⑥d R30：同一 30ms 拍内 KEY tab 排队 + UI TAB 点击 ⇒ 点击胜出、待切页丢弃。
@@ -2269,12 +2315,12 @@ def run_nav(s: Session) -> None:
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
-    # ---------- ⑦ TAB 全 11 页轮转（最终顺序，ADR-005 §4；FILE 组 Task 12 注册） ----------
-    # 一拍一页从 PLAY 走完 11 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # ---------- ⑦ TAB 全 12 页轮转（最终顺序，ADR-005 §4；SONG 组 Task 11 注册） ----------
+    # 一拍一页从 PLAY 走完 12 页并回卷到 PLAY：每个目标页都由**当前页**计算
     # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
     # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
     s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→"
-               "TRANSPORT→PROJECTS→PRESETS→PLAY")
+               "TRANSPORT→SONG→PROJECTS→PRESETS→PLAY")
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
     for pid, name in NAV_ORDER[1:] + NAV_ORDER[:1]:
@@ -2578,8 +2624,8 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 11 else s.fail)(
-        f"UI MEM registered=11（4 基础 + 5 参数页 + 2 FILE 页）实得 "
+    (s.ok if mem0["head"]["registered"] == 12 else s.fail)(
+        f"UI MEM registered=12（4 基础 + 5 参数页 + 2 FILE 页 + SONG）实得 "
         f"{mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
@@ -5301,6 +5347,546 @@ def run_store_ui_bank(s: Session) -> None:
                 pass
 
 
+# ---- song 场景（P4-C Task 11）：SONG 编排页 + 六组导航 + 组预算 ----
+# 几何与 page_song.c 的布局宏**同源**（页内相对坐标；屏幕绝对 y = 页内 + 72 页签条）。
+# 卡/芯/条目的命中矩形、选中描边都由同一组宏派生——页面改布局时这里必须同步。
+SONG_CARD_X0, SONG_CARD_Y = 24, 96
+SONG_CARD_W, SONG_CARD_H, SONG_CARD_PITCH = 288, 104, 304
+SONG_SEC_Y, SONG_SEC_X0, SONG_SEC_PITCH = 216, 24, 148
+SONG_MODE_X0 = 640
+SONG_CHIP_W, SONG_CHIP_H = 140, 48
+SONG_ENTRY_X0, SONG_ENTRY_Y0 = 24, 300
+SONG_ENTRY_W, SONG_ENTRY_H = 148, 60
+SONG_ENTRY_PITCH_X, SONG_ENTRY_PITCH_Y = 153, 70
+SONG_CFG_X0, SONG_CFG_Y = 24, 456
+SONG_CFG_PITCH, SONG_CFG_W, SONG_CFG_H = 148, 140, 52
+SONG_SEC_ACTS = ("STORE", "LOAD", "ERASE", "JUMP")
+SONG_TOP_ACTS = ("SONG", "CHAIN", "CANCEL", "REC")
+SONG_CFG_NAMES = ("SCENE", "BARS-", "BARS+", "COUNT-", "COUNT+", "LOOP")
+SONG_EST = 12288  # 计划上限（spec §4.4）；实测 delta 必须 ≤ 它，不得反向抬 est
+
+
+def song_card_xy(k: int) -> tuple:
+    return (SONG_CARD_X0 + k * SONG_CARD_PITCH + SONG_CARD_W // 2,
+            72 + SONG_CARD_Y + SONG_CARD_H // 2)
+
+
+def song_sec_xy(i: int) -> tuple:
+    return (SONG_SEC_X0 + i * SONG_SEC_PITCH + SONG_CHIP_W // 2,
+            72 + SONG_SEC_Y + SONG_CHIP_H // 2)
+
+
+def song_top_xy(i: int) -> tuple:
+    return (SONG_MODE_X0 + i * SONG_SEC_PITCH + SONG_CHIP_W // 2,
+            72 + SONG_SEC_Y + SONG_CHIP_H // 2)
+
+
+def song_entry_xy(i: int) -> tuple:
+    r, c = divmod(i, 8)
+    return (SONG_ENTRY_X0 + c * SONG_ENTRY_PITCH_X + SONG_ENTRY_W // 2,
+            72 + SONG_ENTRY_Y0 + r * SONG_ENTRY_PITCH_Y + SONG_ENTRY_H // 2)
+
+
+def song_cfg_xy(i: int) -> tuple:
+    return (SONG_CFG_X0 + i * SONG_CFG_PITCH + SONG_CFG_W // 2,
+            72 + SONG_CFG_Y + SONG_CFG_H // 2)
+
+
+def song_action(s: Session, xy: tuple, name: str, label: str, want: str = None,
+                entry: int = None, section: str = None, err: str = None) -> None:
+    """TAP 一个 SONG 页控件并断言回显（动作名 + status 文本与屏幕同源）。
+
+    `want` = 期望的 status 文本片段（如 `STORE A: OK`）；`err` = 期望的 ERR 令牌。"""
+    s.cmd("TAP %d %d" % xy)
+    prefix = rf"TAP \d+,\d+ page=11 -> SONG {re.escape(name)}"
+    if entry is not None:
+        prefix += rf" entry={entry}"
+    if section is not None:
+        prefix += rf" section={section}"
+    if err is not None:
+        s.expect(prefix + rf" ERR {err} .*status=\"", label)
+    else:
+        s.expect(prefix + r" value=-?\d+ status=\"", label)
+    if want is not None:
+        s.expect(r'status="[^"]*' + re.escape(want) + r'[^"]*"', label + f" → status {want}")
+
+
+def song_cfg(s: Session) -> dict:
+    """`STORE SONG` 解析：count/loop + 每项 scene/bars。"""
+    s.cmd("STORE SONG")
+    m = re.search(r"STORE SONG count=(\d+) loop=(\d+) dirty=(\d)", s.last)
+    if m is None:
+        raise InjectError(f"STORE SONG 回显缺少 count/loop：{s.last.strip()!r}")
+    entries = {}
+    for em in re.finditer(r"^SONG (\d+) scene=(\d+) bars=(\d+)\r?$", s.last, re.MULTILINE):
+        entries[int(em.group(1))] = (int(em.group(2)), int(em.group(3)))
+    return {"count": int(m.group(1)), "loop": int(m.group(2)), "entry": entries}
+
+
+def song_section(s: Session) -> dict:
+    """`SEQ SECTION` 解析：ready 位、live、播放位置。"""
+    s.cmd("SEQ SECTION")
+    m = re.search(r"SEQ SECTION ready=0x([0-9A-F]{2}) live=(\S+) dirty=(\d) index=(\d+) bar=(\d+)",
+                  s.last)
+    if m is None:
+        raise InjectError(f"SEQ SECTION 回显异常：{s.last.strip()!r}")
+    return {"ready": int(m.group(1), 16), "live": m.group(2), "dirty": int(m.group(3))}
+
+
+def song_chain(s: Session) -> dict:
+    s.cmd("SEQ CHAIN")
+    m = re.search(r"SEQ CHAIN count=(\d+) index=(\d+) bars=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ CHAIN 回显异常：{s.last.strip()!r}")
+    scenes = [int(x) for x in re.findall(r"^SEQ CHAIN \d+ scene=(\d+)\r?$", s.last, re.MULTILINE)]
+    return {"count": int(m.group(1)), "index": int(m.group(2)), "bars": int(m.group(3)),
+            "scenes": scenes}
+
+
+def song_pool_free(s: Session) -> int:
+    return nav_pool_free(s)
+
+
+def song_wait_running(s: Session, want: int, timeout: float = 2.0) -> bool:
+    """轮询 `SEQ SONG` 的 running 位（PLAY/STOP 请求只由渲染循环消费）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("SEQ SONG")
+        m = re.search(r"SEQ SONG mode=\w+ running=(\d)", s.last)
+        if m is not None and int(m.group(1)) == want:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def song_wait_srec(s: Session, want: str, timeout: float = 4.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("SEQ SREC")
+        m = re.search(r"SEQ SREC srec=(\w+) last=(\w+)", s.last)
+        if m is not None and m.group(1) == want:
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def run_song(s: Session) -> None:
+    """song 场景：SONG 页（A–D section 卡 / 16 项 / bars·loop / SONG·CHAIN·REC·
+    STORE·ERASE）、六组导航与组预算（P4-C Task 11）。
+
+    覆盖：
+      ① `UI song`(11)/`UI TAB SONG`/`UI SUB` 单页组 + `UI MEM` 的 SONG 行与 est；
+      ② 空态截屏（A–D 卡 EMPTY、16 项配置槽、状态行）；
+      ③ 卡选 + STORE A/B（`SEQ SECTION ready` 与页面状态行同源）；
+      ④ 16 项配置编辑（count/scene/bars/loop）**全部经 CMD_SONG_SET**：屏幕 TAP 后
+         `STORE SONG` 逐字段一致；COUNT/BARS 的上下钳位；
+      ⑤ `STORE PROJ ERASE` 后歌曲项同步消失（arr_drop_scene）+ 列表立即刷新；
+      ⑥ live 播放中 JUMP scene B（`SEQ SECTION live=B`）+ 空 scene 的可见拒绝
+         （`JUMP C: EMPTY`）；截屏「播放 scene B」；
+      ⑦ quick chain：CHAIN 起链（begin 立即请求首项）、卡 tap 进临时列表、再按
+         CHAIN 原子 commit（`SEQ CHAIN A B A`）；空 scene 整份拒绝（ERR not_found）；
+         CANCEL 清 chain；截屏 chain 态；
+      ⑧ SONG 模式 + 缺 scene 整首拒播（`playing=0`/`running=0`，READY 行可见空位）；
+      ⑨ SONG REC 的 NO SONG（空 take 不覆盖歌曲）+ 截屏；
+      ⑩ 组预算：SONG↔PLAY ×10、SEQ↔SONG ×10 的 pool_free 首末差 ≤128B；FILE 全建
+         → 首建 STEP 的过渡峰值 ≥4,096B；
+      ⑪ 收口：擦 A/B、恢复默认歌曲（A4 B4 C4 D4）与 AUTO ON、回 PLAY。
+
+    本场景**破坏性**：占用 A/B 与歌曲顺序（收口恢复默认歌曲；A/B 擦除）。它自带归一，
+    可重复运行；`STORE AUTO OFF` 防止 autosave 把中途状态写进工作工程。
+    """
+    s.ser.note("song 场景开始：归一（停走带 / 窗口 / AUTO OFF / 清 A–D / 默认歌曲）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
+    ensure_stopped(s)
+    ensure_window(s, 0, 16)
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⓪ 归一到 loop 模式")
+    for k in range(4):
+        proj_erase(s, k, f"⓪ 清空 section {'ABCD'[k]}")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⓪ 默认歌曲 A4 B4 C4 D4")
+    sec = song_section(s)
+    (s.ok if sec["ready"] == 0 else s.fail)(
+        f"⓪ 归一后 ready=0x{sec['ready']:02X}（期望 0）")
+
+    # ---------- ① 页面入口与组水位 ----------
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "① UI song → 页 11")
+    s.cmd("UI TAB song")
+    s.expect(r"UI TAB SONG page=song \(11\)", "① UI TAB song（与物理组签同一路径）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "① SONG 单页组：UI SUB 0 → UI ERR sub")
+    mem = param_mem(s)
+    page11 = mem["pages"].get(11, ("?", 0, 0))
+    (s.ok if page11[0] == "built" and page11[1] == SONG_EST and 0 < page11[2] <= SONG_EST
+     else s.fail)(
+        f"① SONG 页 state={page11[0]} est={page11[1]} delta={page11[2]}"
+        f"（0 < delta ≤ {SONG_EST}）")
+    grp = mem["groups"]["SONG"]
+    (s.ok if grp["built"] == 1 and grp["sum_est"] == SONG_EST else s.fail)(
+        f"① GROUP SONG built={grp['built']} sum_est={grp['sum_est']}"
+        f"（期望 1 / {SONG_EST}）")
+    (s.ok if 0 < grp["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"① SONG build_ms={grp['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+
+    # ---------- ② 空态截屏 + 像素抽检 ----------
+    img = s.capture("task-11-song-empty")
+    for k, letter in enumerate("ABCD"):
+        x0 = SONG_CARD_X0 + k * SONG_CARD_PITCH
+        # 卡选中态是 s_sec 的描边+UI_PANEL_SEL 底（初始 A 选中）；顶部内缘取填充色
+        want_bg = C_PANEL_SEL if k == 0 else C_PANEL
+        s.probe(img, f"② 卡 {letter} 底（{'选中' if k == 0 else '未选中'}）",
+                x0 + 20, 72 + SONG_CARD_Y + 12, want_bg, 14)
+        s.probe_region(img, f"② 卡 {letter} 文本",
+                       (x0 + 70, 72 + SONG_CARD_Y + 20, x0 + SONG_CARD_W - 70,
+                        72 + SONG_CARD_Y + SONG_CARD_H - 20), C_TEXT_DIM, 12, 20)
+    for i, name in enumerate(SONG_SEC_ACTS):
+        x0 = SONG_SEC_X0 + i * SONG_SEC_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_SEC_Y + 6, C_PANEL_HI, 14)
+    for i, name in enumerate(SONG_TOP_ACTS):
+        if name == "CANCEL":  # 非链采集态隐藏（不可见/不可命中）
+            continue
+        x0 = SONG_MODE_X0 + i * SONG_SEC_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_SEC_Y + 6, C_PANEL_HI, 14)
+    for i in range(16):
+        x0 = SONG_ENTRY_X0 + (i % 8) * SONG_ENTRY_PITCH_X
+        y0 = 72 + SONG_ENTRY_Y0 + (i // 8) * SONG_ENTRY_PITCH_Y
+        want = C_PANEL_SEL if i == 0 else C_PANEL_HI  # entry 0 初始选中
+        s.probe(img, f"② 条目 {i + 1:02d} chip 底", x0 + 20, y0 + 6, want, 14)
+    for i, name in enumerate(SONG_CFG_NAMES):
+        x0 = SONG_CFG_X0 + i * SONG_CFG_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_CFG_Y + 6, C_PANEL_HI, 14)
+
+    # ---------- ③ 卡选 + STORE A/B ----------
+    for k, letter in enumerate("ABCD"):
+        s.cmd("TAP %d %d" % song_card_xy(k))
+        s.expect(rf"-> SONG card={letter} select", f"③ TAP 卡 {letter} 设选中 section")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "③ 回到卡 A（STORE A 的落点）")
+    song_action(s, song_sec_xy(0), "STORE", "③ TAP STORE(A)", "STORE A: OK", section="A")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x01 else s.fail)(f"③ STORE A 后 ready=0x{sec['ready']:02X}（bit0）")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "③ TAP 卡 B")
+    song_action(s, song_sec_xy(0), "STORE", "③ TAP STORE(B)", "STORE B: OK", section="B")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
+        f"③ STORE B 后 ready=0x{sec['ready']:02X}（bit0+bit1）")
+
+    # ---------- ④ 16 项配置：count 2 / A2 / B3 / loop ----------
+    s.cmd("TAP %d %d" % song_entry_xy(15))
+    s.expect(r"-> SONG entry=15 select", "④ 第 16 项存在（TAP entry=15 命中）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=4", "④ TAP entry 0（默认 A4）")
+    song_action(s, song_cfg_xy(3), "COUNT-", "④ COUNT- → 3", "COUNT 3")
+    song_action(s, song_cfg_xy(3), "COUNT-", "④ COUNT- → 2", "COUNT 2")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 else s.fail)(f"④ STORE SONG count={cfg['count']}（期望 2）")
+    # 第 3 项起不可见（count 之外的槽保持原值，不参与 STORE SONG 输出）
+    s.cmd("TAP %d %d" % song_entry_xy(2))
+    s.expect(r"-> SONG entry=2 select", "④ TAP count 外的 entry 2（选择有效、不可编辑）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ count 外 BARS- 不下发", "ENTRY 3: EMPTY")
+    # entry 0：BARS 4 → 2；entry 1：默认 B4 → B3（默认歌曲 A4 B4 C4 D4）
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=4", "④ 重选 entry 0（A4）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry0 BARS- → 3", "BARS 3")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry0 BARS- → 2", "BARS 2")
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=1 bars=4", "④ TAP entry 1（默认 B4）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry1 BARS- → 3", "BARS 3")
+    cfg = song_cfg(s)
+    ok = (cfg["count"] == 2 and cfg["entry"].get(0) == (0, 2) and cfg["entry"].get(1) == (1, 3))
+    (s.ok if ok else s.fail)(
+        f"④ A2+B3 经状态层落地：count={cfg['count']} entry={cfg['entry']}（期望 2 / 0:2 / 1:3）")
+    song_action(s, song_cfg_xy(5), "LOOP", "④ LOOP ON", "LOOP ON")
+    (s.ok if song_cfg(s)["loop"] == 1 else s.fail)("④ STORE SONG loop=1")
+    song_action(s, song_cfg_xy(5), "LOOP", "④ LOOP OFF", "LOOP OFF")
+    (s.ok if song_cfg(s)["loop"] == 0 else s.fail)("④ STORE SONG loop=0")
+    # 钳位：count 16 再 + 仍 16；bars 64 再 + 仍 64（引擎/状态层钳位，页面不自行造值）
+    store_cmd(s, "STORE SONG SET 16 0 " + " ".join(f"{i % 4}:4" for i in range(16)),
+              r"^STORE SONG SET count=16", "④ 归一 count=16")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    song_action(s, song_cfg_xy(4), "COUNT+", "④ COUNT+ 在 16 钳位", "COUNT 16")
+    store_cmd(s, "STORE SONG SET 2 0 0:64 1:3", r"^STORE SONG SET count=2",
+              "④ 归一 count=2 / entry0 bars=64")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=64", "④ entry0 = A64")
+    song_action(s, song_cfg_xy(2), "BARS+", "④ BARS+ 在 64 钳位", "BARS 64")
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2",
+              "④ 恢复 A2+B3")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    img = s.capture("task-11-song-edit")
+    # entry 0 的选中态 = UI_PANEL_SEL 底 + 4px UI_ACCENT 描边（内缘取填充色）
+    s.probe(img, "④ entry0 选中底（UI_PANEL_SEL）",
+            SONG_ENTRY_X0 + 20, 72 + SONG_ENTRY_Y0 + 6, C_PANEL_SEL, 14)
+    s.probe_region(img, "④ 状态行文本（UI_TEXT_DIM）", (24, 72 + 20, 1000, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+
+    # ---------- ⑤ project erase 后歌曲项同步消失 ----------
+    proj_erase(s, 1, "⑤ STORE PROJ ERASE B")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 1 and cfg["entry"].get(0) == (0, 2) else s.fail)(
+        f"⑤ ERASE B 后歌曲 count={cfg['count']} entry={cfg['entry']}（期望 1 / 0:2）")
+    sec = song_section(s)
+    (s.ok if not (sec["ready"] & 0x02) else s.fail)(
+        f"⑤ ERASE B 后 ready=0x{sec['ready']:02X}（bit1 清零）")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤ 回 SONG 刷新列表")
+    # 重建 B 并补回第 2 项（新增项默认 A4；再改成 B3）
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤ 重选 B")
+    song_action(s, song_sec_xy(0), "STORE", "⑤ 重建 B", "STORE B: OK", section="B")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=2", "⑤ entry0 仍是 A2")
+    song_action(s, song_cfg_xy(4), "COUNT+", "⑤ COUNT+ → 2（新项默认 A4）", "COUNT 2")
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=0 bars=4", "⑤ 新项默认 A4")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑤ 新项 SCENE → B", "SCENE B")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤ 新项 BARS- → 3", "BARS 3")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
+        f"⑤ 恢复 A2+B3：count={cfg['count']} entry={cfg['entry']}")
+
+    # ---------- ⑥ live 播放 + JUMP scene B + 空 scene 可见拒绝 ----------
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑥ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑥ TAP PLAY（live loop）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑥ STATE SNAP playing")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑥ 回 SONG（重建）")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑥ 选中 B")
+    song_action(s, song_sec_xy(3), "JUMP", "⑥ TAP JUMP(B)", "JUMP B: OK", section="B")
+    deadline = time.monotonic() + 3.0
+    live = None
+    while time.monotonic() < deadline:
+        live = song_section(s)["live"]
+        if live == "B":
+            break
+        time.sleep(0.05)
+    (s.ok if live == "B" else s.fail)(f"⑥ 下一小节生效：SEQ SECTION live={live}（期望 B）")
+    img = s.capture("task-11-song-live-b")
+    s.probe_region(img, "⑥ 状态行含 LIVE/PLAY 文本", (24, 72 + 20, 1000, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 空 scene：C 从未 STORE → JUMP 必须回 not_found，且 live 仍是 B（可见拒绝）
+    s.cmd("TAP %d %d" % song_card_xy(2))
+    s.expect(r"-> SONG card=C select", "⑥ 选中 C（空）")
+    song_action(s, song_sec_xy(3), "JUMP", "⑥ JUMP 空 scene C → EMPTY", "JUMP C: EMPTY",
+                section="C", err="not_found")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑥ 空 scene 被拒后 live 仍是 B")
+    img = s.capture("task-11-song-empty-jump")  # 可见拒绝：状态行红字 `JUMP C: EMPTY`
+    s.probe_region(img, "⑥ 状态行拒绝文本（UI_ERROR 红字）", (24, 72 + 20, 1232, 72 + 80),
+                   C_ERROR, 20, 20)
+
+    # ---------- ⑦ quick chain：begin → 卡进列表 → commit / 空 scene 拒绝 / cancel ----------
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 选 B 起链")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ CHAIN begin（立即请求 B）", "CHAIN: B")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑦ 链中 tap A 进临时列表")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 链中 tap B 进临时列表")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ CHAIN commit（原子安装）", "CHAIN: B A B")
+    chain = song_chain(s)
+    (s.ok if chain["count"] == 3 and chain["scenes"] == [1, 0, 1] else s.fail)(
+        f"⑦ SEQ CHAIN count={chain['count']} scenes={chain['scenes']}（期望 3 / [1,0,1]）")
+    img = s.capture("task-11-song-chain")
+    s.probe_region(img, "⑦ 状态行 CHAIN 文本", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 空 scene 整份拒绝（不安装半条 chain）：B + C(empty)
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 空链用例：选 B")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ 再起链 B", "CHAIN: B")
+    s.cmd("TAP %d %d" % song_card_xy(2))
+    s.expect(r"-> SONG card=C select", "⑦ 链中 tap C（空）")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ commit 空 scene → ERR not_found",
+                "CHAIN: EMPTY", err="not_found")
+    chain = song_chain(s)
+    (s.ok if chain["count"] == 0 else s.fail)(
+        f"⑦ 空 scene 整份拒绝后 SEQ CHAIN count={chain['count']}（期望 0，不装半条）")
+    # CANCEL：begin 后取消，chain 清空、已排队的 section 保留（单 tap 语义）
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 取消用例：选 B")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ begin B", "CHAIN: B")
+    song_action(s, song_top_xy(2), "CANCEL", "⑦ CANCEL", "CHAIN: CANCEL")
+    (s.ok if song_chain(s)["count"] == 0 else s.fail)("⑦ CANCEL 后 chain count=0")
+
+    # ---------- ⑧ SONG 模式 + 缺 scene 整首拒播 ----------
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑧ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑧ STOP（停止 live loop）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑧ STATE SNAP playing=0")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑧ 回 SONG")
+    song_action(s, song_top_xy(0), "SONG", "⑧ SONG 模式", "MODE: SONG")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=song", "⑧ SEQ SONG mode=song")
+    # 缺 scene：把第 2 项改成 C（空），PLAY 必须不进入播放（arrangement_start 拒绝）
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=1 bars=3", "⑧ 选 entry 1（B3）")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE B→C（空）", "SCENE C")
+    cfg = song_cfg(s)
+    (s.ok if cfg["entry"].get(1) == (2, 3) else s.fail)(
+        f"⑧ entry1 = C3（实得 {cfg['entry'].get(1)}）")
+    sec = song_section(s)
+    (s.ok if not (sec["ready"] & 0x04) else s.fail)(
+        f"⑧ READY 行可见 C 为空：ready=0x{sec['ready']:02X}（bit2 = 0）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑧ 去 TRANSPORT 按 PLAY")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑧ TAP PLAY（缺 scene 的 SONG）")
+    time.sleep(1.0)  # 渲染循环消费 transport_req；拒绝路径不得进入播放
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑧ 缺 scene 拒播：playing 仍 0")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=song running=0", "⑧ 缺 scene 拒播：SEQ SONG running=0")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑧ 回 SONG（截缺 scene 态）")
+    img = s.capture("task-11-song-empty-scene")
+    s.probe_region(img, "⑧ READY 行（UI_TEXT_DIM）", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 恢复 B3 与 loop 模式（后续 REC/预算用例的基线）
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=2 bars=3", "⑧ 重选 entry 1（C3）")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE C→D", "SCENE D")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE D→A", "SCENE A")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE A→B", "SCENE B")
+    song_action(s, song_top_xy(0), "SONG", "⑧ 回 LOOP 模式", "MODE: LOOP")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=loop", "⑧ SEQ SONG mode=loop")
+
+    # ---------- ⑨ SONG REC 的 NO SONG（空 take 不覆盖歌曲） ----------
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑨ 回 SONG")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑨ 选 A（live_sec=A 需要 LOAD）")
+    song_action(s, song_sec_xy(1), "LOAD", "⑨ LOAD A（停止态，live=A）", "LOAD A: OK",
+                section="A")
+    (s.ok if song_section(s)["live"] == "A" else s.fail)("⑨ SEQ SECTION live=A")
+    song_action(s, song_top_xy(3), "REC", "⑨ REC arm", "REC: ARMED")
+    s.cmd("SEQ SREC")
+    s.expect(r"SEQ SREC srec=armed", "⑨ SEQ SREC srec=armed")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑨ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑨ PLAY（SONG REC 从下一小节起）")
+    (s.ok if song_wait_srec(s, "recording", 4.0) else s.fail)(
+        "⑨ SONG REC 进入 recording（下一个小节）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)  # 小节内立即 STOP：srec_n=0 ⇒ NO SONG
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑨ STOP 收尾空 take")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑨ STOP 后 playing=0")
+    s.cmd("SEQ SREC")
+    s.expect(r"SEQ SREC srec=off last=no_song", "⑨ 空 take = last=no_song")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
+        f"⑨ NO SONG 不覆盖原歌曲：count={cfg['count']} entry={cfg['entry']}")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑨ 回 SONG")
+    img = s.capture("task-11-song-nosong")
+    s.probe_region(img, "⑨ 状态行 LAST NO SONG 文本", (24, 72 + 20, 1200, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+
+    # ---------- ⑩ 组预算：往返池差与最坏有序对 ----------
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ 起点 PLAY")
+    free0 = song_pool_free(s)
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI song")
+        s.expect(r"UI page=song \(11\)", f"⑩ SONG↔PLAY {trip}/{NAV_LEAK_TRIPS}：UI song")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", f"⑩ SONG↔PLAY {trip}/{NAV_LEAK_TRIPS}：UI play")
+        per_trip.append(song_pool_free(s))
+    drop = free0 - per_trip[-1]
+    s.ser.note(f"⑩ SONG↔PLAY pool_free：{free0} → 逐次 {per_trip}")
+    (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ {NAV_LEAK_TRIPS} 次 SONG↔PLAY 往返后 pool_free 变化 {free0} → {per_trip[-1]}"
+        f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ 单次 SONG↔PLAY 的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+
+    # SEQ（STEP+TRANSPORT）全建 → SONG → 回 PLAY，×10。测量点在**每组都销毁后的
+    # PLAY 稳态**（与 ⑧ 的 R34 泄漏口径一致：跨组往返的净变化，排除 STEP 22K 重建
+    # 的 TLSF 碎片涨落——SEQ 两页建满时的 pool_free 本身有 ±200B 的分配序噪声）。
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ SEQ↔SONG 起点 PLAY")
+    free0 = song_pool_free(s)
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI step")
+        s.expect(r"UI page=step \(2\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI step")
+        s.cmd("UI transport")
+        s.expect(r"UI page=transport \(3\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI transport")
+        s.cmd("UI song")
+        s.expect(r"UI page=song \(11\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI song")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI play")
+        per_trip.append(song_pool_free(s))
+    drop = free0 - per_trip[-1]
+    s.ser.note(f"⑩ SEQ↔SONG pool_free：{free0} → 逐次 {per_trip}")
+    (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ {NAV_LEAK_TRIPS} 次 SEQ↔SONG 往返后 pool_free 变化 {free0} → {per_trip[-1]}"
+        f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ 单次 SEQ↔SONG 的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+
+    # 最坏有序对仍应是 SEQ→PRESETS；FILE 全建 → 首建 STEP 的过渡峰值必须 ≥4KB
+    s.cmd("UI TAB FILE")
+    s.expect(r"UI TAB FILE page=", "⑩ UI TAB FILE")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=projects \(9\)", "⑩ UI SUB 0 → PROJECTS")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=presets \(10\)", "⑩ UI SUB 1 → PRESETS")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["FILE"]["built"] == 2 else s.fail)(
+        f"⑩ FILE 两页全建 built={mem['groups']['FILE']['built']}")
+    s.cmd("UI step", timeout=5.0)
+    s.expect(r"UI page=step \(2\)", "⑩ FILE 全建 → 首建 STEP")
+    m = re.search(r"页面构建 page=STEP\(2\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑩ 过渡构建日志缺少 STEP 行（池剩余不可测）")
+    else:
+        delta, est, free_after = (int(g) for g in m.groups())
+        (s.ok if free_after >= 4096 else s.fail)(
+            f"⑩ FILE→STEP 过渡峰值 pool_free={free_after}B ≥4,096"
+            f"（STEP delta={delta} 预算={est}）")
+        s.ser.note(f"⑩ FILE→STEP 过渡实测：STEP delta={delta}B、构建后 pool_free={free_after}B"
+                   f"（账面 {UI_BASE_BYTES} + 20,992 + 23,040 + 4,096 = "
+                   f"{UI_BASE_BYTES + 20992 + 23040 + 4096}B）")
+
+    # ---------- ⑪ 收口 ----------
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑪ 回 PLAY")
+    s.cmd("STATE SNAP")
+    if s.snap_int(r"playing=(\d)") != 0:
+        s.cmd("UI transport")
+        s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
+        s.cmd("TAP %d %d" % TRANSPORT_STOP)
+        s.expect(r"-> TRANSPORT CMD_STOP", "⑪ STOP")
+    for k in (0, 1):
+        proj_erase(s, k, f"⑪ 收口擦 section {'ABCD'[k]}")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⑪ 收口默认歌曲 A4 B4 C4 D4")
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑪ 收口 loop 模式")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑪ 复位 UI play")
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑪ 收口 STORE AUTO ON（恢复默认）")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
@@ -5308,6 +5894,7 @@ SCENARIOS = {
     "tracks": run_tracks,
     "nav": run_nav,
     "store": run_store,
+    "song": run_song,
 }
 
 

@@ -19,7 +19,7 @@
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
  *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
- *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>）；无参打印当前页；QUIESCE <on|off>
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
@@ -50,6 +50,11 @@
  *    "-> TRANSPORT <CMD> <op> value=<写后回读值> status=\"<屏幕状态行>\""（P4-C Task 10：
  *    REC/fill/聚焦步字段/pattern 工具；失败回 "ERR <token> value=<写前真值>"，鼓轨上的
  *    span/slide 回 "ignored (not_synth)"；status 与页面同源）。
+ *    SONG 页（P4-C Task 11）回显 "-> SONG card=B select" / "-> SONG entry=1 select
+ *    scene=0 bars=4" / "-> SONG <STORE|LOAD|ERASE|JUMP|SONG|CHAIN|CANCEL|REC|SCENE|
+ *    BARS-|…> [section=A] value=<写后回读> status=\"<屏幕状态行>\""（失败另带
+ *    "ERR <not_found|blocked|frozen|…>"；空 scene 的 `JUMP C: EMPTY` / `CHAIN: EMPTY`
+ *    与 NO STORAGE 都能按文本断言）。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
  *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
@@ -857,7 +862,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -870,7 +875,7 @@ static int param_command(int argc, char **argv)
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {
     "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
-    "projects", "presets",
+    "projects", "presets", "song",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1132,7 +1137,7 @@ static int ui_command(int argc, char **argv)
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
             printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
-                   "projects|presets|0..%u)\n",
+                   "projects|presets|song|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1284,7 +1289,7 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -1566,6 +1571,51 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> BANK slot=%u action=%s status=\"%s\"\n", x, y, page,
                (unsigned)r.b, r.kind == SLOOP_TAP_BANK_STORE ? "save" : "erase",
                text != NULL ? text : "?");
+        break;
+    }
+    case SLOOP_TAP_SONG_SECTION:
+        /* SONG 页 A–D 卡：只改 UI 局部选中（不写引擎）；链采集中同一 tap 也会把该
+         * section 追加进临时列表（页面状态行给出 `CHAIN: …` 预览）。 */
+        printf("TAP %ld,%ld page=%u -> SONG card=%c select\n", x, y, page,
+               (unsigned)r.b < 4u ? (char)('A' + r.b) : '?');
+        break;
+    case SLOOP_TAP_SONG_ENTRY: {
+        /* 歌曲条目选中：count 内的槽回显其 scene/bars（与 STORE SONG 同源的真值）；
+         * count 之外的槽只回 entry 号（屏幕上是 `NN --`）。 */
+        sloop_song_snapshot_t s;
+        sloop_seq_song_read(&s);
+        if (r.b < s.config.count) {
+            printf("TAP %ld,%ld page=%u -> SONG entry=%u select scene=%u bars=%u\n", x, y, page,
+                   (unsigned)r.b, (unsigned)s.config.entry[r.b].scene,
+                   (unsigned)s.config.entry[r.b].bars);
+        } else {
+            printf("TAP %ld,%ld page=%u -> SONG entry=%u select\n", x, y, page, (unsigned)r.b);
+        }
+        break;
+    }
+    case SLOOP_TAP_SONG_ACTION: {
+        /* SONG 页动作 chip：动作名 + 落点 section + 写后回读值 + 状态行文本（与屏幕
+         * 同源 `sloop_ui_song_status_text`）。失败时另给 ERR 令牌（app_seq_status_t，
+         * 与 STEP 鼓格/TRANSPORT 工具共用词表），脚本按文本断言空 scene 的可见拒绝。 */
+        static const char *const names[SLOOP_SONG_ACT_COUNT] = {
+            "STORE", "LOAD", "ERASE", "JUMP", "SONG", "CHAIN", "CANCEL", "REC",
+            "SCENE", "BARS-", "BARS+", "COUNT-", "COUNT+", "LOOP",
+        };
+        const char *name = r.b < SLOOP_SONG_ACT_COUNT ? names[r.b] : "?";
+        const char *text = sloop_ui_song_status_text();
+        char where[16] = "";
+        if (r.b <= SLOOP_SONG_JUMP) {
+            snprintf(where, sizeof(where), " section=%c",
+                     r.d >= 0 && r.d < 4 ? (char)('A' + r.d) : '?');
+        }
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> SONG %s%s ERR %s value=%d status=\"%s\"\n", x, y,
+                   page, name, where, seq_status_token(r.err), (int)r.v,
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SONG %s%s value=%d status=\"%s\"\n", x, y, page, name,
+                   where, (int)r.v, text != NULL ? text : "");
+        }
         break;
     }
     default:
@@ -2732,7 +2782,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

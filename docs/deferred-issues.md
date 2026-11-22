@@ -214,3 +214,15 @@
 | **触发条件** | 用户报告「和弦里第二个音的力度改不了」；或 sequence 场景要覆盖 POLY span 的 UI 编辑；或 SONG/sequence 场景需要按音符编辑。 |
 | **参考** | `firmware/components/sloop_ui/src/page_transport.c`（`tr_action` 的 LVL/RAT/SPAN）、`firmware/components/sloop_core/src/seq_tab5.c`（`span_len`/`span_set`）、`third_party/sloop-fm1/firmware/src/ui.c`（`ui.note_k`/`note_span`）、ADR-005「TRANSPORT 录音、fill 与 pattern 工具区」§2 |
 | **登记** | 2026-11-22（P4-C Task 10：聚焦步字段的已知近似） |
+
+## DI-31: `SEQ_STEP_CLEAR` 对孤立 TIE 步是 no-op（上游 `step_clear` 会写回 REST）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 适配层 `sloop_seq_step_edit(SEQ_STEP_CLEAR)` 的实现是「while `step_on` → `note_del`，再清 lock/micro/fill」；`step_on` 要求 `n>0 && time==ST_NOTE`，所以对**只有 `time=ST_TIE`、n=0 的孤立 TIE 步**循环一次都不进，time 仍停在 TIE。上游 `ui.c` 的 `step_clear()` 是 `memset(st,0)` + `time=ST_REST`，任何步（含 TIE 尾巴）都回到 REST。 |
+| **影响面** | 用户在 `SEQ EDIT CLEAR <track> <step>` 或状态层 `STEP_CLEAR` 上清一个孤立 TIE 步时看不到变化；锚点步被单独清空后留下的 TIE 尾巴不会被同一条命令顺手清掉，后续 SPAN 以可见 TIE 链为基准时会多算（Task 11 `transport` 场景首轮中断后复跑踩到：SPAN 基点从 1 变 2）。正常 UI 路径（STEP 格 toggle）对 TIE 步按「空步 → 开音」处理，不直接依赖 CLEAR；`PATTERN CLEAR`（整轨）会整份 `step_clear`，不受影响。 |
+| **为何可延迟** | 不是 Task 11 引入的行为，改动会触碰 P4-C Task 4 已冻结的 CLEAR 语义与 `seq-test.sh` 的既有断言；当前唯一可复现入口是「锚点步被清空留下 orphan TIE + 后续 STEP_CLEAR」这一窄路径，且注入脚本已用「开一步再清」自愈。 |
+| **解决方向** | 把 `SEQ_STEP_CLEAR` 改成上游 `step_clear` 口径：`memset(&t->step[step],0)` + `time=ST_REST`（保留 LEN），补 `seq-test` 用例「孤立 TIE 步 CLEAR → time=REST」与 state/注入断言；确认 `PATTERN CLEAR` 与 undo 标记不被重复 memset。 |
+| **触发条件** | 用户报告「清不掉某个 TIE 步」；或 Task 12 的 `sequence` 场景在中断复跑时需要稳定的 CLEAR 归一；或任何改动 CLEAR 语义的任务。 |
+| **参考** | `firmware/components/sloop_core/src/seq_tab5.c`（`SEQ_STEP_CLEAR` 分支）、`third_party/sloop-fm1/firmware/src/ui.c`（`step_clear`）、`scripts/inject/inject.py` 的 `run_transport_tools`（归一注释） |
+| **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义） |
