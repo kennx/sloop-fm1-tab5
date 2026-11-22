@@ -212,4 +212,56 @@ esp_err_t sloop_store_autosave_start(void);
  * 开机恢复仍照常发生。返回设置后的状态。 */
 bool sloop_store_autosave_enable(bool on);
 
+/* ---- 歌曲顺序：OBJ_SETTINGS 的 PER3 子集（P4-C Task 7，ADR-009 §6 / ADR-010 §4）----
+ * 上游把 16 项 A–D 歌曲顺序（count/loop/(scene,bars)×16）放在设置对象 `persist_t` 的
+ * 偏移 48；A–D 的内容仍是 FUN6 工程对象（`sloop_store_project_*`）。写规则：
+ *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 默认 DSU =
+ *     1,552B）+ 默认 80B side record（theme 0 + 空收藏 + CRC）；
+ *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592B）：整个 payload 保留，只替换 48..83；
+ *     尚无 DSU 的补默认 DSU（1,552B），已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
+ *     才写默认 80B side：自校验不过的 2.7 beta 主题记录也不覆盖）；
+ *   - PER2/PER1：按上游 persist_boot 口径迁移（palette/lowcut/zoom/panel 保留，缺失的
+ *     取默认），随后写成 canonical PER3；
+ *   - 未知 magic / 长度不是任何历史格式：拒绝写（ESP_ERR_INVALID_ARG，console 的
+ *     `STORE ERR invalid`），原扇区一个字节都不动。
+ * `song_get` 只读**内存** arrangement（不需要存储就绪）；`song_set` 只改内存并置 dirty，
+ * 落盘由 1s 任务的 `sections_tick` 在「停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s」
+ * 时完成（失败保留 dirty，下个窗口重试）；`song_save` 是上游 `arrangement_save` 的同义
+ * 入口（停止态立即写，播放中 ESP_ERR_INVALID_STATE = `STOP BEFORE SAVE`）；
+ * `song_reload` 从 flash 读回并**以 flash 为准**清 dirty（开机与 SELFTEST 之后用：
+ * `arrangement` 是 arranger.c 的 static `.bss`，自检的 restore 会把它回滚到默认）；对象
+ * 损坏时不覆盖 RAM、回 ESP_ERR_INVALID_ARG。
+ * `sections_tick(now_ms)` 由 1s 任务以 esp_timer 毫秒调用；诊断冻结时不写，渲染路径
+ * 绝不写 flash。`song_info` 是 `STORE SONG INFO` 的诊断投影（只读 flash 对象）。 */
+#define SLOOP_SONG_ENTRIES 16u
+typedef struct {
+    uint8_t scene, bars;
+} sloop_song_entry_t;
+typedef struct {
+    uint8_t count, loop;
+    sloop_song_entry_t entry[SLOOP_SONG_ENTRIES];
+} sloop_song_config_t;
+typedef enum {
+    SLOOP_SONG_EMPTY = 0, /* 没有对象（st_load 读不出有效副本） */
+    SLOOP_SONG_PER3,      /* 合法 PER3（含历史长度/MIDI 尾段） */
+    SLOOP_SONG_PER2,      /* 合法 PER2（保存时会迁移） */
+    SLOOP_SONG_PER1,      /* 合法 PER1（保存时会迁移） */
+    SLOOP_SONG_INVALID,   /* 未知 magic / 长度不认识：拒绝覆盖 */
+} sloop_song_kind_t;
+typedef struct {
+    uint16_t len;    /* flash 对象的 payload 长度（0 = 空） */
+    uint8_t kind;    /* sloop_song_kind_t */
+    uint8_t side;    /* 1 = 当前副本的 side record 自校验通过（magic + CRC） */
+    uint8_t count;   /* 读回的歌曲项数（PER1/2/空：默认歌曲的 4 项） */
+    uint8_t loop;
+} sloop_store_song_info_t;
+esp_err_t sloop_store_song_get(sloop_song_config_t *out);
+esp_err_t sloop_store_song_set(const sloop_song_config_t *cfg);
+esp_err_t sloop_store_song_save(void);
+esp_err_t sloop_store_song_reload(void);
+esp_err_t sloop_store_song_info(sloop_store_song_info_t *out);
+/* 有没有「改了还没落盘」的歌曲（诊断/测试用；Task 8 的 SONG 页状态行也读它）。 */
+bool sloop_store_song_dirty(void);
+void sloop_store_sections_tick(uint32_t now_ms);
+
 #endif

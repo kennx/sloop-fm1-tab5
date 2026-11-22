@@ -28,3 +28,18 @@ read -r -a CC_CMD <<< "${CC:-gcc}"
 
 echo "== sloop_core sequencer adapter host test"
 "$BIN"
+
+# PER3 歌曲设置（Task 7）：同源 hostsim + 真实 storage.c（假 flash）+ src/song_persist.h。
+# 单独一个可执行文件：字节级布局/迁移/尾段/side 与真实 A/B 提交都在这里断言。
+PERSIST_BIN="$BUILD_DIR/persist_host_test"
+"${CC_CMD[@]}" -std=gnu11 -O2 -Wall -Wextra -fwrapv -fno-strict-aliasing -ffp-contract=off \
+    -Wno-unused-function -Wno-unused-variable -Wno-missing-field-initializers -Wno-int-to-pointer-cast \
+    -Wno-maybe-uninitialized \
+    -I "$REPO_ROOT/firmware/components/sloop_core/include" \
+    -I "$REPO_ROOT/firmware/components/sloop_state/test/stub" \
+    -I "$UPSTREAM_DIR/firmware/src" \
+    -I "$TABLES_DIR" \
+    "$SCRIPT_DIR/persist-host-test.c" -lm -o "$PERSIST_BIN"
+
+echo "== sloop_core PER3 song-settings host test"
+"$PERSIST_BIN"

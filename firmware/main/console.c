@@ -70,9 +70,13 @@
  *    "BANK COUNT used=n total=27"；PTCH = 8 + n（< 8 是工厂槽）。播放中 PUT/ERASE 回
  *    "STORE ERR playing"；空槽 GET 回 empty；选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"。
  *    STORE TEST 是设备侧 torn-write 套件（ADR-009 §3；**破坏性**：占用 OBJ_SETTINGS，
- *    套件只快照/恢复该对象的 **payload**——settings 的 side record（副本扇区 64..255，
- *    P4-E 的主题/收藏）不被保存，跑一次即清掉；需停走带）：六场景全过回
- *    "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。
+ *    快照/恢复该对象的**两个完整 4KB 副本扇区**（提交头 + payload + side record + 擦除态，
+ *    逐字节校验；P4-C Task 7 起 settings 有真实写入者，payload-only 的豁免终止）：
+ *    六场景全过回 "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。需停走带。
+ *    STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] 是 PER3 歌曲顺序的诊断面（Task 7）：
+ *    与 Song 页/状态层共用 sloop_store_song_*；SET 只改内存并置 dirty，落盘由 1s 任务的
+ *    停止/安静/idle 门限或 SAVE（arrangement_save 同义）完成，INFO 报 flash 对象的
+ *    kind/len/side/count（设置对象损坏时 SAVE 回 "STORE ERR invalid" 且不覆盖）。
  *    STORE PROJ FIELDS n 是旧格式/工程字段诊断（spec §6.3）：st_load + proj_import 后
  *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
  *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
@@ -1795,8 +1799,92 @@ static int store_bank(int argc, char **argv)
     return 1;
 }
 
-/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后只快照/恢复
- * 它的 payload；settings 的 side record（扇区 64..255，P4-E 主题/收藏）不会被恢复）。
+/* 歌曲顺序（PER3 子集，P4-C Task 7）。console 是诊断执行器：与 Song 页/状态层共用
+ * sloop_store_song_*，只是能把字节级结果变成脚本可断言的回显。
+ *   STORE SONG                       -> "STORE SONG count=.. loop=.. dirty=.." + 每项一行
+ *                                       "SONG <i> scene=<s> bars=<b>"（i < count）
+ *   STORE SONG SET <count> <loop> <scene:bars>… -> "STORE SONG SET count=.. loop=.. dirty=1"
+ *                                       （只改 0..count-1，其余项保留当前值；落盘由
+ *                                       1s 任务的停止/安静/idle 门限或 STORE SONG SAVE 完成）
+ *   STORE SONG SAVE                  -> "STORE SONG SAVED len=<n> side=<0|1>"（上游
+ *                                       arrangement_save 同义：播放中回 "STORE ERR playing"）
+ *   STORE SONG LOAD                  -> 从 settings 读回（**以 flash 为准**、清 dirty；
+ *                                       对象损坏时不覆盖 RAM 并回 invalid）
+ *   STORE SONG INFO                  -> flash 对象的事实：kind=per3|per2|per1|empty|invalid、
+ *                                       len、side（side record 是否自校验通过）、count/loop
+ * 设置对象损坏（未知 magic/长度）时 SAVE 回 "STORE ERR invalid" 且不覆盖。 */
+static const char *const STORE_SONG_KINDS[] = {"empty", "per3", "per2", "per1", "invalid"};
+
+static int store_song_usage(void)
+{
+    printf("用法: STORE SONG | SET <count=1..16> <loop=0|1> <scene=0..3:bars=1..64>… | "
+           "SAVE | LOAD | INFO\n");
+    return 1;
+}
+
+static int store_song(int argc, char **argv)
+{
+    sloop_song_config_t cfg;
+    esp_err_t err;
+    if (argc == 2) {
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        for (uint32_t i = 0; i < cfg.count && i < SLOOP_SONG_ENTRIES; i++)
+            printf("SONG %u scene=%u bars=%u\n", (unsigned)i, (unsigned)cfg.entry[i].scene,
+                   (unsigned)cfg.entry[i].bars);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "info") == 0) {
+        sloop_store_song_info_t info;
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG INFO kind=%s len=%u side=%u count=%u loop=%u\n",
+               STORE_SONG_KINDS[info.kind < 5u ? info.kind : 4u], (unsigned)info.len,
+               (unsigned)info.side, (unsigned)info.count, (unsigned)info.loop);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_song_save()) != ESP_OK) return store_err_print(err);
+        sloop_store_song_info_t info;
+        if (sloop_store_song_info(&info) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG SAVED len=%u side=%u\n", (unsigned)info.len, (unsigned)info.side);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "load") == 0) {
+        err = sloop_store_song_reload();
+        if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) return store_err_print(err);
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG LOAD count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        return 0;
+    }
+    if (argc >= 5 && strcasecmp(argv[2], "set") == 0) {
+        if (argc - 5 > (int)SLOOP_SONG_ENTRIES) return store_song_usage();
+        uint32_t count, loop;
+        if (!eng_uint(argv[3], SLOOP_SONG_ENTRIES, &count) || count == 0 ||
+            !eng_uint(argv[4], 1u, &loop))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        cfg.count = (uint8_t)count;
+        cfg.loop = (uint8_t)loop;
+        for (int i = 0; i < argc - 5; i++) {
+            unsigned scene, bars;
+            if ((uint32_t)i >= count || sscanf(argv[5 + i], "%u:%u", &scene, &bars) != 2)
+                return store_err_print(ESP_ERR_INVALID_ARG);
+            cfg.entry[i].scene = (uint8_t)scene;
+            cfg.entry[i].bars = (uint8_t)bars;
+        }
+        if ((err = sloop_store_song_set(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG SET count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        return 0;
+    }
+    return store_song_usage();
+}
+
+/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后快照/恢复
+ * **两个完整 4KB 副本扇区**并逐字节校验——settings 的 side record（扇区 64..255）与
+ * payload 48..83 的歌曲顺序、DSU/MIDI 尾段都不丢；P4-C Task 7 起替换 payload-only 快照）。
  * 六场景全部通过回 `STORE TEST PASS 6/6`；失败回 `STORE TEST FAIL <name>`（不打印其它
  * 令牌，脚本按这两个前缀断言）。未就绪/走带中沿用 `STORE ERR <no_storage|playing>`。 */
 static int store_test_cmd(void)
@@ -1910,6 +1998,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "song") == 0) return store_song(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -1926,10 +2015,11 @@ static int store_command(int argc, char **argv)
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
-           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
+           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | "
+           "STORE LIVEHASH | "
            "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
-           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，只快照/恢复 "
-           "payload；settings side record 不保） | "
+           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 "
+           "完整 4KB 副本扇区） | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
     return 1;

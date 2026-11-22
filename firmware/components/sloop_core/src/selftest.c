@@ -899,6 +899,13 @@ int sloop_core_selftest(const char *case_name)
     nj = 0;
     sloop_core_diag_freeze(false);
     if (s_quiesce_hook != NULL) s_quiesce_hook(false);
+    /* 歌曲从 settings 重载（P4-C Task 7，ADR-010 §4）：`arrangement` 是 arranger.c 的
+     * static `.bss`，上面两次 selftest_restore() 把它回滚到 init 快照（默认/零）——不重载
+     * 就会在自检后悄悄换成默认歌曲，形成「旧工程 + 新歌曲」的半旧视图。损坏/未就绪只
+     * 告警（诊断命令不改变既有门禁结论）。 */
+    esp_err_t song_ret = sloop_store_song_reload();
+    if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND && song_ret != ESP_ERR_INVALID_STATE)
+        ESP_LOGW("sloop_core", "自检后歌曲重载失败: %s", esp_err_to_name(song_ret));
     return pass ? 0 : 1;
 }
 

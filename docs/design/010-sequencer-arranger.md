@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影 + Task 6 实时录音/16 lane 鼓输入/物理 PLAY 与原子音高删除；后续任务实现持久化与 UI）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影 + Task 6 实时录音/16 lane 鼓输入/物理 PLAY 与原子音高删除 + Task 7 PER3 歌曲持久化；后续任务实现 sections/chain/SONG 命令与 UI）｜ 日期：2026-11-22
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -101,9 +101,14 @@ P4-C 后续设置任务在 ADR-009 的 `OBJ_SETTINGS` 上实现最小 PER3 读�
   路径格式。
 - 在第一次真实 settings 写入之前，`STORE TEST` 必须扩为两个完整 4KB 扇区的快照、逐字节
   恢复与校验，覆盖 payload、未知尾段和 side record。P4-B「只保存 payload、settings
-  没有真实写入者」的豁免在 P4-C 到此终止。
+  没有真实写入者」的豁免在 P4-C 到此终止——**Task 7 已落地**（ADR-009 §3）。
 
-本任务不实现上述写入；它只固定格式与后续任务边界。
+**落地（Task 7）**：字节层在 `firmware/components/sloop_core/src/song_persist.h`（纯函数，由
+`scripts/persist-host-test.c` 同源编译：真实 `storage.c` + 8KB 假 flash），flash/锁/时间戳在
+`store_tab5.c` 的「PER3 歌曲与延迟写」小节；公共入口 `sloop_store_song_{get,set,save,reload,info,dirty}`
+与 `sloop_store_sections_tick(now_ms)`。ADR-009 §6.1 是落地表（canonical 1,552B、默认 80B side、
+合法长度集合、延迟写门限、dirty 记账、SELFTEST 重载）。`STORE SONG` 是设备诊断面；sections A–D 的
+内容仍走 FUN6（Task 8 的 section 命令接入同一 tick 的停止/安静/idle 门限）。
 
 ### 5. SONG 独立顶层组，按 12 页有序对核算池预算
 
@@ -259,5 +264,6 @@ Task 6 把 seq.c 已有的录音/鼓演奏状态机接到 Tab5，不复制其算
 - PSRAM 增加 3,816B，内部 RAM 只增加一个 `.noinit` 指针及 arranger 小型运行状态；现有
   内部堆与音频门禁不放宽。
 - pattern 工具沿用上游单槽 undo；它不是完整工程历史，fill/lock 的撤销缺失是刻意保留的上游边界。
-- PER3、SELFTEST 后歌曲恢复、完整扇区测试快照、公共 SONG 命令与 SONG 页面分别由后续
-  P4-C 任务完成；在这些入口落地前，本 ADR 的 UI 数字是硬预算，不是已完成的实测声明。
+- PER3、SELFTEST 后歌曲恢复与完整扇区测试快照已由 Task 7 落地（ADR-009 §6.1/§3）；公共
+  SONG/sections/chain 命令（Task 8）与 SONG 页面（Task 12）仍待完成；在这些入口落地前，
+  本 ADR 的 UI 数字是硬预算，不是已完成的实测声明。

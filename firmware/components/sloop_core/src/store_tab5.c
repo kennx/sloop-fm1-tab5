@@ -173,6 +173,11 @@ _Static_assert(sizeof(proj_tmp) >= sizeof(up_bank_t), "暂存装得下用户预�
  * 都在上面可见）。`fm6_bank_read` 钩子由 fm6_bank_boot() 安装（下面 init 里调）。 */
 #include "fm6_bank.c"
 
+/* PER3 歌曲子集（Task 7，ADR-009 §6）：纯字节层放在 song_persist.h，必须在 storage.c
+ * （st_crc32）与 drums.c → drum_synth.c（dsu/dsu_defaults）之后 include——
+ * scripts/persist-host-test.c 用同一顺序编译，故固件与 host 测试看到同一份默认 DSU/CRC。 */
+#include "song_persist.h"
+
 _Static_assert(SLOOP_STORE_BANK_SLOTS == FM6_BANK_N, "公共 API 的银行槽数与上游 fm6_bank.c 一致");
 _Static_assert(SLOOP_STORE_BANK_PACKED == FM6_PACKED, "公共 API 的 packed 记录长度与上游一致");
 
@@ -410,11 +415,29 @@ static uint32_t s_last_input_ms __attribute__((section(".noinit"))); /* note_act
 static volatile bool s_auto_on __attribute__((section(".noinit")));
 static volatile bool s_busy __attribute__((section(".noinit"))); /* 有线程持存储锁（tick 的「store busy」） */
 
+/* ---- PER3 歌曲（Task 7）：dirty 记账与延迟写的时间戳（全部 .noinit） ---------------
+ * `s_song` 是 song_persist.h 的 song_pending_t（dirty + 代次）：本 TU 的 .bss 在
+ * `ENG SELFTEST` 的快照窗口里，restore 会把 dirty 清掉 ⇒ 一次自检就会丢掉「歌曲改了
+ * 还没落盘」。`s_input_ms` 用 esp_timer 毫秒（与 autosave 的 FreeRTOS tick 各记各的，
+ * 见 sloop_store_sections_tick 的说明）。`s_song_refused` 让「设置对象损坏」只告警一次。 */
+static song_pending_t s_song __attribute__((section(".noinit")));
+static uint32_t s_song_tried_ms __attribute__((section(".noinit")));
+static uint32_t s_input_ms __attribute__((section(".noinit")));
+static bool s_song_refused __attribute__((section(".noinit")));
+
 /* 上一次写动作（st_save / up_put / fm6_bank_put）的代价：spec §4.4/§5 要求 STORE STATS
  * 报告每次保存的 xrun 增量与耗时（擦除会关 cache、音频任务停顿，xrun 必然增长）。
  * .noinit：自检 restore 不回滚，诊断值跨自检保留；冷启动由 init 归零。 */
 static int32_t s_last_xrun __attribute__((section(".noinit")));
 static uint32_t s_last_save_ms __attribute__((section(".noinit")));
+
+/* 延迟写（sections/歌曲）用的毫秒时钟：esp_timer 单调、不依赖 fm1_ms（本固件只在流式
+ * 渲染时推进 fm1_ms，停流就冻住）。autosave 仍用 FreeRTOS tick 毫秒（它的 idle 门限与
+ * `sloop_store_note_activity` 的调用方同一时钟），两者各记各的时间戳，互不换算。 */
+static uint32_t store_esp_ms(void)
+{
+    return (uint32_t)(esp_timer_get_time() / 1000);
+}
 
 static void store_note_write(uint32_t xr0, int64_t us0)
 {
@@ -472,6 +495,10 @@ esp_err_t sloop_store_init(void)
     s_last_xrun = 0;
     s_last_save_ms = 0;
     s_last_input_ms = 0;
+    s_input_ms = 0;
+    memset(&s_song, 0, sizeof s_song);
+    s_song_tried_ms = 0;
+    s_song_refused = false;
     s_busy = false;
     s_auto_task = NULL;
     sloop_store_raw_abort(); /* R27：RAW 上传状态在开机时归零（.noinit 是冷启动垃圾） */
@@ -514,6 +541,12 @@ esp_err_t sloop_store_init(void)
      * 钩子——否则 PTCH ≥ 8 播 init voice。 */
     fm6_bank_boot();
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
+    /* 歌曲顺序从 settings 读回（上游 persist_boot 的 arrangement 段）：必须在 READY
+     * 置位之后（reload 走公共门），且不影响 `ENG SELFTEST` 的工厂态基线（快照在 init
+     * 之前拍完）。对象损坏只告警：歌曲保持默认，且不会被当成空设置覆盖。 */
+    esp_err_t song_ret = sloop_store_song_reload();
+    if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "歌曲设置读取失败: %s（保持默认歌曲）", esp_err_to_name(song_ret));
     /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
      * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
      * 入口是 sloop_store_autosave_start()，由 sloop_core_init 在 resume 之后调用。 */
@@ -1204,6 +1237,7 @@ static int audio_quiet(void) /* 上游 project.c:700-709：合成/鼓 voice 均 
 void sloop_store_note_activity(uint32_t now_ms)
 {
     s_last_input_ms = now_ms;
+    s_input_ms = store_esp_ms(); /* 延迟写（歌曲 sections_tick）的 1.5s idle 门限 */
 }
 
 bool sloop_store_autosave_enable(bool on)
@@ -1313,18 +1347,215 @@ static void autosave_task(void *arg)
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(AUTOSAVE_PERIOD));
         sloop_store_autosave_tick((uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS));
+        sloop_store_sections_tick(store_esp_ms());
     }
 }
 
-/* ------------------------------------------------ 设备 torn-write 套件（Task 8） --- */
+/* ------------------------------------------------ PER3 歌曲与延迟写（Task 7） --- */
+/* 上游 project.c 的 persist_t 段（`#ifndef PROJ_HOST`，本 TU 不编）在 Tab5 上的最小
+ * 子集：只读写 arrangement 36B，其余字节原样保留；格式/迁移/side 的字节级逻辑全在
+ * song_persist.h（host 测试同源）。锁序与其它写入口一致（ADR-009 §3）：存储锁 →
+ * 引擎锁；**擦/写 flash 期间不持引擎锁**（本板渲染持它，一次擦写必然 xrun）。
+ *
+ * 与上游的三处差异（都是可靠性修正，成功路径的字节不变）：
+ *   1) dirty 只在「写成功且期间没有新的修改」后清（song_pending_done），上游在写之前
+ *      就清；失败保留 dirty，下个窗口重试。
+ *   2) 设置对象损坏（未知 magic/长度）时拒绝保存并保留 dirty，上游会把它当空设置覆盖。
+ *   3) 延迟写的时间戳用 esp_timer，不用 fm1_ms。 */
+#define SECTIONS_IDLE 1500u /* 上游 sections_flush：fm1_ms - ui_input_ms < 1500 */
+#define SECTIONS_GAP  5000u /* 上游 sections_flush：失败后 5s 再试，不每拍重试 */
+
+_Static_assert(SLOOP_SONG_ENTRIES == ARR_STEPS && ARR_SCENES == 4u,
+               "公共歌曲 POD 与上游 arr_config_t 的 16 项 / 4 scene 一致");
+_Static_assert(SONG_SIDE_LEN <= ST_SIDE_MAX, "settings 的 side record 放得进副本扇区的侧区");
+
+/* 持存储锁调用：把当前 arrangement 写进 OBJ_SETTINGS。gated = 延迟写窗口
+ * （sections_tick 的停止/无发声门限；arrangement_save 同义入口在调用前已判走带）。 */
+static esp_err_t song_write_locked(bool gated)
+{
+    /* 门限先判（一次短引擎锁）：走带中/有发声时不读 flash、不组装（上游 sections_flush
+     * 同序），也不推进重试计时。 */
+    if (gated) {
+        engine_lock();
+        bool blocked = song.playing || transport_req || !audio_quiet();
+        engine_unlock();
+        if (blocked) return ESP_ERR_INVALID_STATE;
+    }
+    /* 现有对象 + side 先读出来：合法 PER3 的尾段/side 必须原样随新副本提交 */
+    int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    uint8_t side[SONG_SIDE_LEN];
+    /* 侧区有内容就原样随新副本提交（含自校验不过的 2.7 beta 主题记录）；全 0xFF 才写默认 */
+    bool side_present = st_side_load(OBJ_SETTINGS, side, SONG_SIDE_LEN) == 0 && !song_side_blank(side);
+    uint32_t len = n > 0 ? (uint32_t)n : 0u;
+    uint32_t gen;
+    song_per_kind_t kind;
+
+    engine_lock();
+    gen = song_pending_gen(&s_song);
+    kind = song_per_build(proj_tmp.raw, &len, sizeof proj_tmp.raw, &arrangement, side, side_present);
+    engine_unlock();
+    if (kind == SONG_PER_BAD) {
+        if (!s_song_refused)
+            ESP_LOGW(TAG, "歌曲保存拒绝：settings 对象的 magic/长度不认识（不覆盖，保留 dirty）");
+        s_song_refused = true;
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
+    st_side = side;
+    st_side_len = SONG_SIDE_LEN;
+    int rc = st_save3(OBJ_SETTINGS, proj_tmp.raw, len, 0, 0, 0, 0);
+    st_side = 0;
+    st_side_len = 0;
+    store_note_write(xr0, us0);
+    song_pending_done(&s_song, rc == 0, gen);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "歌曲保存失败 rc=%d（保留 dirty，下个窗口重试）", rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+    s_song_refused = false;
+    ESP_LOGI(TAG, "歌曲已保存 len=%u 来源=%u", (unsigned)len, (unsigned)kind);
+    return ESP_OK;
+}
+
+esp_err_t sloop_store_song_get(sloop_song_config_t *out)
+{
+    if (out == NULL) return ESP_ERR_INVALID_ARG;
+    memset(out, 0, sizeof *out);
+    engine_lock(); /* 写侧（song_set）与读侧都在引擎锁内：音频线程读的是同一份 arrangement */
+    out->count = arrangement.count;
+    out->loop = arrangement.loop;
+    for (uint32_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
+        out->entry[i].scene = arrangement.entry[i].scene;
+        out->entry[i].bars = arrangement.entry[i].bars;
+    }
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_store_song_set(const sloop_song_config_t *cfg)
+{
+    if (cfg == NULL) return ESP_ERR_INVALID_ARG;
+    arr_config_t a;
+    memset(&a, 0, sizeof a);
+    a.count = cfg->count;
+    a.loop = cfg->loop;
+    for (uint32_t i = 0; i < ARR_STEPS; i++) {
+        a.entry[i].scene = cfg->entry[i].scene;
+        a.entry[i].bars = cfg->entry[i].bars;
+    }
+    /* 结构校验（上游 arr_valid 去掉 ready 位）：引用的 A–D 是否有工程由播放/歌曲页判 */
+    if (!song_arr_valid(&a)) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) { /* 取锁后复核（与其它写入口同口径） */
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    arrangement = a;
+    song_pending_mark(&s_song); /* dirty + 代次：flush 期间的并发修改不会被误清 */
+    s_song_refused = false;
+    engine_unlock();
+    s_input_ms = store_esp_ms(); /* 一次用户动作：idle 门限从这一刻起算 */
+    return ESP_OK;
+}
+
+/* 上游 arrangement_save 的同义入口：停止态立即写；播放中 "STOP BEFORE SAVE"。
+ * 失败保留 dirty（后续由 sections_tick 按同一门限重试）。 */
+esp_err_t sloop_store_song_save(void)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    store_lock();
+    esp_err_t err = song_write_locked(false);
+    store_unlock();
+    if (err != ESP_ERR_INVALID_STATE) s_song_tried_ms = store_esp_ms(); /* 失败也推进 5s 窗口 */
+    return err;
+}
+
+/* 从 settings 读回歌曲（开机与 SELFTEST 之后）：**以 flash 为准**，读成功后清 dirty。
+ * 这在自检之后是必须的：`arrangement` 是 arranger.c 的 static `.bss`，selftest_restore()
+ * 会把它回滚到 init 快照（= 零/默认）——不重载就会悄悄换成默认歌曲。代价：恰好在自检
+ * 那一刻还没落盘的歌曲修改（正常 ≤5s 的延迟窗口内）随回滚丢弃；诊断命令不是用户路径。
+ * 对象损坏（未知 magic/长度）时**不覆盖** RAM 里已有的歌曲，返回 invalid。 */
+esp_err_t sloop_store_song_reload(void)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    arr_config_t a;
+    store_lock();
+    int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    song_per_kind_t kind = song_per_read(proj_tmp.raw, n > 0 ? (uint32_t)n : 0u, &a);
+    store_unlock();
+    if (kind == SONG_PER_BAD) {
+        ESP_LOGW(TAG, "歌曲设置对象损坏（magic/长度不认识）：不覆盖当前歌曲");
+        return ESP_ERR_INVALID_ARG;
+    }
+    engine_lock();
+    arrangement = a;
+    engine_unlock();
+    s_song.dirty = 0; /* RAM 与 flash 一致了 */
+    s_song_refused = false;
+    ESP_LOGI(TAG, "歌曲设置: 来源=%u count=%u loop=%u", (unsigned)kind, (unsigned)a.count, (unsigned)a.loop);
+    return kind == SONG_PER_NEW ? ESP_ERR_NOT_FOUND : ESP_OK; /* 空设置 = 默认歌曲，不是错误 */
+}
+
+esp_err_t sloop_store_song_info(sloop_store_song_info_t *out)
+{
+    if (out == NULL) return ESP_ERR_INVALID_ARG;
+    memset(out, 0, sizeof *out);
+    if (!sloop_store_ready()) {
+        out->kind = SLOOP_SONG_EMPTY;
+        return ESP_ERR_INVALID_STATE;
+    }
+    uint8_t side[SONG_SIDE_LEN];
+    arr_config_t a;
+    arr_defaults(&a); /* 对象损坏时 song_per_read 不写 *a：诊断面给默认歌曲而不是垃圾 */
+    store_lock();
+    int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    uint32_t len = n > 0 ? (uint32_t)n : 0u;
+    song_per_kind_t kind = song_per_read(proj_tmp.raw, len, &a);
+    out->side = st_side_load(OBJ_SETTINGS, side, SONG_SIDE_LEN) == 0 && song_side_valid(side) ? 1u : 0u;
+    store_unlock();
+    out->len = (uint16_t)(len > 0xFFFFu ? 0xFFFFu : len);
+    out->kind = kind == SONG_PER_NEW ? SLOOP_SONG_EMPTY :
+                kind == SONG_PER3 ? SLOOP_SONG_PER3 :
+                kind == SONG_PER2 ? SLOOP_SONG_PER2 :
+                kind == SONG_PER1 ? SLOOP_SONG_PER1 : SLOOP_SONG_INVALID;
+    out->count = a.count;
+    out->loop = a.loop;
+    return ESP_OK;
+}
+
+bool sloop_store_song_dirty(void)
+{
+    return s_song.dirty != 0;
+}
+
+/* 延迟写（1s 任务）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s 才落盘。
+ * 拿不到存储锁就跳过本拍（不与写者排队，也不阻塞 1s 任务）。 */
+void sloop_store_sections_tick(uint32_t now_ms)
+{
+    if (!sloop_store_ready() || !flash_ok || s_frozen || s_busy) return;
+    if (!s_song.dirty) return;
+    if (now_ms - s_song_tried_ms < SECTIONS_GAP) return;
+    if (now_ms - s_input_ms < SECTIONS_IDLE) return;
+    if (!store_trylock()) return;
+    esp_err_t err = song_write_locked(true);
+    if (err != ESP_ERR_INVALID_STATE) s_song_tried_ms = now_ms; /* 上游同：尝试过就推进 gap */
+    store_unlock();
+}
+
+/* ------------------------------------------------ 设备 torn-write 套件（P4-B Task 8） --- */
 /* ADR-009 §3 的「掉电不破坏旧副本」变成机器判据。对象 = OBJ_SETTINGS：P4-B 不写设置
  * （P4-E 才用），故它是唯一「有 storage 对象语义、但没有当前用户数据」的目标；套件开始
- * st_load 快照、结束 fault_clear + st_save 恢复（**破坏性**诊断，console 帮助里写明）。
+ * 快照、结束 fault_clear + 原样恢复（**破坏性**诊断，console 帮助里写明）。
  *
- * **快照只覆盖 payload**（`st_load` 的 len 字节），不覆盖 settings 的 side record（副本
- * 扇区偏移 64..255，`storage.c` 的 `ST_SIDE_OFF/ST_SIDE_MAX`，P4-E 的主题/收藏计划落
- * 这里）：场景的擦除会清掉它。P4-B 没有 side record 的写入者（不可达）；P4-E 接线时必须
- * 把快照扩为整扇区（详见 sloop_store.h 的契约与 ADR-009 §3/§8 的 R26）。
+ * **快照 = 两个完整 4KB 副本扇区**（提交头 + payload + side record + 擦除态），不再是
+ * 「只快照 payload」（P4-B 的豁免）。P4-C 起 settings 有真实写入者（PER3 歌曲、side
+ * record 随副本提交），场景的擦除会清掉 side record 与未知尾段；恢复后逐字节校验，
+ * 不成立即响亮报 restore-settings（ADR-009 §3/§8 的 R26，Task 7 收口）。
  *
  * HAL 契约（storage_flash.c）给测试带来一个必须处理的前提：**arm 期间 read 也失败**
  * （读不消耗写序号）。于是 st_save 开头的 st_current 看不到任何有效副本 ⇒ cur=-1 ⇒
@@ -1343,6 +1574,9 @@ static void autosave_task(void *arg)
  * 这样「旧副本仍可读」不会因为新旧值恰好相同而假绿：三个版本逐字节不同（下面显式断言）。
  */
 #define ST_TEST_LEN 64u /* 场景 payload 长度（一个 prog 块的一半落在 0..63） */
+#define STORE_TEST_SECTOR 4096u /* 一个副本扇区（storage.c 的 ST_SECTOR） */
+#define STORE_TEST_SECTORS 2u
+_Static_assert(STORE_TEST_SECTOR == ST_SECTOR, "副本扇区大小与 storage.c 一致");
 
 typedef struct {
     const char *name;
@@ -1571,15 +1805,6 @@ static const store_test_case_t STORE_TEST_CASES[] = {
     {"empty-commit", store_test_empty_commit},
 };
 
-/* 快照恢复的断言：当前副本的 payload 与快照逐字节相同；快照无效（n < 0）⇒ 空对象。 */
-static bool store_test_settings_match(const uint8_t *want, int len)
-{
-    st_hdr_t h;
-    if (st_current(OBJ_SETTINGS, &h) < 0) return false;
-    if (len < 0) return h.len == 0;
-    return (int)h.len == len && (len == 0 || memcmp(st_buf, want, (uint32_t)len) == 0);
-}
-
 esp_err_t sloop_store_test(sloop_store_test_t *out)
 {
     if (out == NULL) return ESP_ERR_INVALID_ARG;
@@ -1588,11 +1813,29 @@ esp_err_t sloop_store_test(sloop_store_test_t *out)
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE; /* 与其它写 API 同一走带守卫 */
 
-    store_lock(); /* 全程持锁：自动存档 tick 的 trylock 会跳过（s_busy/Fault 不交错） */
+    /* 快照 = settings 对象的**两个完整 4KB 扇区**（提交头 + payload + side record + 擦除态）。
+     * 六场景会擦副本扇区：只恢复 payload 会静默丢掉 side record（P4-E 的主题/收藏）与未知
+     * 尾段——ADR-009 §3/§8 的 R26，自 P4-C 起 settings 有真实写入者，故必须整扇区保。
+     * 8KB 暂存在 PSRAM（诊断路径的一次性分配，不进内部堆门限）。 */
+    uint8_t *snap = heap_caps_malloc(STORE_TEST_SECTORS * STORE_TEST_SECTOR, MALLOC_CAP_SPIRAM);
+    if (snap == NULL) {
+        out->fail_case = "snapshot-settings"; /* 8KB PSRAM 都拿不到：响亮失败，不跑半套 */
+        ESP_LOGE(TAG, "STORE TEST snapshot-settings FAIL（PSRAM 分配失败）");
+        return ESP_ERR_NO_MEM;
+    }
+    store_lock(); /* 全程持锁：自动存档/歌曲 tick 的 trylock 会跳过（s_busy/Fault 不交错） */
     sloop_hal_storage_fault_clear(); /* console 可能留下未命中的 arm：read 会失败 */
-    /* 快照进 proj_tmp（PSRAM 4,096B）：本函数持存储锁，没有别的使用者；st_save 也从
-     * 这里拷回 st_buf。快照无效（n < 0）时恢复成空对象（语义 = 没有设置）。 */
-    int snap = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    bool snap_ok = true;
+    for (uint32_t c = 0; c < STORE_TEST_SECTORS && snap_ok; c++)
+        snap_ok = sloop_hal_storage_read(st_sector(OBJ_SETTINGS, c), snap + c * STORE_TEST_SECTOR,
+                                         STORE_TEST_SECTOR) == 0;
+    if (!snap_ok) {
+        store_unlock();
+        heap_caps_free(snap);
+        out->fail_case = "snapshot-settings";
+        ESP_LOGE(TAG, "STORE TEST snapshot-settings FAIL");
+        return ESP_ERR_NOT_FINISHED;
+    }
 
     for (uint32_t i = 0; i < out->cases; i++) {
         sloop_hal_storage_fault_clear(); /* 上一场景未命中的注入不得带进来 */
@@ -1606,12 +1849,35 @@ esp_err_t sloop_store_test(sloop_store_test_t *out)
     }
     sloop_hal_storage_fault_clear();
 
-    int rc = st_save(OBJ_SETTINGS, snap >= 0 ? (const void *)proj_tmp.raw : NULL,
-                     snap >= 0 ? (uint32_t)snap : 0u);
-    bool restored = rc == 0 && store_test_settings_match(proj_tmp.raw, snap);
+    /* 恢复：两个扇区各擦一次，再按 256B 块原样写回（含 0xFF 区），最后逐字节校验。
+     * 校验覆盖 payload（arrangement 48..83 与 DSU/MIDI 尾段）与 side record——这就是
+     * 「六场景不破坏歌曲设置」的判据本身，不靠 st_load 的 CRC/长度近似。 */
+    bool restored = true;
+    for (uint32_t c = 0; c < STORE_TEST_SECTORS && restored; c++) {
+        const uint32_t sector = st_sector(OBJ_SETTINGS, c);
+        const uint8_t *src = snap + c * STORE_TEST_SECTOR;
+        if (sloop_hal_storage_erase(sector) != 0) {
+            restored = false;
+            break;
+        }
+        for (uint32_t off = 0; off < STORE_TEST_SECTOR; off += 256u)
+            if (sloop_hal_storage_prog(sector + off, src + off, 256u) != 0) {
+                restored = false;
+                break;
+            }
+    }
+    uint8_t chunk[256];
+    for (uint32_t c = 0; c < STORE_TEST_SECTORS && restored; c++) {
+        const uint32_t sector = st_sector(OBJ_SETTINGS, c);
+        const uint8_t *src = snap + c * STORE_TEST_SECTOR;
+        for (uint32_t off = 0; off < STORE_TEST_SECTOR && restored; off += sizeof chunk)
+            restored = sloop_hal_storage_read(sector + off, chunk, sizeof chunk) == 0 &&
+                       memcmp(chunk, src + off, sizeof chunk) == 0;
+    }
     store_unlock();
+    heap_caps_free(snap);
     if (!restored) {
-        ESP_LOGE(TAG, "STORE TEST restore-settings FAIL rc=%d snap=%d", rc, snap);
+        ESP_LOGE(TAG, "STORE TEST restore-settings FAIL（两个 4KB 扇区未逐字节恢复）");
         if (out->fail_case == NULL) out->fail_case = "restore-settings";
     }
     if (out->fail_case != NULL) return ESP_ERR_NOT_FINISHED;
