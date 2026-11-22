@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "sloop_store.h" /* sloop_store_note_activity（自动存档的活动计时） */
+
 #ifdef HOST_TEST
 /* host 单测单线程：互斥为空实现；设备上用 FreeRTOS mutex（见下）。 */
 void state_lock(void) {}
@@ -11,6 +13,7 @@ void state_unlock(void) {}
 #else
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 static SemaphoreHandle_t s_mutex;
 
@@ -24,6 +27,15 @@ void state_unlock(void)
     if (s_mutex != NULL) xSemaphoreGive(s_mutex);
 }
 #endif
+
+uint32_t state_now_ms(void)
+{
+#ifdef HOST_TEST
+    return 0; /* host 单测没有自动存档（stub_engine.c 的 note_activity 空实现） */
+#else
+    return (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+#endif
+}
 
 static app_state_t s_state;
 static bool s_inited;
@@ -126,6 +138,9 @@ void state_set_focus(uint8_t track, uint8_t step)
     /* 焦点步是窗口列：窗口外的隐藏列不可聚焦（窗口缩小后旧焦点已由 SET_WINDOW 夹住） */
     if (step < s_state.window.window_len) s_state.focus_step = step;
     state_unlock();
+    /* 只移焦点（不发声、不改引擎）也是一次面板动作：上游按「面板被碰过」计空闲
+     * （ui_input_ms），否则边看边移焦点时自动存档会在用户眼前写 flash。 */
+    sloop_store_note_activity(state_now_ms());
 }
 
 void state_set_layer(uint8_t mask)
@@ -133,4 +148,19 @@ void state_set_layer(uint8_t mask)
     state_lock();
     s_state.layer_held = mask;
     state_unlock();
+}
+
+void state_refresh_locked(void)
+{
+    /* 调用方持 state_lock：窗口在此期间不会被 CMD_SET_WINDOW 改，故不需要 sync 的
+     * 窗口复核循环。取快照的锁序与编辑命令一致（state → engine）；引擎锁只包住
+     * 快照读取，存储层从不持有引擎锁做 flash 擦写（ADR-009 §3）。 */
+    sloop_core_snapshot_t snap;
+    int16_t param_p[SLOOP_CORE_P_COUNT];
+    int16_t param_g[SLOOP_CORE_G_COUNT];
+    sloop_core_read_window(s_state.window.window_start, &snap);
+    sloop_core_read_params(snap.selected_track, param_p, param_g);
+    s_state.core = snap;
+    memcpy(s_state.p, param_p, sizeof(param_p));
+    memcpy(s_state.g, param_g, sizeof(param_g));
 }

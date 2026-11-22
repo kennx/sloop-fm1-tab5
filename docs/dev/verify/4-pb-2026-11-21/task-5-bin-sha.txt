@@ -1,0 +1,22 @@
+# 受测镜像与最终源码的对应关系
+# 1) 烧录镜像（scripts/flash.sh 用的是 build/ 的产物；烧录前 sha256）
+530ff98e9971e5b69016e391aa919eadc3b46af33bd5ee3a66be9e5b92d29707  sloop_fm1_tab5.bin
+032ac77d963ea239fa202ec1f230ef84de824617efb21c271cfc09c998b8264e  bootloader/bootloader.bin
+0f2a64a383e935c988e77e5e785c6ebbf6d31c80547dc8c8caab1d48161ea115  partition_table/partition-table.bin
+
+# 2) 仅改注释后重新构建（增量两遍 rc=0、警告 0）的产物 sha256 —— 应用 .bin 变化来自
+#    .flash.appdesc（构建日期/时间/ELF SHA256），不是代码；
+26cbe08e324f3b798bfd57a3e45bf278644b04cbe0e8554f4da3cb1b171b7fc3  sloop_fm1_tab5.bin
+
+# 3) 可装载段逐节 SHA256：两次独立构建完全一致（证明代码/数据确定性）
+## build A
+e18db31d1c9878a8fbe9c83c3688d37102bbc9a463b4e354afd0420469a3448c  .flash.init_array.bin
+c855269f7ba4166cb0b560481eb90d79a4c7a0c768ae6b25f7b436c494e9093e  .flash.rodata.bin
+1671262cd72da810ab7453fcb9c72c893fa81900964efac1730ff4e675e23bdc  .flash.text.bin
+## build B（紧接着再构建一遍）
+e18db31d1c9878a8fbe9c83c3688d37102bbc9a463b4e354afd0420469a3448c  .flash.init_array.bin
+c855269f7ba4166cb0b560481eb90d79a4c7a0c768ae6b25f7b436c494e9093e  .flash.rodata.bin
+1671262cd72da810ab7453fcb9c72c893fa81900964efac1730ff4e675e23bdc  .flash.text.bin
+
+# 4) 结论：烧录的镜像与本任务最终源码的差异仅限「注释」——注释不进入任何可装载段，
+#    而 .flash.text/.flash.rodata/.flash.init_array 在两次构建间逐字节相同。

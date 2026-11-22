@@ -1,0 +1,5 @@
+# P4-B Task 2：PLAY 截屏与 Task 0 基线逐字节比对
+# 命令: cmp docs/dev/verify/4-pb-2026-11-21/task-0-play.png docs/dev/verify/4-pb-2026-11-21/task-2-play.png
+# cmp 退出码: 0（无输出 = 逐字节相同）
+be9b21f492c062e2c07394fb8651bc883a6189747667cb4b4c8508a30640b8fa  docs/dev/verify/4-pb-2026-11-21/task-0-play.png
+be9b21f492c062e2c07394fb8651bc883a6189747667cb4b4c8508a30640b8fa  docs/dev/verify/4-pb-2026-11-21/task-2-play.png

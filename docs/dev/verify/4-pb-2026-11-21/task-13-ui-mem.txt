@@ -1,0 +1,148 @@
+== Task 13：FM6 页 bank 存取行 —— 构建日志 / UI MEM / TAP 回显摘录
+（源：firmware/build/verify/inject-store-20261122-073346.log；串口原始回显，未裁剪，
+  只挑与 FM6 bank 行相关的行；完整段落见 task-13-store-transcript1.log）
+
+-- 构建日志与池水位（⑯ 段）
+I (108729) sloop_ui: 页面构建 page=FM6(7) 池增量=5088B 预算=6144B 池剩余=37040B 耗时=7ms
+I (108739) sloop_ui: 切页 page=FM6(7) 组=EDIT 跨组耗时=11ms
+sloop>  UI MEM
+UI MEM pool_used=19324 pool_free=42788 pool_total=62112 registered=11 built=1 failed=0 sum_est=78848 reserve=-16736 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=1 sum_est=19968 sum_delta=5088 build_ms=11
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=35
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=built est=6144 delta=5088 build_ms=7
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+
+-- ⑯ 段 transcript（TAP/STORE 回显）
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>  # [inject] ⓰ FM6 页 bank 存取行：UI fm6 → TAP BANK +/SAVE/ERASE → 播放拒绝 + 截屏
+STORE AUTO OFF
+STORE AUTO off
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  UI tracks
+I (107699) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5776B 预算=7168B 池剩余=39724B 耗时=9ms
+I (107699) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=85 sus=35 rel=55 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  ENG TRACK 1 1 0
+ENG TRACK k=1 engine=1 preset=0 OK
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  PARAM 63 0
+PARAM track=1 id=63 value=0 applied=0 min=0 max=32
+sloop>  STORE BANK LIVE
+BANK LIVE 5F281E3C6350000027000000380C3402005F1E143C635A00002700000030044E0200613E283C633C0000270000003B18441C005F141432635F00002700000042085A02005F32234E634B0000270000003B1C3A020060191943634B0000270000003B086202006363636332323232040B22210000291854494E45204550202020
+sloop>  UI fm6
+I (108729) sloop_ui: 页面构建 page=FM6(7) 池增量=5088B 预算=6144B 池剩余=37040B 耗时=7ms
+I (108739) sloop_ui: 切页 page=FM6(7) 组=EDIT 跨组耗时=11ms
+UI page=fm6 (7)
+sloop>  UI MEM
+UI MEM pool_used=19324 pool_free=42788 pool_total=62112 registered=11 built=1 failed=0 sum_est=78848 reserve=-16736 group=EDIT
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=1 sum_est=19968 sum_delta=5088 build_ms=11
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=35
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=4608 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=built est=6144 delta=5088 build_ms=7
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  # [inject] SCR 截屏 -> inject-store-20261122-073346-task-13-fm6-bank.png
+SCR
+I (109269) sloop_console: SCR: 传输前 PSRAM 剩余 28235140 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 320 646
+TAP 320,646 page=7 -> BANK slot=1 delta=+1

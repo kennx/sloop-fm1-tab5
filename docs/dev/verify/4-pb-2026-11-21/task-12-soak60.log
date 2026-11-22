@@ -1,0 +1,823 @@
+
+sloop>  # [inject] soak 开始 duration=60s interval=20s
+ENG AUDIO
+ENG AUDIO streaming=1 xrun=0
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  UI play
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI tracks
+I (216573) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6048B 预算=7168B 池剩余=40792B 耗时=9ms
+I (216573) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (216813) sloop_ui: 页面构建 page=STEP(2) 池增量=21772B 预算=23040B 池剩余=21456B 耗时=27ms
+I (216813) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI transport
+I (217053) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3688B 预算=4608B 池剩余=23728B 耗时=8ms
+I (217063) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=11ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI global
+I (217263) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2872B 预算=3584B 池剩余=20984B 耗时=5ms
+I (217263) sloop_ui: 切页 page=GLOBAL(4) 组=EDIT 跨组耗时=10ms
+UI page=global (4)
+sloop>  STATE SNAP
+STATE SNAP page=4 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI fx
+I (217523) sloop_ui: 页面构建 page=FX(5) 池增量=2808B 预算=3584B 池剩余=42732B 耗时=5ms
+I (217523) sloop_ui: 切页 page=FX(5) 组=EDIT 组内首建耗时=7ms
+UI page=fx (5)
+sloop>  STATE SNAP
+STATE SNAP page=5 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI analog
+I (217763) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2864B 预算=3584B 池剩余=39908B 耗时=6ms
+I (217763) sloop_ui: 切页 page=ANALOG(6) 组=EDIT 组内首建耗时=9ms
+UI page=analog (6)
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI fm6
+I (217983) sloop_ui: 页面构建 page=FM6(7) 池增量=2864B 预算=3584B 池剩余=37080B 耗时=6ms
+I (217993) sloop_ui: 切页 page=FM6(7) 组=EDIT 组内首建耗时=9ms
+UI page=fm6 (7)
+sloop>  STATE SNAP
+STATE SNAP page=7 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI sample
+I (218203) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=2408B 预算=3072B 池剩余=34688B 耗时=5ms
+I (218213) sloop_ui: 切页 page=SAMPLE(8) 组=EDIT 组内首建耗时=9ms
+UI page=sample (8)
+sloop>  STATE SNAP
+STATE SNAP page=8 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI projects
+I (218433) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7832B 预算=8192B 池剩余=26872B 耗时=12ms
+I (218443) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
+UI page=projects (9)
+sloop>  STATE SNAP
+STATE SNAP page=9 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI presets
+I (218673) sloop_ui: 页面构建 page=PRESETS(10) 池增量=12268B 预算=12800B 池剩余=28544B 耗时=17ms
+I (218683) sloop_ui: 切页 page=PRESETS(10) 组=FILE 组内首建耗时=29ms
+UI page=presets (10)
+sloop>  STATE SNAP
+STATE SNAP page=10 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI transport
+I (218933) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3688B 预算=4608B 池剩余=25492B 耗时=7ms
+I (218943) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=12ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  ENG MEM
+ENG MEM internal_free=99715 internal_min=92164 psram_free=30102920 psram_min=30102920
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3176 render_blocks=37089 render_mean_us=531 render_max_us=3331 duty_mean=9.15% duty_max=57.39% min_free_since_boot_internal=92164 min_free_since_boot_psram=30102920
+sloop>  KEY STATS
+KEY STATS count=0 mean_us=0 max_us=0 input_stack_free=3748 quiesce_dropped=0
+sloop>  UI MEM
+UI MEM pool_used=18152 pool_free=44160 pool_total=62312 registered=11 built=1 failed=0 sum_est=76288 reserve=-13976 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3688 build_ms=12
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3688 build_ms=7
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (219983) sloop_ui: 页面构建 page=STEP(2) 池增量=21812B 预算=23040B 池剩余=22348B 耗时=32ms
+I (219993) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=35ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (220323) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6044B 预算=7168B 池剩余=16688B 耗时=9ms
+I (220333) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=14ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+I (220633) sloop_ui: 页面构建 page=PLAY(0) 池增量=2424B 预算=3072B 池剩余=38932B 耗时=4ms
+I (220643) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=310
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=188
+sloop>  UI transport
+I (221113) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3816B 预算=4608B 池剩余=40896B 耗时=6ms
+I (221113) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (227463) sloop_ui: 页面构建 page=STEP(2) 池增量=21760B 预算=23040B 池剩余=21628B 耗时=31ms
+I (227463) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=34ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (227803) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6032B 预算=7168B 池剩余=15976B 耗时=10ms
+I (227813) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  UI play
+I (228163) sloop_ui: 页面构建 page=PLAY(0) 池增量=2428B 预算=3072B 池剩余=38084B 耗时=5ms
+I (228173) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=293
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=169
+sloop>  UI transport
+I (228633) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3868B 预算=4608B 池剩余=40020B 耗时=7ms
+I (228643) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (235463) sloop_ui: 页面构建 page=STEP(2) 池增量=21756B 预算=23040B 池剩余=20744B 耗时=32ms
+I (235463) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=35ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (235803) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6092B 预算=7168B 池剩余=15072B 耗时=9ms
+I (235813) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI play
+I (236123) sloop_ui: 页面构建 page=PLAY(0) 池增量=2396B 预算=3072B 池剩余=37284B 耗时=4ms
+I (236123) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=312
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=181
+sloop>  UI transport
+I (236543) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3820B 预算=4608B 池剩余=39276B 耗时=7ms
+I (236543) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  ENG MEM
+ENG MEM internal_free=99487 internal_min=92164 psram_free=30102920 psram_min=30102920
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3128 render_blocks=41223 render_mean_us=554 render_max_us=4074 duty_mean=9.55% duty_max=70.19% min_free_since_boot_internal=92164 min_free_since_boot_psram=30102920
+sloop>  KEY STATS
+KEY STATS count=6 mean_us=242 max_us=312 input_stack_free=3748 quiesce_dropped=0
+sloop>  UI MEM
+UI MEM pool_used=20184 pool_free=41760 pool_total=61944 registered=11 built=1 failed=0 sum_est=76288 reserve=-14344 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=15
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3820 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3820 build_ms=7
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (243983) sloop_ui: 页面构建 page=STEP(2) 池增量=21780B 预算=23040B 池剩余=19980B 耗时=31ms
+I (243983) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=34ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (244323) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6044B 预算=7168B 池剩余=14332B 耗时=10ms
+I (244333) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  UI play
+I (244633) sloop_ui: 页面构建 page=PLAY(0) 池增量=2412B 预算=3072B 池剩余=36500B 耗时=4ms
+I (244643) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=300
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=173
+sloop>  UI transport
+I (245103) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3844B 预算=4608B 池剩余=38436B 耗时=6ms
+I (245113) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (251463) sloop_ui: 页面构建 page=STEP(2) 池增量=21812B 预算=23040B 池剩余=19120B 耗时=31ms
+I (251463) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=34ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (251803) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6056B 预算=7168B 池剩余=13444B 耗时=10ms
+I (251813) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI play
+I (252173) sloop_ui: 页面构建 page=PLAY(0) 池增量=2360B 预算=3072B 池剩余=35644B 耗时=5ms
+I (252173) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=297
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=169
+sloop>  UI transport
+I (252593) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3812B 预算=4608B 池剩余=37660B 耗时=7ms
+I (252593) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  ENG MEM
+ENG MEM internal_free=99495 internal_min=92164 psram_free=30102920 psram_min=30102920
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3128 render_blocks=43980 render_mean_us=569 render_max_us=4142 duty_mean=9.80% duty_max=71.36% min_free_since_boot_internal=92164 min_free_since_boot_psram=30102920
+sloop>  KEY STATS
+KEY STATS count=10 mean_us=239 max_us=312 input_stack_free=3748 quiesce_dropped=0
+sloop>  UI MEM
+UI MEM pool_used=21544 pool_free=40124 pool_total=61668 registered=11 built=1 failed=0 sum_est=76288 reserve=-14620 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=15
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3812 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3812 build_ms=7
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (259983) sloop_ui: 页面构建 page=STEP(2) 池增量=21744B 预算=23040B 池剩余=18380B 耗时=30ms
+I (259993) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=34ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (260333) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6020B 预算=7168B 池剩余=12744B 耗时=9ms
+I (260333) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=14ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=0 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  UI play
+I (260693) sloop_ui: 页面构建 page=PLAY(0) 池增量=2432B 预算=3072B 池剩余=34852B 耗时=5ms
+I (260693) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=207
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=142
+sloop>  UI transport
+I (261113) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3836B 预算=4608B 池剩余=36760B 耗时=7ms
+I (261113) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (267463) sloop_ui: 页面构建 page=STEP(2) 池增量=21796B 预算=23040B 池剩余=17504B 耗时=30ms
+I (267463) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=33ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 267 208
+TAP 267,208 page=2 -> STEP track=0 step=2 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (267803) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6072B 预算=7168B 池剩余=11796B 耗时=9ms
+I (267813) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=1 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI play
+I (268123) sloop_ui: 页面构建 page=PLAY(0) 池增量=2372B 预算=3072B 池剩余=34056B 耗时=5ms
+I (268123) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=352
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=182
+sloop>  UI transport
+I (268543) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3864B 预算=4608B 池剩余=36008B 耗时=8ms
+I (268543) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=11ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI step
+I (275463) sloop_ui: 页面构建 page=STEP(2) 池增量=21764B 预算=23040B 池剩余=16728B 耗时=30ms
+I (275463) sloop_ui: 切页 page=STEP(2) 组=SEQ 组内首建耗时=33ms
+UI page=step (2)
+sloop>  STATE SNAP
+STATE SNAP page=2 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 486 332
+TAP 486,332 page=2 -> STEP track=1 step=5 CMD_TOGGLE_STEP
+sloop>  UI tracks
+I (275803) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6076B 预算=7168B 池剩余=11052B 耗时=9ms
+I (275813) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=14ms
+UI page=tracks (1)
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=2 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  UI play
+I (276123) sloop_ui: 页面构建 page=PLAY(0) 池增量=2376B 预算=3072B 池剩余=33220B 耗时=5ms
+I (276123) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=227
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=169
+sloop>  UI transport
+I (276603) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3756B 预算=4608B 池剩余=35304B 耗时=6ms
+I (276603) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=10ms
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  ENG MEM
+ENG MEM internal_free=99491 internal_min=92164 psram_free=30102920 psram_min=30102920
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3128 render_blocks=48115 render_mean_us=586 render_max_us=4142 duty_mean=10.10% duty_max=71.36% min_free_since_boot_internal=92164 min_free_since_boot_psram=30102920
+sloop>  KEY STATS
+KEY STATS count=16 mean_us=229 max_us=352 input_stack_free=3748 quiesce_dropped=0
+sloop>  UI MEM
+UI MEM pool_used=23472 pool_free=37788 pool_total=61260 registered=11 built=1 failed=0 sum_est=76288 reserve=-15028 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=14
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=9
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3756 build_ms=10
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=29
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3756 build_ms=6
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=3072 delta=0 build_ms=0
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  UI transport
+UI page=transport (3)
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=1 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  UI play
+I (284163) sloop_ui: 页面构建 page=PLAY(0) 池增量=2416B 预算=3072B 池剩余=35376B 耗时=4ms
+I (284163) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=6ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=48 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  # [inject] soak 结束 cycles=8 samples=4 failures=0 problems=0

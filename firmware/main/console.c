@@ -6,8 +6,11 @@
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
  *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
- *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/TRIG、DESC
- *    描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
+ *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
+ *    向量（71 行 P<id>=<v>，注入侧的机器比对期望，无副作用；冻结态回 `ERR frozen`）；
+ *    FREEZE <on|off> 是诊断冻结的手动入口（必须成对，供注入复验冻结拒绝路径）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
  *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
  *    的抽样字段；与 ENG SNAP 同源）。
@@ -16,7 +19,7 @@
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
  *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
- *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample>）；无参打印当前页；QUIESCE <on|off>
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
@@ -33,7 +36,47 @@
  *    sloop_ui_input_tap() 按当前页 hit-test 表命中矩形并执行与控件回调相同的
  *    动作函数（EditCmd 层等价，ADR-005）；未命中打印 "TAP miss x,y page=P"，
  *    LVGL 锁超时打印 "TAP ERR lvgl_lock_timeout"，诊断期静默打印
- *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。
+ *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。FILE 页
+ *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
+ *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
+ *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
+ *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
+ *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
+ *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
+ *    （破坏性）；STORE FAULT <nth> [half] | CLEAR 是 HAL 故障注入入口
+ *    （计数只由 erase/prog 递增，arm 期间 read 失败但不计数，Task 8 消费）。
+ *    STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n 是工程 A–D 的存读诊断
+ *    （与 UI 命令同一套 sloop_store_*）；STORE PROJ SYNTH <fmt1|foreign> 是**测试
+ *    专用**的诊断（破坏性：覆盖诊断槽 3）：构造内存工程触发 project_load 的两条
+ *    fallback（格式 1 的 preset==0xFF 默认声音 + steps_clear / 未知引擎的
+ *    proj_foreign_parts），回读各轨 engine/preset/steps/atk/e0。STORE LIVEHASH 打印
+ *    当前引擎状态的捕获 hash（工程往返门禁）。STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n 是
+ *    用户预置 32 槽（upreset.c）的诊断入口：SAVE = 选中轨的声音 → 槽，LOAD 缺省
+ *    track = 选中轨；行格式 "PRESET k USED <ENGINE> <NAME>" / "PRESET k EMPTY"，
+ *    末尾 "PRESET COUNT used=n total=32"。错误统一回
+ *    "STORE ERR <no_storage|playing|empty|invalid|save|drum>"。
+ *    STORE STATS 另带自动存档三项（autosave=0|1、autosave_hash、autosave_writes）；
+ *    STORE AUTO ON|OFF 是自动存档的诊断开关（默认 ON，测试脚本用：其它场景关掉它，
+ *    免得空闲时的一次 flash 擦写干扰断言）。
+ *    STORE BANK LIST | PUT n | GET n | LIVE | ERASE n 是 FM6 银行 27 槽
+ *    （fm6_bank.c）的诊断入口：PUT = 选中轨的 live patch（fm6_patch 经 fm6_pack）→
+ *    槽 n，GET/LIVE 打印 128B packed 记录的 hex；行格式 "B<k> USED|EMPTY" 末尾
+ *    "BANK COUNT used=n total=27"；PTCH = 8 + n（< 8 是工厂槽）。播放中 PUT/ERASE 回
+ *    "STORE ERR playing"；空槽 GET 回 empty；选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"。
+ *    STORE TEST 是设备侧 torn-write 套件（ADR-009 §3；**破坏性**：占用 OBJ_SETTINGS，
+ *    套件只快照/恢复该对象的 **payload**——settings 的 side record（副本扇区 64..255，
+ *    P4-E 的主题/收藏）不被保存，跑一次即清掉；需停走带）：六场景全过回
+ *    "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。
+ *    STORE PROJ FIELDS n 是旧格式/工程字段诊断（spec §6.3）：st_load + proj_import 后
+ *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
+ *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
+ *    对象存在但任何格式都不匹配（截断/损坏）回 invalid。
+ *    STORE RAW BEGIN <len≤3840> | <hex> | END <project> <slot> | ABORT 是分块上传通道
+ *    （旧格式 fixture 的唯一入设备通道；一行 ≤240 hex = 120B，受 USJ 驱动 RX 环 256B
+ *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
+ *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
+ *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
+ *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -46,6 +89,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 #include "bsp/m5stack_tab5.h"
@@ -64,6 +108,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
 
@@ -388,7 +433,7 @@ static int eng_command(int argc, char **argv)
         uint32_t k, engine, preset;
         if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
             !eng_uint(argv[4], 255, &preset)) {
-            printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>\n");
+            printf("用法: ENG TRACK <k=0..2> <engine=0..11> <preset=0..255>（换引擎/预置并载入参数）\n");
             return 1;
         }
         if (sloop_core_status() != ESP_OK) {
@@ -397,6 +442,32 @@ static int eng_command(int argc, char **argv)
         }
         sloop_core_track(k, engine, preset);
         printf("ENG TRACK k=%u engine=%u preset=%u OK\n", (unsigned)k, (unsigned)engine, (unsigned)preset);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "preset") == 0) {
+        /* 期望向量（Task 5 注入对端）：同一「当前 p[] + 引擎 + 预置」的**纯写值**，
+         * 无副作用（不改引擎/预置、不触发 panic）。`ENG TRACK` 应用后 `PARAM <id>`
+         * 逐项回读必须与它 71/71 相同——旧 sloop_core_track 只写索引、p[] 不变。 */
+        uint32_t k, engine, preset;
+        if (!eng_uint(argv[2], 2, &k) || !eng_uint(argv[3], SLOOP_CORE_NENGINES - 1u, &engine) ||
+            !eng_uint(argv[4], 255, &preset)) {
+            printf("用法: ENG PRESET <k=0..2> <engine=0..11> <preset=0..255>\n");
+            return 1;
+        }
+        if (sloop_core_status() != ESP_OK) {
+            printf("ENG PRESET FAIL init=%s\n", esp_err_to_name(sloop_core_status()));
+            return 1;
+        }
+        int16_t v[SLOOP_CORE_P_COUNT];
+        if (!sloop_core_preset_preview(k, engine, preset, v)) {
+            /* 诊断冻结（`ENG PRESET` 在 ENG SELFTEST 期间被调用）或越界：不打印零向量，
+             * 免得注入侧把全零当成合法期望。 */
+            printf("ENG PRESET ERR frozen\n");
+            return 1;
+        }
+        printf("ENG PRESET k=%u engine=%u preset=%u\n", (unsigned)k, (unsigned)engine,
+               (unsigned)preset);
+        for (uint32_t i = 0; i < SLOOP_CORE_P_COUNT; i++) printf("P%u=%d\n", (unsigned)i, (int)v[i]);
         return 0;
     }
     if (argc == 5 && strcasecmp(argv[1], "trig") == 0) {
@@ -441,10 +512,11 @@ static int eng_command(int argc, char **argv)
                (unsigned)s.bpm, (unsigned)s.selected_track, (unsigned)s.step_pos[0],
                (unsigned)s.step_pos[1], (unsigned)s.step_pos[2], (unsigned)s.step_pos[3]);
         for (uint32_t k = 0; k < 4; k++) {
-            printf("ENG SNAP trk k=%u engine=%u preset=%u level=%u mute=%u armed=%u solo=%u len=%u div=%u\n",
+            printf("ENG SNAP trk k=%u engine=%u preset=%u level=%u mute=%u armed=%u solo=%u len=%u div=%u voices=%u\n",
                    (unsigned)k, (unsigned)s.trk[k].engine, (unsigned)s.trk[k].preset,
                    (unsigned)s.trk[k].level, (unsigned)s.trk[k].mute, (unsigned)s.trk[k].armed,
-                   (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div);
+                   (unsigned)s.trk[k].solo, (unsigned)s.trk[k].len, (unsigned)s.trk[k].div,
+                   (unsigned)s.trk[k].voices);
         }
         for (uint32_t i = 0; i < 16; i++) {
             printf("ENG SNAP dstep i=%u on=%u lvl=%u rat=%u\n", (unsigned)i,
@@ -508,8 +580,19 @@ static int eng_command(int argc, char **argv)
                (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
         return 0;
     }
+    if (argc == 3 && strcasecmp(argv[1], "freeze") == 0 &&
+        (strcasecmp(argv[2], "on") == 0 || strcasecmp(argv[2], "off") == 0)) {
+        /* 诊断（评审 minor 1 的可测入口；**必须成对**）：冻结引擎读写（与 `ENG SELFTEST`
+         * 内部同一入口）——冻结期间 read 返回冻结快照、写 API 丢弃、`ENG PRESET` 回
+         * `ERR frozen`（不打印零向量）。`ENG SELFTEST` 会自行成对执行，无需手动冻结；
+         * 手动 on 之后务必 off，否则引擎编辑/UI 投影停在冻结时刻。 */
+        bool on = strcasecmp(argv[2], "on") == 0;
+        sloop_core_diag_freeze(on);
+        printf("ENG FREEZE %s\n", on ? "on" : "off");
+        return 0;
+    }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
     return 1;
 }
 
@@ -709,7 +792,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -722,6 +805,7 @@ static int param_command(int argc, char **argv)
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {
     "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
+    "projects", "presets",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -761,15 +845,25 @@ static int ui_mem_dump(void)
     static const char *const states[] = {"unbuilt", "built", "failed"};
     uint32_t sum_est = 0;
     for (uint8_t i = 0; i < ps.registered; i++) sum_est += ps.pages[i].est_bytes;
-    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d\n",
+    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d group=%s\n",
            (unsigned)ps.pool_used, (unsigned)ps.pool_free, (unsigned)ps.pool_total,
            (unsigned)ps.registered, (unsigned)ps.built, (unsigned)ps.failed, (unsigned)sum_est,
-           (int)(ps.pool_total - sum_est));
+           (int)(ps.pool_total - sum_est),
+           ps.current_group < ps.group_count ? ps.groups[ps.current_group].name : "-");
+    /* 分组水位（ADR-005 §5）：sum_est = 组内已注册成员 est（静态预算），
+     * sum_delta = 组内已建成员的池增量；离开组后 built/sum_delta 回 0。
+     * build_ms = 最近一次跨组进入/组内首建的耗时（≤100ms 预算口径）。 */
+    for (uint8_t g = 0; g < ps.group_count; g++) {
+        const sloop_ui_group_stat_t *gr = &ps.groups[g];
+        printf("UI MEM GROUP %s built=%u sum_est=%u sum_delta=%u build_ms=%u\n", gr->name,
+               (unsigned)gr->built, (unsigned)gr->sum_est, (unsigned)gr->sum_delta,
+               (unsigned)gr->build_ms);
+    }
     for (uint8_t i = 0; i < ps.registered; i++) {
         const sloop_ui_page_stat_t *p = &ps.pages[i];
-        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d\n", (unsigned)p->id,
+        printf("UI MEM page id=%u title=%s state=%s est=%u delta=%d build_ms=%u\n", (unsigned)p->id,
                p->title, states[p->state < 3 ? p->state : 0], (unsigned)p->est_bytes,
-               (int)p->delta_bytes);
+               (int)p->delta_bytes, (unsigned)p->build_ms);
     }
     return 0;
 }
@@ -869,7 +963,9 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR not_started\n");
             return 1;
         }
-        if (page < APP_PAGE_GLOBAL) {
+        if (page < APP_PAGE_GLOBAL || page > APP_PAGE_SAMPLE) {
+            /* 参数页是 app_page_t 的连续段 GLOBAL..SAMPLE（page_layout.c 有静态断言）；
+             * FILE 组两页（PROJECTS/PRESETS）不是参数页，旋钮注入不适用。 */
             printf("UI ERR not_params\n");
             return 1;
         }
@@ -930,7 +1026,8 @@ static int ui_command(int argc, char **argv)
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
-            printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|0..%u)\n",
+            printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
+                   "projects|presets|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1012,10 +1109,81 @@ static int ui_command(int argc, char **argv)
             return 0;
         }
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample> | UI MEM | UI WINDOW [<start> <len>] | "
-           "UI KNOB <slot> <press|drag> <dx> <dy> | "
+    /* UI TAB <group> / UI SUB <index>：与物理组签/子签点击同一动作函数（R32）。
+     * TAP 对 y<72 一律 miss，这是唯一能机器覆盖手指导航路径的入口。 */
+    if (argc == 3 && strcasecmp(argv[1], "tab") == 0) {
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        uint8_t found = 0xFF;
+        for (uint8_t g = 0; g < sloop_ui_group_count(); g++) {
+            const char *name = sloop_ui_group_name(g);
+            if (name != NULL && strcasecmp(argv[2], name) == 0) {
+                found = g;
+                break;
+            }
+        }
+        if (found == 0xFF) {
+            printf("UI ERR group %s\n", argv[2]);
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_group_select(found);
+        uint8_t page = sloop_ui_current_page();
+        if (ret == ESP_OK) {
+            printf("UI TAB %s page=%s (%u)\n", sloop_ui_group_name(found),
+                   page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)page);
+            return 0;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_NO_MEM) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+        } else {
+            /* 组存在但没有已注册页：组签也不显示，不可点击（空组） */
+            printf("UI ERR group %s\n", sloop_ui_group_name(found));
+        }
+        return 1;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "sub") == 0) {
+        if (sloop_ui_current_page() >= APP_STATE_PAGES) {
+            printf("UI ERR not_started\n");
+            return 1;
+        }
+        char *end = NULL;
+        long idx = strtol(argv[2], &end, 0);
+        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT 5 页）：
+         * 0..4 之外的 index 一律用法错误（与 sloop_ui_sub_select 的上界同口径）。 */
+        if (end == argv[2] || *end != '\0' || idx < 0 || idx > 4) {
+            printf("用法: UI SUB <index=0..4>（当前组的子签下标；组内最多 5 页）\n");
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_sub_select((uint8_t)idx);
+        uint8_t page = sloop_ui_current_page();
+        if (ret == ESP_OK) {
+            printf("UI SUB %ld page=%s (%u)\n", idx,
+                   page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)page);
+            return 0;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            printf("UI ERR lock_timeout\n");
+        } else if (ret == ESP_ERR_NO_MEM) {
+            printf("UI ERR page_build %u\n", (unsigned)page);
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            printf("UI ERR not_started\n");
+        } else {
+            /* 下标越界或单页组（子行为空，没有可点的子签） */
+            printf("UI ERR sub %ld\n", idx);
+        }
+        return 1;
+    }
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
+           "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
            "off 只撤销未消费的注入\n"
@@ -1159,6 +1327,38 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (engine page N/A)\n", x, y, page,
                (unsigned)r.a);
         break;
+    case SLOOP_TAP_FILE_SLOT:
+        /* FILE 页（PROJECTS/PRESETS）：槽位选中。状态行文本/引擎结果另由 STORE/STATE
+         * 断言（槽列表与 hash 才是存储真值）。 */
+        printf("TAP %ld,%ld page=%u -> FILE %s slot=%u select\n", x, y, page,
+               page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)r.b);
+        break;
+    case SLOOP_TAP_FILE_ACTION: {
+        /* 动作按钮：把页面状态行文本一起回显（与屏幕同源：sloop_ui_file_status_text）
+         * ——播放中拒绝（STOP BEFORE SAVE）、鼓轨（DRUM TRACK: NO SOUND）、NO STORAGE
+         * 都能被脚本按文本断言，而不是只看像素。 */
+        static const char *const acts[] = {"save", "load", "erase"};
+        const char *text = sloop_ui_file_status_text();
+        printf("TAP %ld,%ld page=%u -> FILE %s slot=%u action=%s status=\"%s\"\n", x, y, page,
+               page < APP_STATE_PAGES ? k_page_names[page] : "?", (unsigned)r.b,
+               (unsigned)r.v < 3 ? acts[r.v] : "?", text != NULL ? text : "?");
+        break;
+    }
+    case SLOOP_TAP_BANK_SLOT:
+        /* FM6 页 bank 目标槽 ±：只改目标槽（不写存储/引擎），回显落地槽号 */
+        printf("TAP %ld,%ld page=%u -> BANK slot=%u delta=%+d\n", x, y, page, (unsigned)r.b,
+               (int)r.d);
+        break;
+    case SLOOP_TAP_BANK_STORE:
+    case SLOOP_TAP_BANK_ERASE: {
+        /* BANK SAVE/ERASE：与 FILE 页动作按钮同一回显形态（动作 + 状态行文本同源，
+         * 播放中 STOP BEFORE SAVE / 未就绪 NO STORAGE / 鼓轨都能按文本断言）。 */
+        const char *text = sloop_ui_bank_status_text();
+        printf("TAP %ld,%ld page=%u -> BANK slot=%u action=%s status=\"%s\"\n", x, y, page,
+               (unsigned)r.b, r.kind == SLOOP_TAP_BANK_STORE ? "save" : "erase",
+               text != NULL ? text : "?");
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;
@@ -1166,8 +1366,537 @@ static int tap_command(int argc, char **argv)
     return 0;
 }
 
+/* STORE：存储与工程诊断（P4-B）：后端状态 + 空闲扇区擦写自检 + 故障注入 +
+ * 工程 A–D 的存/读/擦/hash（后续任务在同一 handler 里扩展 PRESET/BANK/TEST）。 */
+#define STORE_RAWTEST_OFF 0xFB000u /* 逻辑 flash-map 偏移：空闲扇区，sloopstore 内 0x64000 */
+#define STORE_RAWTEST_SECTOR 0x1000u
+#define STORE_RAWTEST_PATTERN 0x5Au
+#define STORE_RAWTEST_CHUNK 256u
+
+static int store_stats(void)
+{
+    sloop_store_stats_t st;
+    sloop_store_stats(&st);
+    printf("STORE STATS ready=%u base=0x%X span=0x%X map=0x%lX objects=%u faults=%u armed=%u "
+           "autosave=%u autosave_hash=%08lX autosave_writes=%u last_xrun=%d last_save_ms=%u\n",
+           st.ready ? 1u : 0u, (unsigned)sloop_hal_storage_base(),
+           (unsigned)sloop_hal_storage_span(), (unsigned long)(uintptr_t)sloop_hal_storage_map(),
+           (unsigned)st.objects_ok, (unsigned)st.faults_taken, (unsigned)st.faults_armed,
+           st.autosave_on ? 1u : 0u, (unsigned long)st.autosave_hash,
+           (unsigned)st.autosave_writes, (int)st.last_save_xrun, (unsigned)st.last_save_ms);
+    return 0;
+}
+
+/* 走 mmap 读回（与 Task 3 的 ST_XIP_PTR 同源）：顺带验证擦写后 cache 已失效 */
+static bool store_rawtest_verify(void)
+{
+    uint8_t buf[STORE_RAWTEST_CHUNK];
+    for (uint32_t off = 0; off < STORE_RAWTEST_SECTOR; off += sizeof buf) {
+        if (sloop_hal_storage_read(STORE_RAWTEST_OFF + off, buf, sizeof buf) != 0) return false;
+        for (uint32_t i = 0; i < sizeof buf; i++) {
+            if (buf[i] != STORE_RAWTEST_PATTERN) return false;
+        }
+    }
+    return true;
+}
+
+static int store_rawtest(void)
+{
+    if (!sloop_hal_storage_ready()) {
+        printf("STORE ERR no_storage\n");
+        return 1;
+    }
+
+    uint8_t pattern[STORE_RAWTEST_CHUNK];
+    memset(pattern, STORE_RAWTEST_PATTERN, sizeof pattern);
+
+    const char *step = NULL;
+    if (sloop_hal_storage_erase(STORE_RAWTEST_OFF) != 0) {
+        step = "erase";
+    }
+    for (uint32_t off = 0; step == NULL && off < STORE_RAWTEST_SECTOR; off += sizeof pattern) {
+        if (sloop_hal_storage_prog(STORE_RAWTEST_OFF + off, pattern, sizeof pattern) != 0) {
+            step = "prog";
+        }
+    }
+    if (step == NULL && !store_rawtest_verify()) step = "verify";
+    /* 无论成败都恢复空闲扇区（0xFF） */
+    if (sloop_hal_storage_erase(STORE_RAWTEST_OFF) != 0 && step == NULL) step = "cleanup";
+    if (step != NULL) {
+        printf("STORE RAWTEST FAIL off=0x%X step=%s\n", (unsigned)STORE_RAWTEST_OFF, step);
+        return 1;
+    }
+    printf("STORE RAWTEST PASS off=0x%X part_off=0x%X\n", (unsigned)STORE_RAWTEST_OFF,
+           (unsigned)(STORE_RAWTEST_OFF - sloop_hal_storage_base()));
+    return 0;
+}
+
+/* 故障注入（torn-write 套件入口，Task 8 消费）：计数只由 erase/prog 递增；
+ * arm 期间 read 返回 -1 但不消耗序号（spec §4.1「第 n 次写操作」）。 */
+static int store_fault(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "clear") == 0) {
+        uint32_t taken = sloop_hal_storage_fault_taken();
+        sloop_hal_storage_fault_clear();
+        printf("STORE FAULT cleared taken=%u\n", (unsigned)taken);
+        return 0;
+    }
+    uint32_t nth = 0;
+    bool half = false;
+    if ((argc == 3 || argc == 4) && eng_uint(argv[2], 9999, &nth) && nth >= 1) {
+        half = argc == 4 && strcasecmp(argv[3], "half") == 0;
+        if (argc == 3 || half) {
+            sloop_hal_storage_fault_arm(nth, half);
+            printf("STORE FAULT armed nth=%u half=%u\n", (unsigned)nth, half ? 1u : 0u);
+            return 0;
+        }
+    }
+    printf("用法: STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n");
+    return 1;
+}
+
+/* 工程 A–D（0..3）：RAM 槽（PSRAM）+ flash 双层。console 是诊断执行器（ADR-009 §3）：
+ * 与 UI 命令共用 sloop_store_* 与同一套锁，只是能把返回码变成脚本可断言的回显。
+ * 错误令牌：no_storage（未就绪）/playing（走带中）/empty（空槽或空提交 len=0）/
+ * invalid（槽号或对象名越界；或对象存在但 proj_import 不认识它的格式——截断/损坏，
+ * 与 empty 分开）/save（flash 擦写或回读校验失败）/size（STORE RAW 的长度/块越界）。 */
+static const char *store_err(esp_err_t err)
+{
+    if (!sloop_store_ready()) return "no_storage";
+    switch (err) {
+    case ESP_ERR_INVALID_STATE: return "playing";
+    case ESP_ERR_NOT_FOUND: return "empty";
+    case ESP_ERR_NOT_FINISHED: return "save";
+    case ESP_ERR_INVALID_SIZE: return "size"; /* STORE RAW 的长度/块越界 */
+    default: return "invalid";
+    }
+}
+
+static int store_err_print(esp_err_t err)
+{
+    printf("STORE ERR %s\n", store_err(err));
+    return 1;
+}
+
+/* `STORE PROJ FIELDS n`（spec §6.3）：stored 对象 → FUN6 视图的固定顺序 key=value 一行。
+ * 只读 flash（st_load + proj_import），**不动引擎/RAM 槽**；脚本按
+ * gen_project_fixtures.py 的 field_keys() 顺序逐项比对（顺序错也算失败）。 */
+static int store_fields(uint32_t slot)
+{
+    sloop_store_fields_t f;
+    esp_err_t err = sloop_store_project_fields(slot, &f);
+    if (err != ESP_OK) return store_err_print(err);
+    printf("PROJ %u FIELDS fmt=%u sel=%u bpm=%d swing=%d dust=%d drdly=%u", (unsigned)slot,
+           (unsigned)f.fmt, (unsigned)f.sel, (int)f.bpm, (int)f.swing, (int)f.dust,
+           (unsigned)f.drdly);
+    for (uint32_t k = 0; k < 4u; k++) {
+        printf(" t%u.eng=%u t%u.pre=%u t%u.lvl=%d t%u.atk=%d t%u.e0=%d t%u.e1=%d", (unsigned)k,
+               (unsigned)f.trk[k].engine, (unsigned)k, (unsigned)f.trk[k].preset, (unsigned)k,
+               (int)f.trk[k].level, (unsigned)k, (int)f.trk[k].atk, (unsigned)k,
+               (int)f.trk[k].e0, (unsigned)k, (int)f.trk[k].e1);
+        for (uint32_t i = 0; i < 8u; i++)
+            printf(" t%u.s%u=%u:%u", (unsigned)k, (unsigned)i, (unsigned)f.trk[k].n[i],
+                   (unsigned)f.trk[k].v[i]);
+    }
+    printf("\n");
+    return 0;
+}
+
+static int store_proj(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        for (uint32_t i = 0; i < SLOOP_STORE_PROJECTS; i++) {
+            if (sloop_store_project_used(i))
+                printf("PROJ %u USED hash=%08X\n", (unsigned)i, (unsigned)sloop_store_project_hash(i));
+            else
+                printf("PROJ %u EMPTY\n", (unsigned)i);
+        }
+        return 0;
+    }
+    if (argc == 4 && strcasecmp(argv[2], "synth") == 0) {
+        /* 诊断（P4-B Task 5 评审 R18，测试专用；**破坏性：覆盖诊断槽 3**，槽 0–2 不碰）：
+         * 构造内存工程并触发 project_load 的两条 fallback（fmt1 / foreign），回读各轨
+         * engine/preset/steps/atk/e0 供注入断言。实现在 store_tab5.c（需要 project_t）。 */
+        sloop_store_synth_t r;
+        esp_err_t err = sloop_store_project_synth(argv[3], &r);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("PROJ 3 SYNTH case=%s OK\n", argv[3]);
+        for (uint32_t k = 0; k < 4; k++)
+            printf("PROJ 3 SYNTH case=%s trk k=%u engine=%u preset=%u steps=%u atk=%d e0=%d\n",
+                   argv[3], (unsigned)k, (unsigned)r.trk[k].engine, (unsigned)r.trk[k].preset,
+                   (unsigned)r.trk[k].steps, (int)r.trk[k].atk, (int)r.trk[k].e0);
+        return 0;
+    }
+    if (argc == 4 && strcasecmp(argv[2], "fields") == 0) {
+        /* 旧格式/工程字段（spec §6.3）：只读 flash 对象（st_load + proj_import），
+         * 不动引擎与 RAM 槽；固定顺序的 key=value 一行（gen_project_fixtures.py 的
+         * expected.json 按同一顺序逐项比对）。 */
+        uint32_t slot;
+        if (!eng_uint(argv[3], SLOOP_STORE_PROJECTS - 1u, &slot))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        return store_fields(slot);
+    }
+    if (argc != 4) {
+        printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
+               "FIELDS n | SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_PROJECTS - 1u, &slot)) return store_err_print(ESP_ERR_INVALID_ARG);
+    esp_err_t err;
+    if (strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_project_save(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u SAVED hash=%08X\n", (unsigned)slot, (unsigned)sloop_store_project_hash(slot));
+        return 0;
+    }
+    if (strcasecmp(argv[2], "load") == 0) {
+        if ((err = sloop_store_project_load(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u LOADED hash=%08X\n", (unsigned)slot, (unsigned)sloop_store_live_hash());
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0) {
+        if ((err = sloop_store_project_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("PROJ %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "hash") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        if (!sloop_store_project_used(slot)) return store_err_print(ESP_ERR_NOT_FOUND);
+        printf("PROJ %u HASH=%08X\n", (unsigned)slot, (unsigned)sloop_store_project_hash(slot));
+        return 0;
+    }
+    printf("用法: STORE PROJ LIST | SAVE n | LOAD n | ERASE n | HASH n（n = 0..3）| "
+           "FIELDS n | SYNTH <fmt1|foreign>（诊断：覆盖诊断槽 3）\n");
+    return 1;
+}
+
+/* 工程往返门禁（spec §6.3）：当前引擎状态的捕获 hash，不写 flash */
+static int store_livehash(void)
+{
+    if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+    printf("LIVEHASH %08X\n", (unsigned)sloop_store_live_hash());
+    return 0;
+}
+
+/* 上游 params.c 的 N_ENGNAME（12 个引擎；FELUCCA_SLICE 关闭，故无 SLICE 项）。引擎名
+ * 没有进 sloop_core 的公共 API，LIST 行需要文本故在此镜像；数量由下面的静态断言锁死
+ * 与 SLOOP_CORE_NENGINES 一致，名字漂移由 ENG DESC / 参数页的既有断言暴露。 */
+static const char *const STORE_ENGINE_NAMES[] = {"ANALOG", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE",
+                                                 "TRIO",   "WHEEL",   "GRAIN", "FM6",  "PHYS",   "NOISE"};
+_Static_assert(sizeof(STORE_ENGINE_NAMES) / sizeof(STORE_ENGINE_NAMES[0]) == SLOOP_CORE_NENGINES,
+               "引擎名表与 SLOOP_CORE_NENGINES 一致");
+
+static const char *store_engine_name(uint8_t engine)
+{
+    return engine < SLOOP_CORE_NENGINES ? STORE_ENGINE_NAMES[engine] : "-";
+}
+
+/* 鼓轨（槽/轨号已在 console 层校验过）：存/载都没有「声音」可写可读——令牌与槽号越界
+ * 的 invalid 分开，脚本据此区分拒绝原因（upstream: "DRUM TRACK: NO SOUND"）。 */
+static int store_err_drum(void)
+{
+    printf("STORE ERR drum\n");
+    return 1;
+}
+
+/* 预置/工程命令的轨号上限用 APP_STATE_TRACKS（0..3，含鼓轨）；引擎快照的 trk[] 由
+ * sloop_core_read 按上游 NTRK 填满，二者必须相等——否则鼓轨（3）可能在一边合法、在另一边
+ * 越界，drum 与 invalid 两个令牌就会随实现漂移。 */
+_Static_assert(sizeof(((const sloop_core_snapshot_t *)0)->trk) /
+                       sizeof(((const sloop_core_snapshot_t *)0)->trk[0]) == APP_STATE_TRACKS,
+               "APP_STATE_TRACKS 与引擎快照的轨数（上游 NTRK）一致");
+
+/* 用户预置 32 槽（upreset.c，P4-B Task 4）。console 诊断执行器口径同 PROJ：与 UI
+ * 命令共用 sloop_store_* 与同一套锁。行格式见文件头；鼓轨（存/载没有声音）回
+ * "STORE ERR drum"——与槽/轨号越界的 invalid 分开，脚本据此区分拒绝原因。 */
+static int store_preset(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        for (uint32_t k = 0; k < SLOOP_STORE_PRESETS; k++) {
+            char name[13];
+            if (!sloop_store_preset_name(k, name)) {
+                printf("PRESET %u EMPTY\n", (unsigned)k);
+                continue;
+            }
+            printf("PRESET %u USED %s %s\n", (unsigned)k,
+                   store_engine_name(sloop_store_preset_engine(k)), name);
+        }
+        printf("PRESET COUNT used=%u total=%u\n", (unsigned)sloop_store_preset_count(),
+               (unsigned)SLOOP_STORE_PRESETS);
+        return 0;
+    }
+    if (argc != 4 && argc != 5) {
+        printf("用法: STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n（n = 0..31）\n");
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_PRESETS - 1u, &slot)) return store_err_print(ESP_ERR_INVALID_ARG);
+    esp_err_t err;
+    if (strcasecmp(argv[2], "save") == 0 && argc == 4) {
+        if ((err = sloop_store_preset_store(slot)) != ESP_OK) {
+            return err == ESP_ERR_INVALID_ARG ? store_err_drum() : store_err_print(err);
+        }
+        char name[13];
+        sloop_store_preset_name(slot, name);
+        printf("PRESET %u SAVED %s %s\n", (unsigned)slot,
+               store_engine_name(sloop_store_preset_engine(slot)), name);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "load") == 0) {
+        uint32_t track;
+        if (argc == 5) {
+            if (!eng_uint(argv[4], APP_STATE_TRACKS - 1u, &track)) {
+                return store_err_print(ESP_ERR_INVALID_ARG);
+            }
+        } else {
+            sloop_core_snapshot_t snap;
+            sloop_core_read(&snap); /* 缺省 = 选中轨（与 UI 同一真值源） */
+            track = snap.selected_track < APP_STATE_TRACKS ? snap.selected_track : 0u;
+        }
+        if ((err = sloop_store_preset_load(slot, track)) != ESP_OK) {
+            return err == ESP_ERR_INVALID_ARG ? store_err_drum() : store_err_print(err);
+        }
+        printf("PRESET %u LOADED track=%u\n", (unsigned)slot, (unsigned)track);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0 && argc == 4) {
+        if ((err = sloop_store_preset_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("PRESET %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    printf("用法: STORE PRESET LIST | SAVE n | LOAD n [track] | ERASE n（n = 0..31）\n");
+    return 1;
+}
+
+/* FM6 银行 27 槽（上游 fm6_bank.c，P4-B Task 7）。console 诊断执行器口径同 PROJ/PRESET：
+ * 与 UI 命令共用 sloop_store_* 与同一套锁。
+ *   STORE BANK LIST     -> 27 行 "B<k> USED|EMPTY" + "BANK COUNT used=n total=27"
+ *   STORE BANK PUT n    -> "BANK n SAVED"（选中轨的 live patch；播放中 playing）
+ *   STORE BANK GET n    -> "BANK n GET <128B hex>"；空槽 empty
+ *   STORE BANK LIVE     -> "BANK LIVE <128B hex>"（选中轨当前 patch，不写 flash）
+ *   STORE BANK ERASE n  -> "BANK n ERASED"
+ * 选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"：fm6_patch 只对 NPART 个合成轨存在，鼓轨没有
+ * patch 可存（与预置的 DRUM TRACK: NO SOUND 同一类拒绝，令牌与槽号越界分开）。
+ * LIVE 只读引擎状态，故**不要求存储就绪**（其余子命令都需要）。 */
+static void store_hex(const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) printf("%02X", p[i]);
+}
+
+static bool store_drum_selected(void)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap); /* 选中轨取自引擎真值（与 PARAM/PRESET 同源） */
+    return snap.selected_track >= APP_STATE_TRACKS - 1u;
+}
+
+static int store_bank(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[2], "list") == 0) {
+        if (!sloop_store_ready()) return store_err_print(ESP_ERR_INVALID_STATE);
+        uint32_t used = 0;
+        for (uint32_t k = 0; k < SLOOP_STORE_BANK_SLOTS; k++) {
+            bool u = sloop_store_bank_used(k);
+            printf("B%u %s\n", (unsigned)k, u ? "USED" : "EMPTY");
+            used += u ? 1u : 0u;
+        }
+        printf("BANK COUNT used=%u total=%u\n", (unsigned)used, (unsigned)SLOOP_STORE_BANK_SLOTS);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "live") == 0) {
+        /* 只读引擎状态（sloop_store_bank_current 不依赖存储就绪）：无存储时也能导出当前音色 */
+        if (store_drum_selected()) return store_err_drum();
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        sloop_store_bank_current(pk);
+        printf("BANK LIVE ");
+        store_hex(pk, sizeof pk);
+        printf("\n");
+        return 0;
+    }
+    if (argc != 4) {
+        printf("用法: STORE BANK LIST | PUT n | GET n | LIVE | ERASE n（n = 0..%u；"
+               "PTCH = 8 + n）\n", (unsigned)(SLOOP_STORE_BANK_SLOTS - 1u));
+        return 1;
+    }
+    uint32_t slot;
+    if (!eng_uint(argv[3], SLOOP_STORE_BANK_SLOTS - 1u, &slot)) {
+        return store_err_print(ESP_ERR_INVALID_ARG);
+    }
+    esp_err_t err;
+    if (strcasecmp(argv[2], "put") == 0) {
+        if (store_drum_selected()) return store_err_drum();
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        sloop_store_bank_current(pk);
+        if ((err = sloop_store_bank_put(slot, pk)) != ESP_OK) return store_err_print(err);
+        printf("BANK %u SAVED\n", (unsigned)slot);
+        return 0;
+    }
+    if (strcasecmp(argv[2], "get") == 0) {
+        uint8_t pk[SLOOP_STORE_BANK_PACKED];
+        if (!sloop_store_bank_get(slot, pk)) return store_err_print(ESP_ERR_NOT_FOUND);
+        printf("BANK %u GET ", (unsigned)slot);
+        store_hex(pk, sizeof pk);
+        printf("\n");
+        return 0;
+    }
+    if (strcasecmp(argv[2], "erase") == 0) {
+        if ((err = sloop_store_bank_erase(slot)) != ESP_OK) return store_err_print(err);
+        printf("BANK %u ERASED\n", (unsigned)slot);
+        return 0;
+    }
+    printf("用法: STORE BANK LIST | PUT n | GET n | LIVE | ERASE n（n = 0..%u；"
+           "PTCH = 8 + n）\n", (unsigned)(SLOOP_STORE_BANK_SLOTS - 1u));
+    return 1;
+}
+
+/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后只快照/恢复
+ * 它的 payload；settings 的 side record（扇区 64..255，P4-E 主题/收藏）不会被恢复）。
+ * 六场景全部通过回 `STORE TEST PASS 6/6`；失败回 `STORE TEST FAIL <name>`（不打印其它
+ * 令牌，脚本按这两个前缀断言）。未就绪/走带中沿用 `STORE ERR <no_storage|playing>`。 */
+static int store_test_cmd(void)
+{
+    sloop_store_test_t r;
+    esp_err_t err = sloop_store_test(&r);
+    if (err == ESP_OK) {
+        printf("STORE TEST PASS %u/%u\n", (unsigned)r.passed, (unsigned)r.cases);
+        return 0;
+    }
+    if (r.fail_case != NULL) {
+        printf("STORE TEST FAIL %s\n", r.fail_case);
+        return 1;
+    }
+    return store_err_print(err);
+}
+
+/* STORE RAW：分块上传任意对象 payload（spec §4.4；旧格式 fixture 的唯一入设备通道）。
+ *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX = 3,840 =
+ *                        一个 flash 对象的 payload 上限；超限当场回 size，不等到 END 的 save）
+ *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
+ *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
+ *   ABORT              → "STORE RAW ABORTED"
+ * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27：暂存与 proj_tmp 共用）。
+ * 一行 ≤240 hex = 120B：真正的上限不是 console 行缓冲（256），而是 USB-Serial-JTAG
+ * **驱动 RX 环 256B**——整行要在一次突发里装进环里，否则设备忙（LVGL/音频）时环溢出、
+ * 字符被静默丢掉（实测 490 字符的行被截到 256 字符）。240 hex + "STORE RAW " + '\n'
+ * = 251B < 256B，故与调度时序无关。 */
+#define STORE_RAW_HEX_MAX 240u
+#define STORE_RAW_BUF (STORE_RAW_HEX_MAX / 2u)
+
+static int store_hex_nibble(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static int store_raw_usage(void)
+{
+    printf("用法: STORE RAW BEGIN <len=1..%u> | STORE RAW <hex≤%u> | "
+           "STORE RAW END <project> <slot=0..%u> | STORE RAW ABORT\n",
+           (unsigned)SLOOP_STORE_RAW_MAX, (unsigned)STORE_RAW_HEX_MAX,
+           (unsigned)(SLOOP_STORE_PROJECTS - 1u));
+    return 1;
+}
+
+static int store_raw(int argc, char **argv)
+{
+    if (argc >= 3 && strcasecmp(argv[2], "begin") == 0) {
+        uint32_t len;
+        if (argc != 4) return store_raw_usage();
+        if (!eng_uint(argv[3], SLOOP_STORE_RAW_MAX, &len) || len == 0)
+            return store_err_print(ESP_ERR_INVALID_SIZE);
+        esp_err_t err = sloop_store_raw_begin(len);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW BEGIN len=%u\n", (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "end") == 0) {
+        uint32_t slot;
+        if (argc != 5) return store_raw_usage();
+        if (!eng_uint(argv[4], SLOOP_STORE_PROJECTS - 1u, &slot)) {
+            sloop_store_raw_abort();
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        }
+        uint32_t len = sloop_store_raw_received(); /* 成功时 == 声明长度（end 已校验） */
+        esp_err_t err = sloop_store_raw_end(argv[3], slot);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW END %s %u saved len=%u\n", argv[3], (unsigned)slot, (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "abort") == 0) {
+        if (argc != 3) return store_raw_usage();
+        sloop_store_raw_abort();
+        printf("STORE RAW ABORTED\n");
+        return 0;
+    }
+    if (argc == 3) {
+        const char *hex = argv[2];
+        size_t n = strlen(hex);
+        uint8_t buf[STORE_RAW_BUF];
+        if (n == 0 || (n & 1u) != 0u || n / 2u > sizeof buf) return store_err_print(ESP_ERR_INVALID_SIZE);
+        for (size_t i = 0; i < n; i += 2u) {
+            int hi = store_hex_nibble(hex[i]), lo = store_hex_nibble(hex[i + 1u]);
+            if (hi < 0 || lo < 0) return store_err_print(ESP_ERR_INVALID_ARG);
+            buf[i / 2u] = (uint8_t)((hi << 4) | lo);
+        }
+        esp_err_t err = sloop_store_raw_append(buf, (uint32_t)(n / 2u));
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW received=%u\n", (unsigned)sloop_store_raw_received());
+        return 0;
+    }
+    return store_raw_usage();
+}
+
+static int store_command(int argc, char **argv)
+{
+    /* R27：RAW 暂存就是 proj_tmp/up_stage 那块共用缓冲——任何其它存储子命令都可能
+     * 借用它，故非 RAW 子命令一进来就丢弃未完成的上传（否则 END 会把别人的字节原样
+     * 写进 flash）。RAW 自己的 BEGIN/hex/END/ABORT 不走这里的分支。 */
+    if (argc >= 2 && strcasecmp(argv[1], "raw") == 0) return store_raw(argc, argv);
+    sloop_store_raw_abort();
+
+    if (argc == 2 && strcasecmp(argv[1], "stats") == 0) return store_stats();
+    if (argc == 2 && strcasecmp(argv[1], "rawtest") == 0) return store_rawtest();
+    if (argc == 2 && strcasecmp(argv[1], "livehash") == 0) return store_livehash();
+    if (argc == 2 && strcasecmp(argv[1], "test") == 0) return store_test_cmd();
+    if (argc >= 2 && strcasecmp(argv[1], "fault") == 0) return store_fault(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
+    if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
+        bool on;
+        if (strcasecmp(argv[2], "on") == 0) {
+            on = true;
+        } else if (strcasecmp(argv[2], "off") == 0) {
+            on = false;
+        } else {
+            printf("用法: STORE AUTO <on|off>\n");
+            return 1;
+        }
+        printf("STORE AUTO %s\n", sloop_store_autosave_enable(on) ? "on" : "off");
+        return 0;
+    }
+    printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
+           "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
+           "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
+           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
+           "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
+           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，只快照/恢复 "
+           "payload；settings side record 不保） | "
+           "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
+           (unsigned)STORE_RAWTEST_OFF);
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
+    /* 存储后端在 sloop_core_init → sloop_store_init 里初始化（ADR-009 §5 启动顺序：
+     * 工厂态快照之后才 fetch）；REPL 任务虽先起，但 STORE 命令经 sloop_store_* 的
+     * 「未初始化 → no_storage」门控，不会碰到未映射的分区。 */
+
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "sloop> ";
     repl_cfg.max_history_len = 16;
@@ -1259,7 +1988,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);
@@ -1289,6 +2018,24 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&tap_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 TAP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t store_cmd = {
+        .command = "STORE",
+        .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
+                "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
+                "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n（FM6 银行 27 槽，PTCH = 8 + n）；"
+                "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
+                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，只快照/恢复 payload，"
+                "settings side record 不保，需停走带）；"
+                "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .func = &store_command,
+    };
+    ret = esp_console_cmd_register(&store_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 STORE 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

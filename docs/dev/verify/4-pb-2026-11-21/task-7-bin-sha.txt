@@ -1,0 +1,2 @@
+5633315ca7d53689a865f50505ebbdcd7d41a7d08c3065f6b3e39ac565daf101  firmware/build/sloop_fm1_tab5.bin
+5633315ca7d53689a865f50505ebbdcd7d41a7d08c3065f6b3e39ac565daf101  /tmp/t7/green.bin

@@ -1,0 +1,2 @@
+Aa=EDIT: hint bbox x∈[1076,1169] y∈[43,54] n=240; hint px left of 936: 0; sub-tab5 HI px at y42: 160
+FX+EDIT+SEL+GLO: hint bbox x∈[978,1168] y∈[43,54] n=452; hint px left of 936: 0; sub-tab5 HI px at y42: 160

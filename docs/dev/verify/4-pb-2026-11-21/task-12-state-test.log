@@ -1,0 +1,23 @@
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP read-modify-write 保留字段
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+PASS k=5 MUTE/SOLO 引擎写入口与 sync 真值
+PASS k=6 ERASE_NOTE 删除聚焦步音符（RMW/字段随移）
+PASS k=7 步窗抽象：默认/映射/投影/钳位
+PASS k=8 步窗 sync 与 SET_WINDOW 交错按新基重取
+PASS k=9 参数命令：单 SET 钳位/越界忽略
+PASS k=10 参数批量：一次引擎调用/截断/空载荷
+PASS k=11 参数投影：sync 采纳引擎真值/跟随选轨
+PASS k=12 选轨即刷参数投影（不等 sync）
+PASS k=13 state_get_copy 反映 cmd 与 sync
+PASS k=14 全局参数 CMD_SET_GLOBAL 与投影
+PASS k=15 越界参数忽略
+PASS k=16 工程存储命令：返回码映射/刷新/越界
+PASS k=17 用户预置命令：鼓轨区分/轨号透传/越界
+PASS k=18 FM6 银行命令：选中轨 patch/鼓轨/越界
+PASS k=19 页 id 扩容（11 页）
+
+19 passed, 0 failed
+STATE TEST PASSED

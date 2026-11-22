@@ -1,0 +1,21 @@
+
+sloop>  STORE PROJ LIST
+PROJ 0 USED hash=CCB3B3D7
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>  STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>  STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>  

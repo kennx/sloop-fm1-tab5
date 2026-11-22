@@ -1,0 +1,23 @@
+
+sloop>  # [inject] 场景 store 开始
+# [inject] ⓪ 归一：esptool 硬复位到工厂态（不带上一轮载入的预置参数）
+# [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
+
+sloop>  I (4375) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  ENG AUDIO ON
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>  STORE AUTO OFF
+用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] 场景 store 异常终止: ⓪ STORE AUTO OFF（本场景其余段免干扰）: 回显缺少 /^STORE AUTO off\r?$/（响应 'STORE AUTO OFF\r\n用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'）

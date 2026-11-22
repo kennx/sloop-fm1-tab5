@@ -1,0 +1,52 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-193929.log
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] ① ERASE 0
+  [PASS] ① ERASE 1
+  [PASS] ① ERASE 2
+  [PASS] ① ERASE 3
+  [PASS] ① LIST PROJ 0 EMPTY
+  [PASS] ① LIST PROJ 1 EMPTY
+  [PASS] ① LIST PROJ 2 EMPTY
+  [PASS] ① LIST PROJ 3 EMPTY
+  [PASS] ② BPM=100
+  [PASS] ② STATE SNAP bpm=100
+  [PASS] ② LIVEHASH h0
+  [PASS] ② h0=CCB3B3D7 非零（捕获有效）
+  [PASS] ② SAVE 0
+  [PASS] ② HASH 0（RAM 槽）
+  [PASS] ② HASH 0 == h0=CCB3B3D7
+  [PASS] ③ BPM=120
+  [PASS] ③ STATE SNAP bpm=120
+  [PASS] ③ LIVEHASH h1
+  [PASS] ③ h1=CFF2701B != h0=CCB3B3D7
+  [PASS] ④ LOAD 0
+  [PASS] ④ LIVEHASH==h0
+  [PASS] ④ LIVEHASH 回到 h0=CCB3B3D7
+  [PASS] ④ STATE SNAP bpm=100（保存时的值）
+  [PASS] ⑤ ERASE 0
+  [PASS] ⑤ LIST PROJ 0 EMPTY
+  [PASS] ⑤ LIST PROJ 1 EMPTY
+  [PASS] ⑤ LIST PROJ 2 EMPTY
+  [PASS] ⑤ LIST PROJ 3 EMPTY
+  [PASS] ⑤ LIVEHASH 不变
+  [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
+  [PASS] ⑥ SAVE 0
+  [PASS] ⑥ 再保存 hash h2=CCB3B3D7 == h0=CCB3B3D7
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  [PASS] ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
+  [PASS] ⑦ 复位后 STORE STATS ready=1
+  [PASS] ⑦ LIST PROJ 0 USED
+  [PASS] ⑦ HASH 0（RAM 槽开机 fetch）
+  [PASS] ⑦ HASH 0 == h2=CCB3B3D7
+  [PASS] ⑦ LOAD 0
+  [PASS] ⑦ LIVEHASH==h2
+  [PASS] ⑦ LIVEHASH 恢复 h2=CCB3B3D7
+  [PASS] ⑦ STATE SNAP bpm=100（工程内的值）
+  [PASS] ⑧ ENG AUDIO OFF
+  [PASS] ⑧ 单例 selftest PASS
+  [PASS] ⑧ ENG AUDIO ON
+  [PASS] ⑧ selftest 后 HASH 0（RAM 槽）
+  [PASS] ⑧ HASH 0 == h2=CCB3B3D7（自检 restore 未回滚存储指针与 RAM 槽）
+[FAIL] store: ⑨ ERASE 0（归一）: 回显缺少 /^PRESET 0 ERASED\r?$/（响应 'STORE PRESET ERASE 0\r\n用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n | STORE LIVEHASH | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'）

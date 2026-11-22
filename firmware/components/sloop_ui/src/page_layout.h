@@ -34,7 +34,7 @@ typedef struct {
     param_slot_t slots[PARAM_PAGE_SLOTS];
 } param_page_t;
 
-/* 参数页数（= APP_STATE_PAGES - 4，见 page_layout.c 的静态断言）。 */
+/* 参数页数（= app_page_t 里 GLOBAL..SAMPLE 的连续段长度，见 page_layout.c 的静态断言）。 */
 #define PARAM_PAGE_COUNT 5
 
 /* 按布局表下标取页定义；越界返回 NULL。 */

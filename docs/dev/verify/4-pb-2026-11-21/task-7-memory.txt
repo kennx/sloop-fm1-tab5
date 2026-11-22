@@ -1,0 +1,25 @@
+# P4-B Task 7 段归属证据（fm6_bank.c 的功能性静态都在 SELFTEST 快照窗口内 ⇒ 入口重扫，DI-18 裁决 (a)）
+# 生成: objdump -t firmware/build/sloop_fm1_tab5.elf + map 的窗口边界
+
+## 快照窗口（firmware/components/sloop_core/linker.lf: data -> dram0_data, bss SURROUND(sloop_selftest_bss)）
+23126:                0x4ff50bf4                        _sloop_selftest_bss_start = ABSOLUTE (.)
+23129:                0x4ff9c654                        _sloop_selftest_bss_end = ABSOLUTE (.)
+.data.0_begin (selftest_data_begin):
+22863: .data.0_begin  0x4ff1a468        0x4 esp-idf/sloop_core/libsloop_core.a(selftest.c.obj)
+.data.z_end (selftest_data_end):
+22894: .data.z_end    0x4ff1aeb0        0x4 esp-idf/sloop_core/libsloop_core.a(selftest.c.obj)
+
+## 符号表（节 / 地址 / 大小）
+4ff51048 l     O .dram1.bss	00000008 up_bank_xip
+4ff99b08 l     O .dram1.bss	000001d4 fm6_patch
+4ff99844 l     O .dram1.bss	00000004 fm6_bank_read
+4ff99b00 l     O .dram1.bss	00000003 fm6_slot
+4ff1abf8 l     O .dram0.data	00000001 fm6_bank_cur
+4ff51044 l     O .dram1.bss	00000004 fm6_bank_used
+4ff51074 l     O .dram1.bss	00000f00 main_scratch
+4ff1b168 l     O .noinit	00000001 flash_ok
+4ff1b15c l     O .noinit	00000004 s_stage
+4ff1b160 l     O .noinit	00000004 s_v3_ps
+4ff1b158 l     O .noinit	00000004 s_init_magic
+4ff1b154 l     O .noinit	00000004 s_store_lock
+4ff1b164 g     O .noinit	00000004 s_slot_ps

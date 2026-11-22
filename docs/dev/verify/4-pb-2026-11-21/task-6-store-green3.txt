@@ -1,0 +1,296 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-214821.log
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] ⓪ STORE AUTO OFF（本场景其余段免干扰）
+  [PASS] ⑩ 归一 engine=0 preset=0（ANALOG）
+  [PASS] ⑩ ENG FREEZE on（诊断冻结）
+  [PASS] ⑩ 冻结态 ENG PRESET → ERR frozen
+  [PASS] ⑩ 冻结态没有打印任何 P<id>=<v>（零向量不得被当成期望）
+  [PASS] ⑩ ENG FREEZE off（恢复）
+  [PASS] ⑩ 解冻后 ENG PRESET 恢复出向量
+  [PASS] ⑩ P_LEVEL=90（混音）
+  [PASS] ⑩ P_SLEN=12（图案）
+  [PASS] ⑩ ENG PRESET 0 2 1：71/71 项
+  [PASS] ⑩ ENG TRACK 0 2 1
+  [PASS] ⑩ ENG SNAP engine=2 preset=1
+  [PASS] ⑩ ENG TRACK 0 2 1 的 p[] == ENG PRESET 向量: 71/71 项一致
+  [PASS] ⑩ 换预置后 P_LEVEL=90（混音保留 90）
+  [PASS] ⑩ 换预置后 P_SLEN=12（图案参数保留 12）
+  [PASS] ⑩ ENG TRACK 0 1 0（换引擎）
+  [PASS] ⑩ ENG SNAP engine=1 preset=0
+  [PASS] ⑩ 换引擎后的 p[] == ENG PRESET 0 1 0 向量: 71/71 项一致
+  [PASS] ⑩ P_ATK=0 == 新引擎预置的 ATK 0（包络随声音走）
+  [PASS] ⑩ P_E0..P_E7=[4, 1, 1, 14, 26, 35, 0, 0] 由新引擎的预置写值覆盖（期望 [4, 1, 1, 14, 26, 35, 0, 0]）
+  [PASS] ⑩ R17 oracle：引擎 1 预置 0 = DIGITAL RHODES（eng_digital.c:117 + preset_trim.h）: 21/21 项与上游表一致（[1, 2, 3, 4, 5, 8, 9, 16, 33, 34, 35, 36, 37, 63, 64, 65, 66, 67, 68, 69, 70]）
+  [PASS] ⑩ ENG TRACK 0 0 0（回 ANALOG）
+  [PASS] ⑩ R17 oracle：引擎 0 预置 0 = ANALOG 808 BOOM（eng_analog.c:128 + preset_trim.h）: 23/23 项与上游表一致（[1, 2, 3, 4, 5, 6, 8, 28, 33, 34, 35, 36, 37, 38, 41, 63, 64, 65, 66, 67, 68, 69, 70]）
+  [PASS] ⑩ panic 基线 engine=0 preset=0
+  [PASS] ⑩ ENG AUDIO streaming=1（panic 由渲染块消费）
+  [PASS] ⑩ STATE SNAP playing=0（基线） = 0
+  [PASS] ⑩ KEY 0x42 down（按住 C）
+  [PASS] ⑩ 按住一个键后 voices=1（≥1 = 确实在发声）
+  [PASS] ⑩ 发声时换预置 ENG TRACK 0 2 1
+  [PASS] ⑩ 换预置后 voices=0（panic 路径：挂音已释放）
+  [PASS] ⑩ KEY 0x42 up（收口）
+  [PASS] ⑩ STATE SNAP playing=0（换预置不动走带） = 0
+  [PASS] ⑩ P_LEVEL 回默认
+  [PASS] ⑩ P_SLEN 回默认
+  [PASS] ⑩e SYNTH fmt1
+  [PASS] ⑩e 轨 0：默认声音 ANALOG 808 BOOM（e0=3）+ 工程里的 99 被覆盖 + 步清空
+  [PASS] ⑩e 轨 1：不带 0xFF ⇒ 保留工程里的 engine/preset（1/1）
+  [PASS] ⑩f SYNTH foreign
+  [PASS] ⑩f 轨 1：未知引擎 → DIGITAL RHODES（engine 1 preset 0、e0=4）、图案保留
+  [PASS] ⑩f 轨 0：不受 foreign 分支影响（engine/preset 保持 0/0）
+  [PASS] ⑩f 收口 ERASE 3（诊断槽）
+  [PASS] ① ERASE 0
+  [PASS] ① ERASE 1
+  [PASS] ① ERASE 2
+  [PASS] ① ERASE 3
+  [PASS] ① LIST PROJ 0 EMPTY
+  [PASS] ① LIST PROJ 1 EMPTY
+  [PASS] ① LIST PROJ 2 EMPTY
+  [PASS] ① LIST PROJ 3 EMPTY
+  [PASS] ② BPM=100
+  [PASS] ② STATE SNAP bpm=100
+  [PASS] ② LIVEHASH h0
+  [PASS] ② h0=D160C9B7 非零（捕获有效）
+  [PASS] ② SAVE 0
+  [PASS] ② HASH 0（RAM 槽）
+  [PASS] ② HASH 0 == h0=D160C9B7
+  [PASS] ③ BPM=120
+  [PASS] ③ STATE SNAP bpm=120
+  [PASS] ③ LIVEHASH h1
+  [PASS] ③ h1=07F7D713 != h0=D160C9B7
+  [PASS] ④ LOAD 0
+  [PASS] ④ LIVEHASH==h0
+  [PASS] ④ LIVEHASH 回到 h0=D160C9B7
+  [PASS] ④ STATE SNAP bpm=100（保存时的值）
+  [PASS] ⑤ ERASE 0
+  [PASS] ⑤ LIST PROJ 0 EMPTY
+  [PASS] ⑤ LIST PROJ 1 EMPTY
+  [PASS] ⑤ LIST PROJ 2 EMPTY
+  [PASS] ⑤ LIST PROJ 3 EMPTY
+  [PASS] ⑤ LIVEHASH 不变
+  [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
+  [PASS] ⑥ SAVE 0
+  [PASS] ⑥ 再保存 hash h2=D160C9B7 == h0=D160C9B7
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  [PASS] ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
+  [PASS] ⑦ 复位后 STORE STATS ready=1
+  [PASS] ⑦ LIST PROJ 0 USED
+  [PASS] ⑦ HASH 0（RAM 槽开机 fetch）
+  [PASS] ⑦ HASH 0 == h2=D160C9B7
+  [PASS] ⑦ LOAD 0
+  [PASS] ⑦ LIVEHASH==h2
+  [PASS] ⑦ LIVEHASH 恢复 h2=D160C9B7
+  [PASS] ⑦ STATE SNAP bpm=100（工程内的值）
+  [PASS] ⑧ ENG AUDIO OFF
+  [PASS] ⑧ 单例 selftest PASS
+  [PASS] ⑧ ENG AUDIO ON
+  [PASS] ⑧ selftest 后 HASH 0（RAM 槽）
+  [PASS] ⑧ HASH 0 == h2=D160C9B7（自检 restore 未回滚存储指针与 RAM 槽）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 归一基线 engine=0 preset=0（ANALOG）
+  [PASS] ⑨ 归一基线参数（8 个，ATK…TRIM）: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ ERASE 0（归一）
+  [PASS] ⑨ ERASE 1（归一）
+  [PASS] ⑨ LIST 列出全部 32 槽（实得 32）
+  [PASS] ⑨ 归一后 LIST 无 USED（实得 []）
+  [PASS] ⑨ PRESET COUNT used=0 total=32（实得 (0, 32)）
+  [PASS] ⑨ SAVE 0（默认名 = 引擎名 + 槽号）
+  [PASS] ⑨ LIST → PRESET 0 USED ANALOG ANALOG 01（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] ⑨ PRESET COUNT used=1（实得 (1, 32)）
+  [PASS] ⑨ 写参数组 B: applied=[100, 110, 20, 30, 30, -30, 20, -8]
+  [PASS] ⑨ 改值生效（100,110… ≠ SAVE 时的 20,40…）
+  [PASS] ⑨ LOAD 0 0
+  [PASS] ⑨ LOAD 后 id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ LOAD 后 id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ LOAD 后 id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ LOAD 后 id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ LOAD 后 id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ LOAD 后 id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ LOAD 后 id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ LOAD 后 id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ LOAD 0（缺省轨）
+  [PASS] ⑨ ENG TRACK 0 4 0（切 SAMPLE）
+  [PASS] ⑨ 换引擎后 ENG SNAP engine=4
+  [PASS] ⑨ 换引擎后 LOAD 0 0
+  [PASS] ⑨ LOAD 后 engine 回到 0（预置里的引擎）
+  [PASS] ⑨ 换引擎后 LOAD id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ 换引擎后 LOAD id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ 换引擎后 LOAD id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ 换引擎后 LOAD id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ 换引擎后 LOAD id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ 换引擎后 LOAD id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ 换引擎后 LOAD id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ 换引擎后 LOAD id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ LOAD 0 1（跨轨）
+  [PASS] ⑨ 跨轨 LOAD 后 selected_track 仍 0 = 0
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=1 value=20 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=2 value=40 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=3 value=60 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=4 value=70 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=5 value=-10 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=6 value=15 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=7 value=-25 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=8 value=8 不变
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑨ 轨 1 id=1 value=20 == 预置 20
+  [PASS] ⑨ 轨 1 id=2 value=40 == 预置 40
+  [PASS] ⑨ 轨 1 id=3 value=60 == 预置 60
+  [PASS] ⑨ 轨 1 id=4 value=70 == 预置 70
+  [PASS] ⑨ 轨 1 id=5 value=-10 == 预置 -10
+  [PASS] ⑨ 轨 1 id=6 value=15 == 预置 15
+  [PASS] ⑨ 轨 1 id=7 value=-25 == 预置 -25
+  [PASS] ⑨ 轨 1 id=8 value=8 == 预置 8
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 写参数组 B（槽 16 用）: applied=[100, 110, 20, 30, 30, -30, 20, -8]
+  [PASS] ⑨ SAVE 16（bank1）
+  [PASS] ⑨ LIST 槽 0/16 均 USED、COUNT used=2（实得 [0, 16] count=(2, 32)）
+  [PASS] ⑨ 改回参数组 A: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ LOAD 16
+  [PASS] ⑨ LOAD 16 后 id=1 value=100 == 保存时 100
+  [PASS] ⑨ LOAD 16 后 id=2 value=110 == 保存时 110
+  [PASS] ⑨ LOAD 16 后 id=3 value=20 == 保存时 20
+  [PASS] ⑨ LOAD 16 后 id=4 value=30 == 保存时 30
+  [PASS] ⑨ LOAD 16 后 id=5 value=30 == 保存时 30
+  [PASS] ⑨ LOAD 16 后 id=6 value=-30 == 保存时 -30
+  [PASS] ⑨ LOAD 16 后 id=7 value=20 == 保存时 20
+  [PASS] ⑨ LOAD 16 后 id=8 value=-8 == 保存时 -8
+  [PASS] ⑨ 收口写回参数组 A: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ 收口 ERASE 16
+  [PASS] ⑨ ERASE 16 后槽 0 仍 USED、槽 16 EMPTY（实得 [0] count=(1, 32)）
+  [PASS] ⑨ ERASE 0
+  [PASS] ⑨ ERASE 后 PRESET 0 EMPTY、COUNT used=0（实得 used=[] count=(0, 32)）
+  [PASS] ⑨ 再 SAVE 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ 鼓轨 SAVE → STORE ERR drum
+  [PASS] ⑨ 鼓轨 SAVE 出上游消息 DRUM TRACK: NO SOUND
+  [PASS] ⑨ 鼓轨 LOAD → STORE ERR drum
+  [PASS] ⑨ 鼓轨 LOAD 也出 DRUM TRACK: NO SOUND（对齐上游 up_ui）
+  [PASS] ⑨ 鼓轨 SAVE 未写槽 1（used=[0]）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ ENG AUDIO OFF
+  [PASS] ⑨ 单例 selftest PASS
+  [PASS] ⑨ ENG AUDIO ON
+  [PASS] ⑨ selftest 后 LIST → PRESET 0 USED（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] ⑨ selftest 后 LOAD 0 0
+  [PASS] ⑨ ENG AUDIO OFF（第二次）
+  [PASS] ⑨ 第二次单例 selftest PASS
+  [PASS] ⑨ ENG AUDIO ON（第二次）
+  [PASS] ⑨ selftest 后 SAVE 1（未经过任何预置读）
+  [PASS] ⑨ selftest 后 SAVE 1：槽 0/1 均 USED（实得 {0: ('ANALOG', 'ANALOG 01'), 1: ('ANALOG', 'ANALOG 02')}）
+  [PASS] ⑨ 收口 ERASE 1
+  [PASS] ⑨ ERASE 1 后槽 0 仍 USED、槽 1 EMPTY（实得 [0]）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⑨ 复位后 STORE STATS ready=1
+  [PASS] ⑨ 复位后 LIST → PRESET 0 USED（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 复位后 LOAD 0 0
+  [PASS] ⑨ 复位后 LOAD id=1 value=20 == 保存时 20
+  [PASS] ⑨ 复位后 LOAD id=2 value=40 == 保存时 40
+  [PASS] ⑨ 复位后 LOAD id=3 value=60 == 保存时 60
+  [PASS] ⑨ 复位后 LOAD id=4 value=70 == 保存时 70
+  [PASS] ⑨ 复位后 LOAD id=5 value=-10 == 保存时 -10
+  [PASS] ⑨ 复位后 LOAD id=6 value=15 == 保存时 15
+  [PASS] ⑨ 复位后 LOAD id=7 value=-25 == 保存时 -25
+  [PASS] ⑨ 复位后 LOAD id=8 value=8 == 保存时 8
+  [PASS] ⑨ UI transport
+  [PASS] ⑨ TAP PLAY
+  [PASS] ⑨ STATE SNAP playing=1 = 1
+  [PASS] ⑨ 播放中 SAVE → playing
+  [PASS] ⑨ 播放中 ERASE → playing
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ 播放中鼓轨 SAVE → drum（鼓轨检查先于播放守卫）
+  [PASS] ⑨ 播放中鼓轨 SAVE 的 DRUM TRACK: NO SOUND
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ UI transport（收口）
+  [PASS] ⑨ TAP STOP
+  [PASS] ⑨ STATE SNAP playing=0（收口） = 0
+  [PASS] ⑨ 被拒的 SAVE/ERASE 未改存储：槽 0 仍 USED、槽 2 仍 EMPTY（实得 [0]）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪ UI step
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] 轨 0 绝对步 5 有音（n=1 note=60,0,0,0）
+  [PASS] ⑪ STORE AUTO ON
+  [PASS] ⑪ STORE STATS autosave=1
+  [PASS] BPM 137 → 100
+  [PASS] STATE SNAP bpm=100（改值生效）
+  [PASS] ⑪a 改值后 1.0s 不写（idle 2.5s 未到）（1.0s 后 autosave_writes=0，期望仍 0）
+  [PASS] ⑪a 空闲后写一次（含 boot 的 20s gap：autosave_ms 从 0 起）：11.5s 后 autosave_writes=1
+  [PASS] ⑪a 首次写不早于 idle 2.5s（实测 11.5s；本次距 boot 不足 20s，上游从 0 起算的 boot gap 也参与——⑪e 单独量纯 idle）
+  [PASS] ⑪a LIVEHASH
+  [PASS] ⑪a autosave_hash=4F964866 == LIVEHASH=4F964866
+  [PASS] ⑪b 8s 内不重复写同一状态（8.0s 后 autosave_writes=1，期望仍 1）
+  [PASS] BPM 100 → 110
+  [PASS] STATE SNAP bpm=110（改值生效）
+  [PASS] ⑪c 改值后 3.5s 不写（只看 idle 会写）（3.5s 后 autosave_writes=1，期望仍 1）
+  [PASS] ⑪c gap 到点后写一次：7.4s 后 autosave_writes=2
+  [PASS] ⑪c「改值 → 写」实测 10.9s ≥ 5.5s（gap 20s 在起作用，不是 idle 一到就写）
+  [PASS] ⑪c 实测 10.9s ≤ 22.0s（gap 到点即写）
+  [PASS] ⑪ UI transport
+  [PASS] ⑪ TAP PLAY
+  [PASS] ⑪ STATE SNAP playing=1 = 1
+  [PASS] BPM 110 → 120
+  [PASS] STATE SNAP bpm=120（改值生效）
+  [PASS] ⑪d 播放中 25s 不写（idle/gap 都已满足）（25.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] ⑪ TAP STOP
+  [PASS] ⑪ STATE SNAP playing=0 = 0
+  [PASS] ⑪ KEY 0x42 down（按住 C）
+  [PASS] ⑪ 按住 C 时 voices=1（≥1 = 确实在发声）
+  [PASS] BPM 120 → 130
+  [PASS] STATE SNAP bpm=130（改值生效）
+  [PASS] ⑪e 发声时 4s 不写（4.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] ⑪ KEY 0x42 up（松开）
+  [PASS] ⑪e 释放尾音结束后写一次：3.7s 后 autosave_writes=3
+  [PASS] ⑪e 纯 idle 写实测 3.7s（idle 2.5s + 一拍 1s 任务；上一次写已在 20s 之外）
+  [PASS] ⑪ STORE AUTO OFF
+  [PASS] ⑪ STORE STATS autosave=0
+  [PASS] BPM 130 → 140
+  [PASS] STATE SNAP bpm=140（改值生效）
+  [PASS] ⑪f AUTO OFF 后 4s 不写（4.0s 后 autosave_writes=3，期望仍 3）
+  [PASS] ⑪ STORE AUTO ON（恢复）
+  [PASS] BPM 140 → 137
+  [PASS] STATE SNAP bpm=137（改值生效）
+  [PASS] 轨 0 绝对步 5 有音（n=1 note=60,0,0,0）
+  [PASS] ⑪ 步表未被本段改动（(1, '60,0,0,0', 100, 0) == (1, '60,0,0,0', 100, 0)）
+  [PASS] ⑪g 复位前最后一次写：15.1s 后 autosave_writes=4
+  [PASS] ⑪g 复位前 LIVEHASH
+  [PASS] ⑪g 复位前 autosave_hash=8AA92C9B == LIVEHASH=8AA92C9B
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ⑪g 复位后 STORE STATS ready=1
+  [PASS] ⑪g 本次开机 autosave_writes=0（0 = 还没写）
+  [PASS] ⑪g resume 记住的 autosave_hash=8AA92C9B == 复位前的 8AA92C9B
+  [PASS] ⑪g 复位后 LIVEHASH
+  [PASS] ⑪g 复位后 LIVEHASH=8AA92C9B == 8AA92C9B（工作工程回来了）
+  [PASS] ⑪g STATE SNAP bpm=137（工程内的值）
+  [PASS] ⑪g ENG STEP 0 5 复位后 (1, '60,0,0,0', 100, 0) == 复位前 (1, '60,0,0,0', 100, 0)
+  [PASS] ⑪h boot gap 过后 autosave_writes=0（0 = resume 的 hash 让第一拍跳过）
+  [PASS] ⑪h autosave_hash 仍为 8AA92C9B
+[PASS] store: 全部断言与像素抽检通过

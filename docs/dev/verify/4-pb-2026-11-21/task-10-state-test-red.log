@@ -1,0 +1,112 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c: In function ‘case_store_project’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:887:11: error: ‘CMD_PROJECT_SAVE’ undeclared (first use in this function)
+  887 |     apply(CMD_PROJECT_SAVE, 0, 0, 0);
+      |           ^~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:887:11: note: each undeclared identifier is reported only once for each function it appears in
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:891:28: error: ‘app_state_t’ has no member named ‘store_status’
+  891 |     check_ll("成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                            ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:891:43: error: ‘APP_STORE_STATUS_OK’ undeclared (first use in this function)
+  891 |     check_ll("成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                           ^~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:894:11: error: ‘CMD_PROJECT_LOAD’ undeclared (first use in this function)
+  894 |     apply(CMD_PROJECT_LOAD, 2, 0, 0);
+      |           ^~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:896:31: error: ‘app_state_t’ has no member named ‘store_status’
+  896 |     check_ll("空槽 → empty", s.store_status, APP_STORE_STATUS_EMPTY);
+      |                               ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:896:46: error: ‘APP_STORE_STATUS_EMPTY’ undeclared (first use in this function)
+  896 |     check_ll("空槽 → empty", s.store_status, APP_STORE_STATUS_EMPTY);
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:899:11: error: ‘CMD_PROJECT_ERASE’ undeclared (first use in this function)
+  899 |     apply(CMD_PROJECT_ERASE, 3, 0, 0);
+      |           ^~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:902:35: error: ‘app_state_t’ has no member named ‘store_status’
+  902 |     check_ll("走带中 → playing", s.store_status, APP_STORE_STATUS_PLAYING);
+      |                                   ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:902:50: error: ‘APP_STORE_STATUS_PLAYING’ undeclared (first use in this function)
+  902 |     check_ll("走带中 → playing", s.store_status, APP_STORE_STATUS_PLAYING);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:908:35: error: ‘app_state_t’ has no member named ‘store_status’
+  908 |     check_ll("无效格式 → error", s.store_status, APP_STORE_STATUS_ERROR);
+      |                                   ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:908:50: error: ‘APP_STORE_STATUS_ERROR’ undeclared (first use in this function)
+  908 |     check_ll("无效格式 → error", s.store_status, APP_STORE_STATUS_ERROR);
+      |                                                  ^~~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:913:35: error: ‘app_state_t’ has no member named ‘store_status’
+  913 |     check_ll("擦写失败 → error", s.store_status, APP_STORE_STATUS_ERROR);
+      |                                   ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:924:36: error: ‘app_state_t’ has no member named ‘store_status’
+  924 |     check_ll("越界槽不改 status", s.store_status, APP_STORE_STATUS_OK);
+      |                                    ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c: In function ‘case_store_preset’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:959:11: error: ‘CMD_PRESET_STORE’ undeclared (first use in this function); did you mean ‘CMD_ERASE_NOTE’?
+  959 |     apply(CMD_PRESET_STORE, 0, 0, 0);
+      |           ^~~~~~~~~~~~~~~~
+      |           CMD_ERASE_NOTE
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:962:36: error: ‘app_state_t’ has no member named ‘store_status’
+  962 |     check_ll("鼓轨 STORE → drum", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                    ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:962:51: error: ‘APP_STORE_STATUS_DRUM’ undeclared (first use in this function)
+  962 |     check_ll("鼓轨 STORE → drum", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                                   ^~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:968:39: error: ‘app_state_t’ has no member named ‘store_status’
+  968 |     check_ll("一般无效参数 → error", s.store_status, APP_STORE_STATUS_ERROR);
+      |                                       ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:968:54: error: ‘APP_STORE_STATUS_ERROR’ undeclared (first use in this function)
+  968 |     check_ll("一般无效参数 → error", s.store_status, APP_STORE_STATUS_ERROR);
+      |                                                      ^~~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:972:11: error: ‘CMD_PRESET_LOAD’ undeclared (first use in this function)
+  972 |     apply(CMD_PRESET_LOAD, 2, 3, 0);
+      |           ^~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:976:35: error: ‘app_state_t’ has no member named ‘store_status’
+  976 |     check_ll("LOAD 鼓轨 → drum", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                   ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:979:11: error: ‘CMD_PRESET_ERASE’ undeclared (first use in this function); did you mean ‘CMD_SET_TRACK’?
+  979 |     apply(CMD_PRESET_ERASE, 5, 0, 0);
+      |           ^~~~~~~~~~~~~~~~
+      |           CMD_SET_TRACK
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:982:34: error: ‘app_state_t’ has no member named ‘store_status’
+  982 |     check_ll("ERASE 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                  ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:982:49: error: ‘APP_STORE_STATUS_OK’ undeclared (first use in this function)
+  982 |     check_ll("ERASE 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                                 ^~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:991:34: error: ‘app_state_t’ has no member named ‘store_status’
+  991 |     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_OK);
+      |                                  ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c: In function ‘case_store_bank’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1014:11: error: ‘CMD_BANK_PUT’ undeclared (first use in this function)
+ 1014 |     apply(CMD_BANK_PUT, 4, 0, 0);
+      |           ^~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1020:37: error: ‘app_state_t’ has no member named ‘store_status’
+ 1020 |     check_ll("BANK PUT 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                     ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1020:52: error: ‘APP_STORE_STATUS_OK’ undeclared (first use in this function)
+ 1020 |     check_ll("BANK PUT 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                                    ^~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1022:11: error: ‘CMD_BANK_ERASE’ undeclared (first use in this function)
+ 1022 |     apply(CMD_BANK_ERASE, 26, 0, 0);
+      |           ^~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1025:39: error: ‘app_state_t’ has no member named ‘store_status’
+ 1025 |     check_ll("BANK ERASE 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+      |                                       ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1037:34: error: ‘app_state_t’ has no member named ‘store_status’
+ 1037 |     check_ll("鼓轨 PUT → drum", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                  ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1037:49: error: ‘APP_STORE_STATUS_DRUM’ undeclared (first use in this function)
+ 1037 |     check_ll("鼓轨 PUT → drum", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                                 ^~~~~~~~~~~~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1046:34: error: ‘app_state_t’ has no member named ‘store_status’
+ 1046 |     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
+      |                                  ^
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c: In function ‘case_page_ids’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1057:29: error: ‘APP_PAGE_PROJECTS’ undeclared (first use in this function); did you mean ‘APP_PAGE_TRACKS’?
+ 1057 |     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
+      |                             ^~~~~~~~~~~~~~~~~
+      |                             APP_PAGE_TRACKS
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:1058:28: error: ‘APP_PAGE_PRESETS’ undeclared (first use in this function); did you mean ‘APP_PAGE_STEP’?
+ 1058 |     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
+      |                            ^~~~~~~~~~~~~~~~
+      |                            APP_PAGE_STEP
+exit=1

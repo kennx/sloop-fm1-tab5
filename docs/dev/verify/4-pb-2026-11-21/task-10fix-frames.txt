@@ -1,0 +1,23 @@
+# 输入任务栈上存储命令路径的静态帧界（sloop_fm1_tab5.elf, P4/RISC-V, -O2）
+# 帧 = prologue 'addi sp,sp,-N'；输入任务栈 INPUT_TASK_STACK=4096（sloop_ui/src/input.c:44）
+# device: KEY STATS input_stack_free=3780（本轮实测，见 task-10fix-keystats.txt）
+
+state_apply                  -16
+cmd_bank                     -144
+cmd_project                  -16
+cmd_preset                   -16
+state_store_result           -16
+state_refresh_locked         -880
+sloop_store_bank_put         -32
+sloop_store_project_save     -32
+sloop_store_preset_store     -240
+up_put                       -32
+st_save3.constprop.0         -128
+cmd_set_param_batch          -416
+
+# 链上求和（保守：存储调用与投影刷新是**顺序**执行，这里按同一条链相加）：
+# bank PUT     : 16 (state_apply) + 144 (cmd_bank) + 16 (state_store_result) + 880 (state_refresh_locked) + 32 (sloop_store_bank_put) = 1088 B ≈ 1.09 KB
+# preset STORE : 16 (state_apply) +  16 (cmd_preset) + 16 (state_store_result) + 880 (state_refresh_locked) + 32 (up_put) = 960 B ≈ 0.96 KB
+# project LOAD : 16 (state_apply) +  16 (cmd_project) + 16 (state_store_result) + 880 (state_refresh_locked) + 32 (sloop_store_project_save) = 960 B
+# 余量：input_stack_free 3780 − 1088 = 2692 B ≈ 2.6 KB（栈 4096 B）；既有最重命令 cmd_set_param_batch 416 B 不改变上界
+# 注：`st_save3` 128B 在 store 分支内部（与 state_refresh_locked 的顺序刷新分支不重叠），把 128B 计入后各行族的最坏值仍 ≈1088B（project SAVE 侧）——结论（≤1.09 KB）不变

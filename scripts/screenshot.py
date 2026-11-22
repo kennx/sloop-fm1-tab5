@@ -293,12 +293,13 @@ def wait_boot(port: str, baud: int, timeout: float = BOOT_TIMEOUT) -> float:
     raise ResetError(f"复位后 {timeout:.0f}s 内未等到 console 提示符（已收 {len(buf)} 字节）")
 
 
-def reset_device(port: str, baud: int) -> None:
-    """esptool 硬复位设备并等 console 就绪（DI-5 恢复路径）。
+def esptool_reset(port: str, baud: int) -> None:
+    """只做 esptool 硬复位（`flash_id` + `--after hard_reset`，只读不写 flash），
+    **不等 console 提示符**。
 
-    纯 pyserial 翻转 RTS 对 USB-Serial/JTAG 不生效（实测），须让 esptool 走
-    bootloader 接入（默认 --before default_reset 即 USB-JTAG 复位序列），
-    `--after hard_reset` 再复位回应用。`flash_id` 只读，杜绝写 flash。
+    给「复位后必须立刻发命令」的场景用（如 P4-B 的热复位早探：console 在 3.0s 就接受
+    命令、存储 init 在 4.1s 才跑完；`wait_boot` 要求提示符在缓冲区尾部，会被 boot 日志
+    插行一直推迟到 init 之后，天然错过那个窗口）。
     """
     cmd = find_esptool()
     if cmd is None:
@@ -316,6 +317,16 @@ def reset_device(port: str, baud: int) -> None:
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout).strip().splitlines()[-3:]
         raise ResetError(f"esptool 复位失败（rc={proc.returncode}）: {' / '.join(tail)}")
+
+
+def reset_device(port: str, baud: int) -> None:
+    """esptool 硬复位设备并等 console 就绪（DI-5 恢复路径）。
+
+    纯 pyserial 翻转 RTS 对 USB-Serial/JTAG 不生效（实测），须让 esptool 走
+    bootloader 接入（默认 --before default_reset 即 USB-JTAG 复位序列），
+    `--after hard_reset` 再复位回应用。`flash_id` 只读，杜绝写 flash。
+    """
+    esptool_reset(port, baud)
     elapsed = wait_boot(port, baud)
     print(f"  设备已重启，console 就绪（{elapsed:.1f}s）")
 

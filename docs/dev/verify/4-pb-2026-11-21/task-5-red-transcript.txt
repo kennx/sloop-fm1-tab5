@@ -1,0 +1,97 @@
+# RED 现场（旧固件：Task 4 提交 f2ea4e8 的镜像）：ENG TRACK 只改索引，音频路径读的 p[] 不变
+>> ENG TRACK 0 0 0
+ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>
+>> PARAM 1
+PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>
+>> PARAM 63
+PARAM 63
+PARAM track=0 id=63 value=0 min=0 max=4
+sloop>
+>> PARAM 64
+PARAM 64
+PARAM track=0 id=64 value=0 min=0 max=127
+sloop>
+>> ENG TRACK 0 2 1
+ENG TRACK 0 2 1
+ENG TRACK k=0 engine=2 preset=1 OK
+sloop>
+>> ENG SNAP
+ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=2 preset=1 level=90 mute=0 armed=0 solo=0 len=12 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>
+>> PARAM 1
+PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>
+>> PARAM 63
+PARAM 63
+PARAM track=0 id=63 value=0 min=0 max=7
+sloop>
+>> PARAM 64
+PARAM 64
+PARAM track=0 id=64 value=0 min=0 max=8
+sloop>
+>> ENG TRACK 0 1 0
+ENG TRACK 0 1 0
+ENG TRACK k=0 engine=1 preset=0 OK
+sloop>
+>> ENG SNAP
+ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=1 preset=0 level=90 mute=0 armed=0 solo=0 len=12 div=2
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>
+>> PARAM 1
+PARAM 1
+PARAM track=0 id=1 value=10 min=0 max=127
+sloop>
+>> PARAM 63
+PARAM 63
+PARAM track=0 id=63 value=0 min=0 max=7
+sloop>
+>> ENG TRACK 0 0 0
+ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>

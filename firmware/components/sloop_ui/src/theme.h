@@ -2,13 +2,16 @@
  * sloop_ui 主题与共享布局常量（组件内部头文件）
  *
  * 视觉规范取自阶段 3 spec §3.3：四轨主题色 蓝/绿/黄/橙、背景 0x101418、
- * 顶部页签 PLAY|TRACKS|STEP|TRANSPORT 常驻。横屏 1280×720：页签条占
+ * 顶部两行页签（组签 + 当前组子签）常驻。横屏 1280×720：页签条占
  * y∈[0,72)，页面区 y∈[72,720)，各页对象坐标相对页面区左上角。
  *
  * 截屏像素抽检（scripts/screenshot.py --check）的锚点由这里的常量推导；
  * 改布局须同步更新验证锚点与本文件注释。
  */
 #pragma once
+
+#include <stddef.h>
+#include <stdio.h>
 
 #include "lvgl.h"
 #include "sloop_state.h"
@@ -28,18 +31,27 @@
 #define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
 #define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
-/* 页签几何：4 × 176px，间距 8px，起点 x=16、y=10（条高 72）。注册页多于 4 时按
- * 可用宽度收窄（UI_TAB_RIGHT_RESERVE 给右侧 SLOOP 标题/层提示留位）：7 页时
- * 140px（7×140 + 6×8 = 1028，右端 1044）；9 页时 107px
- * （9×107 + 8×8 = 1027，右端 1043；右侧 127px 给 16pt 层提示，宽度封顶 +
- * 省略号截断）。10 页时只剩 95px < "TRANSPORT" 的 16pt 标签 101.6px——页签不够，
- * P4-B 加页前必须先做分组导航决策（ADR-005「导航信息架构」节）。 */
+/* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
+ * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行最多
+ * 5 个组签（PLAY/TRACKS/EDIT/SEQ/FILE），176px 宽（5×176+4×8=912，右端 928）；
+ * 子行复用固定 UI_GROUP_MAX 个槽，只显示当前组已注册页（EDIT 5 页是最大组）。
+ * 右侧 UI_TAB_RIGHT_RESERVE=220 给上行 SLOOP 标题与下行层键提示留位（提示盒
+ * 起点 936 > 页签右端 928，宽度封顶 + 省略号截断，绝不压到页签）。 */
 #define UI_TAB_X0  16
-#define UI_TAB_W   176
-#define UI_TAB_H   52
 #define UI_TAB_GAP 8
-#define UI_TAB_Y   10
 #define UI_TAB_RIGHT_RESERVE 220
+#define UI_GROUP_W 176
+#define UI_GROUP_H 32
+#define UI_GROUP_Y 4
+#define UI_SUB_W   176
+#define UI_SUB_H   30
+#define UI_SUB_Y   38
+/* 单组成员上限 = 子行可容纳的子签数：5 张（5×176+4×8=912，右端 928；
+ * 层提示盒从 936 起）。组内加第 6 页须先拆分组的布局决策（ADR-005 §2）。 */
+#define UI_GROUP_MAX 5
+_Static_assert(UI_TAB_X0 + UI_GROUP_MAX * (UI_SUB_W + UI_TAB_GAP) - UI_TAB_GAP <=
+                   UI_W - UI_TAB_RIGHT_RESERVE,
+               "子签槽位超出行宽（与右侧层提示重叠）");
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)
@@ -64,6 +76,63 @@ void page_step_update(const app_state_t *st);
 
 lv_obj_t *page_transport_build(lv_obj_t *parent);
 void page_transport_update(const app_state_t *st);
+
+/* FILE 组两页（P4-B Task 12）：PROJECTS / PRESETS（组表 k_groups[] 的 FILE 成员）。
+ * build/update 契约同上；slot_move/load 是 InputManager 的 FILE 页路由（←/→ 选槽、
+ * ENTER = LOAD），在输入任务上下文调用、**不碰控件**（局部态由下一拍 update 渲染）。 */
+lv_obj_t *page_projects_build(lv_obj_t *parent);
+void page_projects_update(const app_state_t *st);
+bool page_projects_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+void page_projects_slot_move(int8_t delta);
+void page_projects_load(void);
+const char *page_projects_status_text(void); /* console TAP 回显（状态行文本，同源） */
+
+lv_obj_t *page_presets_build(lv_obj_t *parent);
+void page_presets_update(const app_state_t *st);
+bool page_presets_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+void page_presets_slot_move(int8_t delta);
+void page_presets_load(void);
+const char *page_presets_status_text(void);
+
+/* FILE 页状态行的单一映射（屏幕文本与 console `TAP … status="…"` 回显都从这里出）：
+ * act = 本页最后一次动作（0 SAVE / 1 LOAD / 2 ERASE / 其它 = 尚无动作）；
+ * status = app_state_t.store_status；ready = sloop_store_ready()——status 3 同时涵盖
+ * 「走带中」与「存储未就绪」（sloop_state.h 的契约），后者必须显示 NO STORAGE 而不是
+ * STOP BEFORE …。返回 buf（静态调用的调用方负责缓冲区生命周期）。 */
+static inline const char *ui_file_status_text(char *buf, size_t n, uint8_t act, uint8_t status,
+                                              bool ready)
+{
+    static const char *const k_actions[] = {"SAVE", "LOAD", "ERASE"};
+    if (act > 2) {
+        snprintf(buf, n, "SELECT A SLOT");
+        return buf;
+    }
+    switch (status) {
+    case APP_STORE_STATUS_OK: snprintf(buf, n, "%s OK", k_actions[act]); break;
+    case APP_STORE_STATUS_EMPTY: snprintf(buf, n, "EMPTY"); break;
+    case APP_STORE_STATUS_PLAYING:
+        if (!ready) snprintf(buf, n, "NO STORAGE");
+        else snprintf(buf, n, "STOP BEFORE %s", k_actions[act]);
+        break;
+    case APP_STORE_STATUS_ERROR: snprintf(buf, n, "%s ERROR", k_actions[act]); break;
+    case APP_STORE_STATUS_DRUM: snprintf(buf, n, "DRUM TRACK: NO SOUND"); break;
+    default: snprintf(buf, n, "SELECT A SLOT"); break;
+    }
+    return buf;
+}
+
+/* 状态行颜色（同一映射的视觉侧）：OK 绿 / DRUM 强调黄 / 走带与失败红 / 其余灰。 */
+static inline uint32_t ui_file_status_color(uint8_t act, uint8_t status, bool ready)
+{
+    if (act > 2) return UI_TEXT_DIM;
+    switch (status) {
+    case APP_STORE_STATUS_OK: return ui_track_color(1);
+    case APP_STORE_STATUS_DRUM: return UI_ACCENT;
+    case APP_STORE_STATUS_PLAYING: return UI_ERROR; /* 走带中或存储未就绪：都是红字 */
+    case APP_STORE_STATUS_ERROR: return UI_ERROR;
+    default: return UI_TEXT_DIM;
+    }
+}
 
 /* 构建期分配检查：NULL 即中止本页构建（半成品容器由 ui.c 删除回收） */
 #define UI_BUILD_CHECK(obj) do { if ((obj) == NULL) return NULL; } while (0)

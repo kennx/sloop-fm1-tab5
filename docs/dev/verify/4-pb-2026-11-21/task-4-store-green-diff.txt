@@ -1,0 +1,15 @@
+# 两次 GREEN 的 run.txt 差异（R15：只允许这 2 行不同）
+#   ① 串口原始日志路径（时间戳文件名）② reboot() 的主机侧计时（console 就绪 4.1s/4.2s）
+
+157c157
+<   设备已重启，console 就绪（4.2s）
+---
+>   设备已重启，console 就绪（4.1s）
+
+# h0/h2（两次相同；head 硬复位归一后与 run 顺序无关）
+  [PASS] ② LIVEHASH h0
+  [PASS] ③ LIVEHASH h1
+  [PASS] ⑥ 再保存 hash h2=CCB3B3D7 == h0=CCB3B3D7
+  [PASS] ② LIVEHASH h0
+  [PASS] ③ LIVEHASH h1
+  [PASS] ⑥ 再保存 hash h2=CCB3B3D7 == h0=CCB3B3D7

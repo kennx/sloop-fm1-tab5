@@ -1,0 +1,37 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261121-192033.log
+  [PASS] STORE STATS ready=1
+  [PASS] ① ERASE 0
+  [PASS] ① ERASE 1
+  [PASS] ① ERASE 2
+  [PASS] ① ERASE 3
+  [PASS] ① LIST PROJ 0 EMPTY
+  [PASS] ① LIST PROJ 1 EMPTY
+  [PASS] ① LIST PROJ 2 EMPTY
+  [PASS] ① LIST PROJ 3 EMPTY
+  [PASS] ② BPM=100
+  [PASS] ② STATE SNAP bpm=100
+  [PASS] ② LIVEHASH h0
+  [PASS] ② h0=CCB3B3D7 非零（捕获有效）
+  [PASS] ② SAVE 0
+  [PASS] ② HASH 0（RAM 槽）
+  [PASS] ② HASH 0 == h0=CCB3B3D7
+  [PASS] ③ BPM=120
+  [PASS] ③ STATE SNAP bpm=120
+  [PASS] ③ LIVEHASH h1
+  [PASS] ③ h1=CFF2701B != h0=CCB3B3D7
+  [PASS] ④ LOAD 0
+  [PASS] ④ LIVEHASH==h0
+  [PASS] ④ LIVEHASH 回到 h0=CCB3B3D7
+  [PASS] ④ STATE SNAP bpm=100（保存时的值）
+  [PASS] ⑤ ERASE 0
+  [PASS] ⑤ LIST PROJ 0 EMPTY
+  [PASS] ⑤ LIST PROJ 1 EMPTY
+  [PASS] ⑤ LIST PROJ 2 EMPTY
+  [PASS] ⑤ LIST PROJ 3 EMPTY
+  [PASS] ⑤ LIVEHASH 不变
+  [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
+  [PASS] ⑥ SAVE 0
+  [PASS] ⑥ 再保存 hash h2=CCB3B3D7 == h0=CCB3B3D7
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+[FAIL] store: ⑦ 热复位后早探 STORE PROJ LOAD 0 无结果令牌（挂死或崩溃？）：'100 frames=256\r\nI (4158) sloop_audio_stream: stream started, half=256 frames\r\nI (4158) sloop_tab5: UI 启动前内部堆剩余 109011 字节\r\nI (4178) sloop_ui: 页面构建 page=PLAY(0) 池增量=2508B 预算=3072B 池剩余=47144B\r\nI (4178) sloop_ui: UI 就绪: 9 页注册/1 已建 @1280x720, LVGL 池已用 15716/62820 字节, 内部堆剩余 109011 字节\r\nI (4218) sloop_input: InputManager 就绪：55 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4\r\nI (4368) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）'

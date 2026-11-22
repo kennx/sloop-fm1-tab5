@@ -1,0 +1,705 @@
+== inject store @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261122-030038.log
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
+  [PASS] STORE STATS ready=1
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⓪ STORE AUTO OFF（本场景其余段免干扰）
+  [PASS] ⑩ 归一 engine=0 preset=0（ANALOG）
+  [PASS] ⑩ ENG FREEZE on（诊断冻结）
+  [PASS] ⑩ 冻结态 ENG PRESET → ERR frozen
+  [PASS] ⑩ 冻结态没有打印任何 P<id>=<v>（零向量不得被当成期望）
+  [PASS] ⑩ ENG FREEZE off（恢复）
+  [PASS] ⑩ 解冻后 ENG PRESET 恢复出向量
+  [PASS] ⑩ P_LEVEL=90（混音）
+  [PASS] ⑩ P_SLEN=12（图案）
+  [PASS] ⑩ ENG PRESET 0 2 1：71/71 项
+  [PASS] ⑩ ENG TRACK 0 2 1
+  [PASS] ⑩ ENG SNAP engine=2 preset=1
+  [PASS] ⑩ ENG TRACK 0 2 1 的 p[] == ENG PRESET 向量: 71/71 项一致
+  [PASS] ⑩ 换预置后 P_LEVEL=90（混音保留 90）
+  [PASS] ⑩ 换预置后 P_SLEN=12（图案参数保留 12）
+  [PASS] ⑩ ENG TRACK 0 1 0（换引擎）
+  [PASS] ⑩ ENG SNAP engine=1 preset=0
+  [PASS] ⑩ 换引擎后的 p[] == ENG PRESET 0 1 0 向量: 71/71 项一致
+  [PASS] ⑩ P_ATK=0 == 新引擎预置的 ATK 0（包络随声音走）
+  [PASS] ⑩ P_E0..P_E7=[4, 1, 1, 14, 26, 35, 0, 0] 由新引擎的预置写值覆盖（期望 [4, 1, 1, 14, 26, 35, 0, 0]）
+  [PASS] ⑩ R17 oracle：引擎 1 预置 0 = DIGITAL RHODES（eng_digital.c:117 + preset_trim.h）: 21/21 项与上游表一致（[1, 2, 3, 4, 5, 8, 9, 16, 33, 34, 35, 36, 37, 63, 64, 65, 66, 67, 68, 69, 70]）
+  [PASS] ⑩ ENG TRACK 0 0 0（回 ANALOG）
+  [PASS] ⑩ R17 oracle：引擎 0 预置 0 = ANALOG 808 BOOM（eng_analog.c:128 + preset_trim.h）: 23/23 项与上游表一致（[1, 2, 3, 4, 5, 6, 8, 28, 33, 34, 35, 36, 37, 38, 41, 63, 64, 65, 66, 67, 68, 69, 70]）
+  [PASS] ⑩ panic 基线 engine=0 preset=0
+  [PASS] ⑩ ENG AUDIO streaming=1（panic 由渲染块消费）
+  [PASS] ⑩ STATE SNAP playing=0（基线） = 0
+  [PASS] ⑩ KEY 0x42 down（按住 C）
+  [PASS] ⑩ 按住一个键后 voices=1（≥1 = 确实在发声）
+  [PASS] ⑩ 发声时换预置 ENG TRACK 0 2 1
+  [PASS] ⑩ 换预置后 voices=0（panic 路径：挂音已释放）
+  [PASS] ⑩ KEY 0x42 up（收口）
+  [PASS] ⑩ STATE SNAP playing=0（换预置不动走带） = 0
+  [PASS] ⑩ P_LEVEL 回默认
+  [PASS] ⑩ P_SLEN 回默认
+  [PASS] ⑩e SYNTH fmt1
+  [PASS] ⑩e 轨 0：默认声音 ANALOG 808 BOOM（e0=3）+ 工程里的 99 被覆盖 + 步清空
+  [PASS] ⑩e 轨 1：不带 0xFF ⇒ 保留工程里的 engine/preset（1/1）
+  [PASS] ⑩f SYNTH foreign
+  [PASS] ⑩f 轨 1：未知引擎 → DIGITAL RHODES（engine 1 preset 0、e0=4）、图案保留
+  [PASS] ⑩f 轨 0：不受 foreign 分支影响（engine/preset 保持 0/0）
+  [PASS] ⑩f 收口 ERASE 3（诊断槽）
+  [PASS] ① ERASE 0
+  [PASS] ① ERASE 1
+  [PASS] ① ERASE 2
+  [PASS] ① ERASE 3
+  [PASS] ① LIST PROJ 0 EMPTY
+  [PASS] ① LIST PROJ 1 EMPTY
+  [PASS] ① LIST PROJ 2 EMPTY
+  [PASS] ① LIST PROJ 3 EMPTY
+  [PASS] ② BPM=100
+  [PASS] ② STATE SNAP bpm=100
+  [PASS] ② LIVEHASH h0
+  [PASS] ② h0=D160C9B7 非零（捕获有效）
+  [PASS] ② SAVE 0
+  [PASS] ② HASH 0（RAM 槽）
+  [PASS] ② HASH 0 == h0=D160C9B7
+  [PASS] ③ BPM=120
+  [PASS] ③ STATE SNAP bpm=120
+  [PASS] ③ LIVEHASH h1
+  [PASS] ③ h1=07F7D713 != h0=D160C9B7
+  [PASS] ④ LOAD 0
+  [PASS] ④ LIVEHASH==h0
+  [PASS] ④ LIVEHASH 回到 h0=D160C9B7
+  [PASS] ④ STATE SNAP bpm=100（保存时的值）
+  [PASS] ⑤ ERASE 0
+  [PASS] ⑤ LIST PROJ 0 EMPTY
+  [PASS] ⑤ LIST PROJ 1 EMPTY
+  [PASS] ⑤ LIST PROJ 2 EMPTY
+  [PASS] ⑤ LIST PROJ 3 EMPTY
+  [PASS] ⑤ LIVEHASH 不变
+  [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
+  [PASS] ⑥ SAVE 0
+  [PASS] ⑥ 再保存 hash h2=D160C9B7 == h0=D160C9B7
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  [PASS] ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
+  [PASS] ⑦ 复位后 STORE STATS ready=1
+  [PASS] ⑦ 复位后 STORE AUTO OFF
+  [PASS] ⑦ LIST PROJ 0 USED
+  [PASS] ⑦ HASH 0（RAM 槽开机 fetch）
+  [PASS] ⑦ HASH 0 == h2=D160C9B7
+  [PASS] ⑦ LOAD 0
+  [PASS] ⑦ LIVEHASH==h2
+  [PASS] ⑦ LIVEHASH 恢复 h2=D160C9B7
+  [PASS] ⑦ STATE SNAP bpm=100（工程内的值）
+  [PASS] ⑧ ENG AUDIO OFF
+  [PASS] ⑧ 单例 selftest PASS
+  [PASS] ⑧ ENG AUDIO ON
+  [PASS] ⑧ selftest 后 HASH 0（RAM 槽）
+  [PASS] ⑧ HASH 0 == h2=D160C9B7（自检 restore 未回滚存储指针与 RAM 槽）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 归一基线 engine=0 preset=0（ANALOG）
+  [PASS] ⑨ 归一基线参数（8 个，ATK…TRIM）: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ ERASE 0（归一）
+  [PASS] ⑨ ERASE 1（归一）
+  [PASS] ⑨ LIST 列出全部 32 槽（实得 32）
+  [PASS] ⑨ 归一后 LIST 无 USED（实得 []）
+  [PASS] ⑨ PRESET COUNT used=0 total=32（实得 (0, 32)）
+  [PASS] ⑨ SAVE 0（默认名 = 引擎名 + 槽号）
+  [PASS] ⑨ LIST → PRESET 0 USED ANALOG ANALOG 01（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] ⑨ PRESET COUNT used=1（实得 (1, 32)）
+  [PASS] ⑨ 写参数组 B: applied=[100, 110, 20, 30, 30, -30, 20, -8]
+  [PASS] ⑨ 改值生效（100,110… ≠ SAVE 时的 20,40…）
+  [PASS] ⑨ LOAD 0 0
+  [PASS] ⑨ LOAD 后 id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ LOAD 后 id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ LOAD 后 id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ LOAD 后 id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ LOAD 后 id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ LOAD 后 id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ LOAD 后 id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ LOAD 后 id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ LOAD 0（缺省轨）
+  [PASS] ⑨ ENG TRACK 0 4 0（切 SAMPLE）
+  [PASS] ⑨ 换引擎后 ENG SNAP engine=4
+  [PASS] ⑨ 换引擎后 LOAD 0 0
+  [PASS] ⑨ LOAD 后 engine 回到 0（预置里的引擎）
+  [PASS] ⑨ 换引擎后 LOAD id=1 value=20 == SAVE 时 20
+  [PASS] ⑨ 换引擎后 LOAD id=2 value=40 == SAVE 时 40
+  [PASS] ⑨ 换引擎后 LOAD id=3 value=60 == SAVE 时 60
+  [PASS] ⑨ 换引擎后 LOAD id=4 value=70 == SAVE 时 70
+  [PASS] ⑨ 换引擎后 LOAD id=5 value=-10 == SAVE 时 -10
+  [PASS] ⑨ 换引擎后 LOAD id=6 value=15 == SAVE 时 15
+  [PASS] ⑨ 换引擎后 LOAD id=7 value=-25 == SAVE 时 -25
+  [PASS] ⑨ 换引擎后 LOAD id=8 value=8 == SAVE 时 8
+  [PASS] ⑨ LOAD 0 1（跨轨）
+  [PASS] ⑨ 跨轨 LOAD 后 selected_track 仍 0 = 0
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=1 value=20 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=2 value=40 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=3 value=60 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=4 value=70 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=5 value=-10 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=6 value=15 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=7 value=-25 不变
+  [PASS] ⑨ 跨轨 LOAD 后选中轨(0) id=8 value=8 不变
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑨ 轨 1 id=1 value=20 == 预置 20
+  [PASS] ⑨ 轨 1 id=2 value=40 == 预置 40
+  [PASS] ⑨ 轨 1 id=3 value=60 == 预置 60
+  [PASS] ⑨ 轨 1 id=4 value=70 == 预置 70
+  [PASS] ⑨ 轨 1 id=5 value=-10 == 预置 -10
+  [PASS] ⑨ 轨 1 id=6 value=15 == 预置 15
+  [PASS] ⑨ 轨 1 id=7 value=-25 == 预置 -25
+  [PASS] ⑨ 轨 1 id=8 value=8 == 预置 8
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 写参数组 B（槽 16 用）: applied=[100, 110, 20, 30, 30, -30, 20, -8]
+  [PASS] ⑨ SAVE 16（bank1）
+  [PASS] ⑨ LIST 槽 0/16 均 USED、COUNT used=2（实得 [0, 16] count=(2, 32)）
+  [PASS] ⑨ 改回参数组 A: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ LOAD 16
+  [PASS] ⑨ LOAD 16 后 id=1 value=100 == 保存时 100
+  [PASS] ⑨ LOAD 16 后 id=2 value=110 == 保存时 110
+  [PASS] ⑨ LOAD 16 后 id=3 value=20 == 保存时 20
+  [PASS] ⑨ LOAD 16 后 id=4 value=30 == 保存时 30
+  [PASS] ⑨ LOAD 16 后 id=5 value=30 == 保存时 30
+  [PASS] ⑨ LOAD 16 后 id=6 value=-30 == 保存时 -30
+  [PASS] ⑨ LOAD 16 后 id=7 value=20 == 保存时 20
+  [PASS] ⑨ LOAD 16 后 id=8 value=-8 == 保存时 -8
+  [PASS] ⑨ 收口写回参数组 A: applied=[20, 40, 60, 70, -10, 15, -25, 8]
+  [PASS] ⑨ 收口 ERASE 16
+  [PASS] ⑨ ERASE 16 后槽 0 仍 USED、槽 16 EMPTY（实得 [0] count=(1, 32)）
+  [PASS] ⑨ ERASE 0
+  [PASS] ⑨ ERASE 后 PRESET 0 EMPTY、COUNT used=0（实得 used=[] count=(0, 32)）
+  [PASS] ⑨ 再 SAVE 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ 鼓轨 SAVE → STORE ERR drum
+  [PASS] ⑨ 鼓轨 SAVE 出上游消息 DRUM TRACK: NO SOUND
+  [PASS] ⑨ 鼓轨 LOAD → STORE ERR drum
+  [PASS] ⑨ 鼓轨 LOAD 也出 DRUM TRACK: NO SOUND（对齐上游 up_ui）
+  [PASS] ⑨ 鼓轨 SAVE 未写槽 1（used=[0]）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ ENG AUDIO OFF
+  [PASS] ⑨ 单例 selftest PASS
+  [PASS] ⑨ ENG AUDIO ON
+  [PASS] ⑨ selftest 后 LIST → PRESET 0 USED（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] ⑨ selftest 后 LOAD 0 0
+  [PASS] ⑨ ENG AUDIO OFF（第二次）
+  [PASS] ⑨ 第二次单例 selftest PASS
+  [PASS] ⑨ ENG AUDIO ON（第二次）
+  [PASS] ⑨ selftest 后 SAVE 1（未经过任何预置读）
+  [PASS] ⑨ selftest 后 SAVE 1：槽 0/1 均 USED（实得 {0: ('ANALOG', 'ANALOG 01'), 1: ('ANALOG', 'ANALOG 02')}）
+  [PASS] ⑨ 收口 ERASE 1
+  [PASS] ⑨ ERASE 1 后槽 0 仍 USED、槽 1 EMPTY（实得 [0]）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ⑨ 复位后 STORE STATS ready=1
+  [PASS] ⑨ 复位后 STORE AUTO OFF
+  [PASS] ⑨ 复位后 LIST → PRESET 0 USED（实得 ('ANALOG', 'ANALOG 01')）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 复位后 LOAD 0 0
+  [PASS] ⑨ 复位后 LOAD id=1 value=20 == 保存时 20
+  [PASS] ⑨ 复位后 LOAD id=2 value=40 == 保存时 40
+  [PASS] ⑨ 复位后 LOAD id=3 value=60 == 保存时 60
+  [PASS] ⑨ 复位后 LOAD id=4 value=70 == 保存时 70
+  [PASS] ⑨ 复位后 LOAD id=5 value=-10 == 保存时 -10
+  [PASS] ⑨ 复位后 LOAD id=6 value=15 == 保存时 15
+  [PASS] ⑨ 复位后 LOAD id=7 value=-25 == 保存时 -25
+  [PASS] ⑨ 复位后 LOAD id=8 value=8 == 保存时 8
+  [PASS] ⑨ UI transport
+  [PASS] ⑨ TAP PLAY
+  [PASS] ⑨ STATE SNAP playing=1 = 1
+  [PASS] ⑨ 播放中 SAVE → playing
+  [PASS] ⑨ 播放中 ERASE → playing
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ 播放中鼓轨 SAVE → drum（鼓轨检查先于播放守卫）
+  [PASS] ⑨ 播放中鼓轨 SAVE 的 DRUM TRACK: NO SOUND
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ UI transport（收口）
+  [PASS] ⑨ TAP STOP
+  [PASS] ⑨ STATE SNAP playing=0（收口） = 0
+  [PASS] ⑨ 被拒的 SAVE/ERASE 未改存储：槽 0 仍 USED、槽 2 仍 EMPTY（实得 [0]）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪ UI step
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] 轨 0 绝对步 5 有音（n=1 note=60,0,0,0）
+  [PASS] ⑪ STORE AUTO ON
+  [PASS] ⑪ STORE STATS autosave=1
+  [PASS] BPM 140 → 100
+  [PASS] STATE SNAP bpm=100（改值生效）
+  [PASS] ⑪a 改值后 1.0s 不写（idle 2.5s 未到）（1.0s 后 autosave_writes=0，期望仍 0）
+  [PASS] ⑪a 空闲后写一次（含 boot 的 20s gap：autosave_ms 从 0 起）：11.5s 后 autosave_writes=1
+  [PASS] ⑪a 首次写不早于 idle 2.5s（实测 11.5s；本次距 boot 不足 20s，上游从 0 起算的 boot gap 也参与——⑪e 单独量纯 idle）
+  [PASS] ⑪a LIVEHASH
+  [PASS] ⑪a autosave_hash=4F964866 == LIVEHASH=4F964866
+  [PASS] BPM 100 → 110
+  [PASS] STATE SNAP bpm=110（改值生效）
+  [PASS] ⑪c 改值后 4s 不写（若忽略 gap，idle 一到 2.5s+一拍就会写）（4.0s 后 autosave_writes=1，期望仍 1）
+  [PASS] ⑪c gap 到点后写一次：15.1s 后 autosave_writes=2
+  [PASS] ⑪c「改值 → 写」实测 19.1s ≥ 5.5s（gap 20s 在起作用，不是 idle 一到就写）
+  [PASS] ⑪c 实测 19.1s ≤ 22.0s（gap 到点即写）
+  [PASS] ⑪b 同一状态 25s 不重复写（gap/idle 都已满足，只有 hash 门在拦）（25.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪d 轨 0 P_SLEN=1（pattern 只有步 0）
+  [PASS] ⑪d UI step（轨 0）
+  [PASS] ⑪d 轨 0 步 0 为空（播放不会触发）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑪d 轨 1 P_SLEN=1（pattern 只有步 0）
+  [PASS] ⑪d UI step（轨 1）
+  [PASS] ⑪d 轨 1 步 0 为空（播放不会触发）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] ⑪d 轨 2 P_SLEN=1（pattern 只有步 0）
+  [PASS] ⑪d UI step（轨 2）
+  [PASS] ⑪d 轨 2 步 0 为空（播放不会触发）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪d UI step（收口回轨 0）
+  [PASS] ⑪ UI transport
+  [PASS] ⑪ TAP PLAY
+  [PASS] ⑪ STATE SNAP playing=1 = 1
+  [PASS] BPM 110 → 120
+  [PASS] STATE SNAP bpm=120（改值生效）
+  [PASS] ⑪d 播放中的 LIVEHASH
+  [PASS] ⑪d 前提：autosave_hash=269465FC != 当前 LIVEHASH=BDDFA03F（hash 门不成立 ⇒ 只剩 playing 门）
+  [PASS] ⑪d 播放中改 BPM 后 10s 不写（hash 已不同、idle/gap 满足，只有 playing 能拦）（10.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] ⑪d 窗口前前提：播放中无发声 voices=[0, 0, 0, 0]（0 ⇒ audio_quiet 恒成立，只有 song.playing 能拦）
+  [PASS] ⑪d 播放中再 3s 不写（3.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] ⑪d 窗口后前提：仍无发声 voices=[0, 0, 0, 0]（整个窗口 audio_quiet 都成立）
+  [PASS] ⑪ TAP STOP
+  [PASS] ⑪ STATE SNAP playing=0 = 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪d 轨 0 P_SLEN 归默认 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑪d 轨 1 P_SLEN 归默认 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] ⑪d 轨 2 P_SLEN 归默认 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑪ KEY 0x42 down（按住 C）
+  [PASS] ⑪ 按住 C 时 voices=1（≥1 = 确实在发声）
+  [PASS] BPM 120 → 130
+  [PASS] STATE SNAP bpm=130（改值生效）
+  [PASS] ⑪e 发声时 3s 不写（idle 已过期、gap 满足，只有 audio_quiet 能拦）（3.0s 后 autosave_writes=2，期望仍 2）
+  [PASS] ⑪ KEY 0x42 up（松开）
+  [PASS] ⑪e 释放尾音结束后写一次：3.7s 后 autosave_writes=3
+  [PASS] ⑪e 纯 idle 写实测 3.7s（idle 2.5s + 一拍 1s 任务；上一次写已在 20s 之外）
+  [PASS] ⑪ STORE AUTO OFF
+  [PASS] ⑪ STORE STATS autosave=0
+  [PASS] BPM 130 → 140
+  [PASS] STATE SNAP bpm=140（改值生效）
+  [PASS] ⑪f AUTO OFF：过 gap 后 2.5s 不写（2.5s 后 autosave_writes=3，期望仍 3）
+  [PASS] ⑪f AUTO OFF：再过 2.5s 仍不写（5s 窗口）（2.5s 后 autosave_writes=3，期望仍 3）
+  [PASS] ⑪ STORE AUTO ON（恢复）
+  [PASS] ⑪f AUTO ON 后立即写一次（开关在拦，不是 gap）：0.1s 后 autosave_writes=4
+  [PASS] ⑪f 开闸即写（实测 0.1s ≤ 5s：idle/gap 早已满足，写的是 OFF 期间改的现状）
+  [PASS] ⑪f 写入后的 LIVEHASH
+  [PASS] ⑪f autosave_hash=CBED18AE == LIVEHASH=CBED18AE（写的就是现状 bpm=140）
+  [PASS] 轨 0 绝对步 5 有音（n=1 note=60,0,0,0）
+  [PASS] ⑪ 步表未被本段改动（(1, '60,0,0,0', 100, 0) == (1, '60,0,0,0', 100, 0)）
+  [PASS] ⑪g 复位前 bpm=140 == 140
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⑪g 复位后 STORE STATS ready=1
+  [PASS] ⑪g 本次开机 autosave_writes=0（0 = 还没写）
+  [PASS] ⑪g resume 记住的 autosave_hash=CBED18AE == 复位前的 CBED18AE
+  [PASS] ⑪g 复位后 LIVEHASH
+  [PASS] ⑪g 复位后 LIVEHASH=CBED18AE == CBED18AE（工作工程回来了）
+  [PASS] ⑪g STATE SNAP bpm=140（工程内的值）
+  [PASS] ⑪g ENG STEP 0 5 复位后 (1, '60,0,0,0', 100, 0) == 复位前 (1, '60,0,0,0', 100, 0)
+  [PASS] ⑪h boot gap 过后 autosave_writes=0（0 = resume 的 hash 让第一拍跳过）
+  [PASS] ⑪h autosave_hash 仍为 CBED18AE
+  [PASS] ⑫ STORE AUTO OFF（本段免自动存档干扰）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑫ ENG TRACK 1 1 0（先离开 FM6：保证下一步是「换引擎」而不是无操作）
+  [PASS] ⑫ ENG TRACK 1 9 0（FM6 预置 0 ⇒ PTCH=0 ⇒ 工厂 patch F1 同步载入）
+  [PASS] ⑫ LIST 列出全部 27 槽（实得 27）
+  [PASS] ⑫ 归一后 27 槽全 EMPTY（实得 used=[] count=(0, 27)）
+  [PASS] ⑫ 空槽 GET 3 → STORE ERR empty
+  [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
+  [NOTE] ⑫ L(F1)=5F281E3C6350000027000000380C3402…
+  [PASS] ⑫ PUT 3
+  [PASS] STORE BANK GET 3: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ GET 3 == LIVE（PUT/GET 往返字节一致）
+  [PASS] ⑫ LIST → B3 USED、COUNT used=1（实得 True count=(1, 27)）
+  [PASS] ⑫ ENG TRACK 1 9 1（FM6 预置 1 ⇒ PTCH=1）
+  [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 工厂 patch F2 的 packed 记录 ≠ F1（633C282D63320000… vs 5F281E3C63500000…）
+  [PASS] ⑫ PUT 4（F2）
+  [PASS] STORE BANK GET 3: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ PUT 4 后 GET 3 不变（整银行重写不碰别的槽）
+  [PASS] STORE BANK GET 4: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ GET 4 == LIVE2
+  [PASS] ⑫ LIST → B3+B4 USED、COUNT used=2（实得 [3, 4] count=(2, 27)）
+  [PASS] ⑫ ENG AUDIO OFF
+  [PASS] ⑫ 单例 selftest PASS
+  [PASS] ⑫ ENG AUDIO ON
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑫ ENG TRACK 1 1 0（先离开 FM6：保证下一步是「换引擎」而不是无操作）
+  [PASS] ⑫ ENG TRACK 1 9 0（FM6 预置 0 ⇒ PTCH=0 ⇒ 工厂 patch F1 同步载入）
+  [PASS] ⑫ 自检后紧跟 PUT 5（未经过任何银行读）
+  [PASS] ⑫ 自检后 PUT 5：B3/B4/B5 均 USED（实得 [3, 4, 5] count=(3, 27)）
+  [PASS] STORE BANK GET 3: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 自检后 GET 3 仍是 L（同银行其它槽未丢）
+  [PASS] STORE BANK GET 4: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 自检后 GET 4 仍是 L2
+  [PASS] ⑫ ERASE 5
+  [PASS] ⑫ ERASE 5 后 B3+B4 USED、B5 EMPTY（实得 [3, 4] count=(2, 27)）
+  [PASS] ⑫ ERASE 后 GET 5 → empty
+  [PASS] ⑫ 从未用过的槽 GET 26 → empty
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ⑫ 复位后 STORE STATS ready=1
+  [PASS] ⑫ 复位后 STORE AUTO OFF
+  [PASS] ⑫ 复位后 LIST → B3+B4 USED（实得 [3, 4] count=(2, 27)）
+  [PASS] STORE BANK GET 3: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 复位后 GET 3 == L（flash 里的字节）
+  [PASS] STORE BANK GET 4: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 复位后 GET 4 == L2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑫ ENG TRACK 1 1 0（先离开 FM6：保证下一步是「换引擎」而不是无操作）
+  [PASS] ⑫ ENG TRACK 1 9 1（FM6 预置 1 ⇒ PTCH=1 ⇒ 工厂 patch F2 同步载入）
+  [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ 前提：PTCH=1 的 LIVE 是 F2 的字节（== ⑫c 的 L2 633C282D63320000…；实得 633C282D63320000…）
+  [PASS] ⑫ 前提：F2（633C282D63320000…）≠ 槽 3 里的 F1（5F281E3C63500000…）⇒ 切换可观测
+  [PASS] ⑫ PARAM 70 11（PTCH=11）
+  [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ⑫ PTCH=11 后 LIVE 轮询到槽 3 的字节（实得 5F281E3C63500000…，期望 5F281E3C63500000…）
+  [PASS] ⑫ 真的发生了 F2 → 槽 3 的切换（不是停在归一后的 F2：5F281E3C63500000…）
+  [PASS] ⑫ PTCH=11 时 ENG TRIG 出声无错
+  [PASS] ⑫ ERASE 3
+  [PASS] ⑫ ERASE 4
+  [PASS] ⑫ 收口后 27 槽全 EMPTY（实得 [] count=(0, 27)）
+  [PASS] ⑫ ERASE 后 GET 3 → empty
+  [PASS] ⑫ 槽号越界 GET 27 → invalid
+  [PASS] ⑫ 槽号越界 PUT 27 → invalid
+  [PASS] ⑫ 槽号越界 ERASE 27 → invalid
+  [PASS] ⑫ UI transport
+  [PASS] ⑫ TAP PLAY
+  [PASS] ⑫ STATE SNAP playing=1 = 1
+  [PASS] ⑫ 播放中 PUT → playing
+  [PASS] ⑫ 播放中 ERASE → playing
+  [PASS] ⑫ UI transport（收口）
+  [PASS] ⑫ TAP STOP
+  [PASS] ⑫ STATE SNAP playing=0 = 0
+  [PASS] ⑫ 被拒的 PUT/ERASE 未写存储（实得 [] count=(0, 27)）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑫ 鼓轨 PUT → STORE ERR drum
+  [PASS] ⑫ 鼓轨 LIVE → STORE ERR drum
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑬ STORE AUTO OFF
+  [PASS] ⑬ 起点 STORE STATS faults=0 armed=0（无残留注入）
+  [PASS] ⑬a 归一 ERASE 3（诊断槽为空）
+  [PASS] ⑬a STORE FAULT 1
+  [PASS] ⑬a 擦除命中故障 → STORE ERR save（第一次写操作）
+  [PASS] ⑬a STORE STATS faults=1 armed=0（命中一次并自动解除）
+  [PASS] ⑬a LIST 槽 3 仍 EMPTY（被拒的擦除没落盘）
+  [PASS] ⑬a FAULT CLEAR cleared taken=1
+  [PASS] ⑬b STORE TEST PASS 6/6
+  [PASS] ⑬b seq 双向（v2→copy1、v3→copy0）
+  [PASS] ⑬b erase-fail: faults=1 op=erase survivor=copy1
+  [PASS] ⑬b half-write: faults=1 op=prog-payload survivor=copy1
+  [PASS] ⑬b header-fail: faults=1 op=prog-header survivor=copy1
+  [PASS] ⑬b 套件结束 STORE STATS faults=0 armed=0（fault_clear）
+  [PASS] ⑬c STORE TEST 第二轮 PASS 6/6
+  [PASS] ⑬d UI transport
+  [PASS] ⑬d TAP PLAY
+  [PASS] ⑬d STATE SNAP playing=1 = 1
+  [PASS] ⑬d 播放中 STORE TEST → STORE ERR playing
+  [PASS] ⑬d TAP STOP
+  [PASS] ⑬d STATE SNAP playing=0 = 0
+  [PASS] ⑬d 停止后 STORE TEST PASS 6/6（播放中的拒绝早于取锁/快照，套件仍可跑）
+  [PASS] ⑬d 收口 LIST 槽 3 EMPTY
+  [NOTE] ⑭ fixtures → /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/fixtures-20261122-030038（62 项/格式）
+  [PASS] ⑭ STORE AUTO OFF（本段不写 autosave）
+  [PASS] ⑭ 归一 ERASE 3
+  [PASS] ⑭ PROJ LIST 列出 4 槽（{0: 'USED hash=D160C9B7', 1: 'EMPTY', 2: 'EMPTY', 3: 'EMPTY'}）
+  [PASS] ⑭a BEGIN 4097（> 3,840）→ STORE ERR size
+  [PASS] ⑭a BEGIN 3841（= ST_PAYLOAD_MAX + 1）→ 当场 size，不等到 END 的 save
+  [PASS] ⑭a BEGIN 3840（= ST_PAYLOAD_MAX）接受
+  [PASS] ⑭a 收口 ABORT
+  [PASS] ⑭a BEGIN 2
+  [PASS] ⑭a 追加 3B 超过声明的 2B → STORE ERR size
+  [PASS] ⑭a ABORT
+  [PASS] ⑭a 未 BEGIN 的 END → STORE ERR invalid
+  [PASS] ⑭a BEGIN 4
+  [PASS] ⑭a 追加 2B
+  [PASS] ⑭a 只收到 2/4 字节的 END → STORE ERR invalid（不写 flash）
+  [PASS] ⑭a 收口 ABORT
+  [PASS] ⑭a 被拒的 END 没写槽 3（仍 EMPTY）
+  [PASS] ⑭a2 BEGIN 4
+  [PASS] ⑭a2 追加 2B
+  [PASS] ⑭a2 穿插 STORE PROJ LIST
+  [PASS] ⑭a2 穿插命令后的追加 → invalid（上传已被丢弃，状态机不再接受数据）
+  [PASS] ⑭a2 END → invalid（不会把别人的字节写进 flash）
+  [PASS] ⑭a2 被丢弃的上传没有落盘（槽 3 仍 EMPTY）
+  [PASS] ⑭a2 重新 BEGIN 3
+  [PASS] ⑭a2 追加 3B
+  [PASS] ⑭a2 新上传仍能 END（状态机已复位）
+  [PASS] ⑭a2 收口 ERASE 3
+  [PASS] ⑭a3 UI transport
+  [PASS] ⑭a3 TAP PLAY
+  [PASS] ⑭a3 STATE SNAP playing=1 = 1
+  [PASS] ⑭a3 播放中 BEGIN 允许（只写暂存）
+  [PASS] ⑭a3 播放中追加 2B
+  [PASS] ⑭a3 播放中 END → STORE ERR playing（未写 flash、上传态保持）
+  [PASS] ⑭a3 播放中的 END 没落盘（槽 3 仍 EMPTY）
+  [PASS] ⑭a3 TAP STOP
+  [PASS] ⑭a3 STATE SNAP playing=0 = 0
+  [PASS] ⑭a3 收口 ABORT
+  [PASS] ⑭ fun5 归一 ERASE 3
+  [PASS] ⑭ fun5 STORE RAW 上传（3840B，32 块）
+  [PASS] ⑭ fun5 LOAD 3（proj_import + proj_apply）
+  [PASS] ⑭ fun5 LIST 槽 3 USED（USED hash=6211D3C2）
+  [PASS] ⑭ fun5 FIELDS 3 键顺序 == 生成器的 field_keys()（实得 62 键）
+  [PASS] ⑭ fun5 FIELDS 3 fmt=5（期望 5）
+  [PASS] ⑭ fun5 FIELDS 3 sel=2（期望 2）
+  [PASS] ⑭ fun5 FIELDS 3 bpm=105（期望 105）
+  [PASS] ⑭ fun5 FIELDS 3 swing=50（期望 50）
+  [PASS] ⑭ fun5 FIELDS 3 dust=33（期望 33）
+  [PASS] ⑭ fun5 FIELDS 3 drdly=55（期望 55）
+  [PASS] ⑭ fun5 FIELDS 3 t0.eng=0（期望 0）
+  [PASS] ⑭ fun5 FIELDS 3 t0.pre=3（期望 3）
+  [PASS] ⑭ fun5 FIELDS 3 t0.lvl=0（期望 0）
+  [PASS] ⑭ fun5 FIELDS 3 t0.atk=1（期望 1）
+  [PASS] ⑭ fun5 FIELDS 3 t0.e0=153（期望 153）
+  [PASS] ⑭ fun5 FIELDS 3 t0.e1=154（期望 154）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s0=0:36（期望 0:36）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s1=1:37（期望 1:37）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s2=2:38（期望 2:38）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s3=0:39（期望 0:39）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s4=1:40（期望 1:40）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s5=2:41（期望 2:41）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s6=0:42（期望 0:42）
+  [PASS] ⑭ fun5 FIELDS 3 t0.s7=1:43（期望 1:43）
+  [PASS] ⑭ fun5 FIELDS 3 t1.eng=1（期望 1）
+  [PASS] ⑭ fun5 FIELDS 3 t1.pre=4（期望 4）
+  [PASS] ⑭ fun5 FIELDS 3 t1.lvl=10（期望 10）
+  [PASS] ⑭ fun5 FIELDS 3 t1.atk=11（期望 11）
+  [PASS] ⑭ fun5 FIELDS 3 t1.e0=163（期望 163）
+  [PASS] ⑭ fun5 FIELDS 3 t1.e1=164（期望 164）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s0=0:37（期望 0:37）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s1=1:38（期望 1:38）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s2=2:39（期望 2:39）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s3=0:40（期望 0:40）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s4=1:41（期望 1:41）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s5=2:42（期望 2:42）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s6=0:43（期望 0:43）
+  [PASS] ⑭ fun5 FIELDS 3 t1.s7=1:44（期望 1:44）
+  [PASS] ⑭ fun5 FIELDS 3 t2.eng=2（期望 2）
+  [PASS] ⑭ fun5 FIELDS 3 t2.pre=5（期望 5）
+  [PASS] ⑭ fun5 FIELDS 3 t2.lvl=20（期望 20）
+  [PASS] ⑭ fun5 FIELDS 3 t2.atk=21（期望 21）
+  [PASS] ⑭ fun5 FIELDS 3 t2.e0=173（期望 173）
+  [PASS] ⑭ fun5 FIELDS 3 t2.e1=174（期望 174）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s0=0:38（期望 0:38）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s1=1:39（期望 1:39）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s2=2:40（期望 2:40）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s3=0:41（期望 0:41）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s4=1:42（期望 1:42）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s5=2:43（期望 2:43）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s6=0:44（期望 0:44）
+  [PASS] ⑭ fun5 FIELDS 3 t2.s7=1:45（期望 1:45）
+  [PASS] ⑭ fun5 FIELDS 3 t3.eng=3（期望 3）
+  [PASS] ⑭ fun5 FIELDS 3 t3.pre=6（期望 6）
+  [PASS] ⑭ fun5 FIELDS 3 t3.lvl=30（期望 30）
+  [PASS] ⑭ fun5 FIELDS 3 t3.atk=31（期望 31）
+  [PASS] ⑭ fun5 FIELDS 3 t3.e0=183（期望 183）
+  [PASS] ⑭ fun5 FIELDS 3 t3.e1=184（期望 184）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s0=2:3（期望 2:3）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s1=1:16（期望 1:16）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s2=0:0（期望 0:0）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s3=1:32768（期望 1:32768）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s4=2:3（期望 2:3）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s5=1:16（期望 1:16）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s6=0:0（期望 0:0）
+  [PASS] ⑭ fun5 FIELDS 3 t3.s7=1:32768（期望 1:32768）
+  [PASS] ⑭ fun4 归一 ERASE 3
+  [PASS] ⑭ fun4 STORE RAW 上传（3112B，26 块）
+  [PASS] ⑭ fun4 LOAD 3（proj_import + proj_apply）
+  [PASS] ⑭ fun4 LIST 槽 3 USED（USED hash=AD632A48）
+  [PASS] ⑭ fun4 FIELDS 3 键顺序 == 生成器的 field_keys()（实得 62 键）
+  [PASS] ⑭ fun4 FIELDS 3 fmt=4（期望 4）
+  [PASS] ⑭ fun4 FIELDS 3 sel=1（期望 1）
+  [PASS] ⑭ fun4 FIELDS 3 bpm=111（期望 111）
+  [PASS] ⑭ fun4 FIELDS 3 swing=60（期望 60）
+  [PASS] ⑭ fun4 FIELDS 3 dust=44（期望 44）
+  [PASS] ⑭ fun4 FIELDS 3 drdly=0（期望 0）
+  [PASS] ⑭ fun4 FIELDS 3 t0.eng=0（期望 0）
+  [PASS] ⑭ fun4 FIELDS 3 t0.pre=3（期望 3）
+  [PASS] ⑭ fun4 FIELDS 3 t0.lvl=0（期望 0）
+  [PASS] ⑭ fun4 FIELDS 3 t0.atk=1（期望 1）
+  [PASS] ⑭ fun4 FIELDS 3 t0.e0=150（期望 150）
+  [PASS] ⑭ fun4 FIELDS 3 t0.e1=151（期望 151）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s0=0:36（期望 0:36）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s1=1:37（期望 1:37）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s2=2:38（期望 2:38）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s3=0:39（期望 0:39）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s4=1:40（期望 1:40）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s5=2:41（期望 2:41）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s6=0:42（期望 0:42）
+  [PASS] ⑭ fun4 FIELDS 3 t0.s7=1:43（期望 1:43）
+  [PASS] ⑭ fun4 FIELDS 3 t1.eng=8（期望 8）
+  [PASS] ⑭ fun4 FIELDS 3 t1.pre=4（期望 4）
+  [PASS] ⑭ fun4 FIELDS 3 t1.lvl=10（期望 10）
+  [PASS] ⑭ fun4 FIELDS 3 t1.atk=11（期望 11）
+  [PASS] ⑭ fun4 FIELDS 3 t1.e0=160（期望 160）
+  [PASS] ⑭ fun4 FIELDS 3 t1.e1=161（期望 161）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s0=0:37（期望 0:37）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s1=1:38（期望 1:38）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s2=2:39（期望 2:39）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s3=0:40（期望 0:40）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s4=1:41（期望 1:41）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s5=2:42（期望 2:42）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s6=0:43（期望 0:43）
+  [PASS] ⑭ fun4 FIELDS 3 t1.s7=1:44（期望 1:44）
+  [PASS] ⑭ fun4 FIELDS 3 t2.eng=2（期望 2）
+  [PASS] ⑭ fun4 FIELDS 3 t2.pre=5（期望 5）
+  [PASS] ⑭ fun4 FIELDS 3 t2.lvl=20（期望 20）
+  [PASS] ⑭ fun4 FIELDS 3 t2.atk=21（期望 21）
+  [PASS] ⑭ fun4 FIELDS 3 t2.e0=170（期望 170）
+  [PASS] ⑭ fun4 FIELDS 3 t2.e1=171（期望 171）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s0=0:38（期望 0:38）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s1=1:39（期望 1:39）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s2=2:40（期望 2:40）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s3=0:41（期望 0:41）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s4=1:42（期望 1:42）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s5=2:43（期望 2:43）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s6=0:44（期望 0:44）
+  [PASS] ⑭ fun4 FIELDS 3 t2.s7=1:45（期望 1:45）
+  [PASS] ⑭ fun4 FIELDS 3 t3.eng=3（期望 3）
+  [PASS] ⑭ fun4 FIELDS 3 t3.pre=6（期望 6）
+  [PASS] ⑭ fun4 FIELDS 3 t3.lvl=30（期望 30）
+  [PASS] ⑭ fun4 FIELDS 3 t3.atk=31（期望 31）
+  [PASS] ⑭ fun4 FIELDS 3 t3.e0=180（期望 180）
+  [PASS] ⑭ fun4 FIELDS 3 t3.e1=181（期望 181）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s0=2:3（期望 2:3）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s1=1:16（期望 1:16）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s2=0:0（期望 0:0）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s3=1:32768（期望 1:32768）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s4=2:3（期望 2:3）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s5=1:16（期望 1:16）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s6=0:0（期望 0:0）
+  [PASS] ⑭ fun4 FIELDS 3 t3.s7=1:32768（期望 1:32768）
+  [PASS] ⑭ fun1 归一 ERASE 3
+  [PASS] ⑭ fun1 STORE RAW 上传（688B，6 块）
+  [PASS] ⑭ fun1 LOAD 3（proj_import + proj_apply）
+  [PASS] ⑭ fun1 LIST 槽 3 USED（USED hash=73B30D7E）
+  [PASS] ⑭ fun1 FIELDS 3 键顺序 == 生成器的 field_keys()（实得 62 键）
+  [PASS] ⑭ fun1 FIELDS 3 fmt=1（期望 1）
+  [PASS] ⑭ fun1 FIELDS 3 sel=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 bpm=123（期望 123）
+  [PASS] ⑭ fun1 FIELDS 3 swing=40（期望 40）
+  [PASS] ⑭ fun1 FIELDS 3 dust=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 drdly=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t0.eng=7（期望 7）
+  [PASS] ⑭ fun1 FIELDS 3 t0.pre=5（期望 5）
+  [PASS] ⑭ fun1 FIELDS 3 t0.lvl=1（期望 1）
+  [PASS] ⑭ fun1 FIELDS 3 t0.atk=4（期望 4）
+  [PASS] ⑭ fun1 FIELDS 3 t0.e0=136（期望 136）
+  [PASS] ⑭ fun1 FIELDS 3 t0.e1=139（期望 139）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s0=0:36（期望 0:36）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s1=1:37（期望 1:37）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s2=2:38（期望 2:38）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s3=0:39（期望 0:39）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s4=1:40（期望 1:40）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s5=2:41（期望 2:41）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s6=0:42（期望 0:42）
+  [PASS] ⑭ fun1 FIELDS 3 t0.s7=1:43（期望 1:43）
+  [PASS] ⑭ fun1 FIELDS 3 t1.eng=1（期望 1）
+  [PASS] ⑭ fun1 FIELDS 3 t1.pre=255（期望 255）
+  [PASS] ⑭ fun1 FIELDS 3 t1.lvl=104（期望 104）
+  [PASS] ⑭ fun1 FIELDS 3 t1.atk=10（期望 10）
+  [PASS] ⑭ fun1 FIELDS 3 t1.e0=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.e1=1（期望 1）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s0=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s1=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s2=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s3=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s4=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s5=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s6=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t1.s7=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.eng=4（期望 4）
+  [PASS] ⑭ fun1 FIELDS 3 t2.pre=255（期望 255）
+  [PASS] ⑭ fun1 FIELDS 3 t2.lvl=104（期望 104）
+  [PASS] ⑭ fun1 FIELDS 3 t2.atk=10（期望 10）
+  [PASS] ⑭ fun1 FIELDS 3 t2.e0=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.e1=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s0=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s1=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s2=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s3=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s4=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s5=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s6=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t2.s7=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.eng=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.pre=255（期望 255）
+  [PASS] ⑭ fun1 FIELDS 3 t3.lvl=104（期望 104）
+  [PASS] ⑭ fun1 FIELDS 3 t3.atk=10（期望 10）
+  [PASS] ⑭ fun1 FIELDS 3 t3.e0=0（期望 0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.e1=10（期望 10）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s0=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s1=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s2=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s3=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s4=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s5=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s6=0:0（期望 0:0）
+  [PASS] ⑭ fun1 FIELDS 3 t3.s7=0:0（期望 0:0）
+  [PASS] ⑭c 归一 ERASE 3
+  [PASS] ⑭c 截断前的 LIVEHASH
+  [PASS] ⑭c 截断 fixture 上传（100B）
+  [PASS] ⑭c 截断对象 LOAD 3 → STORE ERR invalid（不是空槽的 empty）
+  [PASS] ⑭c LOAD 失败后的 LIVEHASH
+  [PASS] ⑭c LIVEHASH 不变（85522924；LOAD 在导入失败处退出，从未 proj_apply）
+  [PASS] ⑭c FIELDS 3 也回 STORE ERR invalid（st_load 成功但 proj_import 拒绝）
+  [PASS] ⑭c 槽号越界 LOAD 9 → invalid
+  [PASS] ⑭d 收口 ERASE 3
+  [PASS] ⑭d 槽 0–2 未被触碰（{0: 'USED hash=D160C9B7', 1: 'EMPTY', 2: 'EMPTY'} vs {0: 'USED hash=D160C9B7', 1: 'EMPTY', 2: 'EMPTY'}）
+  [PASS] ⑭d 槽 3 收口 EMPTY（EMPTY）
+[PASS] store: 全部断言与像素抽检通过
+exit=0

@@ -17,7 +17,7 @@
 - 引擎回归：`scripts/host-test.sh` 全绿；设备 `scripts/device-selftest.py /dev/ttyACM0` 全量 182/182（自动停/复流）。
 - 存储 TU：`third_party/sloop-fm1/**` **零修改**（manifest 233/233）；所有适配只进 `firmware/components/sloop_core/src/store_tab5.c`。
 - 内部 RAM：idle `internal_free ≥ 61,440B`；`proj_slot`/`proj_v3_tmp`/`proj_tmp` 实体不得进 DRAM（PSRAM，约 22KB）；`main_scratch`（3,840B）必须内部 SRAM。
-- LVGL 池：新不变量 `base + max_group Σest + 4KB ≤ 63,120`；每页构建前仍检查 `free ≥ est`；不得扩大 `CONFIG_LV_MEM_SIZE`。
+- LVGL 池：跨组切换的过渡峰值不变量 `base + max_group Σest + max_single_page_est + 4KB ≤ 63,120`（当前 `7,016 + 27,648 + 23,040 + 4,096 = 61,800`，余 1,320B）；每页构建前仍检查 `free ≥ est`；不得扩大 `CONFIG_LV_MEM_SIZE`。
 - 并发：所有存储写/载经引擎锁与 `s_store_lock`；播放中（`song.playing || transport_req`）拒绝写；console `STORE` 是诊断执行器（与 UI 的 CMD 共用同一 API）。
 - 自动存档：仅停止 + 无输入 ≥2.5s + 距上次写 ≥20s + 无发声 + hash 变化时写 `OBJ_AUTOSAVE`；测试期用 `STORE AUTO OFF` 关闭。
 - 提交：AGENTS §7 格式（`<type>(<模块路径>): 中文摘要` + `[Motivation]/[Change_Set]/[Impact_AST]/[Infra_State]`；`fix` 另加 `[Root_Cause]/[Blast_Radius]`）。每个 Task 结束后 review clean → 立即 push `origin feat/phase4b`。
@@ -25,7 +25,7 @@
 
 ## Review Focus
 
-1. **存储未就绪**（分区丢失/mmap 失败/初始化未跑）：任何 `STORE` 命令返回 `store ERR no_storage`，UI 显示 `NO STORAGE`，引擎/音频照常，设备不崩溃。（Task 2/3）
+1. **存储未就绪**（分区丢失/mmap 失败/初始化未跑）：任何 `STORE` 命令返回 `STORE ERR no_storage`，UI 显示 `NO STORAGE`，引擎/音频照常，设备不崩溃。（Task 2/3）
 2. **空槽 / 越界 / 鼓轨**：LOAD/ERASE 空槽返回 `EMPTY` 且不改引擎；slot ≥ 4/32/27 被拒；鼓轨存预置返回 `DRUM TRACK`。（Task 3/4/7/10）
 3. **播放中保存 / 自动存档竞态**：返回 `ERR playing`、存储不变；播放中 autosave 不写；tick 与手动命令不互踩。（Task 3/4/6/7）
 4. **掉电窗口**：擦除失败 / payload 半写 / 头写失败时旧副本仍被选中并完整加载。（Task 8）
@@ -91,20 +91,20 @@ git push origin feat/phase4b
 
 - [ ] **Step 2: 更新 ADR-005**
 
-写入 spec §3.3：5 组（PLAY/TRACKS/EDIT/SEQ/FILE）、两行页签复用 72px、组作用域销毁、`TAB` 扁平轮转新顺序（PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → PROJECTS → PRESETS）、不变量 `base + max_group Σest + 4KB ≤ 63,120`。保留旧节历史数据（9 页实测）。
+写入 spec §3.3：5 组（PLAY/TRACKS/EDIT/SEQ/FILE）、两行页签复用 72px、组作用域销毁、`TAB` 扁平轮转新顺序（PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → PROJECTS → PRESETS）、跨组切换的过渡峰值不变量 `base + max_group Σest + max_single_page_est + 4KB ≤ 63,120`（当前 61,800，余 1,320B）。保留旧节历史数据（9 页实测）。
 
 - [ ] **Step 3: 关 DI-17**
 
-删除 `docs/deferred-issues.md` 的 DI-17 整条；`grep -rn 'DI-17' docs/` 只允许命中 `docs/dev/verification-log.md` 与 `docs/dev/verify/**` 的历史记录。
+删除 `docs/deferred-issues.md` 的 DI-17 整条；`grep -rn 'DI-17' docs/`（排除 `verification-log`、`dev/verify/` 与本执行计划 `superpowers/plans/`）应为空。
 
 - [ ] **Step 4: 同步 roadmap / 阶段 4 spec / ADR-008**
 
-roadmap 阶段 4 状态行加「P4-B 开工（`feat/phase4b`），导航/容量决策见 ADR-005/009，DI-17 关闭」；phase-4 spec §4.3 改为一句「存储后端由 ADR-009 定义（原始分区 + mmap，取代本文原 FATFS 文件措辞）」；ADR-008 §3/§5 加「组作用域生命周期：预算按组核算，`UI MEM` 增加分组 Σ」。
+roadmap 阶段 4 状态行加「P4-B 开工（`feat/phase4b`），导航/容量决策见 ADR-005/009，原 9 页池容量天花板条目关闭」；phase-4 spec §4.3 改为一句「存储后端由 ADR-009 定义（原始分区 + mmap，取代本文原 FATFS 文件措辞）」；ADR-008 §3/§5 加「组作用域生命周期：预算按组核算，`UI MEM` 增加分组 Σ」。
 
 - [ ] **Step 5: 检查并提交**
 
 ```bash
-grep -rn 'DI-17' docs/ | grep -v verification-log | grep -v 'dev/verify/'
+grep -rn 'DI-17' docs/ | grep -v verification-log | grep -v 'dev/verify/' | grep -v 'superpowers/plans/'
 git diff --check
 git add docs/
 git commit -m "docs(design): P4-B 导航与存储后端决策（ADR-005/009），关闭 DI-17"
@@ -148,7 +148,7 @@ storage,    data, fat,     0x878000, 0x788000,
 
 - [ ] **Step 3: console 最小命令**
 
-`STORE STATS` 打印 `STORE STATS ready=1 base=0x97000 span=0x68000 map=0x… objects=0 faults=0`（未 ready 打 `ready=0`）；`STORE RAWTEST` 对最后扇区（flash 偏移 `0xFE000`）erase → 写 0x5A 模式 → 校验 → 再 erase，打印 `STORE RAWTEST PASS/FAIL`（破坏性，`help` 注明）。
+`STORE STATS` 打印 `STORE STATS ready=1 base=0x97000 span=0x68000 map=0x… objects=0 faults=0`（未 ready 打 `ready=0`）；`STORE RAWTEST` 对**空闲逻辑扇区 `0xFB000`**（`sloopstore` 内偏移 `0x64000`；参数是逻辑 flash-map 偏移，不是芯片绝对地址）erase → 写 0x5A 模式 → 校验 → 再 erase，打印 `STORE RAWTEST PASS/FAIL`（破坏性，`help` 注明）。
 
 - [ ] **Step 4: 构建 + 烧录**
 
@@ -249,7 +249,7 @@ Expected: FAIL（`STORE` 未知命令 / 无 `PROJ` 输出）。
 
 - [ ] **Step 6: 接进启动与控制台**
 
-`selftest.c` 末尾 `#include "store_tab5.c"`；`sloop_core_init` **在 `selftest_snapshot_init()` 之后**调 `sloop_store_init()`（失败只 WARN）；`console.c` 注册 `STORE`：`STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|LIVEHASH`，错误统一 `store ERR <name>`（`no_storage/playing/empty/invalid/save`）。
+`selftest.c` 末尾 `#include "store_tab5.c"`；`sloop_core_init` **在 `selftest_snapshot_init()` 之后**调 `sloop_store_init()`（失败只 WARN）；`console.c` 注册 `STORE`：`STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|LIVEHASH`，错误统一 `STORE ERR <name>`（`no_storage/playing/empty/invalid/save`）。
 
 - [ ] **Step 7: 构建 + 设备门禁**
 
@@ -287,7 +287,7 @@ git push origin feat/phase4b
 
 - [ ] **Step 1: 追加失败断言**
 
-选中轨 ANALOG → 改 8 参数 → 记录 `STATE SNAP` p[] → `STORE PRESET SAVE 0` → 改参数 → `STORE PRESET LOAD 0 0` → p[] 逐项相等；`STORE PRESET LIST` 含 `U01` + 引擎名；`ERASE 0` 后为空；鼓轨（`STATE SET_TRACK 3`）`STORE PRESET SAVE 1` → `store ERR drum`；重新上电后 `LIST` 仍 USED（验证 `up_boot`）。运行确认 FAIL。
+选中轨 ANALOG → 改 8 参数 → 记录 `STATE SNAP` p[] → `STORE PRESET SAVE 0` → 改参数 → `STORE PRESET LOAD 0 0` → p[] 逐项相等；`STORE PRESET LIST` 含 `U01` + 引擎名；`ERASE 0` 后为空；鼓轨（`STATE SET_TRACK 3`）`STORE PRESET SAVE 1` → `STORE ERR drum`；重新上电后 `LIST` 仍 USED（验证 `up_boot`）。运行确认 FAIL。
 
 - [ ] **Step 2: include 上游并实现**
 
@@ -428,11 +428,11 @@ git push origin feat/phase4b
 
 - [ ] **Step 1: 失败断言**
 
-`ENG TRACK 1 9 0`（FM6 工厂 patch）→ `STORE BANK LIVE` 得 hex L → `STORE BANK PUT 3` → `STORE BANK GET 3` == L；`BANK LIST` 含 `B3 USED`；重新上电后仍 USED；`BANK ERASE 3` 后 GET 返回 `store ERR empty`；`ENG TRACK 1 9 11`（PTCH=11 → bank 槽 3）+ `ENG TRIG` 无错误；无 patch 槽 GET 为空。运行确认 FAIL。
+`ENG TRACK 1 9 0`（FM6 工厂 patch F1）→ `STORE BANK LIVE` 得 hex L → `STORE BANK PUT 3` → `STORE BANK GET 3` == L；`BANK LIST` 含 `B3 USED`；重新上电后仍 USED；`BANK ERASE 3` 后 GET 返回 `STORE ERR empty`；**PTCH=11（= bank 槽 3）经 `PARAM 70 11`**（`ENG TRACK` 的第 4 参数是**工厂预置号**、且 `preset_apply` 会 `pi %= 8`，写 `ENG TRACK 1 9 11` 只得到 PTCH=3）——归一到 PTCH=1（工厂 F2）取 `LIVE` 得 L2 ≠ L，再 `PARAM 70 11` ⇒ `LIVE` 必须变成槽 3 的字节 L（F2→F1' 的真切换；否则 PTCH→银行的重载是死的也照样绿）+ `ENG TRIG` 无错误；无 patch 槽 GET 为空。运行确认 FAIL。
 
 - [ ] **Step 2: include 上游并实现**
 
-`store_tab5.c` 在 `upreset.c` 之后定义 `FM6_BANK_XIP(copy)`（= map + (0xE5000 + copy*4096) − base），`#include "fm6_bank.c"`；`sloop_store_init` 末尾加 `fm6_bank_boot()`。API 包装 `fm6_bank_put/fm6_bank_get/has`；`bank_current` 引擎锁内 `fm6_pack(fm6_patch[track], out)`（同 TU 可见）。播放中拒绝；`fm6_bank_put` 1→`ESP_ERR_INVALID_ARG`、2→`ESP_ERR_NOT_FINISHED`。
+`store_tab5.c` 在 `upreset.c` 之后定义 `FM6_BANK_XIP(copy)`（= map + (0xE5000 + copy*4096 + **ST_PAYLOAD_OFF(256)**) − base——payload 从扇区偏移 256 起，与上游 `fm6_bank.c` 的兜底 `st_sector(...) + ST_PAYLOAD_OFF` 同义，漏掉 256 会读成错位视图），`#include "fm6_bank.c"`；`sloop_store_init` 末尾加 `fm6_bank_boot()`。API 包装 `fm6_bank_put/fm6_bank_get/has`；`bank_current` 引擎锁内 `fm6_pack(fm6_patch[track], out)`（同 TU 可见）。播放中拒绝；`fm6_bank_put` 1→`ESP_ERR_INVALID_ARG`、2→`ESP_ERR_NOT_FINISHED`。
 
 - [ ] **Step 3: console**
 
@@ -512,7 +512,7 @@ git push origin feat/phase4b
 
 - [ ] **Step 2: 失败测试**
 
-`run_store`：三个 fixture 依次上传 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3` 与 `expected.json` 逐项比对 → 截断 fixture（fun5[:100]）→ `LOAD 3` 返回 `store ERR invalid` 且 `LIVEHASH` 不变。运行确认 FAIL。
+`run_store`：三个 fixture 依次上传 → `STORE PROJ LOAD 3` → `STORE PROJ FIELDS 3` 与 `expected.json` 逐项比对 → 截断 fixture（fun5[:100]）→ `LOAD 3` 返回 `STORE ERR invalid` 且 `LIVEHASH` 不变。运行确认 FAIL。
 
 - [ ] **Step 3: 实现**
 
@@ -594,7 +594,7 @@ git push origin feat/phase4b
 
 - [ ] **Step 3: 组作用域销毁**
 
-`show_page(page)`：目标组 ≠ 当前组 → `leave_group(old)` 销毁旧组所有已建页（`lv_obj_del`、`s_page_obj=NULL`、state=UNBUILT、delta=0），再建/显示目标；同组只隐藏。销毁在 LVGL 锁内、先作废待执行切页。`UI MEM` 增加每组建/Σest/Σdelta 与 build_ms。
+`show_page(page)`：目标组 ≠ 当前组 → 固定顺序「**建目标页（目标组内懒建）→ 切到目标页 → 销毁源组全部已建页**（`lv_obj_del`、`s_page_obj=NULL`、state=UNBUILT、delta=0，**含原当前页**）」；因此离开组后源组 `built=0`。同组：首次访问兄弟页时构建，后续切换只隐藏。销毁在 LVGL 锁内、先作废待执行切页。≤100ms 预算适用于跨组切换与组内首次构建兄弟页。`UI MEM` 增加每组建/Σest/Σdelta 与 build_ms。
 
 - [ ] **Step 4: 输入层**
 
@@ -790,6 +790,6 @@ git push origin dev
 ## 遗留与后续（不在本计划）
 
 - settings 对象 / sections / arranger（P4-C、P4-E；设置走 `OBJ_SETTINGS` 上游格式）；
-- FM6 patch 编辑面、DSYN、采样槽上传（P4-D；采样走上游 `0xA0000..0xDBFFF` 原始槽）；
+- FM6 patch 编辑面、DSYN、采样槽上传（P4-D；采样走上游 USR1–4 原始槽：USR1–3 `0xA0000..0xDC000`、USR4 `0xE7000..0xFB000`）；
 - 物理触摸按钮、听感（保存/加载后音色变化、换预置换声音）、视觉复检的人测项（AGENTS §5.4 外部门禁）；
 - 历史 DI：DI-2/4/6/7/10/12/13/15/16（见 `docs/deferred-issues.md`）。

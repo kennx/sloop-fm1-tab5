@@ -1,11 +1,14 @@
 /*
- * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：9 页 + 页面注册表）
+ * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：分组页签 + 页面注册表）
  *
- * 单容器屏 + 顶部页签（页签顺序 = 页面注册表顺序）：PLAY|TRACKS|STEP|TRANSPORT
- * + 参数页 GLOBAL|FX|ANALOG|FM6|SAMPLE（描述符驱动的旋钮页，ADR-008 §8）。页签由
- * 页面注册表派生，页面**首次访问时构建**，之后保留（不销毁）。PLAY 在
- * sloop_ui_start() 内立即构建，保证开机首帧非空白；TRACKS/STEP/TRANSPORT 与五个
- * 参数页在首次进入时构建并把 LVGL 池增量记入日志/`UI MEM`。
+ * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 5 个组签
+ * PLAY|TRACKS|EDIT|SEQ|FILE（无已注册页的组不显示），下行显示当前组的已注册子页；
+ * 组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
+ * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS→PLAY）。
+ * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
+ * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
+ * sloop_ui_start() 内立即构建，保证开机首帧非空白。池增量与构建耗时记入
+ * 日志/`UI MEM`（按页与按组两种口径）。
  * 构建失败（控件分配失败/预算不足）显示状态条错误文本 + ERROR 日志，
  * 同步切页返回 ESP_ERR_NO_MEM（console 打印 `UI ERR page_build <id>`）。
  *
@@ -21,7 +24,10 @@
 #include "lvgl.h"
 #include "sloop_state.h"
 
-/* 页面注册表条目（ADR-008）。注册顺序 = 页签顺序；id 为 app_page_t（< APP_STATE_PAGES）。
+#define SLOOP_UI_GROUPS 5 /* PLAY / TRACKS / EDIT / SEQ / FILE（ADR-005） */
+
+/* 页面注册表条目（ADR-008）。注册顺序 = 子签顺序（组内），组顺序见
+ * sloop_ui_page_order_next()。id 为 app_page_t（< APP_STATE_PAGES）。
  * build：在 parent 内建本页控件，成功返回 parent，任一控件分配失败返回 NULL
  *        （页内用 theme.h 的 UI_BUILD_CHECK 逐个检查）。
  * update：只对该页已建控件做脏检查刷新（未建页不会被调用）。
@@ -35,20 +41,43 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 9 页）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 11 页 / 5 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
  * （注册表满）；ESP_ERR_INVALID_STATE（UI 已启动）。 */
 esp_err_t ui_page_register(const ui_page_t *page);
 
-/* 已注册页数（页签顺序即注册顺序；输入层的 tab 轮转按此计数，不按
- * APP_STATE_PAGES）。注册表只在 start 前写入，读无需加锁；UI 未启动时返回已注册
- * 的外部页数（通常 0）。 */
+/* 已注册页数（注册顺序；输入层的 tab 轮转按组顺序扁平轮转，不按本计数）。
+ * 注册表只在 start 前写入，读无需加锁；UI 未启动时返回已注册的外部页数（通常 0）。 */
 uint8_t sloop_ui_page_count(void);
 
+/* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
+ * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→PROJECTS→PRESETS
+ * →PLAY，**跳过未注册页**。page 未注册/非法时返回
+ * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
+uint8_t sloop_ui_page_order_next(uint8_t page);
+
+/* 组签/子签的程序化入口（console `UI TAB <group>` / `UI SUB <index>`，R32）：与物理
+ * 页签点击走**同一**动作函数（`group_select_locked`/`sub_select_locked`），因此覆盖
+ * 「点组进上次子页 / 点子签切页」的导航路径（TAP 对 y<72 一律 miss，无法覆盖它）。
+ * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/SEQ/FILE），
+ *   名字为静态生命周期；越界 name 返回 NULL。
+ * - group_select(group)：进入该组上次的子页（未记录/已未注册则首个已注册成员）；
+ *   空组（没有已注册页的组）返回 ESP_ERR_INVALID_ARG。
+ * - sub_select(index)：切到**当前组**第 index 张子签（0 起）；单页组子行为空 ⇒ 任何
+ *   index 都返回 ESP_ERR_INVALID_ARG（与视觉/命中一致），index ≥ 5（下行固定 5 个
+ *   子签槽位，组内最多 5 页）同样。
+ * 两者：ESP_ERR_INVALID_STATE（UI 未启动）、ESP_ERR_TIMEOUT（LVGL 锁超时，未派发）、
+ * ESP_ERR_NO_MEM（目标页构建失败，页面已切到错误状态条）。切页内部分别经 show_page，
+ * 会作废同一 30ms 拍内排队的异步切页（R30）。 */
+uint8_t sloop_ui_group_count(void);
+const char *sloop_ui_group_name(uint8_t group);
+esp_err_t sloop_ui_group_select(uint8_t group);
+esp_err_t sloop_ui_sub_select(uint8_t index);
+
 typedef enum {
-    SLOOP_UI_PAGE_UNBUILT = 0, /* 尚未进入过（懒建） */
+    SLOOP_UI_PAGE_UNBUILT = 0, /* 尚未进入过（懒建）/ 已随源组销毁 */
     SLOOP_UI_PAGE_BUILT = 1,   /* 已建，控件保留 */
     SLOOP_UI_PAGE_FAILED = 2,  /* 上次构建失败（下次访问重试） */
 } sloop_ui_page_state_t;
@@ -60,12 +89,28 @@ typedef struct {
     uint32_t est_bytes;    /* 预算（注册表） */
     int32_t delta_bytes;   /* 最近一次成功构建的池 free 减少量（含块头；采样于首帧 update
                             * 之前，不含首帧文本分配）；0 = 未建/从未成功 */
+    uint32_t build_ms;     /* 最近一次构建耗时（毫秒；0 = 未建） */
 } sloop_ui_page_stat_t;
+
+/* 分组水位（ADR-005 §5）：sum_est = 组内**已注册**成员 est 之和（组的静态预算），
+ * sum_delta = 组内**已建**成员最近一次构建的池增量之和（当前占用），
+ * build_ms = 最近一次「跨组进入本组」或「组内首次构建兄弟页」的耗时
+ * （≤100ms 预算的口径，含目标页构建 + 切换 + 源组销毁；0 = 尚未进入）。 */
+typedef struct {
+    const char *name;
+    uint8_t page_count;                 /* 已注册成员数 */
+    uint8_t built;                      /* 已建成员数（离开组后为 0） */
+    uint32_t sum_est, sum_delta;
+    uint32_t build_ms;
+} sloop_ui_group_stat_t;
 
 typedef struct {
     uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
     uint8_t registered, built, failed;
     sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
+    uint8_t group_count;                         /* 组数（当前 5） */
+    uint8_t current_group;                       /* 当前页所属组下标；0xFF = 无 */
+    sloop_ui_group_stat_t groups[SLOOP_UI_GROUPS];
 } sloop_ui_pool_stats_t;
 
 /* 注册表/池水位统计（console `UI MEM`）：内部取 LVGL 锁调 lv_mem_monitor。
@@ -89,8 +134,11 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
  * 错误状态条留在屏上，本函数仍返回 ESP_OK。 */
 esp_err_t sloop_ui_start(void);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG
- * （同 app_page_t），首次进入时构建该页。
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG 7=FM6 8=SAMPLE
+ * 9=PROJECTS 10=PRESETS（同 app_page_t）；首次进入时构建该页。
+ * 组作用域（ADR-005 §3）：目标页与当前页不同组时，顺序固定为「建目标页 →
+ * 切到目标页 → 销毁源组全部已建页（含原当前页）」——因此离开组后源组 built=0；
+ * 同组内切页只改显隐（已建页不重建）。快照里的组/子签选中态随页更新。
  * 可从任意任务调用（内部加锁）。返回：ESP_OK = 已落地；ESP_ERR_INVALID_ARG =
  * 非法页 id 或该页未注册（console 打印 `UI ERR not_registered <id>`）；
  * ESP_ERR_INVALID_STATE = UI 未启动；ESP_ERR_TIMEOUT = LVGL 锁超时
@@ -144,13 +192,22 @@ typedef enum {
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
     SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
     SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
+    SLOOP_TAP_FILE_SLOT,     /* FILE 页槽位（PROJECTS 卡 A–D / PRESETS 格）：
+                              * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
+    SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
+                              * 动作后 store_status 的变化再由状态行/console 回显体现 */
+    SLOOP_TAP_BANK_SLOT,     /* FM6 页 bank 目标槽 ±：a=页 id（FM6）b=新槽号(0..26)
+                              * d=±1。只改目标槽，不写存储/引擎 */
+    SLOOP_TAP_BANK_STORE,    /* FM6 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
+                              * 动作结果由状态行/console 回显体现） */
+    SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
 } sloop_tap_kind_t;
 
 typedef struct {
     sloop_tap_kind_t kind;
     uint8_t a, b;
     int16_t v;
-    int8_t d; /* SLOOP_TAP_PARAM_STEP：±1 步进方向 */
+    int8_t d; /* SLOOP_TAP_PARAM_STEP / SLOOP_TAP_BANK_SLOT：±1 步进/选槽方向 */
 } sloop_tap_result_t;
 
 typedef enum {
@@ -163,6 +220,18 @@ typedef enum {
 
 sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
+/* FILE 页上下文（InputManager 路由，P4-B Task 12）：当前页是 PROJECTS/PRESETS 时
+ * ←/→ 在槽位间移动选中槽、ENTER = LOAD（SAVE/ERASE 只走触摸按钮与 console，避免与
+ * 演奏键冲突）。
+ * 三个函数都不取 LVGL 锁（可在输入任务调用）：选中槽是 UI 局部态，页面描边由 30ms
+ * UI 定时器的 update() 落地；LOAD 走状态层 CMD_PRESET_LOAD/CMD_PROJECT_LOAD。
+ * 非 FILE 页/UI 未启动时为空操作。sloop_ui_file_status_text 返回当前 FILE 页状态行
+ * 文本（console `TAP` 回显与屏幕文本同源）；非 FILE 页返回 NULL。 */
+bool sloop_ui_file_page_active(void);
+void sloop_ui_file_slot_move(int8_t delta); /* ←/→：±1 槽位（环绕） */
+void sloop_ui_file_load(void);              /* ENTER：LOAD 选中槽 */
+const char *sloop_ui_file_status_text(void);
+
 /* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/ANALOG…）
  * 时 ←/→ 选槽、↑/↓ 调值，不再驱动 STEP 焦点/轨焦点。
  * 三个函数都不取 LVGL 锁（可在输入任务调用）：焦点是 UI 局部态（临界区保护），
@@ -171,6 +240,15 @@ sloop_tap_result_status_t sloop_ui_input_tap(int16_t x, int16_t y, sloop_tap_res
 bool sloop_ui_param_page_active(void);
 void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
 void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
+
+/* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
+ * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页
+ * （选中轨引擎 ≠ FM6，含鼓轨）的本地拒绝返回 `NOT FM6`（红字，不进 store_status）；
+ * 其余映射复用 theme.h 的 ui_file_status_text（act 0 SAVE / 2 ERASE，与 FILE 页同一套
+ * 文案：`SAVE OK` / `ERASE OK` / `STOP BEFORE SAVE` / `NO STORAGE` /
+ * `DRUM TRACK: NO SOUND`）。不取 LVGL 锁（只读 UI 局部态 + 状态层快照），可在
+ * console/任意任务调用。 */
+const char *sloop_ui_bank_status_text(void);
 
 /* 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`，ADR-008 §8.2/§8.5）：
  * 向**当前**参数页第 slot 槽旋钮派发合成的 PRESSED/PRESSING 事件（dx/dy 相对旋钮

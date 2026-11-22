@@ -1,0 +1,30 @@
+# Task 4 内存/段归属（ADR-009 §7/§8 的延续）
+# objdump -t esp-idf/sloop_core/.../selftest.c.obj（store_tab5.c 是本 TU 的末尾 include）
+00000000 l    d  .bss.up_bank_xip	00000000 .bss.up_bank_xip
+00000000 l     O .bss.up_bank_xip	00000008 up_bank_xip
+00000018 l     O .noinit	00000001 flash_ok
+00000000 l     O .noinit	00000001 s_ready
+00000008 l     O .noinit	00000004 s_init_magic
+00000014 g     O .noinit	00000004 s_slot_ps
+0000000c l     O .noinit	00000004 s_stage
+00000004 l     O .noinit	00000004 s_store_lock
+00000010 l     O .noinit	00000004 s_v3_ps
+00000000 l    d  .rodata.up_rec_none	00000000 .rodata.up_rec_none
+00000000 l     O .rodata.up_rec_none	000000c0 up_rec_none
+
+# nm sloop_fm1_tab5.elf（链接后地址）
+4ff1b144 b flash_ok
+4ff50bf4 A _sloop_selftest_bss_start
+4ff51044 b up_bank_xip
+4ff51070 b main_scratch
+4ff9c650 A _sloop_selftest_bss_end
+
+# 结论：flash_ok 在 .noinit（4ff1b144 < _sloop_selftest_bss_start=4ff50bf4），
+#       up_bank_xip 在 .bss.up_bank_xip（4ff51044 ∈ [4ff50bf4, 4ff9c650)）⇒ 每次 SELFTEST 的
+#       restore 会把它清 NULL，故每个公共预置入口在存储锁内重扫 up_boot()。
+#       main_scratch 仍在 .bss（内部 SRAM）；proj_slot/proj_tmp/proj_v3_tmp 无实体符号（PSRAM 指针）。
+
+# 启动 ENG MEM / STORE STATS（docs/dev/verify/4-pb-2026-11-21/task-4-boot.log 第 77-81 行）
+ENG MEM internal_free=104327 internal_min=92956 psram_free=30106764 psram_min=30106764
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0

@@ -1,0 +1,52 @@
+== P4-B Task 3 内存证据（ADR-009 §7 门禁；受测固件 = task-3-build-clean.log 的产物，含 review 修复轮）==
+
+-- 1. selftest.c.obj 的段归属（大实体不得在 .dram0.bss / .data）--
+00000000 l     O .bss.main_scratch	00000f00 main_scratch
+00000010 l     O .noinit	00000004 s_v3_ps
+0000027c l     O .noinit	00000478 ctl
+0000001c l     O .noinit	00000001 s_frozen
+00000008 l     O .noinit	00000004 s_init_magic
+00000000 l     O .noinit	00000001 s_ready
+0000000c l     O .noinit	00000004 s_stage
+00000004 l     O .noinit	00000004 s_store_lock
+00000000 l    d  .bss.main_scratch	00000000 .bss.main_scratch
+00000014 g     O .noinit	00000004 s_slot_ps
+
+-- 2. 全库无 proj_slot / proj_v3_tmp / proj_tmp 实体（宏重定向为指针）--
+(no symbol: 15,264B / 2,584B / 4,096B 实体均不存在)
+
+-- 3. 链接 map：.noinit 段（s_slot_ps 在其中）--
+.noinit         0x4ff1b12c      0x6f4
+                0x4ff1b12c                        . = ALIGN (0x4)
+                0x4ff1b12c                        _noinit_start = ABSOLUTE (.)
+                0x4ff1b12c                        _coredump_noinit_start = ABSOLUTE (.)
+ *(.noinit.coredump .noinit.coredump.*)
+                0x4ff1b12c                        _coredump_noinit_end = ABSOLUTE (.)
+ mutable[noinit]()
+ *(.noinit .noinit.*)
+ .noinit        0x4ff1b12c      0x6f4 esp-idf/sloop_core/libsloop_core.a(selftest.c.obj)
+                0x4ff1b140                s_slot_ps
+                0x4ff1b820                        . = ALIGN (0x4)
+                0x4ff1b820                        _noinit_end = ABSOLUTE (.)
+
+.dram0.bss      0x4ff1b820     0x5618
+
+-- 4. 自检快照窗口（.dram0.bss 的 selftest 区段）：.noinit 在其之外 --
+23119:                0x4ff50bf4                        _sloop_selftest_bss_start = ABSOLUTE (.)
+23122:                0x4ff9c620                        _sloop_selftest_bss_end = ABSOLUTE (.)
+.noinit: 0x4ff1b12c..0x4ff1b820  |  快照 bss 区段起点: 0x4ff50bf4（不重叠）
+
+-- 5. 运行时分块（门禁 internal_free ≥ 61,440B）--
+  开机（task-3-boot.log）：UI 启动前内部堆 109011B；sloop_store ready 行给出 PSRAM 地址
+  127:I (4149) sloop_store: ready: slots=0x48344eec(15264B) stage=0x48348af0 v3=0x483444a8(2584B) base=0x97000 span=0x68000
+  task-3-store.log（capture 脚本，含 selftest + 流式 LOAD）：
+    8:ENG MEM internal_free=104383 internal_min=93012 psram_free=30106764 psram_min=30106764
+    72:ENG MEM internal_free=107819 internal_min=92932 psram_free=30106764 psram_min=30041224
+  task-3-mem.log（九页全建前后，同会话）：
+    3:ENG MEM internal_free=107819 internal_min=92932 psram_free=30106764 psram_min=30041224
+    31:UI MEM pool_used=55168 pool_free=2712 pool_total=57880 registered=9 built=9 failed=0 sum_est=55296 reserve=2584
+    42:ENG MEM internal_free=107895 internal_min=92932 psram_free=30106764 psram_min=30041224
+
+-- 6. R13（热复位哨兵）：修复前/后的早探对比（详见 task-3-baseline.txt 的 review 修复轮）--
+  修复前 task-3fix-warm-red.log: assert failed: xQueueSemaphoreTake queue.c:1713 -> rst:0xc (SW_CPU_RESET)
+  修复后 task-3-store-transcript1.log: 早探回 STORE ERR no_storage（早于 sloop_store: ready 那行）

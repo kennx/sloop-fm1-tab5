@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # params.sh — 参数页注入：GLOBAL/FX/ANALOG/FM6/SAMPLE 五页的旋钮页构建、TAP ± /
-# 键盘编辑、UI KNOB 触摸路径、九页池水位、截屏
+# 键盘编辑、UI KNOB 触摸路径、组作用域池水位（ADR-005 §5）、截屏
 # 用法: bash scripts/inject/params.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 params 场景里；本脚本只是入口。

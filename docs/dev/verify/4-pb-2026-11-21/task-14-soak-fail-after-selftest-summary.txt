@@ -1,0 +1,16 @@
+# soak 20261122-094138 port=/dev/ttyACM0 requested=300s measured=301s interval=300s cycle=12s
+# t_s internal_free internal_min psram_free streaming xrun audio_stack_free render_blocks render_mean_us render_max_us duty_mean duty_max key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm
+62  59355  59304  30102920  1  7  3180  12340  605  3351  10.42  57.74  38  120  962  3744  43940  3  90
+301  59359  59296  30102920  1  7  3132  53482  682  4141  11.75  71.35  88  199  963  3744  44000  3  90
+
+内存判定：HEAP_FLOOR=61440B（internal_free 与 internal_min），HEAP_NET_FLOOR=-8192B（首末差），HEAP_JITTER=2048B（连续 3 采样非增累计下滑容差）
+占空比判定：基线 9.44%（阶段 2 静默渲染），上限 2× = 18.88%（流式 render_mean_us / 块预算 5804µs）
+池检查：SEQ↔PLAY ×5 往返 pool_free 44032 -> 43936（Δ=-96B，单次最小 -72B，容差 ±128B）
+save 窗口：60s，STORE PROJ SAVE 0 + LOAD 0（停走带），xrun 7 -> 7（增量 0 ≤ 16），窗口后 streaming=1
+实测时长 301s / 请求 300s
+断言失败 0 项
+判定问题：
+- 内部堆低于 60KB：min=59355
+- 自启动最低内部堆低于 60KB：min=59296
+- save 窗口前 xrun 基线非 0：7
+VERDICT: FAIL

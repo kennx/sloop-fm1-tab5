@@ -1,0 +1,46 @@
+# 池悬崖 panic 的符号化（Core 0 首例，task-5-poolcliff-repro.log 之外的首次现场）
+# addr2line -f -C -e firmware/build/sloop_fm1_tab5.elf <PC/RA 链>
+get_next_line
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:1197
+lv_draw_mask_radius
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:869
+lv_draw_sw_mask_apply
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:101
+lv_draw_sw_arc
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_arc.c:185 (discriminator 1)
+lv_draw_mask_radius
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:803
+lv_draw_mask_angle
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:664
+lv_draw_mask_line
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw_mask.c:343
+dispatch
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw.c:352
+execute_drawing
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/sw/lv_draw_sw.c:436
+lv_draw_arc
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/lv_draw_arc.c:86
+lv_draw_finalize_task_creation
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/lv_draw.c:198
+lv_draw_dispatch
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/lv_draw.c:227 (discriminator 1)
+lv_draw_dispatch_layer
+/home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl/src/draw/lv_draw.c:301
+knob_draw
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/src/knob.c:73
+
+# 现场摘录（首次崩溃 task-5-params-crash 现场，串口原始）
+131:UI page=fx (5)
+428:I (175814) sloop_ui: 页面构建 page=STEP(2) 池增量=21868B 预算=23040B 池剩余=2196B
+429:UI page=step (2)
+431:UI page=fx (5)
+432:sloop>  Guru Meditation Error: Core  1 panic'ed (Load access fault). Exception was unhandled.
+435:MEPC    : 0x40059fe4  RA      : 0x4005ab9e  SP      : 0x4ff9d9c0  GP      : 0x4ff17180  
+443:MSTATUS : 0x00011880  MTVEC   : 0x4ff00003  MCAUSE  : 0x00000005  MTVAL   : 0x00000076  
+
+# 第二次（故意复现）同一位置：
+131:UI page=fx (5)
+428:I (175814) sloop_ui: 页面构建 page=STEP(2) 池增量=21868B 预算=23040B 池剩余=2196B
+429:UI page=step (2)
+431:UI page=fx (5)
+432:sloop>  Guru Meditation Error: Core  1 panic'ed (Load access fault). Exception was unhandled.

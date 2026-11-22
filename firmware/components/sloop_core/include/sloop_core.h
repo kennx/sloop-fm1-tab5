@@ -25,7 +25,24 @@
 esp_err_t sloop_core_init(void);
 esp_err_t sloop_core_status(void);
 void sloop_core_render(int32_t *block, uint32_t frames);
+/* 换引擎 + 预置**并载入参数**（上游 ui.c 的 set_engine/set_engine_of + apply_preset_to）：
+ * 引擎变 → 锁还原、引擎默认值、预置 0；预置变 → 预置的整份声音写入 p[]（混音/图案/
+ * 调性等 param_kept 参数保留）。引擎与预置都不变时不动参数（与上游 UI 的
+ * set_engine/apply_preset 只在动作时调用的口径一致）。音频路径读 p[]，所以这是
+ * 「换预置 = 换声音」的唯一入口。对鼓轨/越界/诊断冻结直接丢弃。不得在 ISR 调用。 */
 void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset);
+/* 同上的分步入口（联动模式与 UI 换音用）：对指定轨应用预置 / 换引擎（换引擎后预置 0）。
+ * 引擎锁内执行；越界、冻结与鼓轨丢弃（鼓轨没有引擎与预置）。不得在 ISR 调用。 */
+void sloop_core_apply_preset(uint32_t track, uint32_t preset);
+void sloop_core_set_engine(uint32_t track, uint32_t engine);
+/* 预置预览（只读、无副作用）：以该轨**当前 p[]** 为基底，算出「引擎 engine 的预置
+ * preset 应用后」的 71 个参数值（与 sloop_core_track 的写值同一实现 preset_values），
+ * 不 sound_change、不 panic、不碰 FM6 状态。console `ENG PRESET` 用它给出可机器比对的
+ * 期望向量。返回 false = 诊断冻结（此时 out 全零）或参数越界（track/engine 越界、
+ * out == NULL）；console 据此打印 ERR 而不是零向量。鼓轨返回当前 p[]（apply 对鼓轨
+ * 同样不改值）。参数锁在生效时 set_engine_of 会先 locks_restore，此时预览只作参考。 */
+bool sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset,
+                               int16_t out[SLOOP_CORE_P_COUNT]);
 void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);
@@ -42,12 +59,17 @@ int sloop_core_selftest(const char *case_name);
  * 鼓轨（track 3）的步内容由 dstep[] 聚合给出，step[3] 恒为零（上游 step_t 与
  * dstep_t 是同一 union，按 step_t 解读鼓步无意义）。鼓轨的 trk[3].engine/preset
  * 同样无意义（上游对鼓轨报 NENGINES，它没有引擎与预设）；这里保留上游原值、
- * 不置零，显示层按轨别决定是否使用。 */
+ * 不置零，显示层按轨别决定是否使用。trk[k].voices 是引擎真值：该轨当前 active 的
+ * 话音数（note-on 后 >0、panic/淡出结束后归 0），用于断言音符是否被释放。 */
 typedef struct {
     bool playing;
     uint16_t bpm;
     uint8_t selected_track;
-    struct { uint8_t engine, preset, level, mute, armed, solo; uint8_t len, div; } trk[4];
+    struct {
+        uint8_t engine, preset, level, mute, armed, solo;
+        uint8_t len, div;
+        uint8_t voices;
+    } trk[4];
     struct { uint8_t n; uint8_t note[4]; uint8_t vel; uint8_t time; uint8_t flags; } step[4][16];
     struct { uint8_t on; uint8_t lvl; uint8_t rat; } dstep[16];
     uint8_t step_pos[4];

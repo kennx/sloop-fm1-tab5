@@ -1,0 +1,108 @@
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+### ENG MEM
+ENG MEM
+ENG MEM internal_free=104383 internal_min=93012 psram_free=30106764 psram_min=30106764
+sloop>
+### STORE STATS
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x40170000 objects=1 faults=0 armed=0
+sloop>
+### STORE PROJ LIST
+STORE PROJ LIST
+PROJ 0 USED hash=CCB3B3D7
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>
+### STORE PROJ HASH 0
+STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>
+### STORE LIVEHASH
+STORE LIVEHASH
+LIVEHASH 5FB1EDD1
+sloop>
+### STORE PROJ SAVE 9
+STORE PROJ SAVE 9
+STORE ERR invalid
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+### STORE PROJ ERASE 2
+STORE PROJ ERASE 2
+PROJ 2 ERASED
+sloop>
+### STORE PROJ HASH 2
+STORE PROJ HASH 2
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+### STORE PROJ LOAD 2
+STORE PROJ LOAD 2
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+### STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>
+### ENG AUDIO OFF
+ENG AUDIO OFF
+I (6403) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>
+### ENG SELFTEST preset/ANALOG/00_808_BOOM
+ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (6503) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (7113) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>
+### ENG AUDIO ON
+ENG AUDIO ON
+I (7213) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>
+### STORE PROJ HASH 0
+STORE PROJ HASH 0
+PROJ 0 HASH=CCB3B3D7
+sloop>
+### ENG TRIG synth 0 60
+ENG TRIG synth 0 60
+ENG TRIG synth track=0 note=60 duration_ms=500 xrun=0 OK
+sloop>
+### STORE PROJ LOAD 0
+STORE PROJ LOAD 0
+PROJ 0 LOADED hash=CCB3B3D7
+sloop>
+### STORE LIVEHASH
+STORE LIVEHASH
+LIVEHASH CCB3B3D7
+sloop>
+### STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=100 playing=0 window_bank=0 window_start=0 window_len=16
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=100 swing=0
+sloop>
+### ENG AUDIO OFF
+ENG AUDIO OFF
+I (8283) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>
+### ENG MEM
+ENG MEM
+ENG MEM internal_free=107819 internal_min=92932 psram_free=30106764 psram_min=30041224
+sloop>

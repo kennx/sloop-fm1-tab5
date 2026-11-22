@@ -1,5 +1,13 @@
+# sloop-fm1-tab5 分区表（16MB flash，ADR-009 §1）
+#
+# sloopstore（data/0x99 @0x810000, 0x68000）：承载上游 flash map 的 SLOOP 数据区
+# [0x97000, 0xFF000)，分区内偏移 = 上游 flash 偏移 − 0x97000。该分区不得移动/缩放：
+# 上层 STORE 偏移与 ST_XIP_PTR 均以上游逻辑偏移为参数。
+# storage（FAT @0x878000, 0x788000）：留给非 SLOOP 资产，P4-B–E 不承载 SLOOP 数据。
+#
 # Name,   Type, SubType, Offset,   Size,     Flags
-nvs,      data, nvs,     0x9000,   0x6000,
-phy_init, data, phy,     0xF000,   0x1000,
-factory,  app,  factory, 0x10000,  0x800000,
-storage,  data, fat,     0x810000, 0x7F0000,
+nvs,        data, nvs,     0x9000,   0x6000,
+phy_init,   data, phy,     0xF000,   0x1000,
+factory,    app,  factory, 0x10000,  0x800000,
+sloopstore, data, 0x99,    0x810000, 0x68000,
+storage,    data, fat,     0x878000, 0x788000,

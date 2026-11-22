@@ -8,10 +8,12 @@
 #include <unistd.h>
 
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sloop_hal.h"
+#include "sloop_store.h"
 
 #include "golden.inc"
 
@@ -385,6 +387,30 @@ esp_err_t sloop_core_init(void)
         }
     }
     core_status = selftest_snapshot_init();
+    if (core_status != ESP_OK) return core_status;
+    /* 存储（P4-B，ADR-009 §5 启动顺序）：**工厂态快照之后**才做 PSRAM 槽/暂存 + 分区
+     * mmap + 四槽开机 fetch——顺序不可倒（否则自检基线会变成用户工程）。失败只告警：
+     * 引擎/音频照常，console STORE 报 no_storage、UI 显示 NO STORAGE。 */
+    esp_err_t store_ret = sloop_store_init();
+    if (store_ret != ESP_OK) {
+        ESP_LOGW("sloop_core", "存储初始化失败: %s（继续无存储运行）", esp_err_to_name(store_ret));
+    } else {
+        /* 上电回到上次离开的地方（上游 autosave_resume，ADR-009 §5）：必须在
+         * selftest_snapshot_init() 之后——工厂态基线已拍完，`ENG SELFTEST` 的 golden
+         * 不受用户工程影响。失败（无 autosave/无存储）只意味着从工厂态开始。 */
+        esp_err_t resume_ret = sloop_store_autosave_resume();
+        if (resume_ret != ESP_OK && resume_ret != ESP_ERR_NOT_FOUND) {
+            ESP_LOGW("sloop_core", "autosave 恢复失败: %s（从工厂态开始）",
+                     esp_err_to_name(resume_ret));
+        }
+        /* 1s 周期任务必须在 resume 之后才起跑（先起任务的那一拍会把工厂态写进 autosave，
+         * 覆盖刚读回的工作工程）。无 autosave（NOT_FOUND）也要起任务——那是新机的正常态。 */
+        esp_err_t tick_ret = sloop_store_autosave_start();
+        if (tick_ret != ESP_OK) {
+            ESP_LOGW("sloop_core", "autosave 任务启动失败: %s（自动存档停摆）",
+                     esp_err_to_name(tick_ret));
+        }
+    }
     return core_status;
 }
 
@@ -405,17 +431,6 @@ void sloop_core_render(int32_t *block, uint32_t frames)
         uint32_t n = frames - b < CTL ? frames - b : CTL;
         mix_block(block + 2u * b, n);
     }
-    engine_unlock();
-}
-
-void sloop_core_track(uint32_t k, uint32_t engine, uint32_t preset)
-{
-    if (k >= NPART || engine >= NENGINES || s_frozen) return;
-    engine_lock();
-    track_t *t = &trk[k];
-    if (t->eng_req != engine || t->preset != preset) sound_change(t);
-    t->eng_req = (uint8_t)engine;
-    t->preset = (uint8_t)preset;
     engine_unlock();
 }
 
@@ -481,6 +496,8 @@ static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
         out->trk[k].solo = (song.solo >> k) & 1u;
         out->trk[k].len = (uint8_t)len;
         out->trk[k].div = (uint8_t)clamp(t->p[P_SDIV], TP[P_SDIV].min, TP[P_SDIV].max);
+        out->trk[k].voices = 0;
+        for (uint32_t i = 0; i < NVOICE; i++) out->trk[k].voices += t->v[i].active != 0;
         out->step_pos[k] = (uint8_t)(song.playing ? t->seq_idx % len : 0u);
     }
     for (uint32_t k = 0; k < NPART; k++) {
@@ -867,3 +884,7 @@ int sloop_core_selftest(const char *case_name)
     if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     return pass ? 0 : 1;
 }
+
+/* 存储层（P4-B）：上游 storage.c / project.c 的格式层与工程 A–D 双层存读，必须在
+ * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
+#include "store_tab5.c"

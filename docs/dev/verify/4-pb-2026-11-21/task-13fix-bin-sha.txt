@@ -1,0 +1,13 @@
+== Task 13 评审修复轮：受测镜像
+
+受测（= 已烧录、跑完 store ×2 / params / nav / SELFTEST / host 的镜像）
+  sha256 de7e20cf52b731a4ca4e570b0a15a7608e1c70b2bb67a723fbcf5d07b1917221
+  文件   firmware/build/sloop_fm1_tab5.bin
+  大小   1,589,776 B（0x184210；分区余量 81%；原始轮为 0x184130，+0xE0 = 224B：
+         R36 的锁定页判定 + NOT FM6 状态 + 状态文本的未建守卫）
+  App version: e346ffb-dirty（boot log）
+  证据: task-13fix-boot-log.txt
+
+构建：`scripts/build.sh` ×2 rc=0、编译警告 0、0 kconfig 提示（task-13fix-build1/2.log）；
+esptool 三段 `Hash of data verified`（task-13fix-flash.log）。烧录后只提交文档/证据，
+固件源码不再变化。

@@ -120,6 +120,13 @@ static uint32_t dim_color(uint32_t c)
 
 static void styles_init(void)
 {
+    /* 只初始化一次（R34/ADR-008 §3）：组作用域生命周期会反复销毁/重建本页，
+     * `lv_style_init` 是 memzero——重跑会丢掉静态样式已分配的 props 数组，每次跨组
+     * 往返都漏进 LVGL 池（与 page_tracks.c 同一纪律）。 */
+    static bool done;
+    if (done) return;
+    done = true;
+
     cell_shape_style(&s_st_cell_off, UI_PANEL_HI);
     cell_shape_style(&s_st_cell_off_dim, dim_color(UI_PANEL_HI));
     for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {

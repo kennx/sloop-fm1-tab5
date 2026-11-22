@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "sloop_state.h"
+#include "sloop_store.h" /* SLOOP_STORE_PROJECTS/PRESETS/BANK_SLOTS（槽号越界口径） */
 #include "stub_engine.h"
 
 static int g_failures;
@@ -368,7 +369,7 @@ static void case_copy_and_sync(void)
     state_set_page(2);
     state_get_copy(&s);
     check_ll("page", s.page, 2);
-    state_set_page(9);
+    state_set_page(APP_STATE_PAGES);
     state_get_copy(&s);
     check_ll("page 越界忽略", s.page, 2);
 
@@ -874,6 +875,204 @@ static void case_bounds(void)
     state_apply(NULL);
 }
 
+/* ⑫ 工程存储命令（P4-B Task 10）：返回码 → store_status 映射；槽号越界不调 API、
+ * 不改 status；成功即整份刷新投影（一次窗口快照 + 一次参数回读 = 一次 sync 口径）。 */
+static void case_store_project(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.store_ret = ESP_OK;
+    apply(CMD_PROJECT_SAVE, 0, 0, 0);
+    check_ll("PROJ SAVE 调 API ×1", g_stub.store_calls, 1);
+    check_ll("PROJ SAVE 槽号", g_stub.store_last_slot, 0);
+    check_ll("PROJ SAVE 走 save 入口", g_stub.store_last_op, 0);
+    state_get_copy(&s);
+    check_ll("成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+
+    g_stub.store_ret = ESP_ERR_NOT_FOUND;
+    apply(CMD_PROJECT_LOAD, 2, 0, 0);
+    check_ll("PROJ LOAD 槽号", g_stub.store_last_slot, 2);
+    check_ll("PROJ LOAD 走 load 入口", g_stub.store_last_op, 1);
+    state_get_copy(&s);
+    check_ll("空槽 → empty", s.store_status, APP_STORE_STATUS_EMPTY);
+
+    g_stub.store_ret = ESP_ERR_INVALID_STATE;
+    apply(CMD_PROJECT_ERASE, 3, 0, 0);
+    check_ll("PROJ ERASE 槽号", g_stub.store_last_slot, 3);
+    check_ll("PROJ ERASE 走 erase 入口", g_stub.store_last_op, 2);
+    state_get_copy(&s);
+    check_ll("走带中 → playing", s.store_status, APP_STORE_STATUS_PLAYING);
+
+    /* 无效格式（对象存在但 any-known-format 都不匹配）与擦写失败都归 error */
+    g_stub.store_ret = ESP_ERR_INVALID_ARG;
+    apply(CMD_PROJECT_LOAD, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("无效格式 → error", s.store_status, APP_STORE_STATUS_ERROR);
+
+    g_stub.store_ret = ESP_ERR_NOT_FINISHED;
+    apply(CMD_PROJECT_SAVE, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("擦写失败 → error", s.store_status, APP_STORE_STATUS_ERROR);
+
+    /* 槽号越界：不调 API、不改 status（先置一个可识别的 ok） */
+    g_stub.store_ret = ESP_OK;
+    apply(CMD_PROJECT_SAVE, 0, 0, 0);
+    uint32_t calls0 = g_stub.store_calls;
+    apply(CMD_PROJECT_SAVE, SLOOP_STORE_PROJECTS, 0, 0);
+    apply(CMD_PROJECT_LOAD, SLOOP_STORE_PROJECTS + 7u, 0, 0);
+    apply(CMD_PROJECT_ERASE, 99, 0, 0);
+    check_ll("越界槽不调 API", g_stub.store_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("越界槽不改 status", s.store_status, APP_STORE_STATUS_OK);
+
+    /* 失败不刷新投影、引擎真值下一拍由 sync 采纳 */
+    g_stub.snap.bpm = 111;
+    uint32_t rw0 = g_stub.read_window_calls;
+    g_stub.store_ret = ESP_ERR_NOT_FOUND;
+    apply(CMD_PROJECT_LOAD, 1, 0, 0);
+    check_ll("失败不刷新投影", g_stub.read_window_calls - rw0, 0);
+    state_get_copy(&s);
+    check_ll("失败不采纳引擎值", s.core.bpm, 90);
+
+    /* 成功 LOAD：整份刷新（窗口快照 ×1 + 参数 ×1），投影取引擎真值 */
+    stub_engine_set_param(0, 0, 77);
+    g_stub.store_ret = ESP_OK;
+    rw0 = g_stub.read_window_calls;
+    uint32_t rp0 = g_stub.read_params_calls;
+    apply(CMD_PROJECT_LOAD, 0, 0, 0);
+    check_ll("LOAD 成功刷新一次（窗口快照）", g_stub.read_window_calls - rw0, 1);
+    check_ll("LOAD 成功刷新一次（参数）", g_stub.read_params_calls - rp0, 1);
+    state_get_copy(&s);
+    check_ll("LOAD 后投影 bpm=引擎", s.core.bpm, 111);
+    check_ll("LOAD 后投影 p[0]=引擎", s.p[0], 77);
+}
+
+/* ⑬ 用户预置命令：槽号/轨号透传；鼓轨（INVALID_ARG 且轨为鼓轨）→ drum，其余
+ * INVALID_ARG → error；越界槽/轨不调 API、不改 status；LOAD 成功一次整份刷新。 */
+static void case_store_preset(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* STORE 目标 = 选中轨：鼓轨时 API 回 INVALID_ARG ⇒ drum */
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    g_stub.store_ret = ESP_ERR_INVALID_ARG;
+    apply(CMD_PRESET_STORE, 0, 0, 0);
+    check_ll("PRESET STORE 槽号", g_stub.store_last_slot, 0);
+    check_ll("PRESET STORE 走 store 入口", g_stub.store_last_op, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨 STORE → drum", s.store_status, APP_STORE_STATUS_DRUM);
+
+    /* 非鼓轨的同码 ⇒ error（drum 只看轨别，不看返回码本身） */
+    apply(CMD_SET_TRACK, 0, 0, 0);
+    apply(CMD_PRESET_STORE, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("一般无效参数 → error", s.store_status, APP_STORE_STATUS_ERROR);
+
+    /* LOAD 的轨号来自 b：b=3（鼓轨）⇒ drum；b 原样透传 */
+    g_stub.store_ret = ESP_ERR_INVALID_ARG;
+    apply(CMD_PRESET_LOAD, 2, 3, 0);
+    check_ll("PRESET LOAD 槽号", g_stub.store_last_slot, 2);
+    check_ll("PRESET LOAD 轨号透传", g_stub.store_last_track, 3);
+    check_ll("PRESET LOAD 走 load 入口", g_stub.store_last_op, 1);
+    state_get_copy(&s);
+    check_ll("LOAD 鼓轨 → drum", s.store_status, APP_STORE_STATUS_DRUM);
+
+    g_stub.store_ret = ESP_OK;
+    apply(CMD_PRESET_ERASE, 5, 0, 0);
+    check_ll("PRESET ERASE 槽号", g_stub.store_last_slot, 5);
+    check_ll("PRESET ERASE 走 erase 入口", g_stub.store_last_op, 2);
+    state_get_copy(&s);
+    check_ll("ERASE 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+
+    /* 越界：槽号 ≥ 32、LOAD 轨号 ≥ 4 → 不调 API、不改 status */
+    uint32_t calls0 = g_stub.store_calls;
+    apply(CMD_PRESET_STORE, SLOOP_STORE_PRESETS, 0, 0);
+    apply(CMD_PRESET_LOAD, 0, APP_STATE_TRACKS, 0);
+    apply(CMD_PRESET_ERASE, 99, 0, 0);
+    check_ll("越界槽/轨不调 API", g_stub.store_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_OK);
+
+    /* 成功 LOAD：一次整份刷新（窗口快照 ×1 + 参数 ×1） */
+    g_stub.snap.bpm = 123;
+    uint32_t rw0 = g_stub.read_window_calls;
+    uint32_t rp0 = g_stub.read_params_calls;
+    apply(CMD_PRESET_LOAD, 3, 1, 0);
+    check_ll("PRESET LOAD 刷新一次（窗口快照）", g_stub.read_window_calls - rw0, 1);
+    check_ll("PRESET LOAD 刷新一次（参数）", g_stub.read_params_calls - rp0, 1);
+    state_get_copy(&s);
+    check_ll("PRESET LOAD 后投影取引擎真值", s.core.bpm, 123);
+}
+
+/* ⑭ FM6 银行命令：PUT 取**选中轨**的 live patch（bank_current）后整槽写；
+ * 选中鼓轨没有 patch ⇒ drum 且不调存储 API；越界槽不调 API、不改 status。 */
+static void case_store_bank(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_TRACK, 1, 0, 0);
+    g_stub.store_ret = ESP_OK;
+    apply(CMD_BANK_PUT, 4, 0, 0);
+    check_ll("BANK PUT 调 current ×1", g_stub.bank_current_calls, 1);
+    check_ll("BANK PUT 调 put ×1", g_stub.bank_put_calls, 1);
+    check_ll("BANK PUT 槽号", g_stub.store_last_slot, 4);
+    check_ll("BANK PUT 走 put 入口", g_stub.store_last_op, 0);
+    check_ll("BANK PUT 用选中轨的 patch", g_stub.last_bank_put[0], 0xA1);
+    state_get_copy(&s);
+    check_ll("BANK PUT 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+
+    apply(CMD_BANK_ERASE, 26, 0, 0);
+    check_ll("BANK ERASE 槽号", g_stub.store_last_slot, 26);
+    check_ll("BANK ERASE 走 erase 入口", g_stub.store_last_op, 2);
+    state_get_copy(&s);
+    check_ll("BANK ERASE 成功 → ok", s.store_status, APP_STORE_STATUS_OK);
+
+    /* 选中鼓轨：fm6_patch 不存在 ⇒ drum（不调 current/put） */
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    uint32_t cur0 = g_stub.bank_current_calls;
+    uint32_t put0 = g_stub.bank_put_calls;
+    uint32_t calls0 = g_stub.store_calls;
+    apply(CMD_BANK_PUT, 0, 0, 0);
+    check_ll("鼓轨 PUT 不调 current", g_stub.bank_current_calls - cur0, 0);
+    check_ll("鼓轨 PUT 不调存储 API", g_stub.store_calls - calls0, 0);
+    check_ll("鼓轨 PUT 不调 put", g_stub.bank_put_calls - put0, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨 PUT → drum", s.store_status, APP_STORE_STATUS_DRUM);
+
+    /* 越界槽（≥27）：不调 API、不改 status */
+    apply(CMD_SET_TRACK, 0, 0, 0);
+    calls0 = g_stub.store_calls;
+    apply(CMD_BANK_PUT, SLOOP_STORE_BANK_SLOTS, 0, 0);
+    apply(CMD_BANK_ERASE, SLOOP_STORE_BANK_SLOTS + 5u, 0, 0);
+    check_ll("越界槽不调 API", g_stub.store_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
+}
+
+/* ⑮ 页 id 扩容（P4-B Task 10 Step 3）：FILE 组两页追加在参数页之后，容量 11。 */
+static void case_page_ids(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 11);
+    check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
+    check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
+    state_set_page(APP_PAGE_PRESETS);
+    state_get_copy(&s);
+    check_ll("新页可设", s.page, APP_PAGE_PRESETS);
+    state_set_page(APP_STATE_PAGES);
+    state_get_copy(&s);
+    check_ll("越界页仍被拒", s.page, APP_PAGE_PRESETS);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -891,6 +1090,10 @@ int main(void)
     run("state_get_copy 反映 cmd 与 sync", case_copy_and_sync);
     run("全局参数 CMD_SET_GLOBAL 与投影", case_set_global);
     run("越界参数忽略", case_bounds);
+    run("工程存储命令：返回码映射/刷新/越界", case_store_project);
+    run("用户预置命令：鼓轨区分/轨号透传/越界", case_store_preset);
+    run("FM6 银行命令：选中轨 patch/鼓轨/越界", case_store_bank);
+    run("页 id 扩容（11 页）", case_page_ids);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

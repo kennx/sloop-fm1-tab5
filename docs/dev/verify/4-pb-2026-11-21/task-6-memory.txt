@@ -1,0 +1,31 @@
+# Task 6 内存/段归属证据（ADR-009 §5/§7）
+
+## 1) 新增静态符号（selftest.c.obj）：自动存档状态必须在 .noinit
+（本 TU 的 .bss 在 ENG SELFTEST 的 SURROUND 快照窗口内，restore 会清零；清零后第一拍就会把工厂态写回 autosave）
+00000024 l     O .noinit	00000004 s_init_magic
+00000018 l     O .noinit	00000004 s_auto
+00000001 l     O .noinit	00000001 s_auto_on
+00000000 l     O .noinit	00000001 s_busy
+00000014 l     O .noinit	00000004 s_auto_hash
+00000010 l     O .noinit	00000004 s_auto_ms
+0000000c l     O .noinit	00000004 s_auto_checked
+00000008 l     O .noinit	00000004 s_auto_writes
+00000004 l     O .noinit	00000004 s_last_input_ms
+00000020 l     O .noinit	00000004 s_store_lock
+
+## 2) 链接后 .noinit 与自检快照 bss 区间（不重叠 = restore 不回滚）
+4ff1b130 b s_last_input_ms
+4ff1b140 b s_auto_hash
+4ff1b144 b s_auto
+4ff1b14c b s_store_lock
+4ff50bf4 A _sloop_selftest_bss_start
+4ff51070 b main_scratch
+4ff9c650 A _sloop_selftest_bss_end
+
+## 3) PSRAM 侧实体（启动日志已打印：auto=0x48349af4(3816B)，与 slots/stage/v3 同在 0x48xxxxxx = PSRAM）
+## 4) 1s 任务：栈 3072B（内部 RAM，默认分配能力）、优先级 1
+368:#define AUTOSAVE_TASK_STACK 3072
+369:#define AUTOSAVE_TASK_PRIO  1
+466:    if (xTaskCreate(autosave_task, "sloop_autosave", AUTOSAVE_TASK_STACK, NULL, AUTOSAVE_TASK_PRIO,
+
+## 5) 内部堆门禁（ENG MEM）：开机 100,835B / 全页+soak 后 100,355B ≥ 61,440B

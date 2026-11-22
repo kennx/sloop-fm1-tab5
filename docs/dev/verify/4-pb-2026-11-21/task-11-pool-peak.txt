@@ -1,0 +1,37 @@
+### 1) UI step（跨组 EDIT→SEQ，STEP 首建）
+I (244777) sloop_ui: 页面构建 page=STEP(2) 池增量=21748B 预算=23040B 池剩余=23804B 耗时=29ms
+I (244777) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=33ms
+### 2) UI transport（SEQ 两页全建）
+I (246757) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=3728B 预算=4608B 池剩余=23240B 耗时=7ms
+I (246757) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=10ms
+### 3) UI MEM（SEQ 全建稳态）
+UI MEM pool_used=36724 pool_free=23376 pool_total=60100 registered=9 built=2 failed=0 sum_est=55296 reserve=4804 group=SEQ
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=11
+UI MEM GROUP SEQ built=2 sum_est=27648 sum_delta=25476 build_ms=10
+### 4) UI global（跨组 SEQ→EDIT，GLOBAL 首建：峰值在销毁 SEQ 之前）
+I (249757) sloop_ui: 页面构建 page=GLOBAL(4) 池增量=2848B 预算=3584B 池剩余=20528B 耗时=5ms
+I (249757) sloop_ui: 切页 page=GLOBAL(4) 组=EDIT 跨组耗时=10ms
+### 5) UI MEM（EDIT 稳态）
+UI MEM pool_used=17340 pool_free=45072 pool_total=62412 registered=9 built=1 failed=0 sum_est=55296 reserve=7116 group=EDIT
+UI MEM GROUP EDIT built=1 sum_est=17408 sum_delta=2848 build_ms=10
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+### 6) EDIT 五页全建
+I (252757) sloop_ui: 页面构建 page=FX(5) 池增量=2824B 预算=3584B 池剩余=42248B 耗时=5ms
+I (252757) sloop_ui: 切页 page=FX(5) 组=EDIT 组内首建耗时=8ms
+I (254057) sloop_ui: 页面构建 page=ANALOG(6) 池增量=2856B 预算=3584B 池剩余=39436B 耗时=5ms
+I (254057) sloop_ui: 切页 page=ANALOG(6) 组=EDIT 组内首建耗时=7ms
+I (255357) sloop_ui: 页面构建 page=FM6(7) 池增量=2868B 预算=3584B 池剩余=36600B 耗时=5ms
+I (255357) sloop_ui: 切页 page=FM6(7) 组=EDIT 组内首建耗时=7ms
+I (256657) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=2420B 预算=3072B 池剩余=34200B 耗时=4ms
+I (256657) sloop_ui: 切页 page=SAMPLE(8) 组=EDIT 组内首建耗时=7ms
+### 7) UI MEM（EDIT 全建稳态）
+UI MEM pool_used=26980 pool_free=34212 pool_total=61192 registered=9 built=5 failed=0 sum_est=55296 reserve=5896 group=EDIT
+UI MEM GROUP EDIT built=5 sum_est=17408 sum_delta=13816 build_ms=7
+UI MEM GROUP SEQ built=0 sum_est=27648 sum_delta=0 build_ms=10
+### 8) UI step（EDIT 全建 → SEQ 首建 STEP：最坏过渡）
+I (259487) sloop_ui: 页面构建 page=STEP(2) 池增量=21856B 预算=23040B 池剩余=12356B 耗时=30ms
+I (259487) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+### 9) UI MEM（SEQ 稳态）
+UI MEM pool_used=33832 pool_free=26392 pool_total=60224 registered=9 built=1 failed=0 sum_est=55296 reserve=4928 group=SEQ
+UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=7
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=21856 build_ms=35
