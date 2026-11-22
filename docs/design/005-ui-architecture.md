@@ -420,7 +420,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   FROZEN/ERROR` 并置红字。**COUNT+ 的 seed 规则**：只把结构非法的槽（`scene>3` /
   `bars==0` / `bars>64`）写成 `A4`；合法 tail 原样保留——`COUNT-` 不抹 arrangement 里的
   项，`COUNT+` 放回时不得覆盖已持久化的编辑（设备断言：8 项、项 5=`C9` → COUNT-4 →
-  COUNT+5 后项 5 仍是 `C9`、项 6 才是新 seed 的 `A4`）。保留 `A4` 的理由：它是上游
+  COUNT+5 后项 5–8 仍是原值、只有从未初始化的项 9 才 seed 为 `A4`）。保留 `A4` 的理由：它是上游
   `arr_defaults` 的条目口径（A/4 bars），只用于从未初始化或损坏的槽，不是对合法项的默认覆盖。
 - **chain = SAVE 层 begin/commit**：第一次按 CHAIN = `CMD_CHAIN_BEGIN(选中 section)`
   （立即作为普通 `live_req` 排队、清旧 chain）；链中 tap A–D 卡只进 ≤8 项 UI 临时
