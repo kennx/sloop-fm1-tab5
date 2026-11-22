@@ -11,7 +11,9 @@
  * 数据落在原始分区 sloopstore（ADR-009）。返回码约定：
  *   ESP_OK                 成功
  *   ESP_ERR_NOT_FOUND      槽为空（RAM 槽无效且 flash 无有效副本）
- *   ESP_ERR_INVALID_STATE  走带中（对齐上游 "STOP BEFORE SAVE"）或存储未就绪
+ *   ESP_ERR_INVALID_STATE  走带中（对齐上游 "STOP BEFORE SAVE"）、存储未就绪，或诊断冻结
+ *                          （`ENG FREEZE` / `ENG SELFTEST` 期间）——冻结时所有写/载入
+ *                          入口在改任何状态之前就返回
  *   ESP_ERR_NOT_FINISHED   flash 擦/写/回读校验失败（RAM 槽保留新值，与上游一致）
  *   ESP_ERR_INVALID_ARG    槽号/对象名越界；或 flash 对象存在但 `proj_import` 拒绝
  *                          （任何已知格式都不匹配 ⇒ `STORE ERR invalid`，与空槽的
@@ -32,6 +34,8 @@ typedef struct {
     uint32_t autosave_hash;   /* 最近一次写入（或开机恢复）的工程捕获 hash；0 = 无 */
     uint32_t autosave_writes; /* 本次开机以来的自动存档写入次数 */
     bool autosave_on;         /* 自动存档开关（`STORE AUTO ON|OFF`，默认 ON） */
+    int32_t last_save_xrun;   /* 上一次写动作（save/erase/preset/bank/RAW/autosave）的 xrun 增量 */
+    uint32_t last_save_ms;    /* 上一次写动作的耗时（含擦除 + 写 + 回读校验；spec §5 的 ≤150ms 口径） */
 } sloop_store_stats_t;
 
 /* sloop_core_init 内调用（ADR-009 §5：snapshot → store init → autosave resume）：
@@ -44,7 +48,9 @@ void sloop_store_stats(sloop_store_stats_t *out);
 /* 工程 A–D（0..3）：RAM 槽（PSRAM）+ flash 双层，与上游 project.c 同语义。
  * save = 引擎锁内 capture 到 RAM 槽 → 释放锁 → st_save（擦写期间不持引擎锁）；
  * load = RAM 槽有效则直接用，否则 st_load + proj_import 回填，再引擎锁内 proj_apply；
- * erase = 写入空对象（len=0）+ 清 RAM 槽；hash = project_t.sum（0 = 空/无效）。 */
+ * erase = 槽空则 **不写 flash**、回 ESP_ERR_NOT_FOUND（上游 project_erase 的
+ *         `EMPTY SECTION`：多一次擦写没有意义）；否则写入空对象（len=0）+ 清 RAM 槽；
+ * hash = project_t.sum（0 = 空/无效）。 */
 bool sloop_store_project_used(uint32_t slot);
 uint32_t sloop_store_project_hash(uint32_t slot);
 uint32_t sloop_store_live_hash(void); /* 当前引擎状态的捕获 hash（不写 flash） */
@@ -61,7 +67,8 @@ esp_err_t sloop_store_project_erase(uint32_t slot);
  *             轨 1 的 engine/preset 必须保留工程里的值；
  *   "foreign" 轨 1 的 engine 写 NENGINES+2（本固件没有的引擎）⇒ `proj_foreign_parts`
  *             换回默认引擎+预置（`TRK_DEF[1]`），图案保留。
- * 走带中拒绝（ESP_ERR_INVALID_STATE）；case 名未知 ESP_ERR_INVALID_ARG。 */
+ * 走带中/诊断冻结拒绝（ESP_ERR_INVALID_STATE）；case 名未知 ESP_ERR_INVALID_ARG。
+ * 保存失败时诊断槽 3 的 RAM 缓存一并清空（不把改写过的合成工程留给后续 LOAD）。 */
 typedef struct {
     struct {
         uint8_t engine, preset; /* eng_req / preset（LOAD 之后） */
@@ -75,7 +82,9 @@ esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *
  * （`st_load` → `proj_import`），**不改引擎、不改 RAM 槽**——故它是「旧格式 fixture 被
  * 正确转换」的机器判据，与 `STORE PROJ LOAD`（会 proj_apply）分开。fmt 由对象魔数判定
  * （1/4/5/6）；空槽（无有效副本）ESP_ERR_NOT_FOUND，对象存在但导入失败 ESP_ERR_INVALID_ARG，
- * 槽号越界 ESP_ERR_INVALID_ARG，未就绪 ESP_ERR_INVALID_STATE。`out` 只在成功时写。 */
+ * 槽号越界 ESP_ERR_INVALID_ARG，未就绪 ESP_ERR_INVALID_STATE。`out` 只在成功时写。
+ * **CRC 损坏的对象与空对象同口径**：`st_load` 读不出「头合法 + CRC 对」的副本 ⇒ 回
+ * ESP_ERR_NOT_FOUND（console 的 `STORE ERR empty`），不区分「从未写过」与「写坏了」。 */
 typedef struct {
     uint8_t fmt, sel;        /* 原始格式号；选中轨（格式 1 没有 sel ⇒ 0） */
     int16_t bpm, swing, dust; /* G_BPM / G_SWING / G_DUST（格式 1..3 的 SWING 已按 MPC 缩放） */
@@ -99,7 +108,8 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
  *   append(..)  —— 累计收到的字节数；超过 begin 声明的 len（或内部计数已越界）⇒
  *                  ESP_ERR_INVALID_SIZE（状态保持，调用方可 ABORT 重来）；
  *                  未 begin ⇒ ESP_ERR_INVALID_ARG；
- *   end(obj,n)  —— 必须已收到恰好 len 字节；`obj` 目前只支持 "project"（→
+ *   end(obj,n)  —— 必须已收到恰好 len 字节；**无论对象名/槽号是否合法，END 都退出上传态**
+ *                  （错误后重试必须重新 BEGIN）；`obj` 目前只支持 "project"（→
  *                  OBJ_PROJECT0 + slot，slot 0..3，工程槽的 RAM 缓存按开机 fetch 的语义
  *                  重新 `proj_import`，导入失败则槽无效 ⇒ 之后 LOAD 走 flash 并回
  *                  invalid）；**只写请求的那一个对象**；走带中拒绝 =

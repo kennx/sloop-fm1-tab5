@@ -22,7 +22,7 @@ idf_component_register(
     SRCS "src/selftest.c"
     INCLUDE_DIRS "include"
     LDFRAGMENTS "linker.lf"
-    PRIV_REQUIRES sloop_hal_tab5 heap
+    PRIV_REQUIRES sloop_hal_tab5 heap esp_timer
 )
 
 set_source_files_properties(src/selftest.c PROPERTIES COMPILE_OPTIONS "-Wno-format;-msmall-data-limit=0")

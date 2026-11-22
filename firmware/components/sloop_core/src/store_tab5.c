@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -397,6 +398,18 @@ static uint32_t s_auto_writes __attribute__((section(".noinit")));  /* 本次开
 static uint32_t s_last_input_ms __attribute__((section(".noinit"))); /* note_activity 的时间戳 */
 static volatile bool s_auto_on __attribute__((section(".noinit")));
 static volatile bool s_busy __attribute__((section(".noinit"))); /* 有线程持存储锁（tick 的「store busy」） */
+
+/* 上一次写动作（st_save / up_put / fm6_bank_put）的代价：spec §4.4/§5 要求 STORE STATS
+ * 报告每次保存的 xrun 增量与耗时（擦除会关 cache、音频任务停顿，xrun 必然增长）。
+ * .noinit：自检 restore 不回滚，诊断值跨自检保留；冷启动由 init 归零。 */
+static int32_t s_last_xrun __attribute__((section(".noinit")));
+static uint32_t s_last_save_ms __attribute__((section(".noinit")));
+
+static void store_note_write(uint32_t xr0, int64_t us0)
+{
+    s_last_xrun = (int32_t)((int32_t)sloop_hal_audio_xruns() - (int32_t)xr0);
+    s_last_save_ms = (uint32_t)((esp_timer_get_time() - us0) / 1000);
+}
 static TaskHandle_t s_auto_task __attribute__((section(".noinit"))); /* 1s 任务句柄（失败路径读栈余量） */
 
 static void autosave_task(void *arg);
@@ -444,6 +457,8 @@ esp_err_t sloop_store_init(void)
     s_auto_ms = 0;
     s_auto_checked = 0;
     s_auto_writes = 0;
+    s_last_xrun = 0;
+    s_last_save_ms = 0;
     s_last_input_ms = 0;
     s_busy = false;
     s_auto_task = NULL;
@@ -506,6 +521,8 @@ void sloop_store_stats(sloop_store_stats_t *out)
     out->autosave_on = s_auto_on;
     out->autosave_hash = s_auto_hash;
     out->autosave_writes = s_auto_writes;
+    out->last_save_xrun = s_last_xrun;
+    out->last_save_ms = s_last_save_ms;
     /* objects：flash 里能读出「头合法 + payload CRC 对」且**非空提交**（h.len != 0）的工程
      * 对象数——erase 写的是 len=0 的空对象（与上游 st_save(obj,NULL,0) 同语义），不算对象。
      * st_current 借用 st_buf（main_scratch），故与写路径共用存储锁。 */
@@ -546,7 +563,10 @@ esp_err_t sloop_store_project_save(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE; /* 诊断冻结：不做任何状态改动 */
     if (store_playing()) return ESP_ERR_INVALID_STATE;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     engine_lock();
     proj_capture(&proj_slot[slot]);
@@ -554,6 +574,7 @@ esp_err_t sloop_store_project_save(uint32_t slot)
     /* 擦/写 flash 期间不持引擎锁（ADR-009 §3 锁序）；失败时 RAM 槽保留新值（上游语义） */
     int rc = st_save(OBJ_PROJECT0 + slot, &proj_slot[slot], sizeof(project_t));
     store_unlock();
+    store_note_write(xr0, us0);
     if (rc != 0) {
         ESP_LOGE(TAG, "PROJ %u SAVE 失败 rc=%d", (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
@@ -565,6 +586,7 @@ esp_err_t sloop_store_project_load(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE; /* 诊断冻结：LOAD 会改引擎/存储缓存 */
     if (store_playing()) return ESP_ERR_INVALID_STATE;
     store_lock();
     project_t *p = &proj_slot[slot];
@@ -611,12 +633,21 @@ esp_err_t sloop_store_project_erase(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
     store_lock();
-    /* 空对象（len=0）＝编辑器的 restore 留下的空槽；proj_fetch 读作「无工程」 */
+    /* 上游 project_erase：槽本来就空 ⇒ 只提示 EMPTY SECTION、**不写 flash**（省一次
+     * 擦写；也是「擦空槽」的幂等语义）。空槽在 flash 里是 len=0 的空对象。 */
+    if (!proj_ok(&proj_slot[slot])) {
+        store_unlock();
+        return ESP_ERR_NOT_FOUND;
+    }
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     int rc = st_save(OBJ_PROJECT0 + slot, NULL, 0);
     if (rc == 0) memset(&proj_slot[slot], 0, sizeof(project_t));
     store_unlock();
+    store_note_write(xr0, us0);
     if (rc != 0) {
         ESP_LOGE(TAG, "PROJ %u ERASE 失败 rc=%d", (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
@@ -640,6 +671,7 @@ esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *
 {
     if (out == NULL || case_name == NULL) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE; /* 诊断冻结：SYNTH 会写诊断槽 3 */
     if (store_playing()) return ESP_ERR_INVALID_STATE;
     bool fmt1 = strcmp(case_name, "fmt1") == 0;
     bool foreign = strcmp(case_name, "foreign") == 0;
@@ -675,10 +707,19 @@ esp_err_t sloop_store_project_synth(const char *case_name, sloop_store_synth_t *
         p->t[1].step[5].vel = 100;
     }
     p->sum = proj_sum(p);         /* proj_ok 校验 sum：改写后必须重算 */
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     int rc = st_save(OBJ_PROJECT0 + slot, p, sizeof *p);
     if (rc == 0) memset(p, 0, sizeof *p); /* 强制 load 走 flash 回落（st_load + proj_import） */
     store_unlock();
+    store_note_write(xr0, us0);
     if (rc != 0) {
+        /* 失败时 RAM 槽 3 不能留着「改写过的合成工程」：其它 LOAD 会把它当成有效槽
+         * （hash/sum 已重算、内容却是 diagnostic 的），下次读取将读到不存在的东西。
+         * RAM 槽由存储锁串行化（与 LOAD 的回落路径同一把锁）。 */
+        store_lock();
+        memset(&proj_slot[slot], 0, sizeof(project_t));
+        store_unlock();
         ESP_LOGE(TAG, "PROJ %u SYNTH 保存失败 rc=%d", (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
     }
@@ -812,11 +853,18 @@ uint32_t sloop_store_raw_received(void)
 esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
 {
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
     if (!s_raw_on || s_raw_got != s_raw_len || obj == NULL) return ESP_ERR_INVALID_ARG;
-    if (strcmp(obj, "project") != 0 || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    /* END 是上传的终点：**对象名/槽号错误也退出上传态**（否则后续 append 会继续写进
+     * 已声明「结束」的暂存，下一次 END 可能把上一批字节当成本次内容）。 */
     uint32_t len = s_raw_len;
-    s_raw_on = false; /* 无论成败都退出上传态：重试必须重新 BEGIN */
+    s_raw_on = false;
+    s_raw_len = 0;
+    s_raw_got = 0;
+    if (strcmp(obj, "project") != 0 || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     int rc = st_save(OBJ_PROJECT0 + slot, s_stage->raw, len);
     if (rc == 0) {
@@ -825,6 +873,7 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
         if (!proj_import(&proj_slot[slot], &s_stage->raw, (int)len)) memset(&proj_slot[slot], 0, sizeof(project_t));
     }
     store_unlock();
+    store_note_write(xr0, us0);
     if (rc != 0) {
         ESP_LOGE(TAG, "RAW END project %u 失败 rc=%d", (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
@@ -934,7 +983,10 @@ esp_err_t sloop_store_preset_store(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PRESETS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     up_rec_t r;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     up_boot(); /* 写路径也必须重扫：up_put 从当前 XIP 副本起笔，NULL 会抹掉同银行的其它槽 */
     engine_lock();
@@ -953,6 +1005,7 @@ esp_err_t sloop_store_preset_store(uint32_t slot)
     engine_unlock();
     int rc = up_put(slot, &r); /* 擦/写 flash：不持引擎锁 */
     store_unlock();
+    store_note_write(xr0, us0);
     return preset_put_rc(rc, "SAVE", slot);
 }
 
@@ -963,6 +1016,7 @@ esp_err_t sloop_store_preset_load(uint32_t slot, uint32_t track)
 {
     if (slot >= SLOOP_STORE_PRESETS || track >= NTRK) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE; /* 诊断冻结：LOAD 会改引擎 */
     if (is_drum(&trk[track])) {
         ui_message("DRUM TRACK: NO SOUND");
         return ESP_ERR_INVALID_ARG;
@@ -981,7 +1035,10 @@ esp_err_t sloop_store_preset_erase(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PRESETS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     up_boot(); /* 同上：擦除也是「把整银行重写一遍」，必须从当前副本起笔 */
     /* up_put 会清掉引用该槽的轨（trk[i].user）——那部分是引擎状态，先在引擎锁内做，
@@ -992,6 +1049,7 @@ esp_err_t sloop_store_preset_erase(uint32_t slot)
     engine_unlock();
     int rc = up_put(slot, NULL);
     store_unlock();
+    store_note_write(xr0, us0);
     return preset_put_rc(rc, "ERASE", slot);
 }
 
@@ -1073,11 +1131,15 @@ esp_err_t sloop_store_bank_put(uint32_t slot, const uint8_t *packed)
 {
     if (slot >= SLOOP_STORE_BANK_SLOTS || packed == NULL) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     fm6_bank_boot();
     int rc = fm6_bank_put(slot, packed); /* 擦/写 flash：不持引擎锁 */
     store_unlock();
+    store_note_write(xr0, us0);
     return bank_put_rc(rc, "PUT", slot);
 }
 
@@ -1086,11 +1148,15 @@ esp_err_t sloop_store_bank_erase(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_BANK_SLOTS) return ESP_ERR_INVALID_ARG;
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     store_lock();
     fm6_bank_boot(); /* 同上：擦除也是整银行重写，必须从当前副本起笔 */
     int rc = fm6_bank_put(slot, NULL);
     store_unlock();
+    store_note_write(xr0, us0);
     return bank_put_rc(rc, "ERASE", slot);
 }
 
@@ -1160,7 +1226,10 @@ void sloop_store_autosave_tick(uint32_t now_ms)
         return;
     }
     /* 擦/写 flash：不持引擎锁（st_save 自带回读校验，失败时旧副本保持可读） */
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
     int rc = st_save(OBJ_AUTOSAVE, s_auto, sizeof *s_auto);
+    store_note_write(xr0, us0);
     if (rc == 0) {
         s_auto_hash = h;
         s_auto_writes++;
