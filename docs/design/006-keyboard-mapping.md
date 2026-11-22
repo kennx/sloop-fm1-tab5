@@ -27,7 +27,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | 区域 | 键（code） | 功能 |
 |---|---|---|
 | 低八度演奏 | z 0x42、s 0x33、x 0x43、d 0x34、c 0x44、v 0x45、g 0x36、b 0x46、h 0x37、n 0x47、j 0x38、m 0x48、`.`(句点，键名表印 `"."`) 0x49 | C3..C4（基音 48，note-on/off 发 `CMD_NOTE_ON/OFF`，更新 `last_note`）。合成轨不变；**选中鼓轨时改走 16 lane 鼓表**（见下），不回退 track 0 |
-| 高八度演奏 | q 0x21、2 0x02、w 0x22、3 0x03、e 0x23、r 0x24、5 0x05、t 0x25、6 0x06、y 0x26、7 0x07、u 0x27 | C4..B4（基音 +12）；鼓轨时 q w e r t y u i 是 lane 8..15 的鼓键，2/3/5/6/7 忽略 |
+| 高八度演奏 | q 0x21、2 0x02、w 0x22、3 0x03、e 0x23、r 0x24、5 0x05、t 0x25、6 0x06、y 0x26、7 0x07、u 0x27、i 0x28 | C4..C5（基音 +12，i 为半音 24）；鼓轨时 q w e r t y u i 是 lane 8..15 的鼓键，2/3/5/6/7 忽略。**i 0x28 的绑定是 Task 12 补的**：`input_map.h` 的 16 lane 表一直含 0x28，但 `input.c` 的绑定表此前止于 u ⇒ 物理按 i 既不发声也不触发 lane 15（只经 `SEQ HIT 15` 可达） |
 | **鼓 lane（选中鼓轨，P4-C Task 6）** | 低行白键 z 0x42、x 0x43、c 0x44、v 0x45、b 0x46、n 0x47、m 0x48、`.` 0x49 → lane 0..7；高行白键 q 0x21、w 0x22、e 0x23、r 0x24、t 0x25、y 0x26、u 0x27、i 0x28 → lane 8..15 | down = `CMD_DRUM_HIT{a=lane,v=100}`（上游 `drum_input()/rec_hit()` 同一路径，实时录音写入鼓步）；up = `CMD_DRUM_HIT{a=lane,v=0}`（velocity 0 = 松开，结束自由录音的鼓音符段，上游 `KS_DRUM` key-up 口径）。其它演奏键在鼓轨**忽略**（不回落合成轨 0）；键表见 `src/input_map.h`，host 单测覆盖 16 lane |
 | 层（按住） | Sym 0x30=FX；Aa 0x31=EDIT；Ctrl 0x40=SEL；Alt 0x41=GLO | 层键 down/up 置/清 `layer_held` 位（`APP_LAYER_*`） |
 | FX 层 | Sym + 任意键 | MVP 无功能（只置位 + 页签条提示），阶段 4 接 27 垫 |

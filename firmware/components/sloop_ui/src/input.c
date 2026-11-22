@@ -100,6 +100,7 @@ static const char *TAG = "sloop_input";
 #define K_T     0x25
 #define K_Y     0x26
 #define K_U     0x27
+#define K_I     0x28
 #define K_SYM   0x30
 #define K_AA    0x31
 #define K_A     0x32
@@ -184,6 +185,7 @@ static const key_binding_t k_bindings[] = {
     {K_3, 0, ACT_NOTE, 15},     {K_E, 0, ACT_NOTE, 16}, {K_R, 0, ACT_NOTE, 17},
     {K_5, 0, ACT_NOTE, 18},     {K_T, 0, ACT_NOTE, 19}, {K_6, 0, ACT_NOTE, 20},
     {K_Y, 0, ACT_NOTE, 21},     {K_7, 0, ACT_NOTE, 22}, {K_U, 0, ACT_NOTE, 23},
+    {K_I, 0, ACT_NOTE, 24},
 
     /* ---- 走带 / 页面 / 焦点 ---- */
     {K_SPACE, 0, ACT_PLAY_TOGGLE, 0},
