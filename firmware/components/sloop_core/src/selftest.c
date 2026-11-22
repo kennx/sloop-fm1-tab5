@@ -88,7 +88,10 @@ static uint32_t selftest_data_begin __attribute__((section(".data.0_begin"))) = 
 #define felucca_memcpy selftest_felucca_memcpy
 #define felucca_memcmp selftest_felucca_memcmp
 #define bootguard selftest_bootguard
+static int arrangement_start(void) __attribute__((noinline));
+#define FELUCCA_ARRANGER 1
 #include "regress.c"
+#undef FELUCCA_ARRANGER
 #undef printf
 #undef fopen
 #undef fgets

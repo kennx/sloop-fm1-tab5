@@ -3,7 +3,8 @@
 > 状态：已接受（阶段 4 P4-B 入口决策，P4-B Task 1）｜ 日期：2026-11-21
 > 关联：spec `docs/superpowers/specs/2026-11-21-p4b-storage-presets-design.md`
 > §2/§3.1/§3.2/§3.4/§4/§5/§8（本 ADR 是其中存储后端选型的定稿）；
-> ADR-004（vendored 只读）、ADR-005（导航/容量）、ADR-008（LVGL 池预算）；
+> ADR-004（vendored 只读）、ADR-005（导航/容量）、ADR-008（LVGL 池预算）、
+> ADR-010（P4-C arranger 单 TU、song_keep 与 PER3 子集）；
 > AGENTS §5.1（脚本）、§5.5（门禁）、§8（上游跟进）；
 > 上游代码 `third_party/sloop-fm1/firmware/src/{storage.c,project.c,upreset.c,fm6_bank.c}`
 
@@ -176,10 +177,10 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   - **快照只覆盖 payload（评审 R26，已知限制）**：`st_load` 只搬对象的 `len` 字节，**不
     包含 settings 的 side record**——上游 2.7 的侧记录写在副本扇区偏移 64..255
     （`ST_SIDE_OFF=64`、`ST_SIDE_MAX=192`；`st_save3` 在 payload 之后、提交头之前写入，随
-    副本提交；`st_side_load` 读当前副本），P4-E 计划把主题/收藏放在这里。`STORE TEST`
-    的擦除会清掉它。P4-B 没有 side record 的写入者（不可达）；**P4-E 给 settings 写
-    side record 时必须把快照扩成整扇区**（或 `st_side_load` 读回后随 `st_save3` 重写），
-    否则跑一次 `STORE TEST` 会静默丢主题/收藏。契约已写进 `sloop_store.h` 与 console help。
+    副本提交；`st_side_load` 读当前副本）。P4-C 歌曲保存必须保留这里的 theme/收藏；因此
+    `STORE TEST` 的擦除会清掉它的旧限制必须在**第一次真实 settings 写入之前**解除：按
+    ADR-010 §4 把快照扩成两个完整 4KB 扇区、结束逐字节恢复并校验。P4-B 没有 side record
+    写入者，故该 payload-only 快照仅是 P4-B 的历史豁免，不再是 P4-C 的验收口径。
 
 ### 4. xrun 判据（擦写 stall 是设计内现象）
 
@@ -233,14 +234,16 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   `ESP_ERR_NOT_FOUND`（工厂态开始，不报错）。`autosave_ms` 从 0 起算 ⇒ **开机首个写只能落在
   uptime ≥20s 之后**（上游同），所以「空闲 2.5s 就写」只在已有写入之后成立。
 
-### 6. 设置对象归属（P4-E）与 NVS 定位
+### 6. 设置对象归属（P4-C 歌曲子集 / P4-E 完整设置）与 NVS 定位
 
 - **设置/偏好走上游 `OBJ_SETTINGS`**（`0xFC000/0xFD000`，`persist_t`/panel/DSYN kit/MIDI
-  LEARN），由 P4-E 按上游格式实施。理由：与 FM-1 备份、编辑器协议对象 id 互通；擦除、
-  A/B、CRC 语义与其它对象一致。
+  LEARN）。P4-C 先按 **ADR-010 §4** 实施 arrangement 所需的最小 PER3 读写与 PER1/PER2 迁移；
+  完整 panel/theme/lights/MIDI 设置 UI 仍归 P4-E。理由：与 FM-1 备份、编辑器协议对象 id
+  互通；擦除、A/B、CRC 语义与其它对象一致。
 - **NVS 不承载 SLOOP 状态**：NVS 无擦除提交语义、无 XIP、容量/键数受限，且无法与
   FM-1 备份互通。NVS 保持 `0x9000/0x6000`，只留给平台级（非 SLOOP 数据模型）用途。
-- P4-B 不写 settings 对象，只把它当作 torn-write 测试对象（快照/恢复）。
+- P4-B 当时不写 settings，只把它当作 torn-write 测试对象；自 P4-C 起该旧边界不再适用，
+  歌曲顺序写 PER3 的格式、尾段/side record 保留和 dirty 重试纪律以 ADR-010 为准。
 
 ### 7. 内存：PSRAM 宏重定向与内部 SRAM 边界
 
@@ -252,6 +255,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 |---|---|---|---|
 | `proj_slot[4]`（4 个 RAM 工程槽） | 15,264B | PSRAM | include 前 `#define proj_slot (*s_slot_ps)`，声明退化为 4B 指针 |
 | `proj_v3_tmp`（旧格式转换暂存） | 2,584B | PSRAM | `#define proj_v3_tmp (*s_v3_ps)` |
+| `song_keep`（SONG 前的工作 loop，P4-C ADR-010） | 3,816B | PSRAM | `#define song_keep (*s_song_keep_ps)`；指针为 `.noinit`，仅 init 分配 |
 | 自有 `proj_tmp`（preset bank / fm6 bank / import 暂存） | 4,096B | PSRAM | `#define proj_tmp (*s_stage)`（union 覆盖 `project_v5_t`/`fm6_bank_t`，静态断言） |
 | `main_scratch`（上游 `st_buf`） | 3,840B | **内部 SRAM** | 必须能在 cache 关闭期间访问，禁止进 PSRAM |
 
@@ -259,16 +263,21 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   `sizeof` 语义不变；`third_party/` 零修改（AGENTS §8）。上游若改名/改形，编译期即暴露。
 - 实体在 `sloop_store_init` 用 `heap_caps_malloc(..., MALLOC_CAP_SPIRAM)` 分配；任一失败
   → `ready=false`（不崩溃）。
-- 内部 RAM 新增仅 `main_scratch` 3,840B + 指针/小静态，总计 ≈4.2KB；PSRAM 新增 ≈22KB
-  （32MB 充裕）。门禁：`nm`/`idf.py size-components` + 启动 `ENG MEM` 确认三个大实体不在
-  DRAM，且 idle 内部堆 ≥61,440B。
+- 内部 RAM 新增仅 `main_scratch` 3,840B + 指针/小静态，总计 ≈4.2KB；PSRAM 在 P4-B
+  ≈22KB 基础上增加 `song_keep` 3,816B（32MB 充裕）。门禁：`nm`/`objdump`/
+  `idf.py size-components` + 启动 `ENG MEM` 确认各大实体不在 DRAM、`s_song_keep_ps`
+  仅为 4B `.noinit` 指针，且 idle 内部堆 ≥61,440B。
 
 ### 8. 上游复用边界（vendored 只读）
 
-- 在 `sloop_core` 的单 TU（`src/selftest.c` 末尾 include）内按顺序编入：`storage.c`（原样，
-  提供 `st_read/st_erase/st_prog` 三个 hook）、`project.c`（`#define PROJ_HOST`，格式层 +
-  `proj_capture/proj_apply`）、`upreset.c`（`#define FELUCCA_FLASH 1`，否则 `up_bank_find`
-  永远读空）、`fm6_bank.c`（原样；init 必须调 `fm6_bank_boot()` 安装 `fm6_bank_read` 钩子）。
+- 在 `sloop_core` 的单 TU（`src/selftest.c` 末尾 include）内按顺序编入：先在
+  `regress.c → hostsim.c` 前定义 `FELUCCA_ARRANGER=1`，保证 `arranger.c → seq.c`，并在
+  进入存储适配前撤销宏；随后是 `storage.c`（原样，提供 `st_read/st_erase/st_prog` 三个
+  hook）、`project.c`（`#define PROJ_HOST`，格式层 + `proj_capture/proj_apply`）、显式
+  `arranger_scene.c`（ADR-010，场景应用/section bars/SONG 工作 loop）、`upreset.c`
+  （`#define FELUCCA_FLASH 1`，否则 `up_bank_find` 永远读空）、`fm6_bank.c`（原样；init
+  必须调 `fm6_bank_boot()` 安装 `fm6_bank_read` 钩子）。宏不得漏进 `project.c` 而拉出
+  `!PROJ_HOST` settings/旧 flash 路径。
 - 缺失符号（`trk_def_engine/ui_message/ui_say/ui.force/up_gen/sync_reload/flash_ok/
   up_stage/ST_XIP_PTR/FM6_BANK_XIP/arp_is_sounds` 等）全部在 `store_tab5.c` 顶部做薄 shim；
   上游 `!PROJ_HOST` 段（autosave、`proj_foreign_parts`）与 `ui.c` 的预置应用逻辑
@@ -288,7 +297,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - **`.bss` 与 SELFTEST 快照窗口（Task 4 实测）**：`selftest.c.obj` 的 `.bss` 被
   `linker.lf` 的 `SURROUND(sloop_selftest_bss)` 包住，`ENG SELFTEST` 的 restore 会把
   整个窗口回滚到 init 之前的快照。因此本 TU 内的**功能性**静态一律放 `.noinit`
-  （`s_v3_ps/s_slot_ps/s_stage`、锁与哨兵，以及 shim 的 `flash_ok`）；上游 `upreset.c`
+  （`s_v3_ps/s_slot_ps/s_stage/s_song_keep_ps`、锁与哨兵，以及 shim 的 `flash_ok`）；上游 `upreset.c`
   的银行索引 `up_bank_xip[2]`（普通 `.bss`，vendored 声明无 section 属性、宏重定向也搬
   不走）只能**每次公共预置入口在存储锁内重扫** `up_boot()`（两次头校验 + 3,080B CRC，
   微秒级）。**写入口也必须重扫**：`up_put` 把整银行重写一遍、从当前 XIP 副本起笔，索引为
@@ -311,9 +320,9 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   纯展示性 shim（`up_gen/ui.force/sync_reload`）回滚无害，仍留 `.bss`。
 - **settings 的 side record 不在 `STORE TEST` 的快照范围（Task 8 评审 R26）**：见 §3 的
   「快照只覆盖 payload」——`STORE TEST` 用 `st_load`/`st_save` 搬 payload，side record
-  （`ST_SIDE_OFF=64..255`，src/scenario 擦除时一并丢失）不在快照内；P4-B 无写入者故不可达，
-  P4-E 接线时必须扩为整扇区快照。该限制同时写在 `sloop_store.h` 的 API 契约与 console
-  `STORE TEST` 的帮助/用法里，不是隐含行为。
+  （`ST_SIDE_OFF=64..255`，src/scenario 擦除时一并丢失）不在快照内；P4-B 无写入者故当时
+  不可达，P4-C 开始真实 PER3 写入前必须按 ADR-010 §4 扩为两个完整 4KB 扇区快照。该限制
+  当前仍写在 `sloop_store.h` 的 API 契约与 console `STORE TEST` 的帮助/用法里，不是隐含行为。
 - `third_party/MANIFEST.sha256` 校验保持 233/233；上游升级只补 `store_tab5.c` 的 shim 清单。
 
 ### 9. 失败可见性与诊断面
@@ -382,5 +391,6 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   `STORE PROJ HASH`）+ `STATE SNAP` 逐项一致；旧格式 FUN5/4/1 fixture 经 `STORE RAW` 上传
   后字段逐项比对；自动存档/上电恢复；soak 带保存窗口；`ENG SELFTEST` 182/182 不回退
   （存储不触碰 golden）。
-- **后续归属**：settings（P4-E，`OBJ_SETTINGS`）、sections/song（P4-C）、采样槽上传与
-  FM6/DSYN 编辑面（P4-D）沿用本 ADR 的分区、mmap 与写入纪律，不再另立后端。
+- **后续归属**：P4-C 的 sections/song 与最小 PER3 设置读写见 ADR-010，完整 settings UI
+  （P4-E）、采样槽上传与 FM6/DSYN 编辑面（P4-D）沿用本 ADR 的分区、mmap 与写入纪律，
+  不再另立后端。

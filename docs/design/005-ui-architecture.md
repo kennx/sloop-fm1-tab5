@@ -193,7 +193,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 | PLAY | PLAY |
 | TRACKS | TRACKS |
 | EDIT | GLOBAL / FX / ANALOG / FM6 / SAMPLE（后续引擎页） |
-| SEQ | STEP / TRANSPORT（后续 SONG） |
+| SEQ | STEP / TRANSPORT |
 | FILE | PROJECTS / PRESETS |
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`，`APP_STATE_PAGES` 9→11；
@@ -284,6 +284,15 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   池占用在**切换之后**才释放；若在切换前释放，会出现空白帧、输入路径在跨组切换期间
   没有活页。因此峰值 = 源组已建 Σ + 目标页实际构建量，是瞬态但必须被上式覆盖；切换
   完成后回落为稳态 `base + max_group Σ est = 41,448B ≤ 63,120B`。
+- **P4-C 12 页预算（规划，ADR-010 §5）**：SONG 使用**独立顶层组**而不是加入 SEQ，组
+  顺序变为 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；TRANSPORT est 上限调为 **9,216B**、SONG
+  初估 **12,288B**，落地后均按 `UI MEM` 实测收紧。有序对重算：FILE→STEP 仍
+  `20,992+23,040=44,032B`、账面 **61,928B**；SEQ（23,040+9,216）→PRESETS 为
+  `32,256+12,800=45,056B`、账面 **62,952B**、余 **168B**，成为新的账面最坏对；
+  SONG→PRESETS 为 `12,288+12,800=25,088B`、账面 **42,984B**。六个组签仍在 72px
+  页签条内，实施时须重测 base 并保留 `free ≥ est`、过渡后 `pool_free ≥4,096B` 门禁；
+  超预算先改对象设计，不扩池。本任务只确定预算，不注册 SONG 页、不改变当前 11 页。
+  P4-C 的 `TAB` 规划顺序是在 TRANSPORT 后插入 SONG，其余顺序不变。
 - **每页构建前 `free ≥ est` 的检查继续保留**（真门禁不变）；组作用域只是把「同时已建
   页集合」限制在一组内。
 - `UI MEM` 增加分组行：`GROUP <name> built=<n> sum_est=<B> sum_delta=<B> build_ms=<ms>`，

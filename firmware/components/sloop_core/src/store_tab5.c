@@ -3,7 +3,8 @@
  *
  * 本文件由 selftest.c **末尾 include**，与引擎/DSP 同属一个翻译单元——所以可以直接把
  * vendored 的 storage.c（A/B 双扇区 + 32B 提交头 + CRC + 回读校验，原样）、project.c
- * （#define PROJ_HOST：格式层 FUN1..6 + proj_capture/proj_apply）与 upreset.c（用户预置
+ * （#define PROJ_HOST：格式层 FUN1..6 + proj_capture/proj_apply）、arranger_scene.c
+ * （A–D RAM 场景应用与 SONG 工作 loop 暂存）与 upreset.c（用户预置
  * 32 槽；#define FELUCCA_FLASH 1 才走 st_xip）编进来，缺的符号在本文件顶部做薄 shim。
  * ui.c 的预置机制（apply_preset_to/set_engine_of/TRK_DEF/param_kept/arp_is_sounds）也
  * 按原语义移植在这里（换引擎/预置 = 换声音，见「换引擎/预置」小节）。
@@ -11,12 +12,12 @@
  *
  * 内存（ADR-009 §7，fidelity-first）：
  *   - main_scratch（上游 st_buf，3,840B）留在**内部 SRAM**：擦/写期间 cache 关闭仍要访问；
- *   - proj_slot[4]（4×3,816=15,264B）、proj_v3_tmp（2,584B）与自有暂存 proj_tmp（4,096B）
- *     全部在 PSRAM：include project.c **之前**用宏把上游的**声明本身**退化成指针
+ *   - proj_slot[4]（4×3,816=15,264B）、proj_v3_tmp（2,584B）、song_keep（3,816B）与
+ *     自有暂存 proj_tmp（4,096B）全部在 PSRAM：include 上游声明**之前**用宏把对象退化成指针
  *     （`static project_v3_t proj_v3_tmp;` → `static project_v3_t (*s_v3_ps);`）。宏包裹的
  *     是整个对象，上游全部引用形如 `&obj[...]` / `sizeof obj[i]`，替换后取址与 sizeof
  *     语义不变；
- *   - 三个指针 + 存储锁 + ready/flash_ok 放 `.noinit`：`ENG SELFTEST` 的 selftest_restore()
+ *   - 各 PSRAM 指针 + 存储锁 + ready/flash_ok 放 `.noinit`：`ENG SELFTEST` 的 selftest_restore()
  *     会把本 TU（selftest.c.obj）的 .data/.bss 回滚到 init 快照，而快照在
  *     sloop_store_init 之前拍（ADR-009 §5）——普通静态指针会被抹成 NULL，自检之后的
  *     任何存储调用都会解引用空指针。上游 proj_slot 自带 .noinit，宏展开后属性留给指针。
@@ -121,6 +122,15 @@ _Static_assert(SLOOP_STORE_RAW_MAX == ST_PAYLOAD_MAX,
 #define PROJ_HOST 1
 #include "project.c"
 #undef PROJ_HOST
+
+/* project.c 的 !PROJ_HOST 段不编入，故 arranger_scene.c 在这里显式补入。
+ * song_keep 与 proj_v3_tmp 同法退化为 PSRAM 指针；原声明的 .pool 属性只适用于
+ * 实体对象，不能留在指针上，故仅包住此 include 去掉，随后由后置 .noinit 声明定位。 */
+#define song_keep (*s_song_keep_ps)
+#define __attribute__(x)
+#include "arranger_scene.c"
+#undef __attribute__
+#undef song_keep
 
 /* ---- PSRAM 实体：暂存（preset bank / fm6 bank / import / 捕获） ------------------- */
 typedef union {
@@ -367,6 +377,7 @@ bool sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset,
 /* 上游 project.c 把 proj_v3_tmp 声明成普通静态（.bss，在自检快照窗口内）——这里用
  * 后置 section 属性把它移进 .noinit（见文件头）。`sizeof *s_v3_ps` = 2,584B。 */
 static project_v3_t *s_v3_ps __attribute__((section(".noinit")));
+static project_t *s_song_keep_ps __attribute__((section(".noinit")));
 
 /* ---- 存储状态：全部 .noinit（自检 restore 会回滚本 TU 的 .data/.bss） ------------ */
 /* 冷启动的 .noinit 内容是未定义的，而 console REPL 任务在 sloop_core_init 之前就已启动：
@@ -444,7 +455,8 @@ static bool store_playing(void)
 bool sloop_store_ready(void)
 {
     return s_init_magic == STORE_INIT_MAGIC && s_ready && sloop_hal_storage_ready() &&
-           s_slot_ps != NULL && s_stage != NULL && s_v3_ps != NULL && s_auto != NULL;
+           s_slot_ps != NULL && s_stage != NULL && s_v3_ps != NULL && s_auto != NULL &&
+           s_song_keep_ps != NULL;
 }
 
 esp_err_t sloop_store_init(void)
@@ -467,14 +479,16 @@ esp_err_t sloop_store_init(void)
     s_store_lock = xSemaphoreCreateMutex();
     if (s_store_lock == NULL) return ESP_ERR_NO_MEM;
 
-    /* 上游三个大实体进 PSRAM（ADR-009 §7）；任一失败 → ready=false（不崩溃） */
+    /* 上游大实体进 PSRAM（ADR-009 §7、ADR-010）；任一失败 → ready=false（不崩溃） */
     s_v3_ps = heap_caps_malloc(sizeof *s_v3_ps, MALLOC_CAP_SPIRAM);
     s_slot_ps = heap_caps_malloc(SLOOP_STORE_PROJECTS * sizeof(project_t), MALLOC_CAP_SPIRAM);
     s_stage = heap_caps_malloc(sizeof *s_stage, MALLOC_CAP_SPIRAM);
     s_auto = heap_caps_malloc(sizeof *s_auto, MALLOC_CAP_SPIRAM);
-    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL || s_auto == NULL) {
-        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p auto=%p", (void *)s_v3_ps,
-                 (void *)s_slot_ps, (void *)s_stage, (void *)s_auto);
+    s_song_keep_ps = heap_caps_malloc(sizeof *s_song_keep_ps, MALLOC_CAP_SPIRAM);
+    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL || s_auto == NULL ||
+        s_song_keep_ps == NULL) {
+        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p auto=%p song_keep=%p", (void *)s_v3_ps,
+                 (void *)s_slot_ps, (void *)s_stage, (void *)s_auto, (void *)s_song_keep_ps);
         return ESP_ERR_NO_MEM;
     }
     memset(s_slot_ps, 0, SLOOP_STORE_PROJECTS * sizeof(project_t));
