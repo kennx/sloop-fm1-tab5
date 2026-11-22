@@ -41,7 +41,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 9 页）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 11 页 / 5 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
