@@ -6265,9 +6265,12 @@ def run_sequence(s: Session) -> None:
     s.cmd("PARAM GLOBAL 0 120")
     s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⓪ BPM 120")
     seq_normalize_tracks(s, "⓪")
-    for tid, want, label in ((SEQ_MUTE_ID, 0, "非静音"), (SEQ_AMODE_ID, 0, "ARP OFF"),
-                             (SEQ_AHOLD_ID, 0, "HOLD OFF"), (SEQ_VOICE_ID, 0, "POLY")):
+    for tid, want, label in ((0, SEQ_LEVEL_A, "level 104"), (SEQ_MUTE_ID, 0, "非静音"),
+                             (SEQ_AMODE_ID, 0, "ARP OFF"), (SEQ_AHOLD_ID, 0, "HOLD OFF"),
+                             (SEQ_VOICE_ID, 0, "POLY")):
         seq_set_track_param(s, SEQ_TRACK, tid, want, f"⓪ 轨 0 {label}")
+    select_track(s, 1)
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_A, "⓪ 轨 1 level 104（⑤ 工作 loop 判别字段归一）")
     select_track(s, SEQ_DRUM)
     seq_set_track_param(s, SEQ_DRUM, SEQ_MUTE_ID, 0, "⓪ 鼓轨非静音")
     for k in range(4):
@@ -6975,9 +6978,13 @@ def run_sequence(s: Session) -> None:
     s.cmd("SEQ SONG MODE loop")
     s.expect(r"SEQ SONG mode=loop", "⑨ loop 模式")
     select_track(s, SEQ_TRACK)
-    for tid, want, label in ((SEQ_AMODE_ID, 0, "ARP OFF"), (SEQ_AHOLD_ID, 0, "HOLD OFF"),
-                             (SEQ_VOICE_ID, 0, "POLY"), (SEQ_LEN_ID, 16, "LEN 16")):
+    for tid, want, label in ((0, SEQ_LEVEL_A, "level 104"), (SEQ_AMODE_ID, 0, "ARP OFF"),
+                             (SEQ_AHOLD_ID, 0, "HOLD OFF"), (SEQ_VOICE_ID, 0, "POLY"),
+                             (SEQ_LEN_ID, 16, "LEN 16")):
         seq_set_track_param(s, SEQ_TRACK, tid, want, f"⑨ 轨 0 {label}")
+    select_track(s, 1)
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_A, "⑨ 轨 1 level 回 104（⑤ 的工作 loop 字段）")
+    select_track(s, SEQ_TRACK)
     s.cmd("PARAM GLOBAL 0 120")
     s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⑨ BPM 120")
     for k in range(4):

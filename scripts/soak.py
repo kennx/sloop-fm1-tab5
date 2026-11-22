@@ -25,10 +25,11 @@
     6. 原始串口日志无 panic / Guru Meditation / task_wdt / abort / Backtrace；
     7. 每周期的切页回显与 STATE SNAP 页面断言全过（无切页回归）；
     8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）；
-    9. --save-window N（存储写窗口，P4-B）：窗口前先等 section/song 的延迟写把 dirty
-       清掉（否则 1s 任务的写会落进窗口、记到窗口账上），再 `STORE AUTO OFF`（只量
-       脚本写；收尾在最终采样后恢复 ON）；窗口内停走带做一次 `STORE PROJ SAVE 0` +
-       `STORE PROJ LOAD 0`（音频流**不停**），窗口内 xrun 增量 ≤ 16；窗口后 streaming=1；
+    9. --save-window N（存储写窗口，P4-B）：窗口前 `STORE AUTO OFF`（只量脚本写）→
+       `ensure_stopped()` → 等 section/song 的延迟写排空（**必须停止后**：走带中 1s 任务
+       拒绝写）→ 取 perf 基线；窗口内做一次 `STORE PROJ SAVE 0` + `STORE PROJ LOAD 0`
+       （音频流**不停**），窗口内 xrun 增量 ≤ 16；窗口后 streaming=1；收尾在最终采样后
+       恢复 ON；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
    10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE 三组各访问一次 → 回 PLAY」，
@@ -39,8 +40,10 @@
 同 inject.py 口径：逐字节写盘，唯一非固件字节是 `# [inject] ...` 注记）与
 soak-summary-<时间戳>.txt（采样表 + 判定）。退出码 0 = 判定通过。
 
-`--section-capture`（默认关）每 SEQ_ACTION_EVERY 轮在播放中 `SEQ SECTION A STORE`：
-**破坏性**（覆盖工程槽 A 的 RAM/flash 内容），只用于要压 sections 写窗口的门禁。
+`--section-capture`（默认关）每 SEQ_ACTION_EVERY 轮在**播放中** `SEQ SECTION A STORE`
+（**破坏性**：覆盖工程槽 A）：捕获只改 RAM 槽与 dirty，**flash 由 1s 任务在停止 + 空闲
+门限后延迟写**；save 窗口与 soak 收尾都在 `ensure_stopped()` 之后 `dirty=0` 才继续
+（走带中 tick 拒绝写，等在这里只会假 FAIL）。只用于压 sections 写窗口的门禁。
 
 用法：python3 scripts/soak.py /dev/ttyACM0 [--duration 1800] [--interval 300] [--cycle 12]
                               [--save-window 0] [--section-capture]
@@ -212,37 +215,81 @@ def pool_round_trip(s) -> dict:
     return pool
 
 
-def wait_dirty_clear(s, timeout: float = 12.0) -> None:
-    """save 窗口前清掉待落盘的 section/song dirty（1s 任务的门限写不进窗口账）。
-    `--section-capture` 每 3 轮置 dirty；其余情况下这里通常立即返回。"""
+# sections/song 延迟写的 dirty 位（严格匹配回显；解析失败即 fail，不用子串猜测）
+SECTION_DIRTY = re.compile(r"^SEQ SECTION ready=0x[0-9A-F]{2} live=\S+ dirty=(\d) ",
+                           re.MULTILINE)
+SONG_DIRTY = re.compile(r"^STORE SONG count=\d+ loop=\d+ dirty=(\d)\r?$", re.MULTILINE)
+
+
+def parse_dirty(s, cmd: str, pattern, timeout: float = 3.0) -> int:
+    """发一条回显带 dirty 的诊断命令并解析（-1 = 回显不符，已记 fail）。"""
+    s.cmd(cmd, timeout=timeout)
+    m = pattern.search(s.last)
+    if m is None:
+        s.fail(f"dirty 回显异常（{cmd}）：{s.last.strip()!r}")
+        return -1
+    return int(m.group(1))
+
+
+def dirty_state(s):
+    """(section dirty, song dirty)；任一解析失败返回 (-1, -1)。"""
+    d_sec = parse_dirty(s, "SEQ SECTION", SECTION_DIRTY)
+    d_song = parse_dirty(s, "STORE SONG", SONG_DIRTY)
+    return d_sec, d_song
+
+
+def wait_dirty_clear(s, timeout: float = 12.0, expect_dirty: bool = False) -> bool:
+    """**停止态**等 1s 任务把 section/song 的延迟写落盘（返回 True = dirty=0）。
+
+    1s 任务的 sections_tick 在 `song.playing || transport_req || !audio_quiet()` 时直接
+    跳过——走带中调用这里只会空等到超时（假 FAIL）。调用点必须在 ensure_stopped 之后、
+    perf 基线之前。
+    `expect_dirty=True` 时要求先观察到一次 dirty=1（证明这次排空不是空转）。"""
     t0 = time.monotonic()
+    seen_dirty = False
     while True:
-        s.cmd("SEQ SECTION")
-        sec = s.last
-        s.cmd("STORE SONG")
-        song = s.last
-        if "dirty=1" not in sec and "dirty=1" not in song:
-            print(f"   save 窗口前 dirty=0（{time.monotonic() - t0:.1f}s）")
-            return
+        d_sec, d_song = dirty_state(s)
+        if d_sec < 0 or d_song < 0:
+            return False
+        if d_sec or d_song:
+            seen_dirty = True
+        else:
+            if expect_dirty and not seen_dirty:
+                s.fail("wait_dirty_clear：期望先观察到 dirty=1，实际一直为 0（排空是空转）")
+                return False
+            print(f"   save 窗口前 dirty=0（{time.monotonic() - t0:.1f}s"
+                  f"{'，已观察到 dirty=1' if seen_dirty else ''}）")
+            return True
         if time.monotonic() - t0 > timeout:
-            s.fail(f"save 窗口前 section/song dirty 未清（{timeout:.0f}s）")
-            return
+            s.fail(f"停止后 {timeout:.0f}s 内 section/song dirty 未清"
+                   f"（section={d_sec} song={d_song}）")
+            return False
         time.sleep(0.3)
 
 
-def save_window(s, seconds: float, take_sample) -> dict:
-    """--save-window：停走带 → 一次 STORE PROJ SAVE 0 + LOAD 0 → 保持 N 秒 → 恢复播放。
+def save_window(s, seconds: float, take_sample, section_capture: bool = False) -> dict:
+    """--save-window：停走带 → 排空延迟写 → 一次 STORE PROJ SAVE 0 + LOAD 0 → 保持 N 秒 →
+    恢复播放。
 
-    边界用 ENG PERF 取 xrun（sample() 要求 playing=1）；窗口后的采样同时断言
-    streaming=1 与页面/走带回到常态。xrun 是自启动累计值，窗口后由 verdict 冻结基线。
+    `section_capture` 时先在**播放中**捕获一次 section A（dirty=1；播放中允许），再停走带
+    等 1s 任务把延迟写排空——这同时是「先停再等」顺序的运行时证明（走带中 tick 拒绝写）。
+    排空之后才取 perf 基线，窗口只量脚本化的 SAVE/LOAD。
     """
     s.ser.note(f"soak save 窗口：停走带 SAVE 0 + LOAD 0，保持 {seconds:.0f}s")
-    wait_dirty_clear(s)   # 窗口只量脚本写：先把 1s 任务的延迟写排空
     # 窗口判据只量脚本化的 SAVE+LOAD：自动存档若在窗口里插一次写，xrun 会记到窗口账上。
     # AUTO 在窗口前关、整个 soak 期间保持关（收尾时恢复默认 ON，见 main）。
     s.cmd("STORE AUTO OFF")
     s.expect(r"^STORE AUTO off", "save 窗口：STORE AUTO OFF（窗口只量脚本写）")
-    inject.ensure_stopped(s)
+    pre_dirty = False
+    if section_capture:
+        s.cmd("SEQ SECTION A STORE")
+        s.expect(r"^SEQ SECTION A STORE OK", "save 窗口：播放中捕获 section A（故意置 dirty）")
+        d_sec, _ = dirty_state(s)
+        pre_dirty = d_sec == 1
+        (s.ok if pre_dirty else s.fail)(
+            f"save 窗口：播放中捕获后 section dirty={d_sec}（期望 1，待停止后排空）")
+    inject.ensure_stopped(s)          # 1s 任务只在停止态写：必须先停
+    wait_dirty_clear(s, expect_dirty=pre_dirty)   # 停止后把延迟写排空，再取基线
     x0, st0 = perf_counters(s)
     s.cmd("STORE PROJ SAVE 0")
     s.expect(r"PROJ 0 SAVED hash=[0-9A-F]{8}", "save 窗口：STORE PROJ SAVE 0")
@@ -265,8 +312,9 @@ SEQ_ACTION_EVERY = 3   # 每 N 轮做一次 live section 捕获（其余轮只�
 
 def sequence_cycle(s, n: int, section_capture: bool) -> None:
     """音序动作（P4-C Task 12）：micro/fill/lock 写后清（不累积）+ SONG 页表格导航；
-    `section_capture` 时每 SEQ_ACTION_EVERY 轮在播放中捕获一次 section A（**破坏性**：
-    覆盖工程槽 A；dirty 由 1s 任务的延迟写落盘，音频流不停）。"""
+    `section_capture` 时每 SEQ_ACTION_EVERY 轮在**播放中**捕获一次 section A（**破坏性**：
+    覆盖工程槽 A）。捕获只置 RAM 槽与 dirty；flash 由 1s 任务在**停止 + 空闲门限后**
+    延迟写——save 窗口与 soak 收尾都先 `ensure_stopped()` 再等 `dirty=0`。"""
     track, step = ((0, 2), (1, 5))[n % 2]
     s.cmd(f"SEQ MICRO {track} {step} {2 if n % 2 else -2}")
     s.expect(rf"SEQ MICRO track={track} step={step} value=-?\d+ OK", "SEQ MICRO")
@@ -386,7 +434,8 @@ def main() -> None:
                     help="存储写窗口秒数：窗口内停走带做一次 STORE PROJ SAVE 0 + LOAD 0，"
                          "断言窗口内 xrun 增量 ≤16、窗口后 streaming=1（0 = 关闭，默认）")
     ap.add_argument("--section-capture", action="store_true",
-                    help="每 3 轮在播放中 STORE section A（**破坏性**：覆盖工程槽 A；默认关）")
+                    help="每 3 轮在播放中 STORE section A（**破坏性**：覆盖工程槽 A；默认关）；"
+                         "flash 由 1s 任务在停止后延迟写，窗口/收尾先排空 dirty=0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
     args = ap.parse_args()
@@ -452,7 +501,7 @@ def main() -> None:
             return row
 
         if args.save_window > 0:
-            window = save_window(s, args.save_window, take_sample)
+            window = save_window(s, args.save_window, take_sample, args.section_capture)
             next_sample = args.interval  # 窗口后的采样已经取过，下一次按间隔
 
         while True:
@@ -479,10 +528,15 @@ def main() -> None:
         elapsed = time.monotonic() - t0
         take_sample()
 
-        # 收尾：停播放、回 PLAY 页；音频流保持产品态（开机即流式）
+        # 收尾：停播放、等延迟写排空（teardown 证明 dirty=0）、回 PLAY 页；
+        # 音频流保持产品态（开机即流式）
         switch(s, "transport")
         s.cmd("TAP %d %d" % inject.TRANSPORT_STOP)
         s.expect(r"-> TRANSPORT CMD_STOP", "soak 收尾 STOP")
+        # STOP 由渲染循环消费：先确认 playing 回 0（wait_playing 等的是 1，不能复用）
+        (s.ok if inject.seq_wait_playing(s, 0, 2.0) else s.fail)(
+            "soak 收尾：STOP 后 2s 内 playing=0")
+        wait_dirty_clear(s)            # 停止后排空 --section-capture 的收尾 dirty
         switch(s, "play")
         if window is not None:
             # save 窗口关掉的自动存档在**最终采样之后**恢复默认 ON（此后的写不再被采样，
