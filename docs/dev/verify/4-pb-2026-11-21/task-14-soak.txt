@@ -1,0 +1,368 @@
+== soak 300s @ /dev/ttyACM0（采样 300s，循环 12s）
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-20261122-100248.log
+  [PASS] soak 前置：音频流已开
+  [PASS] soak 前置：步窗归一 0/16
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI fx
+  [PASS] STATE page（fx） = 5
+  [PASS] UI analog
+  [PASS] STATE page（analog） = 6
+  [PASS] UI fm6
+  [PASS] STATE page（fm6） = 7
+  [PASS] UI sample
+  [PASS] STATE page（sample） = 8
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI presets
+  [PASS] STATE page（presets） = 10
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] TAP PLAY（恢复播放）
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+   池检查 SEQ↔PLAY ×5: pool_free 44100 -> 44104 (Δ=4B, 单次最小 -44B, 容差 ±128B)
+  [PASS] UI transport
+  [PASS] TAP 停止
+  [PASS] STATE SNAP playing = 0
+  [PASS] save 窗口：STORE PROJ SAVE 0
+  [PASS] save 窗口：STORE PROJ LOAD 0
+  [PASS] TAP PLAY（恢复播放）
+  [PASS] soak STATE playing = 1
+   t=  62s internal_free= 99211B min= 91908B xrun=0 audio_stack_free=3176 render_blocks=12204 duty_mean=10.54% duty_max=57.53% ui_pool_free=44108 key_mean=0us key_max=0us page=3 bpm=90
+   save 窗口 60s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=62s
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 301s internal_free= 99263B min= 91908B xrun=0 audio_stack_free=3128 render_blocks=53347 duty_mean=11.77% duty_max=73.60% ui_pool_free=44064 key_mean=275us key_max=938us page=3 bpm=90
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak 收尾 STOP
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+   摘要: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-summary-20261122-100248.txt
+[PASS] soak: 2 次采样（301s），内部堆 99211 -> 99263B，xrun 窗口增量 0，duty_mean 最大 11.77%（上限 18.88%），无 panic/WDT

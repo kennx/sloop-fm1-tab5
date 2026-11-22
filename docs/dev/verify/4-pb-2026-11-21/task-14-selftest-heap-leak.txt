@@ -1,0 +1,32 @@
+# Task 14 追加发现：ENG SELFTEST 的内部堆泄漏（实测记录）
+# 这是**主机侧测量记录**（非原始串口 transcript；每条测量都有 ENG MEM 原始回显为据，
+# 原始串口日志见各条会话的临时文件，未逐条晋升）。测量日期 2026-11-22，固件
+# 6167039-dirty（feat/phase4b + Task 14 源码），设备 /dev/ttyACM0。
+
+[场景 A] 同一会话：全量 ENG SELFTEST 两次，中间不重启
+  boot（复位后）                ENG MEM internal_free=99739 internal_min=91948 psram_free=30102920
+  全量 SELFTEST #1（182/182）   internal_free=59443 internal_min=59436 psram_free=30102920 psram_min=29382020
+  全量 SELFTEST #2（182/182）   internal_free=19323 internal_min=19316 psram_free=30102920 psram_min=29382020
+  ⇒ 每次全量自检净减 ~40KB 内部堆；两次后 19.3KB，`ENG AUDIO ON` 开始超时
+    （收 14 字节无提示符）——属可复现的退化，需重启恢复。
+
+[场景 B] 单例重复（定位是「每次调用」还是「每用例」）
+  复位后 boot                  internal_free=104175
+  单用例 preset/ANALOG/00_808_BOOM ×20 → internal_free=99563（Δ=-4612B ≈ -230B/次）
+  未知用例（cases=0）×2        每次 ~-40B（无 job 执行）
+  ⇒ 泄漏按**执行的 job** 计（~220–230B/job），不是一次性开销。
+
+[对照] 音频 OFF/ON 与普通 console 命令
+  复位后 boot                  internal_free=99739
+  ENG AUDIO OFF→ON ×3          internal_free=99675 → 99619 → 99563（Δ≈-56B/周期，噪声级）
+  ENG MEM ×20                  Δ=0
+  ENG PERF ×20（含浮点打印）    Δ=0
+  ENG SNAP ×20                 Δ=-40B（2B/条，输出路径级）
+  ⇒ 泄漏只在 `ENG SELFTEST` 执行 regress job 的路径上。
+
+[对门禁的影响]
+  本轮「注入六场景 → device-selftest(182/182) → soak」按连续会话执行时，soak 的
+  HEAP_FLOOR（60KB）失败：internal_free 59,355 / internal_min 59,296（缺陷来源即场景 A）。
+  复位后同一 soak 命令通过（99,211 → 99,263B，xrun 窗口增量 0）。
+  见 task-14-soak-fail-after-selftest*.txt 与 task-14-soak*.txt。
+  条目登记为 docs/deferred-issues.md 的 DI-26。

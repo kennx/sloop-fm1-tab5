@@ -19,7 +19,7 @@ SHA256 `69adae26…`（受测镜像与两遍重建逐字节相同，见 `task-12
 | `task-12-ui-mem.txt` | ⓯ 的 `UI MEM`/构建日志摘录（FILE 组水位、两页 delta、TAP 回显、过渡峰值） |
 | `task-12-fix-nav.txt` / `-fix-nav-transcript.log` | `nav.sh` ①–⑧：**128 PASS / 0 FAIL**（⑦ 全 11 页轮转；**⑧ PLAY↔TRACKS ×10 池往返不泄漏**，Δ pool_free −72B ≤ 128B 噪声） |
 | `task-12-fix-params.txt` / `-fix-params-transcript.log` | `params.sh`：**147 PASS / 0 FAIL**（`registered=11`、组作用域池口径） |
-| `task-12-fix-tracks.txt` / `-fix-transport.txt` / `-fix-step_edit.txt`（+`-transcript`） | 11 / 43 / 90 PASS，0 FAIL（同会话、不重启） |
+| `task-12-fix-tracks.txt` / `-fix-transport.txt` / `-fix-step_edit.txt`（+`-transcript`） | 11 / 43 / 86 PASS，0 FAIL（同会话、不重启；计数 = 各归档文件的 `[PASS]` 行数） |
 | `task-12-di25-leak.txt` | **DI-25/R34 泄漏测量**：修复前 PLAY↔TRACKS 每往返 ≈ −268B（10 次 −2,680B）；修复后 10 次 Δ 0/−84B（原始串口 transcript 两份都在文件里） |
 | `task-12-fix-selftest.log` | 修复轮设备全量 `ENG SELFTEST`：**182/182**（`identical=182 mismatch=0 checks=7 deterministic=1`） |
 | `task-12-selftest.log` | 首轮设备全量 SELFTEST（182/182，历史） |
@@ -40,7 +40,10 @@ SHA256 `69adae26…`（受测镜像与两遍重建逐字节相同，见 `task-12
 - PRESETS：格 144×72 @ `(30 + c·152, 88 + r·80)`（4×8，右端 1238、底 400）；
   选中 = 4px `UI_ACCENT` outline + `UI_PANEL_SEL` 底；底部按钮 LOAD/SAVE/ERASE
   100×40 @ y=460、x=24/140/256（版面顺序 LOAD/SAVE/ERASE，动作语义由 `k_btn_act`
-  映射为 v=0 save / 1 load / 2 erase）。
+  映射为 v=0 save / 1 load / 2 erase）。**初始选中 U01**（`s_sel = 0`；与 PROJECTS 的
+  `PROJ_NO_SLOT` 不同——按钮总要有个目标槽，键盘 `ENTER` 也不该先要求选格）；状态行的
+  `SELECT A SLOT` 是两页共用的空闲文案（`ui_file_status_text` 的 act>2 分支），此时
+  U01 已被描边，不作为「无选中」断言。
 - 状态行映射（`theme.h` 的 `ui_file_status_text`，屏幕与 `TAP` 回显同源）：
   `SAVE OK`（绿）/ `EMPTY`（灰）/ `STOP BEFORE <ACT>`（红）/ `<ACT> ERROR`（红）/
   `NO STORAGE`（红）/ `DRUM TRACK: NO SOUND`（黄）。
