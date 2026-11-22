@@ -1342,6 +1342,21 @@ static int tap_command(int argc, char **argv)
                (unsigned)r.v < 3 ? acts[r.v] : "?", text != NULL ? text : "?");
         break;
     }
+    case SLOOP_TAP_BANK_SLOT:
+        /* FM6 页 bank 目标槽 ±：只改目标槽（不写存储/引擎），回显落地槽号 */
+        printf("TAP %ld,%ld page=%u -> BANK slot=%u delta=%+d\n", x, y, page, (unsigned)r.b,
+               (int)r.d);
+        break;
+    case SLOOP_TAP_BANK_STORE:
+    case SLOOP_TAP_BANK_ERASE: {
+        /* BANK SAVE/ERASE：与 FILE 页动作按钮同一回显形态（动作 + 状态行文本同源，
+         * 播放中 STOP BEFORE SAVE / 未就绪 NO STORAGE / 鼓轨都能按文本断言）。 */
+        const char *text = sloop_ui_bank_status_text();
+        printf("TAP %ld,%ld page=%u -> BANK slot=%u action=%s status=\"%s\"\n", x, y, page,
+               (unsigned)r.b, r.kind == SLOOP_TAP_BANK_STORE ? "save" : "erase",
+               text != NULL ? text : "?");
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;

@@ -9,6 +9,7 @@
  * - ANALOG：引擎 edit[0..7]（WAVE/DTN/MIX/NOIS/CUT/RES/DRV/KTR，上游 EDIT 1/2 合并）；
  * - FM6：ENGINES[9]->edit[0..7] 全 8 槽（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH，上游
  *   FM6 EDIT 1+2）——ALG 是 F_INT+33 名（PAT/1..32），PTCH 是 F_INT+35 名（F1..F8/B1..B27）；
+ *   底部另有 bank 存取行（BANK - B<n> + SAVE/ERASE，P4-B Task 13；est 因此 3,584→6,144）；
  * - SAMPLE：ENGINES[4]->edit[0..7] 的 6 个真实槽（SET/TUNE/BITS/LOOP/CUT/DRV）；上游
  *   edit[5]/edit[7] 是占位（label "-"、min=max=0），留空槽不建旋钮。
  *
@@ -77,7 +78,7 @@ enum {
       SLOT(SLOOP_DESC_ENGINE, 0, L_E2), SLOT(SLOOP_DESC_ENGINE, 0, L_E3),                     \
       SLOT(SLOOP_DESC_ENGINE, 0, L_E4), SLOT(SLOOP_DESC_ENGINE, 0, L_E5),                     \
       SLOT(SLOOP_DESC_ENGINE, 0, L_E6), SLOT(SLOOP_DESC_ENGINE, 0, L_E7))                     \
-    X(3, APP_PAGE_FM6, "FM6", 3584,                                                           \
+    X(3, APP_PAGE_FM6, "FM6", 6144,                                                           \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E0), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E1),     \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E2), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E3),     \
       SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E4), SLOT(SLOOP_DESC_ENGINE, L_ENG_FM6, L_E5),     \

@@ -16,6 +16,21 @@
  * 引擎页的适用性：槽位描述符取**页声明的引擎**（布局表），值是 trk[选中轨].p[P_E0+i]；
  * 选中轨的引擎与页不符（或选中鼓轨）时页面不可编辑、显示 --，避免拿 ANALOG 的 label
  * 写另一个引擎的槽位。
+ *
+ * bank 存取行（仅 FM6 页，P4-B Task 13）：页面区底部一行 `BANK - B12 + | SAVE | ERASE`
+ * + 状态行（页面区相对 y=552..596；旋钮盒底边 536，留 16px，不挤压旋钮环/文本）。
+ * 槽号是**目标槽**（0..26，显示为 `B<n+1>`），与 PTCH 旋钮（音源，PTCH = 8 + 槽号）
+ * 相互独立：SAVE = 选中轨的 live patch（`CMD_BANK_PUT`），ERASE = 擦目标槽
+ * （`CMD_BANK_ERASE`）。播放中由存储层拒绝（状态 3 ⇒ `STOP BEFORE SAVE`），状态行与
+ * FILE 页同一映射（theme.h 的 ui_file_status_text，act 0 = SAVE / 2 = ERASE）。
+ * 键盘：FM6 页的 ←/→ 仍只在旋钮间移动焦点（不改既有旋钮模型），bank 行**只经触摸**
+ * （TAP 注入与按钮回调共用同一动作函数）；SAVE/ERASE 与 FILE 页同样只走触摸 + console。
+ * **页面锁定**（选中轨不是 FM6，含鼓轨）时 SAVE/ERASE **直接拒绝**：不发状态层命令、
+ * 不动存储，状态行显示 `NOT FM6`（本地状态，不进 app_state_t.store_status）——避免用
+ * 别的引擎的轨把该轨最后一次载入的 patch（上电时是 INIT VOICE）写进用户银行槽。
+ * 擦写发生在 LVGL 回调里（TAP/按钮 → state_apply → 存储层），一次 SAVE 最坏阻塞
+ * 一次整银行擦写窗口（spec §4.3 接受的 ≤150ms 级 UI 停顿）；bank 是 4KB 扇区重写，
+ * 与工程/预置保存同一条「擦写期间不持引擎锁」纪律（ADR-009 §3）。
  */
 #include "page_params.h"
 
@@ -25,6 +40,7 @@
 #include "freertos/FreeRTOS.h"
 #include "knob.h"
 #include "page_layout.h"
+#include "sloop_store.h"
 #include "theme.h"
 
 /* 网格/控件几何（TAP 命中矩形与建控件同源） */
@@ -44,6 +60,27 @@
 #define BTN_DEC_X 1096
 #define BTN_INC_X 1184
 
+/* bank 存取行（仅 FM6 页，P4-B Task 13）：旋钮盒底边 = GRID_Y0 + ROW_PITCH +
+ * KNOB_OBJ_DY + KNOB_OBJ_SIZE = 536，行取 y=552（16px 间隙）、高 44，页面区高 648
+ * ⇒ 不与旋钮环/两行文本重叠，也不需要压缩旋钮区。 */
+#define BANK_ROW_Y    552
+#define BANK_ROW_H    44
+#define BANK_LABEL_X  16
+#define BANK_LABEL_W  88
+#define BANK_DEC_X    112
+#define BANK_VAL_X    184
+#define BANK_VAL_W    96
+#define BANK_INC_X    288
+#define BANK_SLOT_W   64
+#define BANK_SAVE_X   368
+#define BANK_ERASE_X  484
+#define BANK_ACT_W    100
+#define BANK_STATUS_X 600
+#define BANK_STATUS_W 664
+
+/* 页声明引擎号 9 = FM6（布局表 L_ENG_FM6，上游 ENGINES[] 的 FM6）；bank 行只在这一页。 */
+#define PARAM_ENGINE_FM6 9u
+
 /* 引擎槽在 trk[].p[] 里的绝对 id 起点（上游 P_E0 = P_COUNT - 8） */
 #define PARAM_ENGINE_BASE (SLOOP_CORE_P_COUNT - 8u)
 
@@ -59,9 +96,29 @@ typedef struct {
     int8_t shown_esync;   /* 选中轨 ENV SYNC 位（ATK 槽描述符随它变，见 slot_desc） */
     uint8_t focus_shown;  /* 最近渲染的焦点槽 */
     bool ctx_valid;
+    /* bank 存取行（仅 FM6 页；其它页为 NULL） */
+    lv_obj_t *bank_label;
+    lv_obj_t *bank_dec;
+    lv_obj_t *bank_inc;
+    lv_obj_t *bank_value;
+    lv_obj_t *bank_save;
+    lv_obj_t *bank_erase;
+    lv_obj_t *bank_status;
+    uint8_t bank_shown_slot;  /* 已显示的目标槽（0..26）；0xFF = 未显示 */
+    uint32_t bank_status_key; /* (act | status<<8 | ready<<16) 脏检查键 */
 } page_ui_t;
 
 static page_ui_t s_ui[PARAM_PAGE_COUNT];
+
+/* bank 目标槽（UI 局部态；TAP/按钮都在 LVGL 上下文读写，页面重建时归零）与本页最后
+ * 一次 bank 动作（0 = SAVE / 2 = ERASE / 其它 = 尚无动作）——动作语义下标，与
+ * theme.h 的 ui_file_status_text 的文案表一致。 */
+static uint8_t s_bank_slot;
+static uint8_t s_bank_act = 0xFF;
+/* 锁定页拒绝（页内状态，不是存储层结果）：1 = 上一次 SAVE/ERASE 因「选中轨引擎 ≠ FM6」
+ * 被拒（提示 `NOT FM6`），0 = 无。 */
+static uint8_t s_bank_refused;
+static char s_bank_echo[32]; /* console TAP 回显专用（REPL 任务，避开 LVGL 标签缓冲） */
 
 /* 焦点槽（UI 局部态）：TAP 在 LVGL 上下文写、键盘在输入任务读/写 → 临界区保护。 */
 static portMUX_TYPE s_focus_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -138,6 +195,12 @@ static uint8_t page_engine(const param_page_t *pg)
         }
     }
     return 0xFF;
+}
+
+/* FM6 页 = 声明引擎 9 的引擎页：bank 存取行只在这一页建（TAP 命中表/更新/回显同源）。 */
+static bool bank_row_present(const param_page_t *pg)
+{
+    return pg != NULL && page_engine(pg) == PARAM_ENGINE_FM6;
 }
 
 /* 引擎页不可编辑：选中鼓轨（没有引擎槽）或所选轨引擎与页声明不符 */
@@ -296,6 +359,54 @@ static void btn_cb(lv_event_t *e)
     refresh(index);
 }
 
+/* ---------------------------------------------------------------- bank 存取行 --- */
+/* 目标槽 ±1（环绕 0..26）：只改 UI 局部态，不碰存储/引擎。 */
+static bool bank_slot_step(uint8_t index, int8_t delta)
+{
+    if (!bank_row_present(page_layout_get(index))) return false;
+    int32_t v = (int32_t)s_bank_slot + delta;
+    while (v < 0) v += SLOOP_STORE_BANK_SLOTS;
+    while (v >= SLOOP_STORE_BANK_SLOTS) v -= SLOOP_STORE_BANK_SLOTS;
+    s_bank_slot = (uint8_t)v;
+    refresh(index);
+    return true;
+}
+
+/* bank 动作（控件回调与 TAP 的共同路径）：act = 0 SAVE（CMD_BANK_PUT，选中轨的 live
+ * patch）/ 2 ERASE（CMD_BANK_ERASE）。锁定页（选中轨引擎 ≠ FM6，含鼓轨）直接拒绝：
+ * 不发命令、不动存储，状态行改显示 `NOT FM6`（本地状态）。其余结果写
+ * app_state_t.store_status（播放中/未就绪 = 3 …），状态行由 update() 映射，console
+ * `TAP` 回显走同一映射。 */
+static void bank_action(uint8_t index, uint8_t act)
+{
+    const param_page_t *pg = page_layout_get(index);
+    if (!bank_row_present(pg)) return;
+    s_bank_act = act;
+    app_state_t st;
+    state_get_copy(&st);
+    if (page_locked(pg, &st)) {
+        s_bank_refused = 1;
+        refresh(index);
+        return;
+    }
+    s_bank_refused = 0;
+    edit_cmd_t cmd = {0};
+    cmd.type = act == 0 ? CMD_BANK_PUT : CMD_BANK_ERASE;
+    cmd.a = s_bank_slot;
+    state_apply(&cmd);
+    refresh(index);
+}
+
+static void bank_cb(lv_event_t *e)
+{
+    /* user_data = (页下标 << 4 | 操作位)：0 = 槽 −1、1 = 槽 +1、2 = SAVE、3 = ERASE */
+    uintptr_t ctx = (uintptr_t)lv_event_get_user_data(e);
+    uint8_t index = (uint8_t)(ctx >> 4);
+    uint8_t op = (uint8_t)(ctx & 0x0Fu);
+    if (op <= 1u) bank_slot_step(index, op == 1u ? 1 : -1);
+    else bank_action(index, op == 2u ? 0u : 2u);
+}
+
 /* ---------------------------------------------------------------- 键盘路由 --- */
 /* 当前页在布局表里的下标；非参数页/UI 未启动返回 -1（不取任何锁） */
 static int current_index(void)
@@ -386,6 +497,100 @@ static lv_obj_t *make_button(lv_obj_t *parent, int16_t x, int16_t y, const char 
     return btn;
 }
 
+/* bank 行按钮样式（基样式 20pt/HI 底 + 两个只设颜色的覆盖样式）：静态共享，只 init
+ * 一次（组作用域下页面反复销毁/重建，重设 lv_style 会漏 props 数组）。 */
+static lv_style_t s_st_bank;
+static lv_style_t s_st_bank_save;
+static lv_style_t s_st_bank_erase;
+
+static void bank_style_init(void)
+{
+    static bool done;
+    if (done) return;
+    done = true;
+    lv_style_init(&s_st_bank);
+    lv_style_set_text_align(&s_st_bank, LV_TEXT_ALIGN_CENTER);
+    lv_style_set_text_font(&s_st_bank, &lv_font_montserrat_20);
+    lv_style_set_text_color(&s_st_bank, lv_color_hex(UI_TEXT));
+    lv_style_set_bg_color(&s_st_bank, lv_color_hex(UI_PANEL_HI));
+    lv_style_set_bg_opa(&s_st_bank, LV_OPA_COVER);
+    lv_style_set_radius(&s_st_bank, 10);
+    lv_style_set_pad_top(&s_st_bank, 11);
+
+    lv_style_init(&s_st_bank_save);
+    lv_style_set_bg_color(&s_st_bank_save, lv_color_hex(ui_track_color(1)));
+    lv_style_init(&s_st_bank_erase);
+    lv_style_set_bg_color(&s_st_bank_erase, lv_color_hex(ui_track_color(3)));
+}
+
+static lv_obj_t *make_bank_button(lv_obj_t *parent, int16_t x, int16_t w, const char *text,
+                                  lv_style_t *accent, void *user)
+{
+    bank_style_init();
+    lv_obj_t *btn = lv_label_create(parent);
+    if (btn == NULL) return NULL;
+    lv_obj_set_pos(btn, x, BANK_ROW_Y);
+    lv_obj_set_size(btn, w, BANK_ROW_H);
+    lv_obj_add_style(btn, &s_st_bank, 0);
+    if (accent != NULL) lv_obj_add_style(btn, accent, 0); /* 后加的样式优先（只覆盖颜色） */
+    lv_obj_set_clickable(btn, true);
+    lv_label_set_text(btn, text);
+    lv_obj_add_event_cb(btn, bank_cb, LV_EVENT_CLICKED, user);
+    return btn;
+}
+
+/* 行内静态/动态文本（BANK 标签、目标槽、状态行）：20pt，行内垂直居中（pad_top 10）。 */
+static lv_obj_t *make_bank_label(lv_obj_t *parent, int16_t x, int16_t w, uint32_t color,
+                                 lv_text_align_t align)
+{
+    lv_obj_t *label = lv_label_create(parent);
+    if (label == NULL) return NULL;
+    lv_obj_set_pos(label, x, BANK_ROW_Y);
+    lv_obj_set_size(label, w, BANK_ROW_H);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
+    lv_obj_set_style_pad_top(label, 10, 0);
+    lv_obj_set_style_text_align(label, align, 0);
+    lv_label_set_text(label, "");
+    return label;
+}
+
+static lv_obj_t *build_bank_row(uint8_t index, lv_obj_t *parent)
+{
+    page_ui_t *ui = &s_ui[index];
+    s_bank_slot = 0;   /* 页面重建：目标槽归零（与 FILE 页选中槽同口径） */
+    s_bank_act = 0xFF; /* 尚无动作：状态行留空 */
+    s_bank_refused = 0;
+    ui->bank_shown_slot = 0xFF;
+    ui->bank_status_key = 0xFFFFFFFFu;
+
+    ui->bank_label = make_bank_label(parent, BANK_LABEL_X, BANK_LABEL_W, UI_TEXT_DIM,
+                                     LV_TEXT_ALIGN_LEFT);
+    UI_BUILD_CHECK(ui->bank_label);
+    lv_label_set_text(ui->bank_label, "BANK");
+
+    ui->bank_value = make_bank_label(parent, BANK_VAL_X, BANK_VAL_W, UI_ACCENT,
+                                     LV_TEXT_ALIGN_CENTER);
+    UI_BUILD_CHECK(ui->bank_value);
+
+    const uintptr_t ctx = (uintptr_t)((unsigned)index << 4);
+    ui->bank_dec = make_bank_button(parent, BANK_DEC_X, BANK_SLOT_W, "-", NULL, (void *)(ctx | 0u));
+    UI_BUILD_CHECK(ui->bank_dec);
+    ui->bank_inc = make_bank_button(parent, BANK_INC_X, BANK_SLOT_W, "+", NULL, (void *)(ctx | 1u));
+    UI_BUILD_CHECK(ui->bank_inc);
+    ui->bank_save = make_bank_button(parent, BANK_SAVE_X, BANK_ACT_W, "SAVE", &s_st_bank_save,
+                                     (void *)(ctx | 2u));
+    UI_BUILD_CHECK(ui->bank_save);
+    ui->bank_erase = make_bank_button(parent, BANK_ERASE_X, BANK_ACT_W, "ERASE", &s_st_bank_erase,
+                                      (void *)(ctx | 3u));
+    UI_BUILD_CHECK(ui->bank_erase);
+
+    ui->bank_status = make_bank_label(parent, BANK_STATUS_X, BANK_STATUS_W, UI_TEXT_DIM,
+                                      LV_TEXT_ALIGN_LEFT);
+    UI_BUILD_CHECK(ui->bank_status);
+    return parent;
+}
+
 lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
 {
     const param_page_t *pg = page_layout_get(index);
@@ -437,6 +642,9 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
             }
         }
     }
+
+    /* bank 存取行（仅 FM6 页）：旋钮之后建，几何在页面区底部（不覆盖旋钮环） */
+    if (bank_row_present(pg) && build_bank_row(index, parent) == NULL) return NULL;
     return parent;
 }
 
@@ -486,6 +694,40 @@ void page_params_update(uint8_t index, const app_state_t *st)
         if (!slot_value(pg, slot, st, &v)) continue;
         if (!k->shown || k->locked || k->value != v) knob_show(k, v);
     }
+
+    /* bank 行（仅 FM6）：目标槽 `B<n+1>` + 状态行（最后一次 bank 动作 × store_status，
+     * 与 FILE 页同一映射）。脏检查：槽号变化写槽文本，四元组
+     * (act, status, ready, refused) 变化写状态行——30ms 一拍无条件重设文本会让 LVGL
+     * 持续失效重绘。 */
+    if (bank_row_present(pg) && ui->bank_label != NULL) {
+        if (ui->bank_shown_slot != s_bank_slot) {
+            char text[8];
+            snprintf(text, sizeof(text), "B%u", (unsigned)(s_bank_slot + 1u));
+            lv_label_set_text(ui->bank_value, text);
+            ui->bank_shown_slot = s_bank_slot;
+        }
+        bool ready = sloop_store_ready();
+        uint32_t key = (uint32_t)s_bank_act | ((uint32_t)st->store_status << 8) |
+                       ((uint32_t)(ready ? 1u : 0u) << 16) |
+                       ((uint32_t)s_bank_refused << 17);
+        if (key != ui->bank_status_key) {
+            ui->bank_status_key = key;
+            if (s_bank_refused) {
+                /* 锁定页的本地拒绝：与存储层结果无关，红字提示 */
+                lv_label_set_text(ui->bank_status, "NOT FM6");
+                lv_obj_set_style_text_color(ui->bank_status, lv_color_hex(UI_ERROR), 0);
+            } else if (s_bank_act > 2u) {
+                lv_label_set_text(ui->bank_status, ""); /* 尚无动作：不显示过期的结果 */
+            } else {
+                char text[32];
+                ui_file_status_text(text, sizeof(text), s_bank_act, st->store_status, ready);
+                lv_label_set_text(ui->bank_status, text);
+                lv_obj_set_style_text_color(
+                    ui->bank_status,
+                    lv_color_hex(ui_file_status_color(s_bank_act, st->store_status, ready)), 0);
+            }
+        }
+    }
 }
 
 /* ---------------------------------------------------------------- TAP --- */
@@ -510,6 +752,28 @@ static void param_tap_button(uint8_t index, int8_t delta, sloop_tap_result_t *ou
         out->kind = ok ? SLOOP_TAP_PARAM_STEP : SLOOP_TAP_PARAM_LOCKED;
     }
     refresh(index);
+}
+
+static void bank_tap_slot(uint8_t index, int8_t delta, sloop_tap_result_t *out)
+{
+    if (!bank_slot_step(index, delta)) return;
+    if (out != NULL) {
+        out->kind = SLOOP_TAP_BANK_SLOT;
+        out->a = APP_PAGE_FM6;
+        out->b = s_bank_slot;
+        out->d = delta;
+    }
+}
+
+static void bank_tap_action(uint8_t index, uint8_t act, sloop_tap_result_t *out)
+{
+    bank_action(index, act);
+    if (out != NULL) {
+        out->kind = act == 0u ? SLOOP_TAP_BANK_STORE : SLOOP_TAP_BANK_ERASE;
+        out->a = APP_PAGE_FM6;
+        out->b = s_bank_slot;
+        out->v = act;
+    }
 }
 
 bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *out)
@@ -541,5 +805,37 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
         }
         return true;
     }
+
+    /* bank 行（仅 FM6；矩形的建控件/命中同源）：槽 ± 只改目标槽，SAVE/ERASE 发状态层命令 */
+    if (bank_row_present(pg) && ui->bank_label != NULL) {
+        if (rect_hit(x, y, BANK_DEC_X, BANK_ROW_Y, BANK_SLOT_W, BANK_ROW_H)) {
+            bank_tap_slot(index, -1, out);
+            return true;
+        }
+        if (rect_hit(x, y, BANK_INC_X, BANK_ROW_Y, BANK_SLOT_W, BANK_ROW_H)) {
+            bank_tap_slot(index, +1, out);
+            return true;
+        }
+        if (rect_hit(x, y, BANK_SAVE_X, BANK_ROW_Y, BANK_ACT_W, BANK_ROW_H)) {
+            bank_tap_action(index, 0, out);
+            return true;
+        }
+        if (rect_hit(x, y, BANK_ERASE_X, BANK_ROW_Y, BANK_ACT_W, BANK_ROW_H)) {
+            bank_tap_action(index, 2, out);
+            return true;
+        }
+    }
     return false;
+}
+
+const char *page_params_bank_status_text(uint8_t index)
+{
+    if (index >= PARAM_PAGE_COUNT || !bank_row_present(page_layout_get(index))) return NULL;
+    /* 行未建（页未构建/已随源组销毁）时没有可回显的页面状态 */
+    if (s_ui[index].bank_label == NULL) return NULL;
+    if (s_bank_refused) return "NOT FM6";
+    app_state_t st;
+    state_get_copy(&st);
+    return ui_file_status_text(s_bank_echo, sizeof(s_bank_echo), s_bank_act, st.store_status,
+                               sloop_store_ready());
 }

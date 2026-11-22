@@ -196,13 +196,18 @@ typedef enum {
                               * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
     SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
                               * 动作后 store_status 的变化再由状态行/console 回显体现 */
+    SLOOP_TAP_BANK_SLOT,     /* FM6 页 bank 目标槽 ±：a=页 id（FM6）b=新槽号(0..26)
+                              * d=±1。只改目标槽，不写存储/引擎 */
+    SLOOP_TAP_BANK_STORE,    /* FM6 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
+                              * 动作结果由状态行/console 回显体现） */
+    SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
 } sloop_tap_kind_t;
 
 typedef struct {
     sloop_tap_kind_t kind;
     uint8_t a, b;
     int16_t v;
-    int8_t d; /* SLOOP_TAP_PARAM_STEP：±1 步进方向 */
+    int8_t d; /* SLOOP_TAP_PARAM_STEP / SLOOP_TAP_BANK_SLOT：±1 步进/选槽方向 */
 } sloop_tap_result_t;
 
 typedef enum {
@@ -235,6 +240,15 @@ const char *sloop_ui_file_status_text(void);
 bool sloop_ui_param_page_active(void);
 void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
 void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
+
+/* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
+ * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页
+ * （选中轨引擎 ≠ FM6，含鼓轨）的本地拒绝返回 `NOT FM6`（红字，不进 store_status）；
+ * 其余映射复用 theme.h 的 ui_file_status_text（act 0 SAVE / 2 ERASE，与 FILE 页同一套
+ * 文案：`SAVE OK` / `ERASE OK` / `STOP BEFORE SAVE` / `NO STORAGE` /
+ * `DRUM TRACK: NO SOUND`）。不取 LVGL 锁（只读 UI 局部态 + 状态层快照），可在
+ * console/任意任务调用。 */
+const char *sloop_ui_bank_status_text(void);
 
 /* 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`，ADR-008 §8.2/§8.5）：
  * 向**当前**参数页第 slot 槽旋钮派发合成的 PRESSED/PRESSING 事件（dx/dy 相对旋钮

@@ -92,9 +92,9 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | GLOBAL | 2,856 B | 3,584 B | +25% | 8 旋钮（单对象自绘）+ 页眉 + 2 个 ± 按钮（Task 10） |
 | FX | 2,856 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
 | ANALOG | 2,868 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,868） |
-| FM6 | 2,864 B | 3,584 B | +25% | 8 旋钮（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH，Task 11） |
+| FM6 | 2,864 B（Task 11）→ **4,956–5,100 B**（Task 13，含 bank 行） | 3,584 B → **6,144 B** | +25% → **+20.5%**（对 5,100；区间 4,956 处 +24.0%，见 §3 注） | 8 旋钮（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH）+ 底部 bank 存取行（BANK 标签/±/槽号/SAVE/ERASE/状态行 = 7 个单对象 label，Task 13） |
 | SAMPLE | 2,432 B | 3,072 B | +26% | 6 旋钮（空槽 edit[5]/edit[7] 不建，Task 11） |
-| **合计** | **48,048 B** | **55,296 B** | — | 九页全建后 `UI MEM` 同次输出（Task 11）：pool_used 55,064 / pool_free **2,816** / pool_total 57,880。**reserve（total − sum_est）不是可用余量**（见 §5 invariant 1）；P4-A 终审轮 STEP est 再下调到 23,040 后，九页全建 `pool_free` 实测 2.2–2.7KB 量级（终审轮 2,628–2,644B）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
+| **合计** | **48,048 B**（Task 11 时点；Task 13 后 FM6 +2,268B） | **55,296 B**（Task 11；现 57,856B） | — | 九页全建后 `UI MEM` 同次输出（Task 11）：pool_used 55,064 / pool_free **2,816** / pool_total 57,880。**reserve（total − sum_est）不是可用余量**（见 §5 invariant 1）；P4-A 终审轮 STEP est 再下调到 23,040 后，九页全建 `pool_free` 实测 2.2–2.7KB 量级（终审轮 2,628–2,644B）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
 
 > **STEP 的 est 在 9 页口径两次下调：24,576 → 24,064（Task 11）→ 23,040（P4-A 终审
 > 修复轮）**。**其它八页建完、STEP 尚未建时** free 实测 **24,044B**（终审轮 params
@@ -140,6 +140,13 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   再加 10% 会把不变量顶破（`13,800 + 22,528 + 23,040 + 4,096 = 63,464 > 63,120`）。判据
   仍是「delta ≤ est 且逐页 `free ≥ est`」，余量不足用**实证峰值**（free 7,308–7,840B ≥ 4KB）
   兜底，而不是放宽门禁。
+  **delta 有池历史漂移的页（P4-B Task 13，FM6）**：该页实测 **4,956–5,100B**（同一源码、
+  不同分配历史），est 6,144 = 12×512。余量按**最大**实测 delta（门槛的约束方向，
+  `free ≥ est` 与 `est ≥ delta` 都只受上沿约束）算：`6,144 / 5,100 = +20.5%`，在
+  +10–23% 内；对区间下沿 4,956 是 +24.0%——**比规则上沿（+23%）高 1 个百分点**：这不是
+  est 过大，而是该次 delta 读数偏小（est 的可测约束是 `est ≥ delta` 与 `free ≥ est`，
+  两者的余量都以**最大** delta 为准）。若某页的 delta 区间宽到**上沿**也超出 +23%，
+  则按组不变量与实测峰值做设计决策（拆页/共享样式），不得直接调大 est。
 - **真门禁是逐页的 `free_size ≥ est_bytes`（构建前检查）**，不是「Σ est < 池总量」。
   后者算错了基数与固定开销：TLSF 池可用总量是 63,120B（不是 `CONFIG_LV_MEM_SIZE`
   的 65,536B），且非页面的基础占用（根/页签条/错误状态条/字体等）不计入 Σ est——
@@ -168,8 +175,11 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 ADR-005 §5）。**最坏有序对 = FILE 两页全建 → 首建 STEP**（P4-B Task 12 起）：
 `13,800 + (8,192+12,800) + 23,040 + 4,096 = 61,928 ≤ 63,120`（余 1,192B；base 取
 保守上界 14,112B 时余 880B）；实测过渡峰值 `pool_free 7,308–7,840B`（`store` 场景 ⓯ 断言
-≥4,096B），仍是弧线 mask 峰值（≈2.6KB）的 2.8 倍。次坏两对是 EDIT→STEP 与
-SEQ→PRESETS（各 40,448B，余 4,776B）。每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
+≥4,096B），仍是弧线 mask 峰值（≈2.6KB）的 2.8 倍。**按当前 est 表的有序对排名**：
+① FILE→STEP `44,032B`（账面 61,928、余 1,192B；保守 base 14,112 时余 880B）；
+② EDIT→STEP `43,008B`（Task 13 的 FM6 bank 行使 EDIT Σ = 19,968B；账面
+`13,800 + 43,008 + 4,096 = 60,904`、余 **2,216B**；保守 base 余 1,904B）；
+③ SEQ→PRESETS `40,448B`（账面 58,344、余 4,776B）。每页 `free ≥ est` 前置检查不变。切组顺序固定为「建目标页 → 切到
 目标页 → 销毁源组**全部**已建页（含原当前页）」——源组页面在**切换之后**才释放（先销毁
 会出现空白帧、输入路径在跨组切换期间失去活页），故峰值是瞬态且必须被上式覆盖；离开组后
 源组 `built=0`。组内首次访问兄弟页时构建、同组后续切换只改显隐。`UI MEM` 增加
@@ -268,7 +278,7 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 UI MEM pool_used=19748 pool_free=42520 pool_total=62268 registered=9 built=1 failed=0 sum_est=55296 reserve=6972 group=SEQ
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
 UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
-UI MEM GROUP EDIT built=0 sum_est=17408 sum_delta=0 build_ms=10
+UI MEM GROUP EDIT built=0 sum_est=19968 sum_delta=0 build_ms=10
 UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3828 build_ms=9
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3828 build_ms=6
@@ -433,9 +443,9 @@ FILE 两页已注册 ⇒ `sum_est = 8,192 + 12,800 = 20,992`、上行 FILE 组�
 
 #### 8.5 预算与验证
 
-- 九页预算见 §3 表（GLOBAL/FX/ANALOG/FM6 各 est 3,584B、SAMPLE 3,072B）；P4-B 起
-  按组核算（EDIT 组 Σ 17,408B，全建后 `pool_free` 实测 26–34KB；九页平铺时点的
-  2,816B 仅作历史对照）。
+- 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
+  行）、SAMPLE 3,072B）；P4-B 起按组核算（EDIT 组 Σ 19,968B，全建后 `pool_free`
+  实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
   `STATE SNAP` 断言；**`UI KNOB` press/drag 证明触摸回调接线与相对拖拽**——按下不改值、
   +90° 改 +67（BPM range 200）、拖回锚点回原值、中心/环带外被忽略；FM6/SAMPLE 页
@@ -443,6 +453,46 @@ FILE 两页已注册 ⇒ `sum_est = 8,192 + 12,800 = 20,992`、上行 FILE 组�
   页回 `ignored (locked)`；切页保值、九页池水位、五页截屏 + 像素抽检）；
   `scripts/knob-test.sh`（旋钮纯函数 + 格式化表 host 单测）；
   `UI FORCEFAIL global` 复验参数页的失败可见性与重建（重建后引擎真值不变）。
+
+#### 8.6 FM6 页 bank 存取行（P4-B Task 13）
+
+- **几何**：页面区相对 `y=552..596`（高 44）。旋钮盒底边 = `52 + 298 + 26 + 160 =
+  536`，行与旋钮之间留 16px，页面区高 648 ⇒ **不压缩旋钮区**，也不需要改网格宏；
+  `TAP` 命中矩形（`BANK_*` 宏）与建控件同源。行内容：`BANK`(16..104) / `-`(112..176) /
+  槽号（`B<n+1>`，例 `B4`，184..280，UI_ACCENT 居中） / `+`(288..352) / `SAVE`(368..468，绿) /
+  `ERASE`(484..584，橙) / 状态行(600..1264)。
+- **语义**：槽号 = **目标槽** 0..26（显示 `B<槽+1>`），与 PTCH（音源，PTCH = 8 + 槽号）
+  独立；`SAVE` 发 `CMD_BANK_PUT`（选中轨的 live patch = `fm6_patch[track]` 经
+  `fm6_pack`，与 console `STORE BANK PUT` 同一入口），`ERASE` 发 `CMD_BANK_ERASE`。
+  注意 FM6 的 8 个 EDIT 值是**宏**（上游 `fm6_sync` 叠加在 patch 上）——调 ALG 等宏
+  **不改** `fm6_patch`，故 SAVE 存的是 patch 本体（与上游 "Store in bank" 同义）。
+- **锁定页拒绝（R36）**：选中轨的引擎不是 FM6（含鼓轨——没有引擎）时，SAVE **和**
+  ERASE 都**直接拒绝**：不发状态层命令、不动存储，状态行与 `TAP` 回显显示
+  `NOT FM6`（红字；页内局部状态，不写 `app_state_t.store_status`）。理由：每个合成轨
+  都有 `fm6_patch`（上电 INIT VOICE、之后是该轨最后一次载入的 patch），旧行为会在锁定
+  页把这份「别的引擎轨上残留的 patch」写进用户银行槽；页眉此时已显示
+  `… USES ENG k — N/A` / `(DRUM) — N/A`。
+- **状态行**：非锁定页复用 `theme.h` 的 `ui_file_status_text`（act 0 = SAVE / 2 =
+  ERASE），bank 行可达的文案只有 `SAVE OK` / `ERASE OK` / `STOP BEFORE SAVE` /
+  `NO STORAGE` / `<ACT> ERROR`——`DRUM TRACK: NO SOUND` 在 bank 行**不可达**（鼓轨恒为
+  锁定页 ⇒ `NOT FM6` 先于存储层；该令牌仍用于 console `STORE BANK PUT/LIVE` 的鼓轨
+  守卫）。播放中由存储层拒绝（`store_status = 3`）；锁定页的 `NOT FM6` 是页内优先级
+  更高的一档（先于存储结果）。
+- **阻塞**：擦写在 LVGL 回调里发生（TAP/按钮 → `state_apply` → 存储层），一次
+  SAVE/ERASE 最坏阻塞一次整银行擦写窗口（4KB 扇区重写；spec §4.3 接受的 ≤150ms 级
+  UI 停顿，与工程/预置保存同一条「擦写期间不持引擎锁」纪律，ADR-009 §3）。
+- **TAP kind**：`SLOOP_TAP_BANK_SLOT`（`b`=目标槽、`d`=±1）、`SLOOP_TAP_BANK_STORE`/
+  `SLOOP_TAP_BANK_ERASE`（`b`=目标槽、`v`=0/2）；console 回显
+  `-> BANK slot=k delta=±1` 与 `-> BANK slot=k action=save|erase status="…"`
+  （状态串来自 `sloop_ui_bank_status_text()`，与屏幕同源）。
+- **键盘**：`←/→` 仍只在旋钮间移动焦点（不改既有旋钮模型），bank 行**只经触摸/
+  console**——与 FILE 页「SAVE/ERASE 只触摸 + console」同一取舍。
+- **预算**：7 个单对象 label（BANK/槽号/±/SAVE/ERASE/状态行）+ 3 个静态样式 ⇒
+  实测 delta **4,956–5,100B**（旧 2,864B），est `3,584 → 6,144`（512 对齐；对**最大**
+  实测 delta 5,100 是 **+20.5%**，在预算规则 +10–23% 内；区间另一端 4,956 的 +24.0%
+  （高过 +23% 上沿 1 pp）只是池历史让 delta 偏小的读数，不是余量不足——见 §3 注）；
+  EDIT 组 Σ est `17,408 → 19,968`。组不变量见 §3（最坏对 FILE→STEP 不变；
+  EDIT→STEP 成单独次坏，账面 60,904、余 2,216B）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）
 

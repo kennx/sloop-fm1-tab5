@@ -1357,6 +1357,10 @@ PARAM_OBJ_DX, PARAM_OBJ_DY, PARAM_OBJ_SIZE = 70, 26, 160
 PARAM_BTN_MINUS = (1136, 94)
 PARAM_BTN_PLUS = (1224, 94)
 
+# EDIT 组 Σ est（ADR-008 §3）：GLOBAL/FX/ANALOG 3×3,584 + FM6 6,144（Task 13 的 bank
+# 存取行）+ SAMPLE 3,072。页面 est 改了这里必须同步（params 场景的组预算断言）。
+PARAM_EDIT_SUM_EST = 3 * 3584 + 6144 + 3072
+
 
 def param_knob_xy(slot: int) -> tuple:
     """参数页槽位 slot（0..7，行优先）旋钮盒中心的屏幕绝对坐标。"""
@@ -1364,6 +1368,38 @@ def param_knob_xy(slot: int) -> tuple:
     x = PARAM_GRID_X0 + c * PARAM_CELL_PITCH + PARAM_OBJ_DX + PARAM_OBJ_SIZE // 2
     y = PARAM_GRID_Y0 + r * PARAM_ROW_PITCH + PARAM_OBJ_DY + PARAM_OBJ_SIZE // 2
     return (x, y)
+
+
+# FM6 页 bank 存取行（P4-B Task 13）：几何与 page_params.c 的 BANK_* 宏同名同值。
+# 页面区相对 y = 552（旋钮盒底边 536 + 16px 间隙），行高 44；屏幕绝对 y = 72 + 552。
+BANK_ROW_Y = 72 + 552
+BANK_ROW_H = 44
+BANK_LABEL_X, BANK_LABEL_W = 16, 88
+BANK_DEC_X = 112
+BANK_VAL_X, BANK_VAL_W = 184, 96
+BANK_INC_X = 288
+BANK_SLOT_W = 64
+BANK_SAVE_X = 368
+BANK_ERASE_X = 484
+BANK_ACT_W = 100
+
+
+def bank_slot_btn_xy(delta: int) -> tuple:
+    """bank 目标槽 `-` / `+` 按钮中心（delta<0 = 减）。"""
+    x = BANK_DEC_X if delta < 0 else BANK_INC_X
+    return (x + BANK_SLOT_W // 2, BANK_ROW_Y + BANK_ROW_H // 2)
+
+
+def bank_act_xy(act: int) -> tuple:
+    """bank SAVE（act=0）/ ERASE（act=2）按钮中心。"""
+    x = BANK_SAVE_X if act == 0 else BANK_ERASE_X
+    return (x + BANK_ACT_W // 2, BANK_ROW_Y + BANK_ROW_H // 2)
+
+
+def bank_btn_probe(act: int) -> tuple:
+    """bank 动作按钮的像素探针点（按钮内左侧 12px，避开居中文本的字形）。"""
+    x = BANK_SAVE_X if act == 0 else BANK_ERASE_X
+    return (x + 12, BANK_ROW_Y + BANK_ROW_H // 2)
 
 
 def param_value(s: Session, key: str = "value") -> int:
@@ -1914,8 +1950,11 @@ def run_params(s: Session) -> None:
     # 取 ≥20KB 作为回归下界：EDIT 组 Σdelta 实测 ≈14KB，base 重测后见证据文件。
     (s.ok if mem3["head"]["free"] >= 20480 else s.fail)(
         f"UI MEM pool_free={mem3['head']['free']}（组作用域后 ≥20KB，DI-19 收口）")
-    (s.ok if g3["EDIT"]["sum_est"] == 17408 else s.fail)(
-        f"UI MEM EDIT sum_est={g3['EDIT']['sum_est']}（期望 17,408 = 4×3584 + 3072）")
+    # EDIT Σ est = GLOBAL/FX/ANALOG 3×3,584 + FM6（Task 13 起带 bank 存取行，est 6,144）
+    # + SAMPLE 3,072 = 19,968。
+    (s.ok if g3["EDIT"]["sum_est"] == PARAM_EDIT_SUM_EST else s.fail)(
+        f"UI MEM EDIT sum_est={g3['EDIT']['sum_est']}"
+        f"（期望 {PARAM_EDIT_SUM_EST:,} = 3×3584 + 6144 + 3072）")
     (s.ok if 0 < g3["EDIT"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
         f"UI MEM EDIT build_ms={g3['EDIT']['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
 
@@ -2508,6 +2547,13 @@ def run_store(s: Session) -> None:
        鼓轨 `DRUM TRACK: NO SOUND` + 播放中 **LOAD 允许**而 SAVE 拒绝（`up_load_to` 只
        读不写 flash）+ `UI MEM` 的 FILE 组水位；跨组 `UI step` 量过渡峰值（≥4KB）；离开组
        两页回 `unbuilt`；收口全空 + 轨 0 回 ANALOG。
+    ⓰ FM6 页 bank 存取行（run_store_ui_bank，最后跑；Task 13）：**锁定页拒绝**（轨 0 =
+       ANALOG / 轨 3 = 鼓轨：TAP SAVE/ERASE 回 `status="NOT FM6"`、BANK LIST 不变）→
+       `UI fm6`（轨 1 = FM6）+ BANK 行截屏（SAVE 绿/ERASE 橙/槽号 B1）→ 槽环绕
+       （`−` B1→B27、`+` 回 B1、再 `+`×3 到 B4；`PARAM 70` 的 PTCH 不变）→ `TAP BANK
+       SAVE` ⇒ `status="SAVE OK"` 且 `STORE BANK GET 3` == `STORE BANK LIVE` → `TAP BANK
+       ERASE` ⇒ `status="ERASE OK"`、`GET 3` → empty → **先 ERASE 再 PLAY** 的 SAVE ⇒
+       `STOP BEFORE SAVE` 且槽保持空；收口擦槽 + 轨 0/1 回 ANALOG + `STORE AUTO ON`。
 
     ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
        引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
@@ -2642,6 +2688,7 @@ def run_store(s: Session) -> None:
     run_store_torn(s)
     run_store_fields(s)
     run_store_file(s)
+    run_store_ui_bank(s)
 
 
 def run_store_presets(s: Session) -> None:
@@ -3932,6 +3979,203 @@ def run_store_file(s: Session) -> None:
                   f"⓯ 收口 ERASE PRESET {i}")
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⓯ 收口轨 0 = ANALOG 预置 0")
+
+
+def run_store_ui_bank(s: Session) -> None:
+    """⓰ FM6 页 bank 存取行（Task 13）：TAP 与 console 命令走**同一动作函数**的证明。
+
+    判据链（不是「页面画出来了」）：
+      - **锁定页拒绝（R36）**：选中轨 0（ANALOG）时 `UI fm6` 是锁定页——`TAP BANK
+        SAVE`/`ERASE` 回 `status="NOT FM6"`、不发命令、`STORE BANK LIST` 逐槽不变；
+        鼓轨同理（同一 `page_locked` 判定）；
+      - `UI fm6`（选中轨 1 = FM6 ⇒ 页面解锁）+ `UI MEM`：FM6 `delta ≤ est`、EDIT 组
+        built=1；截屏抽检 BANK 行的标签/槽号/SAVE(绿)/ERASE(橙) 像素；
+      - 目标槽：`−` 从 B1 → B27（环绕）、`+` 回 B1，再 `+`×3 → B4；全程 `PARAM 70`
+        （PTCH = 音源选择）逐次不变——± 只改**目标槽**；
+      - `TAP BANK SAVE` ⇒ 回显 `status="SAVE OK"`、`STORE BANK GET 3` == `STORE BANK LIVE`
+        （按钮发的 CMD_BANK_PUT 与 console 的 PUT 同一存储入口，字节一致）；
+      - `TAP BANK ERASE` ⇒ `status="ERASE OK"`、`GET 3` → `STORE ERR empty`；
+      - 播放中 `TAP BANK SAVE` ⇒ `status="STOP BEFORE SAVE"` 且槽**保持空**
+        （先 ERASE 再 PLAY：若拒绝被绕过，这次 SAVE 会写出一个非空槽——有判别力）。
+
+    关于「非 FM6 轨的 patch」：每个合成轨都有 `fm6_patch` 槽（上电是 INIT VOICE，之后是
+    该轨最后一次载入的 patch），所以旧行为下锁定页 SAVE 会把这份 patch 写进用户槽；R36
+    改为页面直接拒绝（`NOT FM6`），本段因此先归一到 FM6 工厂预置 0
+    （`bank_normalize_fm6`）再做 SAVE——此时 LIVE 才是真实的工厂 patch。另注意 FM6 的 8
+    个 EDIT 值是宏（上游 `fm6_sync` 叠加在 patch 上）、不写回 `fm6_patch`，故 `PARAM 63 0`
+    不影响 LIVE/GET 的字节比较。
+    """
+    restored = False
+    try:
+        s.ser.note("⓰ FM6 页 bank 存取行：锁定页拒绝 → UI fm6 → 槽环绕/±/SAVE/ERASE → 播放拒绝 + 截屏")
+        store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓰ STORE AUTO OFF（本段不写 autosave）")
+        ensure_stopped(s)
+
+        # bank 归一（脚本可重复）：已用槽全部擦掉 → COUNT used=0
+        used, _ = bank_list(s)
+        for k in sorted(used):
+            if used[k]:
+                store_cmd(s, f"STORE BANK ERASE {k}", rf"^BANK {k} ERASED\r?$",
+                          f"⓰ 归一 ERASE {k}")
+        used, count = bank_list(s)
+        (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+            f"⓰ 归一后 BANK LIST 全 EMPTY（实得 {sorted(k for k, v in used.items() if v)} "
+            f"count={count}）")
+
+        # ---------- R36：锁定页（选中轨引擎 ≠ FM6，含鼓轨）直接拒绝 ----------
+        # 选中轨 0 = ANALOG（上电/⑮ 收口状态），FM6 页是锁定页（页眉红字 N/A）
+        select_track(s, 0)
+        s.cmd("UI fm6")
+        s.expect(r"UI page=fm6 \(7\)", "⓰ UI fm6（轨 0 是 ANALOG ⇒ 锁定页）")
+        before = bank_list(s)[0]
+        s.cmd("TAP %d %d" % bank_act_xy(0))
+        s.expect(r'-> BANK slot=\d+ action=save status="NOT FM6"',
+                 "⓰ 锁定页 TAP BANK SAVE → status=\"NOT FM6\"")
+        s.cmd("TAP %d %d" % bank_act_xy(2))
+        s.expect(r'-> BANK slot=\d+ action=erase status="NOT FM6"',
+                 "⓰ 锁定页 TAP BANK ERASE → status=\"NOT FM6\"")
+        (s.ok if bank_list(s)[0] == before else s.fail)(
+            "⓰ 锁定页拒绝后 BANK LIST 逐槽不变（没有写入/擦除）")
+        img = s.capture("task-13-fm6-bank-locked")
+        s.probe_region(img, "⓰ 锁定页状态行 NOT FM6（UI_ERROR 红字）",
+                       (600, BANK_ROW_Y, 1000, BANK_ROW_Y + BANK_ROW_H), C_ERROR, 24, 20)
+
+        # 鼓轨（选中轨 3）也是锁定页：同一个 page_locked 判定 ⇒ NOT FM6（不是存储层的 drum）
+        select_track(s, 3)
+        s.cmd("UI fm6")
+        s.expect(r"UI page=fm6 \(7\)", "⓰ UI fm6（轨 3 是鼓轨 ⇒ 锁定页）")
+        s.cmd("TAP %d %d" % bank_act_xy(0))
+        s.expect(r'-> BANK slot=\d+ action=save status="NOT FM6"',
+                 "⓰ 鼓轨锁定页 TAP BANK SAVE → status=\"NOT FM6\"")
+        (s.ok if bank_list(s)[0] == before else s.fail)(
+            "⓰ 鼓轨锁定页拒绝后 BANK LIST 逐槽不变")
+
+        # ---------- 解锁：轨 1 = FM6 工厂预置 0（PTCH=0 ⇒ patch F1） ----------
+        select_track(s, 1)
+        bank_normalize_fm6(s, 0)  # 轨 1：DIGITAL → FM6 预置 0
+        # 环顶像素探针前提：ALG=0（宏值非 0 时指示弧会盖住 12 点方向；与 params 场景同口径）。
+        # 宏不写回 fm6_patch ⇒ 不影响下面的 LIVE / GET 字节比较。
+        s.cmd("PARAM 63 0")
+        s.expect(r"PARAM track=1 id=63 value=0 applied=0", "⓰ 归一 FM6 ALG=0（环顶探针前提）")
+        live = bank_live(s)
+        (s.ok if set(live) != {"0"} and set(live) != {"0", "F"} else s.fail)(
+            f"⓰ LIVE 是真实的 FM6 工厂 patch（非全 0/全 F，{live[:16]}…）")
+        s.cmd(f"PARAM {BANK_PTCH_ID}")
+        pit0 = param_value(s)  # PTCH（音源）基线
+
+        # ---------- 页面：FM6 解锁 + BANK 行截屏 ----------
+        s.cmd("UI fm6")
+        s.expect(r"UI page=fm6 \(7\)", "⓰ UI fm6（轨 1 是 FM6 ⇒ 页面解锁）")
+        mem = param_mem(s)
+        st, est, delta = mem["pages"].get(7, ("?", 0, 0))
+        (s.ok if st == "built" and 0 < delta <= est else s.fail)(
+            f"⓰ FM6 state={st} delta={delta} est={est}（bank 行建入，0<delta≤est）")
+        (s.ok if mem["groups"]["EDIT"]["built"] == 1 else s.fail)(
+            f"⓰ EDIT built={mem['groups']['EDIT']['built']}（期望 1：只有 FM6）")
+
+        img = s.capture("task-13-fm6-bank")
+        s.probe(img, "⓰ BANK 行 SAVE 按钮底（绿）", *bank_btn_probe(0), C_GREEN)
+        s.probe(img, "⓰ BANK 行 ERASE 按钮底（橙）", *bank_btn_probe(2), C_ORANGE)
+        s.probe_region(img, "⓰ BANK 行目标槽文本（B1，UI_ACCENT）",
+                       (BANK_VAL_X, BANK_ROW_Y, BANK_VAL_X + BANK_VAL_W, BANK_ROW_Y + BANK_ROW_H),
+                       C_YELLOW, 16, 8)
+        s.probe_region(img, "⓰ BANK 行标签文本（BANK 灰字）",
+                       (BANK_LABEL_X, BANK_ROW_Y, BANK_LABEL_X + BANK_LABEL_W,
+                        BANK_ROW_Y + BANK_ROW_H), C_TEXT_DIM, 16, 24)
+        # 旋钮区仍在原位（bank 行不挤压旋钮）：旋钮 0 环顶探针（与 params 场景同点；
+        # 已归一 ALG=0 ⇒ 指示弧不盖 12 点方向）
+        s.probe(img, "⓰ 旋钮 0 弧线底（环顶，未被 bank 行挤压）", 166, 158, C_PANEL_HI, 10)
+
+        # ---------- 目标槽：B1 → B27（− 环绕）→ B1（+ 环绕）→ B4；PTCH 不变 ----------
+        s.cmd("TAP %d %d" % bank_slot_btn_xy(-1))
+        s.expect(r"-> BANK slot=26 delta=-1", "⓰ TAP BANK −（B1 → B27，环绕）")
+        s.cmd("TAP %d %d" % bank_slot_btn_xy(+1))
+        s.expect(r"-> BANK slot=0 delta=\+1", "⓰ TAP BANK +（B27 → B1，环绕）")
+        for k in range(1, 4):
+            s.cmd("TAP %d %d" % bank_slot_btn_xy(+1))
+            s.expect(rf"-> BANK slot={k} delta=\+1", f"⓰ TAP BANK +（{k}/3 → slot {k}）")
+        s.cmd("TAP %d %d" % bank_slot_btn_xy(-1))
+        s.expect(r"-> BANK slot=2 delta=-1", "⓰ TAP BANK −（3 → 2）")
+        s.cmd("TAP %d %d" % bank_slot_btn_xy(+1))
+        s.expect(r"-> BANK slot=3 delta=\+1", "⓰ TAP BANK +（2 → 3，回到目标槽）")
+        param_expect_value(s, f"PARAM {BANK_PTCH_ID}", pit0,
+                           "⓰ 槽 ± 序列前后 PTCH 不变（PARAM 70）")
+
+        # ---------- TAP SAVE → 槽 3 == 当前 live patch ----------
+        s.cmd("TAP %d %d" % bank_act_xy(0))
+        s.expect(r'-> BANK slot=3 action=save status="SAVE OK"',
+                 "⓰ TAP BANK SAVE → SAVE OK")
+        (s.ok if bank_get(s, 3) == live else s.fail)(
+            "⓰ TAP SAVE 后 GET 3 == 保存前的 LIVE（字节一致）")
+        (s.ok if bank_live(s) == live else s.fail)("⓰ SAVE 不动 live patch（LIVE 不变）")
+        used, count = bank_list(s)
+        (s.ok if used.get(3) and count == (1, BANK_SLOTS) else s.fail)(
+            f"⓰ LIST → B3 USED、COUNT used=1（实得 {sorted(k for k, v in used.items() if v)} "
+            f"count={count}）")
+
+        img = s.capture("task-13-fm6-bank-saved")
+        s.probe_region(img, "⓰ 状态行文本（SAVE OK 绿字）",
+                       (600, BANK_ROW_Y, 1000, BANK_ROW_Y + BANK_ROW_H), C_GREEN, 24, 20)
+        s.probe_region(img, "⓰ 目标槽文本（B4）",
+                       (BANK_VAL_X, BANK_ROW_Y, BANK_VAL_X + BANK_VAL_W, BANK_ROW_Y + BANK_ROW_H),
+                       C_YELLOW, 16, 8)
+
+        # ---------- TAP ERASE → 槽空 ----------
+        s.cmd("TAP %d %d" % bank_act_xy(2))
+        s.expect(r'-> BANK slot=3 action=erase status="ERASE OK"',
+                 "⓰ TAP BANK ERASE → ERASE OK")
+        store_cmd(s, "STORE BANK GET 3", r"^STORE ERR empty\r?$", "⓰ TAP ERASE 后 GET 3 → empty")
+        used, count = bank_list(s)
+        (s.ok if not used.get(3) and count == (0, BANK_SLOTS) else s.fail)(
+            f"⓰ TAP ERASE 后 B3 EMPTY、COUNT used=0（实得 count={count}）")
+
+        # ---------- 播放中 SAVE：拒绝且槽保持空（判别力：先 ERASE 再 PLAY） ----------
+        # 槽 3 此刻是空的；若「播放中拒绝」被绕过，这次 SAVE 会写出一个非空槽。
+        key_space(s)
+        s.cmd("STATE SNAP")
+        s.expect_int(r"playing=(\d)", 1, "⓰ KEY space → playing=1")
+        s.cmd("TAP %d %d" % bank_act_xy(0))
+        s.expect(r'-> BANK slot=3 action=save status="STOP BEFORE SAVE"',
+                 "⓰ 播放中 TAP BANK SAVE → STOP BEFORE SAVE")
+        store_cmd(s, "STORE BANK GET 3", r"^STORE ERR empty\r?$",
+                  "⓰ 播放中被拒的 SAVE 没写槽 3（GET 3 → empty）")
+        used, count = bank_list(s)
+        (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+            f"⓰ 播放中被拒后 BANK 仍全 EMPTY（实得 count={count}）")
+        img = s.capture("task-13-fm6-bank-playing")
+        s.probe_region(img, "⓰ 状态行 STOP BEFORE SAVE（UI_ERROR 红字）",
+                       (600, BANK_ROW_Y, 1000, BANK_ROW_Y + BANK_ROW_H), C_ERROR, 24, 20)
+        key_space(s)
+        s.cmd("STATE SNAP")
+        s.expect_int(r"playing=(\d)", 0, "⓰ 再按 space → playing=0（收口）")
+
+        # 收口：bank 空、轨 0/1 回 ANALOG、选中轨 0、PLAY；最后恢复自动存档（默认 ON）
+        used, _ = bank_list(s)
+        for k in sorted(used):
+            if used[k]:
+                store_cmd(s, f"STORE BANK ERASE {k}", rf"^BANK {k} ERASED\r?$",
+                          f"⓰ 收口 ERASE {k}")
+        used, count = bank_list(s)
+        (s.ok if not any(used.values()) and count == (0, BANK_SLOTS) else s.fail)(
+            f"⓰ 收口后 BANK 全 EMPTY（count={count}）")
+        s.cmd("ENG TRACK 1 0 0")
+        s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "⓰ 收口轨 1 = ANALOG 预置 0")
+        select_track(s, 0)
+        s.cmd("ENG TRACK 0 0 0")
+        s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⓰ 收口轨 0 = ANALOG 预置 0")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", "⓰ 复位 UI play")
+        # 自动存档恢复默认 ON（store.sh 其余段为了确定性把它关掉；后续场景/下一轮按默认跑）
+        store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⓰ 收口 STORE AUTO ON（恢复默认）")
+        restored = True
+    finally:
+        # 异常中止也要把自动存档开关恢复默认（后续场景/下一轮按默认跑）；
+        # 正常路径已在收口断言过 STORE AUTO on，这里不重复。
+        if not restored:
+            try:
+                s.cmd("STORE AUTO ON")
+            except (InjectError, OSError):  # 会话已坏时尽力而为，不掩盖原始异常
+                pass
 
 
 SCENARIOS = {

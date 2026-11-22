@@ -38,6 +38,12 @@
 #      ENTER=LOAD + 播放中 TAP SAVE ⇒ 状态行 STOP BEFORE SAVE 且 LIST 不变；`UI presets`
 #      32 槽 + TAP SAVE/LOAD（换引擎后回到预置的引擎）/ERASE + 鼓轨 `DRUM TRACK: NO SOUND`
 #      + 播放中拒绝 + `UI MEM` 的 FILE 组水位；离开 FILE 后两页回 UNBUILT
+#   ⓰ FM6 页 bank 存取行（Task 13）：锁定页拒绝（轨 0=ANALOG / 轨 3=鼓轨 ⇒ status="NOT FM6"、
+#      BANK LIST 不变）→ `UI fm6`（轨 1 = FM6）BANK 行截屏（SAVE 绿/ERASE 橙/槽号 B1）→
+#      槽环绕（− B1→B27、+ 回 B1、+×3 到 B4；PARAM 70 的 PTCH 不变）→ `TAP BANK SAVE` ⇒
+#      status="SAVE OK" 且 `STORE BANK GET 3` == `STORE BANK LIVE` → `TAP BANK ERASE` ⇒
+#      status="ERASE OK"、GET 3 → empty → **先 ERASE 再 PLAY** 的 SAVE ⇒ STOP BEFORE SAVE
+#      且槽保持空（判别力）；收口擦槽 + 轨 0/1 回 ANALOG + `STORE AUTO ON`
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。

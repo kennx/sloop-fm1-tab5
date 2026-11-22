@@ -1,0 +1,30 @@
+== Task 13 镜像 SHA256 对照（说明：受测镜像 vs 最终树镜像）
+
+A. 受测镜像（跑完 store ×2 / nav / params / SELFTEST 的镜像）
+   sha256 2ea41b4d0f905d91de52d37295b5585fe5f0d02a408fcdd8c37132f63f27759a
+   大小   1,589,552 B（0x184130；分区余量 81%）
+   App version: 2e59d3a-dirty（构建时工作区＝本任务源码、HEAD=2e59d3a）
+   证据: task-13-boot-log.txt
+
+B. 中间重建（删两个未用 inject helper 后、仅注释改动）
+   sha256 c5cceff429a16ed4ed4905059c06e99d0591a937a24934a03eb68881b859d59d
+   （与 A 逐字节比较：65B 差异全在 esp_app_desc 的 ELF SHA256 [0xB0,0xCF] 与镜像尾
+   SHA [0x18410F,0x18412F]）
+
+C. 最终树镜像（本任务提交 8f33455 之后、工作区干净时重建并已重新烧录；
+   随后的 commit --amend 只追加本目录的证据文件，源码零改动 ⇒ 与最终树同代码）
+   sha256 02e5a9fd8522fd131e334167bd3c2f933ae313944661ed4f890d0411f4e3e532
+   大小   1,589,552 B（0x184130，与 A 相同）
+   App version: 8f33455（git describe 取到提交号）
+   证据: task-13-boot-log-final.txt、task-13-final-smoke.txt
+
+A 与 C 的逐字节对照（从设备 read_flash 读回 A 的 0x10000..0x184130 后比较）：
+  差异 83 字节，全部落在 esp_app_desc 与镜像尾：
+    [0x0030,0x003C]  version（"2e59d3a-dirty" → "8f33455"）
+    [0x0071,0x0077]  time（"07:32:24" → "08:00:52"）
+    [0x00B0,0x00CF]  app_elf_sha256（32B）
+    [0x18410F,0x18412F] 镜像尾 SHA256
+  代码/rodata/data 段逐字节相同 ⇒ 三次构建**同代码**，差异只是 IDF build 元数据
+  （Task 9/12 已确立的同一现象）。设备上现在是 C（App version: 8f33455），
+  C 上复跑了 bank 行冒烟（GET 3 == LIVE / SAVE OK / ERASE OK / empty，见
+  task-13-final-smoke.txt）。

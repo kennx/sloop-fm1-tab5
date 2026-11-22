@@ -1,0 +1,10 @@
+== sloop_ui knob math host test
+PASS k=1 值 ↔ 弧线值往返与钳位
+PASS k=2 环带判定（55..95px）
+PASS k=3 角度差归一化（跨死区/负角）
+PASS k=4 相对拖拽换算与钳位
+PASS k=5 格式化表（上游生成表口径）
+
+5 passed, 0 failed
+KNOB TEST PASSED
+EXIT=0

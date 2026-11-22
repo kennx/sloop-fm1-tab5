@@ -73,8 +73,8 @@ static const char *TAG = "sloop_ui";
  * STEP 9 页口径：est = 23,040（实测 delta 21,484–21,864B，+5.4%）——「其它八页
  * 建完、STEP 最后建」时 free 实测 24,044–24,272B（P4-A 终审修复轮：params 场景
  * 顺序下 24,044B），delta+10% 的 24,064 会差 20B 被预算误拒（实际 delta 装得下）。
- * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 5 页 Σest 17,408B），
- * 九页平铺的容量天花板不再是约束。 */
+ * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 5 页 Σest 19,968B；FM6 自
+ * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。 */
 static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
@@ -956,6 +956,13 @@ const char *sloop_ui_file_status_text(void)
     if (s_page == APP_PAGE_PROJECTS) return page_projects_status_text();
     if (s_page == APP_PAGE_PRESETS) return page_presets_status_text();
     return NULL;
+}
+
+const char *sloop_ui_bank_status_text(void)
+{
+    if (!s_started) return NULL;
+    int idx = page_layout_index(s_page); /* 非参数页（含未注册页）返回 -1 */
+    return idx >= 0 ? page_params_bank_status_text((uint8_t)idx) : NULL;
 }
 
 uint8_t sloop_ui_group_count(void)
