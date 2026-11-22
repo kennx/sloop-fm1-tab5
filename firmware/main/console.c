@@ -619,7 +619,8 @@ enum {
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
  * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
  * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。
- * 既有行只在行尾追加 seq_status；详细窗口步另起 step/dstep 行，不改变既有解析 token。 */
+ * 既有行只在行尾追加 seq_status；`STATE SNAP FULL` 才另起 step/dstep 详细行，默认保持
+ * 既有响应体量。 */
 static int state_command(int argc, char **argv)
 {
     if ((argc == 2 && strcasecmp(argv[1], "snap") == 0) ||

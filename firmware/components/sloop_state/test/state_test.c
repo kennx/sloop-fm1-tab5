@@ -1320,6 +1320,35 @@ static void case_external_selection_focus(void)
     check_ll("SET_WINDOW 采纳外部选中轨", s.core.selected_track, 2);
 }
 
+static void case_seq_frozen_and_range(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.seq_frozen = true;
+    apply(CMD_TOGGLE_STEP, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结 toggle-ON → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    check_ll("冻结 toggle-ON 不读步", g_stub.read_step_calls, 0);
+    check_ll("冻结 toggle-ON 不写步", g_stub.write_step_calls, 0);
+
+    apply(CMD_ERASE_NOTE, 0, 0, 60);
+    state_get_copy(&s);
+    check_ll("冻结 erase → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    check_ll("冻结 erase 不调引擎", g_stub.seq_step_edit_calls, 0);
+
+    g_stub.seq_frozen = false;
+    apply(CMD_SET_MICRO, 0, 0, (uint16_t)(int16_t)250);
+    state_get_copy(&s);
+    check_ll("MICRO 超宽 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    check_ll("MICRO 超宽不调引擎", g_stub.seq_micro_calls, 0);
+    apply(CMD_SET_FILL, 0, 0, 258);
+    state_get_copy(&s);
+    check_ll("FILL 超宽 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    check_ll("FILL 超宽不调引擎", g_stub.seq_fill_calls, 0);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -1346,6 +1375,7 @@ int main(void)
     run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);
     run("DRUM_STEP_WRITE 原始 POD 与合成步隔离", case_seq_drum_write);
     run("外部选轨同步 focus_track", case_external_selection_focus);
+    run("冻结 toggle/erase 与 micro/fill 超宽拒绝", case_seq_frozen_and_range);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

@@ -225,7 +225,7 @@ static uint8_t stub_drop_cont(uint8_t flags, uint32_t index)
 
 bool sloop_seq_frozen(void)
 {
-    return false;
+    return g_stub.seq_frozen;
 }
 
 esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)

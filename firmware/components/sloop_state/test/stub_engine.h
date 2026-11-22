@@ -26,6 +26,7 @@ typedef struct {
     sloop_dstep_t raw_dstep[STUB_ENGINE_STEPS];
     uint8_t lock_present[4][STUB_ENGINE_STEPS];
     esp_err_t seq_ret;
+    bool seq_frozen;
     uint32_t seq_step_edit_calls, seq_pattern_calls, seq_micro_calls, seq_fill_calls;
     uint32_t seq_lock_set_calls, seq_lock_del_calls, seq_dstep_write_calls;
     sloop_step_edit_t last_step_edit;
