@@ -1,0 +1,369 @@
+  [fw] SCR
+  [fw] I (184607) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (205177) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (228827) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (246517) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (263827) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (285667) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (305447) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (342687) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (359647) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+== inject song @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411.log
+  [PASS] ⓪ STORE AUTO OFF
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] ⓪ 归一到 loop 模式
+  [PASS] ⓪ 清空 section A（空槽：上游 EMPTY SECTION，未写 flash）
+  [PASS] ⓪ 清空 section B（空槽：上游 EMPTY SECTION，未写 flash）
+  [PASS] ⓪ 清空 section C（空槽：上游 EMPTY SECTION，未写 flash）
+  [PASS] ⓪ 清空 section D（空槽：上游 EMPTY SECTION，未写 flash）
+  [PASS] ⓪ 默认歌曲 A4 B4 C4 D4
+  [PASS] ⓪ 归一后 ready=0x00（期望 0）
+  [PASS] ① UI song → 页 11
+  [PASS] ① UI TAB song（与物理组签同一路径）
+  [PASS] ① SONG 单页组：UI SUB 0 → UI ERR sub
+  [PASS] ① SONG 页 state=built est=12288 delta=11572（0 < delta ≤ 12288）
+  [PASS] ① GROUP SONG built=1 sum_est=12288（期望 1 / 12288）
+  [PASS] ① SONG build_ms=21ms（0 < x ≤100）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-empty.png  (1280x720 rgb565)
+  [PASS] ② 卡 A 底（选中）: (44,180) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 14）
+  [PASS] ② 卡 A 文本: 区域 (94, 188, 242, 252) 内 (144, 148, 160)±12 像素 203（阈值 ≥20）
+  [PASS] ② 卡 B 底（未选中）: (348,180) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 14）
+  [PASS] ② 卡 B 文本: 区域 (398, 188, 546, 252) 内 (144, 148, 160)±12 像素 216（阈值 ≥20）
+  [PASS] ② 卡 C 底（未选中）: (652,180) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 14）
+  [PASS] ② 卡 C 文本: 区域 (702, 188, 850, 252) 内 (144, 148, 160)±12 像素 199（阈值 ≥20）
+  [PASS] ② 卡 D 底（未选中）: (956,180) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 14）
+  [PASS] ② 卡 D 文本: 区域 (1006, 188, 1154, 252) 内 (144, 148, 160)±12 像素 210（阈值 ≥20）
+  [PASS] ② STORE chip 底: (44,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② LOAD chip 底: (192,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② ERASE chip 底: (340,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② JUMP chip 底: (488,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② SONG chip 底: (660,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② CHAIN chip 底: (808,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② REC chip 底: (1104,294) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 01 chip 底: (44,378) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 14）
+  [PASS] ② 条目 02 chip 底: (197,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 03 chip 底: (350,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 04 chip 底: (503,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 05 chip 底: (656,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 06 chip 底: (809,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 07 chip 底: (962,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 08 chip 底: (1115,378) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 09 chip 底: (44,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 10 chip 底: (197,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 11 chip 底: (350,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 12 chip 底: (503,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 13 chip 底: (656,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 14 chip 底: (809,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 15 chip 底: (962,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② 条目 16 chip 底: (1115,448) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② SCENE chip 底: (44,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② BARS- chip 底: (192,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② BARS+ chip 底: (340,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② COUNT- chip 底: (488,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② COUNT+ chip 底: (636,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② LOOP chip 底: (784,534) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 14）
+  [PASS] ② SONG 组签选中（六组导航）: (740,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ③ TAP 卡 A 设选中 section
+  [PASS] ③ TAP 卡 B 设选中 section
+  [PASS] ③ TAP 卡 C 设选中 section
+  [PASS] ③ TAP 卡 D 设选中 section
+  [PASS] ③ 回到卡 A（STORE A 的落点）
+  [PASS] ③ TAP STORE(A)
+  [PASS] ③ TAP STORE(A) → status STORE A: OK
+  [PASS] ③ STORE A 后 ready=0x01（bit0）
+  [PASS] ③ TAP 卡 B
+  [PASS] ③ TAP STORE(B)
+  [PASS] ③ TAP STORE(B) → status STORE B: OK
+  [PASS] ③ STORE B 后 ready=0x03（bit0+bit1）
+  [PASS] ④ 第 16 项存在（TAP entry=15 命中）
+  [PASS] ④ TAP entry 0（默认 A4）
+  [PASS] ④ COUNT- → 3
+  [PASS] ④ COUNT- → 3 → status COUNT 3
+  [PASS] ④ COUNT- → 2
+  [PASS] ④ COUNT- → 2 → status COUNT 2
+  [PASS] ④ STORE SONG count=2（期望 2）
+  [PASS] ④ TAP count 外的 entry 2（选择有效、不可编辑）
+  [PASS] ④ count 外 BARS- 不下发
+  [PASS] ④ count 外 BARS- 不下发 → status ENTRY 3: EMPTY
+  [PASS] ④ 重选 entry 0（A4）
+  [PASS] ④ entry0 BARS- → 3
+  [PASS] ④ entry0 BARS- → 3 → status BARS 3
+  [PASS] ④ entry0 BARS- → 2
+  [PASS] ④ entry0 BARS- → 2 → status BARS 2
+  [PASS] ④ TAP entry 1（默认 B4）
+  [PASS] ④ entry1 BARS- → 3
+  [PASS] ④ entry1 BARS- → 3 → status BARS 3
+  [PASS] ④ A2+B3 经状态层落地：count=2 entry={0: (0, 2), 1: (1, 3)}（期望 2 / 0:2 / 1:3）
+  [PASS] ④ LOOP ON
+  [PASS] ④ LOOP ON → status LOOP ON
+  [PASS] ④ STORE SONG loop=1
+  [PASS] ④ LOOP OFF
+  [PASS] ④ LOOP OFF → status LOOP OFF
+  [PASS] ④ STORE SONG loop=0
+  [PASS] ④ 归一 count=16
+  [PASS] ④ 回 SONG（同组）
+  [PASS] ④ COUNT+ 在 16 钳位
+  [PASS] ④ COUNT+ 在 16 钳位 → status COUNT 16
+  [PASS] ④ 归一 count=2 / entry0 bars=64
+  [PASS] ④ 回 SONG（同组）
+  [PASS] ④ entry0 = A64
+  [PASS] ④ BARS+ 在 64 钳位
+  [PASS] ④ BARS+ 在 64 钳位 → status BARS 64
+  [PASS] ④ 恢复 A2+B3
+  [PASS] ④ 回 SONG（同组）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-edit.png  (1280x720 rgb565)
+  [PASS] ④ entry0 选中底（UI_PANEL_SEL）: (44,378) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 14）
+  [PASS] ④ 状态行文本（UI_TEXT_DIM）: 区域 (24, 92, 1000, 152) 内 (144, 148, 160)±16 像素 336（阈值 ≥40）
+  [PASS] ⑤ 选中 B（ERASE 落点）
+  [PASS] ⑤ TAP ERASE(B)
+  [PASS] ⑤ TAP ERASE(B) → status ERASE B: OK
+  [PASS] ⑤ ERASE B 后歌曲 count=1 entry={0: (0, 2)}（期望 1 / 0:2）
+  [PASS] ⑤ ERASE B 后 ready=0x01（bit1 清零）
+  [PASS] ⑤ 回 SONG 刷新列表
+  [PASS] ⑤ 重选 B
+  [PASS] ⑤ 重建 B
+  [PASS] ⑤ 重建 B → status STORE B: OK
+  [PASS] ⑤ entry0 仍是 A2
+  [PASS] ⑤ COUNT+ → 2（新项默认 A4）
+  [PASS] ⑤ COUNT+ → 2（新项默认 A4） → status COUNT 2
+  [PASS] ⑤ 新项默认 A4
+  [PASS] ⑤ 新项 SCENE → B
+  [PASS] ⑤ 新项 SCENE → B → status SCENE B
+  [PASS] ⑤ 新项 BARS- → 3
+  [PASS] ⑤ 新项 BARS- → 3 → status BARS 3
+  [PASS] ⑤ 恢复 A2+B3：count=2 entry={0: (0, 2), 1: (1, 3)}
+  [PASS] ⑤b 回 SONG（键盘路由）
+  [PASS] ⑤b 归一到 entry 0（A2）
+  [PASS] ⑤b → 后焦点 entry 1
+  [PASS] ⑤b → 后焦点 entry 1 → status ENTRY 2 BARS 4
+  [PASS] ⑤b entry 1 还原 B3
+  [PASS] ⑤b entry 1 还原 B3 → status ENTRY 2 BARS 3
+  [PASS] ⑤b ← 后焦点 entry 0
+  [PASS] ⑤b ← 后焦点 entry 0 → status ENTRY 1 BARS 3
+  [PASS] ⑤b entry 0 还原 A2
+  [PASS] ⑤b entry 0 还原 A2 → status ENTRY 1 BARS 2
+  [PASS] ⑤b 归一到 section A
+  [PASS] ⑤b ↓ 后 LOAD 落点 B
+  [PASS] ⑤b ↓ 后 LOAD 落点 B → status LOAD B: OK
+  [PASS] ⑤b ↓ 选 section 后 live=B
+  [PASS] ⑤b ↑ 后 LOAD 落点 A
+  [PASS] ⑤b ↑ 后 LOAD 落点 A → status LOAD A: OK
+  [PASS] ⑤b ↑ 选 section 后 live=A
+  [PASS] ⑤b 选中 B（ENTER 落点）
+  [PASS] ⑤b ENTER → LOAD B：live=B
+  [PASS] ⑤b 收口回 section A
+  [PASS] ⑥ UI transport
+  [PASS] ⑥ TAP PLAY（live loop）
+  [PASS] ⑥ STATE SNAP playing = 1
+  [PASS] ⑥ 回 SONG（重建）
+  [PASS] ⑥ 播放中 BARS-
+  [PASS] ⑥ 播放中 BARS- → status STOP FIRST
+  [PASS] ⑥ 播放中 SCENE
+  [PASS] ⑥ 播放中 SCENE → status STOP FIRST
+  [PASS] ⑥ 播放中 COUNT+
+  [PASS] ⑥ 播放中 COUNT+ → status STOP FIRST
+  [PASS] ⑥ 播放中 LOOP
+  [PASS] ⑥ 播放中 LOOP → status STOP FIRST
+  [PASS] ⑥ 播放中 MODE
+  [PASS] ⑥ 播放中 MODE → status STOP FIRST
+  [PASS] ⑥ 走带中的配置编辑不改歌曲：{'count': 2, 'loop': 0, 'entry': {0: (0, 2), 1: (1, 3)}} vs {'count': 2, 'loop': 0, 'entry': {0: (0, 2), 1: (1, 3)}}
+  [PASS] ⑥ 走带中的 MODE 未切换
+  [PASS] ⑥ 选中 B
+  [PASS] ⑥ TAP JUMP(B)
+  [PASS] ⑥ TAP JUMP(B) → status JUMP B: OK
+  [PASS] ⑥ 下一小节生效：SEQ SECTION live=B（期望 B）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-live-b.png  (1280x720 rgb565)
+  [PASS] ⑥ 状态行含 LIVE/PLAY 文本: 区域 (24, 92, 1000, 152) 内 (144, 148, 160)±16 像素 323（阈值 ≥40）
+  [PASS] ⑥ 选中 C（空）
+  [PASS] ⑥ JUMP 空 scene C → EMPTY
+  [PASS] ⑥ JUMP 空 scene C → EMPTY → status JUMP C: EMPTY
+  [PASS] ⑥ 空 scene 被拒后 live 仍是 B
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-empty-jump.png  (1280x720 rgb565)
+  [PASS] ⑥ 状态行拒绝文本（UI_ERROR 红字）: 区域 (24, 92, 1232, 152) 内 (224, 84, 40)±20 像素 2690（阈值 ≥20）
+  [PASS] ⑦ 选 B 起链
+  [PASS] ⑦ CHAIN begin（立即请求 B）
+  [PASS] ⑦ CHAIN begin（立即请求 B） → status CHAIN: B
+  [PASS] ⑦ 链中 tap A 进临时列表
+  [PASS] ⑦ 链中 tap B 进临时列表
+  [PASS] ⑦ CHAIN commit（原子安装）
+  [PASS] ⑦ CHAIN commit（原子安装） → status CHAIN: B A B
+  [PASS] ⑦ SEQ CHAIN count=3 scenes=[1, 0, 1]（期望 3 / [1,0,1]）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-chain.png  (1280x720 rgb565)
+  [PASS] ⑦ 状态行 CHAIN 文本: 区域 (24, 92, 1100, 152) 内 (144, 148, 160)±16 像素 334（阈值 ≥40）
+  [PASS] ⑦ 空链用例：选 B
+  [PASS] ⑦ 再起链 B
+  [PASS] ⑦ 再起链 B → status CHAIN: B
+  [PASS] ⑦ 链中 tap C（空）
+  [PASS] ⑦ commit 空 scene → ERR not_found
+  [PASS] ⑦ commit 空 scene → ERR not_found → status CHAIN: EMPTY
+  [PASS] ⑦ 空 scene 整份拒绝后 SEQ CHAIN count=0（期望 0，不装半条）
+  [PASS] ⑦ 取消用例：选 B
+  [PASS] ⑦ begin B
+  [PASS] ⑦ begin B → status CHAIN: B
+  [PASS] ⑦ CANCEL
+  [PASS] ⑦ CANCEL → status CHAIN: CANCEL
+  [PASS] ⑦ CANCEL 后 chain count=0
+  [PASS] ⑧ UI transport
+  [PASS] ⑧ STOP（停止 live loop）
+  [PASS] ⑧ STATE SNAP playing=0 = 0
+  [PASS] ⑧ 回 SONG
+  [PASS] ⑧ SONG 模式
+  [PASS] ⑧ SONG 模式 → status MODE: SONG
+  [PASS] ⑧ SEQ SONG mode=song
+  [PASS] ⑧ 选 entry 1（B3）
+  [PASS] ⑧ entry1 SCENE B→C（空）
+  [PASS] ⑧ entry1 SCENE B→C（空） → status SCENE C
+  [PASS] ⑧ entry1 = C3（实得 (2, 3)）
+  [PASS] ⑧ READY 行可见 C 为空：ready=0x03（bit2 = 0）
+  [PASS] ⑧ 去 TRANSPORT 按 PLAY
+  [PASS] ⑧ TAP PLAY（缺 scene 的 SONG）
+  [PASS] ⑧ 缺 scene 拒播：playing 仍 0 = 0
+  [PASS] ⑧ 缺 scene 拒播：SEQ SONG running=0
+  [PASS] ⑧ 回 SONG（截缺 scene 态）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-empty-scene.png  (1280x720 rgb565)
+  [PASS] ⑧ READY 行（UI_TEXT_DIM）: 区域 (24, 92, 1100, 152) 内 (144, 148, 160)±16 像素 2221（阈值 ≥40）
+  [PASS] ⑧ 重选 entry 1（C3）
+  [PASS] ⑧ entry1 SCENE C→D
+  [PASS] ⑧ entry1 SCENE C→D → status SCENE D
+  [PASS] ⑧ entry1 SCENE D→A
+  [PASS] ⑧ entry1 SCENE D→A → status SCENE A
+  [PASS] ⑧ entry1 SCENE A→B
+  [PASS] ⑧ entry1 SCENE A→B → status SCENE B
+  [PASS] ⑧ 回 LOOP 模式
+  [PASS] ⑧ 回 LOOP 模式 → status MODE: LOOP
+  [PASS] ⑧ SEQ SONG mode=loop
+  [PASS] ⑨ 回 SONG
+  [PASS] ⑨ 选 A（live_sec=A 需要 LOAD）
+  [PASS] ⑨ LOAD A（停止态，live=A）
+  [PASS] ⑨ LOAD A（停止态，live=A） → status LOAD A: OK
+  [PASS] ⑨ SEQ SECTION live=A
+  [PASS] ⑨ REC arm
+  [PASS] ⑨ REC arm → status REC: ARMED
+  [PASS] ⑨ SEQ SREC srec=armed
+  [PASS] ⑨ UI transport
+  [PASS] ⑨ PLAY（SONG REC 从下一小节起）
+  [PASS] ⑨ SONG REC 进入 recording（下一个小节）
+  [PASS] ⑨ STOP 收尾空 take
+  [PASS] ⑨ STOP 后 playing=0 = 0
+  [PASS] ⑨ 空 take = last=no_song
+  [PASS] ⑨ NO SONG 不覆盖原歌曲：count=2 entry={0: (0, 2), 1: (1, 3)}
+  [PASS] ⑨ 回 SONG
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-song-nosong.png  (1280x720 rgb565)
+  [PASS] ⑨ 状态行 LAST NO SONG 文本: 区域 (24, 92, 1200, 152) 内 (144, 148, 160)±16 像素 2347（阈值 ≥40）
+  [PASS] ⑩ 起点 PLAY
+  [PASS] ⑩ SONG↔PLAY 1/10：UI song
+  [PASS] ⑩ SONG↔PLAY 1/10：UI play
+  [PASS] ⑩ SONG↔PLAY 2/10：UI song
+  [PASS] ⑩ SONG↔PLAY 2/10：UI play
+  [PASS] ⑩ SONG↔PLAY 3/10：UI song
+  [PASS] ⑩ SONG↔PLAY 3/10：UI play
+  [PASS] ⑩ SONG↔PLAY 4/10：UI song
+  [PASS] ⑩ SONG↔PLAY 4/10：UI play
+  [PASS] ⑩ SONG↔PLAY 5/10：UI song
+  [PASS] ⑩ SONG↔PLAY 5/10：UI play
+  [PASS] ⑩ SONG↔PLAY 6/10：UI song
+  [PASS] ⑩ SONG↔PLAY 6/10：UI play
+  [PASS] ⑩ SONG↔PLAY 7/10：UI song
+  [PASS] ⑩ SONG↔PLAY 7/10：UI play
+  [PASS] ⑩ SONG↔PLAY 8/10：UI song
+  [PASS] ⑩ SONG↔PLAY 8/10：UI play
+  [PASS] ⑩ SONG↔PLAY 9/10：UI song
+  [PASS] ⑩ SONG↔PLAY 9/10：UI play
+  [PASS] ⑩ SONG↔PLAY 10/10：UI song
+  [PASS] ⑩ SONG↔PLAY 10/10：UI play
+  [PASS] ⑩ 10 次 SONG↔PLAY 往返后 pool_free 变化 47312 → 47328（Δ=+16B，允许 |Δ| ≤ 128B）
+  [PASS] ⑩ 单次 SONG↔PLAY 的最大池下降 36B ≤ 128B（无逐次增长）
+  [PASS] ⑩ SEQ↔SONG 起点 PLAY
+  [PASS] ⑩ SEQ↔SONG 预热：UI step
+  [PASS] ⑩ SEQ↔SONG 预热：UI transport
+  [PASS] ⑩ SEQ↔SONG 预热：UI song
+  [PASS] ⑩ SEQ↔SONG 预热：回 PLAY
+  [PASS] ⑩ SEQ↔SONG 1/10：UI step
+  [PASS] ⑩ SEQ↔SONG 1/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 1/10：UI song
+  [PASS] ⑩ SEQ↔SONG 1/10：UI play
+  [PASS] ⑩ SEQ↔SONG 2/10：UI step
+  [PASS] ⑩ SEQ↔SONG 2/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 2/10：UI song
+  [PASS] ⑩ SEQ↔SONG 2/10：UI play
+  [PASS] ⑩ SEQ↔SONG 3/10：UI step
+  [PASS] ⑩ SEQ↔SONG 3/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 3/10：UI song
+  [PASS] ⑩ SEQ↔SONG 3/10：UI play
+  [PASS] ⑩ SEQ↔SONG 4/10：UI step
+  [PASS] ⑩ SEQ↔SONG 4/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 4/10：UI song
+  [PASS] ⑩ SEQ↔SONG 4/10：UI play
+  [PASS] ⑩ SEQ↔SONG 5/10：UI step
+  [PASS] ⑩ SEQ↔SONG 5/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 5/10：UI song
+  [PASS] ⑩ SEQ↔SONG 5/10：UI play
+  [PASS] ⑩ SEQ↔SONG 6/10：UI step
+  [PASS] ⑩ SEQ↔SONG 6/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 6/10：UI song
+  [PASS] ⑩ SEQ↔SONG 6/10：UI play
+  [PASS] ⑩ SEQ↔SONG 7/10：UI step
+  [PASS] ⑩ SEQ↔SONG 7/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 7/10：UI song
+  [PASS] ⑩ SEQ↔SONG 7/10：UI play
+  [PASS] ⑩ SEQ↔SONG 8/10：UI step
+  [PASS] ⑩ SEQ↔SONG 8/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 8/10：UI song
+  [PASS] ⑩ SEQ↔SONG 8/10：UI play
+  [PASS] ⑩ SEQ↔SONG 9/10：UI step
+  [PASS] ⑩ SEQ↔SONG 9/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 9/10：UI song
+  [PASS] ⑩ SEQ↔SONG 9/10：UI play
+  [PASS] ⑩ SEQ↔SONG 10/10：UI step
+  [PASS] ⑩ SEQ↔SONG 10/10：UI transport
+  [PASS] ⑩ SEQ↔SONG 10/10：UI song
+  [PASS] ⑩ SEQ↔SONG 10/10：UI play
+  [PASS] ⑩ 10 次 SEQ↔SONG 往返后 pool_free 变化 47400 → 47384（Δ=-16B，允许 |Δ| ≤ 128B）
+  [PASS] ⑩ 单次 SEQ↔SONG 的最大池下降 32B ≤ 128B（无逐次增长）
+  [PASS] ⑩ UI TAB FILE
+  [PASS] ⑩ UI SUB 0 → PROJECTS
+  [PASS] ⑩ UI SUB 1 → PRESETS
+  [PASS] ⑩ FILE 两页全建 built=2
+  [PASS] ⑩ FILE 全建 → 首建 STEP
+  [PASS] ⑩ FILE→STEP 过渡峰值 pool_free=9484B ≥4,096（STEP delta=21612 预算=23040）
+  [PASS] ⑩b UI TAB edit
+  [PASS] ⑩b EDIT 子签归一到 GLOBAL
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-tabs-edit.png  (1280x720 rgb565)
+  [PASS] ⑩b 组签选中（EDIT）: (388,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑩b 子签选中（EDIT 首个子页）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑩b 组签未选中（SEQ）: (564,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑩b UI TAB seq
+  [PASS] ⑩b SEQ 子签归一到 STEP
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261123-050411-task-11-tabs-seq.png  (1280x720 rgb565)
+  [PASS] ⑩b 组签选中（SEQ）: (564,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑩b 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑩b 子签未选中（TRANSPORT）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑪ 回 PLAY
+  [PASS] ⑪ 收口擦 section A
+  [PASS] ⑪ 收口擦 section B
+  [PASS] ⑪ 收口默认歌曲 A4 B4 C4 D4
+  [PASS] ⑪ 收口 loop 模式
+  [PASS] ⑪ 复位 UI play
+  [PASS] ⑪ 收口 STORE AUTO ON（恢复默认）
+[PASS] song: 全部断言与像素抽检通过

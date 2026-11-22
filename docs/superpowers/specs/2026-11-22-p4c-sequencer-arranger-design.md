@@ -1,6 +1,6 @@
 # 阶段 4 / P4-C：音序与编排设计规格
 
-> 日期：2026-11-22 ｜ 状态：执行中
+> 日期：2026-11-22 ｜ 状态：已完成（机器侧，2026-11-23 Task 13 收口；人测项见 §5「阶段收口实测」末条）
 > 上位文档：`docs/design/002-port-roadmap.md` §6；`2026-11-21-phase4-feature-parity-design.md` §3 P4-C。
 > 上游基线：SLOOP 2.8.5 `bac9c05`（2026-11-22 再次核对远端 HEAD，未变化）。
 > 决策原则：fidelity-first——功能、数据布局、时序与编辑语义等价优先；原生 Tab5 UI 可重排，但不得另造一套音序/歌曲数据模型。
@@ -150,6 +150,31 @@ UI 证据至少含 STEP 深度态、TRANSPORT 录音/工具态、SONG 编辑态�
 4. 复位后 `soak.py --duration 1800 --interval 60`（含 storage save window）通过；新组往返池差 ≤128B，内部堆/xrun/栈沿用 AGENTS §5.5。
 5. manifest 233/233；文档、deferred issues、verification-log 与证据同阶段收口。
 6. 整分支终审 clean 后合回 dev 并 push；人耳、物理键盘/触摸手感继续列为外部门禁，不冒充机器已验证。
+
+### 阶段收口实测（2026-11-23，Task 13）
+
+最终树 `2f370d8`（clean 工作树）上按本清单跑完机器门禁，证据包
+`docs/dev/verify/4-pc-2026-11-22/`（`readme.md` 门禁→命令→结论 + `SHA256SUMS` 127 项，
+`sha256sum -c` 全过）：
+
+1. 构建 clean + 增量：rc=0、**0 警告**（clean 首遍仅 §5.5 豁免的 kconfig 提示对）；镜像
+   `0x192a70`（1,649,264B）；烧录三段 `Hash of data verified`；启动 `App version: 2f370d8`、
+   12 页注册、内部堆 98,179B、无 fatal/panic/abort/WDT。
+2. `host-test` 全绿（含 `len`/`hold_rec`/`studio_drums`/`arranger`/`song_audio` 与 fixture
+   `--host-check`）、`state-test` 28/0、`seq-test`（含 persist 段）0 failures、`knob-test`
+   7/0、`screenshot.py --selftest` OK、MANIFEST 233/233。
+3. 设备 `ENG SELFTEST` **182/182**（`checks=7 check_fail=0 deterministic=1 result=PASS`；
+   6 行单 job `task_wdt` 为 DI-12 已知诊断噪声）。
+4. 八条注入场景**同会话**：**2,580 PASS / 0 FAIL**（transport 288、step_edit 196、tracks 11、
+   nav 140、params 149、store 903、song 331、sequence 562），全部 exit 0；`store` 内部 5 次、
+   `sequence` 内部 1 次按设计硬复位，脚本之间不重启。
+5. 复位后 `soak.py --duration 1800 --interval 60 --save-window 900` **PASS**（DI-26 顺序：
+   先 182 自检 → esptool 硬复位 → soak）：31 次采样/1801s、`internal_free` 93,011→92,991B
+   （`internal_min` 86,148 ≥60KB）、`streaming=1 xrun=0`（窗口增量 0 ≤16）、`duty_mean`
+   最大 12.54% ≤18.88%、音频栈 3,120–3,168B、跨组池往返 Δ−52B（单次 −40B ≤128B）、
+   无 panic/WDT。
+6. 人测项（物理键盘/触摸手感、结截图目检、听感）仍是外部门禁；整分支评审与 dev 合并/推送
+   由控制器在证据包之后执行，本任务不含。
 
 ## 6. 风险与应对
 

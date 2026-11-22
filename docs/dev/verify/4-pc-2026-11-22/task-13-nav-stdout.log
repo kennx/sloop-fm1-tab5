@@ -1,0 +1,170 @@
+  [fw] SCR
+  [fw] I (430537) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (448287) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (465577) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (484567) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (503567) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (521127) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+  [fw] SCR
+  [fw] I (551107) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+== inject nav @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248.log
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] 基线：合成轨格 TAP（对照组）
+  [PASS] 基线：合成轨格再 TAP（落回原值）
+  [PASS] ① 组签缝 TAP miss
+  [PASS] ① 组签矩形内 TAP miss
+  [PASS] ① STATE SNAP 前后一致
+  [PASS] ① ENG SNAP 前后一致
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-01-tabbar.png  (1280x720 rgb565)
+  [PASS] ① 组签缝底（页签条 UI_PANEL）: (188,20) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ① 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签选中（SEQ）: (564,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签未选中（PLAY）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ② 选中 lane 归零
+  [PASS] 焦点轨归一 = 0 = 0
+  [PASS] 焦点列归一 = 2 = 2
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-02-drum-before.png  (1280x720 rgb565)
+  [PASS] ② 状态行基线：蓝字（合成轨 T1）211 / 橙字 0（期望蓝 ≥25、橙 0）
+  [PASS] ② 鼓轨 TAP 写原始位图回显
+  [PASS] ② 鼓步 3 on 位图 0x0000 -> 0x0020（只翻 lane 5 = 0x20）
+  [PASS] ② 焦点轨落到鼓轨 = 3
+  [PASS] ② 焦点列 = 窗口列 3 = 3
+  [PASS] ② STATE SNAP（除焦点外） 前后一致
+  [PASS] ② ENG SNAP 只有鼓步 3 的 dstep 行变化（diff=['ENG SNAP dstep i=3 on=0 lvl=0 rat=0 -> ENG SNAP dstep i=3 on=1 lvl=0 rat=0']）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-03-drum-lane.png  (1280x720 rgb565)
+  [PASS] ② 鼓格像素区 (305, 526, 375, 634) 点击后变化（lane 位点亮）
+  [PASS] ② 状态行点击后：橙字（鼓轨）374 / 蓝字 0（期望 ≥25 / 0）
+  [PASS] ② 再 TAP 复位 lane 5 位
+  [PASS] ② 复位后鼓步 3 位图 = 0x0000
+  [PASS] ③ 起点 PLAY（对齐 1/5）
+  [PASS] ③ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ③ 前提成立：PANIC 执行时 tab 请求尚未被拍消费（批内 UI 仍 TRACKS）
+  [PASS] ③ 6 拍后仍 TRACKS（撤销待切页、无回跳）
+  [PASS] ③ 再 6 拍后仍 TRACKS
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-04-panic-final.png  (1280x720 rgb565)
+  [PASS] ③ 页签选中（TRACKS）: (212,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ③ PLAY 页签未选中: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ④ 起点 PLAY（对齐 1/5）
+  [PASS] ④ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ④ 前提成立：批内 UI 仍 TRACKS，3 次按下之间无拍执行（时序下界余量 -2.5ms，仅作参考）
+  [PASS] ④ 3 次 tab 只前进一页（TRACKS→GLOBAL，新顺序）
+  [PASS] ④ 再 6 拍无第二次前进
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-05-tab3-final.png  (1280x720 rgb565)
+  [PASS] ④ 子签选中（GLOBAL）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 组签选中（EDIT）: (388,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 组签未选中（PLAY）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 起点 EDIT 组 GLOBAL
+  [PASS] ⑤ 进入前 EDIT built=1 / SEQ built=0（期望 1 / 0）
+  [PASS] ⑤ 跨组 EDIT→SEQ
+  [PASS] ⑤ 离开 EDIT 后 built=0 sum_delta=0（期望 0 / 0，源组页面含原当前页全部销毁）
+  [PASS] ⑤ 原当前页 GLOBAL state=unbuilt（期望 unbuilt）
+  [PASS] ⑤ SEQ built=1（期望 1 = 只建 STEP）
+  [PASS] ⑤ 跨组进入 SEQ build_ms=31ms（0 < x ≤100）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-06-groupscope.png  (1280x720 rgb565)
+  [PASS] ⑤ 组签选中（SEQ）: (564,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑤ 组签未选中（EDIT）: (388,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑤ 子签未选中（TRANSPORT）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 同组 STEP→TRANSPORT
+  [PASS] ⑤ 同组切换后 SEQ built=2 STEP=built（期望 2 / built：同组切换只改显隐、不重建）
+  [PASS] ⑤ 回 PLAY（SEQ 组销毁）
+  [PASS] ⑤ 离开 SEQ 后 SEQ built=0 总 built=1（期望 0 / 1 = 仅 PLAY）
+  [PASS] ⑥ 起点 PLAY
+  [PASS] ⑥ UI TAB edit（进入 EDIT 的当前/首个子页）
+  [PASS] ⑥ 设 EDIT 上次子页 = SAMPLE
+  [PASS] ⑥ UI TAB play（跨组回 PLAY）
+  [PASS] ⑥ 点组离开后 EDIT built=0（期望 0）
+  [PASS] ⑥ 点组回到上次子页（SAMPLE，记忆跨往返）
+  [PASS] ⑥ 记忆入口只建 SAMPLE：EDIT built=1 SAMPLE=built（期望 1 / built）
+  [PASS] ⑥ 跨组 UI TAB tracks（目标首个子页）
+  [PASS] ⑥ 跨组点击后 EDIT built=0 / TRACKS built=1（期望 0 / 1）
+  [PASS] ⑥ 跨组点击 TRACKS build_ms=12ms（0 < x ≤100）
+  [PASS] ⑥ 回 EDIT（记忆仍是 SAMPLE）
+  [PASS] ⑥ UI SUB 0 切 GLOBAL
+  [PASS] ⑥ 子签切换不重建兄弟页：EDIT built=2 SAMPLE=built（期望 2 / built）
+  [PASS] ⑥ UI SUB 1 切 FX
+  [PASS] ⑥ UI SUB 5 超出下行槽位（0..4）→ 用法错误（不是组内越界的 UI ERR sub）
+  [PASS] ⑥ 越界注入不改页（仍 FX）
+  [PASS] ⑥ 回 PLAY
+  [PASS] ⑥ 单页组子行为空：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 单页组 SUB 注入不改页
+  [PASS] ⑥ UI projects（FILE 组页面已注册）
+  [PASS] ⑥ 离开 FILE 组（源组销毁）
+  [PASS] ⑥ 离开 FILE 后 built=0 PROJECTS=unbuilt PRESETS=unbuilt（期望 0 / unbuilt / unbuilt）
+  [PASS] ⑥ UI TAB FILE → 上次子页 PROJECTS
+  [PASS] ⑥ 点组只建目标页：FILE built=1（期望 1）
+  [PASS] ⑥ FILE sum_est=20992（两页 est 之和 > 0）
+  [PASS] ⑥ UI SUB 1 切 PRESETS（同组不重建 PROJECTS）
+  [PASS] ⑥ FILE built=2 PROJECTS=built（期望 2 / built）
+  [PASS] ⑥ FILE 组只有 2 张子签：UI SUB 2 越界
+  [PASS] ⑥ 回 PLAY（FILE 两页销毁）
+  [PASS] ⑥ UI TAB song（SONG 独立组）
+  [PASS] ⑥ SONG built=1 sum_est=12288 page=built（期望 1 / 12288 / built）
+  [PASS] ⑥ SONG build_ms=22ms（0 < x ≤100）
+  [PASS] ⑥ SONG 单页组：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 回 PLAY（SONG 页销毁）
+  [PASS] ⑥ 离开 SONG 后 built=0 page=unbuilt（期望 0 / unbuilt）
+  [PASS] ⑥ 未知组名 → UI ERR group
+  [PASS] ⑥d 起点 TRACKS（对齐 1/5）
+  [PASS] ⑥d 批内点击后页=0（期望 0 = PLAY；UI TAB 立即生效）
+  [PASS] ⑥d 同拍点击胜出：1s 后仍 PLAY（待切页已丢弃，R30）
+  [PASS] ⑥d 再 6 拍仍 PLAY（无 GLOBAL 回跳）
+  [PASS] ⑦ 起点 PLAY
+  [PASS] ⑦ TAB → tracks (1)
+  [PASS] ⑦ TAB → global (4)
+  [PASS] ⑦ TAB → fx (5)
+  [PASS] ⑦ TAB → analog (6)
+  [PASS] ⑦ TAB → fm6 (7)
+  [PASS] ⑦ TAB → sample (8)
+  [PASS] ⑦ TAB → step (2)
+  [PASS] ⑦ TAB → transport (3)
+  [PASS] ⑦ TAB → song (11)
+  [PASS] ⑦ TAB → projects (9)
+  [PASS] ⑦ TAB → presets (10)
+  [PASS] ⑦ TAB → play (0)
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261123-045248-nav-07-tab-cycle.png  (1280x720 rgb565)
+  [PASS] ⑦ 回卷到 PLAY（组签选中）: (36,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑧ 起点 PLAY
+  [PASS] ⑧ 预热：UI tracks
+  [PASS] ⑧ 预热：UI play
+  [PASS] ⑧ 往返 1/10：UI tracks
+  [PASS] ⑧ 往返 1/10：UI play
+  [PASS] ⑧ 往返 2/10：UI tracks
+  [PASS] ⑧ 往返 2/10：UI play
+  [PASS] ⑧ 往返 3/10：UI tracks
+  [PASS] ⑧ 往返 3/10：UI play
+  [PASS] ⑧ 往返 4/10：UI tracks
+  [PASS] ⑧ 往返 4/10：UI play
+  [PASS] ⑧ 往返 5/10：UI tracks
+  [PASS] ⑧ 往返 5/10：UI play
+  [PASS] ⑧ 往返 6/10：UI tracks
+  [PASS] ⑧ 往返 6/10：UI play
+  [PASS] ⑧ 往返 7/10：UI tracks
+  [PASS] ⑧ 往返 7/10：UI play
+  [PASS] ⑧ 往返 8/10：UI tracks
+  [PASS] ⑧ 往返 8/10：UI play
+  [PASS] ⑧ 往返 9/10：UI tracks
+  [PASS] ⑧ 往返 9/10：UI play
+  [PASS] ⑧ 往返 10/10：UI tracks
+  [PASS] ⑧ 往返 10/10：UI play
+  [PASS] ⑧ 10 次 PLAY↔TRACKS 往返后 pool_free 变化 47432 → 47348（Δ=-84B，允许 |Δ| ≤ 128B：styles_init 只跑一次）
+  [PASS] ⑧ 单次往返的最大池下降 44B ≤ 128B（无逐次增长）
+  [PASS] 复位 UI play
+[PASS] nav: 全部断言与像素抽检通过
