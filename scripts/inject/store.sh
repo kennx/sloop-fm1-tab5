@@ -22,10 +22,11 @@
 #      LOAD 还原同一组值
 #   ⑪ 自动存档：空闲写 / 20s gap / 同态不写 / 播放与发声抑制 / STORE AUTO OFF / 复位恢复
 #   ⑫ FM6 银行 27 槽：live patch → PUT/GET 往返（字节一致）→ LIST → 自检后紧跟 PUT（写路径
-#      必须重扫 .bss 的 used 位，DI-18）→ 硬复位后仍 USED → PTCH=11 轮询 LIVE 到槽 3 的字节 +
+#      必须重扫 .bss 的 used 位，ADR-009 §8）→ 硬复位后仍 USED → PTCH=11 轮询 LIVE 到槽 3 的字节 +
 #      ENG TRIG 出声 → ERASE/空槽/越界/播放与鼓轨拒绝
-#   ⑬ 设备侧 torn-write 套件：STORE FAULT 1 + PROJ ERASE 3 的 HAL 探针（STORE ERR save、
-#      STORE STATS faults=1 armed=0）→ STORE TEST 六场景 PASS 6/6（两次）→ 播放中拒绝 →
+#   ⑬ 设备侧 torn-write 套件：先 SAVE 3（擦除空槽现在不写 flash）→ STORE FAULT 1 +
+#      PROJ ERASE 3 的 HAL 探针（STORE ERR save、STATS faults=1 armed=0、旧副本仍在）→
+#      STORE TEST 六场景 PASS 6/6（两次）→ 播放中拒绝 →
 #      停止后仍 PASS（对象 = OBJ_SETTINGS，套件内部快照/恢复；破坏性诊断）
 #   ⑭ 旧格式兼容门禁：gen_project_fixtures.py 生成 FUN5/FUN4/FUN1（+ expected.json）→
 #      store_raw.py 的 STORE RAW BEGIN/<hex>/END 写诊断槽 3 → STORE PROJ LOAD 3 →

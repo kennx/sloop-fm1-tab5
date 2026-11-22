@@ -1958,6 +1958,13 @@ def run_params(s: Session) -> None:
     (s.ok if 0 < g3["EDIT"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
         f"UI MEM EDIT build_ms={g3['EDIT']['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
 
+    # FILE 页不是参数页：`UI KNOB` 必须回文档化的 UI ERR not_params（Task 14 终审：
+    # 旧判定只排除 page < GLOBAL，PROJECTS(9)/PRESETS(10) 会掉进旋钮路径）。
+    s.cmd("UI projects")
+    s.expect(r"UI page=projects \(9\)", "⑨ UI KNOB on FILE：UI projects")
+    s.cmd("UI KNOB 0 press 0 0")
+    s.expect(r"^UI ERR not_params\r?$", "⑨ UI KNOB on FILE → UI ERR not_params")
+
     # 复位：PLAY 页、轨 0（脚本可重复运行）
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "复位 UI play")
@@ -2003,6 +2010,20 @@ def store_expect(s: Session, pattern: str, label: str) -> re.Match:
 def store_cmd(s: Session, cmd: str, pattern: str, label: str = "") -> re.Match:
     s.cmd(cmd)
     return store_expect(s, pattern, label or cmd)
+
+
+def proj_erase(s: Session, slot: int, label: str) -> None:
+    """`STORE PROJ ERASE n`：空槽现在回 `STORE ERR empty`（上游 `EMPTY SECTION`：槽本来就空，
+    不写 flash），非空才 `PROJ n ERASED`。两种回显都表示「结束时该槽为空」——调用方仍用
+    LIST/FIELDS 断言终态。"""
+    s.cmd(f"STORE PROJ ERASE {slot}")
+    if re.search(rf"^PROJ {slot} ERASED\r?$", s.last, re.MULTILINE):
+        s.ok(label)
+        return
+    if re.search(r"^STORE ERR empty\r?$", s.last, re.MULTILINE):
+        s.ok(label + "（空槽：上游 EMPTY SECTION，未写 flash）")
+        return
+    raise InjectError(f"{label}: 回显缺少 ERASED/STORE ERR empty（响应 {s.last.strip()!r}）")
 
 
 def store_hash(s: Session, cmd: str, pattern: str, label: str = "") -> int:
@@ -2079,6 +2100,7 @@ def preset_params_read(s: Session) -> dict:
 # 旧 `sloop_core_track` 的缺陷面（只写 eng_req/preset 索引，音频路径读的 p[] 不变）。
 ENG_PARAM_COUNT = 71
 ENG_P_LEVEL = 0   # P_LEVEL：混音（上游 param_kept，载入声音不覆盖）
+ENG_P_MUTE = 40   # P_MUTE：静音（⑪d 用，走上游 trk_silent() 的可听路径）
 ENG_P_ATK = 1     # P_ATK：包络（预置覆盖）
 ENG_P_SLEN = 29   # P_SLEN：图案参数（param_kept，载入声音不覆盖）
 ENG_P_E0 = 63     # P_E0..P_E7：引擎槽
@@ -2361,7 +2383,7 @@ def run_store_engine(s: Session) -> None:
                  f"图案保留（steps={track1_steps} → {track1_steps + 1}：只多了诊断放的步 5）")
     store_expect(s, r"^PROJ 3 SYNTH case=foreign trk k=0 engine=0 preset=0 ",
                  "⑩f 轨 0：不受 foreign 分支影响（engine/preset 保持 0/0）")
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑩f 收口 ERASE 3（诊断槽）")
+    proj_erase(s, 3, "⑩f 收口 ERASE 3（诊断槽）")
 
 
 # ---- 自动存档与上电恢复（上游 autosave_tick/autosave_resume，Task 6） ----
@@ -2380,7 +2402,7 @@ def autosave_fields(s: Session) -> dict:
     """`STORE STATS` 的自动存档三项。缺字段（旧固件）抛 InjectError——RED 阶段在这里炸。"""
     s.cmd("STORE STATS")
     m = re.search(r"^STORE STATS .*autosave=(\d) autosave_hash=" + STORE_HASH8 +
-                  r" autosave_writes=(\d+)\r?$", s.last, re.MULTILINE)
+                  r" autosave_writes=(\d+)(?:\s[^\r\n]*)?\r?$", s.last, re.MULTILINE)
     if m is None:
         raise InjectError(
             "STORE STATS: 缺少 autosave=…/autosave_hash=…/autosave_writes=… 字段"
@@ -2451,30 +2473,42 @@ def ensure_step_note(s: Session, track: int, col: int) -> tuple:
     return st
 
 
-def ensure_silent_pattern(s: Session) -> None:
-    """让**播放中**没有音符发声：三条合成轨的 pattern 长度缩到 1 步（`P_SLEN=1`，播放只走
-    步 0）并清掉步 0。上游 seq 的 `trk_len()` 用 `p[P_SLEN]`（clamp ≥1）作循环长度，所以
-    「1 步 + 步 0 空」⇒ 走带在跑但一次都不触发。
+def ensure_silent_tracks(s: Session) -> list:
+    """让**播放中**没有音符发声（⑪d 的前提），且**不破坏用户工程**：把三条合成轨的
+    `P_MUTE` 置 1（走上游 `trk_silent()`：播放触发不分配 voice）；返回原值，由
+    `restore_mutes()` 还原。
 
     为什么需要：⑪d 要证明「只有 `song.playing` 能拦住写入」。若播放期间有音符在响，
     `audio_quiet()` 也会拦住同一个写——把 playing 门删掉，断言照样绿（评审 R23 的同一类
     问题）。静音后窗口内 `voices` 恒 0，⑪d 前后各采样一次 `ENG SNAP voices` 作前提断言，
-    发声门则交给 ⑪e（走带已停、按住一个键）单独隔离。"""
+    发声门则交给 ⑪e（走带已停、按住一个键）单独隔离。
+
+    早先的写法是缩 pattern（P_SLEN=1）并清步 0——只恢复了 P_SLEN，被清掉的步没恢复，
+    场景因此不幂等（同一设备连跑两轮会丢用户的步）。静音不需要动图案。"""
+    saved = []
     for k in range(3):
         select_track(s, k)
-        store_cmd(s, f"PARAM {ENG_P_SLEN} 1",
-                  rf"^PARAM track={k} id={ENG_P_SLEN} value=1 applied=1 ",
-                  f"⑪d 轨 {k} P_SLEN=1（pattern 只有步 0）")
-        s.cmd("UI step")
-        s.expect(r"UI page=step \(2\)", f"⑪d UI step（轨 {k}）")
-        if step_fields(s, k, 0)[0] != 0:
-            x, y = step_cell_xy(0, k)
-            s.cmd(f"TAP {x} {y}")
-            s.expect(rf"-> STEP track={k} step=0 CMD_TOGGLE_STEP", f"⑪d 清空轨 {k} 步 0")
-        (s.ok if step_fields(s, k, 0)[0] == 0 else s.fail)(f"⑪d 轨 {k} 步 0 为空（播放不会触发）")
+        s.cmd(f"PARAM {ENG_P_MUTE}")
+        m = re.search(rf"PARAM track={k} id={ENG_P_MUTE} value=(\d+)", s.last)
+        if m is None:
+            raise InjectError(f"⑪d 读不到轨 {k} 的 P_MUTE：{s.last[-200:]!r}")
+        saved.append(int(m.group(1)))
+        if saved[-1] != 1:
+            store_cmd(s, f"PARAM {ENG_P_MUTE} 1",
+                      rf"^PARAM track={k} id={ENG_P_MUTE} value=1 applied=1 ",
+                      f"⑪d 轨 {k} P_MUTE=1（播放不发声）")
     select_track(s, 0)
-    s.cmd("UI step")
-    s.expect(r"UI page=step \(2\)", "⑪d UI step（收口回轨 0）")
+    return saved
+
+
+def restore_mutes(s: Session, saved: list) -> None:
+    """把 `ensure_silent_tracks()` 暂存的 P_MUTE 原值写回（幂等；调用方已停走带）。"""
+    for k, v in enumerate(saved):
+        select_track(s, k)
+        store_cmd(s, f"PARAM {ENG_P_MUTE} {v}",
+                  rf"^PARAM track={k} id={ENG_P_MUTE} value={v} applied={v} ",
+                  f"⑪d 轨 {k} P_MUTE 还原 {v}")
+    select_track(s, 0)
 
 
 def store_early_load_probe(s: Session, timeout: float = 20.0) -> str:
@@ -2628,7 +2662,7 @@ def run_store(s: Session) -> None:
 
     s.ser.note("① 归一：四槽 ERASE + LIST 全 EMPTY")
     for i in range(4):
-        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"① ERASE {i}")
+        proj_erase(s, i, f"① ERASE {i}")
     s.cmd("STORE PROJ LIST")
     for i in range(4):
         store_expect(s, rf"^PROJ {i} EMPTY\r?$", f"① LIST PROJ {i} EMPTY")
@@ -2641,6 +2675,15 @@ def run_store(s: Session) -> None:
     # 保存前先归一 hash 非零（0 = 无效工程；捕获失败会静默「通过」后续相等断言）
     (s.ok if h0 != 0 else s.fail)(f"② h0={h0:08X} 非零（捕获有效）")
     store_cmd(s, "STORE PROJ SAVE 0", rf"^PROJ 0 SAVED hash={STORE_HASH8}\r?$", "② SAVE 0")
+    # spec §5 的时序口径：STORE STATS 报告上一次写动作的 xrun 增量与耗时（≤150ms 目标）
+    s.cmd("STORE STATS")
+    m = re.search(r"last_xrun=(-?\d+) last_save_ms=(\d+)", s.last)
+    if m is None:
+        s.fail("② STORE STATS 缺 last_xrun/last_save_ms（spec §4.4/§5 的报告面）")
+    else:
+        xr, ms = int(m.group(1)), int(m.group(2))
+        (s.ok if xr <= 16 else s.fail)(f"② 上次 SAVE 的 xrun 增量 {xr} ≤16")
+        (s.ok if 0 < ms <= 150 else s.fail)(f"② 上次 SAVE 耗时 {ms}ms ∈ (0,150]（spec §5）")
     (s.ok if store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=" + STORE_HASH8,
                         "② HASH 0（RAM 槽）") == h0 else s.fail)(f"② HASH 0 == h0={h0:08X}")
 
@@ -2659,7 +2702,7 @@ def run_store(s: Session) -> None:
     (s.ok if store_bpm_settled(s, 100) else s.fail)("④ STATE SNAP bpm=100（保存时的值）")
 
     s.ser.note("⑤ ERASE 0 → LIST EMPTY、LIVEHASH 不变")
-    store_cmd(s, "STORE PROJ ERASE 0", r"^PROJ 0 ERASED\r?$", "⑤ ERASE 0")
+    proj_erase(s, 0, "⑤ ERASE 0")
     s.cmd("STORE PROJ LIST")
     for i in range(4):
         store_expect(s, rf"^PROJ {i} EMPTY\r?$", f"⑤ LIST PROJ {i} EMPTY")
@@ -2943,9 +2986,9 @@ def run_store_autosave(s: Session) -> None:
        一拍 ≤3.5s）就会写，4s 的读数必须抓到；随后在 20s 窗口到点才写，实测「改值 → 写」≥6s。
     ⓑ hash 门（紧跟 ⓒ 的写）：状态**不变**等 25s（>gap 20s + idle 2.5s ⇒ gap/idle 都已满足，
        只有「hash 相同」能拦住）→ 计数不变。
-    ⓓ 播放门（ⓑ 之后，gap 已在 25s 外过期）：先把三条合成轨的 pattern 缩到 1 步并清空步 0
-       （`ensure_silent_pattern`：走带在跑但一次都不触发 ⇒ `audio_quiet` 恒成立；窗口结束后
-       把 `P_SLEN` 归回默认 16，避免这个副作用随 autosave 漂进下一轮的 ② h0）→ TAP PLAY →
+    ⓓ 播放门（ⓑ 之后，gap 已在 25s 外过期）：先把三条合成轨临时静音（`ensure_silent_tracks`：
+       P_MUTE=1，播放不分配 voice ⇒ `audio_quiet` 恒成立；窗口结束后
+       还原 P_MUTE；不动图案/长度，场景可重复）→ TAP PLAY →
        **改 BPM**（`proj_capture` 真捕获的值）⇒ 前提断言 `autosave_hash != LIVEHASH`（hash
        门不成立）→ 10s + 3s 两读都不写，且窗口**前后**各采样一次 `ENG SNAP voices`（都须为 0）
        ——此刻 idle/gap/hash/发声四道门都成立，唯一能拦的是 `song.playing`。
@@ -3024,7 +3067,7 @@ def run_store_autosave(s: Session) -> None:
     autosave_no_write(s, w2, 25.0, "⑪b 同一状态 25s 不重复写（gap/idle 都已满足，只有 hash 门在拦）")
 
     s.ser.note("⑪d 播放门（R23）：先让播放无声，再 PLAY 中改 BPM ⇒ 只有 song.playing 能拦")
-    ensure_silent_pattern(s)
+    mutes = ensure_silent_tracks(s)
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
     s.cmd("TAP %d %d" % TRANSPORT_PLAY)
@@ -3059,14 +3102,8 @@ def run_store_autosave(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"playing=(\d)", 0, "⑪ STATE SNAP playing=0")
     # 收尾（必须在 STOP 之后：select_track 会把当前页切到 TRACKS，STOP 的 TAP 就命不中了）：
-    # 把 pattern 长度归回默认 16——⑪d 只是为了让窗口里没有发声才缩到 1 步。不归的话它会随
-    # autosave 进入下一轮的开机状态，② h0 就跨轮漂移（实测踩到：h0=D160C9B7 → 7F23D623）。
-    for k in range(3):
-        select_track(s, k)
-        store_cmd(s, f"PARAM {ENG_P_SLEN} {ENG_SLEN_DEF}",
-                  rf"^PARAM track={k} id={ENG_P_SLEN} value={ENG_SLEN_DEF} "
-                  rf"applied={ENG_SLEN_DEF} ", f"⑪d 轨 {k} P_SLEN 归默认 {ENG_SLEN_DEF}")
-    select_track(s, 0)
+    # 把 ⑪d 临时置上的 P_MUTE 还原。场景不动图案/长度，故连跑两轮不丢用户的步。
+    restore_mutes(s, mutes)
 
     s.ser.note("⑪e 发声门（audio_quiet）：按住 C 改值、先睡过 idle，再观察 3s 不写")
     s.cmd("KEY 0x42 down")
@@ -3403,11 +3440,13 @@ def run_store_torn(s: Session) -> None:
     `STORE TEST PASS 6/6` / `STORE TEST FAIL <name>`），脚本断言结果令牌与「故障真的
     走到 HAL」，不让套件自证：
 
-    ① **HAL 故障探针**（脚本可见的 `STORE STATS` 证据）：槽 3 是诊断槽（⑩f 已擦成空
-       对象）→ `STORE FAULT 1` → `STORE PROJ ERASE 3`。erase 是 `st_save` 的第一次写
-       操作 ⇒ 命中故障 ⇒ `STORE ERR save`；`STORE STATS` 的 `faults=1 armed=0` 证明
-       命中一次且自动解除（故障不会漏到后续命令）；槽 3 仍 EMPTY（被拒的擦除没落盘）；
-       `STORE FAULT CLEAR` 回 `cleared taken=1`（计数器看到的命中次数）。
+    ① **HAL 故障探针**（脚本可见的 `STORE STATS` 证据）：**先给槽 3 存一份工程**（erase
+       空槽现在不写 flash，见下）→ `STORE FAULT 1` → `STORE PROJ ERASE 3`。erase 是
+       `st_save` 的第一次写操作 ⇒ 命中故障 ⇒ `STORE ERR save`；`STORE STATS` 的
+       `faults=1 armed=0` 证明命中一次且自动解除（故障不会漏到后续命令）；槽 3 的**旧
+       副本仍在**（`STORE PROJ LIST` 仍 USED、`STORE PROJ FIELDS 3` 可读——被拒的擦除
+       没落盘）；`STORE FAULT CLEAR` 回 `cleared taken=1`（计数器看到的命中次数），随后
+       正常 ERASE 3 收口。
     ② `STORE TEST` ⇒ `STORE TEST PASS 6/6`；`STORE STATS` 的 faults=0 armed=0（套件
        结束必须 `fault_clear`，否则下一次写命令会被残留注入打坏）。
     ③ 再跑一次 ⇒ 仍 PASS 6/6（套件结束恢复了设置对象，场景可重复）。
@@ -3427,8 +3466,10 @@ def run_store_torn(s: Session) -> None:
     store_expect(s, r"^STORE STATS ready=1 .*faults=0 armed=0 ",
                  "⑬ 起点 STORE STATS faults=0 armed=0（无残留注入）")
 
-    s.ser.note("⑬a HAL 故障探针：FAULT 1 命中擦除 ⇒ STORE ERR save、STATS faults=1 armed=0")
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑬a 归一 ERASE 3（诊断槽为空）")
+    s.ser.note("⑬a HAL 故障探针：槽 3 有旧副本 → FAULT 1 命中擦除 ⇒ STORE ERR save")
+    proj_erase(s, 3, "⑬a 归一 ERASE 3（诊断槽为空）")
+    store_cmd(s, "STORE PROJ SAVE 3", r"^PROJ 3 SAVED hash=[0-9A-F]{8}\r?$",
+              "⑬a SAVE 3（给擦除一个非空槽：空槽不写 flash）")
     store_cmd(s, "STORE FAULT 1", r"^STORE FAULT armed nth=1 half=0\r?$", "⑬a STORE FAULT 1")
     store_cmd(s, "STORE PROJ ERASE 3", r"^STORE ERR save\r?$",
               "⑬a 擦除命中故障 → STORE ERR save（第一次写操作）")
@@ -3436,9 +3477,13 @@ def run_store_torn(s: Session) -> None:
     store_expect(s, r"^STORE STATS ready=1 .*faults=1 armed=0 ",
                  "⑬a STORE STATS faults=1 armed=0（命中一次并自动解除）")
     s.cmd("STORE PROJ LIST")
-    store_expect(s, r"^PROJ 3 EMPTY\r?$", "⑬a LIST 槽 3 仍 EMPTY（被拒的擦除没落盘）")
+    store_expect(s, r"^PROJ 3 USED hash=[0-9A-F]{8}\r?$", "⑬a LIST 槽 3 仍 USED（被拒的擦除没落盘）")
+    s.cmd("STORE PROJ FIELDS 3")
+    store_expect(s, r"^PROJ 3 FIELDS fmt=6 ",
+                 "⑬a FIELDS 3 仍可读（flash 侧旧副本完好；LIST 只证 RAM 槽）")
     store_cmd(s, "STORE FAULT CLEAR", r"^STORE FAULT cleared taken=1\r?$",
               "⑬a FAULT CLEAR cleared taken=1")
+    proj_erase(s, 3, "⑬a 探针收口 ERASE 3（旧副本清掉）")
 
     s.ser.note("⑬b STORE TEST ⇒ PASS 6/6；套件清故障（faults=0 armed=0）")
     store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$", "⑬b STORE TEST PASS 6/6")
@@ -3555,7 +3600,7 @@ def store_raw_grammar(s: Session) -> None:
     store_cmd(s, "STORE RAW 010203", r"^STORE RAW received=3\r?$", "⑭a2 追加 3B")
     store_cmd(s, "STORE RAW END project 3", r"^STORE RAW END project 3 saved len=3\r?$",
               "⑭a2 新上传仍能 END（状态机已复位）")
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭a2 收口 ERASE 3")
+    proj_erase(s, 3, "⑭a2 收口 ERASE 3")
 
     s.ser.note("⑭a3 R28：播放中 STORE RAW END 拒绝（写 API 的走带守卫）")
     s.cmd("UI transport")
@@ -3608,7 +3653,7 @@ def run_store_fields(s: Session) -> None:
     print(f"  [NOTE] ⑭ fixtures → {out_dir}（{len(order)} 项/格式）")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑭ STORE AUTO OFF（本段不写 autosave）")
     ensure_stopped(s)
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭ 归一 ERASE 3")
+    proj_erase(s, 3, "⑭ 归一 ERASE 3")
     before = store_proj_slots(s)
     (s.ok if all(i in before for i in range(4)) else s.fail)(
         f"⑭ PROJ LIST 列出 4 槽（{before}）")
@@ -3618,7 +3663,7 @@ def run_store_fields(s: Session) -> None:
     for key in ("fun5", "fun4", "fun1"):
         data = (out_dir / f"{key}.bin").read_bytes()
         s.ser.note(f"⑭b {key}.bin（{len(data)}B）→ STORE RAW → LOAD 3 → FIELDS 3")
-        store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", f"⑭ {key} 归一 ERASE 3")
+        proj_erase(s, 3, f"⑭ {key} 归一 ERASE 3")
         store_raw.upload_raw(s.cmd, data, "project", 3)
         s.ok(f"⑭ {key} STORE RAW 上传（{len(data)}B，{(len(data) + 119) // 120} 块）")
         store_cmd(s, "STORE PROJ LOAD 3", rf"^PROJ 3 LOADED hash={STORE_HASH8}\r?$",
@@ -3630,7 +3675,7 @@ def run_store_fields(s: Session) -> None:
 
     s.ser.note("⑭c 截断 FUN5（前 100B）：LOAD 3 → STORE ERR invalid，LIVEHASH 不变")
     truncated = (out_dir / "fun5.bin").read_bytes()[:100]
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭c 归一 ERASE 3")
+    proj_erase(s, 3, "⑭c 归一 ERASE 3")
     live = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8, "⑭c 截断前的 LIVEHASH")
     store_raw.upload_raw(s.cmd, truncated, "project", 3)
     s.ok(f"⑭c 截断 fixture 上传（{len(truncated)}B）")
@@ -3644,7 +3689,7 @@ def run_store_fields(s: Session) -> None:
     store_cmd(s, "STORE PROJ LOAD 9", r"^STORE ERR invalid\r?$", "⑭c 槽号越界 LOAD 9 → invalid")
 
     s.ser.note("⑭d 收口：ERASE 3；槽 0–2 与 ⑭ 开始时逐字节相同")
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASED\r?$", "⑭d 收口 ERASE 3")
+    proj_erase(s, 3, "⑭d 收口 ERASE 3")
     after = store_proj_slots(s)
     untouched = {i: before.get(i) for i in range(3)}
     (s.ok if {i: after.get(i) for i in range(3)} == untouched else s.fail)(
@@ -3756,7 +3801,7 @@ def run_store_file(s: Session) -> None:
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⓯ 归一轨 0 = ANALOG 预置 0")
     for i in range(4):
-        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"⓯ 归一 ERASE PROJ {i}")
+        proj_erase(s, i, f"⓯ 归一 ERASE PROJ {i}")
     for i in (0, 1, 3):
         store_cmd(s, f"STORE PRESET ERASE {i}", rf"^PRESET {i} ERASED\r?$",
                   f"⓯ 归一 ERASE PRESET {i}")
@@ -3929,7 +3974,7 @@ def run_store_file(s: Session) -> None:
     s.probe(img, "⓯ SAVE 按钮底", *pre_btn_probe(1), C_GREEN)
     s.probe(img, "⓯ ERASE 按钮底", *pre_btn_probe(2), C_ORANGE)
     s.probe(img, "⓯ 子签选中（PRESETS）", *C_TAB_PRESETS, C_YELLOW)
-    s.probe_region(img, "⓯ 槽 3 文本（U04 + 引擎名）", 
+    s.probe_region(img, "⓯ 槽 3 文本（U04 + 引擎名）",
                    (pre_cell_xy(3)[0] - 60, pre_cell_xy(3)[1] - 26,
                     pre_cell_xy(3)[0] + 60, pre_cell_xy(3)[1] + 26), C_TEXT, 24, 40)
     s.probe_region(img, "⓯ 状态行文本（SAVE OK 绿字）", FILE_STATUS_BOX, C_GREEN, 24, 20)
@@ -4031,7 +4076,7 @@ def run_store_file(s: Session) -> None:
 
     # 收口：四槽 + 预置槽全空、轨 0 回 ANALOG（脚本可重复、下一段/下一轮起点确定）
     for i in range(4):
-        store_cmd(s, f"STORE PROJ ERASE {i}", rf"^PROJ {i} ERASED\r?$", f"⓯ 收口 ERASE PROJ {i}")
+        proj_erase(s, i, f"⓯ 收口 ERASE PROJ {i}")
     for i in (0, 1, 3):
         store_cmd(s, f"STORE PRESET ERASE {i}", rf"^PRESET {i} ERASED\r?$",
                   f"⓯ 收口 ERASE PRESET {i}")

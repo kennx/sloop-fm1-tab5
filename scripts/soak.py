@@ -26,6 +26,7 @@
     8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）；
     9. --save-window N（存储写窗口，P4-B）：窗口内停走带做一次 `STORE PROJ SAVE 0` +
        `STORE PROJ LOAD 0`（音频流**不停**），窗口内 xrun 增量 ≤ 16；窗口后 streaming=1；
+       窗口前 `STORE AUTO OFF`（只量脚本写；收尾在最终采样后恢复 ON）；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
    10. 跨组池检查：SEQ(TRANSPORT)↔PLAY ×5 往返，`UI MEM` 的 pool_free 首末差与单次
@@ -192,6 +193,10 @@ def save_window(s, seconds: float, take_sample) -> dict:
     streaming=1 与页面/走带回到常态。xrun 是自启动累计值，窗口后由 verdict 冻结基线。
     """
     s.ser.note(f"soak save 窗口：停走带 SAVE 0 + LOAD 0，保持 {seconds:.0f}s")
+    # 窗口判据只量脚本化的 SAVE+LOAD：自动存档若在窗口里插一次写，xrun 会记到窗口账上。
+    # AUTO 在窗口前关、整个 soak 期间保持关（收尾时恢复默认 ON，见 main）。
+    s.cmd("STORE AUTO OFF")
+    s.expect(r"^STORE AUTO off", "save 窗口：STORE AUTO OFF（窗口只量脚本写）")
     inject.ensure_stopped(s)
     x0, st0 = perf_counters(s)
     s.cmd("STORE PROJ SAVE 0")
@@ -403,6 +408,11 @@ def main() -> None:
         s.cmd("TAP %d %d" % inject.TRANSPORT_STOP)
         s.expect(r"-> TRANSPORT CMD_STOP", "soak 收尾 STOP")
         switch(s, "play")
+        if window is not None:
+            # save 窗口关掉的自动存档在**最终采样之后**恢复默认 ON（此后的写不再被采样，
+            # 不会把 xrun 记到窗口账上）；设备回到产品默认态。
+            s.cmd("STORE AUTO ON")
+            s.expect(r"^STORE AUTO on", "soak 收尾：STORE AUTO ON（恢复默认）")
         problems = verdict(rows, log_path, elapsed, args.duration, window, pool)
         s.ser.note(f"soak 结束 cycles={n} samples={len(rows)} failures={s.failures} "
                    f"problems={len(problems)}")
