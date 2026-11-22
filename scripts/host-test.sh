@@ -36,12 +36,38 @@ run "generate FM6 patches" python3 tools/gen_fm6_patches.py build/gen/felucca_fm
 
 UI_ASSETS="$OUT/ui-assets"
 UPSTREAM_RAW=https://raw.githubusercontent.com/isod89/sloop-fm1/bac9c05ea7627449405aa10e48da21d75b6c8c56/assets
+ASSET_TMP=
 mkdir -p "$UI_ASSETS/fonts"
-for asset in fonts/ter-u16b.bdf icons.json icons.png; do
-    if [[ ! -f "$UI_ASSETS/$asset" ]]; then
-        curl -fLsS --retry 3 --retry-all-errors "$UPSTREAM_RAW/$asset" -o "$UI_ASSETS/$asset"
+
+cleanup_ui_asset() {
+    if [[ -n ${ASSET_TMP:-} ]]; then
+        rm -f -- "$ASSET_TMP"
     fi
-done
+}
+trap cleanup_ui_asset EXIT
+
+cache_ui_asset() {
+    local asset="$1"
+    local expected="$2"
+    local destination="$UI_ASSETS/$asset"
+
+    if [[ -f $destination ]] && printf '%s  %s\n' "$expected" "$destination" | sha256sum -c --status -; then
+        return 0
+    fi
+
+    ASSET_TMP=$(mktemp "$destination.tmp.XXXXXX")
+    curl -fLsS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 \
+        "$UPSTREAM_RAW/$asset" -o "$ASSET_TMP"
+    if ! printf '%s  %s\n' "$expected" "$ASSET_TMP" | sha256sum -c -; then
+        return 1
+    fi
+    mv -f -- "$ASSET_TMP" "$destination"
+    ASSET_TMP=
+}
+
+cache_ui_asset fonts/ter-u16b.bdf 5275653e1cae7b123c844e52d5232242e054d5a4b0d30906404b78718c2380df
+cache_ui_asset icons.json 1165194730f97e22e9c1f11d9585d52cba3080b6ee8464ddba5ae3a79fb61d7f
+cache_ui_asset icons.png ec703d9bacef2d88656a7a439f6a6e2ab904cd7f245a004c77586d979defb944
 run "generate screen font" python3 -c \
     'from pathlib import Path; import sys; import tools.gen_font as g; g.FONTS = Path(sys.argv[1]); g.main("build/gen/felucca_font.h")' \
     "$UI_ASSETS/fonts"
