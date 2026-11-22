@@ -183,13 +183,13 @@
 
 | 项 | 内容 |
 |---|---|
-| **背景** | P4-C Task 9 的鼓格编辑按 brief 走 `CMD_DRUM_STEP_WRITE`：UI 从 `app_state_t.core.dstep_raw[c]`（每 30ms `state_sync_from_engine` 取的窗口投影）拷出整份 16 lane 字节，翻一位后把整份 POD 交给状态层写回。读（快照）与写（adapter 的引擎锁内 memcpy）是两次独立的引擎锁获取；若实时录音（`sloop_seq_drum_hit` → 上游 `drum_input/rec_hit`）在两者之间写了同一步的其他 lane，整份写回会把新录的位覆盖掉。合成轨的 `CMD_TOGGLE_STEP` 也是「先读步再写」的同类窗口（`cmd_toggle_step` 的 `sloop_core_read_step` + `write_step`/`SEQ_STEP_CLEAR` 两次取锁），只是它读的是紧邻的引擎真值而非 30ms 投影。 |
-| **影响面** | 只有「同一鼓步正被另一个写入者（实时录音/自动化）修改」且用户同时点/按该步 lane 位的窄窗口；丢的是新录的一位鼓 hit（下一次录音或再点可恢复）。无音频/状态机/持久化影响；注入脚本串行执行，不受影响。 |
+| **背景** | P4-C Task 9 的鼓格编辑按 brief 走 `CMD_DRUM_STEP_WRITE`：UI 从 `app_state_t.core.dstep_raw[c]`（每 30ms `state_sync_from_engine` 取的窗口投影）拷出整份 16 lane 字节，翻一位后把整份 POD 交给状态层写回。读（快照）与写（adapter 的引擎锁内 memcpy）是两次独立的引擎锁获取；若实时录音（`sloop_seq_drum_hit` → 上游 `drum_input/rec_hit`）在两者之间写了同一步的其他 lane，整份写回会把新录的位覆盖掉。合成轨的 `CMD_TOGGLE_STEP` 也是「先读步再写」的同类窗口（`cmd_toggle_step` 的 `sloop_core_read_step` + `write_step`/`SEQ_STEP_CLEAR` 两次取锁），只是它读的是紧邻的引擎真值而非 30ms 投影。**P4-C Task 10 fix round 1 扩展**：TRANSPORT 页鼓轨的 LVL/RAT 字段（`tr_action` 的 `SLOOP_TR_LVL_*`/`SLOOP_TR_RAT_*` 鼓分支）走同一条路径——从 30ms 投影 `dstep_raw[fs]` 读整份 POD、改选中 lane 的 2-bit 字段、`CMD_DRUM_STEP_WRITE` 整份写回；同一窗口同样会把并发录音写进同一步其他 lane 的 hit 覆盖掉（合成轨的 LVL/RAT 走 `CMD_STEP_EDIT`，adapter 单锁读改写，不受影响）。 |
+| **影响面** | 只有「同一鼓步正被另一个写入者（实时录音/自动化）修改」且用户同时点/按该步 lane 位（或 TRANSPORT 改该步某个 lane 的 LVL/RAT）的窄窗口；丢的是新录的一位鼓 hit（下一次录音或再点可恢复）。无音频/状态机/持久化影响；注入脚本串行执行，不受影响。 |
 | **为何可延迟** | brief 明确要求复用 `CMD_DRUM_STEP_WRITE`（整份原始 POD）；改成单锁 RMW 需要新增 adapter 入口（`sloop_seq_toggle_dstep_lane` 之类）+ 状态层命令 + host/state 门禁用例，属于接口扩张而不是本 UI 任务的完成条件。现有同类窗口（合成轨 toggle）也未被专门处理，修法应一次覆盖两者而不是只修鼓。 |
-| **解决方向** | (a) 在 `seq_tab5.c` 增加「引擎锁内读-改-写单 lane」的窄 adapter，状态层新增一条命令（返回新位图供 TAP 回显），UI 改调它；(b) 或让状态层在**引擎锁内**完成 read-modify-write（把当前 `sloop_seq_read_dstep` + `write_dstep` 合成一个入口，避免投影陈旧）；(c) 顺带把合成轨 toggle 改成同一形态（上游 `CMD_TOGGLE_STEP` 的读改写在 adapter 内一次取锁）。优先 (b)+(c)，可同时消灭两处窗口。 |
+| **解决方向** | (a) 在 `seq_tab5.c` 增加「引擎锁内读-改-写单 lane」的窄 adapter（`on` 位、`lvl`、`rat` 三种字段都按 lane 参数化），状态层新增一条命令（返回新值供 TAP 回显），STEP 鼓格与 TRANSPORT LVL/RAT 都改调它；(b) 或让状态层在**引擎锁内**完成 read-modify-write（把当前 `sloop_seq_read_dstep` + `write_dstep` 合成一个入口，避免投影陈旧）；(c) 顺带把合成轨 toggle 改成同一形态（上游 `CMD_TOGGLE_STEP` 的读改写在 adapter 内一次取锁）。优先 (b)+(a)，可同时消灭三处窗口。 |
 | **触发条件** | 任何「录音中进行步/lane 编辑」的门禁或人测场景；或 Task 12 的 sequence 场景要在 REC 进行中点击鼓格。 |
-| **参考** | `firmware/components/sloop_ui/src/page_step.c` 的 `drum_toggle`、`firmware/components/sloop_state/src/cmd.c` 的 `cmd_drum_step`/`cmd_toggle_step`、`firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_read_dstep/write_dstep`、ADR-010 §6 |
-| **登记** | 2026-11-22（P4-C Task 9 评审 minor：鼓 lane 位编辑的读改写窗口） |
+| **参考** | `firmware/components/sloop_ui/src/page_step.c` 的 `drum_toggle`、`firmware/components/sloop_ui/src/page_transport.c` 的 `tr_action`（鼓轨 LVL/RAT 分支）、`firmware/components/sloop_state/src/cmd.c` 的 `cmd_drum_step`/`cmd_toggle_step`、`firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_read_dstep/write_dstep`、ADR-010 §6 |
+| **登记** | 2026-11-22（P4-C Task 9 评审 minor：鼓 lane 位编辑的读改写窗口）；2026-11-22 Task 10 fix round 1 扩展到 TRANSPORT 鼓 lane LVL/RAT |
 
 ## DI-29: `ENG SELFTEST` 汇总行可能被并发 `ESP_LOG` 从中间插入，device-selftest 假红
 

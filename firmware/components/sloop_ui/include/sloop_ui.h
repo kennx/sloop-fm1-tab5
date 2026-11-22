@@ -192,9 +192,10 @@ typedef enum {
     SLOOP_TAP_TRANSPORT_STOP,
     SLOOP_TAP_TRANSPORT_BPM, /* v=±1：CMD_SET_BPM */
     SLOOP_TAP_TRANSPORT_TOOL, /* TRANSPORT 工具/聚焦步字段/pattern 动作（P4-C Task 10）：
-                               * a=sloop_transport_act_t v=**写后回读**值（lvl/rat 原始
-                               * 2-bit、micro、span 目标、slide 0/1、record hold 电平、
-                               * pattern arg、len 结果）d=±1 方向
+                               * a=sloop_transport_act_t b=LVL/RAT 的落点（0 合成轨
+                               * CMD_STEP_EDIT / 1 鼓轨 CMD_DRUM_STEP_WRITE），其余 0
+                               * v=**写后回读**值（lvl/rat 原始 2-bit、micro、span 目标、
+                               * slide 0/1、record hold 电平、pattern arg、len 结果）d=±1 方向
                                * err=0 成功 / 1..7 = app_seq_status_t / 8 = 不适用
                                * （鼓轨上的 span/slide：**未下发命令**，v 为写前真值） */
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
@@ -242,7 +243,8 @@ typedef struct {
     uint8_t err; /* SLOOP_TAP_STEP_DRUM / SLOOP_TAP_TRANSPORT_TOOL：0 = 成功；否则是
                   * app_seq_status_t（6 frozen / 5 blocked / 4 full / 3 invalid /
                   * 2 not_found / 7 error）；TRANSPORT 另有 8 = 不适用（未下发）。
-                  * 失败时 v/d 仍是状态层写后回读的**真值**（未变），console 打 ERR 令牌。 */
+                  * 失败时 STEP 鼓格的 v/d 仍是状态层写后回读的**真值**（未变）；TRANSPORT
+                  * 的 v 是写后回读值、d 是动作方向（不参与回读），console 打 ERR 令牌。 */
 } sloop_tap_result_t;
 
 typedef enum {
@@ -307,6 +309,11 @@ uint8_t sloop_ui_transport_tool_get(void);
 bool sloop_ui_transport_tool_set(uint8_t field);
 void sloop_ui_transport_focus_move(int8_t delta); /* ←/→：±1 字段（环绕） */
 void sloop_ui_transport_adjust(int8_t delta);     /* ↑/↓：+1 / -1 步进焦点字段 */
+
+/* 当前 TRANSPORT 页状态行文本（console `TAP` 工具回显的 `status="…"` 与屏幕**同源**：
+ * 两处都读 page_transport.c 的同一缓冲，不各写一份词表）。非 TRANSPORT 页/UI 未启动
+ * 返回 NULL；返回指针指向组件内静态缓冲（下一次调用覆盖），调用方负责当次使用。 */
+const char *sloop_ui_transport_status_text(void);
 
 /* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
  * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页

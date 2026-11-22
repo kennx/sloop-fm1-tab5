@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# transport.sh — TRANSPORT 注入：PLAY/STOP + BPM ±，截屏 TRANSPORT 与播放中的 STEP
+# transport.sh — TRANSPORT 注入：走带（PLAY/STOP/BPM±）+ ⑩ 工具区（REC 五态、
+# fill held/next、聚焦步 LVL/RAT/MIC/SPAN/SLIDE、pattern ROT/LEN/TRANS/CLEAR/UNDO/REDO）、
+# 跨组过渡峰值（SEQ 全建 → PRESETS），截屏 TRANSPORT/工具态与播放中的 STEP。
 # 用法: bash scripts/inject/transport.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 transport 场景里；本脚本只是入口。

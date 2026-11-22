@@ -47,9 +47,9 @@
  *    Task 9：写的是该步的原始 16 lane 位图；mask/bit 是**写后回读**）。写入被拒
  *    （诊断冻结等）改回 "-> STEP drum step=k lane=n ERR <frozen|invalid|…> mask=0x…"，
  *    mask 是未变的真值（不按本地翻转结果伪造）。TRANSPORT 工具回显
- *    "-> TRANSPORT <CMD> <op> value=<写后回读值>"（P4-C Task 10：REC/fill/聚焦步
- *    字段/pattern 工具；失败回 "ERR <token> value=<写前真值>"，鼓轨上的 span/slide
- *    回 "ignored (not_synth)"）。
+ *    "-> TRANSPORT <CMD> <op> value=<写后回读值> status=\"<屏幕状态行>\""（P4-C Task 10：
+ *    REC/fill/聚焦步字段/pattern 工具；失败回 "ERR <token> value=<写前真值>"，鼓轨上的
+ *    span/slide 回 "ignored (not_synth)"；status 与页面同源）。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
  *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
@@ -1503,21 +1503,25 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_TRANSPORT_TOOL: {
         /* TRANSPORT 工具：a=sloop_transport_act_t b=1 表示 LVL/RAT 落在鼓轨
          * （CMD_DRUM_STEP_WRITE）v=写后回读值 err=0/app_seq_status_t/8（不适用，
-         * 未下发）。令牌与 STEP 鼓格共用 seq_status_token。 */
+         * 未下发）。令牌与 STEP 鼓格共用 seq_status_token；`status="…"` 是**屏幕状态
+         * 行的同一文本**（sloop_ui_transport_status_text，与页面同源，不另写词表）。 */
         const char *cmd = transport_act_cmd((uint8_t)r.a);
         const char *op = transport_act_op((uint8_t)r.a);
         if (r.b != 0u) cmd = "CMD_DRUM_STEP_WRITE";
         char what[40];
         if (op != NULL) snprintf(what, sizeof(what), "%s %s", cmd, op);
         else snprintf(what, sizeof(what), "%s", cmd);
+        const char *status_txt = sloop_ui_transport_status_text();
         if (r.err == SLOOP_TR_ERR_NA) {
-            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ignored (not_synth) value=%d\n", x, y,
-                   page, what, (int)r.v);
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ignored (not_synth) value=%d status=\"%s\"\n",
+                   x, y, page, what, (int)r.v, status_txt != NULL ? status_txt : "");
         } else if (r.err != 0u) {
-            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ERR %s value=%d\n", x, y, page, what,
-                   seq_status_token(r.err), (int)r.v);
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ERR %s value=%d status=\"%s\"\n", x, y,
+                   page, what, seq_status_token(r.err), (int)r.v,
+                   status_txt != NULL ? status_txt : "");
         } else {
-            printf("TAP %ld,%ld page=%u -> TRANSPORT %s value=%d\n", x, y, page, what, (int)r.v);
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s value=%d status=\"%s\"\n", x, y, page,
+                   what, (int)r.v, status_txt != NULL ? status_txt : "");
         }
         break;
     }

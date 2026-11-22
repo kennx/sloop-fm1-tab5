@@ -4,13 +4,17 @@
  * 布局（页面区相对坐标；页面区绝对 y 起点 = UI_TAB_BAR_H）：
  * - PLAY (48,48,320,180) 轨绿；STOP (400,48,320,180) 轨橙；
  * - 走带状态 + 上一次工具动作 (48,264) 28pt 单行：`PLAYING` / `STOPPED`，有动作后
- *   追加 `   <动作>: <结果>`（`LVL: HARD` / `ROTATE: FULL` / `SPAN: N/A (DRUM)` /
- *   `TAKE: 2 BAR`）；失败红字、N/A 黄字（seq_status 与「不适用」在屏幕可见）；
+ *   追加 `   <动作>: <结果>`（`LVL: HARD` / `ROTATE: FULL` / `SPAN: N/A (DRUM)`）；
+ *   失败红字、N/A 黄字（seq_status 与「不适用」在屏幕可见）；"take 结果"不在这里
+ *   （它在 REC chip 上，避免与同一拍的动作结果互相覆盖）；
  * - 步位置 + 聚焦步字段 (48,320) 20pt 两行：
- *     `TRACK n   STEP pos / len`
- *     `LVL N  RAT x1  MIC +0  SPAN 1  SLD -`（鼓轨：`DRM L<n>  LVL .. RAT .. MIC ..`）
- *   第一行沿用走带步位置（选中轨的播放头 / LEN），第二行是**聚焦步**（焦点轨 ×
- *   窗口列）的可编辑字段真值——STEP 页设焦点、TRANSPORT 页改字段；
+ *     `TRACK n   STEP pos / len`                        ← 选中轨的播放头 / LEN
+ *     `T<ft+1> S<abs>  LVL N  RAT x1  MIC +0  SPAN 1  SLD -`
+ *   第二行是**工具的目标**：`T<ft+1>` = 焦点轨、`S<abs+1>` = 引擎绝对步（1 起，与
+ *   STEP 页列号同口径；第一行的 `STEP pos / len` 是引擎 step_pos 原值 = 0 起），其后
+ *   是字段真值（鼓轨：`T4 S<n>  DRM L<lane>  LVL .. RAT .. MIC ..`）。label 颜色取
+ *   **焦点轨色**（工具写的那条轨）——第一行的 TRACK 号仍是选中轨（走带），两者可以
+ *   不同（←/→/↑/↓ 只动焦点、不动选中轨）；
  * - 录音/fill 行 y=384（56 高）：REC (48,140) / FILL (200,120) / NEXT (328,120)；
  *   REC 文本即**五态**（`REC OFF` / `REC ARM` / `REC ON T<n>` / `REC CNT T<n>` /
  *   `FREE TAKE`），FILL 显示保持电平（`FILL` / `FILL ON`），NEXT 显示待命
@@ -185,7 +189,8 @@ static int16_t s_bpm = -1;
 static char s_status_cache[72];
 static uint32_t s_status_color_shown = 0xFFFFFFFFu;
 static char s_step_cache[96];
-static char s_rec_cache[12];
+static char s_rec_cache[16];
+static char s_take_txt[14];   /* 最近一次 take 结果（OFF 时显示在 REC chip 上） */
 static char s_fill_cache[8];
 static char s_next_cache[12];
 static uint8_t s_rec_style = 0xFF;  /* 已应用的录音态底色（0..4） */
@@ -703,6 +708,19 @@ bool sloop_ui_transport_page_active(void)
     return sloop_ui_current_page() == APP_PAGE_TRANSPORT;
 }
 
+/* 当前 TRANSPORT 页状态行文本（console `TAP` 回显的 status="…" 与屏幕同源）。
+ * 复制到本文件独立的 echo 缓冲：console 任务与 LVGL 任务交错写同一块会撕裂文本
+ * （与 page_projects/presets 的 status_echo 同一纪律）。非 TRANSPORT 页返回 NULL。 */
+const char *sloop_ui_transport_status_text(void)
+{
+    static char echo[40];
+    if (sloop_ui_current_page() != APP_PAGE_TRANSPORT) return NULL;
+    portENTER_CRITICAL(&s_ui_mux);
+    snprintf(echo, sizeof(echo), "%s", s_status_text);
+    portEXIT_CRITICAL(&s_ui_mux);
+    return echo;
+}
+
 uint8_t sloop_ui_transport_tool_get(void)
 {
     return field_get();
@@ -837,6 +855,7 @@ lv_obj_t *page_transport_build(lv_obj_t *parent)
     s_status_color_shown = 0xFFFFFFFFu;
     s_step_cache[0] = '\0';
     s_rec_cache[0] = '\0';
+    s_take_txt[0] = '\0';
     s_fill_cache[0] = '\0';
     s_next_cache[0] = '\0';
     s_rec_style = 0xFF;
@@ -945,20 +964,24 @@ static void chip_style_set(uint8_t idx, lv_style_t *old_st, lv_style_t *new_st)
     if (new_st != NULL) lv_obj_add_style(s_chip[idx], new_st, 0);
 }
 
-static void build_detail(const app_state_t *st, uint8_t ft, uint8_t fs, char *b, size_t n)
+/* 聚焦步字段摘要：**先报工具的目标**（`T<焦点轨+1> S<绝对步>`），再报字段值。
+ * 第一行（选中轨的播放头）与本行可以指向不同的轨：PLAYHEAD 属选中轨、工具写焦点轨。 */
+static void build_detail(const app_state_t *st, uint8_t ft, uint8_t fs, uint8_t abs, char *b,
+                         size_t n)
 {
     static const char *const lvl_tok[4] = {"N", "G", "S", "H"};
     if (ft == APP_STATE_TRACKS - 1u) {
         const uint8_t lane = drum_lane();
         const sloop_dstep_t *d = &st->core.dstep_raw[fs];
-        snprintf(b, n, "DRM L%u  LVL %s  RAT x%u  MIC %+d", (unsigned)(lane + 1u),
+        snprintf(b, n, "T%u S%u  DRM L%u  LVL %s  RAT x%u  MIC %+d", (unsigned)(ft + 1u),
+                 (unsigned)(abs + 1u), (unsigned)(lane + 1u),
                  lvl_tok[dstep_bits(d->lvl[lane / 4u], lane)],
                  (unsigned)dstep_bits(d->rat[lane / 4u], lane) + 1u,
                  (int)(int8_t)st->core.dstep[fs].micro);
         return;
     }
-    snprintf(b, n, "LVL %s  RAT x%u  MIC %+d  SPAN %u  SLD %s",
-             lvl_tok[st->core.step[ft][fs].lvl & 3u],
+    snprintf(b, n, "T%u S%u  LVL %s  RAT x%u  MIC %+d  SPAN %u  SLD %s", (unsigned)(ft + 1u),
+             (unsigned)(abs + 1u), lvl_tok[st->core.step[ft][fs].lvl & 3u],
              (unsigned)(st->core.step[ft][fs].rat & 3u) + 1u,
              (int)(int8_t)st->core.step[ft][fs].micro, (unsigned)span_base(st, ft, fs),
              (st->core.step[ft][fs].flags & STEP_FLAG_SLIDE) ? "ON" : "-");
@@ -999,35 +1022,49 @@ void page_transport_update(const app_state_t *st)
     const uint8_t pos = st->core.step_pos[k];
     const uint8_t len = st->core.trk[k].len;
     uint8_t ft = 0, fs = 0;
-    (void)focus_of(st, &ft, &fs);
+    const uint8_t abs = focus_of(st, &ft, &fs);
 
     {
-        char detail[64];
-        build_detail(st, ft, fs, detail, sizeof(detail));
-        char buf[96];
+        char detail[72];
+        build_detail(st, ft, fs, abs, detail, sizeof(detail));
+        char buf[112];
         snprintf(buf, sizeof(buf), "TRACK %u   STEP %u / %u\n%s", (unsigned)(k + 1u),
                  (unsigned)pos, (unsigned)len, detail);
         if (text_changed(s_step_cache, sizeof(s_step_cache), buf)) {
             lv_label_set_text(s_step_label, buf);
-            lv_obj_set_style_text_color(s_step_label, lv_color_hex(ui_track_color(k)), 0);
+            /* 颜色 = **焦点轨**（工具写的那条）：与第二行的 `T<ft+1>` 同源，选中轨
+             * 只在第一行的 TRACK 号 / 播放头里出现。 */
+            lv_obj_set_style_text_color(s_step_label, lv_color_hex(ui_track_color(ft)), 0);
         }
     }
 
-    /* REC 五态（文本 + 底色）；take 结果一次性投影由本页 latch 到状态行。 */
+    /* REC 五态（文本 + 底色）。take 结果（一次性投影，读即消费）latch 在 REC chip
+     * 上（`TAKE n BAR` / `TAKE DROPPED`，仅 OFF 时显示）——不占用工具状态行，避免
+     * 与同一拍的动作结果互相覆盖；下一次 REC 动作（state != OFF）清 latch。 */
+    if (st->rec.take_bars != 0u) {
+        if (st->rec.take_bars == 0xFFu) snprintf(s_take_txt, sizeof(s_take_txt), "TAKE DROP");
+        else snprintf(s_take_txt, sizeof(s_take_txt), "TAKE %u BAR", (unsigned)st->rec.take_bars);
+        s_rec_cache[0] = '\0'; /* 强制重写文本 */
+    }
+    if (st->rec.state != SEQ_REC_OFF) s_take_txt[0] = '\0';
     {
-        char buf[12];
-        switch (st->rec.state) {
-        case SEQ_REC_ARMED: snprintf(buf, sizeof(buf), "REC ARM"); break;
-        case SEQ_REC_RECORDING:
-            snprintf(buf, sizeof(buf), "REC ON T%u",
-                     (unsigned)(st->rec.track % APP_STATE_TRACKS) + 1u);
-            break;
-        case SEQ_REC_COUNT_IN:
-            snprintf(buf, sizeof(buf), "REC CNT T%u",
-                     (unsigned)(st->rec.track % APP_STATE_TRACKS) + 1u);
-            break;
-        case SEQ_REC_FREE_TAKE: snprintf(buf, sizeof(buf), "FREE TAKE"); break;
-        default: snprintf(buf, sizeof(buf), "REC OFF"); break;
+        char buf[16];
+        if (st->rec.state == SEQ_REC_OFF && s_take_txt[0] != '\0') {
+            snprintf(buf, sizeof(buf), "%s", s_take_txt);
+        } else {
+            switch (st->rec.state) {
+            case SEQ_REC_ARMED: snprintf(buf, sizeof(buf), "REC ARM"); break;
+            case SEQ_REC_RECORDING:
+                snprintf(buf, sizeof(buf), "REC ON T%u",
+                         (unsigned)(st->rec.track % APP_STATE_TRACKS) + 1u);
+                break;
+            case SEQ_REC_COUNT_IN:
+                snprintf(buf, sizeof(buf), "REC CNT T%u",
+                         (unsigned)(st->rec.track % APP_STATE_TRACKS) + 1u);
+                break;
+            case SEQ_REC_FREE_TAKE: snprintf(buf, sizeof(buf), "FREE TAKE"); break;
+            default: snprintf(buf, sizeof(buf), "REC OFF"); break;
+            }
         }
         if (text_changed(s_rec_cache, sizeof(s_rec_cache), buf) && s_chip[CHIP_REC] != NULL) {
             lv_label_set_text(s_chip[CHIP_REC], buf);
@@ -1106,13 +1143,5 @@ void page_transport_update(const app_state_t *st)
                 lv_obj_remove_style(s_chip[i], &s_st_chip_focus, 0);
             }
         }
-    }
-
-    /* take 结果（一次性投影：读后清，本页 latch 到状态行）。 */
-    if (st->rec.take_bars != 0u) {
-        char b[24];
-        if (st->rec.take_bars == 0xFFu) snprintf(b, sizeof(b), "TAKE: DROPPED");
-        else snprintf(b, sizeof(b), "TAKE: %u BAR", (unsigned)st->rec.take_bars);
-        status_store(b, 3);
     }
 }

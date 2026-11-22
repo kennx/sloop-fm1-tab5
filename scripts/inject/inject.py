@@ -721,9 +721,12 @@ def tr_focus_step(s: Session, track: int, step: int) -> None:
             t0 = s.snap_int(r"focus_track=(\d+)")
             if t0 < 3:
                 break
-    for _ in range((track - t0) % 3):
-        s.cmd("KEY 0x4B down")
-        s.cmd("KEY 0x4B up")
+    # 焦点环不是三轨循环：T1↑→DRM L16、T3↓→DRM L1，所以按方向走（T3→T1 用 ↑ 两次，
+    # T1→T3 用 ↓ 两次）；从鼓轨出来已由上面的循环落到 T3。
+    key = 0x4B if track > t0 else 0x3B
+    for _ in range(abs(track - t0)):
+        s.cmd(f"KEY 0x{key:02X} down")
+        s.cmd(f"KEY 0x{key:02X} up")
     for _ in range((step - s0) % 16):
         s.cmd("KEY 0x4C down")
         s.cmd("KEY 0x4C up")
@@ -732,6 +735,23 @@ def tr_focus_step(s: Session, track: int, step: int) -> None:
     s.expect_int(r"focus_step=(\d+)", step, f"⑩ 焦点列 = {step}")
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点已归一）")
+
+
+def tr_focus_col(s: Session, step: int) -> None:
+    """在 STEP 页只移动**焦点列**到 `step`（窗口列，0..window_len-1），不动焦点轨；
+    再回 TRANSPORT 页。鼓轨用例（焦点轨 3）用它对齐引擎步号。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（焦点列）")
+    s.cmd("STATE SNAP")
+    s0 = s.snap_int(r"focus_step=(\d+)")
+    wlen = s.snap_int(r"window_len=(\d+)")
+    for _ in range((step - s0) % wlen):
+        s.cmd("KEY 0x4C down")
+        s.cmd("KEY 0x4C up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_step=(\d+)", step, f"⑩ 焦点列 = {step}")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点列已归一）")
 
 
 def run_transport_tools(s: Session) -> None:
@@ -880,10 +900,53 @@ def run_transport_tools(s: Session) -> None:
     (s.ok if empty_after == empty_before else s.fail)(
         "⑩ 非法动作不改状态（空步逐字段不变）")
 
+    # ---------- ⑩e2 空步 SPAN（NOT_FOUND）与 freeze chip（FROZEN，不改状态） ----------
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span ERR not_found value=1 status=\"SPAN: EMPTY\"",
+             "⑩ 空步 SPAN → ERR not_found + 屏幕状态")
+    (s.ok if eng_step(s, 0, 5) == empty_before else s.fail)("⑩ 空步 SPAN 不改状态")
+
+    tr_focus_step(s, 0, 2)
+    frozen_before = eng_step(s, 0, 2)
+    s.cmd("ENG FREEZE ON")
+    s.expect(r"ENG FREEZE on", "⑩ ENG FREEZE ON（chip 拒绝路径）")
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT lvl ERR frozen value=\d+ status=\"LVL: FROZEN\"",
+             "⑩ 冻结时 TAP LVL → ERR frozen + 屏幕状态")
+    s.cmd("ENG FREEZE OFF")
+    s.expect(r"ENG FREEZE off", "⑩ ENG FREEZE OFF")
+    (s.ok if eng_step(s, 0, 2) == frozen_before else s.fail)("⑩ 冻结期间的 chip 动作不改状态")
+
+    # ---------- ⑩e3 隐藏 bank（窗口 16..23）：目标 / 写入都用绝对步号 ----------------
+    ensure_window(s, 16, 8)
+    tr_focus_step(s, 0, 2)  # 窗口列 2 = 绝对步 18
+    s.cmd("ENG STEP 0 18")
+    n18 = s.snap_int(r"\bn=(\d+)")
+    if n18 == 0:
+        s.ser.note("⑩ 绝对步 18 为空：先造一个音（结束清回）")
+        s.cmd("UI step")
+        s.expect(r"UI page=step \(2\)", "⑩ UI step（bank1 造音）")
+        s.cmd("TAP %d %d" % step_cell_xy(2, 0))
+        s.expect(r"-> STEP track=0 step=18 CMD_TOGGLE_STEP", "⑩ TAP 窗口列 2 = 绝对步 18")
+    lvl18 = eng_step(s, 0, 18)["lvl"] & 3
+    want = tr_lvl_step(lvl18, True)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（bank1）")
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want} status=\"LVL: ",
+             "⑩ bank1 窗口：TAP LVL 写到绝对步")
+    got = eng_step(s, 0, 18)
+    (s.ok if (got["lvl"] & 3) == want else s.fail)(
+        f"⑩ 绝对步 18 lvl={got['lvl'] & 3}（期望 {want}，不是窗口列号 2）")
+    s.cmd("KEY 0x4B down")  # 焦点已落到 lvl：↓ 还原
+    s.cmd("KEY 0x4B up")
+    (s.ok if (eng_step(s, 0, 18)["lvl"] & 3) == lvl18 else s.fail)("⑩ bank1 lvl 还原")
+    ensure_window(s, 0, 16)
+    tr_focus_step(s, 0, 2)
+
     # ---------- ⑩f 鼓轨：选中 lane 的 LVL/RAT 读改写；SPAN/SLIDE 不适用 ----------
     select_track(s, 3)
-    s.cmd("UI transport")
-    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（鼓轨）")
+    tr_focus_col(s, 5)  # 焦点步 = 5：下面的引擎断言按绝对步 5 读（窗口 0..15）
     s.cmd("UI LANE 5")
     s.expect(r"UI LANE lane=5", "⑩ 选中鼓 lane 5")
     d0 = seq_dstep(s, 5)
@@ -1058,6 +1121,52 @@ def run_transport_tools(s: Session) -> None:
     s.cmd("UI TOOL")
     s.expect(r"UI TOOL field=0 name=lvl", "⑩ 键盘 → 在字段环上环绕（trans -> lvl）")
 
+    # ---------- ⑩h2 焦点轨 ≠ 选中轨：屏幕上报的目标 = 引擎实际写入的轨 ----------
+    # 选中轨 0（走带/播放头），焦点轨 2：第二行必须以 `T3 S<abs>` 开头、颜色 = 轨 2
+    # （黄），工具也只写轨 2。轨 2 的步 2 先造一个音（结束清回），保证 LVL 不是 NOT_FOUND。
+    select_track(s, 0)  # 上面的 LOAD 还原带回快照里的选中轨（SAVE 时是鼓轨）
+    s.cmd("SEQ EDIT CLEAR 2 2")
+    s.expect(r"SEQ EDIT CLEAR track=2 step=2 OK", "⑩ 清空轨 2 步 2（焦点轨目标用例）")
+    s.cmd("KEY 0x21 down")  # q = C4（last_note）
+    s.cmd("KEY 0x21 up")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（给焦点轨造音）")
+    s.cmd("TAP %d %d" % step_cell_xy(2, 2))
+    s.expect(r"-> STEP track=2 step=2 CMD_TOGGLE_STEP", "⑩ 轨 2 步 2 开音")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d)", 2, "⑩ 焦点轨 = 2（选中轨仍是 0）")
+    s.expect_int(r"selected_track=(\d)", 0, "⑩ 选中轨仍 = 0")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点轨目标）")
+    t0_lvl = eng_step(s, 0, 2)["lvl"] & 3
+    t2_lvl = eng_step(s, 2, 2)["lvl"] & 3
+    want = tr_lvl_step(t2_lvl, True)
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want} status=\"LVL: ",
+             "⑩ 焦点轨 TAP LVL（回显带屏幕状态）")
+    got2 = eng_step(s, 2, 2)
+    got0 = eng_step(s, 0, 2)
+    (s.ok if (got2["lvl"] & 3) == want else s.fail)(
+        f"⑩ 引擎写入轨 2：lvl={got2['lvl'] & 3}（期望 {want}）")
+    (s.ok if (got0["lvl"] & 3) == t0_lvl else s.fail)(
+        f"⑩ 选中轨 0 未被写：lvl={got0['lvl'] & 3}（期望 {t0_lvl}）")
+    img = s.capture("transport-focus")
+    # 第二行（工具目标）与第一行同标签：文本颜色 = **焦点轨 2**（黄），不含轨 0 蓝。
+    detail_box = (48, 72 + 320, 760, 72 + 320 + 50)
+    yellow = count_region(img, detail_box, C_YELLOW, 16)
+    blue = count_region(img, detail_box, C_BLUE, 16)
+    (s.ok if yellow >= 100 and blue == 0 else s.fail)(
+        f"⑩ 步摘要文本颜色 = 焦点轨黄 {yellow} / 选中轨蓝 {blue}（期望黄 ≥100、蓝 0）")
+    # 收口：LVL 回原值（键盘 ↓ 作用在同一焦点）→ 清轨 2 步 2 → 焦点回轨 0 步 2
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    got2 = eng_step(s, 2, 2)
+    (s.ok if (got2["lvl"] & 3) == t2_lvl else s.fail)(
+        f"⑩ 焦点轨 2 lvl 回到 {t2_lvl}（实得 {got2['lvl'] & 3}）")
+    s.cmd("SEQ EDIT CLEAR 2 2")
+    s.expect(r"SEQ EDIT CLEAR track=2 step=2 OK", "⑩ 清回轨 2 步 2")
+    tr_focus_step(s, 0, 2)
+
     # ---------- ⑩i 截屏：REC ARMED + FILL 保持 + 状态行的视觉证据 ----------
     s.cmd("STATE SNAP")
     if not re.search(r"\brec=armed\b", s.last):
@@ -1096,6 +1205,46 @@ def run_transport_tools(s: Session) -> None:
                f"{(est - delta) * 100.0 / max(delta, 1):.1f}%）；SEQ Σest={seq_est} ⇒ "
                f"SEQ→PRESETS 有序对 = 13800 + {seq_est} + 12800 + 4096 = {pair}B"
                f"（≤ 63120）")
+
+    # ---------- ⑩j 跨组过渡峰值：SEQ 全建（STEP+TRANSPORT）→ 首建 PRESETS ----------------
+    # ADR-005 §5 的新最坏有序对 `32,256 + 12,800`（账面 62,952B、余 168B）此前只有
+    # 账面值，没有实测。这里把 SEQ 两页建满，再从 SEQ 直接切 PRESETS（跨组：目标页
+    # 构建期间源组仍存活），从构建日志读**构建后的 pool_free** —— 它就是过渡峰值点。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（SEQ 全建）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（SEQ 全建）")
+    mem = param_mem(s)
+    seq = mem["groups"]["SEQ"]
+    (s.ok if seq["built"] == 2 and seq["sum_est"] == 32256 else s.fail)(
+        f"⑩ 过渡前 GROUP SEQ built={seq['built']} sum_est={seq['sum_est']}（期望 2 / 32,256）")
+    s.cmd("UI presets", timeout=5.0)
+    s.expect(r"UI page=presets \(10\)", "⑩ UI presets（SEQ 全建时首建 PRESETS）")
+    m = re.search(r"页面构建 page=PRESETS\(10\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑩ 过渡构建日志缺少 PRESETS 行（池剩余不可测）")
+    else:
+        delta, est, free_after = (int(g) for g in m.groups())
+        (s.ok if free_after >= 4096 else s.fail)(
+            f"⑩ 过渡峰值 pool_free={free_after}B（≥4,096；PRESETS delta={delta} 预算={est}）")
+        s.ser.note(f"⑩ SEQ→PRESETS 过渡实测：PRESETS delta={delta}B、构建后 pool_free={free_after}B"
+                   f"（ADR-005 账面：base 13,800 + 32,256 + 12,800 + 4,096 = 62,952B、余 168B）")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["SEQ"]["built"] == 0 and mem["groups"]["FILE"]["built"] == 1 else s.fail)(
+        f"⑩ 过渡后组作用域：SEQ built={mem['groups']['SEQ']['built']}、"
+        f"FILE built={mem['groups']['FILE']['built']}（期望 0 / 1）")
+    # 同组两页都建出来（PROJECTS）+ 手指导航往返，最后回 SEQ（调用方继续走带用例）
+    s.cmd("UI TAB FILE")
+    s.expect(r"UI TAB FILE page=", "⑩ UI TAB FILE")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=projects \(9\)", "⑩ UI SUB 0 → PROJECTS")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=presets \(10\)", "⑩ UI SUB 1 → PRESETS")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["FILE"]["built"] == 2 else s.fail)(
+        f"⑩ FILE 两页已建（built={mem['groups']['FILE']['built']}）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ 回 SEQ（重建 TRANSPORT）")
 
     # 收口：REC OFF + FILL 释放 + 默认焦点；走带仍停止（调用方再断言一次）
     s.cmd("STATE SNAP")

@@ -275,9 +275,16 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   4. **SEQ 全建 → EDIT 首建 GLOBAL**：`32,256 + 3,584 = 35,840B` ⇒ 账面 53,736。
   （STEP 属 SEQ，所以它不可能是「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ /
   FILE→SEQ 的目标——最坏对必须按有序对枚举，旧式「任意单页上限 + 任意最大组」是
-  病态上界。有序对 1 的实测证据：Task 10 的 transport 场景在 SEQ 内测得 TRANSPORT
-  delta 8,248–8,716B、`GROUP SEQ sum_est=32,256`；跨组回 FILE 的峰值沿用既有 nav/params
-  场景的 ≥4,096B 门禁。）
+  病态上界。）
+- **有序对 1 的设备实测（P4-C Task 10 fix round 1，`transport` 场景 ⑩j）**：建满
+  SEQ（STEP+TRANSPORT，`GROUP SEQ built=2 sum_est=32,256`）后从 SEQ 直接 `UI presets`
+  （跨组：目标页构建期间源组仍存活）——构建日志 `页面构建 page=PRESETS(10)
+  池增量=12,120B 预算=12,800B 池剩余=6,028B`（另两次 12,272B / 6,328B、12,276B /
+  6,240B），即 **过渡峰值点 `pool_free=6,028–6,328B`**（≥4,096B 门禁通过）；过渡后
+  `SEQ built=0 / FILE built=1`。PRESETS 的 delta 实测 12,120–12,276B（与表内历史
+  12,228–12,276B 同区间；池历史漂移）。
+- 同批证据另覆盖：`TAP` 回显的 `status="…"` 与屏幕同源、焦点轨 ≠ 选中轨的目标、
+  冻结/空步/bank1 窗口的拒绝路径（见本文末节与 `task-10-report.md`）。
 - **实测过渡峰值**（构建日志的「池剩余」= 销毁源组之前的 free）：
   2026-11-22 Task 11 最终固件：EDIT 五页全建 `pool_free 34,212B` → 跨组建 STEP
   （delta 21,856B、耗时 30ms）后 **`pool_free 12,356B`**；SEQ 两页全建
@@ -456,9 +463,9 @@ TAP 与键盘走同一投影。
 
 | 区 | 几何 | 内容 |
 |---|---|---|
-| 走带状态 | (48,264) 28pt 单行 | `PLAYING`/`STOPPED`；有工具动作后追加 `   <动作>: <结果>`（失败红字、N/A 黄字、其余主文本色）——**不新增状态行对象** |
-| 聚焦步摘要 | (48,320) 20pt 两行 | 第一行沿用 `TRACK n STEP pos / len`（选中轨播放头）；第二行 = 聚焦步字段真值 `LVL N RAT x1 MIC +0 SPAN 1 SLD -`（鼓轨 `DRM L<n> LVL.. RAT.. MIC..`） |
-| 录音/fill | y=384，56 高 | REC (48,140)：五态文本 `REC OFF`/`REC ARM`/`REC ON T<n>`/`REC CNT T<n>`/`FREE TAKE` + 底色（黄 arm / 红 record / 橙 count-in / 绿 free take）；FILL (200,120) `FILL`→`FILL ON`（黄底）；NEXT (328,120) `NEXT`→`NEXT ARM`（黄底） |
+| 走带状态 | (48,264) 28pt 单行 | `PLAYING`/`STOPPED`；有工具动作后追加 `   <动作>: <结果>`（失败红字、N/A 黄字、其余主文本色）——**不新增状态行对象**；`status="…"` 的 console 回显与屏幕**同源**（`sloop_ui_transport_status_text`） |
+| 聚焦步摘要 | (48,320) 20pt 两行 | 第一行 `TRACK n STEP pos / len`（**选中轨**的播放头/LEN）；第二行 `T<ft+1> S<abs+1> LVL N RAT x1 MIC +0 SPAN 1 SLD -`（鼓轨 `T4 S<n> DRM L<lane> …`）——`T<ft+1>` = **焦点轨**、`S<n>` = 引擎绝对步（**1 起**，与 STEP 页列号同口径；第一行的 `STEP pos / len` 是 step_pos 原值 = 0 起）（工具的目标；与第一行的选中轨可以不同）；label 颜色 = **焦点轨色**（工具写的那条轨） |
+| 录音/fill | y=384，56 高 | REC (48,140)：五态文本 `REC OFF`/`REC ARM`/`REC ON T<n>`/`REC CNT T<n>`/`FREE TAKE` + 底色（黄 arm / 红 record / 橙 count-in / 绿 free take）；take 结果（`TAKE n BAR` / `TAKE DROP`）latch 在**同一 chip**（仅 OFF 时显示，下一次 REC 动作清除）——不占用工具状态行，避免与同一拍的动作结果互相覆盖；FILL (200,120) `FILL`→`FILL ON`（黄底）；NEXT (328,120) `NEXT`→`NEXT ARM`（黄底） |
 | 聚焦步字段 | y=464，88×56、间距 8（x=24+i·96） | `LVL` `RAT` `MIC-` `MIC+` `SPAN` `SLIDE`；SLIDE 打开时黄底 |
 | pattern | x=792 起 | y=292 `ROT-`/`ROT+`/`LEN x2`/`LEN /2`（100 宽）；y=360 `TRANS-`/`TRANS+`（120）+`UNDO`/`REDO`（84）；y=428 `CLEAR T<n>`（432，破坏性动作单独一行，文本显示目标轨=选中轨） |
 | BPM | 既有 (900,40)/(880,72)/(860|1000,140) | 不变 |
