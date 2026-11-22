@@ -12,7 +12,7 @@ rc=0 pass=149 fail=0 last=[PASS] params: 全部断言与像素抽检通过
 rc=0 pass=903 fail=0 last=[PASS] store: 全部断言与像素抽检通过
 === song (run 1) 02:37:52
 rc=0 pass=331 fail=0 last=[PASS] song: 全部断言与像素抽检通过
-=== sequence (run 2) 02:41:07
+=== sequence (run 1) 02:41:07
 rc=0 pass=525 fail=0 last=[PASS] sequence: 全部断言与像素抽检通过
 === sequence (run 2) 02:43:47
 rc=0 pass=525 fail=0 last=[PASS] sequence: 全部断言与像素抽检通过
