@@ -35,8 +35,9 @@ LVGL 任务上下文）；UI 启动失败回退 bring-up 测试图。idle 内部
   P4-0 Task 5），行=轨色；格「亮」=`state_step_is_on()`（n>0 且 time==NOTE，与状态层
   切换共用同一判定）；列号/顶栏 `STEP`/`WIN a..b` 用绝对步号，窗口外的格/列号隐藏（TAP 命不中）；
   播放头把绝对 `step_pos` 映射进窗口（窗口外不显示）；绝对步 ≥ 本轨 LEN 的格暗显。点格
-  `state_set_focus()` + `CMD_TOGGLE_STEP`（绝对步号；鼓轨第 4 行只读，展示 `dstep[c].on`
-  窗口聚合，点击写状态行提示不发命令）。
+  `state_set_focus()` + `CMD_TOGGLE_STEP`（绝对步号；**阶段 3 时点**鼓轨第 4 行只读，
+  展示 `dstep[c].on` 窗口聚合，点击写状态行提示不发命令——P4-C Task 9 起鼓轨逐 lane
+  可编辑，见本文末节）。
 - **LVGL 内存纪律**：格/标签/卡片共用静态 `lv_style_t`（状态变化走 `lv_obj_replace_style` 换指针），
   卡片内文本合并；仍保留局部样式的只有四张卡的 `pad_all`、四条电平条（main/indicator）与顶栏/状态行
   两个单例标签，量级固定。这样把 64KB 内置 TLSF 池占用从首版的 ≈97%（文本重分配即可能失败）压到
@@ -51,7 +52,7 @@ console `TAP <x> <y>` 走 `sloop_ui_input_tap()`：取当前页，按页内 hit-
 
 | 页 | 命中矩形来源 | 共同动作函数 | 等价 EditCmd |
 |---|---|---|---|
-| STEP | 建格同一组宏 `GRID_X0/Y0、CELL_W/H、CELL_STEP_X、ROW_PITCH` 现场推导（行/列各一次区间判定） | `step_activate(r,c)`（`cell_clicked_cb` 的唯一调用体） | `state_set_focus()` + `CMD_TOGGLE_STEP`；鼓轨行只写状态行、不发命令 |
+| STEP | 建格同一组宏 `GRID_X0/Y0、CELL_W/H、CELL_STEP_X、ROW_PITCH` 现场推导（行/列各一次区间判定）；鼓行再加 4×4 lane 网格命中（`DRUM_GRID_X0/Y0`、`DRUM_LANE_PITCH`） | 合成轨：`step_activate(r,c)`（`cell_clicked_cb` 的唯一调用体）；鼓轨：`drum_toggle()`（控件回调经 `step_activate` 鼓分支进入，`TAP` 命中 lane 后直接调用同一函数） | 合成轨：`state_set_focus()` + `CMD_TOGGLE_STEP`；鼓轨：`state_set_focus(DRM)` + `CMD_DRUM_STEP_WRITE`（P4-C Task 9 起；不再是「只写状态行」） |
 | TRACKS | `CARD_X0/Y/W/H/PITCH` | `tracks_select(k)`（`card_clicked_cb` 的唯一调用体） | `CMD_SELECT_TRACK` |
 | TRANSPORT | 静态表 `{x,y,w,h,kind,v}`，几何取自建按钮的 `TRANSPORT_*` 宏 | `transport_play()` / `transport_stop()` / `transport_bpm_step(delta)` | `CMD_PLAY` / `CMD_STOP` / `CMD_SET_BPM` |
 | PLAY | 无编辑控件（纯呈现 + 音符指示） | — | 恒 `TAP miss` |
@@ -384,7 +385,7 @@ spec §4.4 要求 STEP 格呈现 TIE/SLIDE/lvl/rat/micro/fill 并开放鼓轨 la
 |---|---|
 | NOTE | 轨色实心格 + 音符名（最多 4 个，2×2 槽）；名字颜色 = 每音符 lvl：白 NORM / 黄 HARD / 灰 SOFT / 深灰 GHOST |
 | TIE | 空心：格底是面板色 + 轨色内框（inset 3px）+ `TIE` 文本（暗格用 45% 轨色）——与实心 NOTE 明确不同 |
-| CONT | 该音符（`SF_CONT(k)`）名前左缘白色短竖条（长音从前一步延续）；状态行在音符名后加 `*` |
+| CONT | 该音符（`SF_CONT(k)`）名字**正下方** 12×2 白色短横线（长音从前一步延续；每音符独立，k=1/3 不会画到 k=0/2 的名字旁）；状态行在音符名后加 `*` |
 | SLIDE / ACCENT | 顶条白色 `S` / `A`（`SF_SLIDE` / `SF_ACCENT`） |
 | fill | 顶条 `F`（fill-only，黄）/ `N`（no-fill，灰）；normal 不画 |
 | micro | 底条 `m±n`（`m+5` / `m-31`，灰） |
@@ -402,15 +403,26 @@ TAP 与键盘走同一投影。
   on/lvl/rat，`sloop_dstep_t` 同型；定义移入 sloop_core.h）与 `dstep[].micro/fill`；
   聚合 `dstep[].on/lvl/rat` 保持原义（`ENG SNAP`/`STATE SNAP FULL` 口径不变）。
 - **动作**：触摸点 4×4 网格里的 lane dot = 选中该 lane 并切换该步该位；点格内其它位置
-  = 切换当前选中 lane 的位。两条路径（控件回调与 `TAP` 注入）都走 `step_activate()`
-  → `drum_toggle()`：读快照原始字节 → 翻一位 → `state_set_focus(DRM, col)` →
-  `CMD_DRUM_STEP_WRITE`（整份 POD，lvl/rat 原样带回）。不再只写 "PHASE 4" 提示。
+  = 切换当前选中 lane 的位。控件回调经 `step_activate()` 的鼓轨分支进入 `drum_toggle()`；
+  `TAP` 命中 lane 后**直接**调 `drum_toggle()`（不经过合成轨分支）——两者最终是同一个
+  函数、同一 `CMD_DRUM_STEP_WRITE`（整份 POD，lvl/rat 原样带回）。`drum_toggle()` 复用
+  调用方的**一份** AppState 缓冲（读前快照 → 写后回读刷新），输入任务栈上不叠第二份
+  ~600B 副本（`KEY STATS` 的 `input_stack_free` 是证据口）。不再只写 "PHASE 4" 提示。
 - **键盘**：焦点环 = `T1,T2,T3,DRM L1..L16`（↑/↓；从 T3 下进入 L1、从 T1 上进入 L16、
   L1 上回 T3、L16 下回 T1），`ENTER` = 切换聚焦步的选中 lane 位。lane 是 UI 局部态
   （`page_step.c` 静态字节，跨组重建保留），console `UI LANE [<0..15>]` 读写同一状态
   供脚本断言；非 STEP 页 ENTER/↑/↓ 语义不变（FILE LOAD / 焦点轨）。
 - **TAP 回显**：`-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0xNNNN`
-  （`sloop_tap_result_t` 的 a=lane b=绝对步 v=mask d=bit）。
+  （`sloop_tap_result_t` 的 a=lane b=绝对步 v=mask d=bit err=0）。mask/bit 是**写后
+  回读**的状态层真值；写入被拒（诊断冻结等）改回
+  `-> STEP drum step=k lane=n ERR <frozen|invalid|blocked|full|error> mask=0xNNNN`，
+  其中 mask 是未变的真值——不按本地翻转结果伪造成功（设备用例：`ENG FREEZE ON` 后
+  TAP 回 `ERR frozen mask=<写前值>`，`SEQ DSTEP` 不变）。
+- **选中 ring 的范围**：白 ring 画在**每个**鼓格的同一 lane 上，不只焦点格——扫一行
+  就能看到「下一位会落在哪个 lane」（点格内空白正按选中 lane 写位）；代价是 16 个白框。
+- **鼓行观感取舍**：鼓格底色固定「空格」样式（活动只由 lane dot 表达），换取 NORM
+  橙色 dot 与格底的对比；失去的是旧版「整格填满鼓轨色 = 该步有 hit」的远看提示。
+  逐 lane 可读性优先（spec §4.4 的深度编辑目标）。
 - **触摸几何**：`DRUM_GRID_X0/Y0=8/30`、`DRUM_LANE_PITCH=14`、dot 8×8（格内坐标），
   注入脚本 `drum_lane_xy()` 与建/画用同一组宏。
 
@@ -418,8 +430,12 @@ TAP 与键盘走同一投影。
 
 - STEP est 保持 **23,040B**；实测 delta 应只比旧值（21,788B）多 1 个 overlay 对象量级。
   若超 est：先减字形/对象，不调大 est 或池（ADR-008 规则）。
-- 设备证据：`step_edit` 场景 ②e/②f（TIE≠NOTE 空心、S/F/m±/xN/HARD 像素、CONT 左缘 +
-  `flags&0x10`、鼓 dot 选中+位图往返、键盘 lane 环与 ENTER）与 `nav` ②（鼓轨 TAP 写
-  位图、焦点落鼓轨、ENG 只有该 dstep 行变化）；PNG 视觉读图，证据按 §5.4 晋升。
+- 设备证据：`step_edit` 场景 ②e/②f（TIE≠NOTE 空心、S/F/m±/xN/HARD 像素；2 音符和弦
+  上 CONT 在 k=1 的标记必须落在 k=1 名字下方（x+38 起）且 k=0 名下无横线、也无旧实现的格左缘竖条，引擎真值
+  `flags==0x10 note=62,60`；鼓 dot 选中+位图往返、键盘 lane 环与 ENTER；`ENG FREEZE ON`
+  的 TAP 回 `ERR frozen` 且位图不变；窗口 len=8 的隐藏鼓列 TAP miss；合成轨 ENTER 无
+  op；`UI LANE` 越界回 `UI ERR lane`）与 `nav` ②（鼓轨 TAP 写位图、焦点落鼓轨、ENG 只有
+  该 dstep 行变化）；PNG 逐像素区扫描 + 人眼视觉读图（像素扫描不能代替人眼），证据按
+  §5.4 晋升。
 - 未覆盖：CONT 的**演奏时序**（是否真的持续发声）属 host `seq` 门禁与听感项，本页只
   呈现标记；鼓 lane 的 vel（lvl/rat 编辑）留给 TRANSPORT 聚焦步工具（Task 10）。

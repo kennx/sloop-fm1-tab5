@@ -917,18 +917,30 @@ def run_step_deep_visuals(s: Session) -> None:
     s.cmd("SEQ EDIT SPAN 0 2 5")
     s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 5（C4 长到格 6 的 D4 上）")
     st6 = eng_step(s, 0, 6)
-    cont6 = (st6["flags"] & 0x10) != 0  # SF_CONT(1)：第二个音符（C4）从前面延续
-    (s.ok if st6["n"] == 2 and cont6 else s.fail)(
-        f"②e 格 6 = NOTE(D4)+CONT(C4)（n={st6['n']} flags=0x{st6['flags']:02X}，"
-        f"期望 n=2 且 flags&0x10）")
+    # 字面引擎真值：k=0 = D4(62) 不延续，k=1 = C4(60) 从格 2 延续（SF_CONT(1) = 0x10）
+    cont_ok = (st6["n"] == 2 and st6["flags"] == 0x10 and st6["note0"] == 62
+               and st6["note1"] == 60)
+    (s.ok if cont_ok else s.fail)(
+        f"②e 格 6 = NOTE(D4)+CONT(C4)（n={st6['n']} flags=0x{st6['flags']:02X} "
+        f"note={st6['note0']},{st6['note1']}，期望 n=2 flags=0x10 note=62,60）")
     time.sleep(0.15)
     focus_step_to(10)  # TAP 格 6 把焦点移回 6；再移开描边
     time.sleep(0.1)
     img = s.capture("step-cont")
     x6, y6 = step_cell_box(6, 0)
-    s.probe_region(img, "②e 格 6 CONT 左缘标记",
-                   (x6 + 4, y6 + STEP_NOTE_Y + 4, x6 + 9, y6 + STEP_NOTE_Y + 14),
-                   C_TEXT, 16, 3)
+    # CONT 标记必须属于**该音符自己**：k=1 的 12×2 下划线在 x+38..49（名字正下方），
+    # k=0（D4 无 CONT）既没有下划线、也不该有旧实现的「格左缘竖条」（x+4）。
+    s.probe_region(img, "②e 格 6 CONT 下划线在 k=1 名字下方（x+38）",
+                   (x6 + 38, y6 + STEP_NOTE_Y + 15, x6 + 50, y6 + STEP_NOTE_Y + 17),
+                   C_TEXT, 16, 5)
+    under0 = count_region(img, (x6 + 12, y6 + STEP_NOTE_Y + 15, x6 + 24,
+                                y6 + STEP_NOTE_Y + 17), C_TEXT, 16)
+    (s.ok if under0 == 0 else s.fail)(
+        f"②e 格 6 k=0（无 CONT）名字下方无下划线（白像素 {under0}，期望 0）")
+    stray = count_region(img, (x6 + 2, y6 + STEP_NOTE_Y + 2, x6 + 9,
+                               y6 + STEP_NOTE_Y + 14), C_TEXT, 16)
+    (s.ok if stray == 0 else s.fail)(
+        f"②e 格 6 k=0 名字左缘无旧实现竖条（白像素 {stray}，期望 0）")
 
     # 清理：SPAN 1 收回 TIE/CONT，再清两格（脚本可重复）
     s.cmd("SEQ EDIT SPAN 0 2 1")
@@ -959,6 +971,14 @@ def run_step_drum_lanes(s: Session) -> None:
     s.expect(r"UI LANE lane=(\d+)", "②f UI LANE 读回")
     s.cmd("UI LANE 0")
     s.expect(r"UI LANE lane=0", "②f UI LANE 归零")
+    s.cmd("UI LANE 16")  # 越界：UI ERR 令牌（不是用法文案），且不改选中 lane
+    s.expect(r"UI ERR lane", "②f UI LANE 越界回 UI ERR lane")
+    s.cmd("UI LANE 99")
+    s.expect(r"UI ERR lane", "②f UI LANE 99 回 UI ERR lane")
+    s.cmd("UI LANE x")
+    s.expect(r"UI ERR lane", "②f UI LANE 非数字回 UI ERR lane")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=0", "②f 越界不改选中 lane")
 
     # 点 lane 2 的 dot：选中 + 置位；再点一次：清除（同一路径）
     lane2 = drum_lane_xy(5, 2)
@@ -1028,6 +1048,48 @@ def run_step_drum_lanes(s: Session) -> None:
     s.cmd("KEY 0x3B up")
     s.cmd("STATE SNAP")
     s.expect_int(r"focus_track=(\d+)", 2, "②f lane 0 ↑ → 焦点轨 T3")
+
+    # 冻结：TAP 必须回 ERR frozen 并报**写后真值**（位图不变），不能伪造翻转后的 mask。
+    # （诊断冻结只冻结引擎读写，UI/TAP 不处于 quiesce，命令仍会被派发。）
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 冻结前鼓步 5 位图 = 0x0004")
+    s.cmd("ENG FREEZE ON")
+    s.expect(r"ENG FREEZE on", "②f ENG FREEZE on")
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 ERR frozen mask=0x0004",
+             "②f 冻结时 TAP 回 ERR frozen 且 mask 为写前真值")
+    s.cmd("ENG FREEZE OFF")
+    s.expect(r"ENG FREEZE off", "②f ENG FREEZE off")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 冻结期间位图未变（0x0004）")
+
+    # 隐藏列：窗口 len=8 时鼓列 8 不在命中表（TAP miss，不写位图）
+    ensure_window(s, 0, 8)
+    time.sleep(0.15)
+    hidden = drum_lane_xy(8, 2)
+    s.cmd("TAP %d %d" % hidden)
+    s.expect(rf"TAP miss {hidden[0]},{hidden[1]} page=2", "②f 隐藏鼓列 8 TAP miss")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 隐藏列不写鼓位图")
+    ensure_window(s, 0, 16)
+    time.sleep(0.15)
+
+    # 合成轨上的 ENTER 是无操作（不写鼓、不改 seq_status、不改引擎）
+    for _ in range(20):
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"focus_track=(\d+)") == 0:
+            break
+        s.cmd("KEY 0x3B down")
+        s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 0, "②f 焦点归一 T1（ENTER no-op 前提）")
+    s.cmd("STATE SNAP")
+    seq0 = s.snap_int(r"seq_status=(\d+)")
+    eng0 = nav_eng_snapshot(s)
+    mask0 = seq_dstep_mask(s, 5)
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"seq_status=(\d+)", seq0, "②f ENTER 在合成轨不改 seq_status")
+    (s.ok if seq_dstep_mask(s, 5) == mask0 else s.fail)("②f ENTER 在合成轨不写鼓步")
+    (s.ok if nav_eng_snapshot(s) == eng0 else s.fail)("②f ENTER 在合成轨不改引擎快照")
 
     # 收口：清鼓步、lane 归零、停止 + 默认窗口
     s.cmd("SEQ EDIT CLEAR 3 5")

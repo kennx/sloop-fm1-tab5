@@ -185,7 +185,8 @@ typedef enum {
     SLOOP_TAP_MISS = 0,
     SLOOP_TAP_STEP_CELL,     /* a=track b=绝对步号：设焦点（窗口列）+ CMD_TOGGLE_STEP */
     SLOOP_TAP_STEP_DRUM,     /* 鼓轨 lane 位：a=lane(0..15) b=绝对步号 d=写入后的 bit
-                              * v=写入后的 16 lane 位图（CMD_DRUM_STEP_WRITE） */
+                              * v=写后回读的 16 lane 位图 err=0/失败状态
+                              * （CMD_DRUM_STEP_WRITE；冻结/非法时 v/d 为写前真值） */
     SLOOP_TAP_TRACK_CARD,    /* a=track：CMD_SELECT_TRACK */
     SLOOP_TAP_TRANSPORT_PLAY,
     SLOOP_TAP_TRANSPORT_STOP,
@@ -208,7 +209,10 @@ typedef struct {
     sloop_tap_kind_t kind;
     uint8_t a, b;
     int16_t v;
-    int8_t d; /* SLOOP_TAP_PARAM_STEP / SLOOP_TAP_BANK_SLOT：±1 步进/选槽方向 */
+    int8_t d;  /* SLOOP_TAP_PARAM_STEP / SLOOP_TAP_BANK_SLOT：±1 步进/选槽方向 */
+    uint8_t err; /* 仅 SLOOP_TAP_STEP_DRUM：0 = 写入成功；否则 = app_seq_status_t
+                  * （6 frozen / 5 blocked / 4 full / 3 invalid / 2 not_found / 7 error）。
+                  * 失败时 v/d 仍是状态层写后回读的**真值**（未变），console 打 ERR 令牌。 */
 } sloop_tap_result_t;
 
 typedef enum {

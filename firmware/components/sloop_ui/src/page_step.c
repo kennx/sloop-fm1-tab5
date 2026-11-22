@@ -30,8 +30,8 @@
  *   这样 STEP 的池增量只 +1 个对象量级（est 23,040 不抬）。
  * - 格内字形（图例见底部提示）：
  *     NOTE：音符名（最多 4 个，2×2）——白 = NORM、黄 = HARD、灰 = SOFT、
- *           深灰 = GHOST（每音符 2-bit lvl）；CONT 音符左缘有白色短竖条（长音从
- *           前一步延续）；顶条 A = accent、S = slide、F = fill-only、N = no-fill；
+ *           深灰 = GHOST（每音符 2-bit lvl）；CONT 音符名字下方有白色短
+ *           横线（长音从前一步延续）；顶条 A = accent、S = slide、F = fill-only、N = no-fill；
  *           底条 m±n = micro、xN = ratchet（N = 该步最大击打数）。
  *     TIE：空心内框（轨色）+ TIE 文本（长按音的中段；不是 NOTE）。
  *     DRM：4×4 lane 网格（lane = row*4+col，与上游 drums.c 序号一致）：亮 dot 按
@@ -65,13 +65,15 @@
 
 #define GRID_X0     88
 #define GRID_Y0     84
-#define GRID_W      (15 * CELL_STEP_X + CELL_W) /* overlay 覆盖整个 16 列网格 */
 #define CELL_W      67
 #define CELL_H      104
 #define CELL_STEP_X 73 /* 列距 = CELL_W + 6 */
 #define ROW_PITCH   124 /* 行距 = CELL_H + 20 */
 #define CELL_RADIUS 10
 #define NUM_Y       568
+/* overlay 覆盖整个 16 列网格（15 个列距 + 1 格宽）；放在格宏之后，避免读者以为
+ * 宏体在校验/依赖定义顺序（C 宏只在展开处求值，但顺序写错会误导）。 */
+#define GRID_W      (15 * CELL_STEP_X + CELL_W)
 
 /* 上游 core.h 的步编码（不引入 vendored 头）：time = ST_NOTE/ST_TIE/ST_REST；
  * flags = SF_ACCENT | SF_SLIDE | SF_CONT0<<k（SLOOP 2.7 的「长音延续」标记）。 */
@@ -369,6 +371,9 @@ static void draw_cell(lv_layer_t *layer, int32_t ox, int32_t oy, uint8_t r, uint
                           UI_PANEL_SEL, 2);
             }
             if (lane == s_lane) {
+                /* 选中 ring 画在**每个**鼓格的同一 lane 上（不只焦点格）：扫一行就知道
+                 * 「下一位会落在哪个 lane」；代价是 16 个白框。只画焦点格会让其它步
+                 * 的目标 lane 不可见（点格内空白正是按选中 lane 写位）。 */
                 draw_frame(layer, dx - 2, dy - 2, DRUM_LANE_DOT + 4, DRUM_LANE_DOT + 4,
                            UI_TEXT, 2, 4);
             }
@@ -377,14 +382,18 @@ static void draw_cell(lv_layer_t *layer, int32_t ox, int32_t oy, uint8_t r, uint
         return;
     }
 
-    /* CELL_NOTE：每音符一个名字（2×2 槽），按 lvl 着色；CONT 音符左缘短竖条 */
+    /* CELL_NOTE：每音符一个名字（2×2 槽），按 lvl 着色；CONT 音符名下短横线 */
     for (uint8_t k = 0; k < v->n && k < 4u; k++) {
         const int32_t nx = x + ((k & 1u) ? 38 : 12);
         const int32_t ny = y + NOTE_Y + ((k >> 1u) ? NOTE_DY : 0);
         const uint8_t lvl = (uint8_t)((v->lvl >> (2u * k)) & 3u);
         draw_text(layer, nx, ny, 28, 18, lvl_color(lvl), s_note_txt[r][c][k]);
+        /* CONT 标记画在该音符名字的**正下方**（12×2 白条）：每音符独立，不会像固定
+         * x+4 那样把 k=1/3 的标记画到 k=0/2 的名字旁。没有用「名字左侧 nx-8」是因为
+         * 67px 格里两列名字各占 ~26px：k=0 的 "C#4"/"D4" 右缘实测到 x+30..32，nx-8 的
+         * 竖条会压在相邻名字的最后一个字形上，反而看不出标记属于哪个音符。 */
         if ((v->flags & (STEP_FLAG_CONT0 << k)) != 0) {
-            draw_rect(layer, x + 4, ny + 4, 4, 10, UI_TEXT, 1);
+            draw_rect(layer, nx, ny + 15, 12, 2, UI_TEXT, 0);
         }
     }
     draw_tags(layer, x, y, v, r, c);
@@ -461,6 +470,8 @@ static void status_build(const app_state_t *st, char *buf, size_t n, uint32_t *c
     const uint8_t abs = step_window_abs(&win, fs);
     static const char *const fill_tok[4] = {"-", "F", "N", "-"};
     static const char *const lvl_tok[4] = {"N", "G", "S", "H"};
+    /* 文案与上游 drums.c 的 LANE_SHORT 一致（上游是 static 表、没有公共头；这里只做
+     * 显示，不把 vendored 头引进 UI。改上游名字时同步这张 16 项表）。 */
     static const char *const lane_name[16] = {
         "KICK", "KICK2", "SNARE", "CLAP", "HAT", "OPEN", "PEDAL", "RIM",
         "SNR2", "TOM L", "TOM H", "CRASH", "RIDE", "SHAKE", "CONGA", "BELL"};
@@ -519,17 +530,22 @@ static void status_build(const app_state_t *st, char *buf, size_t n, uint32_t *c
 
 /* ------------------------------------------------------------ 动作（触摸/TAP 共用） --- */
 
-/* 鼓 lane 切换（控件回调与 TAP 的唯一共同路径）：lane < 0 = 当前选中 lane。
- * 读快照的原始 16 lane 字节 → 翻一位 → 整份 POD 下发 CMD_DRUM_STEP_WRITE。 */
-static bool drum_toggle(uint8_t c, int lane, uint8_t *bit, uint16_t *mask)
+/* 鼓 lane 位切换（控件回调与 TAP 的唯一共同路径）：lane < 0 = 当前选中 lane。
+ * 读快照的原始 16 lane 字节 → 翻一位 → 整份 POD 下发 CMD_DRUM_STEP_WRITE。
+ *
+ * `st` 是**调用方的一份** AppState 缓冲：入口时是写前快照，返回时被同一缓冲刷新成
+ * 写后快照（state_get_copy 复用）。这样输入任务栈上不再叠两份 ~600B 的 app_state_t
+ * （输入任务栈 4KB，KEY STATS 的 input_stack_free 是证据口）。
+ * bit/mask 取自**写后回读**：诊断冻结/非法时状态层不落地，echo 必须报写前真值 + err，
+ * 不得按本地翻转结果伪造成功。err = 0 成功，否则是 app_seq_status_t。 */
+static bool drum_toggle(app_state_t *st, uint8_t c, int lane, uint8_t *bit,
+                        uint16_t *mask, uint8_t *err)
 {
-    app_state_t st;
-    state_get_copy(&st);
-    if (c >= window_len_of(&st)) return false; /* 隐藏列：不可点 */
+    if (c >= window_len_of(st)) return false; /* 隐藏列：不可点 */
     if (lane < 0) lane = s_lane;
     if (lane > 15) lane = 15;
-    const uint8_t abs = step_window_abs(&st.window, c);
-    sloop_dstep_t d = st.core.dstep_raw[c];
+    const uint8_t abs = step_window_abs(&st->window, c);
+    sloop_dstep_t d = st->core.dstep_raw[c];
     uint16_t m = (uint16_t)(d.on[0] | (uint16_t)d.on[1] << 8);
     m ^= (uint16_t)(1u << lane);
     d.on[0] = (uint8_t)(m & 0xFFu);
@@ -538,20 +554,25 @@ static bool drum_toggle(uint8_t c, int lane, uint8_t *bit, uint16_t *mask)
     const edit_cmd_t cmd = {.type = CMD_DRUM_STEP_WRITE, .b = abs, .p = &d};
     state_apply(&cmd);
     s_lane = (uint8_t)lane;
-    if (bit != NULL) *bit = (uint8_t)((m >> lane) & 1u);
-    if (mask != NULL) *mask = m;
+    state_get_copy(st); /* 同一缓冲刷新：写后真值（失败时投影未变，仍是原值） */
+    const sloop_dstep_t *now = &st->core.dstep_raw[c];
+    const uint16_t actual = (uint16_t)(now->on[0] | (uint16_t)now->on[1] << 8);
+    if (bit != NULL) *bit = (uint8_t)((actual >> lane) & 1u);
+    if (mask != NULL) *mask = actual;
+    if (err != NULL) *err = st->seq_status == SEQ_STATUS_OK ? 0u : st->seq_status;
     return true;
 }
 
 /* 格激活（LVGL 上下文、调用方已持锁）：控件点击回调与 TAP 注入的**唯一共同路径**。
- * 两条路径的 EditCmd 序列因此由本函数唯一决定（ADR-005 的 EditCmd 层等价）。 */
-static bool step_activate(uint8_t r, uint8_t c, uint8_t *drum_bit, uint16_t *drum_mask)
+ * 两条路径的 EditCmd 序列因此由本函数唯一决定（ADR-005 的 EditCmd 层等价）。
+ * 鼓轨分支调 drum_toggle()（TAP 的鼓轨路径直接调它，不经过本函数）。 */
+static bool step_activate(uint8_t r, uint8_t c)
 {
     app_state_t st;
     state_get_copy(&st);
     if (c >= window_len_of(&st)) return false; /* 隐藏列：不可点（TAP 命中表也不含） */
     if (r >= APP_STATE_TRACKS - 1u) {
-        const bool ok = drum_toggle(c, -1, drum_bit, drum_mask);
+        const bool ok = drum_toggle(&st, c, -1, NULL, NULL, NULL);
         refresh();
         return ok;
     }
@@ -567,8 +588,7 @@ static bool step_activate(uint8_t r, uint8_t c, uint8_t *drum_bit, uint16_t *dru
 static void cell_clicked_cb(lv_event_t *e)
 {
     uint32_t id = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
-    (void)step_activate((uint8_t)(id / APP_STATE_STEPS), (uint8_t)(id % APP_STATE_STEPS), NULL,
-                        NULL);
+    (void)step_activate((uint8_t)(id / APP_STATE_STEPS), (uint8_t)(id % APP_STATE_STEPS));
 }
 
 /* TAP hit-test：矩形由建格所用的同一组宏（GRID_X0/Y0、CELL_W/H、CELL_STEP_X、
@@ -600,20 +620,21 @@ bool page_step_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
                            ((lx - DRUM_GRID_X0) / DRUM_LANE_PITCH);
                 }
                 if (lane < 0) lane = s_lane; /* 格内其它位置：操作当前选中 lane */
-                uint8_t bit = 0;
+                uint8_t bit = 0, err = 0;
                 uint16_t mask = 0;
-                if (!drum_toggle(c, lane, &bit, &mask)) return false;
+                if (!drum_toggle(&st, c, lane, &bit, &mask, &err)) return false;
                 refresh();
                 if (out != NULL) {
                     out->kind = SLOOP_TAP_STEP_DRUM;
                     out->a = (uint8_t)lane;
                     out->b = abs;
-                    out->v = (int16_t)mask;
+                    out->v = (int16_t)mask; /* 写后回读（失败时 = 写前真值） */
                     out->d = (int8_t)bit;
+                    out->err = err;
                 }
                 return true;
             }
-            (void)step_activate(r, c, NULL, NULL);
+            (void)step_activate(r, c);
             if (out != NULL) {
                 out->kind = SLOOP_TAP_STEP_CELL;
                 out->a = r;
@@ -931,12 +952,12 @@ void sloop_ui_step_focus_vertical(int8_t delta)
 
 void sloop_ui_step_drum_toggle(void)
 {
-    app_state_t st;
+    app_state_t st; /* 本函数只保留一份快照：drum_toggle 复用同一缓冲（输入任务栈） */
     state_get_copy(&st);
     if (st.focus_track != APP_STATE_TRACKS - 1u) return;
     const uint8_t wlen = window_len_of(&st);
     const uint8_t col = st.focus_step < wlen ? st.focus_step : 0u;
-    (void)drum_toggle(col, (int)s_lane, NULL, NULL);
+    (void)drum_toggle(&st, col, (int)s_lane, NULL, NULL, NULL);
     /* 不在这里 refresh：本函数在输入任务上下文（不持 LVGL 锁），页面由 30ms
      * UI 定时器的 page_step_update 按新快照重画。 */
 }

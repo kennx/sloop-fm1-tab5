@@ -42,7 +42,9 @@
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
  *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。STEP 鼓格
  *    回显 "-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0x…"（P4-C
- *    Task 9：写的是该步的原始 16 lane 位图）。
+ *    Task 9：写的是该步的原始 16 lane 位图；mask/bit 是**写后回读**）。写入被拒
+ *    （诊断冻结等）改回 "-> STEP drum step=k lane=n ERR <frozen|invalid|…> mask=0x…"，
+ *    mask 是未变的真值（不按本地翻转结果伪造）。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
  *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
@@ -1090,7 +1092,9 @@ static int ui_command(int argc, char **argv)
         }
         uint32_t lane = 0;
         if (!eng_uint(argv[2], 15, &lane)) {
-            printf("用法: UI LANE [<lane=0..15>]\n");
+            /* 越界/非数字是**取值错误**（与用法不同）：脚本按 `UI ERR lane` 断言，
+             * 不改选中 lane。 */
+            printf("UI ERR lane\n");
             return 1;
         }
         sloop_ui_step_lane_set((uint8_t)lane);
@@ -1376,13 +1380,25 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> STEP track=%u step=%u CMD_TOGGLE_STEP\n", x, y, page,
                (unsigned)r.a, (unsigned)r.b);
         break;
-    case SLOOP_TAP_STEP_DRUM:
-        /* 鼓格 lane 位：a=lane b=步号 d=写入后的 bit v=写入后的 16 lane 位图 */
+    case SLOOP_TAP_STEP_DRUM: {
+        /* 鼓格 lane 位：a=lane b=步号 d=写后回读的 bit v=写后回读的 16 lane 位图
+         * err=0 成功；否则是 app_seq_status_t（冻结等——echo 不伪造本地翻转结果）。 */
+        static const char *const drum_err_tok[] = {"idle", "ok", "not_found", "invalid",
+                                                   "full", "blocked", "frozen", "error"};
+        if (r.err != 0u) {
+            const char *tok = r.err < sizeof(drum_err_tok) / sizeof(drum_err_tok[0])
+                                  ? drum_err_tok[r.err] : "error";
+            printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u ERR %s mask=0x%04X\n",
+                   x, y, page, (unsigned)r.b, (unsigned)r.a, tok,
+                   (unsigned)(uint16_t)r.v);
+            break;
+        }
         printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u bit=%u "
                "CMD_DRUM_STEP_WRITE mask=0x%04X\n",
                x, y, page, (unsigned)r.b, (unsigned)r.a, (unsigned)(r.d & 1),
                (unsigned)(uint16_t)r.v);
         break;
+    }
     case SLOOP_TAP_TRACK_CARD:
         printf("TAP %ld,%ld page=%u -> TRACKS select track=%u CMD_SELECT_TRACK\n", x, y, page,
                (unsigned)r.a);
