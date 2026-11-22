@@ -511,6 +511,10 @@ static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
             out->step[k][i].vel = s->vel;
             out->step[k][i].time = s->time;
             out->step[k][i].flags = s->flags;
+            out->step[k][i].lvl = s->lvl;
+            out->step[k][i].rat = s->rat;
+            out->step[k][i].micro = trk[k].micro[start + i];
+            out->step[k][i].fill = (uint8_t)step_fill(&trk[k], start + i);
         }
     }
     /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
@@ -891,3 +895,4 @@ int sloop_core_selftest(const char *case_name)
 /* 存储层（P4-B）：上游 storage.c / project.c 的格式层与工程 A–D 双层存读，必须在
  * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
 #include "store_tab5.c"
+#include "seq_tab5.c"

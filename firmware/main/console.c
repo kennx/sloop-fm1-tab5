@@ -40,6 +40,8 @@
  *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
  *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
+ *  - SEQ：原始鼓步、micro/fill 与参数锁诊断（P4-C，ADR-010）。LOCK SET 的锁满与
+ *    非法参数分别回 "SEQ ERR full" 与 "SEQ ERR invalid"。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -108,6 +110,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_seq.h"
 #include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
@@ -309,6 +312,15 @@ static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
     unsigned long parsed = strtoul(text, &end, 0);
     if (end == text || *end != '\0' || parsed > max) return false;
     *value = (uint32_t)parsed;
+    return true;
+}
+
+static bool seq_int(const char *text, int32_t min, int32_t max, int32_t *value)
+{
+    char *end = NULL;
+    long parsed = strtol(text, &end, 0);
+    if (end == text || *end != '\0' || parsed < min || parsed > max) return false;
+    *value = (int32_t)parsed;
     return true;
 }
 
@@ -1891,6 +1903,101 @@ static int store_command(int argc, char **argv)
     return 1;
 }
 
+static int seq_err_print(esp_err_t err)
+{
+    const char *token = err == ESP_ERR_NO_MEM ? "full" :
+                        err == ESP_ERR_INVALID_ARG ? "invalid" :
+                        err == ESP_ERR_INVALID_STATE ? "frozen" : esp_err_to_name(err);
+    printf("SEQ ERR %s\n", token);
+    return 1;
+}
+
+static void seq_dstep_print(uint32_t step)
+{
+    sloop_dstep_t d;
+    sloop_seq_read_dstep(step, &d);
+    printf("SEQ DSTEP step=%u on=%02X,%02X lvl=%02X,%02X,%02X,%02X rat=%02X,%02X,%02X,%02X\n",
+           (unsigned)step, d.on[0], d.on[1], d.lvl[0], d.lvl[1], d.lvl[2], d.lvl[3],
+           d.rat[0], d.rat[1], d.rat[2], d.rat[3]);
+}
+
+static int seq_command(int argc, char **argv)
+{
+    if (argc >= 2 && strcasecmp(argv[1], "DSTEP") == 0) {
+        uint32_t step;
+        if (argc == 2) {
+            for (step = 0; step < 64u; step++) seq_dstep_print(step);
+            return 0;
+        }
+        if (argc == 3 && eng_uint(argv[2], 63, &step)) {
+            seq_dstep_print(step);
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if (argc == 5 && strcasecmp(argv[1], "MICRO") == 0) {
+        uint32_t track, step;
+        int32_t value;
+        if (!eng_uint(argv[2], 3, &track) || !eng_uint(argv[3], 63, &step) ||
+            !seq_int(argv[4], -32, 31, &value))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_set_micro(track, step, (int8_t)value);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ MICRO track=%u step=%u value=%ld OK\n", (unsigned)track, (unsigned)step, (long)value);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "FILL") == 0) {
+        uint32_t track, step, value;
+        if (!eng_uint(argv[2], 3, &track) || !eng_uint(argv[3], 63, &step) ||
+            !eng_uint(argv[4], 3, &value))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_set_fill(track, step, (uint8_t)value);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ FILL track=%u step=%u value=%u OK\n", (unsigned)track, (unsigned)step, (unsigned)value);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "LOCK") == 0) {
+        if (argc == 4 && strcasecmp(argv[2], "LIST") == 0) {
+            uint32_t track;
+            if (!eng_uint(argv[3], 3, &track)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            sloop_lock_t locks[24];
+            uint32_t n = sloop_seq_lock_list(track, locks, 24);
+            for (uint32_t i = 0; i < n; i++)
+                printf("SEQ LOCK step=%u param=%u value=%d\n", locks[i].step, locks[i].param, locks[i].value);
+            printf("SEQ LOCK LIST track=%u count=%u\n", (unsigned)track, (unsigned)n);
+            return 0;
+        }
+        uint32_t track, step, param;
+        if (argc == 7 && strcasecmp(argv[2], "SET") == 0) {
+            int32_t value;
+            if (!eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step) ||
+                !eng_uint(argv[5], SLOOP_CORE_P_COUNT - 1u, &param) ||
+                !seq_int(argv[6], -32768, 32767, &value))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_lock_set(track, step, param, (int16_t)value);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ LOCK SET track=%u step=%u param=%u value=%ld OK\n",
+                   (unsigned)track, (unsigned)step, (unsigned)param, (long)value);
+            return 0;
+        }
+        if (argc == 6 && strcasecmp(argv[2], "DEL") == 0) {
+            if (!eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step) ||
+                !eng_uint(argv[5], SLOOP_CORE_P_COUNT, &param))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_lock_del(track, step, param);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ LOCK DEL track=%u step=%u param=%u OK\n", (unsigned)track, (unsigned)step, (unsigned)param);
+            return 0;
+        }
+    }
+    printf("用法: SEQ DSTEP [step=0..63] | SEQ MICRO <track=0..3> <step=0..63> <v=-32..31> | "
+           "SEQ FILL <track=0..3> <step=0..63> <v=0..3> | SEQ LOCK LIST <track=0..3> | "
+           "SEQ LOCK SET <track> <step> <param=0..%u> <value> | "
+           "SEQ LOCK DEL <track> <step> <param=0..%u；%u=整步清除>\n",
+           (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
     /* 存储后端在 sloop_core_init → sloop_store_init 里初始化（ADR-009 §5 启动顺序：
@@ -2018,6 +2125,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&tap_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 TAP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t seq_cmd = {
+        .command = "SEQ",
+        .help = "音序诊断：SEQ DSTEP [step]；MICRO/FILL <track> <step> <v>；LOCK LIST|SET|DEL",
+        .hint = "DSTEP [step]|MICRO <track> <step> <v>|FILL <track> <step> <v>|LOCK LIST <track>|LOCK SET <track> <step> <param> <value>|LOCK DEL <track> <step> <param>",
+        .func = &seq_command,
+    };
+    ret = esp_console_cmd_register(&seq_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 SEQ 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

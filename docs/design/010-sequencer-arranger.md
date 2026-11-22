@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架；后续任务实现公共编辑、持久化与 UI）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API；后续任务实现其余编辑、持久化与 UI）｜ 日期：2026-11-22
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -32,6 +32,7 @@ selftest.c
     PROJ_HOST=1 → project.c → PROJ_HOST undef
     arranger_scene.c
     upreset.c / fm6_bank.c / Tab5 adapter
+  seq_tab5.c（原始步 / micro / fill / lock 公共 adapter）
 ```
 
 - `FELUCCA_ARRANGER` 只包住 `regress.c`，在 `store_tab5.c` 之前撤销。这样 `seq.c` 能看到
@@ -127,6 +128,27 @@ P4-C 规划上限：TRANSPORT 9,216B，SONG 12,288B；SONG 页落地后必须以
 `TAB` 的规划顺序为：
 `PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY`；
 `UI TAB song` 与物理组签必须共用同一动作函数。本任务不注册页面，不改变当前 11 页行为。
+
+### 6. 原始步与参数锁只经同 TU 薄 adapter 公开
+
+Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后编入同一 TU。公共边界只暴露
+`sloop_dstep_t`、`sloop_lock_t`、POD 参数和 `esp_err_t`，不暴露 `track_t` 或上游 static 函数：
+
+- `sloop_seq_read_dstep/write_dstep` 原样读写鼓步的 16 lane `on/lvl/rat` 打包字节；
+  `sloop_seq_set_micro` 接受 -32..31；`sloop_seq_set_fill` 接受 0..3，其中 3 由上游
+  `step_plays()` 按 normal 处理。
+- `sloop_seq_lock_set/del/list` 直接调用上游 `lock_set/lock_del` 或枚举其 `plock_t` 存储。
+  每轨 24 槽，同键覆写不占新槽，第 25 项返回 `ESP_ERR_NO_MEM`；不可锁参数（含 P_SLEN）和
+  越界输入返回 `ESP_ERR_INVALID_ARG`；`lock_del(param=P_COUNT)` 清除该步全部锁。
+- 所有公共写入口先检查 `s_frozen`，再在 `s_engine_lock` 内复核并写入；host 的空
+  `fm1_irq_off/on` 不是并发保护。void 读接口在越界或冻结时返回全零，`lock_list` 返回 0。
+- `sloop_core_snapshot_t.step[4][16]` 只追加 `lvl/rat/micro/fill` 字段；既有 UI/state 的字段名和
+  访问方式不变，窗口填充在既有引擎锁内完成，不增加取锁次数。
+- console 新增 `SEQ DSTEP [step]`、`SEQ MICRO/FILL <track> <step> <v>` 与
+  `SEQ LOCK LIST|SET|DEL …`。`ESP_ERR_NO_MEM` 映射为 `SEQ ERR full`，非法/不可锁参数映射为
+  `SEQ ERR invalid`，冻结映射为 `SEQ ERR frozen`。
+- `scripts/seq-test.sh` 编译同源 `hostsim.c + seq_tab5.c`，只以计数桩替代 FreeRTOS 互斥；
+  测试必须调用真实上游打包和锁函数，不维护另一份锁/打包实现。
 
 ## 后果
 
