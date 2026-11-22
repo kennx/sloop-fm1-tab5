@@ -78,18 +78,25 @@
 
 | 选项 | 评估 |
 |---|---|
-| **A. 分组页签 + 组内子页签 + 组作用域生命周期（采纳）** | 顶层 5 组：`PLAY / TRACKS / EDIT / SEQ / FILE`（`SYS` 待 P4-E 有页面时加入）。**子页签放在现有 72px 页签条内做成两行**（上行组、下行子页，各约 34/30px，16pt 标签 ~20px 高），**页面区起点仍是 y=72，现有九页布局零改动**。EDIT = GLOBAL/FX/ANALOG/FM6/SAMPLE（后续引擎页），SEQ = STEP/TRANSPORT（后续 SONG），FILE = PROJECTS/PRESETS。**离开组时销毁该组已建页面**（先建/切目标页，再销毁源组**全部**已建页，含原当前页 → 回 UNBUILT），进入时懒建并保留。内存不变量从「9 页全建」变为「基础占用 + 单组 Σ est + 单页 est ≤ 池可用（跨组切换的过渡峰值，见 §5）」，FILE 两页 est 合计 9,728B（4,608 + 5,120），未来页面有确定预算 |
+| **A. 分组页签 + 组内子页签 + 组作用域生命周期（采纳）** | 顶层 5 组：`PLAY / TRACKS / EDIT / SEQ / FILE`（`SYS` 待 P4-E 有页面时加入）。**子页签放在现有 72px 页签条内做成两行**（上行组、下行子页，各约 34/30px，16pt 标签 ~20px 高），**页面区起点仍是 y=72，现有九页布局零改动**。EDIT = GLOBAL/FX/ANALOG/FM6/SAMPLE（后续引擎页），SEQ = STEP/TRANSPORT（后续 SONG），FILE = PROJECTS/PRESETS。**离开组时销毁该组已建页面**（先建/切目标页，再销毁源组**全部**已建页，含原当前页 → 回 UNBUILT），进入时懒建并保留。内存不变量从「9 页全建」变为「基础占用 + 单组 Σ est + 目标组首建页 est ≤ 池可用（跨组切换的过渡峰值，见 §5）」，FILE 两页 est 合计 **20,992B**（PROJECTS 8,192 + PRESETS 12,800，Task 12 按实测定稿；初版 4,608 + 5,120 是下限估算），FM6 est **6,144B**（Task 13 起含 bank 存取行），未来页面有确定预算 |
 | B. 保留平铺页签 + 预算失败时 LRU 驱逐 | 不改页签语义；但驱逐时机不可预测（用户切到第 10 页才失败/重建），焦点状态丢失不可控，且页签宽度墙（N=10=95px）仍然无解 |
 | C. 两行页签（页面区下移 44px） | 现有页把页面区用到像素级（参数页 `52+2×298=648` = `UI_H−72`；STEP 数字 y=568、提示 y=606），下移会裁掉底行并迫使九页重排 + 全部 TAP/探针几何重算；否决。**采纳方案 A 的两行页签是「在 72px 页签条内分两行」，不是本项** |
 | D. 溢出菜单 | 需要新的焦点/菜单语义与可发现性设计，P4-B 不引入 |
 
 **决策 A**。键盘 `TAB` 语义改为「按组顺序的扁平轮转」：组内最后一页的下一张 = 下一组第一页（保留现有「tab 轮转」心智与 `nav.sh` 用例形态，更新期望序列）；点顶层页签进入该组（记住组内上次子页），点子页签切换。页签宽度 N=5 时 `min(176, (1280−32−220−4×8)/5) = 176px`，标签 `PLAY/TRACKS/EDIT/SEQ/FILE` 均远小于该宽度。组作用域生命周期的执行顺序固定为「建目标页 → 切到目标页 → 销毁源组全部已建页（含原当前页）」，故离开组后源组 `built=0`（见 §4.5）。
 
-**容量天花板条目收口**：组作用域生命周期把「9 页 = 池顶」变成可维护的不变量：
-`base(≈7.0KB) + max_group Σ est + max_single_page_est + 4KB ≤ 63,120B`，且每页仍保留 `free ≥ est` 的构建前检查。
-当前最大值 SEQ = `23,040 + 4,608 = 27,648B`，`max_single_page_est` 保守取 STEP **23,040B**：
-`7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`（余 **1,320B**；真实最坏对 SEQ→EDIT 更小）。
-源组页面在切换后才释放（见 §4.5），峰值是瞬态但必须被上式覆盖。ADR-005 记录决策与不变量，ADR-008 记录组作用域对预算表的影响；**原延迟条目已删除**（条目要求「解决后删除；方案选型先沉淀 ADR」）。
+**容量天花板条目收口**：组作用域生命周期把「9 页 = 池顶」变成可维护的不变量（ADR-005 §5，
+按**有序对**取最坏）：
+`base 13,800 + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B`，且每页仍保留 `free ≥ est` 的构建前检查。
+组 Σ est：PLAY 3,072 / TRACKS 7,168 / EDIT 19,968 / SEQ 27,648（STEP 23,040 + TRANSPORT 4,608）/
+FILE 20,992（8,192 + 12,800）。当前的**真实最坏对是 FILE 全建 → SEQ 首建 STEP**：
+`13,800 + 20,992 + 23,040 + 4,096 = 61,928 ≤ 63,120`（余 **1,192B**；base 取保守上界 14,112B
+时 62,240、余 880B）；次坏 EDIT 全建 → STEP：`13,800 + 19,968 + 23,040 + 4,096 = 60,904`
+（余 2,216B）；SEQ 全建 → 首建 PRESETS：`13,800 + 27,648 + 12,800 + 4,096 = 58,344`（余 4,776B）。
+（初版 `7,016 + 27,648 + 23,040 + 4,096 = 61,800` 用 `base=7,016` 低估了 TLSF 块头，且把
+「max 组 + max 单页」当病态上界；实测 base 13,800 后按有序对重算。）源组页面在切换后才释放
+（见 §4.5），峰值是瞬态但必须被上式覆盖。ADR-005 记录决策与不变量，ADR-008 记录组作用域对
+预算表的影响；**原延迟条目已删除**（条目要求「解决后删除；方案选型先沉淀 ADR」）。
 
 ### 3.4 写入路径与并发
 
@@ -242,9 +249,9 @@ esp_err_t sloop_store_test(sloop_store_test_t *out);
 ### 4.4 console（`main/console.c`）
 
 ```
-STORE STATS                      # ready/分区/mmap/对象统计/故障与 xrun 增量（含 autosave 字段）
+STORE STATS                      # ready/分区/mmap/对象统计/故障与 xrun 增量（autosave 三项 + last_xrun/last_save_ms）
 STORE AUTO ON|OFF                # 自动存档开关（默认 ON；测试用）
-STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n
+STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n   # ERASE 空槽 = EMPTY SECTION（不写 flash）；FIELDS 的 CRC 损坏对象与空槽同回 empty
 STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n
 STORE BANK LIST|PUT n|GET n|LIVE|ERASE n    # PUT 取选中轨当前 live patch；GET/LIVE 打印 128B hex
 STORE LIVEHASH                   # 当前引擎捕获 hash（往返门禁用）
@@ -273,7 +280,7 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 ## 5. 约束
 
 - **门禁**：`scripts/build.sh` ×2 零新增警告；`scripts/host-test.sh` 全绿（上游 4 个存储相关测试本就覆盖 A/B/torn-write）；设备 `ENG SELFTEST` 182/182 不得回退；`scripts/device-selftest.py` 全量；`scripts/state-test.sh`/`knob-test.sh` 绿。
-- **池**：FILE 组两页 est 初始预算 `PROJECTS 4,608 / PRESETS 5,120`（构建前 `free ≥ est`）；跨组切换的**过渡峰值**不变量 `base + max_group Σest + max_single_page_est + 4KB ≤ 63,120`（当前 `7,016 + 27,648 + 23,040 + 4,096 = 61,800 ≤ 63,120`，余 1,320B）；`UI MEM` 增加分组 Σ。
+- **池**：FILE 组两页 est 预算 `PROJECTS 8,192 / PRESETS 12,800`（Task 12 按实测定稿；构建前 `free ≥ est`），FM6 est 6,144（Task 13）；跨组切换的**过渡峰值**不变量 `base 13,800 + max(源组 Σest + 目标组首建页 est) + 4KB ≤ 63,120`（真实最坏 FILE→STEP `61,928`，余 1,192B；保守 base 余 880B；EDIT→STEP 60,904）；`UI MEM` 增加分组 Σ 与 `GROUP` 行（ADR-005 §5）。
 - **内部 RAM**：新增内部 SRAM 仅 `main_scratch` 3,840B + 指针/小静态（≈4.2KB 总计）；`proj_slot`（4 槽 = 15,264B）、`proj_tmp`、`proj_v3_tmp` 在 PSRAM（宏重定向，§4.2）；不改 LVGL 池；idle 内部堆地板 61,440B 不变。
 - **自动存档**：仅 `song.playing || transport_req || !audio_quiet() || store 忙 || s_frozen` 任一为真时不写；两次写间隔 ≥20s、无输入 ≥2.5s；写前快照 hash 与上次相同不写；只写 `OBJ_AUTOSAVE`，不碰 A–D。
 - **换音语义**：`sloop_core_track(k,e,p)` 与 `sloop_core_set_engine/apply_preset` 必须在引擎锁内完成 `locks_restore + sound_change + p[] 写入 + fm6_track_loaded`，不得只写索引（现状缺陷）。

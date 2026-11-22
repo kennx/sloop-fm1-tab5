@@ -51,21 +51,27 @@ typedef struct {
 esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id 唯一 */
 ```
 
-- 注册顺序 = 页签顺序；页签文本/数量由注册表派生（4 页时宽度仍是 176px，像素不变；
-  注册页更多时按可用宽度收窄，并给右侧 SLOOP 标题/层提示留 `UI_TAB_RIGHT_RESERVE`
-  =220px——7 页时 140px、9 页时 107px，见 §8.1）。**注册表只增不删**：
-  外部组件可在 `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册
-  幂等（`static done` 标志 + 按 id 去重），不会重置/清空已注册项——预注册页保持原位
-  （页签顺序在 PLAY 之前）。输入层的 tab 轮转按 `sloop_ui_page_count()`（注册表计数），
-  不按 `APP_STATE_PAGES`，与页签数量同源。
+- **注册顺序 = 组内子签顺序**（P4-B Task 11 起：页签是**两行**——上行 5 个组签
+  `PLAY/TRACKS/EDIT/SEQ/FILE`，下行当前组子签；组模型在 `ui.c` 的 `k_groups[]`，页签
+  文本/数量由「组 + 组内已注册页」派生，不再由平铺注册表派生。组签宽度按 5 组算
+  （`min(176, (1280−32−220−4×8)/5)` = 176px），子签复用下行 5 个槽；右侧 220px 留给
+  SLOOP 标题/层提示，见 §8.1 与 ADR-005 §3）。**注册表只增不删**：外部组件可在
+  `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册幂等
+  （`static done` 标志 + 按 id 去重）；无已注册页的组不显示。输入层的 `TAB` 轮转
+  用 `sloop_ui_page_order_next()`（组顺序的**扁平**轮转：组内子页→下一组第一页），
+  不按 `sloop_ui_page_count()`，也不按 `APP_STATE_PAGES`。
 - 现有四页在 `sloop_ui_start()` 内注册（`k_builtin_pages`）；`ui_page_register()` 供阶段 4
   的参数页加入同一注册表。`id` 受 `APP_STATE_PAGES` 约束（状态层 `state_set_page`、input
   的 tab 轮转、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
 
 ### 2. 懒建策略
 
-- 页对象（透明容器 + 页内控件）在**首次进入**时创建，之后只改 `LV_OBJ_FLAG_HIDDEN`，
-  **不销毁**（切页零分配、焦点/滚动/状态行都保留）。
+- 页对象（透明容器 + 页内控件）在**首次进入**时创建。**组作用域生命周期**（P4-B
+  Task 11，ADR-005 §3）：**同组内**切页只改 `LV_OBJ_FLAG_HIDDEN`（零分配、焦点/滚动/
+  状态行保留）；**跨组**切换固定顺序「建目标页 → 切到目标页 → 销毁源组**全部**已建页
+  （含原当前页）」——离开组后源组 `built=0`，再进入时懒建。代价是切换瞬间的峰值 =
+  源组已建 Σ + 目标页 est（瞬态，不变量见 ADR-005 §5）；收益是稳态只驻留一个组，
+  解得开 9 页平铺的池天花板。
 - PLAY 在 `sloop_ui_start()` 内立即构建：开机首帧非空白（实测首帧与阶段 3 PLAY 基线
   逐字节相同）。其余页（TRACKS/STEP/TRANSPORT + 参数页）首次访问时构建。
 - 构建成功后立即按当前 AppState 刷新一次，首帧不等 30ms 定时器（切页/截屏时序确定）。
