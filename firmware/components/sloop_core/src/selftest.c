@@ -918,3 +918,5 @@ int sloop_core_selftest(const char *case_name)
  * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
 #include "store_tab5.c"
 #include "seq_tab5.c"
+/* P4-D Task 2：DSYN（SYN1..SYN4）适配，依赖上游 drum_synth.c 的 statics，必须在同一 TU 末尾。 */
+#include "sound_tab5.c"

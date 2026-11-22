@@ -179,6 +179,59 @@ typedef struct {
 } sloop_desc_t;
 bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out);
 
+/* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
+ * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。
+ * 编辑面把它拆成 **24 个虚拟字段**（顺序固定，编号即协议）：`flt` 拆成 FLT_MODE
+ * （低 3 位）与 FLT_RES（bit3..7），`src` 的 bit4（CLAP）单独一项。写一个字段不得改动
+ * 其它位/字节。范围取自 `dsnd_t` 的字节宽度与 `dsu_fix_sound` 的钳位方向；注意
+ * `dsu_fix_sound` **不钳** hold/nhold/t2/level/flt/fenv，所以这些字段的范围在这里
+ * 无条件钳位（见下）。
+ * 所有写入口持引擎锁；诊断冻结时写回 `SLOOP_DSYN_INVALID`、读回 ESP_ERR_INVALID_STATE。
+ * 与上游 editor_dsyn.c 同语义：成功的单字段写与工厂 kit 套用都置 `dsu_dirty`。 */
+#define SLOOP_DSYN_KITS   4u
+#define SLOOP_DSYN_LANES  16u
+#define SLOOP_DSYN_FIELDS 24u /* 22 字节 + FLT 拆 MODE/RES 两虚拟字段 */
+#define SLOOP_DSYN_NAME   8u
+/* 无效字段/越界 kit·lane/诊断冻结的返回值。落在此范围外（最小字段范围是 FENV 的
+ * -128..127），所以不会与合法值混淆。 */
+#define SLOOP_DSYN_INVALID ((int16_t)INT16_MIN)
+typedef enum {
+    SLOOP_DSYN_WAVE = 0, SLOOP_DSYN_SRC, SLOOP_DSYN_CLAP, SLOOP_DSYN_PITCH,
+    SLOOP_DSYN_FINE, SLOOP_DSYN_BEND, SLOOP_DSYN_BTIME, SLOOP_DSYN_HOLD,
+    SLOOP_DSYN_DECAY, SLOOP_DSYN_TLEV, SLOOP_DSYN_T2, SLOOP_DSYN_T2LEV,
+    SLOOP_DSYN_CLICK, SLOOP_DSYN_NLEV, SLOOP_DSYN_NHOLD, SLOOP_DSYN_NDEC,
+    SLOOP_DSYN_FLT_MODE, SLOOP_DSYN_FLT_RES, SLOOP_DSYN_FCUT, SLOOP_DSYN_FENV,
+    SLOOP_DSYN_HPF, SLOOP_DSYN_CHIP, SLOOP_DSYN_DRIVE, SLOOP_DSYN_LEVEL,
+} sloop_dsyn_field_t;
+typedef struct {
+    uint8_t used;      /* 该 lane 有音色数据（上游 kit 总是 16 个，读成功即 1） */
+    uint8_t sound[22]; /* 原始 dsnd_t 字节（与上游/编辑器逐字节一致） */
+} sloop_dsyn_sound_t;
+/* 24 字段描述符（自定义表，不来自 params.c）：label/fmt/min/max/enums/unit。
+ * FLT_MODE 的 enums 有 8 项，索引 4（只有 DF_ALL 位、没有模式）读作 OFF——写 4 也被
+ * 归一为 OFF，与上游「单独 4 是无效组合」一致。 */
+bool sloop_core_dsyn_desc(uint32_t field, sloop_desc_t *out);
+/* 读一个 lane 的 22B 与 kit 级 name/crush/src（后三者可为 NULL）。越界回
+ * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。`name` 至少 9 字节、NUL 结尾。 */
+esp_err_t sloop_core_dsyn_read(uint32_t kit, uint32_t lane, sloop_dsyn_sound_t *out,
+                               char name[9], uint8_t *crush, uint8_t *src);
+/* 读/写单个虚拟字段（引擎锁内一次）。set 返回写后回读的值（钳位后的真值）；
+ * 越界/冻结返回 SLOOP_DSYN_INVALID 且不写。 */
+int16_t sloop_core_dsyn_field(uint32_t kit, uint32_t lane, uint32_t field);
+int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t v);
+/* 纯解码（UI 投影用，不取锁、无副作用）：field 越界返回 SLOOP_DSYN_INVALID。 */
+int16_t sloop_dsyn_field_from_sound(const uint8_t sound[22], uint32_t field);
+/* 索引字段的显示文本（DECAY 类 → ms，由 DECAY_K 反解；FCUT/HPF → Hz；LEVEL → dB；
+ * FLT_MODE → 名字；CHIP → 音名）。返回写入的字符数；0 = 本函数不覆盖该字段
+ * （调用方走通用整数/枚举格式化）。 */
+int16_t sloop_core_dsyn_text(uint32_t field, int16_t v, char *out, uint32_t n);
+/* 套用工厂 kit（覆盖该 kit 的编辑，置 dsu_dirty）。kit 越界或 src >= DS_NKITS 回
+ * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。 */
+esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src);
+/* 试听一段该 kit/lane（写上游 dsu_aud_* 队列，由音频路径消费；不改数据）。 */
+void sloop_core_dsyn_audition(uint32_t kit, uint32_t lane, uint32_t velocity);
+bool sloop_core_dsyn_dirty(void);
+
 /* 选轨 / 静音 / 独奏写（SEL/GLO 层的可听路径）：分别写 song.sel、trk[k].p[P_MUTE]
  * （0/1，上游 N_ONOFF）与 song.solo（低 4 位独奏掩码）。走引擎锁，越界
  * （k>=NTRK）与冻结态直接丢弃。听感口径是上游 trk_silent()：P_MUTE 置位，或
