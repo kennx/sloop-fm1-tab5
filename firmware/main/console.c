@@ -42,8 +42,9 @@
  *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
- *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL held next|BUTTON down]`
- *    打印/驱动录音状态机（`SEQ REC` 读即消费一次性 take 结果），`SEQ HIT <lane>
+ *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
+ *    打印/驱动录音状态机（`SEQ REC` 读即消费一次性 take 结果；FILL HOLD 只写保持电平，
+ *    FILL NEXT 是脉冲、只翻转下一小节待命），`SEQ HIT <lane>
  *    [velocity]` 与键盘鼓键同一路径（同一 adapter），`STATE SNAP` 行尾带 rec 投影。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
@@ -2153,13 +2154,19 @@ static int seq_command(int argc, char **argv)
             seq_rec_print();
             return 0;
         }
-        if (argc == 5 && strcasecmp(argv[2], "FILL") == 0) {
-            uint32_t held, next;
-            if (!eng_uint(argv[3], 1, &held) || !eng_uint(argv[4], 1, &next))
-                return seq_err_print(ESP_ERR_INVALID_ARG);
-            esp_err_t ret = sloop_seq_fill_control(held != 0u, next != 0u);
+        if (argc == 5 && strcasecmp(argv[2], "FILL") == 0 && strcasecmp(argv[3], "HOLD") == 0) {
+            uint32_t held;
+            if (!eng_uint(argv[4], 1, &held)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_fill_control(held != 0u, false);
             if (ret != ESP_OK) return seq_err_print(ret);
-            printf("SEQ REC FILL held=%u next_press=%u OK\n", (unsigned)held, (unsigned)next);
+            printf("SEQ REC FILL HOLD %u OK\n", (unsigned)held);
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "FILL") == 0 && strcasecmp(argv[3], "NEXT") == 0) {
+            /* 脉冲：只翻转下一小节待命，不读不写 held（上游两个独立变量） */
+            esp_err_t ret = sloop_seq_fill_control(false, true);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC FILL NEXT OK\n");
             return 0;
         }
         if (argc == 4 && strcasecmp(argv[2], "BUTTON") == 0) {
@@ -2189,7 +2196,7 @@ static int seq_command(int argc, char **argv)
            "SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE> <track> <arg> | "
            "SEQ PATTERN <CLEAR|UNDO|REDO> <track> | "
            "SEQ REC [TOGGLE | CONFIG <quant 0|1> <tempo 0|1> <count 0|1> | "
-           "FILL <held 0|1> <next_press 0|1> | BUTTON <0|1>] | "
+           "FILL HOLD <0|1> | FILL NEXT | BUTTON <0|1>] | "
            "SEQ HIT <lane=0..15> [velocity=1..127；0=松开]\n",
            (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
     return 1;

@@ -220,16 +220,29 @@ static void input_unlock(void)
 }
 
 /* 演奏键：选中合成轨 = 24 音半音矩阵；选中鼓轨 = 16 lane 鼓键表（ADR-006），其它
- * 演奏键在鼓轨上忽略——**不回退 track 0**。 */
+ * 演奏键在鼓轨上忽略——**不回退 track 0**。释放**永远**按按下时记录的轨号收尾
+ * （s_note_on/s_note_track），即使期间切到鼓轨也不进鼓分支（否则音符挂住）。 */
 static void act_note(uint8_t code, int8_t offset, bool down)
 {
+    if (!down) {
+        if (!s_note_on[code]) return;
+        s_note_on[code] = false;
+        const edit_cmd_t cmd = { .type = CMD_NOTE_OFF, .a = s_note_track[code],
+                                 .v = s_note_val[code] };
+        state_apply(&cmd);
+        ESP_LOGD(TAG, "note off track=%u note=%u", (unsigned)s_note_track[code],
+                 (unsigned)s_note_val[code]);
+        return;
+    }
+
     app_state_t st;
     state_get_copy(&st);
+    const int route = input_map_key_route(st.core.selected_track, code, true);
+    if (route == INPUT_ROUTE_IGNORE) return;
 
-    if (st.core.selected_track >= 3u) {
+    if (route == INPUT_ROUTE_DRUM) {
         int8_t lane = input_map_drum_lane(code);
-        if (lane < 0 || !down) return; /* 鼓键松开由 sloop_ui_input_key 的早退路径处理 */
-        if (s_drum_on[code]) return;   /* 键盘不自动重复，防御重复 down */
+        if (s_drum_on[code]) return; /* 键盘不自动重复，防御重复 down */
         const edit_cmd_t cmd = { .type = CMD_DRUM_HIT, .a = (uint32_t)lane,
                                  .v = APP_STATE_VEL_DEFAULT };
         state_apply(&cmd);
@@ -240,27 +253,16 @@ static void act_note(uint8_t code, int8_t offset, bool down)
 
     uint8_t note = (uint8_t)(INPUT_BASE_NOTE + offset);
     if (note > INPUT_NOTE_MAX) return;
-
-    if (down) {
-        if (s_note_on[code]) return; /* 键盘不自动重复，防御重复 down */
-        uint8_t track = st.core.selected_track;
-        const edit_cmd_t cmd = { .type = CMD_NOTE_ON, .a = track, .v = note };
-        state_apply(&cmd);
-        s_note_on[code] = true;
-        s_note_val[code] = note;
-        s_note_track[code] = track;
-        /* state_apply 已返回：此刻不持 state/引擎锁（sloop_ui.h 的契约） */
-        sloop_ui_flash_note(note);
-        ESP_LOGD(TAG, "note on track=%u note=%u", (unsigned)track, (unsigned)note);
-    } else {
-        if (!s_note_on[code]) return;
-        s_note_on[code] = false;
-        const edit_cmd_t cmd = { .type = CMD_NOTE_OFF, .a = s_note_track[code],
-                                 .v = s_note_val[code] };
-        state_apply(&cmd);
-        ESP_LOGD(TAG, "note off track=%u note=%u", (unsigned)s_note_track[code],
-                 (unsigned)s_note_val[code]);
-    }
+    if (s_note_on[code]) return; /* 键盘不自动重复，防御重复 down */
+    uint8_t track = st.core.selected_track;
+    const edit_cmd_t cmd = { .type = CMD_NOTE_ON, .a = track, .v = note };
+    state_apply(&cmd);
+    s_note_on[code] = true;
+    s_note_val[code] = note;
+    s_note_track[code] = track;
+    /* state_apply 已返回：此刻不持 state/引擎锁（sloop_ui.h 的契约） */
+    sloop_ui_flash_note(note);
+    ESP_LOGD(TAG, "note on track=%u note=%u", (unsigned)track, (unsigned)note);
 }
 
 /* 鼓键松开：velocity 0 结束自由录音里的鼓音符段（上游 KS_DRUM 的 key-up）；不在
@@ -369,8 +371,9 @@ static void dispatch(const key_binding_t *b, bool down)
         state_apply(&cmd);
         break;
     }
-    case ACT_FILL_NEXT: { /* 一次按下 = 上游 GLO + key 10 的翻转 */
-        const edit_cmd_t cmd = { .type = CMD_FILL_CONTROL, .a = 1, .b = 1 };
+    case ACT_FILL_NEXT: { /* 一次按下 = 上游 GLO + key 10 的**脉冲**：只翻转 fill_arm，
+                           * 不读写 fill_held（held 只由 `-` 的 down/up 写）。 */
+        const edit_cmd_t cmd = { .type = CMD_FILL_CONTROL, .a = 0, .b = 1 };
         state_apply(&cmd);
         break;
     }

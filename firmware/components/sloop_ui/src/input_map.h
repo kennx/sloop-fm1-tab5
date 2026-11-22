@@ -7,9 +7,11 @@
 #ifndef SLOOP_UI_INPUT_MAP_H
 #define SLOOP_UI_INPUT_MAP_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define INPUT_MAP_NO_LANE (-1)
+#define INPUT_MAP_DRUM_TRACK 3u /* APP_STATE_TRACKS - 1：最后一条轨是鼓轨 */
 
 static inline int8_t input_map_drum_lane(uint8_t code)
 {
@@ -20,6 +22,20 @@ static inline int8_t input_map_drum_lane(uint8_t code)
         if (code == k_high[i]) return (int8_t)(8 + i);
     }
     return INPUT_MAP_NO_LANE;
+}
+
+/* 演奏键的路由（input.c 的 act_note 与 host 单测共用）：
+ *  - 按下：选中鼓轨时鼓键 → DRUM、其它键 → IGNORE（不回落合成轨 0）；合成轨 → NOTE。
+ *  - **释放永远回 NOTE**：note-off 用按下时记录的轨号，即使期间切到鼓轨也不能被
+ *    鼓分支吞掉（否则音符挂住）。 */
+enum { INPUT_ROUTE_NOTE = 0, INPUT_ROUTE_DRUM, INPUT_ROUTE_IGNORE };
+
+static inline int input_map_key_route(uint8_t selected_track, uint8_t code, bool down)
+{
+    if (!down) return INPUT_ROUTE_NOTE;
+    if (selected_track >= INPUT_MAP_DRUM_TRACK)
+        return input_map_drum_lane(code) >= 0 ? INPUT_ROUTE_DRUM : INPUT_ROUTE_IGNORE;
+    return INPUT_ROUTE_NOTE;
 }
 
 #endif

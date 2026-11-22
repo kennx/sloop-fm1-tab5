@@ -166,3 +166,15 @@
 | **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB、音频无法重启）。 |
 | **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫） |
 | **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS） |
+
+## DI-27: 一次性 take 结果（`take_bars`）在设备脚本里不可稳定观测
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 6 按 spec/brief 让 `sloop_seq_rec_read` **消费**上游 `ft_bars`/`rec_go`（读即清零），`state_sync_from_engine` 每 30ms 读一次并把结果写进 `app_state_t.rec`。UI 定时器同一拍先 sync 再 draw，所以界面能看到；但 console `SEQ REC`/`STATE SNAP` 在注入命令到达时通常已晚于下一次 sync，读到 `take=none`/`rec_bars=0`（实测不稳定的窗口是 30ms + 串口往返 ~50ms）。 |
+| **影响面** | 仅**观测/注入**面（Task 12 的 sequence 场景、将来的 take 提示 UI 若要「保持显示到用户确认」）。录音与 free-take 的实际结果（LEN/BPM/步内容/播放）不受影响；音频与状态机无影响。 |
+| **为何可延迟** | 效果可由持久量断言（`ENG STEP`/`ENG SNAP`/`STATE SNAP bpm`/`PARAM P_SLEN`），不需要 one-shot 令牌；UI 的消费顺序正确。当前 30ms 窗口对人工使用无感。 |
+| **解决方向** | (a) 把 take 结果 latch 到 `s_status`-style 的投影（`take_bars` + 一个 generation/`last_take` 字段），由 UI 显示后显式清；或 (b) console `SEQ REC` 读投影而不再直接消费快照（投影仍会被 sync 覆盖，需配合 (a)）；或 (c) 增加 `SEQ REC LAST` 保存最近一次 take 的环形记录。优先 (a)，代价是 `sloop_rec_snapshot_t` 加一个 generation 字段（POD 变化需同步 host 测试）。 |
+| **触发条件** | Task 12 注入场景若需要断言「本次 take 是 1 bar / 被丢弃」；或 UI 需要把 take 结果做成可停留的提示。 |
+| **参考** | `firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_rec_read`、`firmware/components/sloop_state/src/state.c` 的 `state_sync_from_engine`、`docs/design/010-sequencer-arranger.md` §9 |
+| **登记** | 2026-11-22（P4-C Task 6 评审 minor：take 结果观测竞态） |

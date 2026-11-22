@@ -136,8 +136,9 @@ typedef enum {
  *                    （armed/recording/off 立即可断言，不等下一拍 sync）。
  *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置，
  *                    不写 settings；越界不调引擎，seq_status = invalid。
- *  CMD_FILL_CONTROL  a=held(0/1) b=next_bar(0/1，1 = 一次 NEXT BAR 按键，翻转待命)：
- *                    分发 sloop_seq_fill_control；越界不调引擎。
+ *  CMD_FILL_CONTROL  a=held(0/1) b=next_bar(0/1)：b=0 只写 FILL 保持电平（`-` 的
+ *                    down/up）；b=1 是 NEXT BAR 的**脉冲**，只翻转 `fill_arm`、不读
+ *                    不写 held（按住 FILL 时点 NEXT 不会清保持）。越界不调引擎。
  *  CMD_DRUM_HIT      a=lane(0..15) v=velocity(1..127 击打；**0 = 松开**，结束自由录音
  *                    的鼓音符段)：分发 sloop_seq_drum_hit（上游 drum_input/rec_hit 同一
  *                    路径）。选中鼓轨时**不回退合成轨 0**——本命令从不调 note 入口。

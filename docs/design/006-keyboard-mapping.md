@@ -37,7 +37,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | 走带 | space 0x4D | **物理 PLAY 键**（P4-C Task 6）：down/up 两沿发 `CMD_PLAY_BUTTON`，与上游面板按钮同一路径——自由录音（free take）进行中按下 = **drop**（丢弃，工程不变），其它情况请求走带（playing 时 stop）。API PLAY（`CMD_PLAY`/console `SEQ REC BUTTON` 之外的 `ENG`/LIVE 入口）仍走 `sloop_core_play`，对自由录音是 **close**（收成 loop）。两个入口不得混用 |
 | REC | `0` 0x0A | `CMD_REC_TOGGLE`（上游 `rec_toggle`）：停止态 arm（首个音符或 PLAY 启动）；走带中立即录选中轨；再按一次关录音**不停播放**；自由录音进行中 = 关闭它（收成 loop，与上游 editor 的 REC 同一 `transport_req=1` 路径；PLAY 才是 drop） |
 | FILL 保持 | `-` 0x0B（按住） | down/up 发 `CMD_FILL_CONTROL{a=1/0,b=0}` → 上游 `fill_held`：按住期间 fill 步条件成立（fill-only 步演奏、no-fill 步静音） |
-| FILL NEXT | `+` 0x0C（点按） | down 发 `CMD_FILL_CONTROL{a=1,b=1}` → 上游 `fill_arm` 翻转（下一小节 fill）；再按一次取消。STOP 清 held/armed |
+| FILL NEXT | `+` 0x0C（点按） | down 发 `CMD_FILL_CONTROL{a=0,b=1}` → **脉冲**：只翻转上游 `fill_arm`（下一小节 fill），**不读不写 `fill_held`**（按住 `-` 时点 `+` 不会清掉保持电平）；再按一次取消。STOP 清 held/armed |
 | FILE 页动作 | enter 0x3D | **FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；其它页无动作（不抢演奏键）。SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
 | 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 12 页**（P4-C 预留，SONG 页由后续任务注册）PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（ADR-005 §4；当前已注册 11 页，跳过未注册页） |
 | 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；↑ 0x3B / ↓ 0x4B 移焦点轨（三条合成轨环绕） | `state_set_focus()` / `sloop_ui_file_slot_move()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
@@ -56,11 +56,13 @@ FILL NEXT、`0` 0x0A 分配给 REC（见键表）；八度切换仍留给阶段 
   （`transport_req=1`），对自由录音是 **close**（量化成 loop 并播放）。两者刻意不共用
   入口，脚本断言也因此能区分。
 - **鼓轨不回落**：选中鼓轨时演奏键只按上表的 16 lane 表发 `CMD_DRUM_HIT`，其它演奏键
-  忽略；合成轨的 24 音矩阵不变。键盘松开鼓键发 `v=0`（= 上游 key-up，用于自由录音的
-  鼓音符段）。注入覆盖 `KEY` 与 console `SEQ HIT`（同一 adapter 函数）。
-- **fill**：`-` 按住 = `fill_held`；`+` 点按 = `fill_arm` 翻转。STOP 由上游清两者。
-  这些是运行期表演状态，不持久化（REC 的 quant/tempo/count 配置同样不写 settings，
-  留给 P4-E 的完整 panel 设置）。
+  忽略；合成轨的 24 音矩阵不变。**释放永远按按下时记录的轨号收尾**（选中鼓轨后松开
+  合成键仍发 `CMD_NOTE_OFF` 到原轨，不会挂音）。键盘松开鼓键发 `v=0`（= 上游 key-up，
+  用于自由录音的鼓音符段）。注入覆盖 `KEY` 与 console `SEQ HIT`（同一 adapter 函数）。
+- **fill**：`-` 按住/松开只写 `fill_held`；`+` 点按只翻转 `fill_arm`（上游两个**独立**
+  变量，NEXT 脉冲不碰 held）。下一小节 fill 只持续一小节，随后自动落回 normal；
+  STOP 由上游清两者。这些是运行期表演状态，不持久化（REC 的 quant/tempo/count 配置
+  同样不写 settings，留给 P4-E 的完整 panel 设置）。
 
 
 

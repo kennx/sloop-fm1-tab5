@@ -50,7 +50,9 @@ esp_err_t sloop_seq_note_del(uint32_t track, uint32_t step, uint32_t note);
  * track：ARMED/COUNT_IN = 选中轨；RECORDING = song.rec 位；FREE_TAKE = take 轨。
  * quant_off/tempo_mode/count_mode 是运行期配置（本阶段不持久化）。
  * take_bars 是**一次性**结果：0 无，0xFF 丢弃，其余为关闭的小节数；`rec_go` 与
- * `ft_bars` 由快照消费（不在绘制函数里清）。诊断冻结时快照全零且不消费。 */
+ * `ft_bars` 由快照消费（不在绘制函数里清）。`rec_go` 没有独立投影字段：ARMED→
+ * RECORDING 的状态迁移已表达「刚开始录音」，消费它是为了不把一次性标志留给之后
+ * 无关的读者。诊断冻结时快照全零且不消费。 */
 typedef enum { SEQ_REC_OFF, SEQ_REC_ARMED, SEQ_REC_RECORDING, SEQ_REC_COUNT_IN,
                SEQ_REC_FREE_TAKE } sloop_rec_state_t;
 typedef struct { uint8_t state, track, quant_off, tempo_mode, count_mode, take_bars; } sloop_rec_snapshot_t;
@@ -59,8 +61,9 @@ void sloop_seq_rec_read(sloop_rec_snapshot_t *out);
  * 自由录音进行中按 REC = 关闭它（与上游 editor 的 REC 同一路径 transport_req=1）。 */
 esp_err_t sloop_seq_rec_toggle(void);
 esp_err_t sloop_seq_rec_config(uint8_t quant_off, uint8_t tempo_mode, uint8_t count_mode);
-/* 上游 fill 表演控制：held = FILL 保持电平；next_bar = 一次 NEXT BAR 按键（翻转
- * 下一小节 fill 的待命）。STOP 由上游清两者。 */
+/* 上游 fill 表演控制：两个**独立**变量——held 只由 FILL 保持键的 down/up 写；
+ * next_bar 是 NEXT BAR 按键的脉冲，只翻转 fill_arm，不读不写 held（按住 FILL 时
+ * 点 NEXT 不会清掉保持电平）。STOP 由上游清两者。 */
 esp_err_t sloop_seq_fill_control(bool held, bool next_bar);
 /* 鼓演奏：lane 0..15，velocity 1..127（按 vel_lvl 记进鼓步）；velocity 0 = 松开
  * （自由录音的鼓音符段在此结束，与上游 KS_DRUM 的 key-up 同口径）。走

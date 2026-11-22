@@ -780,7 +780,7 @@ static void test_play_button_vs_api_play(void)
     rec_snapshot(&r);
     check(r.take_bars == 0xFF && trk[0].step[0].n == 0,
           "the dropped take leaves the project empty and reports the drop");
-    blocks(100); /* 让 ft_owns_press 的 300ms 窗口过去 */
+    blocks(350); /* 跨过 ft_owns_press 的 300ms 窗口（blocks() 每块推进 1ms） */
 
     /* 同一条 take 由 API PLAY 关闭（sloop_core_play → transport_req = 1） */
     reset();
@@ -843,21 +843,126 @@ static void test_drum_hit_lanes(void)
 static void test_fill_control(void)
 {
     reset();
-    check(sloop_seq_fill_control(true, false) == ESP_OK && fill_held == 1,
-          "FILL held sets the upstream performance flag");
+    check(sloop_seq_fill_control(true, false) == ESP_OK && fill_held == 1 && fill_arm == 0,
+          "FILL held sets only the held flag");
     blocks(1);
     check(fill_now == 1, "the next rendered block plays the fill");
-    check(sloop_seq_fill_control(true, true) == ESP_OK && fill_arm == 1,
-          "FILL NEXT arms the next bar");
-    check(sloop_seq_fill_control(true, true) == ESP_OK && fill_arm == 0,
-          "FILL NEXT again cancels the arm");
+    check(sloop_seq_fill_control(false, true) == ESP_OK && fill_held == 1 && fill_arm == 1,
+          "a FILL NEXT pulse toggles only the arm and leaves a held fill untouched");
+    check(sloop_seq_fill_control(false, true) == ESP_OK && fill_held == 1 && fill_arm == 0,
+          "FILL NEXT again cancels the arm without touching held");
     check(sloop_seq_fill_control(false, false) == ESP_OK && fill_held == 0,
-          "releasing FILL clears the held flag");
-    check(sloop_seq_fill_control(true, true) == ESP_OK, "a fill is held and armed before STOP");
+          "releasing FILL clears only the held flag");
+    check(sloop_seq_fill_control(true, false) == ESP_OK && fill_held == 1 &&
+              sloop_seq_fill_control(false, true) == ESP_OK && fill_arm == 1 && fill_held == 1,
+          "a held fill and a next-bar arm coexist before STOP");
     transport_req = 2;
     blocks(1);
     check(fill_held == 0 && fill_arm == 0 && fill_now == 0,
           "STOP ends a held or armed fill");
+}
+
+/* 回归（Task 6 fix 1）：FILL NEXT 是**脉冲**——不得把 held 锁到 STOP。arm 时 held=0，
+ * 下一小节 fill 只持续一小节，之后自动落回 normal，held 全程为 0。 */
+static void test_fill_next_independent_of_held(void)
+{
+    const uint32_t bar_blocks = 4u * BEAT_U / (120u * CTL);
+    reset();
+    song.g[G_BPM] = 120;
+    step_fill_set(&trk[0], 0, FC_FILL);   /* fill-only 步：只在 fill 小节触发 */
+    step_fill_set(&trk[1], 0, FC_NOFILL); /* no-fill 步：fill 小节静音 */
+    transport_req = 1;
+    blocks(1);
+    check(sloop_seq_fill_control(false, true) == ESP_OK && fill_held == 0 && fill_arm == 1,
+          "FILL NEXT with held off arms the next bar only");
+    check(fill_now == 0, "an armed next-bar fill does not hold the current block");
+    uint32_t run = 0, longest = 0, runs = 0, held_blocks = 0, cond_mismatch = 0;
+    uint32_t total = 4u * bar_blocks + 8u;
+    for (uint32_t i = 0; i < total; i++) {
+        blocks(1);
+        if (fill_now) {
+            run++;
+            if (run == 1u) runs++;
+        } else {
+            if (run > longest) longest = run;
+            run = 0;
+        }
+        if (fill_held) held_blocks++;
+        if (step_plays(&trk[0], 0) != (uint32_t)fill_now) cond_mismatch++;
+        if (step_plays(&trk[1], 0) != (uint32_t)!fill_now) cond_mismatch++;
+    }
+    if (run > longest) longest = run;
+    check(held_blocks == 0u && fill_held == 0u,
+          "FILL NEXT never latches the held flag (held only follows down/up)");
+    check(runs == 1u && longest >= bar_blocks - 3u && longest <= bar_blocks + 3u,
+          "the next-bar fill plays for exactly one bar and then stops");
+    check(cond_mismatch == 0u,
+          "FC_FILL steps trigger and FC_NOFILL steps drop out exactly on the armed bar");
+    check(fill_arm == 0u, "the armed fill is consumed by its bar");
+    transport_req = 2;
+    blocks(1);
+}
+
+/* 回归（Task 6 fix 3）：自由录音关闭/丢弃后 300ms 内，REC 按键被上游
+ * ft_owns_press() 吞掉（不 arm、不改 rec 位）；窗口过后恢复。 */
+static void test_rec_toggle_swallows_recent_take(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    fm1_ms = 1000;
+    check(sloop_seq_rec_toggle() == ESP_OK, "swallow fixture is armed");
+    input_on(&trk[0], 60, 100);
+    blocks(FS * 2u / CTL); /* 一个有效的小节（>= 0.5s），关闭时成 loop 而不是丢弃 */
+    input_off(&trk[0], 60);
+    check(sloop_seq_rec_toggle() == ESP_OK, "REC closes the free take");
+    blocks(1);
+    rec_snapshot(&r);
+    check(!ft_on && song.playing && r.take_bars == 1u && ft_closed &&
+              (uint32_t)(fm1_ms - ft_close_ms) < 300u,
+          "a valid take closes into a loop and marks ft_owns_press for 300 ms");
+    check(sloop_seq_rec_toggle() == ESP_OK && !ft_on && song.rec == 0u && rec_wait == 0u,
+          "a REC press within 300 ms after the take closed is swallowed");
+    blocks(350); /* 模拟毫秒跨过 300ms 窗口 */
+    check(sloop_seq_rec_toggle() == ESP_OK && song.playing && song.rec == 1u,
+          "after the window REC records again (the transport kept playing)");
+    transport_req = 2;
+    blocks(1);
+
+    reset();
+    fm1_ms = 5000;
+    check(sloop_seq_rec_toggle() == ESP_OK, "drop-swallow fixture is armed");
+    input_on(&trk[0], 62, 100);
+    blocks(100);
+    input_off(&trk[0], 62);
+    check(sloop_seq_play_button(true) == ESP_OK, "physical PLAY drops the take");
+    blocks(1);
+    sloop_seq_play_button(false);
+    check(!ft_on && ft_closed && ft_bars == 0xFF,
+          "the drop also marks ft_owns_press (nothing was closed)");
+    check(sloop_seq_rec_toggle() == ESP_OK && !ft_on && !song.playing && song.rec == 0u &&
+              rec_wait == 0u,
+          "a REC press within 300 ms after the drop is swallowed too");
+    blocks(350);
+    check(sloop_seq_rec_toggle() == ESP_OK && rec_wait == 1u,
+          "after the window REC arms again from the stopped transport");
+    rec_wait = 0;
+}
+
+static void test_play_release_without_lock(void)
+{
+    reset();
+    check(sloop_seq_play_button(true) == ESP_OK, "PLAY press fixture starts the transport");
+    blocks(1);
+    fm1_in.buttons |= SLOOP_BTN_PLAY; /* 模拟自由录音期间的按钮电平 */
+    s_frozen = true;
+    uint32_t locks = engine_lock_calls;
+    uint32_t unlocks = engine_unlock_calls;
+    check(sloop_seq_play_button(false) == ESP_OK && (fm1_in.buttons & SLOOP_BTN_PLAY) == 0 &&
+              engine_lock_calls == locks && engine_unlock_calls == unlocks,
+          "PLAY release clears its button bit without the engine lock (also when frozen)");
+    s_frozen = false;
+    transport_req = 2;
+    blocks(1);
 }
 
 int main(void)
@@ -883,6 +988,9 @@ int main(void)
     test_play_button_vs_api_play();
     test_drum_hit_lanes();
     test_fill_control();
+    test_fill_next_independent_of_held();
+    test_rec_toggle_swallows_recent_take();
+    test_play_release_without_lock();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }

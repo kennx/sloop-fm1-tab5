@@ -481,8 +481,12 @@ esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg)
 
 /* ------------------------------------------------- P4-C Task 6: 录音/鼓 --- */
 /* 物理面板按钮在 Tab5 上的位（上游 ui_layers.c 由 panel.btn 派生；Tab5 没有面板，
- * 这里给自由录音的 PLAY drop 一个稳定的位）。REC 不走按钮电平——键盘的 REC 按键
- * 一次 down 调 rec_toggle，与上游 editor 的 REC 同一条 API 路径。 */
+ * 这里给自由录音的 PLAY drop 一个稳定的位）。**位 0 只在本 TU 内有效**：Tab5 不编
+ * 上游 panel.c/main.c，seq.c 只用 `ft_btn_mask`/`ft_drop_mask` 与（本固件全零的）
+ * `ly_bit`/`dyn_bit` 读 `fm1_in.buttons`，因此不会与层键/OCT 键别名；若将来接入
+ * 面板驱动，必须改用 `panel.btn[B_PLAY]`（否则位 0 可能与某个按钮冲突）。
+ * REC 不走按钮电平——键盘的 REC 按键一次 down 调 rec_toggle，与上游 editor 的 REC
+ * 同一条 API 路径。 */
 #define SLOOP_BTN_PLAY 1u
 
 static void ft_masks_ensure(void)
@@ -529,7 +533,9 @@ void sloop_seq_rec_read(sloop_rec_snapshot_t *out)
         }
         out->take_bars = ft_bars;              /* 一次性：take 结果与开始闪示都由此消费 */
         ft_bars = 0;
-        rec_go = 0;
+        rec_go = 0;                            /* 投影里没有独立字段：ARMED→RECORDING 的
+                                                * 状态迁移已表达「刚开始录音」；消费掉是为了
+                                                * 不把一次性标志留给之后无关的读者 */
     }
     engine_unlock();
 }
@@ -544,6 +550,9 @@ esp_err_t sloop_seq_rec_toggle(void)
     }
     if (ft_on) {
         transport_req = 1;                     /* 自由录音进行中：REC 关闭它（上游 editor op 4） */
+    } else if (ft_owns_press()) {
+        /* 上游 rec_toggle 首行：刚关闭/丢弃 take 的那次按键（300ms 内）被吞掉，
+         * 不 arm、不改 rec 位。Tab5 没有 fm1_ms 之外的按键去抖窗口。 */
     } else if (song.rec || rec_wait) {
         song.rec = 0;                          /* 再按一次：关录音 / 撤销待命，播放继续 */
         rec_wait = 0;
@@ -580,8 +589,13 @@ esp_err_t sloop_seq_fill_control(bool held, bool next_bar)
         engine_unlock();
         return ESP_ERR_INVALID_STATE;
     }
-    fill_held = held ? 1u : 0u;
-    if (next_bar) fill_arm = (uint8_t)!fill_arm;  /* 上游 GLO + key 10：一次按键翻转待命 */
+    /* 上游两个独立变量（seq.c fill_held / fill_arm）：held 只由 FILL 保持键的
+     * down/up 写；next_bar 是 NEXT BAR 按键的**脉冲**，只翻转 fill_arm，不读不写
+     * held——否则按住 FILL 时点 NEXT 会清掉保持电平。 */
+    if (next_bar)
+        fill_arm = (uint8_t)!fill_arm;
+    else
+        fill_held = held ? 1u : 0u;
     engine_unlock();
     return ESP_OK;
 }
@@ -606,11 +620,10 @@ esp_err_t sloop_seq_drum_hit(uint32_t lane, uint32_t velocity)
 
 esp_err_t sloop_seq_play_button(bool down)
 {
-    if (!down) {                               /* 松开：清按钮位（冻结也清，避免位挂住） */
-        engine_lock();
-        ft_masks_ensure();
+    if (!down) {
+        /* 松开只清单个 volatile 位（上游 UI 也这样写 fm1_in.buttons）：不取引擎锁，
+         * 因此在诊断冻结期间也能把位清干净，不会把按钮位挂住。 */
         fm1_in.buttons &= ~SLOOP_BTN_PLAY;
-        engine_unlock();
         return ESP_OK;
     }
     if (s_frozen) return ESP_ERR_INVALID_STATE;

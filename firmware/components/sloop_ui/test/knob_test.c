@@ -281,6 +281,20 @@ static void case_drum_lanes(void)
     CHECK(input_map_drum_lane(0x7F) < 0);
 }
 
+/* 演奏键路由（Task 6 fix 2 回归）：选中鼓轨时按下鼓键走鼓、其它键忽略；
+ * **释放永远回按下时的轨**（选中鼓轨后松开合成键不得挂音）。 */
+static void case_key_route(void)
+{
+    CHECK(input_map_key_route(3, 0x42, false) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(0, 0x42, false) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(3, 0x42, true) == INPUT_ROUTE_DRUM);
+    CHECK(input_map_key_route(3, 0x28, true) == INPUT_ROUTE_DRUM);
+    CHECK(input_map_key_route(3, 0x33, true) == INPUT_ROUTE_IGNORE);
+    CHECK(input_map_key_route(3, 0x4D, true) == INPUT_ROUTE_IGNORE);
+    CHECK(input_map_key_route(0, 0x42, true) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(2, 0x02, true) == INPUT_ROUTE_NOTE);
+}
+
 int main(void)
 {
     run("值 ↔ 弧线值往返与钳位", case_arc_roundtrip);
@@ -289,6 +303,7 @@ int main(void)
     run("相对拖拽换算与钳位", case_drag);
     run("格式化表（上游生成表口径）", case_format);
     run("鼓演奏 16 lane 键位（不回落合成轨）", case_drum_lanes);
+    run("演奏键路由（释放永远回原轨）", case_key_route);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;
