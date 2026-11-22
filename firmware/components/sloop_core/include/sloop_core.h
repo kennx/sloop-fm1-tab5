@@ -50,6 +50,12 @@ uint32_t sloop_core_rate(void);
 uint32_t sloop_core_frames(void);
 int sloop_core_selftest(const char *case_name);
 
+/* 鼓轨一步的原始状态（上游 `dstep_t`，10 字节）：`on` 为 2×8 lane 位图
+ * （lane k = bit k），`lvl`/`rat` 每 lane 2 bit（lane k = 字节 k/4 的
+ * 位 2*(k%4)..+1）。`sloop_core_snapshot_t.dstep_raw[]` 按窗口列投影它，
+ * `sloop_seq_read/write_dstep` 直接读写同一个上游结构。 */
+typedef struct { uint8_t on[2], lvl[4], rat[4]; } sloop_dstep_t;
+
 /* 只读快照：MVP 屏所需状态一次性拷出（内部持引擎锁，数百字节拷贝）。
  * 字段与编辑器协议词表对齐：bpm 是全局 BPM（上游 G_BPM，即编辑器协议里的
  * TEMPO）；trk[k].len/div 是轨道的 LEN/DIV；step_pos[k] 是播放头（seq_idx 模
@@ -59,8 +65,15 @@ int sloop_core_selftest(const char *case_name);
  * 鼓轨（track 3）的步内容由 dstep[] 聚合给出，step[3] 恒为零（上游 step_t 与
  * dstep_t 是同一 union，按 step_t 解读鼓步无意义）。鼓轨的 trk[3].engine/preset
  * 同样无意义（上游对鼓轨报 NENGINES，它没有引擎与预设）；这里保留上游原值、
- * 不置零，显示层按轨别决定是否使用。trk[k].voices 是引擎真值：该轨当前 active 的
- * 话音数（note-on 后 >0、panic/淡出结束后归 0），用于断言音符是否被释放。 */
+ * 不置零，显示层按轨别决定是否使用。合成窗口步除原有字段外还投影每音符打包的
+ * lvl/rat 与该绝对步的 micro/fill；字段只追加，既有 UI/state 访问保持源码兼容。
+ * trk[k].voices 是引擎真值：该轨当前 active 的
+ * 话音数（note-on 后 >0、panic/淡出结束后归 0），用于断言音符是否被释放。
+ *
+ * 鼓轨的**原始** 16-lane 位图另由 `dstep_raw[]` 投影（P4-C Task 9：STEP 页在每个
+ * 鼓格里画出 4×4 lane 网格并允许逐 lane 切换 on 位）。`dstep[]` 保持不变（聚合
+ * on/最强 lvl/rat，ENG SNAP 与 STATE SNAP FULL 的口径），并补该步的 micro/fill
+ * （上游 `trk[3].micro/step_fill`，鼓步条件与 nudge 与合成轨同一语义）。 */
 typedef struct {
     bool playing;
     uint16_t bpm;
@@ -70,8 +83,12 @@ typedef struct {
         uint8_t len, div;
         uint8_t voices;
     } trk[4];
-    struct { uint8_t n; uint8_t note[4]; uint8_t vel; uint8_t time; uint8_t flags; } step[4][16];
-    struct { uint8_t on; uint8_t lvl; uint8_t rat; } dstep[16];
+    struct {
+        uint8_t n; uint8_t note[4]; uint8_t vel; uint8_t time; uint8_t flags;
+        uint8_t lvl; uint8_t rat; int8_t micro; uint8_t fill;
+    } step[4][16];
+    struct { uint8_t on; uint8_t lvl; uint8_t rat; uint8_t micro; uint8_t fill; } dstep[16];
+    sloop_dstep_t dstep_raw[16]; /* 鼓轨窗口列的原始 16 lane on/lvl/rat 字节 */
     uint8_t step_pos[4];
 } sloop_core_snapshot_t;
 void sloop_core_read(sloop_core_snapshot_t *out);

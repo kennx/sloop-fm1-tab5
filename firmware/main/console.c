@@ -12,17 +12,20 @@
  *    向量（71 行 P<id>=<v>，注入侧的机器比对期望，无副作用；冻结态回 `ERR frozen`）；
  *    FREEZE <on|off> 是诊断冻结的手动入口（必须成对，供注入复验冻结拒绝路径）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
- *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
- *    的抽样字段；与 ENG SNAP 同源）。
+ *    bpm/playing、seq_status 与引擎真值的选轨/mute/solo，选中轨参数投影 p[]、全局 g[]
+ *    的抽样字段，以及每列合成步完整字段与鼓步聚合；与 ENG SNAP 同源）。
  *  - PARAM：参数写诊断注入（阶段 4 P4-A）：PARAM <id> <value> 经状态层
  *    CMD_SET_PARAM 写选中轨（钳位在引擎，回显 applied），PARAM BATCH <id> <value> …
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
  *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
- *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>）；无参打印当前页；QUIESCE <on|off>
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
- *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
+ *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
+ *    P4-C Task 9；无参打印当前值）；TOOL [<0..7>] 读/写 TRANSPORT 页的键盘工具焦点
+ *    （P4-C Task 10；0 lvl/1 rat/2 mic/3 span/4 slide/5 rot/6 len/7 trans）；FORCEFAIL
+ *    <page> [on|off] 强制构建失败（验证失败可见性，
  *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
  *    state=failed），对已建非当前页只删除控件回到未建态（回显 state=unbuilt，
  *    注入待命），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
@@ -39,7 +42,32 @@
  *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。FILE 页
  *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
- *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
+ *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。STEP 鼓格
+ *    回显 "-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0x…"（P4-C
+ *    Task 9：写的是该步的原始 16 lane 位图；mask/bit 是**写后回读**）。写入被拒
+ *    （诊断冻结等）改回 "-> STEP drum step=k lane=n ERR <frozen|invalid|…> mask=0x…"，
+ *    mask 是未变的真值（不按本地翻转结果伪造）。TRANSPORT 工具回显
+ *    "-> TRANSPORT <CMD> <op> value=<写后回读值> status=\"<屏幕状态行>\""（P4-C Task 10：
+ *    REC/fill/聚焦步字段/pattern 工具；失败回 "ERR <token> value=<写前真值>"，鼓轨上的
+ *    span/slide 回 "ignored (not_synth)"；status 与页面同源）。
+ *    SONG 页（P4-C Task 11）回显 "-> SONG card=B select" / "-> SONG entry=1 select
+ *    scene=0 bars=4" / "-> SONG <STORE|LOAD|ERASE|JUMP|SONG|CHAIN|CANCEL|REC|SCENE|
+ *    BARS-|…> [section=A] value=<写后回读> status=\"<屏幕状态行>\""（失败另带
+ *    "ERR <not_found|blocked|frozen|…>"；空 scene 的 `JUMP C: EMPTY` / `CHAIN: EMPTY`
+ *    与 NO STORAGE 都能按文本断言）。
+ *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
+ *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
+ *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
+ *    打印/驱动录音状态机（`SEQ REC` 读即消费一次性 take 结果；FILL HOLD 只写保持电平，
+ *    FILL NEXT 是脉冲、只翻转下一小节待命），`SEQ HIT <lane>
+ *    [velocity]` 与键盘鼓键同一路径（同一 adapter），`STATE SNAP` 行尾带 rec 投影。
+ *    `SEQ SECTION [<A-D> STORE|LOAD|ERASE|REQUEST]`、`SEQ CHAIN [<A-D>…]`、
+ *    `SEQ SONG [MODE song|loop|REC]` 与 `SEQ SREC [TOGGLE]` 是 arranger 诊断面
+ *    （Task 8）：`SEQ SECTION`/`SEQ SONG`/`SEQ CHAIN` 无参打印 ready/live/dirty/
+ *    index/bar/config/chain；STORE 播放中也允许（RAM 捕获 + dirty，flash 由 1s 任务
+ *    门限写），LOAD/ERASE 只在停止态，REQUEST 下一小节生效（绝不用 project LOAD 做
+ *    播放中切场景）；`SEQ SREC` 打印 srec 状态与最近一次结果（none/no_song/N）。
+ *    错误令牌：blocked = 走带中/SONG 播放中/REC IS ON，frozen = 诊断冻结。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -64,9 +92,13 @@
  *    "BANK COUNT used=n total=27"；PTCH = 8 + n（< 8 是工厂槽）。播放中 PUT/ERASE 回
  *    "STORE ERR playing"；空槽 GET 回 empty；选中鼓轨时 PUT/LIVE 回 "STORE ERR drum"。
  *    STORE TEST 是设备侧 torn-write 套件（ADR-009 §3；**破坏性**：占用 OBJ_SETTINGS，
- *    套件只快照/恢复该对象的 **payload**——settings 的 side record（副本扇区 64..255，
- *    P4-E 的主题/收藏）不被保存，跑一次即清掉；需停走带）：六场景全过回
- *    "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。
+ *    快照/恢复该对象的**两个完整 4KB 副本扇区**（提交头 + payload + side record + 擦除态，
+ *    逐字节校验；P4-C Task 7 起 settings 有真实写入者，payload-only 的豁免终止）：
+ *    六场景全过回 "STORE TEST PASS 6/6"，否则回 "STORE TEST FAIL <name>"。需停走带。
+ *    STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] 是 PER3 歌曲顺序的诊断面（Task 7）：
+ *    与 Song 页/状态层共用 sloop_store_song_*；SET 只改内存并置 dirty，落盘由 1s 任务的
+ *    停止/安静/idle 门限或 SAVE（arrangement_save 同义）完成，INFO 报 flash 对象的
+ *    kind/len/side/count（设置对象损坏时 SAVE 回 "STORE ERR invalid" 且不覆盖）。
  *    STORE PROJ FIELDS n 是旧格式/工程字段诊断（spec §6.3）：st_load + proj_import 后
  *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
  *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
@@ -108,6 +140,7 @@
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
+#include "sloop_seq.h"
 #include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
@@ -309,6 +342,15 @@ static bool eng_uint(const char *text, uint32_t max, uint32_t *value)
     unsigned long parsed = strtoul(text, &end, 0);
     if (end == text || *end != '\0' || parsed > max) return false;
     *value = (uint32_t)parsed;
+    return true;
+}
+
+static bool seq_int(const char *text, int32_t min, int32_t max, int32_t *value)
+{
+    char *end = NULL;
+    long parsed = strtol(text, &end, 0);
+    if (end == text || *end != '\0' || parsed < min || parsed > max) return false;
+    *value = (int32_t)parsed;
     return true;
 }
 
@@ -606,17 +648,26 @@ enum {
 
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
  * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
- * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。 */
+ * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。
+ * 既有行只在行尾追加 seq_status；`STATE SNAP FULL` 才另起 step/dstep 详细行，默认保持
+ * 既有响应体量。 */
 static int state_command(int argc, char **argv)
 {
-    if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
+    if ((argc == 2 && strcasecmp(argv[1], "snap") == 0) ||
+        (argc == 3 && strcasecmp(argv[1], "snap") == 0 && strcasecmp(argv[2], "full") == 0)) {
+        const bool full = argc == 3;
         app_state_t st;
         state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u\n",
+        static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
+        const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
-               (unsigned)st.window.window_start, (unsigned)st.window.window_len);
+               (unsigned)st.window.window_start, (unsigned)st.window.window_len,
+               (unsigned)st.seq_status, rec, (unsigned)st.rec.track,
+               (unsigned)st.rec.quant_off, (unsigned)st.rec.tempo_mode,
+               (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -627,9 +678,28 @@ static int state_command(int argc, char **argv)
                (int)st.p[CONSOLE_P_SLEN], (int)st.p[CONSOLE_P_MUTE]);
         printf("STATE SNAP global bpm=%d swing=%d\n", (int)st.g[CONSOLE_G_BPM],
                (int)st.g[CONSOLE_G_SWING]);
+        if (full) {
+        for (uint32_t k = 0; k < 3; k++) {
+            for (uint32_t c = 0; c < APP_STATE_STEPS; c++) {
+                printf("STATE SNAP step k=%u c=%u i=%u n=%u note=%u,%u,%u,%u vel=%u time=%u flags=%u lvl=%u rat=%u micro=%d fill=%u\n",
+                       (unsigned)k, (unsigned)c, (unsigned)(st.window.window_start + c),
+                       (unsigned)st.core.step[k][c].n, (unsigned)st.core.step[k][c].note[0],
+                       (unsigned)st.core.step[k][c].note[1], (unsigned)st.core.step[k][c].note[2],
+                       (unsigned)st.core.step[k][c].note[3], (unsigned)st.core.step[k][c].vel,
+                       (unsigned)st.core.step[k][c].time, (unsigned)st.core.step[k][c].flags,
+                       (unsigned)st.core.step[k][c].lvl, (unsigned)st.core.step[k][c].rat,
+                       (int)st.core.step[k][c].micro, (unsigned)st.core.step[k][c].fill);
+            }
+        }
+        for (uint32_t c = 0; c < APP_STATE_STEPS; c++) {
+            printf("STATE SNAP dstep c=%u i=%u on=%u lvl=%u rat=%u\n", (unsigned)c,
+                   (unsigned)(st.window.window_start + c), (unsigned)st.core.dstep[c].on,
+                   (unsigned)st.core.dstep[c].lvl, (unsigned)st.core.dstep[c].rat);
+        }
+        }
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、引擎真值的选轨/mute/solo 与参数投影；同 ENG SNAP）\n");
+    printf("用法: STATE SNAP [FULL]（AppState 页面/焦点/层键、步窗、seq_status、参数投影；FULL 追加详细步）\n");
     return 1;
 }
 
@@ -792,7 +862,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -805,7 +875,7 @@ static int param_command(int argc, char **argv)
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {
     "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
-    "projects", "presets",
+    "projects", "presets", "song",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1023,11 +1093,51 @@ static int ui_command(int argc, char **argv)
                (unsigned)w.window_start, (unsigned)w.window_len);
         return 0;
     }
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "lane") == 0) {
+        /* UI LANE [<n>]：STEP 页选中的鼓 lane（UI 局部态，0..15；无参打印当前值）。
+         * 与键盘 ↑/↓（sloop_ui_step_focus_vertical）和触摸点 dot 共用同一状态。 */
+        if (argc == 2) {
+            printf("UI LANE lane=%u\n", (unsigned)sloop_ui_step_lane_get());
+            return 0;
+        }
+        uint32_t lane = 0;
+        if (!eng_uint(argv[2], 15, &lane)) {
+            /* 越界/非数字是**取值错误**（与用法不同）：脚本按 `UI ERR lane` 断言，
+             * 不改选中 lane。 */
+            printf("UI ERR lane\n");
+            return 1;
+        }
+        sloop_ui_step_lane_set((uint8_t)lane);
+        printf("UI LANE lane=%u\n", (unsigned)sloop_ui_step_lane_get());
+        return 0;
+    }
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "tool") == 0) {
+        /* UI TOOL [<0..7>]：TRANSPORT 页的键盘工具焦点字段（UI 局部态；无参打印当前值）。
+         * 与 ←/→（sloop_ui_transport_focus_move）和点字段 chip 共用同一状态。 */
+        static const char *const k_tool_names[SLOOP_UI_TRANSPORT_FIELDS] = {
+            "lvl", "rat", "mic", "span", "slide", "rot", "len", "trans"};
+        if (argc == 2) {
+            const uint8_t f = sloop_ui_transport_tool_get();
+            printf("UI TOOL field=%u name=%s\n", (unsigned)f,
+                   k_tool_names[f < SLOOP_UI_TRANSPORT_FIELDS ? f : 0]);
+            return 0;
+        }
+        uint32_t field = 0;
+        if (!eng_uint(argv[2], SLOOP_UI_TRANSPORT_FIELDS - 1u, &field) ||
+            !sloop_ui_transport_tool_set((uint8_t)field)) {
+            /* 越界/非数字是取值错误（脚本按 `UI ERR tool` 断言，不改焦点） */
+            printf("UI ERR tool\n");
+            return 1;
+        }
+        printf("UI TOOL field=%u name=%s\n", (unsigned)field,
+               k_tool_names[field < SLOOP_UI_TRANSPORT_FIELDS ? field : 0]);
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
             printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
-                   "projects|presets|0..%u)\n",
+                   "projects|presets|song|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1179,10 +1289,14 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI LANE [<lane=0..15>] | UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
+           "LANE: STEP 页选中的鼓 lane（0..15，UI 局部态）；无参打印当前值\n"
+           "TOOL: TRANSPORT 页的键盘工具焦点（0 lvl / 1 rat / 2 mic / 3 span / 4 slide / 5 rot / "
+           "6 len / 7 trans）；无参打印当前字段\n"
            "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
@@ -1254,6 +1368,69 @@ static int key_command(int argc, char **argv)
  * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。坐标上界取 SCR_W/SCR_H
  * （与截屏帧同一屏幕几何）。sloop_ui 未导出宽高，其私有 theme.h 的 UI_W/UI_H
  * 即同值 1280×720；main 不跨组件包含 sloop_ui/src 的私有头，故此处沿用 SCR_W/SCR_H。 */
+
+/* app_seq_status_t → console 令牌（TAP 的鼓格与 TRANSPORT 工具回显共用）。 */
+static const char *seq_status_token(uint8_t status)
+{
+    static const char *const tok[] = {"idle", "ok", "not_found", "invalid",
+                                      "full", "blocked", "frozen", "error"};
+    return status < sizeof(tok) / sizeof(tok[0]) ? tok[status] : "error";
+}
+
+/* TRANSPORT 工具动作 → 回显里的命令名（与 page_transport.c 的 tr_action 一一对应）。 */
+static const char *transport_act_cmd(uint8_t act)
+{
+    switch (act) {
+    case SLOOP_TR_REC: return "CMD_REC_TOGGLE";
+    case SLOOP_TR_FILL_HOLD: return "CMD_FILL_CONTROL hold";
+    case SLOOP_TR_FILL_NEXT: return "CMD_FILL_CONTROL next";
+    case SLOOP_TR_LVL_DN:
+    case SLOOP_TR_LVL_UP:
+    case SLOOP_TR_RAT_DN:
+    case SLOOP_TR_RAT_UP:
+    case SLOOP_TR_SPAN_DN:
+    case SLOOP_TR_SPAN_UP:
+    case SLOOP_TR_SLIDE: return "CMD_STEP_EDIT";
+    case SLOOP_TR_MIC_DN:
+    case SLOOP_TR_MIC_UP: return "CMD_SET_MICRO";
+    case SLOOP_TR_ROT_DN:
+    case SLOOP_TR_ROT_UP:
+    case SLOOP_TR_LEN_X2:
+    case SLOOP_TR_LEN_D2:
+    case SLOOP_TR_TRANS_DN:
+    case SLOOP_TR_TRANS_UP:
+    case SLOOP_TR_CLEAR:
+    case SLOOP_TR_UNDO:
+    case SLOOP_TR_REDO: return "CMD_PATTERN";
+    default: return "?";
+    }
+}
+
+static const char *transport_act_op(uint8_t act)
+{
+    switch (act) {
+    case SLOOP_TR_LVL_DN:
+    case SLOOP_TR_LVL_UP: return "lvl";
+    case SLOOP_TR_RAT_DN:
+    case SLOOP_TR_RAT_UP: return "rat";
+    case SLOOP_TR_MIC_DN:
+    case SLOOP_TR_MIC_UP: return "micro";
+    case SLOOP_TR_SPAN_DN:
+    case SLOOP_TR_SPAN_UP: return "span";
+    case SLOOP_TR_SLIDE: return "slide";
+    case SLOOP_TR_ROT_DN:
+    case SLOOP_TR_ROT_UP: return "rotate";
+    case SLOOP_TR_LEN_X2:
+    case SLOOP_TR_LEN_D2: return "length";
+    case SLOOP_TR_TRANS_DN:
+    case SLOOP_TR_TRANS_UP: return "transpose";
+    case SLOOP_TR_CLEAR: return "clear";
+    case SLOOP_TR_UNDO: return "undo";
+    case SLOOP_TR_REDO: return "redo";
+    default: return NULL;
+    }
+}
+
 static int tap_command(int argc, char **argv)
 {
     long x = 0, y = 0;
@@ -1300,9 +1477,21 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> STEP track=%u step=%u CMD_TOGGLE_STEP\n", x, y, page,
                (unsigned)r.a, (unsigned)r.b);
         break;
-    case SLOOP_TAP_STEP_DRUM:
-        printf("TAP %ld,%ld page=%u -> STEP drum step=%u read-only\n", x, y, page, (unsigned)r.b);
+    case SLOOP_TAP_STEP_DRUM: {
+        /* 鼓格 lane 位：a=lane b=步号 d=写后回读的 bit v=写后回读的 16 lane 位图
+         * err=0 成功；否则是 app_seq_status_t（冻结等——echo 不伪造本地翻转结果）。 */
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u ERR %s mask=0x%04X\n",
+                   x, y, page, (unsigned)r.b, (unsigned)r.a, seq_status_token(r.err),
+                   (unsigned)(uint16_t)r.v);
+            break;
+        }
+        printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u bit=%u "
+               "CMD_DRUM_STEP_WRITE mask=0x%04X\n",
+               x, y, page, (unsigned)r.b, (unsigned)r.a, (unsigned)(r.d & 1),
+               (unsigned)(uint16_t)r.v);
         break;
+    }
     case SLOOP_TAP_TRACK_CARD:
         printf("TAP %ld,%ld page=%u -> TRACKS select track=%u CMD_SELECT_TRACK\n", x, y, page,
                (unsigned)r.a);
@@ -1316,6 +1505,31 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_TRANSPORT_BPM:
         printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_SET_BPM delta=%+d\n", x, y, page, (int)r.v);
         break;
+    case SLOOP_TAP_TRANSPORT_TOOL: {
+        /* TRANSPORT 工具：a=sloop_transport_act_t b=1 表示 LVL/RAT 落在鼓轨
+         * （CMD_DRUM_STEP_WRITE）v=写后回读值 err=0/app_seq_status_t/8（不适用，
+         * 未下发）。令牌与 STEP 鼓格共用 seq_status_token；`status="…"` 是**屏幕状态
+         * 行的同一文本**（sloop_ui_transport_status_text，与页面同源，不另写词表）。 */
+        const char *cmd = transport_act_cmd((uint8_t)r.a);
+        const char *op = transport_act_op((uint8_t)r.a);
+        if (r.b != 0u) cmd = "CMD_DRUM_STEP_WRITE";
+        char what[40];
+        if (op != NULL) snprintf(what, sizeof(what), "%s %s", cmd, op);
+        else snprintf(what, sizeof(what), "%s", cmd);
+        const char *status_txt = sloop_ui_transport_status_text();
+        if (r.err == SLOOP_TR_ERR_NA) {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ignored (not_synth) value=%d status=\"%s\"\n",
+                   x, y, page, what, (int)r.v, status_txt != NULL ? status_txt : "");
+        } else if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ERR %s value=%d status=\"%s\"\n", x, y,
+                   page, what, seq_status_token(r.err), (int)r.v,
+                   status_txt != NULL ? status_txt : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s value=%d status=\"%s\"\n", x, y, page,
+                   what, (int)r.v, status_txt != NULL ? status_txt : "");
+        }
+        break;
+    }
     case SLOOP_TAP_PARAM_STEP:
         printf("TAP %ld,%ld page=%u -> PARAM slot=%u id=%u delta=%+d value=%d\n", x, y, page,
                (unsigned)r.a, (unsigned)r.b, (int)r.d, (int)r.v);
@@ -1357,6 +1571,51 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> BANK slot=%u action=%s status=\"%s\"\n", x, y, page,
                (unsigned)r.b, r.kind == SLOOP_TAP_BANK_STORE ? "save" : "erase",
                text != NULL ? text : "?");
+        break;
+    }
+    case SLOOP_TAP_SONG_SECTION:
+        /* SONG 页 A–D 卡：只改 UI 局部选中（不写引擎）；链采集中同一 tap 也会把该
+         * section 追加进临时列表（页面状态行给出 `CHAIN: …` 预览）。 */
+        printf("TAP %ld,%ld page=%u -> SONG card=%c select\n", x, y, page,
+               (unsigned)r.b < 4u ? (char)('A' + r.b) : '?');
+        break;
+    case SLOOP_TAP_SONG_ENTRY: {
+        /* 歌曲条目选中：count 内的槽回显其 scene/bars（与 STORE SONG 同源的真值）；
+         * count 之外的槽只回 entry 号（屏幕上是 `NN --`）。 */
+        sloop_song_snapshot_t s;
+        sloop_seq_song_read(&s);
+        if (r.b < s.config.count) {
+            printf("TAP %ld,%ld page=%u -> SONG entry=%u select scene=%u bars=%u\n", x, y, page,
+                   (unsigned)r.b, (unsigned)s.config.entry[r.b].scene,
+                   (unsigned)s.config.entry[r.b].bars);
+        } else {
+            printf("TAP %ld,%ld page=%u -> SONG entry=%u select\n", x, y, page, (unsigned)r.b);
+        }
+        break;
+    }
+    case SLOOP_TAP_SONG_ACTION: {
+        /* SONG 页动作 chip：动作名 + 落点 section + 写后回读值 + 状态行文本（与屏幕
+         * 同源 `sloop_ui_song_status_text`）。失败时另给 ERR 令牌（app_seq_status_t，
+         * 与 STEP 鼓格/TRANSPORT 工具共用词表），脚本按文本断言空 scene 的可见拒绝。 */
+        static const char *const names[SLOOP_SONG_ACT_COUNT] = {
+            "STORE", "LOAD", "ERASE", "JUMP", "SONG", "CHAIN", "CANCEL", "REC",
+            "SCENE", "BARS-", "BARS+", "COUNT-", "COUNT+", "LOOP",
+        };
+        const char *name = r.b < SLOOP_SONG_ACT_COUNT ? names[r.b] : "?";
+        const char *text = sloop_ui_song_status_text();
+        char where[16] = "";
+        if (r.b <= SLOOP_SONG_JUMP) {
+            snprintf(where, sizeof(where), " section=%c",
+                     r.d >= 0 && r.d < 4 ? (char)('A' + r.d) : '?');
+        }
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> SONG %s%s ERR %s value=%d status=\"%s\"\n", x, y,
+                   page, name, where, seq_status_token(r.err), (int)r.v,
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SONG %s%s value=%d status=\"%s\"\n", x, y, page, name,
+                   where, (int)r.v, text != NULL ? text : "");
+        }
         break;
     }
     default:
@@ -1751,8 +2010,92 @@ static int store_bank(int argc, char **argv)
     return 1;
 }
 
-/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后只快照/恢复
- * 它的 payload；settings 的 side record（扇区 64..255，P4-E 主题/收藏）不会被恢复）。
+/* 歌曲顺序（PER3 子集，P4-C Task 7）。console 是诊断执行器：与 Song 页/状态层共用
+ * sloop_store_song_*，只是能把字节级结果变成脚本可断言的回显。
+ *   STORE SONG                       -> "STORE SONG count=.. loop=.. dirty=.." + 每项一行
+ *                                       "SONG <i> scene=<s> bars=<b>"（i < count）
+ *   STORE SONG SET <count> <loop> <scene:bars>… -> "STORE SONG SET count=.. loop=.. dirty=1"
+ *                                       （只改 0..count-1，其余项保留当前值；落盘由
+ *                                       1s 任务的停止/安静/idle 门限或 STORE SONG SAVE 完成）
+ *   STORE SONG SAVE                  -> "STORE SONG SAVED len=<n> side=<0|1>"（上游
+ *                                       arrangement_save 同义：播放中回 "STORE ERR playing"）
+ *   STORE SONG LOAD                  -> 从 settings 读回（**以 flash 为准**、清 dirty；
+ *                                       读不到/对象损坏 → 上游默认歌曲，字节不覆盖、回 invalid）
+ *   STORE SONG INFO                  -> flash 对象的事实：kind=per3|per2|per1|empty|invalid、
+ *                                       len、side（side record 是否自校验通过）、count/loop
+ * 设置对象损坏（未知 magic/长度）时 SAVE 回 "STORE ERR invalid" 且不覆盖。 */
+static const char *const STORE_SONG_KINDS[] = {"empty", "per3", "per2", "per1", "invalid"};
+
+static int store_song_usage(void)
+{
+    printf("用法: STORE SONG | SET <count=1..16> <loop=0|1> <scene=0..3:bars=1..64>… | "
+           "SAVE | LOAD | INFO\n");
+    return 1;
+}
+
+static int store_song(int argc, char **argv)
+{
+    sloop_song_config_t cfg;
+    esp_err_t err;
+    if (argc == 2) {
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        for (uint32_t i = 0; i < cfg.count && i < SLOOP_SONG_ENTRIES; i++)
+            printf("SONG %u scene=%u bars=%u\n", (unsigned)i, (unsigned)cfg.entry[i].scene,
+                   (unsigned)cfg.entry[i].bars);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "info") == 0) {
+        sloop_store_song_info_t info;
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG INFO kind=%s len=%u side=%u count=%u loop=%u\n",
+               STORE_SONG_KINDS[info.kind < 5u ? info.kind : 4u], (unsigned)info.len,
+               (unsigned)info.side, (unsigned)info.count, (unsigned)info.loop);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_song_save()) != ESP_OK) return store_err_print(err);
+        sloop_store_song_info_t info;
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG SAVED len=%u side=%u\n", (unsigned)info.len, (unsigned)info.side);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[2], "load") == 0) {
+        err = sloop_store_song_reload();
+        if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) return store_err_print(err);
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG LOAD count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        return 0;
+    }
+    if (argc >= 5 && strcasecmp(argv[2], "set") == 0) {
+        if (argc - 5 > (int)SLOOP_SONG_ENTRIES) return store_song_usage();
+        uint32_t count, loop;
+        if (!eng_uint(argv[3], SLOOP_SONG_ENTRIES, &count) || count == 0 ||
+            !eng_uint(argv[4], 1u, &loop))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        if ((err = sloop_store_song_get(&cfg)) != ESP_OK) return store_err_print(err);
+        cfg.count = (uint8_t)count;
+        cfg.loop = (uint8_t)loop;
+        for (int i = 0; i < argc - 5; i++) {
+            unsigned scene, bars;
+            if ((uint32_t)i >= count || sscanf(argv[5 + i], "%u:%u", &scene, &bars) != 2)
+                return store_err_print(ESP_ERR_INVALID_ARG);
+            cfg.entry[i].scene = (uint8_t)scene;
+            cfg.entry[i].bars = (uint8_t)bars;
+        }
+        if ((err = sloop_store_song_set(&cfg)) != ESP_OK) return store_err_print(err);
+        printf("STORE SONG SET count=%u loop=%u dirty=%u\n", (unsigned)cfg.count, (unsigned)cfg.loop,
+               sloop_store_song_dirty() ? 1u : 0u);
+        return 0;
+    }
+    return store_song_usage();
+}
+
+/* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后快照/恢复
+ * **两个完整 4KB 副本扇区**并逐字节校验——settings 的 side record（扇区 64..255）与
+ * payload 48..83 的歌曲顺序、DSU/MIDI 尾段都不丢；P4-C Task 7 起替换 payload-only 快照）。
  * 六场景全部通过回 `STORE TEST PASS 6/6`；失败回 `STORE TEST FAIL <name>`（不打印其它
  * 令牌，脚本按这两个前缀断言）。未就绪/走带中沿用 `STORE ERR <no_storage|playing>`。 */
 static int store_test_cmd(void)
@@ -1866,6 +2209,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "proj") == 0) return store_proj(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "song") == 0) return store_song(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -1882,12 +2226,462 @@ static int store_command(int argc, char **argv)
     printf("用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0x%X） | "
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
-           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE LIVEHASH | "
+           "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | "
+           "STORE LIVEHASH | "
            "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
-           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，只快照/恢复 "
-           "payload；settings side record 不保） | "
+           "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 "
+           "完整 4KB 副本扇区） | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
            (unsigned)STORE_RAWTEST_OFF);
+    return 1;
+}
+
+static int seq_err_print(esp_err_t err)
+{
+    const char *token = err == ESP_ERR_NO_MEM ? "full" :
+                        err == ESP_ERR_INVALID_ARG ? "invalid" :
+                        err == ESP_ERR_NOT_ALLOWED ? "blocked" :
+                        err == ESP_ERR_NOT_FOUND ? "not_found" :
+                        err == ESP_ERR_NOT_FINISHED ? "save" :
+                        err == ESP_ERR_INVALID_STATE ? "frozen" : esp_err_to_name(err);
+    printf("SEQ ERR %s\n", token);
+    return 1;
+}
+
+static void seq_dstep_print(uint32_t step)
+{
+    sloop_dstep_t d;
+    sloop_seq_read_dstep(step, &d);
+    printf("SEQ DSTEP step=%u on=%02X,%02X lvl=%02X,%02X,%02X,%02X rat=%02X,%02X,%02X,%02X\n",
+           (unsigned)step, d.on[0], d.on[1], d.lvl[0], d.lvl[1], d.lvl[2], d.lvl[3],
+           d.rat[0], d.rat[1], d.rat[2], d.rat[3]);
+}
+
+/* 录音状态行（P4-C Task 6）：读一次快照即消费一次性 take 结果（sloop_seq.h）。
+ * take 结果：none / dropped / <n>bar；与 STATE SNAP 的 rec_* 字段同一投影。 */
+static void seq_rec_print(void)
+{
+    static const char *const STATE_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
+    sloop_rec_snapshot_t r;
+    sloop_seq_rec_read(&r);
+    const char *state = r.state <= SEQ_REC_FREE_TAKE ? STATE_NAME[r.state] : "?";
+    char take[16] = "none";
+    if (r.take_bars == 0xFFu)
+        snprintf(take, sizeof(take), "dropped");
+    else if (r.take_bars != 0u)
+        snprintf(take, sizeof(take), "%ubar", (unsigned)r.take_bars);
+    printf("SEQ REC state=%s track=%u quant=%s tempo=%s count=%s take=%s fill_held=%u fill_arm=%u\n",
+           state, (unsigned)r.track, r.quant_off ? "off" : "on", r.tempo_mode ? "tempo" : "free",
+           r.count_mode ? "count" : "note", take, (unsigned)r.fill_held, (unsigned)r.fill_arm);
+}
+
+/* ------------------------------------------------- P4-C Task 8: sections / chain / SONG ---
+ * console 是诊断执行器：与 SONG 页/状态层共用 sloop_seq_section/chain/song_* 与
+ * sloop_store_song_*，只把运行态变成脚本可断言的回显。错误令牌沿用 SEQ 族：
+ * blocked = 走带中/SONG 播放中/REC IS ON，frozen = 诊断冻结，invalid = 参数/槽号，
+ * not_found = 空 section/无此音；存储未就绪的 INVALID_STATE 明确回 no_storage。 */
+static int seq_song_err(esp_err_t err)
+{
+    if (err == ESP_ERR_INVALID_STATE && !sloop_seq_frozen()) {
+        printf("SEQ ERR %s\n", sloop_store_ready() ? "playing" : "no_storage");
+        return 1;
+    }
+    return seq_err_print(err);
+}
+
+static const char *seq_scene_name(uint8_t scene, char *buf)
+{
+    if (scene < 4u) {
+        buf[0] = (char)('A' + scene);
+        buf[1] = 0;
+        return buf;
+    }
+    return "-";
+}
+
+static bool seq_scene_arg(const char *text, uint32_t *out)
+{
+    if (text[0] != 0 && text[1] == 0) {
+        if (text[0] >= 'A' && text[0] <= 'D') {
+            *out = (uint32_t)(text[0] - 'A');
+            return true;
+        }
+        if (text[0] >= 'a' && text[0] <= 'd') {
+            *out = (uint32_t)(text[0] - 'a');
+            return true;
+        }
+    }
+    return eng_uint(text, 3, out);
+}
+
+static const char *const SEQ_SREC_NAME[] = {"off", "armed", "recording"};
+
+static void seq_song_print(void)
+{
+    sloop_song_snapshot_t s;
+    char live[2];
+    sloop_seq_song_read(&s);
+    const char *srec = s.srec <= 2u ? SEQ_SREC_NAME[s.srec] : "?";
+    printf("SEQ SONG mode=%s running=%u index=%u bar=%u ready=0x%02X live=%s dirty=%u "
+           "chain=%u srec=%s count=%u loop=%u\n",
+           s.enabled ? "song" : "loop", (unsigned)s.running, (unsigned)s.index, (unsigned)s.bar,
+           (unsigned)s.ready, seq_scene_name(s.live, live), (unsigned)s.dirty,
+           (unsigned)s.chain_count, srec, (unsigned)s.config.count, (unsigned)s.config.loop);
+    for (uint32_t i = 0; i < s.config.count && i < SLOOP_SONG_ENTRIES; i++)
+        printf("SEQ SONG %u scene=%u bars=%u\n", (unsigned)i, (unsigned)s.config.entry[i].scene,
+               (unsigned)s.config.entry[i].bars);
+}
+
+/* SONG REC 状态与最近一次结果（0 = 无、0xFF = NO SONG、否则项数）。 */
+static void seq_srec_print(void)
+{
+    sloop_song_snapshot_t s;
+    char last[16] = "none";
+    sloop_seq_song_read(&s);
+    if (s.srec_done == 0xFFu)
+        snprintf(last, sizeof last, "no_song");
+    else if (s.srec_done != 0u)
+        snprintf(last, sizeof last, "%u", (unsigned)s.srec_done);
+    printf("SEQ SREC srec=%s last=%s\n",
+           s.srec <= 2u ? SEQ_SREC_NAME[s.srec] : "?", last);
+}
+
+static void seq_chain_print(void)
+{
+    sloop_song_snapshot_t s;
+    sloop_seq_song_read(&s);
+    printf("SEQ CHAIN count=%u index=%u bars=%u\n", (unsigned)s.chain_count,
+           (unsigned)s.chain_index, (unsigned)s.chain_bars);
+    for (uint32_t i = 0; i < s.chain_count && i < 8u; i++)
+        printf("SEQ CHAIN %u scene=%u\n", (unsigned)i, (unsigned)s.chain_scenes[i]);
+}
+
+static void seq_section_print(void)
+{
+    sloop_song_snapshot_t s;
+    char live[2];
+    sloop_seq_song_read(&s);
+    printf("SEQ SECTION ready=0x%02X live=%s dirty=%u index=%u bar=%u\n", (unsigned)s.ready,
+           seq_scene_name(s.live, live), (unsigned)s.dirty, (unsigned)s.index, (unsigned)s.bar);
+}
+
+static int seq_command(int argc, char **argv)
+{
+    if (argc >= 2 && strcasecmp(argv[1], "DSTEP") == 0) {
+        uint32_t step;
+        if (argc == 2) {
+            for (step = 0; step < 64u; step++) seq_dstep_print(step);
+            return 0;
+        }
+        if (argc == 3 && eng_uint(argv[2], 63, &step)) {
+            seq_dstep_print(step);
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if (argc == 5 && strcasecmp(argv[1], "MICRO") == 0) {
+        uint32_t track, step;
+        int32_t value;
+        if (!eng_uint(argv[2], 3, &track) || !eng_uint(argv[3], 63, &step) ||
+            !seq_int(argv[4], -32, 31, &value))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_set_micro(track, step, (int8_t)value);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ MICRO track=%u step=%u value=%ld OK\n", (unsigned)track, (unsigned)step, (long)value);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[1], "FILL") == 0) {
+        uint32_t track, step, value;
+        if (!eng_uint(argv[2], 3, &track) || !eng_uint(argv[3], 63, &step) ||
+            !eng_uint(argv[4], 3, &value))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_set_fill(track, step, (uint8_t)value);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ FILL track=%u step=%u value=%u OK\n", (unsigned)track, (unsigned)step, (unsigned)value);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[1], "EDIT") == 0) {
+        sloop_step_edit_t cmd = {0};
+        const char *op = argv[2];
+        if (strcasecmp(op, "SPAN") == 0)
+            cmd.op = SEQ_STEP_SPAN;
+        else if (strcasecmp(op, "DEL") == 0)
+            cmd.op = SEQ_STEP_NOTE_DEL;
+        else if (strcasecmp(op, "MOVE") == 0)
+            cmd.op = SEQ_STEP_NOTE_MOVE;
+        else if (strcasecmp(op, "COPY") == 0)
+            cmd.op = SEQ_STEP_NOTE_COPY;
+        else if (strcasecmp(op, "LVL") == 0)
+            cmd.op = SEQ_STEP_LVL;
+        else if (strcasecmp(op, "RAT") == 0)
+            cmd.op = SEQ_STEP_RAT;
+        else if (strcasecmp(op, "SLIDE") == 0)
+            cmd.op = SEQ_STEP_SLIDE;
+        else if (strcasecmp(op, "CLEAR") == 0)
+            cmd.op = SEQ_STEP_CLEAR;
+        else
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        uint32_t track, step, a, b;
+        if (argc < 5 || !eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        cmd.track = (uint8_t)track;
+        cmd.step = (uint8_t)step;
+        switch (cmd.op) {
+        case SEQ_STEP_SPAN:
+            if (argc != 6 || !eng_uint(argv[5], 64, &a) || a == 0)
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.value = (int16_t)a;
+            break;
+        case SEQ_STEP_NOTE_DEL:
+            if (argc != 6 || !eng_uint(argv[5], 3, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.index = (uint8_t)a;
+            break;
+        case SEQ_STEP_NOTE_MOVE:
+        case SEQ_STEP_NOTE_COPY:
+            if (argc != 6 || !eng_uint(argv[5], 63, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.target = (uint8_t)a;
+            break;
+        case SEQ_STEP_LVL:
+        case SEQ_STEP_RAT:
+            if (argc != 7 || !eng_uint(argv[5], 3, &a) || !eng_uint(argv[6], 3, &b))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.index = (uint8_t)a;
+            cmd.value = (int16_t)b;
+            break;
+        case SEQ_STEP_SLIDE:
+            if (argc != 6 || !eng_uint(argv[5], 1, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.value = (int16_t)a;
+            break;
+        case SEQ_STEP_CLEAR:
+            if (argc != 5) return seq_err_print(ESP_ERR_INVALID_ARG);
+            break;
+        default:
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        }
+        esp_err_t ret = sloop_seq_step_edit(&cmd);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ EDIT %s track=%u step=%u OK\n", op, (unsigned)track, (unsigned)step);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[1], "PATTERN") == 0) {
+        sloop_pattern_op_t op;
+        int need_arg;
+        if (strcasecmp(argv[2], "ROTATE") == 0)
+            op = SEQ_PATTERN_ROTATE, need_arg = 1;
+        else if (strcasecmp(argv[2], "LENGTH") == 0)
+            op = SEQ_PATTERN_LENGTH, need_arg = 1;
+        else if (strcasecmp(argv[2], "TRANSPOSE") == 0)
+            op = SEQ_PATTERN_TRANSPOSE, need_arg = 1;
+        else if (strcasecmp(argv[2], "CLEAR") == 0)
+            op = SEQ_PATTERN_CLEAR, need_arg = 0;
+        else if (strcasecmp(argv[2], "UNDO") == 0)
+            op = SEQ_PATTERN_UNDO, need_arg = 0;
+        else if (strcasecmp(argv[2], "REDO") == 0)
+            op = SEQ_PATTERN_REDO, need_arg = 0;
+        else
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        uint32_t track;
+        int32_t arg = 0;
+        if (argc != (need_arg ? 5 : 4) || !eng_uint(argv[3], 3, &track) ||
+            (need_arg && !seq_int(argv[4], -32768, 32767, &arg)))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_pattern(track, op, arg);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ PATTERN %s track=%u arg=%ld OK\n", argv[2], (unsigned)track, (long)arg);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "LOCK") == 0) {
+        if (argc == 4 && strcasecmp(argv[2], "LIST") == 0) {
+            uint32_t track;
+            if (!eng_uint(argv[3], 3, &track)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            sloop_lock_t locks[24];
+            uint32_t n = sloop_seq_lock_list(track, locks, 24);
+            for (uint32_t i = 0; i < n; i++)
+                printf("SEQ LOCK step=%u param=%u value=%d\n", locks[i].step, locks[i].param, locks[i].value);
+            printf("SEQ LOCK LIST track=%u count=%u\n", (unsigned)track, (unsigned)n);
+            return 0;
+        }
+        uint32_t track, step, param;
+        if (argc == 7 && strcasecmp(argv[2], "SET") == 0) {
+            int32_t value;
+            if (!eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step) ||
+                !eng_uint(argv[5], SLOOP_CORE_P_COUNT - 1u, &param) ||
+                !seq_int(argv[6], -32768, 32767, &value))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_lock_set(track, step, param, (int16_t)value);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ LOCK SET track=%u step=%u param=%u value=%ld OK\n",
+                   (unsigned)track, (unsigned)step, (unsigned)param, (long)value);
+            return 0;
+        }
+        if (argc == 6 && strcasecmp(argv[2], "DEL") == 0) {
+            if (!eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step) ||
+                !eng_uint(argv[5], SLOOP_CORE_P_COUNT, &param))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_lock_del(track, step, param);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ LOCK DEL track=%u step=%u param=%u OK\n", (unsigned)track, (unsigned)step, (unsigned)param);
+            return 0;
+        }
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "REC") == 0) {
+        if (argc == 2) {
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "TOGGLE") == 0) {
+            esp_err_t ret = sloop_seq_rec_toggle();
+            if (ret != ESP_OK) return seq_err_print(ret);
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 6 && strcasecmp(argv[2], "CONFIG") == 0) {
+            uint32_t q, t, c;
+            if (!eng_uint(argv[3], 1, &q) || !eng_uint(argv[4], 1, &t) || !eng_uint(argv[5], 1, &c))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_rec_config((uint8_t)q, (uint8_t)t, (uint8_t)c);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 5 && strcasecmp(argv[2], "FILL") == 0 && strcasecmp(argv[3], "HOLD") == 0) {
+            uint32_t held;
+            if (!eng_uint(argv[4], 1, &held)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_fill_control(held != 0u, false);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC FILL HOLD %u OK\n", (unsigned)held);
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "FILL") == 0 && strcasecmp(argv[3], "NEXT") == 0) {
+            /* 脉冲：只翻转下一小节待命，不读不写 held（上游两个独立变量） */
+            esp_err_t ret = sloop_seq_fill_control(false, true);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC FILL NEXT OK\n");
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "BUTTON") == 0) {
+            uint32_t down;
+            if (!eng_uint(argv[3], 1, &down)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_play_button(down != 0u);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC BUTTON down=%u OK\n", (unsigned)down);
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "HIT") == 0) {
+        uint32_t lane, vel = 100;
+        if (!eng_uint(argv[2], 15, &lane) || (argc == 4 && !eng_uint(argv[3], 127, &vel)))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_drum_hit(lane, vel);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ HIT lane=%u velocity=%u OK\n", (unsigned)lane, (unsigned)vel);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SECTION") == 0) {
+        if (argc == 2) {
+            seq_section_print();
+            return 0;
+        }
+        uint32_t slot;
+        if (argc != 4 || !seq_scene_arg(argv[2], &slot)) return seq_err_print(ESP_ERR_INVALID_ARG);
+        const char *act = NULL;
+        esp_err_t ret;
+        if (strcasecmp(argv[3], "store") == 0) {
+            act = "STORE";
+            ret = sloop_seq_section(slot, true, false);
+        } else if (strcasecmp(argv[3], "load") == 0) {
+            act = "LOAD";
+            ret = sloop_seq_section(slot, false, false);
+        } else if (strcasecmp(argv[3], "erase") == 0) {
+            act = "ERASE";
+            ret = sloop_seq_section(slot, false, true);
+        } else if (strcasecmp(argv[3], "request") == 0) {
+            act = "REQUEST";
+            ret = sloop_seq_section_request(slot);
+        } else {
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        }
+        if (ret != ESP_OK) return seq_song_err(ret);
+        char name[2];
+        printf("SEQ SECTION %s %s OK\n", seq_scene_name((uint8_t)slot, name), act);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "CHAIN") == 0) {
+        if (argc == 2) {
+            seq_chain_print();
+            return 0;
+        }
+        if (argc > 10) return seq_err_print(ESP_ERR_INVALID_ARG); /* 1..8 个 scene */
+        uint8_t scenes[8];
+        uint32_t n = (uint32_t)argc - 2u;
+        for (uint32_t i = 0; i < n; i++) {
+            uint32_t scene;
+            if (!seq_scene_arg(argv[2 + i], &scene)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            scenes[i] = (uint8_t)scene;
+        }
+        esp_err_t ret = sloop_seq_chain_begin(scenes[0]);
+        if (ret == ESP_OK && n >= 2u) ret = sloop_seq_chain_commit(scenes, n);
+        if (ret != ESP_OK) return seq_song_err(ret);
+        seq_chain_print();
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SONG") == 0) {
+        if (argc == 2) {
+            seq_song_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "REC") == 0) {
+            esp_err_t ret = sloop_seq_song_rec();
+            if (ret != ESP_OK) return seq_song_err(ret);
+            seq_srec_print();
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "MODE") == 0) {
+            bool enabled;
+            if (strcasecmp(argv[3], "song") == 0 || strcmp(argv[3], "1") == 0)
+                enabled = true;
+            else if (strcasecmp(argv[3], "loop") == 0 || strcmp(argv[3], "0") == 0)
+                enabled = false;
+            else
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_song_mode(enabled);
+            if (ret != ESP_OK) return seq_song_err(ret);
+            printf("SEQ SONG mode=%s\n", enabled ? "song" : "loop");
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SREC") == 0) {
+        if (argc == 2) {
+            seq_srec_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "TOGGLE") == 0) {
+            esp_err_t ret = sloop_seq_song_rec();
+            if (ret != ESP_OK) return seq_song_err(ret);
+            seq_srec_print();
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    printf("用法: SEQ DSTEP [step=0..63] | SEQ MICRO <track=0..3> <step=0..63> <v=-32..31> | "
+           "SEQ FILL <track=0..3> <step=0..63> <v=0..3> | SEQ LOCK LIST <track=0..3> | "
+           "SEQ LOCK SET <track> <step> <param=0..%u> <value> | "
+           "SEQ LOCK DEL <track> <step> <param=0..%u；%u=整步清除> | "
+           "SEQ EDIT <SPAN|DEL|MOVE|COPY|LVL|RAT|SLIDE|CLEAR> <track> <step> [index|target|value] | "
+           "SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE> <track> <arg> | "
+           "SEQ PATTERN <CLEAR|UNDO|REDO> <track> | "
+           "SEQ REC [TOGGLE | CONFIG <quant 0|1> <tempo 0|1> <count 0|1> | "
+           "FILL HOLD <0|1> | FILL NEXT | BUTTON <0|1>] | "
+           "SEQ HIT <lane=0..15> [velocity=1..127；0=松开] | "
+           "SEQ SECTION [<A-D|0..3> STORE|LOAD|ERASE|REQUEST] | "
+           "SEQ CHAIN [<A-D|0..3>…] | "
+           "SEQ SONG [MODE <song|loop>|REC] | SEQ SREC [TOGGLE]\n",
+           (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
     return 1;
 }
 
@@ -1963,8 +2757,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源；含参数投影）",
-        .hint = "SNAP",
+        .help = "状态层自检：STATE SNAP [FULL] 打印 AppState（FULL 含详细步；引擎真值与 ENG SNAP 同源）",
+        .hint = "SNAP [FULL]",
         .func = &state_command,
     };
     ret = esp_console_cmd_register(&state_cmd);
@@ -1988,7 +2782,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);
@@ -2021,16 +2815,33 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
+    const esp_console_cmd_t seq_cmd = {
+        .command = "SEQ",
+        .help = "音序诊断：DSTEP/MICRO/FILL/LOCK；EDIT 音符工具；PATTERN 工具与 undo/redo；"
+                "REC/HIT 录音与鼓演奏；SECTION/CHAIN/SONG/SREC arranger（live section、"
+                "quick chain、SONG 模式与 SONG REC）",
+        .hint = "DSTEP [step]|MICRO/FILL <track> <step> <v>|LOCK ...|EDIT <op> <track> <step> [args]|"
+                "PATTERN <op> <track> [arg]|REC ...|HIT <lane> [vel]|SECTION [<A-D> STORE|LOAD|ERASE|REQUEST]|"
+                "CHAIN [<A-D>…]|SONG [MODE song|loop|REC]|SREC [TOGGLE]",
+        .func = &seq_command,
+    };
+    ret = esp_console_cmd_register(&seq_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 SEQ 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     const esp_console_cmd_t store_cmd = {
         .command = "STORE",
         .help = "存储/工程诊断：STORE STATS 后端与对象状态；STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n；"
                 "STORE PROJ SYNTH <fmt1|foreign> 触发 project_load 的两条 fallback（诊断，覆盖槽 3）；"
                 "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n（FM6 银行 27 槽，PTCH = 8 + n）；"
                 "STORE LIVEHASH 当前工程捕获 hash；STORE RAWTEST 空闲扇区 0xFB000 擦写校验（破坏性）；"
-                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，只快照/恢复 payload，"
-                "settings side record 不保，需停走带）；"
+                "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，快照/恢复两个完整 4KB "
+                "副本扇区并逐字节校验，arrangement/DSU/尾段/side 都不丢；需停走带）；"
+                "STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] PER3 歌曲顺序（SET 只改内存、按门限落盘）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

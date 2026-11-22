@@ -1,0 +1,7 @@
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+down cmd 0.101s, hold sleep 4.000s (real 0.101s), up cmd 0.101s, play cmd/latency 0.303s
+KEY down -> PLAY sent: 4.404s
+LEN=32 BPM=108  computed for 4 bars: 218.0

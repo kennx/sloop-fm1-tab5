@@ -1,0 +1,4 @@
+app: firmware/build/sloop_fm1_tab5.bin
+size: 1649264 bytes
+sha256: e3de21abff95fe442c1764f2460390e26913c688e65ce2421c035063fda1f083
+built: 2026-11-23 04:45:25

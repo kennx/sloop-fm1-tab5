@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-六条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh）
-是本文的薄封装。每个场景：
+八条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
+song.sh / sequence.sh）是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -356,16 +356,16 @@ C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
 # 页签条几何（ADR-005「导航决策」两行页签；theme.h UI_GROUP_*/UI_SUB_* 同源）：
-# 上行组签 y∈[4,36)、176px 宽、间距 8（5×176+4×8=912，右端 928）；下行子签
-# y∈[38,68)、同样 176px，只显示当前组已注册页（固定 5 槽复用）。页面区起点仍是
-# y=72，页内几何全部不变。
+# 上行组签 y∈[4,36)、**168px** 宽、间距 8（6×168+5×8=1,048，右端 1,064 <
+# SLOOP 标题起点 ~1,191）；下行子签 y∈[38,68)、176px，只显示当前组已注册页
+# （固定 5 槽复用，右端 928）。页面区起点仍是 y=72，页内几何全部不变。
 # 探针取页签**左上内缘**（x = 签左 + 20，y = 行顶 + 4）：避开 10px 圆角与 16pt
 # 文本行（组签文本 ≈10..30，子签 ≈43..63），命中填充色（选中 UI_ACCENT / 未选中
 # UI_PANEL_HI）而不是字形抗锯齿。
 UI_TAB_X0, UI_TAB_GAP = 16, 8
-UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 176, 32, 4
+UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 168, 32, 4
 UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
-UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SEQ", "FILE")
+UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SEQ", "SONG", "FILE")
 
 
 def group_tab_xy(i: int) -> tuple:
@@ -398,7 +398,8 @@ C_TAB_FX = sub_tab_probe(1)
 C_TAB_ANALOG = sub_tab_probe(2)
 C_TAB_FM6 = sub_tab_probe(3)
 C_TAB_SAMPLE = sub_tab_probe(4)
-C_TAB_FILE = group_tab_probe(4)
+C_TAB_SONG = group_tab_probe(4)
+C_TAB_FILE = group_tab_probe(5)
 C_TAB_PROJECTS = sub_tab_probe(0)
 C_TAB_PRESETS = sub_tab_probe(1)
 C_ERROR = (224, 84, 40)  # UI_ERROR 0xE0542A → rgb565 (224,84,40)：锁定页页眉红字
@@ -453,6 +454,35 @@ def step_cell_xy(col: int, row: int) -> tuple:
     return (STEP_GRID_X0 + col * STEP_CELL_PITCH + STEP_CELL_W // 2,
             STEP_GRID_Y0 + row * STEP_ROW_PITCH + STEP_CELL_H // 2)
 
+
+# 鼓格内的 16 lane 位（P4-C Task 9）：page_step.c 的 DRUM_GRID_X0/Y0/DRUM_LANE_PITCH/
+# DRUM_LANE_DOT 同名同值（格内相对坐标）。4×4 网格，lane = row*4+col（与上游
+# drums.c 的 lane 序号一致）；点中 dot 命中框 = 选中该 lane 并切换该步的原始位。
+STEP_DRUM_GRID_X0 = 8
+STEP_DRUM_GRID_Y0 = 30
+STEP_DRUM_LANE_PITCH = 14
+STEP_DRUM_LANE_DOT = 8
+
+
+def drum_lane_xy(col: int, lane: int) -> tuple:
+    """鼓格（窗口列 col、行 3）内 lane 位（0..15）的屏幕绝对中心。"""
+    lx = STEP_DRUM_GRID_X0 + (lane % 4) * STEP_DRUM_LANE_PITCH + STEP_DRUM_LANE_DOT // 2
+    ly = STEP_DRUM_GRID_Y0 + (lane // 4) * STEP_DRUM_LANE_PITCH + STEP_DRUM_LANE_DOT // 2
+    return (STEP_GRID_X0 + col * STEP_CELL_PITCH + lx,
+            STEP_GRID_Y0 + 3 * STEP_ROW_PITCH + ly)
+
+
+# 格内文本/标记的局部锚点（page_step.c 的自绘布局同源；屏幕坐标用 step_cell_box 派生）
+STEP_TOP_STRIP_Y = 4    # flags 行（A/S/F/N 字母）文字顶（16–20px 高）
+STEP_NOTE_Y = 22        # 音符名两行：22 与 42
+STEP_NOTE_ROW = 20
+STEP_BOT_STRIP_Y = 84   # micro/rat 行文字顶
+
+
+def step_cell_box(col: int, row: int) -> tuple:
+    """步格左上角的屏幕绝对坐标（与建格同一组宏推导）。"""
+    return (STEP_GRID_X0 + col * STEP_CELL_PITCH, STEP_GRID_Y0 + row * STEP_ROW_PITCH)
+
 # 注入坐标（屏幕绝对坐标 = 页内坐标 + 页签条 UI_TAB_BAR_H，各点取控件矩形中心）。
 # 每个数字对应固件里的布局宏——页面布局改动时按同名宏同步这里：
 #   UI_TAB_BAR_H  = 72   （ui.c）
@@ -463,6 +493,42 @@ TRANSPORT_PLAY = (208, 210)       # TRANSPORT_PLAY 中心：x=48+320/2，y=72+48
 TRANSPORT_STOP = (560, 210)       # TRANSPORT_STOP 中心：x=400+320/2，y 同 PLAY
 TRANSPORT_BPM_PLUS = (1050, 262)  # TRANSPORT_BPM_PLUS 中心：x=1000+100/2，y=72+140+100/2
 TRANSPORT_BPM_MINUS = (910, 262)  # TRANSPORT_BPM_MINUS 中心：x=860+100/2，y 同 "+"
+
+# TRANSPORT 工具区（P4-C Task 10；page_transport.c 的 TR_* 宏同名同值）。
+# 录音/fill 行 y=384（页内）+56 高；聚焦步字段行 y=464、88 宽、间距 96（6 个
+# 单对象 chip：LVL / RAT / MIC- / MIC+ / SPAN / SLIDE）；pattern 区 x=792 起：
+# y=292 行 4×100（间距 8）、y=360 行 120/120/84/84、y=428 行 CLEAR 432 宽。
+# TAP 坐标 = 页内坐标 + 页签条 72。
+TR_REC = (48 + 70, 72 + 384 + 28)
+TR_FILL = (200 + 60, 72 + 384 + 28)
+TR_NEXT = (328 + 60, 72 + 384 + 28)
+TR_REC_W, TR_REC_H = 140, 56
+TR_FILL_W, TR_FILL_H = 120, 56
+TR_PAT_H = 56
+TR_STEP_X0, TR_STEP_Y, TR_STEP_W, TR_STEP_H, TR_STEP_PITCH = 24, 464, 88, 56, 96
+
+
+def tr_step_chip(i: int) -> tuple:
+    """聚焦步字段 chip i 的屏幕绝对中心（0 LVL / 1 RAT / 2 MIC- / 3 MIC+ /
+    4 SPAN / 5 SLIDE）。"""
+    return (TR_STEP_X0 + i * TR_STEP_PITCH + TR_STEP_W // 2,
+            72 + TR_STEP_Y + TR_STEP_H // 2)
+
+
+TR_LVL, TR_RAT = tr_step_chip(0), tr_step_chip(1)
+TR_MIC_DN, TR_MIC_UP = tr_step_chip(2), tr_step_chip(3)
+TR_SPAN, TR_SLIDE = tr_step_chip(4), tr_step_chip(5)
+
+TR_PAT_ROW0, TR_PAT_ROW1, TR_PAT_ROW2 = 72 + 292 + 28, 72 + 360 + 28, 72 + 428 + 28
+TR_ROT_DN = (842, TR_PAT_ROW0)
+TR_ROT_UP = (950, TR_PAT_ROW0)
+TR_LEN_X2 = (1058, TR_PAT_ROW0)
+TR_LEN_D2 = (1166, TR_PAT_ROW0)
+TR_TRANS_DN = (852, TR_PAT_ROW1)
+TR_TRANS_UP = (980, TR_PAT_ROW1)
+TR_UNDO = (1090, TR_PAT_ROW1)
+TR_REDO = (1182, TR_PAT_ROW1)
+TR_CLEAR = (1008, TR_PAT_ROW2)
 # 默认窗口 {0,0,16} 下的两个编辑格：轨 0 窗口列 2（绝对步 2）/ 轨 1 列 5（绝对步 5）。
 # soak.py 直接复用这两个点，故保留模块级常量（窗口默认口径下与 step_cell_xy 一致）。
 STEP_CELL_A = step_cell_xy(2, 0)
@@ -554,6 +620,16 @@ def run_transport(s: Session) -> None:
     s.probe(img, "页签选中（TRANSPORT）", *C_TAB_TRANSPORT, C_YELLOW)
     s.probe(img, "页面背景", 640, 690, C_BG)
 
+    # 停止态跑工具区（P4-C Task 10）：REC/fill 的状态机、聚焦步字段与 pattern
+    # 工具都需要确定性的停止态；结束复位为停止（下面的播放头用例再自行起播）。
+    run_transport_tools(s)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（回到走带用例）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑩ 工具区收口：停止")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑩ 工具区收口：playing=0")
+
     # 播放中切 STEP：先归一窗口（窗口是持久 UI 状态；播放头列扫描按 window_len 几何）。
     # 播放头由引擎 step_pos 驱动；SCR 抓的是"上一已刷新帧"（≤30ms 旧），所以每帧的
     # 播放头列应等于抓屏前 ENG SNAP 的 pos（或紧邻 1–2 列）；两帧的 pos 不同即证明
@@ -604,9 +680,14 @@ def run_transport(s: Session) -> None:
         if not ok_a or not ok_b:
             s.fail(f"行 {r} 播放头列与引擎 step_pos 不符（帧 A 允许 {sorted(want_a)}，"
                    f"帧 B 允许 {sorted(want_b)}）")
-    (s.ok if pre_a != pre_b else s.fail)(
-        f"引擎 step_pos 两帧间变化 {pre_a} -> {pre_b}（16 列环绕，按模计）" if pre_a != pre_b
-        else f"引擎 step_pos 两帧间未变化（均为 {pre_a}）")
+    # 播放推进的判据：引擎 pos 读数或**两帧的播放头列**任一变化即可。pos 是取帧前的
+    # ENG SNAP 读数、循环 1s（240 BPM×16 步），两次 16s 级的截屏恰好落在同一相位是
+    # 1/16 概率的采样巧合；帧列是独立观测（本次实测 pos 均 11、帧列 12→13），用它兜底
+    # 不是放宽断言——两帧各行的列仍必须落在各自 pos 的 ±2 窗口内。
+    advanced = pre_a != pre_b or cls_a != cls_b
+    (s.ok if advanced else s.fail)(
+        f"播放推进：引擎 pos {pre_a} -> {pre_b}，帧列 {cls_a} -> {cls_b}"
+        if advanced else f"两帧均未推进（pos={pre_a} 列={cls_a}）")
 
     # 复位：停止并回 PLAY 页（脚本可重复运行）
     s.cmd("UI transport")
@@ -617,12 +698,597 @@ def run_transport(s: Session) -> None:
     s.cmd("UI play")
 
 
+# LVL 的响度序（page_transport.c 的 lvl_step 同源）：raw 1 GHOST < 2 SOFT < 0 NORM < 3 HARD
+TR_LVL_ORDER = (1, 2, 0, 3)
+
+
+def tr_lvl_step(raw: int, up: bool) -> int:
+    i = TR_LVL_ORDER.index(raw & 3)
+    return TR_LVL_ORDER[(i + (1 if up else 3)) % 4]
+
+
+def tr_focus_step(s: Session, track: int, step: int) -> None:
+    """在 STEP 页用键盘把焦点归一到 (track, step)（只写 UI 局部态、不发引擎写），
+    再回 TRANSPORT 页。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（焦点归一）")
+    s.cmd("STATE SNAP")
+    t0, s0 = s.snap_int(r"focus_track=(\d+)"), s.snap_int(r"focus_step=(\d+)")
+    if t0 >= 3:  # 鼓轨上 ↑ 逐 lane 离开（最多 16 lane + 一步）
+        for _ in range(17):
+            s.cmd("KEY 0x3B down")
+            s.cmd("KEY 0x3B up")
+            s.cmd("STATE SNAP")
+            t0 = s.snap_int(r"focus_track=(\d+)")
+            if t0 < 3:
+                break
+    # 焦点环不是三轨循环：T1↑→DRM L16、T3↓→DRM L1，所以按方向走（T3→T1 用 ↑ 两次，
+    # T1→T3 用 ↓ 两次）；从鼓轨出来已由上面的循环落到 T3。
+    key = 0x4B if track > t0 else 0x3B
+    for _ in range(abs(track - t0)):
+        s.cmd(f"KEY 0x{key:02X} down")
+        s.cmd(f"KEY 0x{key:02X} up")
+    for _ in range((step - s0) % 16):
+        s.cmd("KEY 0x4C down")
+        s.cmd("KEY 0x4C up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", track, f"⑩ 焦点轨 = {track}")
+    s.expect_int(r"focus_step=(\d+)", step, f"⑩ 焦点列 = {step}")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点已归一）")
+
+
+def tr_focus_col(s: Session, step: int) -> None:
+    """在 STEP 页只移动**焦点列**到 `step`（窗口列，0..window_len-1），不动焦点轨；
+    再回 TRANSPORT 页。鼓轨用例（焦点轨 3）用它对齐引擎步号。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（焦点列）")
+    s.cmd("STATE SNAP")
+    s0 = s.snap_int(r"focus_step=(\d+)")
+    wlen = s.snap_int(r"window_len=(\d+)")
+    for _ in range((step - s0) % wlen):
+        s.cmd("KEY 0x4C down")
+        s.cmd("KEY 0x4C up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_step=(\d+)", step, f"⑩ 焦点列 = {step}")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点列已归一）")
+
+
+def run_transport_tools(s: Session) -> None:
+    """⑩ TRANSPORT 工具区（P4-C Task 10）：REC 五态、fill held/next、聚焦步字段
+    （LVL/RAT/MIC/SPAN/SLIDE）与 pattern 工具（ROT/LEN/TRANS/CLEAR/UNDO/REDO）。
+
+    判据：每个 TAP 回显一条对应 EditCmd（`-> TRANSPORT <CMD> <op> value=<写后回读>`），
+    引擎真值随之变化；非法动作（空步 LVL、鼓轨 SPAN/SLIDE、鼓轨 TRANSPOSE）回
+    ERR/ignored 且**不改状态**。pattern 工具会整轨改写（CLEAR 连 lock/micro/fill
+    一起清、UNDO 不含它们），所以先用诊断槽 3 快照工程、结束时 LOAD 还原并 ERASE，
+    用 `STORE LIVEHASH` 逐位证明还原。结束时焦点/选轨/走带都归一，脚本可重复。"""
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑩ 停止（工具区的确定性前提）")
+    normalize_pattern(s, "⑩ 归一 LEN/DIV")
+    ensure_window(s, 0, 16)
+    select_track(s, 0)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（回页）")
+
+    # 聚焦步 = 轨 0 / 窗口列 2（绝对步 2）：清空后经 TAP 开一步（C4=60，脚本可重复）。
+    # 先「开一步再清」：孤立 TIE 步（上一轮中断留下的 span 尾巴）对 `SEQ EDIT CLEAR`
+    # 是 no-op（适配层的 STEP_CLEAR 只删 note，不把 time 写回 REST；上游 `step_clear`
+    # 会 memset+REST——DI-31），直接 CLEAR 清不掉，会让 SPAN 基点从 1 变成 2+。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（归一孤立 TIE 步）")
+    for step in (1, 2, 3, 4, 5):
+        s.cmd("TAP %d %d" % step_cell_xy(step, 0))  # NOTE→清；TIE/REST→开成 NOTE
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")             # NOTE→REST
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"⑩ 归一轨 0 步 {step} 为 REST")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（归一后）")
+    for step in (1, 2, 3, 4, 5):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"⑩ 清空轨 0 步 {step}")
+    s.cmd("KEY 0x21 down")  # q = C4（设 last_note，TAP 开步用它）
+    s.cmd("KEY 0x21 up")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（造聚焦步）")
+    s.cmd("TAP %d %d" % step_cell_xy(2, 0))
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "⑩ 开轨 0 步 2")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
+    base = eng_step(s, 0, 2)
+    (s.ok if base["n"] == 1 else s.fail)(f"⑩ 聚焦步基线 n={base['n']}（期望 1）")
+
+    # ---------- ⑩a REC 五态（arm/off；先归一，脚本可重复） ----------
+    s.cmd("STATE SNAP")
+    if re.search(r"\brec=armed\b", s.last):
+        s.ser.note("⑩ 基线：REC 已 ARMED（上一轮中断留下的状态）→ 先归一到 OFF")
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC（归一到 OFF）")
+        s.cmd("STATE SNAP")
+        s.expect(r"\brec=off\b", "⑩ REC 五态：OFF（归一）")
+    s.cmd("TAP %d %d" % TR_REC)
+    s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC → CMD_REC_TOGGLE")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=armed\b", "⑩ REC 五态：ARMED")
+    s.cmd("TAP %d %d" % TR_REC)
+    s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC（再切换）")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=off\b", "⑩ REC 五态：OFF")
+
+    # ---------- ⑩b fill：HOLD 电平 / NEXT 脉冲（两个独立变量） ----------
+    # FILL chip 是切换：先读基线，再断言「写入的电平 = 1 - 基线」且引擎跟随；
+    # 两次切换回到基线（脚本可重复，不依赖上一轮留下的 fill 状态）。
+    s.cmd("SEQ REC")
+    held0 = s.snap_int(r"fill_held=(\d)")
+    s.cmd("TAP %d %d" % TR_FILL)
+    s.expect(rf"-> TRANSPORT CMD_FILL_CONTROL hold value={1 - held0}",
+             f"⑩ TAP FILL → held={1 - held0}")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_held=(\d)", 1 - held0, "⑩ FILL 保持电平跟随")
+    s.cmd("TAP %d %d" % TR_FILL)
+    s.expect(rf"-> TRANSPORT CMD_FILL_CONTROL hold value={held0}", "⑩ TAP FILL（回到基线）")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_held=(\d)", held0, "⑩ FILL 保持电平回基线")
+    arm0 = s.snap_int(r"fill_arm=(\d)")
+    s.cmd("TAP %d %d" % TR_NEXT)
+    s.expect(r"-> TRANSPORT CMD_FILL_CONTROL next value=1", "⑩ TAP NEXT → 脉冲")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_arm=(\d)", 1 - arm0, "⑩ FILL 下一小节待命翻转（脉冲只翻转 arm）")
+    s.cmd("TAP %d %d" % TR_NEXT)
+    s.expect(r"-> TRANSPORT CMD_FILL_CONTROL next value=1", "⑩ TAP NEXT（再翻转）")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_arm=(\d)", arm0, "⑩ FILL 下一小节待命回基线")
+    s.expect_int(r"fill_held=(\d)", held0, "⑩ NEXT 脉冲不读写保持电平")
+
+    # ---------- ⑩c 聚焦步字段：LVL / RAT 循环、MIC ±（含边界） ----------
+    # LVL chip = 循环前进（响度序 GHOST<SOFT<NORM<HARD）：从 NORM(0) 起
+    # HARD(3) → GHOST(1) → SOFT(2) → NORM(0)，四拍回到基线。
+    for want in (3, 1, 2, 0):
+        s.cmd("TAP %d %d" % TR_LVL)
+        s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want}", f"⑩ TAP LVL → {want}")
+        got = eng_step(s, 0, 2)
+        (s.ok if (got["lvl"] & 3) == want else s.fail)(
+            f"⑩ 引擎 lvl={got['lvl'] & 3}（期望 {want}）")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ TAP LVL chip 同时落键盘焦点（lvl）")
+    # RAT chip = x1→x2→x3→x4→x1（raw 0..3 循环）
+    for want in (1, 2, 3, 0):
+        s.cmd("TAP %d %d" % TR_RAT)
+        s.expect(rf"-> TRANSPORT CMD_STEP_EDIT rat value={want}", f"⑩ TAP RAT → {want}")
+        got = eng_step(s, 0, 2)
+        (s.ok if (got["rat"] & 3) == want else s.fail)(
+            f"⑩ 引擎 rat={got['rat'] & 3}（期望 {want}）")
+
+    s.cmd("TAP %d %d" % TR_MIC_UP)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=1", "⑩ TAP MIC+ → +1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["micro"] == 1 else s.fail)(f"⑩ 引擎 micro={got['micro']}（期望 1）")
+    s.cmd("TAP %d %d" % TR_MIC_DN)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=0", "⑩ TAP MIC- → 0")
+    # 上界 31：UI 侧钳位后下发（值不变、不产生 invalid）
+    s.cmd("SEQ MICRO 0 2 31")
+    s.expect(r"SEQ MICRO track=0 step=2 value=31 OK", "⑩ micro 置 31（上界）")
+    s.cmd("TAP %d %d" % TR_MIC_UP)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=31", "⑩ TAP MIC+ 在 31 钳位")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["micro"] == 31 else s.fail)(f"⑩ 引擎 micro={got['micro']}（期望 31）")
+    s.cmd("SEQ MICRO 0 2 0")
+    s.expect(r"SEQ MICRO track=0 step=2 value=0 OK", "⑩ micro 归零")
+
+    # ---------- ⑩d SPAN / SLIDE（合成轨；鼓轨不适用在 ⑩f 覆盖） ----------
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span value=2", "⑩ TAP SPAN → 2")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=3 name=span", "⑩ TAP SPAN chip 落焦点 = span")
+    t3 = eng_step(s, 0, 3)
+    (s.ok if t3["time"] == 1 and t3["n"] == 0 else s.fail)(
+        f"⑩ 步 3 = TIE（time={t3['time']} n={t3['n']}，期望 time=1 n=0）")
+    # 焦点已在 span：键盘 ↓ = SPAN-（触摸 chip 只有循环前进，双向由键盘补）
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    t3 = eng_step(s, 0, 3)
+    (s.ok if t3["time"] == 2 and t3["n"] == 0 else s.fail)(
+        f"⑩ 键盘 ↓：SPAN 回到 1（time={t3['time']} n={t3['n']}，期望 time=2 n=0）")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide value=1", "⑩ TAP SLIDE → ON")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["flags"] & 0x02) != 0 else s.fail)(
+        f"⑩ 引擎 flags=0x{got['flags']:02X}（期望 SLIDE 位）")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide value=0", "⑩ TAP SLIDE → OFF")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["flags"] & 0x02) == 0 else s.fail)(
+        f"⑩ 引擎 flags=0x{got['flags']:02X}（SLIDE 已清）")
+
+    # ---------- ⑩e 非法动作不改状态：空步 LVL ----------
+    tr_focus_step(s, 0, 5)  # 步 5 已清空（聚焦步基线）
+    empty_before = eng_step(s, 0, 5)
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT lvl ERR not_found value=0",
+             "⑩ 空步 LVL → ERR not_found")
+    empty_after = eng_step(s, 0, 5)
+    (s.ok if empty_after == empty_before else s.fail)(
+        "⑩ 非法动作不改状态（空步逐字段不变）")
+
+    # ---------- ⑩e2 空步 SPAN（NOT_FOUND）与 freeze chip（FROZEN，不改状态） ----------
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span ERR not_found value=1 status=\"SPAN: EMPTY\"",
+             "⑩ 空步 SPAN → ERR not_found + 屏幕状态")
+    (s.ok if eng_step(s, 0, 5) == empty_before else s.fail)("⑩ 空步 SPAN 不改状态")
+
+    tr_focus_step(s, 0, 2)
+    frozen_before = eng_step(s, 0, 2)
+    s.cmd("ENG FREEZE ON")
+    s.expect(r"ENG FREEZE on", "⑩ ENG FREEZE ON（chip 拒绝路径）")
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT lvl ERR frozen value=\d+ status=\"LVL: FROZEN\"",
+             "⑩ 冻结时 TAP LVL → ERR frozen + 屏幕状态")
+    s.cmd("ENG FREEZE OFF")
+    s.expect(r"ENG FREEZE off", "⑩ ENG FREEZE OFF")
+    (s.ok if eng_step(s, 0, 2) == frozen_before else s.fail)("⑩ 冻结期间的 chip 动作不改状态")
+
+    # ---------- ⑩e3 隐藏 bank（窗口 16..23）：目标 / 写入都用绝对步号 ----------------
+    ensure_window(s, 16, 8)
+    tr_focus_step(s, 0, 2)  # 窗口列 2 = 绝对步 18
+    s.cmd("ENG STEP 0 18")
+    n18 = s.snap_int(r"\bn=(\d+)")
+    if n18 == 0:
+        s.ser.note("⑩ 绝对步 18 为空：先造一个音（本用例不额外清；⑩g 的工程快照"
+                    "会把它一并保存/还原，下一次运行看到非空即跳过）")
+        s.cmd("UI step")
+        s.expect(r"UI page=step \(2\)", "⑩ UI step（bank1 造音）")
+        s.cmd("TAP %d %d" % step_cell_xy(2, 0))
+        s.expect(r"-> STEP track=0 step=18 CMD_TOGGLE_STEP", "⑩ TAP 窗口列 2 = 绝对步 18")
+    lvl18 = eng_step(s, 0, 18)["lvl"] & 3
+    want = tr_lvl_step(lvl18, True)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（bank1）")
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want} status=\"LVL: ",
+             "⑩ bank1 窗口：TAP LVL 写到绝对步")
+    got = eng_step(s, 0, 18)
+    (s.ok if (got["lvl"] & 3) == want else s.fail)(
+        f"⑩ 绝对步 18 lvl={got['lvl'] & 3}（期望 {want}，不是窗口列号 2）")
+    s.cmd("KEY 0x4B down")  # 焦点已落到 lvl：↓ 还原
+    s.cmd("KEY 0x4B up")
+    (s.ok if (eng_step(s, 0, 18)["lvl"] & 3) == lvl18 else s.fail)("⑩ bank1 lvl 还原")
+    ensure_window(s, 0, 16)
+    tr_focus_step(s, 0, 2)
+
+    # ---------- ⑩f 鼓轨：选中 lane 的 LVL/RAT 读改写；SPAN/SLIDE 不适用 ----------
+    select_track(s, 3)
+    tr_focus_col(s, 5)  # 焦点步 = 5：下面的引擎断言按绝对步 5 读（窗口 0..15）
+    s.cmd("UI LANE 5")
+    s.expect(r"UI LANE lane=5", "⑩ 选中鼓 lane 5")
+    d0 = seq_dstep(s, 5)
+    lvl0 = dstep_bits(d0["lvl"], 5)
+    s.cmd("TAP %d %d" % TR_LVL)
+    want_lvl = tr_lvl_step(lvl0, True)
+    s.expect(rf"-> TRANSPORT CMD_DRUM_STEP_WRITE lvl value={want_lvl}",
+             "⑩ 鼓轨 TAP LVL → CMD_DRUM_STEP_WRITE")
+    d1 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d1["lvl"], 5) == want_lvl and d1["on"] == d0["on"] else s.fail)(
+        f"⑩ 鼓 lane 5 lvl={dstep_bits(d1['lvl'], 5)}（期望 {want_lvl}），on 位图不变")
+    s.cmd("KEY 0x4B down")  # 焦点 = lvl（TAP 已设）→ LVL_DN 还原
+    s.cmd("KEY 0x4B up")
+    d2 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d2["lvl"], 5) == lvl0 else s.fail)(
+        f"⑩ 键盘 ↓：鼓 lane 5 lvl 回到 {lvl0}")
+
+    rat0 = dstep_bits(d2["rat"], 5)
+    if rat0 < 3:
+        s.cmd("TAP %d %d" % TR_RAT)
+        s.expect(rf"-> TRANSPORT CMD_DRUM_STEP_WRITE rat value={rat0 + 1}",
+                 "⑩ 鼓轨 TAP RAT → CMD_DRUM_STEP_WRITE")
+        d3 = seq_dstep(s, 5)
+        (s.ok if dstep_bits(d3["rat"], 5) == rat0 + 1 else s.fail)(
+            f"⑩ 鼓 lane 5 rat={dstep_bits(d3['rat'], 5)}（期望 {rat0 + 1}）")
+        s.cmd("KEY 0x4B down")  # 焦点 = rat → RAT_DN 还原
+        s.cmd("KEY 0x4B up")
+    else:
+        s.ser.note(f"⑩ 鼓 lane 5 rat 已在 x4（raw 3）：键盘 ↓/↑ 往返验证双向")
+        s.cmd("UI TOOL 1")
+        s.expect(r"UI TOOL field=1 name=rat", "⑩ UI TOOL 1 → rat")
+        s.cmd("KEY 0x4B down")
+        s.cmd("KEY 0x4B up")
+        s.cmd("KEY 0x3B down")
+        s.cmd("KEY 0x3B up")
+    d4 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d4["rat"], 5) == rat0 else s.fail)(
+        f"⑩ 鼓 lane 5 rat 回到 {rat0}（实得 {dstep_bits(d4['rat'], 5)}）")
+
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span ignored \(not_synth\) value=0",
+             "⑩ 鼓轨 SPAN → ignored (not_synth)")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide ignored \(not_synth\) value=0",
+             "⑩ 鼓轨 SLIDE → ignored (not_synth)")
+    (s.ok if seq_dstep(s, 5) == d4 else s.fail)("⑩ 不适用动作不改鼓步（逐字节不变）")
+
+    # ---------- ⑩g pattern 工具（先快照工程：CLEAR 会清 lock/micro/fill，UNDO 不含它们） ----------
+    store_cmd(s, "STORE PROJ SAVE 3", r"^PROJ 3 SAVED hash=[0-9A-F]{8}", "⑩ 工程快照 SAVE 3")
+    hash0 = live_hash(s)
+    select_track(s, 0)
+    tr_focus_step(s, 0, 2)
+
+    s.cmd("TAP %d %d" % TR_ROT_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN rotate value=1", "⑩ TAP ROT+ → rotate +1")
+    moved = eng_step(s, 0, 2)
+    got3 = eng_step(s, 0, 3)
+    (s.ok if moved["n"] == 0 and got3["note0"] == 60 else s.fail)(
+        f"⑩ 旋转后：步 2 n={moved['n']}、步 3 note0={got3['note0']}（期望 0 / 60）")
+    s.cmd("TAP %d %d" % TR_ROT_DN)
+    s.expect(r"-> TRANSPORT CMD_PATTERN rotate value=-1", "⑩ TAP ROT- → rotate -1")
+    back = eng_step(s, 0, 2)
+    (s.ok if back["note0"] == 60 else s.fail)(f"⑩ 反向旋转回位：步 2 note0={back['note0']}")
+
+    s.cmd("TAP %d %d" % TR_LEN_X2)
+    s.expect(r"-> TRANSPORT CMD_PATTERN length value=32", "⑩ TAP LEN x2 → LEN 32")
+    s.cmd("ENG SNAP")
+    s.expect_int(r"trk k=0 .*?\blen=(\d+)", 32, "⑩ ENG SNAP 轨 0 len（×2）")
+    s.cmd("TAP %d %d" % TR_LEN_D2)
+    s.expect(r"-> TRANSPORT CMD_PATTERN length value=16", "⑩ TAP LEN /2 → LEN 16")
+    s.cmd("ENG SNAP")
+    s.expect_int(r"trk k=0 .*?\blen=(\d+)", 16, "⑩ ENG SNAP 轨 0 len（÷2）")
+
+    s.cmd("TAP %d %d" % TR_TRANS_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose value=1", "⑩ TAP TRANS+ → +1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["note0"] == 61 else s.fail)(f"⑩ 移调后 note0={got['note0']}（期望 61）")
+    s.cmd("TAP %d %d" % TR_TRANS_DN)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose value=-1", "⑩ TAP TRANS- → -1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["note0"] == 60 else s.fail)(f"⑩ 移调回位 note0={got['note0']}（期望 60）")
+
+    s.cmd("TAP %d %d" % TR_CLEAR)
+    s.expect(r"-> TRANSPORT CMD_PATTERN clear value=0", "⑩ TAP CLEAR → clear")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 0 else s.fail)(f"⑩ CLEAR 后步 2 n={got['n']}（期望 0）")
+    s.cmd("TAP %d %d" % TR_UNDO)
+    s.expect(r"-> TRANSPORT CMD_PATTERN undo value=0", "⑩ TAP UNDO → undo")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 1 and got["note0"] == 60 else s.fail)(
+        f"⑩ UNDO 恢复步 2（n={got['n']} note0={got['note0']}）")
+    s.cmd("TAP %d %d" % TR_REDO)
+    s.expect(r"-> TRANSPORT CMD_PATTERN redo value=0", "⑩ TAP REDO → redo")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 0 else s.fail)(f"⑩ REDO 后步 2 n={got['n']}（期望 0）")
+
+    # 鼓轨上的 TRANSPOSE 由上游拒绝（invalid），图案不变
+    select_track(s, 3)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（鼓轨 TRANSPOSE）")
+    d_before = seq_dstep(s, 5)
+    s.cmd("TAP %d %d" % TR_TRANS_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose ERR invalid value=1",
+             "⑩ 鼓轨 TRANSPOSE → ERR invalid")
+    (s.ok if seq_dstep(s, 5) == d_before else s.fail)("⑩ 被拒的 TRANSPOSE 不改鼓步")
+
+    # 工程还原（诊断槽 3 的 LOAD 连 lock/micro/fill 一起回原状态）+ 槽收口
+    store_cmd(s, "STORE PROJ LOAD 3", r"^PROJ 3 LOADED hash=[0-9A-F]{8}", "⑩ 工程还原 LOAD 3")
+    hash1 = live_hash(s)
+    (s.ok if hash1 == hash0 else s.fail)(
+        f"⑩ 还原后 LIVEHASH {hash1:08X} == 快照前 {hash0:08X}")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASE", "⑩ 收口 ERASE 3")
+
+    # ---------- ⑩h 键盘：←/→ 移工具焦点、↑/↓ 调焦点字段、ENTER 切换 ----------
+    select_track(s, 0)
+    tr_focus_step(s, 0, 2)
+    s.cmd("UI TOOL 0")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ UI TOOL 0 → lvl")
+    s.cmd("UI TOOL 8")
+    s.expect(r"UI ERR tool", "⑩ UI TOOL 越界 → UI ERR tool")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 越界不改焦点（仍 lvl）")
+
+    lvl0 = eng_step(s, 0, 2)["lvl"] & 3
+    s.cmd("KEY 0x3B down")  # ↑ = 焦点字段 +1
+    s.cmd("KEY 0x3B up")
+    got = eng_step(s, 0, 2)
+    want = tr_lvl_step(lvl0, True)
+    (s.ok if (got["lvl"] & 3) == want else s.fail)(
+        f"⑩ 键盘 ↑：lvl {lvl0} -> {got['lvl'] & 3}（期望 {want}）")
+    s.cmd("KEY 0x4B down")  # ↓ = -1
+    s.cmd("KEY 0x4B up")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["lvl"] & 3) == lvl0 else s.fail)(
+        f"⑩ 键盘 ↓：lvl 回到 {lvl0}（实得 {got['lvl'] & 3}）")
+
+    s.cmd("KEY 0x4C down")  # → = 焦点字段 +1（lvl -> rat）
+    s.cmd("KEY 0x4C up")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=1 name=rat", "⑩ 键盘 →：焦点 = rat")
+    rat0 = eng_step(s, 0, 2)["rat"] & 3
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    got = eng_step(s, 0, 2)
+    want = (rat0 + 1) & 3  # RAT 是 x1..x4 的循环（x4 再前进回 x1）
+    (s.ok if (got["rat"] & 3) == want else s.fail)(
+        f"⑩ 键盘 ↑：rat {rat0} -> {got['rat'] & 3}（期望 {want}）")
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["rat"] & 3) == rat0 else s.fail)(
+        f"⑩ 键盘 ↓：rat 回到 {rat0}（实得 {got['rat'] & 3}）")
+
+    s.cmd("UI TOOL 4")  # slide
+    s.expect(r"UI TOOL field=4 name=slide", "⑩ UI TOOL 4 → slide")
+    slide0 = 1 if (eng_step(s, 0, 2)["flags"] & 0x02) else 0
+    s.cmd("KEY 0x3D down")  # ENTER = 切换
+    s.cmd("KEY 0x3D up")
+    got = eng_step(s, 0, 2)
+    (s.ok if ((got["flags"] & 0x02) != 0) != bool(slide0) else s.fail)(
+        f"⑩ 键盘 ENTER：SLIDE {slide0} -> {(got['flags'] & 0x02) != 0}")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    got = eng_step(s, 0, 2)
+    (s.ok if ((got["flags"] & 0x02) != 0) == bool(slide0) else s.fail)(
+        f"⑩ 键盘 ENTER（再按）：SLIDE 回到 {slide0}")
+
+    s.cmd("UI TOOL 7")
+    s.expect(r"UI TOOL field=7 name=trans", "⑩ UI TOOL 7 → trans")
+    s.cmd("KEY 0x4C down")  # 7 → 0 环绕
+    s.cmd("KEY 0x4C up")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 键盘 → 在字段环上环绕（trans -> lvl）")
+
+    # ---------- ⑩h2 焦点轨 ≠ 选中轨：屏幕上报的目标 = 引擎实际写入的轨 ----------
+    # 选中轨 0（走带/播放头），焦点轨 2：第二行必须以 `T3 S<abs>` 开头、颜色 = 轨 2
+    # （黄），工具也只写轨 2。轨 2 的步 2 先造一个音（结束清回），保证 LVL 不是 NOT_FOUND。
+    select_track(s, 0)  # 上面的 LOAD 还原带回快照里的选中轨（SAVE 时是鼓轨）
+    s.cmd("SEQ EDIT CLEAR 2 2")
+    s.expect(r"SEQ EDIT CLEAR track=2 step=2 OK", "⑩ 清空轨 2 步 2（焦点轨目标用例）")
+    s.cmd("KEY 0x21 down")  # q = C4（last_note）
+    s.cmd("KEY 0x21 up")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（给焦点轨造音）")
+    s.cmd("TAP %d %d" % step_cell_xy(2, 2))
+    s.expect(r"-> STEP track=2 step=2 CMD_TOGGLE_STEP", "⑩ 轨 2 步 2 开音")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d)", 2, "⑩ 焦点轨 = 2（选中轨仍是 0）")
+    s.expect_int(r"selected_track=(\d)", 0, "⑩ 选中轨仍 = 0")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点轨目标）")
+    t0_lvl = eng_step(s, 0, 2)["lvl"] & 3
+    t2_lvl = eng_step(s, 2, 2)["lvl"] & 3
+    want = tr_lvl_step(t2_lvl, True)
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want} status=\"LVL: ",
+             "⑩ 焦点轨 TAP LVL（回显带屏幕状态）")
+    got2 = eng_step(s, 2, 2)
+    got0 = eng_step(s, 0, 2)
+    (s.ok if (got2["lvl"] & 3) == want else s.fail)(
+        f"⑩ 引擎写入轨 2：lvl={got2['lvl'] & 3}（期望 {want}）")
+    (s.ok if (got0["lvl"] & 3) == t0_lvl else s.fail)(
+        f"⑩ 选中轨 0 未被写：lvl={got0['lvl'] & 3}（期望 {t0_lvl}）")
+    img = s.capture("transport-focus")
+    # 第二行（工具目标）与第一行同标签：文本颜色 = **焦点轨 2**（黄），不含轨 0 蓝。
+    detail_box = (48, 72 + 320, 760, 72 + 320 + 50)
+    yellow = count_region(img, detail_box, C_YELLOW, 16)
+    blue = count_region(img, detail_box, C_BLUE, 16)
+    (s.ok if yellow >= 100 and blue == 0 else s.fail)(
+        f"⑩ 步摘要文本颜色 = 焦点轨黄 {yellow} / 选中轨蓝 {blue}（期望黄 ≥100、蓝 0）")
+    # 收口：LVL 回原值（键盘 ↓ 作用在同一焦点）→ 清轨 2 步 2 → 焦点回轨 0 步 2
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    got2 = eng_step(s, 2, 2)
+    (s.ok if (got2["lvl"] & 3) == t2_lvl else s.fail)(
+        f"⑩ 焦点轨 2 lvl 回到 {t2_lvl}（实得 {got2['lvl'] & 3}）")
+    s.cmd("SEQ EDIT CLEAR 2 2")
+    s.expect(r"SEQ EDIT CLEAR track=2 step=2 OK", "⑩ 清回轨 2 步 2")
+    tr_focus_step(s, 0, 2)
+
+    # ---------- ⑩i 截屏：REC ARMED + FILL 保持 + 状态行的视觉证据 ----------
+    s.cmd("STATE SNAP")
+    if not re.search(r"\brec=armed\b", s.last):
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ 截屏前提：REC → ARMED")
+        s.cmd("STATE SNAP")
+        s.expect(r"\brec=armed\b", "⑩ 截屏前提：REC 已 ARMED")
+    s.cmd("SEQ REC")
+    if s.snap_int(r"fill_held=(\d)") == 0:
+        s.cmd("TAP %d %d" % TR_FILL)
+        s.expect(r"-> TRANSPORT CMD_FILL_CONTROL hold value=1", "⑩ 截屏前提：FILL 保持")
+        s.cmd("SEQ REC")
+        s.expect_int(r"fill_held=(\d)", 1, "⑩ 截屏前提：FILL 保持已建立")
+    img = s.capture("transport-tools")
+    # 探针取 chip 的**内缘**（左上/左下 14px）：避开 16pt 文本行与 12px 圆角。
+    rec_bg = (TR_REC[0] - TR_REC_W // 2 + 14, TR_REC[1] - TR_REC_H // 2 + 14)
+    fill_bg = (TR_FILL[0] - TR_FILL_W // 2 + 14, TR_FILL[1] - TR_FILL_H // 2 + 14)
+    lvl_bg = (TR_LVL[0] - TR_STEP_W // 2 + 14, TR_LVL[1] + TR_STEP_H // 2 - 14)
+    clear_bg = (TR_CLEAR[0] - 432 // 2 + 14, TR_CLEAR[1] + TR_PAT_H // 2 - 14)
+    s.probe(img, "REC chip 底（ARMED = UI_ACCENT）", *rec_bg, C_YELLOW)
+    s.probe(img, "FILL chip 底（held = UI_ACCENT）", *fill_bg, C_YELLOW)
+    s.probe(img, "聚焦步字段 chip 底（UI_PANEL_HI）", *lvl_bg, C_PANEL_HI)
+    s.probe(img, "pattern chip 底（UI_PANEL_HI）", *clear_bg, C_PANEL_HI)
+    s.probe_region(img, "状态行文本（STOPPED + 动作结果）",
+                   (48, 72 + 264, 808, 72 + 264 + 40), C_TEXT, 16, 30)
+
+    mem = param_mem(s)
+    state, est, delta = mem["pages"].get(3, ("?", 0, 0))
+    (s.ok if state == "built" and 0 < delta <= est else s.fail)(
+        f"⑩ UI MEM TRANSPORT state={state} delta={delta} est={est}（0 < delta ≤ est）")
+    seq_est = mem["groups"]["SEQ"]["sum_est"]
+    (s.ok if seq_est == 23040 + est else s.fail)(
+        f"⑩ UI MEM GROUP SEQ sum_est={seq_est}（期望 STEP 23040 + TRANSPORT {est}）")
+    pair = UI_BASE_BYTES + seq_est + 12800 + 4096
+    s.ser.note(f"⑩ TRANSPORT 预算：est={est} delta={delta}（余量 "
+               f"{(est - delta) * 100.0 / max(delta, 1):.1f}%）；SEQ Σest={seq_est} ⇒ "
+               f"SEQ→PRESETS 有序对 = {UI_BASE_BYTES} + {seq_est} + 12800 + 4096 = {pair}B"
+               f"（≤ 63120）")
+
+    # ---------- ⑩j 跨组过渡峰值：SEQ 全建（STEP+TRANSPORT）→ 首建 PRESETS ----------------
+    # ADR-005 §5 的新最坏有序对 `32,256 + 12,800`（账面 62,952B、余 168B）此前只有
+    # 账面值，没有实测。这里把 SEQ 两页建满，再从 SEQ 直接切 PRESETS（跨组：目标页
+    # 构建期间源组仍存活），从构建日志读**构建后的 pool_free** —— 它就是过渡峰值点。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（SEQ 全建）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（SEQ 全建）")
+    mem = param_mem(s)
+    seq = mem["groups"]["SEQ"]
+    (s.ok if seq["built"] == 2 and seq["sum_est"] == 32256 else s.fail)(
+        f"⑩ 过渡前 GROUP SEQ built={seq['built']} sum_est={seq['sum_est']}（期望 2 / 32,256）")
+    s.cmd("UI presets", timeout=5.0)
+    s.expect(r"UI page=presets \(10\)", "⑩ UI presets（SEQ 全建时首建 PRESETS）")
+    m = re.search(r"页面构建 page=PRESETS\(10\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑩ 过渡构建日志缺少 PRESETS 行（池剩余不可测）")
+    else:
+        delta, est, free_after = (int(g) for g in m.groups())
+        (s.ok if free_after >= 4096 else s.fail)(
+            f"⑩ 过渡峰值 pool_free={free_after}B（≥4,096；PRESETS delta={delta} 预算={est}）")
+        s.ser.note(f"⑩ SEQ→PRESETS 过渡实测：PRESETS delta={delta}B、构建后 pool_free={free_after}B"
+                   f"（ADR-005 账面：base {UI_BASE_BYTES} + 32,256 + 12,800 + 4,096 = "
+                   f"{UI_BASE_BYTES + 32256 + 12800 + 4096}B）")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["SEQ"]["built"] == 0 and mem["groups"]["FILE"]["built"] == 1 else s.fail)(
+        f"⑩ 过渡后组作用域：SEQ built={mem['groups']['SEQ']['built']}、"
+        f"FILE built={mem['groups']['FILE']['built']}（期望 0 / 1）")
+    # 同组两页都建出来（PROJECTS）+ 手指导航往返，最后回 SEQ（调用方继续走带用例）
+    s.cmd("UI TAB FILE")
+    s.expect(r"UI TAB FILE page=", "⑩ UI TAB FILE")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=projects \(9\)", "⑩ UI SUB 0 → PROJECTS")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=presets \(10\)", "⑩ UI SUB 1 → PRESETS")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["FILE"]["built"] == 2 else s.fail)(
+        f"⑩ FILE 两页已建（built={mem['groups']['FILE']['built']}）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ 回 SEQ（重建 TRANSPORT）")
+
+    # 收口：REC OFF + FILL 释放 + 默认焦点；走带仍停止（调用方再断言一次）
+    s.cmd("STATE SNAP")
+    if re.search(r"\brec=armed\b", s.last):
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ 收口：REC OFF")
+    s.cmd("SEQ REC")
+    if s.snap_int(r"fill_held=(\d)") == 1:
+        s.cmd("TAP %d %d" % TR_FILL)
+        s.expect(r"-> TRANSPORT CMD_FILL_CONTROL hold value=0", "⑩ 收口：FILL 释放")
+    s.cmd("UI TOOL 0")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 收口：工具焦点 = lvl")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=off\b", "⑩ 收口：rec=off")
+    s.expect_int(r"playing=(\d)", 0, "⑩ 收口：playing=0")
+
+
 def run_step_edit(s: Session) -> None:
     """② STEP：窗口列编辑闭环 + 分窗（bank1 绝对步号/隐藏列/播放头映射）+ 截屏。
     可重复运行：目标格已亮先经同一 TAP 路径点灭；结束复位默认窗口与停止态。"""
     ensure_stopped(s)
     normalize_pattern(s)  # LEN=16：bank1 的 DIM 判据（绝对步 ≥ LEN 才暗显）
     ensure_window(s, 0, 16)  # 归一到默认窗口：注入几何由此派生（列 c = 绝对步 c）
+    # ②e 的 CONT 前提是轨 0 为 POLY：`normalize_pattern` 末尾选中轨 2，且设备可能从
+    # 工程 fixture / 预置恢复成 MONO/LEGATO（LEGATO 的音符不会在后续音符下方延续 →
+    # span 停在下一个 NOTE，CONT 不出现）。显式选轨 0 并写 P_VOICE=POLY（脚本可重复；
+    # 状态假设原 DI-23 的同类问题）。
+    select_track(s, 0)
+    s.cmd(f"PARAM {P_VOICE_ID} 0")  # P_VOICE = V_POLY
+    s.expect(rf"PARAM track=0 id={P_VOICE_ID} value=0", "② VOICE 归一轨 0 = POLY（CONT 用例前提）")
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
 
@@ -773,7 +1439,301 @@ def run_step_edit(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"playing=(\d+)", 0, "STATE SNAP playing（复位）")
     ensure_window(s, 0, 16)
+
+    # ②e 深度步态（P4-C Task 9）：同一个 64 格对象在格内呈现 TIE/SLIDE/fill/lvl/
+    # micro/rat/CONT，不新增每格 label。断言口径 = 引擎真值（ENG STEP）＋像素抽检
+    # （TIE 空心格与 NOTE 实心格不同、白色 S / 黄色 F / 灰 m± / 白色 xN / 黄色 HARD 音符名）。
+    run_step_deep_visuals(s)
+    # ②f 鼓 lane（P4-C Task 9）：点 dot 选 lane 并写原始 16 lane 位图；键盘 ↑/↓ 选
+    # lane、ENTER 切换位；鼓轨行不再是只读。
+    run_step_drum_lanes(s)
+
     s.cmd("UI play")
+
+
+def run_step_deep_visuals(s: Session) -> None:
+    """②e STEP 深度态：TIE 与 NOTE 不同的空心呈现 + SLIDE/fill/lvl/rat/micro/CONT 可见。
+
+    先用同一 TAP/console 动作造出真实引擎状态（不是伪造渲染），再截屏做像素抽检：
+      格 2：NOTE + SLIDE + fill-only + micro +5 + rat 2 击 + HARD；
+      格 3：TIE（SPAN 3 从格 2 长出来的 hold）；
+      格 4/6：CONT（格 4 的音符长到格 6 的音符上，SF_CONT 标记）。
+    结束把测试步清回空（脚本可重复）。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    ensure_window(s, 0, 16)
+    ensure_stopped(s)
+
+    # 基线：清掉轨 0 的测试列（CLEAR 对空步是幂等的）
+    for step in range(2, 7):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"②e 基线清步 0/{step}")
+
+    # 音高确定化：q = C4(60)，w = D4(62)（TAP 开步写 last_note）
+    for code, label in ((0x21, "q=C4"), (0x22, "w=D4")):
+        s.cmd(f"KEY 0x{code:02X} down")
+        s.cmd(f"KEY 0x{code:02X} up")
+        s.ser.note(f"②e 设置 last_note（{label}）")
+    s.cmd("KEY 0x21 down")
+    s.cmd("KEY 0x21 up")
+
+    def focus_step_to(target: int) -> None:
+        """←/→ 把焦点列移到 target（只前进，不发引擎写）——截屏探针避开焦点白框。"""
+        s.cmd("STATE SNAP")
+        cur = s.snap_int(r"focus_step=(\d+)")
+        for _ in range((target - cur) % 16):
+            s.cmd("KEY 0x4C down")
+            s.cmd("KEY 0x4C up")
+        s.cmd("STATE SNAP")
+        s.expect_int(r"focus_step=(\d+)", target, f"②e 焦点列移到 {target}（避开描边）")
+
+    # 格 2 = NOTE(C4)；SPAN 3 → 格 3/4 = TIE
+    xy2 = step_cell_xy(2, 0)
+    s.cmd("TAP %d %d" % xy2)
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "②e TAP 格 2（开）")
+    s.cmd("SEQ EDIT SPAN 0 2 3")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 3（格 3 长成 TIE）")
+    st3 = eng_step(s, 0, 3)
+    (s.ok if st3["time"] == 1 and st3["n"] == 0 else s.fail)(
+        f"②e 格 3 = TIE（time={st3['time']} n={st3['n']}，期望 time=1 n=0）")
+
+    # 格 2 的深度字段：SLIDE + fill-only + micro +5 + rat（2 击）+ HARD
+    s.cmd("SEQ EDIT SLIDE 0 2 1")
+    s.expect(r"SEQ EDIT SLIDE track=0 step=2 OK", "②e SLIDE on")
+    s.cmd("SEQ FILL 0 2 1")
+    s.expect(r"SEQ FILL track=0 step=2 value=1 OK", "②e fill-only")
+    s.cmd("SEQ MICRO 0 2 5")
+    s.expect(r"SEQ MICRO track=0 step=2 value=5 OK", "②e micro +5")
+    s.cmd("SEQ EDIT RAT 0 2 0 1")
+    s.expect(r"SEQ EDIT RAT track=0 step=2 OK", "②e rat index0 = 1（x2）")
+    s.cmd("SEQ EDIT LVL 0 2 0 3")
+    s.expect(r"SEQ EDIT LVL track=0 step=2 OK", "②e lvl index0 = 3（HARD）")
+
+    st2 = eng_step(s, 0, 2)
+    for key, want, label in (("time", 0, "NOTE"), ("flags", 2, "SLIDE"),
+                             ("fill", 1, "fill-only"), ("micro", 5, "micro +5"),
+                             ("lvl", 3, "lvl HARD"), ("rat", 1, "rat x2")):
+        (s.ok if st2[key] == want else s.fail)(
+            f"②e 格 2 {key}={st2[key]}（期望 {want}，{label}）")
+
+    time.sleep(0.15)  # ≥5 个 UI tick：自绘层按新快照重画
+    focus_step_to(10)  # 焦点白框移出被测格（探针不把 3px 描边当字形）
+    time.sleep(0.1)
+    img = s.capture("step-deep")
+    x0, y0 = step_cell_box(2, 0)
+    x3, y3 = step_cell_box(3, 0)
+    # TIE ≠ NOTE：NOTE 实心轨色；TIE 空心（面板底）+ 轨色内框
+    s.probe(img, "②e 格 2 NOTE 实心", x0 + STEP_CELL_W // 2, y0 + STEP_CELL_H // 2, C_BLUE)
+    s.probe(img, "②e 格 3 TIE 空心（中心为面板底）", x3 + STEP_CELL_W // 2,
+            y3 + STEP_CELL_H // 2, C_PANEL_HI, 10)
+    s.probe_region(img, "②e 格 3 TIE 内框（轨色，区别于空格）",
+                   (x3 + 2, y3 + 2, x3 + STEP_CELL_W - 2, y3 + 30), C_BLUE, 16, 40)
+    # 白色 S（slide）、黄色 F（fill-only）、灰 m+5、白色 x2、黄色 HARD 音符名
+    s.probe_region(img, "②e 格 2 SLIDE 标记 S", (x0 + 20, y0 + STEP_TOP_STRIP_Y,
+                                                 x0 + 32, y0 + STEP_TOP_STRIP_Y + 14),
+                   C_TEXT, 16, 3)
+    s.probe_region(img, "②e 格 2 FILL 标记 F", (x0 + 36, y0 + STEP_TOP_STRIP_Y,
+                                                x0 + 48, y0 + STEP_TOP_STRIP_Y + 14),
+                   C_YELLOW, 16, 3)
+    s.probe_region(img, "②e 格 2 micro 文本 m+5", (x0 + 2, y0 + STEP_BOT_STRIP_Y,
+                                                   x0 + 40, y0 + STEP_BOT_STRIP_Y + 16),
+                   C_TEXT_DIM, 16, 5)
+    s.probe_region(img, "②e 格 2 rat 文本 x2", (x0 + 40, y0 + STEP_BOT_STRIP_Y,
+                                                x0 + STEP_CELL_W - 4, y0 + STEP_BOT_STRIP_Y + 16),
+                   C_TEXT, 16, 3)
+    s.probe_region(img, "②e 格 2 HARD 音符名（黄）",
+                   (x0 + 10, y0 + STEP_NOTE_Y, x0 + STEP_CELL_W - 4,
+                    y0 + STEP_NOTE_Y + STEP_NOTE_ROW), C_YELLOW, 16, 5)
+
+    # CONT：格 6 放 D4，格 2 的 C4 长过去 → 格 6 = NOTE(D4) + CONT(C4)，带左缘标记
+    xy6 = step_cell_xy(6, 0)
+    s.cmd("KEY 0x22 down")
+    s.cmd("KEY 0x22 up")
+    s.cmd("TAP %d %d" % xy6)
+    s.expect(r"-> STEP track=0 step=6 CMD_TOGGLE_STEP", "②e TAP 格 6（D4）")
+    s.cmd("SEQ EDIT SPAN 0 2 5")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 5（C4 长到格 6 的 D4 上）")
+    st6 = eng_step(s, 0, 6)
+    # 字面引擎真值：k=0 = D4(62) 不延续，k=1 = C4(60) 从格 2 延续（SF_CONT(1) = 0x10）
+    cont_ok = (st6["n"] == 2 and st6["flags"] == 0x10 and st6["note0"] == 62
+               and st6["note1"] == 60)
+    (s.ok if cont_ok else s.fail)(
+        f"②e 格 6 = NOTE(D4)+CONT(C4)（n={st6['n']} flags=0x{st6['flags']:02X} "
+        f"note={st6['note0']},{st6['note1']}，期望 n=2 flags=0x10 note=62,60）")
+    time.sleep(0.15)
+    focus_step_to(10)  # TAP 格 6 把焦点移回 6；再移开描边
+    time.sleep(0.1)
+    img = s.capture("step-cont")
+    x6, y6 = step_cell_box(6, 0)
+    # CONT 标记必须属于**该音符自己**：k=1 的 12×2 下划线在 x+38..49（名字正下方），
+    # k=0（D4 无 CONT）既没有下划线、也不该有旧实现的「格左缘竖条」（x+4）。
+    s.probe_region(img, "②e 格 6 CONT 下划线在 k=1 名字下方（x+38）",
+                   (x6 + 38, y6 + STEP_NOTE_Y + 15, x6 + 50, y6 + STEP_NOTE_Y + 17),
+                   C_TEXT, 16, 5)
+    under0 = count_region(img, (x6 + 12, y6 + STEP_NOTE_Y + 15, x6 + 24,
+                                y6 + STEP_NOTE_Y + 17), C_TEXT, 16)
+    (s.ok if under0 == 0 else s.fail)(
+        f"②e 格 6 k=0（无 CONT）名字下方无下划线（白像素 {under0}，期望 0）")
+    stray = count_region(img, (x6 + 2, y6 + STEP_NOTE_Y + 2, x6 + 9,
+                               y6 + STEP_NOTE_Y + 14), C_TEXT, 16)
+    (s.ok if stray == 0 else s.fail)(
+        f"②e 格 6 k=0 名字左缘无旧实现竖条（白像素 {stray}，期望 0）")
+
+    # 清理：SPAN 1 收回 TIE/CONT，再清两格（脚本可重复）
+    s.cmd("SEQ EDIT SPAN 0 2 1")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 1（收回 TIE/CONT）")
+    for step in (2, 6):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"②e 清理格 0/{step}")
+        d = eng_step(s, 0, step)
+        (s.ok if d["n"] == 0 and d["time"] != 0 else s.fail)(
+            f"②e 清理后格 0/{step} 为空（n={d['n']} time={d['time']}）")
+
+
+def run_step_drum_lanes(s: Session) -> None:
+    """②f 鼓 lane：点 dot 选 lane 并切换该步原始位；键盘 ↑/↓ 选 lane、ENTER 切位。
+
+    断言引擎真值（SEQ DSTEP 的 on 位图）＋ TAP 回显（lane/bit/mask）＋ UI LANE
+    （选中 lane）＋ 像素（点亮的 dot 取 lane 主题色、选中 ring 白框）。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    ensure_window(s, 0, 16)
+    ensure_stopped(s)
+
+    s.cmd("SEQ EDIT CLEAR 3 5")
+    s.expect(r"SEQ EDIT CLEAR track=3 step=5 OK", "②f 鼓步 5 清空")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f 鼓步 5 基线位图 = 0")
+
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=(\d+)", "②f UI LANE 读回")
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "②f UI LANE 归零")
+    s.cmd("UI LANE 16")  # 越界：UI ERR 令牌（不是用法文案），且不改选中 lane
+    s.expect(r"UI ERR lane", "②f UI LANE 越界回 UI ERR lane")
+    s.cmd("UI LANE 99")
+    s.expect(r"UI ERR lane", "②f UI LANE 99 回 UI ERR lane")
+    s.cmd("UI LANE x")
+    s.expect(r"UI ERR lane", "②f UI LANE 非数字回 UI ERR lane")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=0", "②f 越界不改选中 lane")
+
+    # 点 lane 2 的 dot：选中 + 置位；再点一次：清除（同一路径）
+    lane2 = drum_lane_xy(5, 2)
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 bit=1 CMD_DRUM_STEP_WRITE mask=0x0004",
+             "②f TAP lane dot（选中并置位）")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)(
+        f"②f 鼓步 5 位图 = 0x{seq_dstep_mask(s, 5):04X}（期望 0x0004）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 3, "②f TAP 后焦点轨 = 鼓轨")
+
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 bit=0 CMD_DRUM_STEP_WRITE mask=0x0000",
+             "②f 再点同一 dot（清除）")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f 鼓步 5 位图回 0")
+
+    # 格内非 dot 位置 = 切换「选中 lane」（仍为 2）
+    cell = step_cell_xy(5, 3)
+    s.cmd("TAP %d %d" % (cell[0], cell[1] - STEP_CELL_H // 2 + 12))
+    s.expect(r"-> STEP drum step=5 lane=2 bit=1 CMD_DRUM_STEP_WRITE mask=0x0004",
+             "②f TAP 格内空白（切换选中 lane）")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=2", "②f 选中 lane 不变")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 位图 = 0x0004（选中 lane 置位）")
+
+    # 键盘：ENTER = 切换聚焦步的选中 lane；↑/↓ = lane 步进（环：T1,T2,T3,L1..L16）
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    s.expect(r"KEY 0x3D", "②f KEY ENTER")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f ENTER 清除选中 lane 位")
+    s.cmd("KEY 0x3B down")  # ↑
+    s.cmd("KEY 0x3B up")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=1", "②f ↑ 选 lane 1")
+    s.cmd("KEY 0x4B down")  # ↓
+    s.cmd("KEY 0x4B up")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=2", "②f ↓ 回 lane 2")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f ENTER 置位 lane 2")
+
+    time.sleep(0.15)
+    img = s.capture("step-drum-lane")
+    dx, dy = drum_lane_xy(5, 2)
+    s.probe(img, "②f lane 2 dot 已点亮（鼓轨色）", dx, dy, C_ORANGE, 12)
+    s.probe_region(img, "②f 选中 lane 2 ring（白框）", (dx - 6, dy - 6, dx + 6, dy + 6),
+                   C_TEXT, 16, 8)
+    ex, ey = drum_lane_xy(5, 3)
+    s.probe(img, "②f lane 3 dot 未点亮（暗网格）", ex, ey, C_PANEL_SEL, 10)
+
+    # 环的边界：lane 15 ↓ 离开鼓轨到 T1；T1 ↑ 从 lane 15 进入鼓轨；lane 0 ↑ 回 T3
+    s.cmd("UI LANE 15")
+    s.expect(r"UI LANE lane=15", "②f 归一到 lane 15")
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 0, "②f lane 15 ↓ → 焦点轨回 T1")
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 3, "②f T1 ↑ → 回到鼓轨")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=15", "②f 从 T1 进入落在 lane 15")
+    s.cmd("UI LANE 0")
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 2, "②f lane 0 ↑ → 焦点轨 T3")
+
+    # 冻结：TAP 必须回 ERR frozen 并报**写后真值**（位图不变），不能伪造翻转后的 mask。
+    # （诊断冻结只冻结引擎读写，UI/TAP 不处于 quiesce，命令仍会被派发。）
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 冻结前鼓步 5 位图 = 0x0004")
+    s.cmd("ENG FREEZE ON")
+    s.expect(r"ENG FREEZE on", "②f ENG FREEZE on")
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 ERR frozen mask=0x0004",
+             "②f 冻结时 TAP 回 ERR frozen 且 mask 为写前真值")
+    s.cmd("ENG FREEZE OFF")
+    s.expect(r"ENG FREEZE off", "②f ENG FREEZE off")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 冻结期间位图未变（0x0004）")
+
+    # 隐藏列：窗口 len=8 时鼓列 8 不在命中表（TAP miss，不写位图）
+    ensure_window(s, 0, 8)
+    time.sleep(0.15)
+    hidden = drum_lane_xy(8, 2)
+    s.cmd("TAP %d %d" % hidden)
+    s.expect(rf"TAP miss {hidden[0]},{hidden[1]} page=2", "②f 隐藏鼓列 8 TAP miss")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 隐藏列不写鼓位图")
+    ensure_window(s, 0, 16)
+    time.sleep(0.15)
+
+    # 合成轨上的 ENTER 是无操作（不写鼓、不改 seq_status、不改引擎）
+    for _ in range(20):
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"focus_track=(\d+)") == 0:
+            break
+        s.cmd("KEY 0x3B down")
+        s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 0, "②f 焦点归一 T1（ENTER no-op 前提）")
+    s.cmd("STATE SNAP")
+    seq0 = s.snap_int(r"seq_status=(\d+)")
+    eng0 = nav_eng_snapshot(s)
+    mask0 = seq_dstep_mask(s, 5)
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"seq_status=(\d+)", seq0, "②f ENTER 在合成轨不改 seq_status")
+    (s.ok if seq_dstep_mask(s, 5) == mask0 else s.fail)("②f ENTER 在合成轨不写鼓步")
+    (s.ok if nav_eng_snapshot(s) == eng0 else s.fail)("②f ENTER 在合成轨不改引擎快照")
+
+    # 收口：清鼓步、lane 归零、停止 + 默认窗口
+    s.cmd("SEQ EDIT CLEAR 3 5")
+    s.expect(r"SEQ EDIT CLEAR track=3 step=5 OK", "②f 收口清鼓步 5")
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "②f 收口 lane 归零")
+    ensure_window(s, 0, 16)
 
 
 def run_tracks(s: Session) -> None:
@@ -824,16 +1784,21 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
-# TAB 扁平整轮顺序（ADR-005 §4 的最终 11 页；FILE 组两页在 Task 12 注册）——
+# TAB 扁平整轮顺序（ADR-005 §4 的最终 12 页；SONG 独立组在 P4-C Task 11 落地）——
 # group 顺序 + 组内顺序，与 ui.c 的 k_groups[] 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog"), (7, "fm6"),
-             (8, "sample"), (2, "step"), (3, "transport"), (9, "projects"), (10, "presets"))
+             (8, "sample"), (2, "step"), (3, "transport"), (11, "song"), (9, "projects"),
+             (10, "presets"))
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
 NAV_LEAK_NOISE = 128
+# 非页面基础占用（P4-C Task 11 起页签用单对象 label）：boot `UI MEM` free 49,016 +
+# PLAY delta 2,480 ⇒ 63,120 − 49,016 − 2,480 = 11,624B（ADR-005 §5）。
+UI_BASE_BYTES = 11624
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
-# 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
+# 文本由聚焦步/选中 drum lane 派生（P4-C Task 9）：合成轨 `T1 S3 NOTE C4 …`（轨色），
+# 鼓轨 `DRM S6 LANE 3 SNARE ON …`（橙）。焦点换轨即换色 ⇒ nav 用它判「焦点落到鼓轨」。
 NAV_STATUS_BOX = (1040, 82, 1258, 112)
 
 
@@ -896,9 +1861,18 @@ def nav_same(s: Session, label: str, before, after) -> None:
 
 def nav_set_focus(s: Session, track: int, step: int) -> None:
     """方向键把焦点归一到 (track, step)：焦点是 UI 局部态（state_set_focus），
-    ↑/↓ 在三条合成轨循环、←/→ 在窗口列循环，都不发引擎写。"""
+    ↑/↓ 在「T1,T2,T3,DRM L1..L16」环上走、←/→ 在窗口列循环，都不发引擎写。"""
     s.cmd("STATE SNAP")
     t0, s0 = s.snap_int(r"focus_track=(\d+)"), s.snap_int(r"focus_step=(\d+)")
+    if t0 >= 3:
+        # 鼓轨上 ↑/↓ 是 lane 步进：先逐 lane 上行离开鼓轨（最多 16 lane），再按三轨环归一
+        for _ in range(16 + 1):
+            s.cmd("KEY 0x3B down")
+            s.cmd("KEY 0x3B up")
+            s.cmd("STATE SNAP")
+            t0 = s.snap_int(r"focus_track=(\d+)")
+            if t0 < 3:
+                break
     for _ in range((track - t0) % 3):
         s.cmd("KEY 0x4B down")
         s.cmd("KEY 0x4B up")
@@ -969,8 +1943,9 @@ def run_nav(s: Session) -> None:
     """nav 场景：导航行为（阶段 4 路由重构最易静默破坏）+ 组作用域生命周期。
 
     ① 组签缝与组签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
-    ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
-       焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
+    ② STEP 鼓轨行 TAP 编辑 lane：回显 `-> STEP drum … CMD_DRUM_STEP_WRITE`、焦点落到
+       鼓轨（T9 起鼓轨不再只读）、ENG SNAP 只有该步 dstep 行变化、鼓格像素变化；
+       再 TAP 一次复位位图，状态行由合成轨（蓝）换成鼓轨（橙）；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
        1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
@@ -981,7 +1956,7 @@ def run_nav(s: Session) -> None:
     ⑥ 手指导航（`UI TAB`/`UI SUB` 与物理组签/子签同一动作函数，R32）：点组进上次
        子页且记忆跨往返、跨组点组销毁源组并建目标首个子页、子签同组切换不重建；
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
-    ⑦ `TAB` 全 11 页轮转（最终顺序 …TRANSPORT→PROJECTS→PRESETS→PLAY），异步切页
+    ⑦ `TAB` 全 12 页轮转（最终顺序 …TRANSPORT→SONG→PROJECTS→PRESETS→PLAY），异步切页
        用 STATE SNAP 轮询等落地、回卷到 PLAY；
     ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
        且无逐次递增（每页 `styles_init` 只跑一次）。
@@ -993,9 +1968,9 @@ def run_nav(s: Session) -> None:
     time.sleep(0.1)  # ≥3 拍：切页首帧刷新稳定
 
     # 基线归一（所有截屏的确定性来源）：合成轨格 TAP 两次（落回原值，脚本可重复），
-    # 顺带把状态行从上一轮必然残留的 "DRUM EDIT = PHASE 4" 换成合成轨文本（蓝字）——
-    # 这样每次运行的状态行都从同一文本出发，PNG 跨运行逐字节一致；也让「鼓轨点击后
-    # 状态行变橙」在重复运行下仍可判定。第 2 列与用例②的目标焦点列一致，焦点只需换轨。
+    # 顺带把状态行（聚焦步派生文本）从上一轮残留换成 T1 的文本——这样每次运行的
+    # 状态行都从同一文本出发，PNG 跨运行逐字节一致；也让「焦点落到鼓轨后状态行变橙」
+    # 在重复运行下仍可判定。第 2 列与用例②的目标焦点列一致，焦点只需换轨。
     ctrl_xy = step_cell_xy(2, 0)
     s.cmd("TAP %d %d" % ctrl_xy)
     s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格 TAP（对照组）")
@@ -1024,40 +1999,60 @@ def run_nav(s: Session) -> None:
     s.probe(img_step, "① 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
     s.probe(img_step, "① 组签未选中（PLAY）", *C_TAB_PLAY, C_PANEL_HI, 10)
 
-    # ---------- ② STEP 鼓轨行只读 ----------
-    nav_set_focus(s, 2, 2)  # 非默认焦点：让「焦点不变」有判别力
+    # ---------- ② STEP 鼓轨行：TAP 编辑 lane（不再只读） ----------
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "② 选中 lane 归零")
+    nav_set_focus(s, 0, 2)  # 合成轨焦点：焦点必须换到鼓轨才有判别力
     drum_xy = step_cell_xy(3, 3)  # 行 3 = DRM，窗口列 3 = 绝对步 3
-    s.ser.note(f"用例②：TAP 鼓轨格 {drum_xy[0]},{drum_xy[1]}（DRM 行只读）")
+    s.ser.note(f"用例②：TAP 鼓轨格 {drum_xy[0]},{drum_xy[1]}（DRM 行 lane 编辑）")
+    mask0 = seq_dstep_mask(s, 3)
+    bit0 = (mask0 >> 5) & 1  # 格中心 = 4×4 lane 网格的 (col 1,row 1) = lane 5
     st2 = nav_state_fields(s)
     eng2 = nav_eng_snapshot(s)
     img_before = s.capture("nav-02-drum-before")
     blue_before = count_region(img_before, NAV_STATUS_BOX, C_BLUE, 16)
     orange_before = count_region(img_before, NAV_STATUS_BOX, C_ORANGE, 16)
     (s.ok if blue_before >= 25 and orange_before == 0 else s.fail)(
-        f"② 状态行基线：蓝字（合成轨）{blue_before} / 橙字 {orange_before}"
+        f"② 状态行基线：蓝字（合成轨 T1）{blue_before} / 橙字 {orange_before}"
         f"（期望蓝 ≥25、橙 0）")
 
     s.cmd("TAP %d %d" % drum_xy)
-    s.expect(r"-> STEP drum step=3 read-only", "② 鼓轨 TAP read-only 回显")
-    (s.ok if "CMD_TOGGLE_STEP" not in s.last else s.fail)("② 鼓轨 TAP 未发 CMD_TOGGLE_STEP")
+    s.expect(rf"-> STEP drum step=3 lane=5 bit={1 - bit0} CMD_DRUM_STEP_WRITE "
+             rf"mask=0x{mask0 ^ 0x20:04X}", "② 鼓轨 TAP 写原始位图回显")
+    mask1 = seq_dstep_mask(s, 3)
+    (s.ok if mask1 == mask0 ^ 0x20 else s.fail)(
+        f"② 鼓步 3 on 位图 0x{mask0:04X} -> 0x{mask1:04X}（只翻 lane 5 = 0x20）")
     st2_after = nav_state_fields(s)
-    s.expect_int(r"focus_track=(\d+)", 2, "② STATE SNAP focus_track 不变")
-    s.expect_int(r"focus_step=(\d+)", 2, "② STATE SNAP focus_step 不变")
-    nav_same(s, "② STATE SNAP", st2, st2_after)
-    nav_same(s, "② ENG SNAP（无引擎写）", eng2, nav_eng_snapshot(s))
+    s.expect_int(r"focus_track=(\d+)", 3, "② 焦点轨落到鼓轨")
+    s.expect_int(r"focus_step=(\d+)", 3, "② 焦点列 = 窗口列 3")
+    nav_same(s, "② STATE SNAP（除焦点外）",
+             {k: v for k, v in st2.items() if not k.startswith("focus")},
+             {k: v for k, v in st2_after.items() if not k.startswith("focus")})
+    eng2_after = nav_eng_snapshot(s)
+    diff = [f"{a} -> {b}" for a, b in zip(eng2, eng2_after) if a != b]
+    only_dstep = len(diff) == 1 and diff[0].startswith("ENG SNAP dstep i=3 ")
+    (s.ok if only_dstep else s.fail)(
+        f"② ENG SNAP 只有鼓步 3 的 dstep 行变化（diff={diff}）")
 
-    img_after = s.capture("nav-03-drum-readonly")
+    img_after = s.capture("nav-03-drum-lane")
     box = (drum_xy[0] - STEP_CELL_W // 2 - 2, drum_xy[1] - STEP_CELL_H // 2 - 2,
            drum_xy[0] + STEP_CELL_W // 2 + 2, drum_xy[1] + STEP_CELL_H // 2 + 2)
-    same_cell = img_before.crop(box).tobytes() == img_after.crop(box).tobytes()
-    (s.ok if same_cell else s.fail)(
-        f"② 鼓格像素区 {box} 点击前后逐字节相同（只读、不点亮）" if same_cell
-        else f"② 鼓格像素区 {box} 点击后变化（鼓轨行不应可编辑）")
+    cell_changed = img_before.crop(box).tobytes() != img_after.crop(box).tobytes()
+    (s.ok if cell_changed else s.fail)(
+        f"② 鼓格像素区 {box} 点击后变化（lane 位点亮）" if cell_changed
+        else f"② 鼓格像素区 {box} 点击前后逐字节相同（lane 位未点亮）")
     orange_after = count_region(img_after, NAV_STATUS_BOX, C_ORANGE, 16)
     blue_after = count_region(img_after, NAV_STATUS_BOX, C_BLUE, 16)
     (s.ok if orange_after >= 25 and blue_after == 0 else s.fail)(
-        f"② 状态行点击后：橙字 {orange_after} / 蓝字 {blue_after}"
-        f"（期望 ≥25 / 0，DRUM EDIT = PHASE 4）")
+        f"② 状态行点击后：橙字（鼓轨）{orange_after} / 蓝字 {blue_after}"
+        f"（期望 ≥25 / 0）")
+
+    # 复位该 lane 位（脚本可重复）：同一 TAP 路径再点一次
+    s.cmd("TAP %d %d" % drum_xy)
+    s.expect(rf"-> STEP drum step=3 lane=5 bit={bit0} CMD_DRUM_STEP_WRITE "
+             rf"mask=0x{mask0:04X}", "② 再 TAP 复位 lane 5 位")
+    (s.ok if seq_dstep_mask(s, 3) == mask0 else s.fail)(
+        f"② 复位后鼓步 3 位图 = 0x{mask0:04X}")
 
     # ---------- ③ 同一拍：KEY tab + KEY PANIC ----------
     premise = False
@@ -1265,6 +2260,28 @@ def run_nav(s: Session) -> None:
     s.expect(r"UI ERR sub 2", "⑥ FILE 组只有 2 张子签：UI SUB 2 越界")
     s.cmd("UI tab play")
     s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（FILE 两页销毁）")
+    # SONG 独立组（P4-C Task 11）：单页组——点组进 SONG、离开后 built=0、子行为空。
+    s.cmd("UI TAB song")
+    s.expect(r"UI TAB SONG page=song \(11\)", "⑥ UI TAB song（SONG 独立组）")
+    mem_song = param_mem(s)
+    (s.ok if mem_song["groups"]["SONG"]["built"] == 1
+     and mem_song["groups"]["SONG"]["sum_est"] == 12288
+     and mem_song["pages"].get(11, ("?",))[0] == "built" else s.fail)(
+        f"⑥ SONG built={mem_song['groups']['SONG']['built']} "
+        f"sum_est={mem_song['groups']['SONG']['sum_est']} "
+        f"page={mem_song['pages'].get(11, ('?',))[0]}（期望 1 / 12288 / built）")
+    (s.ok if 0 < mem_song["groups"]["SONG"]["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑥ SONG build_ms={mem_song['groups']['SONG']['build_ms']}ms"
+        f"（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "⑥ SONG 单页组：UI SUB 0 → UI ERR sub")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（SONG 页销毁）")
+    mem_song = param_mem(s)
+    (s.ok if mem_song["groups"]["SONG"]["built"] == 0
+     and mem_song["pages"].get(11, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⑥ 离开 SONG 后 built={mem_song['groups']['SONG']['built']} "
+        f"page={mem_song['pages'].get(11, ('?',))[0]}（期望 0 / unbuilt）")
     s.cmd("UI TAB nope")
     s.expect(r"UI ERR group nope", "⑥ 未知组名 → UI ERR group")
     # ⑥d R30：同一 30ms 拍内 KEY tab 排队 + UI TAB 点击 ⇒ 点击胜出、待切页丢弃。
@@ -1298,12 +2315,12 @@ def run_nav(s: Session) -> None:
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
-    # ---------- ⑦ TAB 全 11 页轮转（最终顺序，ADR-005 §4；FILE 组 Task 12 注册） ----------
-    # 一拍一页从 PLAY 走完 11 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # ---------- ⑦ TAB 全 12 页轮转（最终顺序，ADR-005 §4；SONG 组 Task 11 注册） ----------
+    # 一拍一页从 PLAY 走完 12 页并回卷到 PLAY：每个目标页都由**当前页**计算
     # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
     # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
     s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→"
-               "TRANSPORT→PROJECTS→PRESETS→PLAY")
+               "TRANSPORT→SONG→PROJECTS→PRESETS→PLAY")
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
     for pid, name in NAV_ORDER[1:] + NAV_ORDER[:1]:
@@ -1319,6 +2336,13 @@ def run_nav(s: Session) -> None:
     # 首末 `pool_free` 差 ≤ 噪声、且逐次往返无单调下降。
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑧ 起点 PLAY")
+    # 预热一次：PLAY/TRACKS 的全部状态串首次显示会触发一次性文本/字形缓存（~100B 量级，
+    # 不是逐次泄漏；R34 的回归是每往返 ~268B）。之后 10 个测量轮从同一稳态出发，
+    # 判据仍是首末差 ≤128B 与单次下降 ≤128B。
+    s.cmd("UI tracks")
+    s.expect(r"UI page=tracks \(1\)", "⑧ 预热：UI tracks")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑧ 预热：UI play")
     free0 = nav_pool_free(s)
     per_trip = []
     for trip in range(1, NAV_LEAK_TRIPS + 1):
@@ -1342,7 +2366,6 @@ def run_nav(s: Session) -> None:
     # 复位：PLAY 页（脚本可重复运行）
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "复位 UI play")
-
 
 
 # ---- params 场景（参数页框架）：8 槽旋钮 + ± 细调 + 键盘 ↑/↓ ----
@@ -1476,6 +2499,7 @@ def knob_locked(s: Session, slot: int, op: str, dx: int, dy: int) -> None:
 # P_SLEN = 图案长度（引擎快照 trk.len，STEP 的 DIM 判据）、P_SDIV = 时钟分频
 # （trk.div，各轨播放头是否同步）。
 P_SLEN_ID, P_SDIV_ID = 29, 30
+P_VOICE_ID = 37  # P_VOICE（POLY/MONO/LEGATO/UNISON）：②e CONT 用例要求 POLY
 PATTERN_LEN_DEF, PATTERN_DIV_DEF = 16, 2
 
 
@@ -1487,6 +2511,53 @@ def step_is_on(s: Session) -> bool:
     n = s.snap_int(r"\bn=(\d+)")
     t = s.snap_int(r"\btime=(\d+)")
     return n != 0 and t == 0
+
+
+def eng_step(s: Session, track: int, step: int) -> dict:
+    """`ENG STEP` 全字段（步的引擎真值；P4-C Task 9 的深度态断言入口）。"""
+    s.cmd(f"ENG STEP {track} {step}")
+    m = re.search(r"ENG STEP k=(\d+) i=(\d+) n=(\d+) note=(\d+),(\d+),(\d+),(\d+) vel=(\d+) "
+                  r"time=(\d+) flags=(\d+) lvl=(\d+) rat=(\d+) micro=(-?\d+) fill=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"ENG STEP 回显缺少字段：{s.last.strip()!r}")
+    keys = ("k", "i", "n", "note0", "note1", "note2", "note3", "vel", "time", "flags",
+            "lvl", "rat", "micro", "fill")
+    return {k: int(v) for k, v in zip(keys, m.groups())}
+
+
+def live_hash(s: Session) -> int:
+    """`STORE LIVEHASH` 的当前引擎捕获 hash（十六进制；工程往返门禁）。"""
+    s.cmd("STORE LIVEHASH")
+    m = re.search(r"LIVEHASH ([0-9A-F]{8})", s.last)
+    if m is None:
+        raise InjectError(f"STORE LIVEHASH 回显缺少哈希：{s.last.strip()!r}")
+    return int(m.group(1), 16)
+
+
+def seq_dstep_mask(s: Session, step: int) -> int:
+    """`SEQ DSTEP <step>` 的原始 16 lane on 位图（bit k = lane k）。"""
+    s.cmd(f"SEQ DSTEP {step}")
+    m = re.search(r"SEQ DSTEP step=(\d+) on=([0-9A-Fa-f]{2}),([0-9A-Fa-f]{2})", s.last)
+    if m is None:
+        raise InjectError(f"SEQ DSTEP 回显缺少字段：{s.last.strip()!r}")
+    return int(m.group(3), 16) << 8 | int(m.group(2), 16)
+
+
+def seq_dstep(s: Session, step: int) -> dict:
+    """`SEQ DSTEP <step>` 的完整原始字段：on 位图 + lvl/rat（各 4 字节，每字节 4 lane×2bit）。"""
+    s.cmd(f"SEQ DSTEP {step}")
+    m = re.search(r"SEQ DSTEP step=(\d+) on=([0-9A-F]{2}),([0-9A-F]{2}) "
+                  r"lvl=([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}) "
+                  r"rat=([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2})", s.last)
+    if m is None:
+        raise InjectError(f"SEQ DSTEP 回显缺少字段：{s.last.strip()!r}")
+    g = [int(x, 16) for x in m.groups()[1:]]
+    return {"on": g[1] << 8 | g[0], "lvl": g[2:6], "rat": g[6:10]}
+
+
+def dstep_bits(arr, lane: int) -> int:
+    """鼓步打包字段（lvl/rat）的 lane 2-bit 值（page_transport.c 的 dstep_bits 同源）。"""
+    return (arr[lane // 4] >> (2 * (lane % 4))) & 3
 
 
 def normalize_pattern(s: Session, label: str = "归一图案参数") -> None:
@@ -1560,8 +2631,8 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 11 else s.fail)(
-        f"UI MEM registered=11（4 基础 + 5 参数页 + 2 FILE 页）实得 "
+    (s.ok if mem0["head"]["registered"] == 12 else s.fail)(
+        f"UI MEM registered=12（4 基础 + 5 参数页 + 2 FILE 页 + SONG）实得 "
         f"{mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
@@ -4283,6 +5354,1674 @@ def run_store_ui_bank(s: Session) -> None:
                 pass
 
 
+# ---- song 场景（P4-C Task 11）：SONG 编排页 + 六组导航 + 组预算 ----
+# 几何与 page_song.c 的布局宏**同源**（页内相对坐标；屏幕绝对 y = 页内 + 72 页签条）。
+# 卡/芯/条目的命中矩形、选中描边都由同一组宏派生——页面改布局时这里必须同步。
+SONG_CARD_X0, SONG_CARD_Y = 24, 96
+SONG_CARD_W, SONG_CARD_H, SONG_CARD_PITCH = 288, 104, 304
+SONG_SEC_Y, SONG_SEC_X0, SONG_SEC_PITCH = 216, 24, 148
+SONG_MODE_X0 = 640
+SONG_CHIP_W, SONG_CHIP_H = 140, 48
+SONG_ENTRY_X0, SONG_ENTRY_Y0 = 24, 300
+SONG_ENTRY_W, SONG_ENTRY_H = 148, 60
+SONG_ENTRY_PITCH_X, SONG_ENTRY_PITCH_Y = 153, 70
+SONG_CFG_X0, SONG_CFG_Y = 24, 456
+SONG_CFG_PITCH, SONG_CFG_W, SONG_CFG_H = 148, 140, 52
+SONG_SEC_ACTS = ("STORE", "LOAD", "ERASE", "JUMP")
+SONG_TOP_ACTS = ("SONG", "CHAIN", "CANCEL", "REC")
+SONG_CFG_NAMES = ("SCENE", "BARS-", "BARS+", "COUNT-", "COUNT+", "LOOP")
+SONG_EST = 12288  # 计划上限（spec §4.4）；实测 delta 必须 ≤ 它，不得反向抬 est
+
+
+def song_card_xy(k: int) -> tuple:
+    return (SONG_CARD_X0 + k * SONG_CARD_PITCH + SONG_CARD_W // 2,
+            72 + SONG_CARD_Y + SONG_CARD_H // 2)
+
+
+def song_sec_xy(i: int) -> tuple:
+    return (SONG_SEC_X0 + i * SONG_SEC_PITCH + SONG_CHIP_W // 2,
+            72 + SONG_SEC_Y + SONG_CHIP_H // 2)
+
+
+def song_top_xy(i: int) -> tuple:
+    return (SONG_MODE_X0 + i * SONG_SEC_PITCH + SONG_CHIP_W // 2,
+            72 + SONG_SEC_Y + SONG_CHIP_H // 2)
+
+
+def song_entry_xy(i: int) -> tuple:
+    r, c = divmod(i, 8)
+    return (SONG_ENTRY_X0 + c * SONG_ENTRY_PITCH_X + SONG_ENTRY_W // 2,
+            72 + SONG_ENTRY_Y0 + r * SONG_ENTRY_PITCH_Y + SONG_ENTRY_H // 2)
+
+
+def song_cfg_xy(i: int) -> tuple:
+    return (SONG_CFG_X0 + i * SONG_CFG_PITCH + SONG_CFG_W // 2,
+            72 + SONG_CFG_Y + SONG_CFG_H // 2)
+
+
+def song_action(s: Session, xy: tuple, name: str, label: str, want: str = None,
+                entry: int = None, section: str = None, err: str = None) -> None:
+    """TAP 一个 SONG 页控件并断言回显（动作名 + status 文本与屏幕同源）。
+
+    `want` = 期望的 status 文本片段（如 `STORE A: OK`）；`err` = 期望的 ERR 令牌。"""
+    s.cmd("TAP %d %d" % xy)
+    prefix = rf"TAP \d+,\d+ page=11 -> SONG {re.escape(name)}"
+    if entry is not None:
+        prefix += rf" entry={entry}"
+    if section is not None:
+        prefix += rf" section={section}"
+    if err is not None:
+        s.expect(prefix + rf" ERR {err} .*status=\"", label)
+    else:
+        s.expect(prefix + r" value=-?\d+ status=\"", label)
+    if want is not None:
+        s.expect(r'status="[^"]*' + re.escape(want) + r'[^"]*"', label + f" → status {want}")
+
+
+def song_cfg(s: Session) -> dict:
+    """`STORE SONG` 解析：count/loop + 每项 scene/bars。"""
+    s.cmd("STORE SONG")
+    m = re.search(r"STORE SONG count=(\d+) loop=(\d+) dirty=(\d)", s.last)
+    if m is None:
+        raise InjectError(f"STORE SONG 回显缺少 count/loop：{s.last.strip()!r}")
+    entries = {}
+    for em in re.finditer(r"^SONG (\d+) scene=(\d+) bars=(\d+)\r?$", s.last, re.MULTILINE):
+        entries[int(em.group(1))] = (int(em.group(2)), int(em.group(3)))
+    return {"count": int(m.group(1)), "loop": int(m.group(2)), "entry": entries}
+
+
+def song_section(s: Session) -> dict:
+    """`SEQ SECTION` 解析：ready 位、live、播放位置。"""
+    s.cmd("SEQ SECTION")
+    m = re.search(r"SEQ SECTION ready=0x([0-9A-F]{2}) live=(\S+) dirty=(\d) index=(\d+) bar=(\d+)",
+                  s.last)
+    if m is None:
+        raise InjectError(f"SEQ SECTION 回显异常：{s.last.strip()!r}")
+    return {"ready": int(m.group(1), 16), "live": m.group(2), "dirty": int(m.group(3))}
+
+
+def song_chain(s: Session) -> dict:
+    s.cmd("SEQ CHAIN")
+    m = re.search(r"SEQ CHAIN count=(\d+) index=(\d+) bars=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ CHAIN 回显异常：{s.last.strip()!r}")
+    scenes = [int(x) for x in re.findall(r"^SEQ CHAIN \d+ scene=(\d+)\r?$", s.last, re.MULTILINE)]
+    return {"count": int(m.group(1)), "index": int(m.group(2)), "bars": int(m.group(3)),
+            "scenes": scenes}
+
+
+def song_pool_free(s: Session) -> int:
+    return nav_pool_free(s)
+
+
+def song_wait_running(s: Session, want: int, timeout: float = 2.0) -> bool:
+    """轮询 `SEQ SONG` 的 running 位（PLAY/STOP 请求只由渲染循环消费）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("SEQ SONG")
+        m = re.search(r"SEQ SONG mode=\w+ running=(\d)", s.last)
+        if m is not None and int(m.group(1)) == want:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def song_wait_srec(s: Session, want: str, timeout: float = 4.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("SEQ SREC")
+        m = re.search(r"SEQ SREC srec=(\w+) last=(\w+)", s.last)
+        if m is not None and m.group(1) == want:
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def run_song(s: Session) -> None:
+    """song 场景：SONG 页（A–D section 卡 / 16 项 / bars·loop / SONG·CHAIN·REC·
+    STORE·ERASE）、六组导航与组预算（P4-C Task 11）。
+
+    覆盖：
+      ① `UI song`(11)/`UI TAB SONG`/`UI SUB` 单页组 + `UI MEM` 的 SONG 行与 est；
+      ② 空态截屏（A–D 卡 EMPTY、16 项配置槽、状态行）；
+      ③ 卡选 + STORE A/B（`SEQ SECTION ready` 与页面状态行同源）；
+      ④ 16 项配置编辑（count/scene/bars/loop）**全部经 CMD_SONG_SET**：屏幕 TAP 后
+         `STORE SONG` 逐字段一致；COUNT/BARS 的上下钳位；④b COUNT+ 只 seed 结构非法
+         槽（8 项非 A4 tail → COUNT-4 → COUNT+5 保留项 5=C9，仅 index8 seed A4）；
+      ⑤ 页面 ERASE chip 后 section/歌曲引用同步消失（arr_drop_scene）+ 列表立即刷新；
+         COUNT+ 保留合法 tail（不被 A4 覆盖）；
+      ⑥ live 播放中 JUMP scene B（`SEQ SECTION live=B`）+ 空 scene 的可见拒绝
+         （`JUMP C: EMPTY`）；截屏「播放 scene B」；
+      ⑦ quick chain：CHAIN 起链（begin 立即请求首项）、卡 tap 进临时列表、再按
+         CHAIN 原子 commit（`SEQ CHAIN A B A`）；空 scene 整份拒绝（ERR not_found）；
+         CANCEL 清 chain；截屏 chain 态；
+      ⑧ SONG 模式 + 缺 scene 整首拒播（`playing=0`/`running=0`，READY 行可见空位）；
+      ⑨ SONG REC 的 NO SONG（空 take 不覆盖歌曲）+ 截屏；
+      ⑩ 组预算：SONG↔PLAY ×10、SEQ↔SONG ×10 的 pool_free 首末差 ≤128B；FILE 全建
+         → 首建 STEP 的过渡峰值 ≥4,096B；
+      ⑪ 收口：擦 A/B、恢复默认歌曲（A4 B4 C4 D4）与 AUTO ON、回 PLAY。
+
+    本场景**破坏性**：占用 A/B 与歌曲顺序（收口恢复默认歌曲；A/B 擦除）。它自带归一，
+    可重复运行；`STORE AUTO OFF` 防止 autosave 把中途状态写进工作工程。
+    """
+    s.ser.note("song 场景开始：归一（停走带 / 窗口 / AUTO OFF / 清 A–D / 默认歌曲）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
+    ensure_stopped(s)
+    ensure_window(s, 0, 16)
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⓪ 归一到 loop 模式")
+    for k in range(4):
+        proj_erase(s, k, f"⓪ 清空 section {'ABCD'[k]}")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⓪ 默认歌曲 A4 B4 C4 D4")
+    sec = song_section(s)
+    (s.ok if sec["ready"] == 0 else s.fail)(
+        f"⓪ 归一后 ready=0x{sec['ready']:02X}（期望 0）")
+
+    # ---------- ① 页面入口与组水位 ----------
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "① UI song → 页 11")
+    s.cmd("UI TAB song")
+    s.expect(r"UI TAB SONG page=song \(11\)", "① UI TAB song（与物理组签同一路径）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "① SONG 单页组：UI SUB 0 → UI ERR sub")
+    mem = param_mem(s)
+    page11 = mem["pages"].get(11, ("?", 0, 0))
+    (s.ok if page11[0] == "built" and page11[1] == SONG_EST and 0 < page11[2] <= SONG_EST
+     else s.fail)(
+        f"① SONG 页 state={page11[0]} est={page11[1]} delta={page11[2]}"
+        f"（0 < delta ≤ {SONG_EST}）")
+    grp = mem["groups"]["SONG"]
+    (s.ok if grp["built"] == 1 and grp["sum_est"] == SONG_EST else s.fail)(
+        f"① GROUP SONG built={grp['built']} sum_est={grp['sum_est']}"
+        f"（期望 1 / {SONG_EST}）")
+    (s.ok if 0 < grp["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"① SONG build_ms={grp['build_ms']}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+
+    # ---------- ② 空态截屏 + 像素抽检 ----------
+    img = s.capture("task-11-song-empty")
+    for k, letter in enumerate("ABCD"):
+        x0 = SONG_CARD_X0 + k * SONG_CARD_PITCH
+        # 卡选中态是 s_sec 的描边+UI_PANEL_SEL 底（初始 A 选中）；顶部内缘取填充色
+        want_bg = C_PANEL_SEL if k == 0 else C_PANEL
+        s.probe(img, f"② 卡 {letter} 底（{'选中' if k == 0 else '未选中'}）",
+                x0 + 20, 72 + SONG_CARD_Y + 12, want_bg, 14)
+        s.probe_region(img, f"② 卡 {letter} 文本",
+                       (x0 + 70, 72 + SONG_CARD_Y + 20, x0 + SONG_CARD_W - 70,
+                        72 + SONG_CARD_Y + SONG_CARD_H - 20), C_TEXT_DIM, 12, 20)
+    for i, name in enumerate(SONG_SEC_ACTS):
+        x0 = SONG_SEC_X0 + i * SONG_SEC_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_SEC_Y + 6, C_PANEL_HI, 14)
+    for i, name in enumerate(SONG_TOP_ACTS):
+        if name == "CANCEL":  # 非链采集态隐藏（不可见/不可命中）
+            continue
+        x0 = SONG_MODE_X0 + i * SONG_SEC_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_SEC_Y + 6, C_PANEL_HI, 14)
+    for i in range(16):
+        x0 = SONG_ENTRY_X0 + (i % 8) * SONG_ENTRY_PITCH_X
+        y0 = 72 + SONG_ENTRY_Y0 + (i // 8) * SONG_ENTRY_PITCH_Y
+        want = C_PANEL_SEL if i == 0 else C_PANEL_HI  # entry 0 初始选中
+        s.probe(img, f"② 条目 {i + 1:02d} chip 底", x0 + 20, y0 + 6, want, 14)
+    for i, name in enumerate(SONG_CFG_NAMES):
+        x0 = SONG_CFG_X0 + i * SONG_CFG_PITCH
+        s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_CFG_Y + 6, C_PANEL_HI, 14)
+    s.probe(img, "② SONG 组签选中（六组导航）", *C_TAB_SONG, C_YELLOW)
+
+    # ---------- ③ 卡选 + STORE A/B ----------
+    for k, letter in enumerate("ABCD"):
+        s.cmd("TAP %d %d" % song_card_xy(k))
+        s.expect(rf"-> SONG card={letter} select", f"③ TAP 卡 {letter} 设选中 section")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "③ 回到卡 A（STORE A 的落点）")
+    song_action(s, song_sec_xy(0), "STORE", "③ TAP STORE(A)", "STORE A: OK", section="A")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x01 else s.fail)(f"③ STORE A 后 ready=0x{sec['ready']:02X}（bit0）")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "③ TAP 卡 B")
+    song_action(s, song_sec_xy(0), "STORE", "③ TAP STORE(B)", "STORE B: OK", section="B")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
+        f"③ STORE B 后 ready=0x{sec['ready']:02X}（bit0+bit1）")
+
+    # ---------- ④ 16 项配置：count 2 / A2 / B3 / loop ----------
+    s.cmd("TAP %d %d" % song_entry_xy(15))
+    s.expect(r"-> SONG entry=15 select", "④ 第 16 项存在（TAP entry=15 命中）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=4", "④ TAP entry 0（默认 A4）")
+    song_action(s, song_cfg_xy(3), "COUNT-", "④ COUNT- → 3", "COUNT 3")
+    song_action(s, song_cfg_xy(3), "COUNT-", "④ COUNT- → 2", "COUNT 2")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 else s.fail)(f"④ STORE SONG count={cfg['count']}（期望 2）")
+    # 第 3 项起不可见（count 之外的槽保持原值，不参与 STORE SONG 输出）
+    s.cmd("TAP %d %d" % song_entry_xy(2))
+    s.expect(r"-> SONG entry=2 select", "④ TAP count 外的 entry 2（选择有效、不可编辑）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ count 外 BARS- 不下发", "ENTRY 3: EMPTY")
+    # entry 0：BARS 4 → 2；entry 1：默认 B4 → B3（默认歌曲 A4 B4 C4 D4）
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=4", "④ 重选 entry 0（A4）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry0 BARS- → 3", "BARS 3")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry0 BARS- → 2", "BARS 2")
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=1 bars=4", "④ TAP entry 1（默认 B4）")
+    song_action(s, song_cfg_xy(1), "BARS-", "④ entry1 BARS- → 3", "BARS 3")
+    cfg = song_cfg(s)
+    ok = (cfg["count"] == 2 and cfg["entry"].get(0) == (0, 2) and cfg["entry"].get(1) == (1, 3))
+    (s.ok if ok else s.fail)(
+        f"④ A2+B3 经状态层落地：count={cfg['count']} entry={cfg['entry']}（期望 2 / 0:2 / 1:3）")
+    song_action(s, song_cfg_xy(5), "LOOP", "④ LOOP ON", "LOOP ON")
+    (s.ok if song_cfg(s)["loop"] == 1 else s.fail)("④ STORE SONG loop=1")
+    song_action(s, song_cfg_xy(5), "LOOP", "④ LOOP OFF", "LOOP OFF")
+    (s.ok if song_cfg(s)["loop"] == 0 else s.fail)("④ STORE SONG loop=0")
+    # 钳位：count 16 再 + 仍 16；bars 64 再 + 仍 64（引擎/状态层钳位，页面不自行造值）
+    store_cmd(s, "STORE SONG SET 16 0 " + " ".join(f"{i % 4}:4" for i in range(16)),
+              r"^STORE SONG SET count=16", "④ 归一 count=16")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    song_action(s, song_cfg_xy(4), "COUNT+", "④ COUNT+ 在 16 钳位", "COUNT 16")
+    store_cmd(s, "STORE SONG SET 2 0 0:64 1:3", r"^STORE SONG SET count=2",
+              "④ 归一 count=2 / entry0 bars=64")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=64", "④ entry0 = A64")
+    song_action(s, song_cfg_xy(2), "BARS+", "④ BARS+ 在 64 钳位", "BARS 64")
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2",
+              "④ 恢复 A2+B3")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④ 回 SONG（同组）")
+    img = s.capture("task-11-song-edit")
+    # entry 0 的选中态 = UI_PANEL_SEL 底 + 4px UI_ACCENT 描边（内缘取填充色）
+    s.probe(img, "④ entry0 选中底（UI_PANEL_SEL）",
+            SONG_ENTRY_X0 + 20, 72 + SONG_ENTRY_Y0 + 6, C_PANEL_SEL, 14)
+    s.probe_region(img, "④ 状态行文本（UI_TEXT_DIM）", (24, 72 + 20, 1000, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+
+    # ---------- ④b COUNT+ 只 seed 结构非法的槽（合法 tail 不被 A4 覆盖） ----------
+    # 8 项、项 5（0 起 index 4）= C9；COUNT-4 → 4，再 COUNT+5 → 9：
+    # index 4..7 的已持久化项必须原样保留，只有从未初始化的 index 8 才 seed 成 A4。
+    store_cmd(s, "STORE SONG SET 8 0 0:2 1:3 2:5 3:7 2:9 3:13 1:5 0:7",
+              r"^STORE SONG SET count=8", "④b 归一 8 项（项 5 = C9）")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④b 回 SONG")
+    s.cmd("TAP %d %d" % song_entry_xy(4))
+    s.expect(r"-> SONG entry=4 select scene=2 bars=9", "④b 项 5 = C9（0 起 entry=4）")
+    for want in (7, 6, 5, 4):
+        song_action(s, song_cfg_xy(3), "COUNT-", f"④b COUNT- → {want}", f"COUNT {want}")
+    for want in (5, 6, 7, 8, 9):
+        song_action(s, song_cfg_xy(4), "COUNT+", f"④b COUNT+ → {want}", f"COUNT {want}")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 9 and cfg["entry"].get(4) == (2, 9)
+     and cfg["entry"].get(5) == (3, 13) and cfg["entry"].get(6) == (1, 5)
+     and cfg["entry"].get(7) == (0, 7) else s.fail)(
+        f"④b COUNT+ 保留合法 tail：count={cfg['count']} entry={cfg['entry']}"
+        "（期望 9 / 4:(2,9) 5:(3,13) 6:(1,5) 7:(0,7)）")
+    (s.ok if cfg["entry"].get(8) == (0, 4) else s.fail)(
+        f"④b 只有未初始化的 index 8 seed 为 A4（实得 {cfg['entry'].get(8)}）")
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2",
+              "④b 恢复 A2+B3")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④b 回 SONG（恢复 A2+B3）")
+
+    # ---------- ⑤ ERASE chip：section 引擎真值 + 歌曲引用同步消失 ----------
+    # 页面 ERASE = CMD_SECTION_ERASE（与 console `STORE PROJ ERASE` 同一存储对象）；
+    # B 在歌曲里有引用 ⇒ 同时验证 arr_drop_scene 把第 2 项拿走。
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤ 选中 B（ERASE 落点）")
+    song_action(s, song_sec_xy(2), "ERASE", "⑤ TAP ERASE(B)", "ERASE B: OK", section="B")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 1 and cfg["entry"].get(0) == (0, 2) else s.fail)(
+        f"⑤ ERASE B 后歌曲 count={cfg['count']} entry={cfg['entry']}（期望 1 / 0:2）")
+    sec = song_section(s)
+    (s.ok if not (sec["ready"] & 0x02) else s.fail)(
+        f"⑤ ERASE B 后 ready=0x{sec['ready']:02X}（bit1 清零）")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤ 回 SONG 刷新列表")
+    # 重建 B 并补回第 2 项（新增项默认 A4；再改成 B3）
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤ 重选 B")
+    song_action(s, song_sec_xy(0), "STORE", "⑤ 重建 B", "STORE B: OK", section="B")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=2", "⑤ entry0 仍是 A2")
+    song_action(s, song_cfg_xy(4), "COUNT+", "⑤ COUNT+ → 2（新项默认 A4）", "COUNT 2")
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    # COUNT+ 只 seed 结构非法的槽：ERASE 前的 tail（B4）仍合法，必须原样保留
+    s.expect(r"-> SONG entry=1 select scene=1 bars=4", "⑤ COUNT+ 保留合法 tail B4")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤ tail BARS- → 3", "BARS 3")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
+        f"⑤ 恢复 A2+B3：count={cfg['count']} entry={cfg['entry']}")
+
+    # ---------- ⑤b 键盘路由：←/→ 条目、↑/↓ section、ENTER = LOAD ----------
+    # 到达 SONG 页（同组已建），选中项/状态由动作回显或 SEQ SECTION 观测。
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤b 回 SONG（键盘路由）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=2", "⑤b 归一到 entry 0（A2）")
+    s.cmd("KEY 0x4C down")  # →：条目 0→1
+    s.cmd("KEY 0x4C up")
+    song_action(s, song_cfg_xy(2), "BARS+", "⑤b → 后焦点 entry 1", "ENTRY 2 BARS 4")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤b entry 1 还原 B3", "ENTRY 2 BARS 3")
+    s.cmd("KEY 0x4A down")  # ←：条目 1→0
+    s.cmd("KEY 0x4A up")
+    song_action(s, song_cfg_xy(2), "BARS+", "⑤b ← 后焦点 entry 0", "ENTRY 1 BARS 3")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤b entry 0 还原 A2", "ENTRY 1 BARS 2")
+    # ↑/↓ 选 section：按 ↓ 到 B → LOAD 回显 section=B 且引擎 live=B；按 ↑ 回 A。
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑤b 归一到 section A")
+    s.cmd("KEY 0x4B down")  # ↓：A→B
+    s.cmd("KEY 0x4B up")
+    song_action(s, song_sec_xy(1), "LOAD", "⑤b ↓ 后 LOAD 落点 B", "LOAD B: OK", section="B")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤b ↓ 选 section 后 live=B")
+    s.cmd("KEY 0x3B down")  # ↑：B→A
+    s.cmd("KEY 0x3B up")
+    song_action(s, song_sec_xy(1), "LOAD", "⑤b ↑ 后 LOAD 落点 A", "LOAD A: OK", section="A")
+    (s.ok if song_section(s)["live"] == "A" else s.fail)("⑤b ↑ 选 section 后 live=A")
+    # ENTER = LOAD 选中 section（输入任务路径，无 TAP 回显）：选 B 后 ENTER。
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤b 选中 B（ENTER 落点）")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    deadline = time.monotonic() + 1.0
+    live = None
+    while time.monotonic() < deadline:
+        live = song_section(s)["live"]
+        if live == "B":
+            break
+        time.sleep(0.05)
+    (s.ok if live == "B" else s.fail)(f"⑤b ENTER → LOAD B：live={live}")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑤b 收口回 section A")
+
+    # ---------- ⑥ live 播放 + JUMP scene B + 空 scene 可见拒绝 ----------
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑥ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑥ TAP PLAY（live loop）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑥ STATE SNAP playing")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑥ 回 SONG（重建）")
+    # 页面输入守卫（上游 SONG 屏语义）：走带中 MODE 与 16 项配置编辑回 STOP FIRST、
+    # 不发命令；section/chain 的播放语义不受影响（紧接的 JUMP/CHAIN 仍可用）。
+    cfg_before = song_cfg(s)
+    for xy, name, label in ((song_cfg_xy(1), "BARS-", "⑥ 播放中 BARS-"),
+                            (song_cfg_xy(0), "SCENE", "⑥ 播放中 SCENE"),
+                            (song_cfg_xy(4), "COUNT+", "⑥ 播放中 COUNT+"),
+                            (song_cfg_xy(5), "LOOP", "⑥ 播放中 LOOP"),
+                            (song_top_xy(0), "SONG", "⑥ 播放中 MODE")):
+        song_action(s, xy, name, label, "STOP FIRST", err="blocked")
+    cfg_after = song_cfg(s)
+    (s.ok if cfg_after == cfg_before else s.fail)(
+        f"⑥ 走带中的配置编辑不改歌曲：{cfg_after} vs {cfg_before}")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=loop", "⑥ 走带中的 MODE 未切换")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑥ 选中 B")
+    song_action(s, song_sec_xy(3), "JUMP", "⑥ TAP JUMP(B)", "JUMP B: OK", section="B")
+    deadline = time.monotonic() + 3.0
+    live = None
+    while time.monotonic() < deadline:
+        live = song_section(s)["live"]
+        if live == "B":
+            break
+        time.sleep(0.05)
+    (s.ok if live == "B" else s.fail)(f"⑥ 下一小节生效：SEQ SECTION live={live}（期望 B）")
+    img = s.capture("task-11-song-live-b")
+    s.probe_region(img, "⑥ 状态行含 LIVE/PLAY 文本", (24, 72 + 20, 1000, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 空 scene：C 从未 STORE → JUMP 必须回 not_found，且 live 仍是 B（可见拒绝）
+    s.cmd("TAP %d %d" % song_card_xy(2))
+    s.expect(r"-> SONG card=C select", "⑥ 选中 C（空）")
+    song_action(s, song_sec_xy(3), "JUMP", "⑥ JUMP 空 scene C → EMPTY", "JUMP C: EMPTY",
+                section="C", err="not_found")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑥ 空 scene 被拒后 live 仍是 B")
+    img = s.capture("task-11-song-empty-jump")  # 可见拒绝：状态行红字 `JUMP C: EMPTY`
+    s.probe_region(img, "⑥ 状态行拒绝文本（UI_ERROR 红字）", (24, 72 + 20, 1232, 72 + 80),
+                   C_ERROR, 20, 20)
+
+    # ---------- ⑦ quick chain：begin → 卡进列表 → commit / 空 scene 拒绝 / cancel ----------
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 选 B 起链")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ CHAIN begin（立即请求 B）", "CHAIN: B")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑦ 链中 tap A 进临时列表")
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 链中 tap B 进临时列表")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ CHAIN commit（原子安装）", "CHAIN: B A B")
+    chain = song_chain(s)
+    (s.ok if chain["count"] == 3 and chain["scenes"] == [1, 0, 1] else s.fail)(
+        f"⑦ SEQ CHAIN count={chain['count']} scenes={chain['scenes']}（期望 3 / [1,0,1]）")
+    img = s.capture("task-11-song-chain")
+    s.probe_region(img, "⑦ 状态行 CHAIN 文本", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 空 scene 整份拒绝（不安装半条 chain）：B + C(empty)
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 空链用例：选 B")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ 再起链 B", "CHAIN: B")
+    s.cmd("TAP %d %d" % song_card_xy(2))
+    s.expect(r"-> SONG card=C select", "⑦ 链中 tap C（空）")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ commit 空 scene → ERR not_found",
+                "CHAIN: EMPTY", err="not_found")
+    chain = song_chain(s)
+    (s.ok if chain["count"] == 0 else s.fail)(
+        f"⑦ 空 scene 整份拒绝后 SEQ CHAIN count={chain['count']}（期望 0，不装半条）")
+    # CANCEL：begin 后取消，chain 清空、已排队的 section 保留（单 tap 语义）
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑦ 取消用例：选 B")
+    song_action(s, song_top_xy(1), "CHAIN", "⑦ begin B", "CHAIN: B")
+    song_action(s, song_top_xy(2), "CANCEL", "⑦ CANCEL", "CHAIN: CANCEL")
+    (s.ok if song_chain(s)["count"] == 0 else s.fail)("⑦ CANCEL 后 chain count=0")
+
+    # ---------- ⑧ SONG 模式 + 缺 scene 整首拒播 ----------
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑧ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑧ STOP（停止 live loop）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑧ STATE SNAP playing=0")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑧ 回 SONG")
+    song_action(s, song_top_xy(0), "SONG", "⑧ SONG 模式", "MODE: SONG")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=song", "⑧ SEQ SONG mode=song")
+    # 缺 scene：把第 2 项改成 C（空），PLAY 必须不进入播放（arrangement_start 拒绝）
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=1 bars=3", "⑧ 选 entry 1（B3）")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE B→C（空）", "SCENE C")
+    cfg = song_cfg(s)
+    (s.ok if cfg["entry"].get(1) == (2, 3) else s.fail)(
+        f"⑧ entry1 = C3（实得 {cfg['entry'].get(1)}）")
+    sec = song_section(s)
+    (s.ok if not (sec["ready"] & 0x04) else s.fail)(
+        f"⑧ READY 行可见 C 为空：ready=0x{sec['ready']:02X}（bit2 = 0）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑧ 去 TRANSPORT 按 PLAY")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑧ TAP PLAY（缺 scene 的 SONG）")
+    time.sleep(1.0)  # 渲染循环消费 transport_req；拒绝路径不得进入播放
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑧ 缺 scene 拒播：playing 仍 0")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=song running=0", "⑧ 缺 scene 拒播：SEQ SONG running=0")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑧ 回 SONG（截缺 scene 态）")
+    img = s.capture("task-11-song-empty-scene")
+    s.probe_region(img, "⑧ READY 行（UI_TEXT_DIM）", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    # 恢复 B3 与 loop 模式（后续 REC/预算用例的基线）
+    s.cmd("TAP %d %d" % song_entry_xy(1))
+    s.expect(r"-> SONG entry=1 select scene=2 bars=3", "⑧ 重选 entry 1（C3）")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE C→D", "SCENE D")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE D→A", "SCENE A")
+    song_action(s, song_cfg_xy(0), "SCENE", "⑧ entry1 SCENE A→B", "SCENE B")
+    song_action(s, song_top_xy(0), "SONG", "⑧ 回 LOOP 模式", "MODE: LOOP")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=loop", "⑧ SEQ SONG mode=loop")
+
+    # ---------- ⑨ SONG REC 的 NO SONG（空 take 不覆盖歌曲） ----------
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑨ 回 SONG")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑨ 选 A（live_sec=A 需要 LOAD）")
+    song_action(s, song_sec_xy(1), "LOAD", "⑨ LOAD A（停止态，live=A）", "LOAD A: OK",
+                section="A")
+    (s.ok if song_section(s)["live"] == "A" else s.fail)("⑨ SEQ SECTION live=A")
+    song_action(s, song_top_xy(3), "REC", "⑨ REC arm", "REC: ARMED")
+    s.cmd("SEQ SREC")
+    s.expect(r"SEQ SREC srec=armed", "⑨ SEQ SREC srec=armed")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑨ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "⑨ PLAY（SONG REC 从下一小节起）")
+    (s.ok if song_wait_srec(s, "recording", 4.0) else s.fail)(
+        "⑨ SONG REC 进入 recording（下一个小节）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)  # 小节内立即 STOP：srec_n=0 ⇒ NO SONG
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑨ STOP 收尾空 take")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑨ STOP 后 playing=0")
+    s.cmd("SEQ SREC")
+    s.expect(r"SEQ SREC srec=off last=no_song", "⑨ 空 take = last=no_song")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
+        f"⑨ NO SONG 不覆盖原歌曲：count={cfg['count']} entry={cfg['entry']}")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑨ 回 SONG")
+    img = s.capture("task-11-song-nosong")
+    s.probe_region(img, "⑨ 状态行 LAST NO SONG 文本", (24, 72 + 20, 1200, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+
+    # ---------- ⑩ 组预算：往返池差与最坏有序对 ----------
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ 起点 PLAY")
+    free0 = song_pool_free(s)
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI song")
+        s.expect(r"UI page=song \(11\)", f"⑩ SONG↔PLAY {trip}/{NAV_LEAK_TRIPS}：UI song")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", f"⑩ SONG↔PLAY {trip}/{NAV_LEAK_TRIPS}：UI play")
+        per_trip.append(song_pool_free(s))
+    drop = free0 - per_trip[-1]
+    s.ser.note(f"⑩ SONG↔PLAY pool_free：{free0} → 逐次 {per_trip}")
+    (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ {NAV_LEAK_TRIPS} 次 SONG↔PLAY 往返后 pool_free 变化 {free0} → {per_trip[-1]}"
+        f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ 单次 SONG↔PLAY 的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+
+    # SEQ（STEP+TRANSPORT）全建 → SONG → 回 PLAY，×10。测量点在**每组都销毁后的
+    # PLAY 稳态**（与 ⑧ 的 R34 泄漏口径一致：跨组往返的净变化，排除 STEP 22K 重建
+    # 的 TLSF 碎片涨落——SEQ 两页建满时的 pool_free 本身有 ±200B 的分配序噪声）。
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ SEQ↔SONG 起点 PLAY")
+    # 预热一轮：首次把 SONG/STEP/TRANSPORT 三页的**新状态串**（STOP FIRST / RECORDING /
+    # CHAIN …）交给 LVGL 会做一次性文本/字形缓存（实测 ~400B，之后逐轮稳定）；它不是
+    # 逐次泄漏，不计入 10 轮判据。10 个测量轮仍从同一 PLAY 稳态出发。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ SEQ↔SONG 预热：UI step")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ SEQ↔SONG 预热：UI transport")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑩ SEQ↔SONG 预热：UI song")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ SEQ↔SONG 预热：回 PLAY")
+    free0 = song_pool_free(s)
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI step")
+        s.expect(r"UI page=step \(2\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI step")
+        s.cmd("UI transport")
+        s.expect(r"UI page=transport \(3\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI transport")
+        s.cmd("UI song")
+        s.expect(r"UI page=song \(11\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI song")
+        s.cmd("UI play")
+        s.expect(r"UI page=play \(0\)", f"⑩ SEQ↔SONG {trip}/{NAV_LEAK_TRIPS}：UI play")
+        per_trip.append(song_pool_free(s))
+    drop = free0 - per_trip[-1]
+    s.ser.note(f"⑩ SEQ↔SONG pool_free：{free0} → 逐次 {per_trip}")
+    (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ {NAV_LEAK_TRIPS} 次 SEQ↔SONG 往返后 pool_free 变化 {free0} → {per_trip[-1]}"
+        f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
+        f"⑩ 单次 SEQ↔SONG 的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+
+    # 最坏有序对仍应是 SEQ→PRESETS；FILE 全建 → 首建 STEP 的过渡峰值必须 ≥4KB
+    s.cmd("UI TAB FILE")
+    s.expect(r"UI TAB FILE page=", "⑩ UI TAB FILE")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=projects \(9\)", "⑩ UI SUB 0 → PROJECTS")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=presets \(10\)", "⑩ UI SUB 1 → PRESETS")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["FILE"]["built"] == 2 else s.fail)(
+        f"⑩ FILE 两页全建 built={mem['groups']['FILE']['built']}")
+    s.cmd("UI step", timeout=5.0)
+    s.expect(r"UI page=step \(2\)", "⑩ FILE 全建 → 首建 STEP")
+    m = re.search(r"页面构建 page=STEP\(2\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑩ 过渡构建日志缺少 STEP 行（池剩余不可测）")
+    else:
+        delta, est, free_after = (int(g) for g in m.groups())
+        (s.ok if free_after >= 4096 else s.fail)(
+            f"⑩ FILE→STEP 过渡峰值 pool_free={free_after}B ≥4,096"
+            f"（STEP delta={delta} 预算={est}）")
+        s.ser.note(f"⑩ FILE→STEP 过渡实测：STEP delta={delta}B、构建后 pool_free={free_after}B"
+                   f"（账面 {UI_BASE_BYTES} + 20,992 + 23,040 + 4,096 = "
+                   f"{UI_BASE_BYTES + 20992 + 23040 + 4096}B）")
+
+    # ---------- ⑩b 六组页签与子签截图（EDIT / SEQ 两组） ----------
+    # 6 个组签（168px）+ 当前组子签（176px、5 槽复用）——页签单对象化后的视觉归档。
+    s.cmd("UI TAB edit")
+    s.expect(r"UI TAB EDIT page=\w+ \(\d+\)", "⑩b UI TAB edit")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=global \(4\)", "⑩b EDIT 子签归一到 GLOBAL")
+    img = s.capture("task-11-tabs-edit")
+    s.probe(img, "⑩b 组签选中（EDIT）", *C_TAB_EDIT, C_YELLOW)
+    s.probe(img, "⑩b 子签选中（EDIT 首个子页）", *C_TAB_GLOBAL, C_YELLOW)
+    s.probe(img, "⑩b 组签未选中（SEQ）", *C_TAB_SEQ, C_PANEL_HI, 10)
+    s.cmd("UI TAB seq")
+    s.expect(r"UI TAB SEQ page=\w+ \(\d+\)", "⑩b UI TAB seq")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=step \(2\)", "⑩b SEQ 子签归一到 STEP")
+    img = s.capture("task-11-tabs-seq")
+    s.probe(img, "⑩b 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
+    s.probe(img, "⑩b 子签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+    s.probe(img, "⑩b 子签未选中（TRANSPORT）", *C_TAB_TRANSPORT, C_PANEL_HI, 10)
+
+    # ---------- ⑪ 收口 ----------
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑪ 回 PLAY")
+    s.cmd("STATE SNAP")
+    if s.snap_int(r"playing=(\d)") != 0:
+        s.cmd("UI transport")
+        s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
+        s.cmd("TAP %d %d" % TRANSPORT_STOP)
+        s.expect(r"-> TRANSPORT CMD_STOP", "⑪ STOP")
+    for k in (0, 1):
+        proj_erase(s, k, f"⑪ 收口擦 section {'ABCD'[k]}")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⑪ 收口默认歌曲 A4 B4 C4 D4")
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑪ 收口 loop 模式")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑪ 复位 UI play")
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑪ 收口 STORE AUTO ON（恢复默认）")
+
+
+# ---- sequence 场景（P4-C Task 12）：步/锁/工具 → 录音 → sections → chain → SONG ---
+# 这是第八条设备场景，把 P4-C 的公共 API 与三页 UI（STEP/TRANSPORT/SONG）串成一条
+# 端到端矩阵。段与段之间显式归一（AUTO / 走带 / 选中轨 / 步窗 / 诊断槽 D / 工程槽
+# A–C / 四条轨的图案与 LEN / BPM / 歌曲顺序），因此可重复运行。
+#
+# 设备侧的「拍」边界（transport_req 由渲染循环消费、live_bar 在块尾推进、section
+# 延迟写由 1s 任务按 idle 门限完成）都比一条命令慢，故所有走带/小节/落盘相关断言
+# 都**轮询**到落地值；只有变量级的两种 FILL 语义与锁容量是同步可读的。
+#
+# Task 6 的 deferral 在这里按设备口径收口：
+#   - take 结果（`take=`）是一次性令牌，30ms sync 通常已消费（DI-27）：断言录音的
+#     **持久效果**（LEN/BPM/步内容/playing），令牌只在自由录音进行中读 state；
+#   - 物理 PLAY 与 API PLAY 的分叉（drop vs close）各一条用例；
+#   - 松开键在切到鼓轨后仍回原轨（`ENG SNAP ... voices` 归 0）；
+#   - REC 配置不持久化（本场景只在本会话内设置）。
+# DI-31（孤立 TIE 步的 CLEAR 是 no-op）的归一用 `SEQ PATTERN CLEAR`（memset + REST）
+# 与「开一步再清」；入口不依赖 CLEAR 的窄路径。
+SEQ_TRACK = 0
+SEQ_DRUM = 3
+SEQ_DIAG_SLOT = 3           # 诊断槽 D：入口/收口擦除（旧格式 fixture 的落点）
+SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C = 0, 1, 2
+SEQ_LOCK_MAX = 24           # 上游 NLOCK
+SEQ_LOCK_PARAM = 1          # P_ATK：p_lockable（id ≤ P_LD_AMP）
+SEQ_LOCK_BAD = 29           # P_SLEN：console 接受（0..70），adapter 判非声音参数 → invalid
+SEQ_LEN_ID, SEQ_DIV_ID, SEQ_MUTE_ID, SEQ_AMODE_ID, SEQ_AHOLD_ID, SEQ_VOICE_ID = 29, 30, 40, 17, 23, 37
+SEQ_KEY_NOTE = 0x42         # 低行白键 z：合成轨 = 音符，鼓轨 = lane 0
+SEQ_DRUM_LOW = (0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49)
+SEQ_DRUM_HIGH = (0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28)
+SEQ_FREE_TAKE_S = 8.0       # 自由录音按 4 小节（BPM 120）：门限 ±3% 内的抖动不影响 takt
+# section A/B 用**轨道字段**区分（BPM 是 globals，arranger 刻意不随 scene 应用）：
+# A 轨 0 level=104、B 轨 0 level=80；SONG 恢复的判别字段落在**选中轨 1**（level 70），
+# 因此「恢复工作 loop」与「停在最后应用的 scene」hash 可区分。
+SEQ_LEVEL_A = 104
+SEQ_LEVEL_B = 80
+SEQ_LEVEL_WORK = 70
+
+
+def seq_rec_fields(s: Session) -> dict:
+    """`SEQ REC` 的状态/配置投影（`take` 是一次性令牌，DI-27 不作判据）。"""
+    s.cmd("SEQ REC")
+    m = re.search(r"SEQ REC state=(\w+) track=(\d+) quant=(\w+) tempo=(\w+) count=(\w+) "
+                  r"take=(\w+) fill_held=(\d) fill_arm=(\d)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ REC 回显异常：{s.last.strip()!r}")
+    return {"state": m.group(1), "track": int(m.group(2)), "quant": m.group(3),
+            "tempo": m.group(4), "count": m.group(5), "take": m.group(6),
+            "fill_held": int(m.group(7)), "fill_arm": int(m.group(8))}
+
+
+def seq_locks(s: Session, track: int) -> tuple:
+    """`SEQ LOCK LIST <track>` → (count, [(step, param, value)])。"""
+    s.cmd(f"SEQ LOCK LIST {track}")
+    m = re.search(r"SEQ LOCK LIST track=(\d+) count=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ LOCK LIST 回显异常：{s.last.strip()!r}")
+    items = [(int(a), int(b), int(c)) for a, b, c in re.findall(
+        r"^SEQ LOCK step=(\d+) param=(\d+) value=(-?\d+)\r?$", s.last, re.MULTILINE)]
+    return int(m.group(2)), items
+
+
+def seq_song(s: Session) -> dict:
+    """`SEQ SONG` 头行（mode/running/index/bar/ready/live/dirty/chain/srec/count/loop）。"""
+    s.cmd("SEQ SONG")
+    m = re.search(r"SEQ SONG mode=(\w+) running=(\d+) index=(\d+) bar=(\d+) "
+                  r"ready=0x([0-9A-F]{2}) live=(\S+) dirty=(\d) chain=(\d+) "
+                  r"srec=(\w+) count=(\d+) loop=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ SONG 回显异常：{s.last.strip()!r}")
+    return {"mode": m.group(1), "running": int(m.group(2)), "index": int(m.group(3)),
+            "bar": int(m.group(4)), "ready": int(m.group(5), 16), "live": m.group(6),
+            "dirty": int(m.group(7)), "chain": int(m.group(8)), "srec": m.group(9),
+            "count": int(m.group(10)), "loop": int(m.group(11))}
+
+
+def seq_srec(s: Session) -> dict:
+    s.cmd("SEQ SREC")
+    m = re.search(r"SEQ SREC srec=(\w+) last=(\w+)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ SREC 回显异常：{s.last.strip()!r}")
+    return {"srec": m.group(1), "last": m.group(2)}
+
+
+def seq_param(s: Session, param_id: int) -> int:
+    """选中轨的参数引擎真值（`PARAM <id>` 只读）。"""
+    s.cmd(f"PARAM {param_id}")
+    m = re.search(rf"PARAM track=(\d+) id={param_id} value=(-?\d+)", s.last)
+    if m is None:
+        raise InjectError(f"PARAM {param_id} 回显异常：{s.last.strip()!r}")
+    return int(m.group(2))
+
+
+def eng_track_level(s: Session, track: int) -> int:
+    """`ENG SNAP` 的轨道 level（section 应用/恢复的判别字段；BPM 是 globals 不随 scene 走）。"""
+    s.cmd("ENG SNAP")
+    m = re.search(rf"ENG SNAP trk k={track} .* level=(\d+) ", s.last)
+    if m is None:
+        raise InjectError(f"ENG SNAP 缺少 trk k={track} 的 level：{s.last.strip()!r}")
+    return int(m.group(1))
+
+
+def seq_playing(s: Session) -> int:
+    s.cmd("STATE SNAP")
+    return s.snap_int(r"\bplaying=(\d)")
+
+
+def seq_wait_playing(s: Session, want: int, timeout: float = 3.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if seq_playing(s) == want:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def seq_play_raw(s: Session, label: str) -> None:
+    """只发 PLAY 的 TAP（负例用：缺 scene 的 PLAY 必须被拒，不能断言 playing=1）。"""
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", f"{label} UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", f"{label} TAP PLAY")
+
+
+def seq_play(s: Session, label: str) -> None:
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", f"{label} UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", f"{label} TAP PLAY")
+    (s.ok if seq_wait_playing(s, 1) else s.fail)(
+        f"{label} playing=1（渲染循环消费走带请求）")
+
+
+def seq_stop(s: Session, label: str) -> None:
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", f"{label} UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", f"{label} TAP STOP")
+    (s.ok if seq_wait_playing(s, 0) else s.fail)(f"{label} playing=0")
+
+
+def seq_wait_song(s: Session, key: str, want, timeout: float = 6.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if seq_song(s)[key] == want:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def seq_wait_srec(s: Session, want: str, timeout: float = 5.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if seq_srec(s)["srec"] == want:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def seq_wait_dirty_clear(s: Session, label: str, timeout: float = 16.0) -> bool:
+    """等 1s 任务的延迟写把 dirty 清掉（停止 + 无发声 + 输入空闲 ≥1.5s + 间隔 ≥5s）。"""
+    t0 = time.monotonic()
+    sec = song_section(s)
+    while time.monotonic() - t0 < timeout:
+        sec = song_section(s)
+        song = seq_song(s)
+        if sec["dirty"] == 0 and song["dirty"] == 0:
+            s.ok(f"{label}：{time.monotonic() - t0:.1f}s 后 dirty=0（段落+歌曲已落盘）")
+            return True
+        time.sleep(0.4)
+    s.fail(f"{label}：{timeout:.0f}s 内 dirty 未清（section={sec}）")
+    return False
+
+
+def pattern_clear(s: Session, track: int, label: str) -> None:
+    """整轨清空（上游 steps_clear：memset + REST + 清 lock/micro/fill，不改 LEN）。
+    这是 DI-31 的**归一入口**：孤立 TIE 步也回 REST，不经过 STEP_CLEAR 的窄路径。"""
+    s.cmd(f"SEQ PATTERN CLEAR {track}")
+    s.expect(rf"SEQ PATTERN CLEAR track={track} arg=0 OK", label)
+
+
+def seq_key(s: Session, code: int, down: bool, label: str = "") -> None:
+    s.cmd(f"KEY 0x{code:02X} {'down' if down else 'up'}")
+    s.expect(rf"KEY 0x{code:02X} {'down' if down else 'up'}", label)
+
+
+def seq_set_track_param(s: Session, track: int, param_id: int, value: int, label: str) -> None:
+    s.cmd(f"PARAM {param_id} {value}")
+    s.expect(rf"PARAM track={track} id={param_id} value={value} applied={value} ", label)
+
+
+def seq_normalize_tracks(s: Session, label: str) -> None:
+    """四条轨的 LEN 16 / DIV 1/16（`section_bars` 取各轨最长图案；自由录音收尾会把
+    NTRK 全部设成 16×bars，不归一会让 chain/section 的 bars 变成 4）。"""
+    for k in range(4):
+        select_track(s, k)
+        seq_set_track_param(s, k, SEQ_LEN_ID, 16, f"{label}：轨 {k} LEN 16")
+        seq_set_track_param(s, k, SEQ_DIV_ID, 2, f"{label}：轨 {k} DIV 1/16")
+    select_track(s, SEQ_TRACK)
+
+
+def seq_tap_step(s: Session, track: int, col: int, label: str) -> str:
+    # 选轨（TAP 卡）会把当前页切到 TRACKS 组：步格 TAP 前先回到 STEP（同组时是幂等切页）
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", f"{label}：UI step")
+    x, y = step_cell_xy(col, track)
+    s.cmd(f"TAP {x} {y}")
+    s.expect(rf"-> STEP track={track} step={col} CMD_TOGGLE_STEP", label)
+    return s.last
+
+
+def seq_notes_in(s: Session, track: int, steps=range(16)) -> list:
+    """扫描步表，返回 [(步, 音高), …]（录音门禁用：断言持久效果，不看一次性 take 令牌）。
+    音高由键位（INPUT_BASE_NOTE + offset）决定，不写死 C4——只看「有音被记下」。"""
+    hits = []
+    for idx in steps:
+        st = eng_step(s, track, idx)
+        for k in range(min(st["n"], 4)):
+            hits.append((idx, st["note%d" % k]))
+    return hits
+
+
+def run_sequence(s: Session) -> None:
+    """sequence 场景（P4-C Task 12）：音序器的端到端设备矩阵。
+
+    覆盖（每段自带归一）：
+      ⓪ 归一：AUTO OFF / 停走带 / 选中轨 0 / 步窗 0..16 / 擦诊断槽 D 与 section A–C /
+         默认歌曲与 loop 模式 / BPM 120 / 轨 0 的 POLY·非静音·ARP OFF·HOLD OFF /
+         四条轨的图案清空；
+      ① 深度步与工具：SPAN 的 TIE 链、micro/fill、LVL/RAT/SLIDE、24+25 锁与非法锁、
+         ROTATE/UNDO/REDO 的「只动 step[]」语义、TRANSPOSE（鼓轨拒绝）、LENGTH×2÷2、
+         CLEAR 清 lock/micro/fill 且不改 LEN、DI-31 的孤立 TIE 归一；
+      ② 录音：自由录音的 API PLAY 收尾（LEN/BPM/步内容）与物理 PLAY 丢弃（不留步）、
+         TEMPO 模式的常规录音、16 lane 鼓录音（KEY 全键位）、切轨后松键回原轨、
+         FILL held/arm 两个独立变量（STOP 清 held）；
+      ③ live sections：STORE 的 dirty 延迟写落盘（FIELDS/HASH 证明）、播放中 STORE
+         允许、下一小节 REQUEST 生效；A/B 在**轨道字段**（轨 0 level 104/80）上也不同
+         （BPM 是 globals，arranger 不随 scene 应用），HASH 因此可判别；
+      ④ quick chain：A B A 的逐小节推进、9 项整份拒绝、8 项接受 + 单 tap 取消、
+         空 scene 的 STORE/REQUEST/CHAIN 拒绝；
+      ⑤ SONG：工作 loop 用**选中轨 1 的 level 70** 与 A/B 区分；A2+B3 自然结束与
+         SONG 模式 loop=1 的 STOP 都恢复该工作 loop（LIVEHASH+轨 level+选中轨）、
+         播放中应用 scene（A=104 / B=80）可观测；缺 scene 整首拒播 + 空 scene JUMP；
+      ⑥ SONG REC：未到下一小节取消不写配置（REC IS ON 时 MODE 被拒）、真实 take 录到
+         A→B 两项（count/entries/dirty/SAVE/INFO/LOAD）；**loop 模式**下 REQUEST B 是
+         live 段切换、STOP 后停在 B（无 song_restore），与 ⑤ 的 SONG 模式区分；
+      ⑦ STORE TEST 与单例 SELFTEST 之后歌曲保持（自检的 `.bss` 回滚 + song_reload）；
+      ⑧ esptool 硬复位后 PER3 歌曲与 section A/B 从 flash 恢复；
+      ⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY 页、AUTO ON。
+
+    本场景**破坏性**：占用工程槽 A–C（section）与 D（诊断）、歌曲顺序与四条轨的图案。
+    它自带归一，可重复运行。
+    """
+    s.ser.note("sequence 场景开始：⓪ 归一（AUTO/走带/遗留录音/选轨/步窗/诊断槽/工程槽/图案/歌曲）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
+    # 上一轮异常中断可能留下 free take / SONG REC / 非默认 REC 配置：先收口再停走带
+    # （REC 关闭 free take 会启动走带，故 ensure_stopped 放在它后面）。
+    rec = seq_rec_fields(s)
+    if rec["state"] != "off":
+        s.cmd("SEQ REC TOGGLE")
+        s.expect(r"SEQ REC state=\w+", "⓪ 收口遗留录音/free take")
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline and seq_rec_fields(s)["state"] != "off":
+            time.sleep(0.05)
+    srec = seq_srec(s)
+    if srec["srec"] != "off":
+        s.cmd("SEQ SREC TOGGLE")
+        s.expect(r"SEQ SREC srec=off", "⓪ 收口遗留 SONG REC")
+    s.cmd("SEQ REC CONFIG 0 0 0")
+    s.expect(r"SEQ REC state=\w+ track=\d+ quant=on tempo=free count=note",
+             "⓪ REC 配置归一（quant on / FREE / NOTE）")
+    ensure_stopped(s)
+    ensure_window(s, 0, 16)
+    select_track(s, SEQ_TRACK)
+    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C, SEQ_DIAG_SLOT):
+        proj_erase(s, slot, f"⓪ 清工程/诊断槽 {'ABCD'[slot]}")
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⓪ loop 模式")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⓪ 默认歌曲 A4 B4 C4 D4")
+    s.cmd("PARAM GLOBAL 0 120")
+    s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⓪ BPM 120")
+    seq_normalize_tracks(s, "⓪")
+    for tid, want, label in ((0, SEQ_LEVEL_A, "level 104"), (SEQ_MUTE_ID, 0, "非静音"),
+                             (SEQ_AMODE_ID, 0, "ARP OFF"), (SEQ_AHOLD_ID, 0, "HOLD OFF"),
+                             (SEQ_VOICE_ID, 0, "POLY")):
+        seq_set_track_param(s, SEQ_TRACK, tid, want, f"⓪ 轨 0 {label}")
+    select_track(s, 1)
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_A, "⓪ 轨 1 level 104（⑤ 工作 loop 判别字段归一）")
+    select_track(s, SEQ_DRUM)
+    seq_set_track_param(s, SEQ_DRUM, SEQ_MUTE_ID, 0, "⓪ 鼓轨非静音")
+    for k in range(4):
+        pattern_clear(s, k, f"⓪ 清轨 {k} 图案（DI-31 归一入口）")
+    select_track(s, SEQ_TRACK)
+    sec = song_section(s)
+    (s.ok if sec["ready"] == 0 else s.fail)(
+        f"⓪ 归一后 ready=0x{sec['ready']:02X}（期望 0）")
+
+    # ---------- ① 深度步 / 锁 / 工具 ----------
+    s.ser.note("① 深度步（SPAN/TIE/micro/fill）+ 24+25 锁与非法锁 + pattern 工具")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "① UI step")
+    ensure_window(s, 0, 16)
+    seq_tap_step(s, SEQ_TRACK, 0, "① TAP 步 0 建音（与 STEP 页同一 toggle 动作）")
+    st0 = eng_step(s, SEQ_TRACK, 0)
+    (s.ok if st0["n"] == 1 and st0["time"] == 0 else s.fail)(
+        f"① 步 0 = NOTE（n={st0['n']} time={st0['time']}）")
+    s.cmd("SEQ EDIT SPAN 0 0 3")
+    s.expect(r"SEQ EDIT SPAN track=0 step=0 OK", "① SPAN 3（步 1/2 长成 TIE）")
+    t1 = eng_step(s, SEQ_TRACK, 1)
+    t2 = eng_step(s, SEQ_TRACK, 2)
+    (s.ok if (t1["time"] == 1 and t1["n"] == 0 and t2["time"] == 1) else s.fail)(
+        f"① TIE 链：步1 time={t1['time']} n={t1['n']}、步2 time={t2['time']}（期望 1/0/1）")
+    for cmd, pattern, label in (
+            ("SEQ MICRO 0 0 -5", r"SEQ MICRO track=0 step=0 value=-5 OK", "① micro -5"),
+            ("SEQ FILL 0 0 2", r"SEQ FILL track=0 step=0 value=2 OK", "① fill x2"),
+            ("SEQ EDIT LVL 0 0 0 3", r"SEQ EDIT LVL track=0 step=0 OK", "① LVL HARD"),
+            ("SEQ EDIT RAT 0 0 0 1", r"SEQ EDIT RAT track=0 step=0 OK", "① RAT x2"),
+            ("SEQ EDIT SLIDE 0 0 1", r"SEQ EDIT SLIDE track=0 step=0 OK", "① SLIDE on")):
+        s.cmd(cmd)
+        s.expect(pattern, label)
+    st0 = eng_step(s, SEQ_TRACK, 0)
+    ok = (st0["micro"] == -5 and st0["fill"] == 2 and (st0["lvl"] & 3) == 3
+          and (st0["rat"] & 3) == 1 and (st0["flags"] & 2) == 2)
+    (s.ok if ok else s.fail)(
+        f"① 步 0 深度字段 micro={st0['micro']} fill={st0['fill']} lvl={st0['lvl']} "
+        f"rat={st0['rat']} flags=0x{st0['flags']:02X}（期望 -5/2/…3/…1/SLIDE）")
+
+    # 视觉证据：NOTE 实心 vs TIE 空心 + micro 文本（焦点框移出被测列）
+    s.cmd("STATE SNAP")
+    focus = s.snap_int(r"focus_step=(\d+)")
+    for _ in range((10 - focus) % 16):
+        seq_key(s, 0x4C, True)
+        seq_key(s, 0x4C, False)
+    time.sleep(0.2)
+    img = s.capture("step-deep")
+    x0, y0 = step_cell_box(0, 0)
+    x1, y1 = step_cell_box(1, 0)
+    s.probe(img, "① 步 0 NOTE 实心（轨色中心）",
+            x0 + STEP_CELL_W // 2, y0 + STEP_CELL_H // 2, C_BLUE)
+    s.probe(img, "① 步 1 TIE 空心（中心为面板底）",
+            x1 + STEP_CELL_W // 2, y1 + STEP_CELL_H // 2, C_PANEL_HI, 10)
+    s.probe_region(img, "① 步 1 TIE 内框（轨色，区别于空格）",
+                   (x1 + 2, y1 + 2, x1 + STEP_CELL_W - 2, y1 + 30), C_BLUE, 16, 40)
+    s.probe_region(img, "① 步 0 micro 文本 m-5",
+                   (x0 + 2, y0 + STEP_BOT_STRIP_Y, x0 + 44, y0 + STEP_BOT_STRIP_Y + 16),
+                   C_TEXT_DIM, 16, 5)
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "① 回 STEP（截屏后同组重建）")
+
+    # 24 锁 + 第 25 锁 full + 非法（非声音参数）锁不变
+    for i in range(SEQ_LOCK_MAX):
+        s.cmd(f"SEQ LOCK SET 0 {i} {SEQ_LOCK_PARAM} {10 + i}")
+        s.expect(rf"SEQ LOCK SET track=0 step={i} param={SEQ_LOCK_PARAM} value={10 + i} OK",
+                 f"① 锁 {i + 1}/{SEQ_LOCK_MAX}")
+    count, items = seq_locks(s, SEQ_TRACK)
+    (s.ok if count == SEQ_LOCK_MAX and len(items) == SEQ_LOCK_MAX else s.fail)(
+        f"① 锁满：count={count} 条目={len(items)}（期望 {SEQ_LOCK_MAX}）")
+    s.cmd(f"SEQ LOCK SET 0 {SEQ_LOCK_MAX} {SEQ_LOCK_PARAM} 99")
+    s.expect(r"^SEQ ERR full\r?$", "① 第 25 锁 → SEQ ERR full（判别性反例）")
+    s.cmd(f"SEQ LOCK SET 0 0 {SEQ_LOCK_BAD} 5")
+    s.expect(r"^SEQ ERR invalid\r?$", "① 非法锁（P_SLEN 非声音参数）→ SEQ ERR invalid")
+    count2, items2 = seq_locks(s, SEQ_TRACK)
+    unchanged = (count2 == SEQ_LOCK_MAX and items2 == items
+                 and not any(p == SEQ_LOCK_BAD for _, p, _ in items2))
+    (s.ok if unchanged else s.fail)(
+        f"① 被拒的锁不改状态：count={count2}（期望 {SEQ_LOCK_MAX}）且无 param={SEQ_LOCK_BAD}")
+    # CLEAR 清 lock/micro/fill（不改 LEN），锚点删除顺带把 TIE 尾巴收回
+    s.cmd("SEQ EDIT CLEAR 0 0")
+    s.expect(r"SEQ EDIT CLEAR track=0 step=0 OK", "① CLEAR 步 0")
+    st0 = eng_step(s, SEQ_TRACK, 0)
+    count3, items3 = seq_locks(s, SEQ_TRACK)
+    ok = (st0["n"] == 0 and st0["micro"] == 0 and st0["fill"] == 0
+          and count3 == SEQ_LOCK_MAX - 1 and all(s != 0 for s, _, _ in items3)
+          and seq_param(s, SEQ_LEN_ID) == 16)
+    (s.ok if ok else s.fail)(
+        f"① CLEAR 清 lock/micro/fill 且不改 LEN：count={count3} micro={st0['micro']} "
+        f"fill={st0['fill']} len={seq_param(s, SEQ_LEN_ID)}")
+    for i in range(1, SEQ_LOCK_MAX):
+        s.cmd(f"SEQ LOCK DEL 0 {i} 71")
+        s.expect(rf"SEQ LOCK DEL track=0 step={i} param=71 OK", f"① 删锁步 {i}")
+    count4, _ = seq_locks(s, SEQ_TRACK)
+    (s.ok if count4 == 0 else s.fail)(f"① 锁清空 count={count4}")
+
+    # 重建锚点 + SPAN + micro，做 ROTATE/UNDO/REDO 的「只动 step[]」语义
+    seq_tap_step(s, SEQ_TRACK, 0, "① 重建步 0 锚点")
+    s.cmd("SEQ EDIT SPAN 0 0 3")
+    s.expect(r"SEQ EDIT SPAN track=0 step=0 OK", "① 重建 TIE 链")
+    s.cmd("SEQ MICRO 0 0 -5")
+    s.expect(r"SEQ MICRO track=0 step=0 value=-5 OK", "① 重建 micro -5")
+    s.cmd("SEQ PATTERN ROTATE 0 1")
+    s.expect(r"SEQ PATTERN ROTATE track=0 arg=1 OK", "① ROTATE +1")
+    r0 = eng_step(s, SEQ_TRACK, 0)
+    r1 = eng_step(s, SEQ_TRACK, 1)
+    r2 = eng_step(s, SEQ_TRACK, 2)
+    ok = (r0["n"] == 0 and r1["n"] == 1 and r2["time"] == 1 and r0["micro"] == -5)
+    (s.ok if ok else s.fail)(
+        f"① ROTATE 只动 step[]：步0 n={r0['n']} micro={r0['micro']}、步1 n={r1['n']}、"
+        f"步2 time={r2['time']}（期望 0/-5、1、1）")
+    s.cmd("SEQ PATTERN UNDO 0")
+    s.expect(r"SEQ PATTERN UNDO track=0 arg=0 OK", "① UNDO")
+    u0 = eng_step(s, SEQ_TRACK, 0)
+    u1 = eng_step(s, SEQ_TRACK, 1)
+    (s.ok if (u0["n"] == 1 and u1["time"] == 1 and u0["micro"] == -5) else s.fail)(
+        f"① UNDO 恢复 steps/micro：步0 n={u0['n']} micro={u0['micro']} 步1 time={u1['time']}")
+    s.cmd("SEQ PATTERN REDO 0")
+    s.expect(r"SEQ PATTERN REDO track=0 arg=0 OK", "① REDO")
+    d1 = eng_step(s, SEQ_TRACK, 1)
+    (s.ok if d1["n"] == 1 else s.fail)(f"① REDO 回到旋转态：步1 n={d1['n']}")
+    note_before = d1["note0"]
+    # 上游 pattern_transpose 只取 arg 的符号（每次 1 个半音），不是「+arg」
+    s.cmd("SEQ PATTERN TRANSPOSE 0 2")
+    s.expect(r"SEQ PATTERN TRANSPOSE track=0 arg=2 OK", "① TRANSPOSE（arg>0）")
+    d1b = eng_step(s, SEQ_TRACK, 1)
+    (s.ok if d1b["note0"] == note_before + 1 else s.fail)(
+        f"① TRANSPOSE arg>0：note {note_before} → {d1b['note0']}（上游每次 1 个半音）")
+    s.cmd("SEQ PATTERN TRANSPOSE 0 -1")
+    s.expect(r"SEQ PATTERN TRANSPOSE track=0 arg=-1 OK", "① TRANSPOSE（arg<0）")
+    d1c = eng_step(s, SEQ_TRACK, 1)
+    (s.ok if d1c["note0"] == note_before else s.fail)(
+        f"① TRANSPOSE arg<0 回到原音：{d1c['note0']}（期望 {note_before}）")
+    select_track(s, SEQ_DRUM)
+    s.cmd("SEQ PATTERN TRANSPOSE 3 2")
+    s.expect(r"^SEQ ERR invalid\r?$", "① 鼓轨 TRANSPOSE → SEQ ERR invalid（判别性反例）")
+    select_track(s, SEQ_TRACK)
+    s.cmd("SEQ PATTERN LENGTH 0 1")
+    s.expect(r"SEQ PATTERN LENGTH track=0 arg=1 OK", "① LENGTH ×2")
+    (s.ok if seq_param(s, SEQ_LEN_ID) == 32 else s.fail)(
+        f"① LENGTH ×2：LEN={seq_param(s, SEQ_LEN_ID)}（期望 32）")
+    l17 = eng_step(s, SEQ_TRACK, 17)
+    (s.ok if l17["note0"] == d1c["note0"] else s.fail)(
+        f"① LENGTH 复制图案：步 17 note={l17['note0']}（期望 {d1c['note0']}）")
+    s.cmd("SEQ PATTERN LENGTH 0 -1")
+    s.expect(r"SEQ PATTERN LENGTH track=0 arg=-1 OK", "① LENGTH ÷2")
+    (s.ok if seq_param(s, SEQ_LEN_ID) == 16 else s.fail)(
+        f"① LENGTH ÷2：LEN={seq_param(s, SEQ_LEN_ID)}（期望 16）")
+
+    # DI-31：ROTATE -1 把 TIE 挪到 0、锚点挪到 15 → 孤立 TIE；CLEAR 是 no-op（已知
+    # deferral，只记录不判失败），用「开一步再清」自愈。先清轨：SPAN 只往**空步**长，
+    # 前面用例在步 1 留下的音符会让它停在 1 步（前提不成立）。
+    pattern_clear(s, SEQ_TRACK, "① DI-31 用例：清轨 0（保证步 1 是空步）")
+    seq_tap_step(s, SEQ_TRACK, 0, "① DI-31 用例：步 0 开音")
+    s.cmd("SEQ EDIT SPAN 0 0 2")
+    s.expect(r"SEQ EDIT SPAN track=0 step=0 OK", "① DI-31 用例：SPAN 2")
+    s.cmd("SEQ PATTERN ROTATE 0 -1")
+    s.expect(r"SEQ PATTERN ROTATE track=0 arg=-1 OK", "① DI-31 用例：ROTATE -1")
+    orphan = eng_step(s, SEQ_TRACK, 0)
+    # 先证明前提真的成立（旋转把 TIE 与锚点分离）：否则后面的「复现」只是空话
+    orphan_ok = orphan["time"] == 1 and orphan["n"] == 0
+    (s.ok if orphan_ok else s.fail)(
+        f"① DI-31 前提：旋转后步 0 是孤立 TIE（time={orphan['time']} n={orphan['n']}，期望 1/0）")
+    s.cmd("SEQ EDIT CLEAR 0 0")
+    s.expect(r"SEQ EDIT CLEAR track=0 step=0 OK", "① DI-31 用例：CLEAR（已知 no-op 路径）")
+    after_clear = eng_step(s, SEQ_TRACK, 0)
+    if orphan_ok and after_clear["time"] == 1 and after_clear["n"] == 0:
+        s.ser.note("① DI-31 复现（前提已断言）：孤立 TIE 步 CLEAR 后仍 time=1，"
+                   "自愈走「开一步再清」")
+    elif orphan_ok:
+        s.ser.note(f"① DI-31 未复现（前提成立但 CLEAR 后 time={after_clear['time']} "
+                   f"n={after_clear['n']}）：deferral 可能已修")
+    else:
+        s.ser.note(f"① DI-31 前提未成立（旋转后 time={orphan['time']} n={orphan['n']}）："
+                   "本用例不判定复现")
+    seq_tap_step(s, SEQ_TRACK, 0, "① DI-31 自愈：TAP 把 TIE 开成 NOTE")
+    s.cmd("SEQ EDIT CLEAR 0 0")
+    s.expect(r"SEQ EDIT CLEAR track=0 step=0 OK", "① DI-31 自愈：再 CLEAR")
+    healed = eng_step(s, SEQ_TRACK, 0)
+    (s.ok if healed["n"] == 0 and healed["time"] == 2 else s.fail)(
+        f"① DI-31 自愈后步 0 = REST（n={healed['n']} time={healed['time']}，期望 0/2）")
+    for k in range(4):
+        pattern_clear(s, k, f"① 收口清轨 {k} 图案（自由录音要求整工程为空）")
+    select_track(s, SEQ_TRACK)
+
+    # ---------- ② 录音 / free take / 16 lane 鼓 / cross-track release / fill ----------
+    s.ser.note("② 录音：自由录音 API PLAY 收尾、物理 PLAY 丢弃、TEMPO 常规录音、16 lane 鼓、"
+               "切轨松键、FILL held/arm")
+    s.cmd("SEQ REC CONFIG 0 0 0")
+    s.expect(r"SEQ REC state=\w+ track=0 quant=on tempo=free count=note",
+             "② REC 配置归一（quant on / FREE / NOTE）")
+    s.cmd("SEQ REC TOGGLE")
+    s.expect(r"SEQ REC state=armed track=0", "② 自由录音：REC arm（停止 + 空工程）")
+    seq_key(s, SEQ_KEY_NOTE, True, "② 自由录音：按下第一个音（ft_start）")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["state"] == "free_take" else s.fail)(
+        f"② 自由录音进行中：SEQ REC state={rec['state']}（期望 free_take）")
+    time.sleep(SEQ_FREE_TAKE_S)
+    seq_key(s, SEQ_KEY_NOTE, False, "② 自由录音：松开")
+    seq_play(s, "② 自由录音 API PLAY 收尾")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["state"] == "off" else s.fail)(f"② 收尾后 SEQ REC state={rec['state']}（off）")
+    length = seq_param(s, SEQ_LEN_ID)
+    bpm = store_bpm(s)
+    hits = seq_notes_in(s, SEQ_TRACK)
+    (s.ok if length == 64 else s.fail)(
+        f"② API PLAY 收尾的持久效果：LEN={length}（8s@120 ⇒ 4 小节 = 64）")
+    # ft_fit 以 CTL 块计时、Tab5 的渲染块是 8×CTL：实测 8s 的 take 拟合到 112 BPM
+    # （4 小节），LEN=64 才是判据；BPM 只要求落在 4 小节拟合的合理范围。
+    (s.ok if 100 <= bpm <= 140 else s.fail)(
+        f"② 收尾的 take 拟合出 4 小节 loop：BPM={bpm}（观测 108..132 区间；LEN=64 为判据）")
+    (s.ok if hits else s.fail)(f"② 录制写回步表：{hits}")
+    seq_stop(s, "② 自由录音收尾后停走带")
+    for k in range(4):
+        pattern_clear(s, k, f"② 清轨 {k}（丢弃收尾的 take，重建空工程）")
+
+    # 物理 PLAY 丢弃：不留步、不改 LEN（与 API PLAY 的 close 分叉）。
+    # 收尾（API close）后的 300ms 内 REC 会被 ft_owns_press() 吞掉：显式跨过窗口再 arm。
+    time.sleep(0.4)
+    length0 = seq_param(s, SEQ_LEN_ID)
+    s.cmd("SEQ REC TOGGLE")
+    s.expect(r"SEQ REC state=armed track=0", "② 丢弃用例：REC arm（再次空工程）")
+    seq_key(s, SEQ_KEY_NOTE, True, "② 丢弃用例：按下音符启动自由录音")
+    (s.ok if seq_rec_fields(s)["state"] == "free_take" else s.fail)(
+        "② 丢弃用例：free_take 已启动")
+    time.sleep(1.5)
+    seq_key(s, SEQ_KEY_NOTE, False, "② 丢弃用例：松开")
+    s.cmd("SEQ REC BUTTON 1")   # 物理面板 PLAY 的按下沿（ft_block 丢弃 take）
+    s.expect(r"SEQ REC BUTTON down=1 OK", "② 物理 PLAY down")
+    time.sleep(0.1)             # 跨过至少一个音频块（ft_block 的上升沿）
+    s.cmd("SEQ REC BUTTON 0")
+    s.expect(r"SEQ REC BUTTON down=0 OK", "② 物理 PLAY up")
+    time.sleep(0.1)
+    rec = seq_rec_fields(s)
+    (s.ok if rec["state"] == "off" else s.fail)(
+        f"② 物理 PLAY 丢弃后 state={rec['state']}（off，不进入播放）")
+    (s.ok if seq_playing(s) == 0 else s.fail)("② 物理 PLAY 丢弃不启动走带（playing=0）")
+    st0 = eng_step(s, SEQ_TRACK, 0)
+    (s.ok if st0["n"] == 0 else s.fail)(
+        f"② 丢弃的 take 不留步（步 0 n={st0['n']}，期望 0）")
+    length_now = seq_param(s, SEQ_LEN_ID)
+    (s.ok if length_now == length0 else s.fail)(
+        f"② 丢弃的 take 不改 LEN（{length_now}，期望 {length0}）")
+
+    # TEMPO 模式常规录音（播放中 rec_begin + 量化的首音）；丢弃 take 后同样等过 300ms 窗口
+    time.sleep(0.4)
+    s.cmd("SEQ REC CONFIG 0 1 0")
+    s.expect(r"SEQ REC state=\w+ track=0 quant=on tempo=tempo count=note",
+             "② TEMPO 模式配置（quant on / TEMPO / NOTE）")
+    seq_set_track_param(s, SEQ_TRACK, SEQ_LEN_ID, 16, "② 常规录音：LEN 16")
+    s.cmd("SEQ REC TOGGLE")
+    s.expect(r"SEQ REC state=armed track=0", "② 常规录音：arm")
+    seq_play(s, "② 常规录音 PLAY（arm + 播放 ⇒ 从顶录制）")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["state"] == "recording" else s.fail)(
+        f"② 播放中录音：state={rec['state']}（recording，rec 位跟随选中轨）")
+    time.sleep(0.4)
+    seq_key(s, SEQ_KEY_NOTE, True, "② 常规录音：弹一个音")
+    time.sleep(0.1)
+    seq_key(s, SEQ_KEY_NOTE, False, "② 常规录音：松开")
+    time.sleep(0.4)
+    s.cmd("SEQ REC TOGGLE")   # 再按一次：关录音，播放继续
+    s.expect(r"SEQ REC state=off", "② 再按 REC：关录音（播放继续）")
+    (s.ok if seq_playing(s) == 1 else s.fail)("② REC off 不停播放（playing=1）")
+    hits = seq_notes_in(s, SEQ_TRACK)
+    (s.ok if hits else s.fail)(f"② 常规录音写回步表：{hits}")
+    seq_stop(s, "② 常规录音收尾 STOP")
+    for k in range(4):
+        pattern_clear(s, k, f"② 清轨 {k}（常规录音用例收口）")
+
+    # cross-track release：按住合成轨音符 → 切到鼓轨 → 松开必须回原轨
+    select_track(s, SEQ_TRACK)
+    seq_key(s, SEQ_KEY_NOTE, True, "② 跨轨松键：轨 0 按下音符")
+    (s.ok if eng_voices_poll(s, 1, SEQ_TRACK, 1.0) >= 1 else s.fail)(
+        "② 跨轨松键：轨 0 voices≥1（音符在响）")
+    select_track(s, SEQ_DRUM)
+    seq_key(s, SEQ_KEY_NOTE, False, "② 跨轨松键：切到鼓轨后松开同一个键")
+    (s.ok if eng_voices_poll(s, 0, SEQ_TRACK, 1.5) == 0 else s.fail)(
+        "② 跨轨松键：轨 0 voices=0（释放回按下时的轨，未被鼓分支吞掉）")
+
+    # 16 lane 鼓：KEY 全键位（低行 0..7 / 高行 8..15）经 CMD_DRUM_HIT 写入 dstep
+    s.cmd("PARAM GLOBAL 0 40")
+    s.expect(r"PARAM GLOBAL id=0 value=40 applied=40 ", "② 鼓录音用 40 BPM（步长足够容纳 32 个键事件）")
+    seq_set_track_param(s, SEQ_DRUM, SEQ_LEN_ID, 16, "② 鼓轨 LEN 16")
+    seq_play(s, "② 鼓录音 PLAY")
+    s.cmd("SEQ REC TOGGLE")
+    s.expect(r"SEQ REC state=recording track=3", "② 鼓轨录音开启（rec 位 = 选中鼓轨）")
+    for lane, code in enumerate(SEQ_DRUM_LOW + SEQ_DRUM_HIGH):
+        seq_key(s, code, True, f"② 鼓 lane {lane} down")
+        seq_key(s, code, False, f"② 鼓 lane {lane} up")
+    s.cmd("SEQ REC TOGGLE")
+    s.expect(r"SEQ REC state=off", "② 鼓录音关闭")
+    seq_stop(s, "② 鼓录音收尾 STOP")
+    union = 0
+    hit_steps = []
+    for idx in range(16):
+        d = seq_dstep(s, idx)
+        if d["on"]:
+            hit_steps.append((idx, d["on"]))
+            union |= d["on"]
+    (s.ok if union == 0xFFFF else s.fail)(
+        f"② 16 lane 鼓录音：步 {hit_steps} 的 on 位并集=0x{union:04X}（期望 0xFFFF）")
+    select_track(s, SEQ_TRACK)
+
+    # FILL held / arm 是两个独立变量（NEXT 只翻转 arm；STOP 清 held 与 arm）
+    for cmd, pattern, label in (
+            ("SEQ REC FILL HOLD 1", r"SEQ REC FILL HOLD 1 OK", "② FILL 保持 down"),
+            ("SEQ REC FILL NEXT", r"SEQ REC FILL NEXT OK", "② FILL NEXT 脉冲")):
+        s.cmd(cmd)
+        s.expect(pattern, label)
+    rec = seq_rec_fields(s)
+    (s.ok if rec["fill_held"] == 1 and rec["fill_arm"] == 1 else s.fail)(
+        f"② 两个变量并存：held={rec['fill_held']} arm={rec['fill_arm']}（期望 1/1）")
+    s.cmd("SEQ REC FILL HOLD 0")
+    s.expect(r"SEQ REC FILL HOLD 0 OK", "② FILL 保持 up")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["fill_held"] == 0 and rec["fill_arm"] == 1 else s.fail)(
+        f"② NEXT 不写 held：held={rec['fill_held']} arm={rec['fill_arm']}（期望 0/1）")
+    s.cmd("SEQ REC FILL NEXT")
+    s.expect(r"SEQ REC FILL NEXT OK", "② FILL NEXT 再脉冲")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["fill_arm"] == 0 else s.fail)(f"② 脉冲翻转 arm={rec['fill_arm']}（期望 0）")
+    seq_play(s, "② FILL 的 STOP 收口")
+    s.cmd("SEQ REC FILL HOLD 1")
+    s.expect(r"SEQ REC FILL HOLD 1 OK", "② 走带中按住 FILL")
+    time.sleep(0.1)
+    s.cmd("SEQ REC FILL NEXT")
+    s.expect(r"SEQ REC FILL NEXT OK", "② 走带中再 NEXT")
+    seq_stop(s, "② STOP 清 FILL")
+    rec = seq_rec_fields(s)
+    (s.ok if rec["fill_held"] == 0 and rec["fill_arm"] == 0 else s.fail)(
+        f"② STOP 清 FILL：held={rec['fill_held']} arm={rec['fill_arm']}（期望 0/0）")
+    for k in range(4):
+        pattern_clear(s, k, f"② 收口清轨 {k}")
+    select_track(s, SEQ_TRACK)
+    s.cmd("PARAM GLOBAL 0 120")
+    s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "② 回 BPM 120")
+
+    # ---------- ③ live sections / dirty 延迟写 ----------
+    s.ser.note("③ live sections：STORE 的 dirty 落盘、播放中 STORE、下一小节 REQUEST")
+    seq_normalize_tracks(s, "③")
+    seq_set_track_param(s, SEQ_TRACK, SEQ_LEN_ID, 4, "③ section 用 LEN 4（section_bars=1）")
+    seq_tap_step(s, SEQ_TRACK, 0, "③ 步 0 建音（section A 的内容）")
+    s.cmd("SEQ SECTION A STORE")
+    s.expect(r"SEQ SECTION A STORE OK", "③ STORE A（停止态）")
+    sec = song_section(s)
+    (s.ok if (sec["ready"] & 0x01) and sec["live"] == "A" and sec["dirty"] == 1 else s.fail)(
+        f"③ STORE A 后 ready=0x{sec['ready']:02X} live={sec['live']} dirty={sec['dirty']}"
+        f"（期望 bit0/A/1）")
+    seq_wait_dirty_clear(s, "③ A 的延迟写")
+    hash_a = store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=([0-9A-Fa-f]{8})\r?$",
+                        "③ A 的 RAM 槽 hash")
+    (s.ok if hash_a != 0 else s.fail)(f"③ A 的 RAM 槽 hash={hash_a:08X}（非空）")
+    s.cmd("STORE PROJ FIELDS 0")
+    store_expect(s, r"^PROJ 0 FIELDS fmt=6 .*t0\.lvl=104 .*t0\.s0=1:\d+",
+                 "③ A 已落 flash（FIELDS 走 st_load + proj_import；轨 0 level=104）")
+
+    # section B 与 A 在**轨道字段**上也不同（level 104 → 80）：BPM 是 globals，arranger
+    # 刻意不随 scene 应用，只靠 BPM 的 A/B 在「应用/恢复」上不可判别。
+    seq_set_track_param(s, SEQ_TRACK, 0, SEQ_LEVEL_B, "③ section B 的轨 0 level=80")
+    s.cmd("PARAM GLOBAL 0 132")
+    s.expect(r"PARAM GLOBAL id=0 value=132 applied=132 ", "③ 改 BPM（section B 的内容）")
+    seq_play(s, "③ 播放中 STORE B")
+    s.cmd("SEQ SECTION B STORE")
+    s.expect(r"SEQ SECTION B STORE OK", "③ 播放中 STORE B（允许）")
+    sec = song_section(s)
+    playing_now = seq_playing(s)
+    (s.ok if (sec["ready"] & 0x02) and sec["live"] == "B" and playing_now == 1 else s.fail)(
+        f"③ 播放中 STORE B 不停走带：ready=0x{sec['ready']:02X} live={sec['live']} "
+        f"playing={playing_now}")
+    s.cmd("SEQ SECTION A REQUEST")
+    s.expect(r"SEQ SECTION A REQUEST OK", "③ 下一小节 REQUEST A")
+    if seq_wait_song(s, "live", "A", 6.0):
+        s.ok("③ REQUEST 在下一小节生效：SEQ SECTION live=A")
+    else:
+        s.fail("③ REQUEST 6s 内未生效（live 仍非 A）")
+    seq_stop(s, "③ 停走带等 B 落盘")
+    seq_wait_dirty_clear(s, "③ B 的延迟写")
+    hash_b = store_hash(s, "STORE PROJ HASH 1", r"^PROJ 1 HASH=([0-9A-Fa-f]{8})\r?$",
+                        "③ B 的 RAM 槽 hash")
+    (s.ok if hash_b != 0 and hash_b != hash_a else s.fail)(
+        f"③ A/B 是不同的 section：A={hash_a:08X} B={hash_b:08X}")
+    s.cmd("STORE PROJ FIELDS 1")
+    store_expect(s, r"^PROJ 1 FIELDS fmt=6 .*bpm=132 .*t0\.lvl=80 ",
+                 "③ B 已落 flash（FIELDS：bpm=132、轨 0 level=80）")
+    seq_set_track_param(s, SEQ_TRACK, 0, SEQ_LEVEL_A, "③ 轨 0 level 回 104（后续 LOAD A 同值）")
+
+    # ---------- ④ quick chain ----------
+    s.ser.note("④ quick chain：A B A 的逐小节推进、9 项整份拒绝、8 项接受 + 取消、空 scene 拒绝")
+    s.cmd("SEQ SECTION A LOAD")
+    s.expect(r"SEQ SECTION A LOAD OK", "④ LOAD A（工作 loop + live=A）")
+    seq_play(s, "④ chain 起播")
+    s.cmd("SEQ CHAIN A B A")
+    s.expect(r"SEQ CHAIN count=3 index=0 bars=1", "④ SEQ CHAIN A B A")
+    chain = song_chain(s)
+    (s.ok if chain["scenes"] == [0, 1, 0] else s.fail)(
+        f"④ chain 场景序={chain['scenes']}（期望 [0,1,0]）")
+    t0 = time.monotonic()
+    advanced = False
+    while time.monotonic() - t0 < 8.0:
+        ch = song_chain(s)
+        if ch["index"] >= 1:
+            advanced = True
+            break
+        time.sleep(0.2)
+    (s.ok if advanced else s.fail)(
+        "④ chain 按 section_bars 推进：8s 内 index ≥ 1（每小节 1 项）")
+    s.cmd("SEQ CHAIN A B A B A B A B A")
+    s.expect(r"^SEQ ERR invalid\r?$", "④ 9 项 chain → SEQ ERR invalid（判别性反例）")
+    chain = song_chain(s)
+    (s.ok if chain["count"] == 3 else s.fail)(
+        f"④ 9 项被拒后 chain 不变：count={chain['count']}（期望 3）")
+    s.cmd("SEQ CHAIN A B A B A B A B")
+    s.expect(r"SEQ CHAIN count=8 index=0 bars=1", "④ 8 项 chain 接受")
+    s.cmd("SEQ CHAIN A")
+    s.expect(r"SEQ CHAIN count=0 index=0", "④ 单 tap（再次 CHAIN 一项）= 取消")
+    s.cmd("SEQ CHAIN A C")
+    s.expect(r"^SEQ ERR not_found\r?$", "④ 空 scene C 的 chain → SEQ ERR not_found")
+    (s.ok if song_chain(s)["count"] == 0 else s.fail)("④ 空 scene 整份拒绝：不装半条（count=0）")
+    s.cmd("SEQ SECTION C REQUEST")
+    s.expect(r"^SEQ ERR not_found\r?$", "④ 空 scene C 的 REQUEST → SEQ ERR not_found（判别性反例）")
+
+    # ---------- ⑤ live loop JUMP / SONG A2+B3 / loop 恢复 / 缺 scene 拒播 ----------
+    s.ser.note("⑤ live loop 的 JUMP（空 scene 可见拒绝 + B 生效）；SONG A2+B3 自然结束与 "
+               "SONG 模式 loop=1 的 STOP 都恢复 playback 前的**工作 loop**；缺 scene 整首拒播")
+    seq_stop(s, "⑤ 先停走带")
+    s.cmd("SEQ SECTION A LOAD")
+    s.expect(r"SEQ SECTION A LOAD OK", "⑤ 工作 loop 归一到 A")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_A else s.fail)(
+        f"⑤ LOAD A：轨 0 level={lvl}（section A 的 {SEQ_LEVEL_A}）")
+    select_track(s, 1)
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑤ loop 模式")
+    seq_play(s, "⑤ live loop 播放（JUMP 用例）")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤ UI song（live loop）")
+    s.cmd("TAP %d %d" % song_card_xy(SEQ_SEC_C))
+    s.expect(r"-> SONG card=C select", "⑤ 选中空 scene C")
+    song_action(s, song_sec_xy(3), "JUMP", "⑤ live loop 中 JUMP 空 scene C", "JUMP C: EMPTY",
+                section="C", err="not_found")
+    (s.ok if seq_song(s)["live"] != "C" else s.fail)("⑤ 空 scene 被拒后 live 不变")
+    s.cmd("TAP %d %d" % song_card_xy(SEQ_SEC_B))
+    s.expect(r"-> SONG card=B select", "⑤ 选中 B")
+    song_action(s, song_sec_xy(3), "JUMP", "⑤ live loop 中 JUMP B", "JUMP B: OK", section="B")
+    (s.ok if seq_wait_song(s, "live", "B", 6.0) else s.fail)(
+        "⑤ JUMP 在下一小节生效：SEQ SECTION live=B")
+    # JUMP 真的应用了**另一份**工程：section B 的轨 0 level = 80（A = 104）
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑤ JUMP B 应用 section B：轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
+    seq_stop(s, "⑤ JUMP 用例收尾")
+    # 工作 loop 与 A、B 都不同：**选中轨 1** 的 level = 70。song_restore 若失效会停在最后
+    # 应用的 scene（A=104 / B=80），不会撞上 h0 ⇒ 「恢复工作 loop」的断言可判别。
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_WORK, "⑤ 工作 loop 的判别字段：轨 1 level 70")
+    h0 = live_hash(s)
+    s.ser.note(f"⑤ 判别哈希：A={hash_a:08X} B={hash_b:08X} 工作 loop(h0)={h0:08X}")
+    (s.ok if h0 not in (hash_a, hash_b) else s.fail)(
+        f"⑤ 工作 loop 的 hash 与 A/B 都不同（h0={h0:08X}）")
+    # SONG：A2+B3 自然结束（5 小节 @120 = 10s）后必须恢复 playback 前的工作 loop 与选中轨
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2 loop=0",
+              "⑤ 歌曲 A2+B3 / loop=0")
+    s.cmd("SEQ SONG MODE song")
+    s.expect(r"SEQ SONG mode=song", "⑤ SONG 模式")
+    seq_play(s, "⑤ SONG 播放")
+    (s.ok if seq_wait_song(s, "running", 1, 3.0) else s.fail)("⑤ SEQ SONG running=1")
+    time.sleep(1.0)   # 第一个小节：应用 section A（轨 0/1 level 都回到 104）
+    l0, l1 = eng_track_level(s, SEQ_TRACK), eng_track_level(s, 1)
+    (s.ok if l0 == SEQ_LEVEL_A and l1 == SEQ_LEVEL_A else s.fail)(
+        f"⑤ SONG 播放中应用 section A：轨 0/1 level={l0}/{l1}（期望 {SEQ_LEVEL_A}/{SEQ_LEVEL_A}）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑤ 回 TRANSPORT 等自然结束")
+    if seq_wait_playing(s, 0, 18.0):
+        s.ok("⑤ A2+B3 自然结束：playing=0")
+    else:
+        s.fail("⑤ A2+B3 18s 内未自然结束")
+    song = seq_song(s)
+    (s.ok if song["running"] == 0 and song["index"] == 1 else s.fail)(
+        f"⑤ 自然结束：running={song['running']} index={song['index']}（期望 0/1，count 夹取）")
+    h_end = live_hash(s)
+    (s.ok if h_end == h0 else s.fail)(
+        f"⑤ 自然结束恢复工作 loop：LIVEHASH={h_end:08X}（期望 {h0:08X}）")
+    l1 = eng_track_level(s, 1)
+    (s.ok if l1 == SEQ_LEVEL_WORK else s.fail)(
+        f"⑤ 恢复后轨 1 level={l1}（工作 loop 的 {SEQ_LEVEL_WORK}，不是 scene 的 "
+        f"{SEQ_LEVEL_A}/{SEQ_LEVEL_B}）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 1, "⑤ 恢复选中轨 1（song_backup/song_restore）")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤ live 保持 B（song 应用不改 live）")
+    # SONG 模式 + loop=1：中途 STOP 走 seq_stop 的 arrangement_clock.running 分支 → song_restore
+    store_cmd(s, "STORE SONG SET 2 1 0:2 1:3", r"^STORE SONG SET count=2 loop=1",
+              "⑤ 歌曲 loop=1")
+    s.cmd("SEQ SONG MODE song")
+    s.expect(r"SEQ SONG mode=song", "⑤ SONG 模式（loop=1）")
+    seq_play(s, "⑤ loop=1 播放")
+    (s.ok if seq_wait_song(s, "running", 1, 3.0) else s.fail)("⑤ loop=1 running=1")
+    time.sleep(4.5)   # A2 播完 → section B 生效（轨 0 level=80、轨 1=104）
+    l0, l1 = eng_track_level(s, SEQ_TRACK), eng_track_level(s, 1)
+    (s.ok if l0 == SEQ_LEVEL_B and l1 == SEQ_LEVEL_A else s.fail)(
+        f"⑤ loop=1 播到 section B：轨 0/1 level={l0}/{l1}（期望 {SEQ_LEVEL_B}/{SEQ_LEVEL_A}）")
+    h_mid = live_hash(s)
+    s.ser.note(f"⑤ loop=1 播到 B 时的 hash={h_mid:08X}（工作 loop h0={h0:08X}）")
+    (s.ok if h_mid != h0 else s.fail)(
+        "⑤ loop=1 中途引擎是 scene B 的状态（≠ 工作 loop，恢复断言不是空话）")
+    # 视觉证据：SONG 页在 SONG 播放中（loop=1 会一直循环，截屏期间不结束）
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤ UI song（截 SONG 播放态）")
+    time.sleep(0.3)
+    img = s.capture("song-live")
+    s.probe_region(img, "⑤ SONG 状态行文本（UI_TEXT_DIM）", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    s.probe_region(img, "⑤ 卡文本（4 张 A–D）", (40, 72 + 96 + 16, 1240, 72 + 96 + 90),
+                   C_TEXT_DIM, 14, 80)
+    s.probe_region(img, "⑤ 条目行文本（16 项）", (24, 72 + 300, 1240, 72 + 440),
+                   C_TEXT_DIM, 14, 40)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑤ 回 TRANSPORT")
+    time.sleep(0.2)
+    seq_stop(s, "⑤ loop=1 中途 STOP")
+    h_stop = live_hash(s)
+    (s.ok if h_stop == h0 else s.fail)(
+        f"⑤ SONG 模式 loop=1 的 STOP 恢复工作 loop：LIVEHASH={h_stop:08X}（期望 {h0:08X}）")
+    l1 = eng_track_level(s, 1)
+    (s.ok if l1 == SEQ_LEVEL_WORK else s.fail)(
+        f"⑤ STOP 后轨 1 level={l1}（恢复工作 loop 的 {SEQ_LEVEL_WORK}）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 1, "⑤ STOP 后选中轨仍 1")
+    song = seq_song(s)
+    # loop=1 的 STOP 可以落在循环任一 entry（index 0/1 都可能）；恢复由 hash/level 判
+    (s.ok if song["running"] == 0 and song["index"] in (0, 1) else s.fail)(
+        f"⑤ STOP 后 SEQ SONG running={song['running']} index={song['index']}（期望 0，index∈0/1）")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤ STOP 后 live 仍是 B（song 不改 live）")
+    # 缺 scene 整首拒播（C 为空）：PLAY 被拒，playing/running 都不动
+    store_cmd(s, "STORE SONG SET 2 0 0:2 2:3", r"^STORE SONG SET count=2 loop=0",
+              "⑤ 歌曲第 2 项改到空 scene C")
+    s.cmd("SEQ SONG MODE song")
+    s.expect(r"SEQ SONG mode=song", "⑤ SONG 模式（缺 scene）")
+    seq_play_raw(s, "⑤ 缺 scene PLAY")
+    time.sleep(1.5)
+    (s.ok if seq_playing(s) == 0 else s.fail)("⑤ 缺 scene 整首拒播：playing=0")
+    song = seq_song(s)
+    (s.ok if song["running"] == 0 else s.fail)(
+        f"⑤ 缺 scene 拒播：SEQ SONG running={song['running']}（期望 0）")
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2 loop=0",
+              "⑤ 恢复 A2+B3")
+
+    # ---------- ⑥ SONG REC ----------
+    # loop 模式下 REQUEST B 是**live 段切换**（arrangement_apply），没有 song_restore：
+    # STOP 后引擎停在 B——不声称「恢复原 loop」（与 ⑤ 的 SONG 模式区分）。
+    s.ser.note("⑥ SONG REC：未到下一小节取消不写配置、REC IS ON 拒 MODE、真实 take 录到 A→B；"
+               "loop 模式的 live 切换在 STOP 后保留（停在 B，无 song_restore）")
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑥ loop 模式")
+    s.cmd("SEQ SECTION A LOAD")
+    s.expect(r"SEQ SECTION A LOAD OK", "⑥ 工作 loop = A")
+    h1 = live_hash(s)
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_A else s.fail)(
+        f"⑥ LOAD A：轨 0 level={lvl}（A 的 {SEQ_LEVEL_A}）")
+    cfg0 = song_cfg(s)
+    dirty0 = seq_song(s)["dirty"]
+    seq_play(s, "⑥ 空 SONG REC 用例播放")
+    s.cmd("SEQ SONG REC")
+    s.expect(r"SEQ SREC srec=armed", "⑥ SONG REC arm（下一小节起录）")
+    s.cmd("SEQ SONG MODE song")
+    s.expect(r"^SEQ ERR blocked\r?$", "⑥ REC IS ON：MODE 切换 → SEQ ERR blocked（判别性反例）")
+    s.cmd("SEQ SREC TOGGLE")     # armed 态再按一次：取消，不写配置
+    s.expect(r"SEQ SREC srec=off last=none", "⑥ 未到下一小节取消：last=none（无 take）")
+    seq_stop(s, "⑥ 空录制收尾")
+    cfg1 = song_cfg(s)
+    (s.ok if cfg1 == cfg0 else s.fail)(
+        f"⑥ 空 SONG REC 不写配置：{cfg1}（期望 {cfg0}）")
+    dirty1 = seq_song(s)["dirty"]
+    (s.ok if dirty1 == dirty0 else s.fail)(
+        f"⑥ 空 SONG REC 不置 dirty：{dirty1}（期望 {dirty0}）")
+
+    seq_play(s, "⑥ 真实 take 播放")
+    s.cmd("SEQ SECTION A LOAD")   # 播放中 LOAD 会被拒；这里只为记录拒绝路径
+    s.expect(r"^SEQ ERR blocked\r?$", "⑥ 播放中 LOAD → SEQ ERR blocked（判别性反例）")
+    s.cmd("SEQ SONG REC")
+    s.expect(r"SEQ SREC srec=armed", "⑥ 真实 take：arm")
+    (s.ok if seq_wait_srec(s, "recording", 4.0) else s.fail)(
+        "⑥ 下一小节进入 recording")
+    time.sleep(2.0)               # A 播满一小节（120 BPM = 2s）
+    s.cmd("SEQ SECTION B REQUEST")
+    s.expect(r"SEQ SECTION B REQUEST OK", "⑥ take 中 REQUEST B（下一小节切段）")
+    time.sleep(2.4)               # B 从下一小节起播 ≥1 小节
+    live_take = song_section(s)["live"]
+    (s.ok if live_take == "B" else s.fail)(
+        f"⑥ take 中 live 段={live_take}（期望 B）")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑥ REQUEST B 应用 section B：轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
+    h_take = live_hash(s)
+    s.ser.note(f"⑥ take STOP 前：live=B、轨 0 level={SEQ_LEVEL_B}、hash={h_take:08X}"
+               f"（A 工作 loop h1={h1:08X}）")
+    (s.ok if h_take != h1 else s.fail)("⑥ live 段切到 B 后引擎 ≠ A 工作 loop（判别的前提）")
+    seq_stop(s, "⑥ take 收尾 STOP")
+    srec = seq_srec(s)
+    (s.ok if srec["srec"] == "off" and srec["last"] == "2" else s.fail)(
+        f"⑥ take 结果：srec={srec['srec']} last={srec['last']}（期望 off/2 项）")
+    cfg = song_cfg(s)
+    ok = (cfg["count"] == 2 and cfg["entry"].get(0, (None, 0))[0] == SEQ_SEC_A
+          and cfg["entry"].get(1, (None, 0))[0] == SEQ_SEC_B
+          and cfg["entry"][0][1] >= 1 and cfg["entry"][1][1] >= 1 and cfg["loop"] == 0)
+    (s.ok if ok else s.fail)(
+        f"⑥ 录到的歌曲顺序：{cfg['entry']}（期望 count=2、A…/B… 各 ≥1 小节、loop=0）")
+    (s.ok if seq_song(s)["dirty"] == 1 else s.fail)("⑥ take 结束置 song dirty=1（延迟写待办）")
+    # loop 模式没有 song_restore：STOP 后停在 live 段 B（引擎与 STOP 前一致）
+    h_after = live_hash(s)
+    live_after = song_section(s)["live"]
+    (s.ok if live_after == "B" else s.fail)(
+        f"⑥ STOP 后 live 段={live_after}（期望 B：live 切换保留）")
+    (s.ok if h_after == h_take else s.fail)(
+        f"⑥ STOP 后引擎停在 B 的 live 段：LIVEHASH={h_after:08X}（期望 {h_take:08X}）")
+    (s.ok if h_after != h1 else s.fail)(
+        "⑥ 未回到 A 工作 loop（与 ⑤ SONG 模式的 song_restore 区分）")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑥ STOP 后轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
+    store_cmd(s, "STORE SONG SAVE", r"^STORE SONG SAVED len=\d+ side=1\r?$",
+              "⑥ STORE SONG SAVE（写 PER3）")
+    s.cmd("STORE SONG INFO")
+    store_expect(s, r"^STORE SONG INFO kind=per3 len=\d+ side=1 count=2 loop=0\r?$",
+                 "⑥ flash 里的 PER3 歌曲 count=2 loop=0")
+    s.cmd("STORE SONG LOAD")
+    store_expect(s, r"^STORE SONG LOAD count=2 loop=0 dirty=0\r?$",
+                 "⑥ STORE SONG LOAD 读回同一首歌")
+    cfg2 = song_cfg(s)
+    (s.ok if cfg2["entry"] == cfg["entry"] else s.fail)(
+        f"⑥ LOAD 后逐项一致：{cfg2['entry']}")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑥ UI song（截 take 态）")
+    img = s.capture("song-rec")
+    s.probe_region(img, "⑥ SONG 状态行 LAST 文本（UI_TEXT_DIM）", (24, 72 + 20, 1100, 72 + 80),
+                   C_TEXT_DIM, 16, 40)
+    s.probe_region(img, "⑥ 条目行文本（16 项）", (24, 72 + 300, 1240, 72 + 440),
+                   C_TEXT_DIM, 14, 60)
+
+    # ---------- ⑦ STORE TEST / SELFTEST 之后歌曲保持 ----------
+    s.ser.note("⑦ STORE TEST 与单例 ENG SELFTEST 之后歌曲与 section 保持")
+    seq_stop(s, "⑦ 停走带（STORE TEST 要求）")
+    s.cmd("STORE TEST")
+    store_expect(s, r"^STORE TEST PASS 6/6\r?$", "⑦ STORE TEST PASS 6/6")
+    store_test_diag(s, "⑦")
+    cfg3 = song_cfg(s)
+    (s.ok if cfg3["entry"] == cfg["entry"] else s.fail)(
+        f"⑦ STORE TEST 后歌曲逐项不变：{cfg3['entry']}")
+    s.cmd("ENG AUDIO OFF")
+    s.expect(r"ENG AUDIO streaming=0", "⑦ ENG AUDIO OFF（自检前置）")
+    s.cmd("ENG SELFTEST drums/gm_kit", timeout=30.0)
+    s.expect(r"^ENG SELFTEST cases=1 identical=1 mismatch=0", "⑦ 单例 SELFTEST 逐例同源")
+    s.expect(r"result=PASS", "⑦ 单例 SELFTEST result=PASS")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "⑦ ENG AUDIO ON（恢复流式）")
+    cfg4 = song_cfg(s)
+    (s.ok if cfg4["entry"] == cfg["entry"] and cfg4["count"] == 2 else s.fail)(
+        f"⑦ SELFTEST 后歌曲保持（song_reload 以 flash 为准）：{cfg4['entry']}")
+    s.cmd("STORE SONG INFO")
+    store_expect(s, r"^STORE SONG INFO kind=per3 .*count=2 loop=0\r?$",
+                 "⑦ SELFTEST 后 flash 歌曲仍 per3/2 项")
+    dirty7 = seq_song(s)["dirty"]
+    (s.ok if dirty7 == 0 else s.fail)(f"⑦ SELFTEST 后 song dirty={dirty7}（期望 0）")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
+        f"⑦ SELFTEST 后 section A/B 仍在（ready=0x{sec['ready']:02X}）")
+
+    # ---------- ⑧ 硬复位：PER3 歌曲与 section 从 flash 恢复 ----------
+    s.ser.note("⑧ esptool 硬复位（不写 flash）→ PER3 歌曲/section/工程槽开机恢复")
+    seq_wait_dirty_clear(s, "⑧ 复位前的段落/歌曲落盘")
+    s.cmd("STORE SONG SAVE")
+    s.expect(r"^STORE SONG SAVED len=\d+ side=1\r?$", "⑧ 复位前 SAVE 歌曲")
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⑧ 复位后 STORE AUTO OFF")
+    s.cmd("STORE SONG")
+    store_expect(s, r"^STORE SONG count=2 loop=0 dirty=0\r?$", "⑧ 复位后歌曲 count=2 loop=0")
+    cfg5 = song_cfg(s)
+    (s.ok if cfg5["entry"] == cfg["entry"] else s.fail)(
+        f"⑧ 复位后歌曲逐项恢复：{cfg5['entry']}")
+    s.cmd("STORE SONG INFO")
+    store_expect(s, r"^STORE SONG INFO kind=per3 .*count=2 loop=0\r?$",
+                 "⑧ 复位后 PER3 对象从 flash 读出")
+    song = seq_song(s)
+    (s.ok if song["count"] == 2 and song["loop"] == 0 else s.fail)(
+        f"⑧ 复位后 SEQ SONG count={song['count']} loop={song['loop']}")
+    sec = song_section(s)
+    (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
+        f"⑧ 复位后 section A/B 就绪：ready=0x{sec['ready']:02X}（开机 fetch RAM 槽）")
+    # 开机 fetch 的 RAM 槽必须与 ③ 捕获的字节一致（hash 相等，不是「非空」）
+    for slot, ref in ((SEQ_SEC_A, hash_a), (SEQ_SEC_B, hash_b)):
+        got = store_hash(s, f"STORE PROJ HASH {slot}",
+                         rf"^PROJ {slot} HASH=([0-9A-Fa-f]{{8}})\r?$",
+                         f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash")
+        (s.ok if got == ref else s.fail)(
+            f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash={got:08X} == ③ 捕获的 {ref:08X}")
+
+    # ---------- ⑨ 收口 ----------
+    s.ser.note("⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY、AUTO ON")
+    seq_stop(s, "⑨ 收口停走带")
+    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C, SEQ_DIAG_SLOT):
+        proj_erase(s, slot, f"⑨ 擦工程槽 {'ABCD'[slot]}")
+    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
+              r"^STORE SONG SET count=4 loop=0", "⑨ 恢复默认歌曲 A4 B4 C4 D4")
+    store_cmd(s, "STORE SONG SAVE", r"^STORE SONG SAVED len=\d+ side=1\r?$",
+              "⑨ 默认歌曲落盘")
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑨ loop 模式")
+    select_track(s, SEQ_TRACK)
+    for tid, want, label in ((0, SEQ_LEVEL_A, "level 104"), (SEQ_AMODE_ID, 0, "ARP OFF"),
+                             (SEQ_AHOLD_ID, 0, "HOLD OFF"), (SEQ_VOICE_ID, 0, "POLY"),
+                             (SEQ_LEN_ID, 16, "LEN 16")):
+        seq_set_track_param(s, SEQ_TRACK, tid, want, f"⑨ 轨 0 {label}")
+    select_track(s, 1)
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_A, "⑨ 轨 1 level 回 104（⑤ 的工作 loop 字段）")
+    select_track(s, SEQ_TRACK)
+    s.cmd("PARAM GLOBAL 0 120")
+    s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⑨ BPM 120")
+    for k in range(4):
+        pattern_clear(s, k, f"⑨ 清轨 {k} 图案")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑨ 回 PLAY")
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ STORE AUTO ON（恢复默认）")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
@@ -4290,13 +7029,15 @@ SCENARIOS = {
     "tracks": run_tracks,
     "nav": run_nav,
     "store": run_store,
+    "song": run_song,
+    "sequence": run_sequence,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（六条 .sh 各对应一个）")
+                    help="注入场景（八条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")

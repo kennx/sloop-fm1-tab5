@@ -165,15 +165,13 @@ esp_err_t sloop_store_bank_erase(uint32_t slot);
 void sloop_store_bank_current(uint8_t *packed);
 
 /* 设备侧 torn-write 故障注入套件（**测试专用**；ADR-009 §3「掉电不破坏旧副本」）。
- * 对象 = `OBJ_SETTINGS`（P4-B 不写设置，P4-E 才用）：套件先 `st_load` 快照当前
- * payload，六个场景结束后先 `sloop_hal_storage_fault_clear()`、再用 `st_save` 恢复。
+ * 对象 = `OBJ_SETTINGS`（P4-C 起有真实写入者：PER3 歌曲 + side record）。
+ * **快照 = 两个完整 4KB 副本扇区**：套件先 `sloop_hal_storage_read` 两个扇区的原始字节
+ * （提交头 + payload + 偏移 64..255 的 side record + 擦除态；8KB 一次性 PSRAM），六个
+ * 场景结束后 `sloop_hal_storage_fault_clear()` → 每扇区擦一次 + 按 256B 块原样写回 →
+ * **逐字节读回校验**。arrangement（payload 48..83）、DSU/MIDI 尾段与 side record 因此都
+ * 逐字节不变（评审 R26 的收口判据）。
  * **破坏性**：运行期间该对象的内容被反复覆盖（跨掉电无保证；不是用户路径）。
- * **只快照/恢复 payload（`st_load` 的 len 字节）**：settings 的 **side record**（副本扇区
- * 偏移 64..255，`storage.c` 的 `ST_SIDE_OFF/ST_SIDE_MAX`，由上游 2.7 的 `st_save3` 随副本
- * 提交；P4-E 计划把主题/收藏放这里）**不被保存**——场景的扇区擦除会把它清掉。P4-B
- * 没有任何 side record 写入者（不可达）；**P4-E 给 settings 写 side record 时必须把快照
- * 扩展成整扇区**（或 `st_side_load` 读回后随 `st_save3` 重写），否则跑一次 `STORE TEST`
- * 会静默丢主题/收藏（ADR-009 §3/§8 的 R26）。
  * 六个场景（每个都自己归一、自己断言前提；失败场景还必须命中预期写操作——读回
  * 扇区指纹区分 erase 与 prog，只数 faults_taken 分不出来）：
  *   1 三次提交 → 载入 seq 大者：v2 在 B（copy 1）胜、v3 回 A（copy 0）胜；
@@ -182,9 +180,11 @@ void sloop_store_bank_current(uint8_t *packed);
  *   4 头写失败 → 写失败 → 旧副本完整可读；
  *   5 写后破坏 payload → 载入报错（CRC 拒绝），不返回坏数据；
  *   6 `st_save(obj, NULL, 0)` → 对象为空（len=0）。
- * 全程持存储锁（自动存档 tick 的 trylock 会跳过，不与套件交错）。`out`：cases = 场景
- * 总数（6）、passed = 通过数、fail_case = 第一个失败场景名（全过为 NULL；快照恢复
- * 失败为 "restore-settings"）。返回：ESP_OK 全过；ESP_ERR_NOT_FINISHED 有场景失败；
+ * 全程持存储锁（自动存档/歌曲 tick 的 trylock 会跳过，不与套件交错）。`out`：cases = 场景
+ * 总数（6）、passed = 通过数、fail_case = 第一个失败场景名（全过为 NULL）；快照读失败为
+ * "snapshot-settings"，恢复或逐字节校验失败为 "restore-settings"（**恢复失败优先**——
+ * 那意味着设置对象已被留在坏状态，比任何单个场景更重要）。返回：ESP_OK 全过；
+ * ESP_ERR_NOT_FINISHED 有场景/快照/恢复失败；ESP_ERR_NO_MEM 拿不到 8KB 快照；
  * ESP_ERR_INVALID_STATE 未就绪/走带中（out->cases 已填、passed=0）；out==NULL 为
  * ESP_ERR_INVALID_ARG。不得在 ISR 调用。 */
 typedef struct {
@@ -211,5 +211,87 @@ esp_err_t sloop_store_autosave_start(void);
 /* 诊断开关（`STORE AUTO ON|OFF`，测试用；默认 ON）。关闭后 tick 不再写 flash，
  * 开机恢复仍照常发生。返回设置后的状态。 */
 bool sloop_store_autosave_enable(bool on);
+
+/* ---- 歌曲顺序：OBJ_SETTINGS 的 PER3 子集（P4-C Task 7，ADR-009 §6 / ADR-010 §4）----
+ * 上游把 16 项 A–D 歌曲顺序（count/loop/(scene,bars)×16）放在设置对象 `persist_t` 的
+ * 偏移 48；A–D 的内容仍是 FUN6 工程对象（`sloop_store_project_*`）。写规则：
+ *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 默认 DSU =
+ *     1,552B）+ 默认 80B side record（theme 0 + 空收藏 + CRC）；
+ *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592B）：整个 payload 保留，只替换 48..83；
+ *     尚无 DSU 的补默认 DSU（1,552B），已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
+ *     才写默认 80B side：自校验不过的 2.7 beta 主题记录也不覆盖）；
+ *   - PER2/PER1：按上游 persist_boot 口径迁移（palette/lowcut/zoom/panel 保留，缺失的
+ *     取默认），随后写成 canonical PER3；
+ *   - 未知 magic / 长度不是任何历史格式：拒绝写（ESP_ERR_INVALID_ARG，console 的
+ *     `STORE ERR invalid`），原扇区一个字节都不动。
+ * `song_get` 只读**内存** arrangement（不需要存储就绪）；`song_set` 只改内存并置 dirty，
+ * **不要求存储就绪**（未就绪时 RAM 配置仍可编辑/校验，落盘由 tick 的 ready 检查拒绝；
+ * UI 的 SONG 页在未就绪时另行拒绝配置编辑并显示 NO STORAGE）。落盘由 1s 任务的
+ * `sections_tick` 在「停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s」时完成（失败
+ * 保留 dirty，下个窗口重试）；`song_save` 是上游 `arrangement_save` 的同义
+ * 入口（停止态立即写，播放中 ESP_ERR_INVALID_STATE = `STOP BEFORE SAVE`）；
+ * `song_reload` 从 flash 读回并**以 flash 为准**清 dirty（开机与 SELFTEST 之后用：
+ * `arrangement` 是 arranger.c 的 static `.bss`，自检的 restore 会把它回滚到零）。读不到时
+ * 落上游**默认歌曲**（count=4、A/B/C/D 各 4 小节；这是 `persist_boot` 的第一步，不留
+ * count=0 的非法空歌曲）；对象损坏的字节不被覆盖（不再尝试保存），回 ESP_ERR_INVALID_ARG；
+ * 读 flash 期间若来了 `song_set`，以 RAM 为准（代次守卫）。
+ * `sections_tick(now_ms)` 由 1s 任务以 esp_timer 毫秒调用；诊断冻结时不写，渲染路径
+ * 绝不写 flash。`song_info` 是 `STORE SONG INFO` 的诊断投影（只读 flash 对象）。 */
+#define SLOOP_SONG_ENTRIES 16u
+#define SLOOP_SONG_BARS_MAX 64u /* 每项 1..64 bars（上游 arr_valid） */
+typedef struct {
+    uint8_t scene, bars;
+} sloop_song_entry_t;
+typedef struct {
+    uint8_t count, loop;
+    sloop_song_entry_t entry[SLOOP_SONG_ENTRIES];
+} sloop_song_config_t;
+typedef enum {
+    SLOOP_SONG_EMPTY = 0, /* 没有对象（st_load 读不出有效副本） */
+    SLOOP_SONG_PER3,      /* 合法 PER3（含历史长度/MIDI 尾段） */
+    SLOOP_SONG_PER2,      /* 合法 PER2（保存时会迁移） */
+    SLOOP_SONG_PER1,      /* 合法 PER1（保存时会迁移） */
+    SLOOP_SONG_INVALID,   /* 未知 magic / 长度不认识：拒绝覆盖 */
+} sloop_song_kind_t;
+typedef struct {
+    uint16_t len;    /* flash 对象的 payload 长度（0 = 空） */
+    uint8_t kind;    /* sloop_song_kind_t */
+    uint8_t side;    /* 1 = 当前副本的 side record 自校验通过（magic + CRC） */
+    uint8_t count;   /* 读回的歌曲项数（PER1/2/空：默认歌曲的 4 项） */
+    uint8_t loop;
+} sloop_store_song_info_t;
+esp_err_t sloop_store_song_get(sloop_song_config_t *out);
+esp_err_t sloop_store_song_set(const sloop_song_config_t *cfg);
+esp_err_t sloop_store_song_save(void);
+esp_err_t sloop_store_song_reload(void);
+esp_err_t sloop_store_song_info(sloop_store_song_info_t *out);
+/* 有没有「改了还没落盘」的歌曲（诊断/测试用；Task 8 的 SONG 页状态行也读它）。 */
+bool sloop_store_song_dirty(void);
+/* SONG REC 完成（含 STOP 收尾）由 seq 适配层对账后置 song dirty（幂等；延迟写按同一
+ * 门限落盘）。 */
+void sloop_store_song_dirty_mark(void);
+void sloop_store_sections_tick(uint32_t now_ms);
+
+/* ---- live sections A–D（P4-C Task 8）：捕获在 sloop_seq_section（引擎锁内，见
+ * sloop_seq.h），这里只做 dirty 记账、停止态载入/擦除与延迟写。A–D 的内容仍是 FUN6
+ * 工程对象（OBJ_PROJECT0 + slot），与普通 PROJECT SAVE 同一对象。
+ *   dirty_mark_locked(slot) 置 section dirty + ++section gen；**调用方必须已持引擎锁**
+ *                     （与 proj_capture 同一临界区，erase 的 gen 比较才能看到每一次捕获；
+ *                     本函数不取锁，不取存储锁——捕获路径很短）
+ *   sections_dirty()  有任一段未落盘（`dirty` 投影/诊断读；存储未就绪时 false）
+ *   section_load(slot) 仅停止态（走带中 ESP_ERR_NOT_ALLOWED），存储未就绪
+ *                     ESP_ERR_INVALID_STATE；把 **RAM 槽**应用到引擎（不回落 flash、
+ *                     不写存储），live_sec = slot；空槽 NOT_FOUND
+ *   section_erase(slot) 仅停止态；空槽 NOT_FOUND 且不写 flash；成功写空对象、清 RAM 槽
+ *                     与 dirty 位、live_sec 归 -1，并从歌曲顺序里 `arr_drop_scene`
+ *                     （有项被删就置 song dirty；一段不剩回默认歌曲）。擦写期间若有新的
+ *                     section capture（gen 变化）则保留新捕获与 dirty 位，槽由下一个
+ *                     tick 重写——不静默丢掉并发写入
+ * 1s 任务的 `sections_tick` 把 dirty 段与歌曲放在同一拍、同一门限（停止 + 无发声 +
+ * 输入空闲 ≥1.5s + 间隔 ≥5s）里写：引擎锁内把槽快照进暂存，**擦写期间不持引擎锁**。 */
+void sloop_store_section_dirty_mark_locked(uint32_t slot);
+bool sloop_store_sections_dirty(void);
+esp_err_t sloop_store_section_load(uint32_t slot);
+esp_err_t sloop_store_section_erase(uint32_t slot);
 
 #endif

@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "input_map.h"
 #include "knob_math.h"
 
 static int g_failures;
@@ -252,6 +253,48 @@ static void case_format(void)
     expect_str("未知 fmt 原始值", &d, 3, "3");
 }
 
+/* 鼓演奏键位（ADR-006）：低行白键 z x c v b n m . → lane 0..7，高行白键
+ * q w e r t y u i → lane 8..15；其它键（半音黑键/走带/导航）不映射，选中鼓轨时
+ * 不回落合成轨。 */
+static void case_drum_lanes(void)
+{
+    static const uint8_t low[8] = { 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49 };
+    static const uint8_t high[8] = { 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28 };
+    for (int i = 0; i < 8; i++) {
+        CHECK(input_map_drum_lane(low[i]) == i);
+        CHECK(input_map_drum_lane(high[i]) == 8 + i);
+    }
+    CHECK(input_map_drum_lane(0x33) < 0); /* s */
+    CHECK(input_map_drum_lane(0x34) < 0); /* d */
+    CHECK(input_map_drum_lane(0x36) < 0); /* g */
+    CHECK(input_map_drum_lane(0x37) < 0); /* h */
+    CHECK(input_map_drum_lane(0x38) < 0); /* j */
+    CHECK(input_map_drum_lane(0x02) < 0); /* 2 */
+    CHECK(input_map_drum_lane(0x03) < 0); /* 3 */
+    CHECK(input_map_drum_lane(0x05) < 0); /* 5 */
+    CHECK(input_map_drum_lane(0x06) < 0); /* 6 */
+    CHECK(input_map_drum_lane(0x07) < 0); /* 7 */
+    CHECK(input_map_drum_lane(0x4D) < 0); /* space */
+    CHECK(input_map_drum_lane(0x0A) < 0); /* 0 = REC */
+    CHECK(input_map_drum_lane(0x0B) < 0); /* - = FILL 保持 */
+    CHECK(input_map_drum_lane(0x0C) < 0); /* + = FILL NEXT */
+    CHECK(input_map_drum_lane(0x7F) < 0);
+}
+
+/* 演奏键路由（Task 6 fix 2 回归）：选中鼓轨时按下鼓键走鼓、其它键忽略；
+ * **释放永远回按下时的轨**（选中鼓轨后松开合成键不得挂音）。 */
+static void case_key_route(void)
+{
+    CHECK(input_map_key_route(3, 0x42, false) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(0, 0x42, false) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(3, 0x42, true) == INPUT_ROUTE_DRUM);
+    CHECK(input_map_key_route(3, 0x28, true) == INPUT_ROUTE_DRUM);
+    CHECK(input_map_key_route(3, 0x33, true) == INPUT_ROUTE_IGNORE);
+    CHECK(input_map_key_route(3, 0x4D, true) == INPUT_ROUTE_IGNORE);
+    CHECK(input_map_key_route(0, 0x42, true) == INPUT_ROUTE_NOTE);
+    CHECK(input_map_key_route(2, 0x02, true) == INPUT_ROUTE_NOTE);
+}
+
 int main(void)
 {
     run("值 ↔ 弧线值往返与钳位", case_arc_roundtrip);
@@ -259,6 +302,8 @@ int main(void)
     run("角度差归一化（跨死区/负角）", case_angle_delta);
     run("相对拖拽换算与钳位", case_drag);
     run("格式化表（上游生成表口径）", case_format);
+    run("鼓演奏 16 lane 键位（不回落合成轨）", case_drum_lanes);
+    run("演奏键路由（释放永远回原轨）", case_key_route);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

@@ -3,7 +3,7 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SEQ|FILE（y∈[4,36)，无已注册页的组不显示），下行当前组的
+ * PLAY|TRACKS|EDIT|SEQ|SONG|FILE（y∈[4,36)，无已注册页的组不显示），下行当前组的
  * 子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
@@ -11,6 +11,7 @@
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
  * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
+ * SONG（page_song.c，P4-C Task 11）/
  * FILE 组 PROJECTS|PRESETS（page_projects.c / page_presets.c，P4-B Task 12）都在
  * 组表 k_groups[] 里声明；组顺序 = 子签顺序 = `TAB` 扁平轮转顺序。
  *
@@ -74,18 +75,26 @@ static const char *TAG = "sloop_ui";
  * 建完、STEP 最后建」时 free 实测 24,044–24,272B（P4-A 终审修复轮：params 场景
  * 顺序下 24,044B），delta+10% 的 24,064 会差 20B 被预算误拒（实际 delta 装得下）。
  * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 5 页 Σest 19,968B；FM6 自
- * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。 */
+ * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。
+ * TRANSPORT（P4-C Task 10）：est = **计划上限 9,216B**（SEQ→PRESETS 有序对把上限
+ * 锁死，见 ADR-005 §5）；实测 delta 8,248–8,716B（对最大 +5.7%，低于常态 +10–23%
+ * ——与 FILE 两页同类例外，理由是把 est 抬到实测 +10% 会顶破 63,120B；ADR-008 §3 注）。 */
 static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
     {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 23040},
-    {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
+    {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 9216},
     /* FILE 组（P4-B Task 12）：est = 实测首次构建 delta + 5.5%/4.4%、512 对齐
      * （PROJECTS 7,764B → 8,192；PRESETS 12,260B → 12,800；ADR-008 §3 表）。两页都
      * 不含 lv_button 的子 label——按钮/格子用单对象（见各页头部的内存注），组预算下
      * FILE 与 SEQ 的最坏有序对（ADR-005 §5）才留得住余量。 */
     {APP_PAGE_PROJECTS, "PROJECTS", page_projects_build, page_projects_update, 8192},
     {APP_PAGE_PRESETS, "PRESETS", page_presets_build, page_presets_update, 12800},
+    /* SONG（P4-C Task 11）：独立顶层组，单页。est = spec §4.4 的计划上限
+     * **12,288B**（35 个单对象 label：状态 1 + 4 卡 + 8 动作 chip + 16 条目 +
+     * 6 配置 chip；实测 delta 见 ADR-008 §3 的 SONG 行）。est 是构建前门槛，
+     * 不是精确账本；实测超限先改对象设计，不抬 est/不扩池。 */
+    {APP_PAGE_SONG, "SONG", page_song_build, page_song_update, 12288},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
@@ -104,6 +113,7 @@ static const ui_group_t k_groups[] = {
     {"TRACKS", 1, {APP_PAGE_TRACKS}},
     {"EDIT", 5, {APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE}},
     {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
+    {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
     {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
 };
 
@@ -448,27 +458,27 @@ static void sub_clicked_cb(lv_event_t *e)
     (void)sub_select_locked((uint8_t)(uintptr_t)lv_event_get_user_data(e));
 }
 
+/* 页签用**单对象可点击 label**（P4-C Task 11）：`lv_button + 子 label` 每个签两个
+ * 对象（6 组签 + 5 子签 = 11 个多余对象，实测基础占用 +900B 量级）；label 自己当
+ * 按钮省掉子 label，仍用共享样式表达选中态（与 FILE/TRANSPORT/SONG 页同一纪律）。
+ * 文本 16pt 单行：pad_top 把行高 (~20px) 压到签高中心。 */
 static lv_obj_t *make_tab_button(lv_obj_t *bar, int32_t w, int32_t h,
                                  lv_event_cb_t cb, void *user)
 {
-    lv_obj_t *btn = lv_button_create(bar);
-    if (btn == NULL) return NULL;
-    lv_obj_set_size(btn, w, h);
-    lv_obj_set_style_radius(btn, 10, 0);
-    lv_obj_set_style_border_width(btn, 0, 0);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(UI_PANEL_HI), 0);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(btn, 0, 0);
-    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
-
-    lv_obj_t *label = lv_label_create(btn);
-    if (label == NULL) return NULL;
-    lv_label_set_text(label, "");
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(label, lv_color_hex(UI_TEXT_DIM), 0);
-    lv_obj_center(label);
-    return btn;
+    lv_obj_t *tab = lv_label_create(bar);
+    if (tab == NULL) return NULL;
+    lv_obj_set_clickable(tab, true);
+    lv_obj_set_size(tab, w, h);
+    lv_obj_set_style_radius(tab, 10, 0);
+    lv_obj_set_style_bg_color(tab, lv_color_hex(UI_PANEL_HI), 0);
+    lv_obj_set_style_bg_opa(tab, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_font(tab, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(tab, lv_color_hex(UI_TEXT_DIM), 0);
+    lv_obj_set_style_text_align(tab, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_pad_top(tab, (h - 20) / 2, 0);
+    lv_label_set_text(tab, "");
+    lv_obj_add_event_cb(tab, cb, LV_EVENT_CLICKED, user);
+    return tab;
 }
 
 static bool create_tab_bar(void)
@@ -480,16 +490,16 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 5 槽（FILE 未注册时 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（6 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
         if (btn == NULL) return false;
         lv_obj_set_pos(btn, UI_TAB_X0 + (int32_t)g * (UI_GROUP_W + UI_TAB_GAP), UI_GROUP_Y);
-        lv_label_set_text(lv_obj_get_child(btn, 0), k_groups[g].name);
+        lv_label_set_text(btn, k_groups[g].name);
         lv_obj_set_hidden(btn, true); /* refresh_tabs 按注册状态显示 */
         s_group_tabs[g] = btn;
-        s_group_labels[g] = lv_obj_get_child(btn, 0);
+        s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
     /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 5 页） */
@@ -500,10 +510,10 @@ static bool create_tab_bar(void)
         lv_obj_set_pos(btn, UI_TAB_X0 + (int32_t)i * (UI_SUB_W + UI_TAB_GAP), UI_SUB_Y);
         lv_obj_set_hidden(btn, true);
         s_sub_tabs[i] = btn;
-        s_sub_labels[i] = lv_obj_get_child(btn, 0);
+        s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（组签右端 ≤ 928；标题从 ~1179 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（6 个组签右端 1,064；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
     lv_label_set_text(title, "SLOOP");
@@ -775,6 +785,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_TRANSPORT: return page_transport_tap(x, py, out);
     case APP_PAGE_PROJECTS: return page_projects_tap(x, py, out);
     case APP_PAGE_PRESETS: return page_presets_tap(x, py, out);
+    case APP_PAGE_SONG: return page_song_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -969,6 +980,12 @@ const char *sloop_ui_bank_status_text(void)
     if (!s_started) return NULL;
     int idx = page_layout_index(s_page); /* 非参数页（含未注册页）返回 -1 */
     return idx >= 0 ? page_params_bank_status_text((uint8_t)idx) : NULL;
+}
+
+const char *sloop_ui_song_status_text(void)
+{
+    if (!s_started || s_page != APP_PAGE_SONG) return NULL;
+    return page_song_status_text();
 }
 
 uint8_t sloop_ui_group_count(void)

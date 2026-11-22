@@ -1,0 +1,17 @@
+=== transport 04:47:41
+rc=0 pass=288 fail=0 last=[PASS] transport: 全部断言与像素抽检通过
+=== step_edit 04:49:50
+rc=0 pass=196 fail=0 last=[PASS] step_edit: 全部断言与像素抽检通过
+=== tracks 04:52:30
+rc=0 pass=11 fail=0 last=[PASS] tracks: 全部断言与像素抽检通过
+=== nav 04:52:48
+rc=0 pass=140 fail=0 last=[PASS] nav: 全部断言与像素抽检通过
+=== params 04:55:13
+rc=0 pass=149 fail=0 last=[PASS] params: 全部断言与像素抽检通过
+=== store 04:57:48
+rc=0 pass=903 fail=0 last=[PASS] store: 全部断言与像素抽检通过
+=== song 05:04:11
+rc=0 pass=331 fail=0 last=[PASS] song: 全部断言与像素抽检通过
+=== sequence 05:07:26
+rc=0 pass=562 fail=0 last=[PASS] sequence: 全部断言与像素抽检通过
+=== done 05:10:12

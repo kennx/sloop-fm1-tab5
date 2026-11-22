@@ -9,6 +9,7 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -88,7 +89,10 @@ static uint32_t selftest_data_begin __attribute__((section(".data.0_begin"))) = 
 #define felucca_memcpy selftest_felucca_memcpy
 #define felucca_memcmp selftest_felucca_memcmp
 #define bootguard selftest_bootguard
+static int arrangement_start(void) __attribute__((noinline));
+#define FELUCCA_ARRANGER 1
 #include "regress.c"
+#undef FELUCCA_ARRANGER
 #undef printf
 #undef fopen
 #undef fgets
@@ -330,6 +334,7 @@ _Static_assert(SLOOP_CORE_G_COUNT == G_COUNT, "G_COUNT drifted from the public s
 /* 采样率/块尺寸的三处表述（引擎 FS/HALF_FRAMES、公开 API、HAL 音频流）必须一致 */
 _Static_assert(SLOOP_CORE_RATE == FS, "SLOOP_CORE_RATE drifted from the engine's FS");
 _Static_assert(SLOOP_CORE_FRAMES == HALF_FRAMES, "SLOOP_CORE_FRAMES drifted from the engine's HALF_FRAMES");
+_Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "sloop_dstep_t 与上游 dstep_t 不同尺寸");
 _Static_assert(SLOOP_HAL_AUDIO_RATE == SLOOP_CORE_RATE, "HAL 音频流采样率与引擎不一致");
 _Static_assert(SLOOP_HAL_AUDIO_FRAMES == SLOOP_CORE_FRAMES, "HAL 音频流块尺寸与引擎不一致");
 
@@ -425,6 +430,10 @@ esp_err_t sloop_core_status(void)
  * 因此成立。diagnostic 的 SMOKE/PERF 也只在非自检期间由 console 调用。 */
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
+    /* 上游 fm1_ms 由 FM-1 的 1ms 定时器 ISR 推进；Tab5 没有该定时器，而 seq.c 的自由
+     * 录音按键窗口（ft_owns_press，300ms）依赖它。渲染节奏即真实时间：每个音频块
+     * 用 esp_timer 的毫秒值校正一次（volatile，单写者=音频任务）。 */
+    fm1_ms = (uint32_t)(esp_timer_get_time() / 1000);
     engine_lock();
     fm6_poll();
     for (uint32_t b = 0; b < frames; b += CTL) {
@@ -508,13 +517,21 @@ static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
             out->step[k][i].vel = s->vel;
             out->step[k][i].time = s->time;
             out->step[k][i].flags = s->flags;
+            out->step[k][i].lvl = s->lvl;
+            out->step[k][i].rat = s->rat;
+            out->step[k][i].micro = trk[k].micro[start + i];
+            out->step[k][i].fill = (uint8_t)step_fill(&trk[k], start + i);
         }
     }
-    /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
+    /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用）；
+     * 原始 16 lane 位图/字段另存 dstep_raw（STEP 页逐 lane 编辑与绘制）。 */
     for (uint32_t i = 0; i < 16; i++) {
         const dstep_t *d = &TDRUM->dstep[start + i];
         uint32_t on = (uint32_t)(d->on[0] | d->on[1]);
         out->dstep[i].on = on != 0;
+        out->dstep[i].micro = trk[3].micro[start + i];
+        out->dstep[i].fill = (uint8_t)step_fill(&trk[3], start + i);
+        memcpy(&out->dstep_raw[i], d, sizeof(dstep_t));
         for (uint32_t lane = 0; lane < DRUM_LANES; lane++) {
             if (!((on >> lane) & 1u)) continue;
             uint8_t lvl = (d->lvl[lane / 4u] >> (2u * (lane % 4u))) & 3u;
@@ -752,11 +769,16 @@ void sloop_core_set_solo(uint8_t mask)
     engine_unlock();
 }
 
+/* seq_tab5.c（本 TU 末尾 include）定义：上游 rec_follow 的适配。调用方必须已持
+ * 引擎锁（互斥锁不可递归获取），因此本函数自身不取锁。 */
+static void seq_rec_follow_locked(uint32_t track);
+
 void sloop_core_select(uint32_t k)
 {
     if (k >= NTRK || s_frozen) return;
     engine_lock();
     song.sel = (uint8_t)k;
+    seq_rec_follow_locked(k); /* 上游 rec_follow：armed/recording 的 rec 位跟随选中轨 */
     engine_unlock();
 }
 
@@ -882,9 +904,17 @@ int sloop_core_selftest(const char *case_name)
     nj = 0;
     sloop_core_diag_freeze(false);
     if (s_quiesce_hook != NULL) s_quiesce_hook(false);
+    /* 歌曲从 settings 重载（P4-C Task 7，ADR-010 §4）：`arrangement` 是 arranger.c 的
+     * static `.bss`，上面两次 selftest_restore() 把它回滚到 init 快照（默认/零）——不重载
+     * 就会在自检后悄悄换成默认歌曲，形成「旧工程 + 新歌曲」的半旧视图。损坏/未就绪只
+     * 告警（诊断命令不改变既有门禁结论）。 */
+    esp_err_t song_ret = sloop_store_song_reload();
+    if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND && song_ret != ESP_ERR_INVALID_STATE)
+        ESP_LOGW("sloop_core", "自检后歌曲重载失败: %s", esp_err_to_name(song_ret));
     return pass ? 0 : 1;
 }
 
 /* 存储层（P4-B）：上游 storage.c / project.c 的格式层与工程 A–D 双层存读，必须在
  * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
 #include "store_tab5.c"
+#include "seq_tab5.c"

@@ -1,6 +1,6 @@
 # 阶段 4 / P4-C：音序与编排设计规格
 
-> 日期：2026-11-22 ｜ 状态：执行中
+> 日期：2026-11-22 ｜ 状态：已完成（机器侧，2026-11-23 Task 13 收口；人测项见 §5「阶段收口实测」末条）
 > 上位文档：`docs/design/002-port-roadmap.md` §6；`2026-11-21-phase4-feature-parity-design.md` §3 P4-C。
 > 上游基线：SLOOP 2.8.5 `bac9c05`（2026-11-22 再次核对远端 HEAD，未变化）。
 > 决策原则：fidelity-first——功能、数据布局、时序与编辑语义等价优先；原生 Tab5 UI 可重排，但不得另造一套音序/歌曲数据模型。
@@ -100,6 +100,11 @@ PER3 写规则：
 
 诊断命令新增 `SEQ STEP/DSTEP/LOCK/PATTERN/REC/FILL/SONG/CHAIN/SECTION` 子族；与 UI 使用同一 API。增加块级事件计数/小型跟踪缓冲，至少能判别 ratchet 触发次数、micro 顺序、SLIDE 是否重新 attack；串口轮询 `voices` 不作为时序证明。
 
+> **落地差异（Task 11 终审接受，host-only）**：块级事件计数/小型跟踪缓冲**未实现**；
+> ratchet 次数、micro 顺序与 SLIDE 重新 attack 的时序证明由 host 同源 `scripts/seq-test.sh`
+> （真实上游 `seq.c` 的块函数 + 逐样本断言）承担，设备侧只覆盖状态/投影/回显/像素。
+> 这是**明确接受**的 host-only 缺口，不是静默省略；设备注入不以串口 `voices` 轮询冒充时序证据。
+
 ### 4.2 存储与延迟任务
 
 - PER3/sections 写与手动 STORE、autosave 共用 `s_store_lock`；捕获在引擎锁内，擦写在锁外。
@@ -121,7 +126,7 @@ stub host 测试必须覆盖：命令校验、完整字段透传、锁满/非法
 - STEP 保持 64 格对象复用；用格内/边框与状态行呈现 TIE/SLIDE/lvl/rat/micro/fill，不增加每格 label。鼓格进入 lane 选择/编辑模式，不再显示“PHASE 4”只读提示。
 - TRANSPORT 扩成走带 + REC/fill + 聚焦步编辑 + pattern 工具区，使用单对象可点击 label，复用现有 ±/焦点模型。预算上限暂定 9,216B，实施后按实测收紧。
 - SONG 页包含 A–D section 卡、16 项顺序、bars/loop、SONG/CHAIN/REC/STORE/ERASE 控件与状态行；初估 12,288B，最终 est 必须来自 `UI MEM` 实测。
-- 以 est 上限复核最坏有序对：FILE→STEP 仍 61,928B；SEQ（23,040+9,216）→PRESETS 为 62,952B；SONG→PRESETS 为 42,984B，均满足 `base 13,800 + … + 4,096 ≤ 63,120`。任何超预算先改对象设计，不直接抬 est/池。
+- 以 est 上限复核最坏有序对（Task 11 落地实测 base **11,624B**，页签单对象化）：最坏 SEQ（23,040+9,216）→PRESETS 为 **60,776B**、次坏 SEQ→SONG **60,264B**、FILE→STEP **59,752B**、SONG→PRESETS **40,808B**，均满足 `11,624 + … + 4,096 ≤ 63,120`；设备实测峰值 SEQ→PRESETS `pool_free 8,324B`、FILE→STEP `9,744–9,860B`。任何超预算先改对象设计，不直接抬 est/池。
 - `TAB` 顺序为 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY；`UI TAB song` 与物理组签共用动作函数。
 - 触摸覆盖全部新编辑动作；实体键盘至少覆盖演奏、REC/PLAY/STOP、fill、导航、焦点与聚焦步编辑，不要求为 16 个歌曲项各设专用键。选中鼓轨时**取消回退合成轨 0**：低行 `z x c v b n m .` 映射 lane 0..7，高行 `q w e r t y u i` 映射 lane 8..15，经 `CMD_DRUM_HIT` 进入同一 `drum_input()/rec_hit()` 路径；其它演奏音阶键在鼓轨忽略。ADR-006 同步该表，注入测试覆盖 16 lane down/up 与实时录音。
 
@@ -150,6 +155,31 @@ UI 证据至少含 STEP 深度态、TRANSPORT 录音/工具态、SONG 编辑态�
 4. 复位后 `soak.py --duration 1800 --interval 60`（含 storage save window）通过；新组往返池差 ≤128B，内部堆/xrun/栈沿用 AGENTS §5.5。
 5. manifest 233/233；文档、deferred issues、verification-log 与证据同阶段收口。
 6. 整分支终审 clean 后合回 dev 并 push；人耳、物理键盘/触摸手感继续列为外部门禁，不冒充机器已验证。
+
+### 阶段收口实测（2026-11-23，Task 13）
+
+最终树 `2f370d8`（clean 工作树）上按本清单跑完机器门禁，证据包
+`docs/dev/verify/4-pc-2026-11-22/`（`readme.md` 门禁→命令→结论 + `SHA256SUMS` 127 项，
+`sha256sum -c` 全过）：
+
+1. 构建 clean + 增量：rc=0、**0 警告**（clean 首遍仅 §5.5 豁免的 kconfig 提示对）；镜像
+   `0x192a70`（1,649,264B）；烧录三段 `Hash of data verified`；启动 `App version: 2f370d8`、
+   12 页注册、内部堆 98,179B、无 fatal/panic/abort/WDT。
+2. `host-test` 全绿（含 `len`/`hold_rec`/`studio_drums`/`arranger`/`song_audio` 与 fixture
+   `--host-check`）、`state-test` 28/0、`seq-test`（含 persist 段）0 failures、`knob-test`
+   7/0、`screenshot.py --selftest` OK、MANIFEST 233/233。
+3. 设备 `ENG SELFTEST` **182/182**（`checks=7 check_fail=0 deterministic=1 result=PASS`；
+   6 行单 job `task_wdt` 为 DI-12 已知诊断噪声）。
+4. 八条注入场景**同会话**：**2,580 PASS / 0 FAIL**（transport 288、step_edit 196、tracks 11、
+   nav 140、params 149、store 903、song 331、sequence 562），全部 exit 0；`store` 内部 5 次、
+   `sequence` 内部 1 次按设计硬复位，脚本之间不重启。
+5. 复位后 `soak.py --duration 1800 --interval 60 --save-window 900` **PASS**（DI-26 顺序：
+   先 182 自检 → esptool 硬复位 → soak）：31 次采样/1801s、`internal_free` 93,011→92,991B
+   （`internal_min` 86,148 ≥60KB）、`streaming=1 xrun=0`（窗口增量 0 ≤16）、`duty_mean`
+   最大 12.54% ≤18.88%、音频栈 3,120–3,168B、跨组池往返 Δ−52B（单次 −40B ≤128B）、
+   无 panic/WDT。
+6. 人测项（物理键盘/触摸手感、结截图目检、听感）仍是外部门禁；整分支评审与 dev 合并/推送
+   由控制器在证据包之后执行，本任务不含。
 
 ## 6. 风险与应对
 

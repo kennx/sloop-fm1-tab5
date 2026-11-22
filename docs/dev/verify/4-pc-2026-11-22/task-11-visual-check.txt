@@ -1,0 +1,22 @@
+图: inject-song-20261123-061221-task-11-song-empty.png  (1280, 720)
+  OK  task-11-song-empty: 39/39 项
+图: inject-song-20261123-061221-task-11-song-edit.png  (1280, 720)
+  OK  task-11-song-edit: 39/39 项
+图: inject-song-20261123-061221-task-11-song-live-b.png  (1280, 720)
+  OK  task-11-song-live-b: 39/39 项
+图: inject-song-20261123-061221-task-11-song-chain.png  (1280, 720)
+  OK  task-11-song-chain: 39/39 项
+图: inject-song-20261123-061221-task-11-song-empty-jump.png  (1280, 720)
+  OK  task-11-song-empty-jump: 39/39 项
+图: inject-song-20261123-061221-task-11-song-empty-scene.png  (1280, 720)
+  OK  task-11-song-empty-scene: 39/39 项
+图: inject-song-20261123-061221-task-11-song-nosong.png  (1280, 720)
+  OK  task-11-song-nosong: 39/39 项
+  OK  播放 scene B：卡 B 文本像素 310 > 卡 C 199 + 20（LIVE 行）
+  OK  空 scene 拒绝：状态行 UI_ERROR 像素 2010 > 20
+图: inject-song-20261123-061221-task-11-tabs-edit.png  (1280, 720)
+  OK  task-11-tabs-edit: 6 组签 + 5 子签
+图: inject-song-20261123-061221-task-11-tabs-seq.png  (1280, 720)
+  OK  task-11-tabs-seq: 6 组签 + 2 子签
+
+结果: PASS

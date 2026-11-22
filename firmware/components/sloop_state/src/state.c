@@ -56,8 +56,13 @@ void state_init(void)
 #endif
     memset(&s_state, 0, sizeof(s_state));
     sloop_core_read(&s_state.core);
+    s_state.focus_track = s_state.core.selected_track;
     /* 参数投影与 core 同拍初化（p = 选中轨，g = 全局） */
     sloop_core_read_params(s_state.core.selected_track, s_state.p, s_state.g);
+    /* 录音投影同拍初化（一次性 take 结果在开机时必为空） */
+    sloop_seq_rec_read(&s_state.rec);
+    /* arranger 只读投影（SONG 页/TRANSPORT 状态行） */
+    sloop_seq_song_read(&s_state.song);
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -112,9 +117,15 @@ void state_sync_from_engine(void)
             /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
              * set_mute/set_solo），本层不再持有，也不做任何例外保持。窗口本身不被 sync
              * 改写；窗口基与快照基一致才写回（否则按新窗口重取）。 */
+            if (snap.selected_track != s_state.core.selected_track)
+                s_state.focus_track = snap.selected_track;
             s_state.core = snap;
             memcpy(s_state.p, param_p, sizeof(param_p));
             memcpy(s_state.g, param_g, sizeof(param_g));
+            /* 录音快照只在写回成功的这一拍读一次：take 结果是一次性的（读即消费），
+             * 重试循环里读会把结果丢在第一次 attempt 上。 */
+            sloop_seq_rec_read(&s_state.rec);
+            sloop_seq_song_read(&s_state.song);
             state_unlock();
             return;
         }
@@ -160,7 +171,11 @@ void state_refresh_locked(void)
     int16_t param_g[SLOOP_CORE_G_COUNT];
     sloop_core_read_window(s_state.window.window_start, &snap);
     sloop_core_read_params(snap.selected_track, param_p, param_g);
+    if (snap.selected_track != s_state.core.selected_track)
+        s_state.focus_track = snap.selected_track;
     s_state.core = snap;
     memcpy(s_state.p, param_p, sizeof(param_p));
     memcpy(s_state.g, param_g, sizeof(param_g));
+    sloop_seq_rec_read(&s_state.rec);
+    sloop_seq_song_read(&s_state.song);
 }

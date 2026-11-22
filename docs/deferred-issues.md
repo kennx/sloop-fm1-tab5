@@ -155,18 +155,6 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-24: `focus_track` 与引擎真值 `song.sel` 在「非选轨命令」改选轨后发散
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `app_state_t.focus_track` 是 UI 局部态，`song.sel`（投影的 `core.selected_track`）是引擎真值。两者只在 `CMD_SELECT_TRACK`/`CMD_SET_TRACK`（`cmd_select_track` 同时写 focus）与 TRACKS 卡点击时同步。**P4-B Task 10 新增的 `CMD_PROJECT_LOAD` 成功后会整份刷新投影**——载入的工程带自己的 `sel`，`core.selected_track` 立即变成工程里的轨，而 `focus_track` 保持旧值。开机路径的同类发散早已存在（Task 6 的 autosave resume 把 `sel` 装回引擎，而 `state_init` 的 `focus_track` 恒为 0）。 |
-| **影响面** | 纯 UI 局部态（TRACKS 卡**没有**焦点环：它只按 `song.sel` 渲染选中描边，不做 `focus_track` 的视觉区分）：STEP 页的焦点格高亮列跟随 `focus_track`；EDIT 层擦除的目标轨也取 `focus_track`（`input.c` 的 `act_erase`，只影响显式擦除的目标，不会误写选中轨）；键盘轨轴焦点（`act_focus`）从 `focus_track` 起步，而参数页显示的是**选中轨**的参数——两者不一致时用户对「当前轨」会有两处不同的心理模型。用户在 TRACKS 卡点一次（或按选轨键）即自愈。引擎状态、存储与音频不受影响。 |
-| **为何可延迟** | 发散只在「引擎侧被别人改选轨」时出现，且下一次显式选轨即消失。Task 12 的 PROJECTS/PRESETS 页按此前提交付（载入后用户会看列表/继续操作），未加「LOAD 后同步 focus」的 UI 侧补丁；修法涉及「focus 是否应从 selected 派生」的 UX 决策（既有交互是键盘先移焦点、再显式选轨确认），留到 P4-F 的交互收口/阶段 5 的 FM-1 push。 |
-| **解决方向** | (a) 投影刷新处（`state_refresh_locked` / `state_sync_from_engine`）在检测到 `core.selected_track` 变化且变化的来源不是显式选轨命令时，把 `focus_track` 一并对齐（需要一条「外部改选轨」的判据，例如刷新前后 sel 不等且本命令不是 SELECT/SET_TRACK）；(b) 让 FILE 页在发起 `CMD_PROJECT_LOAD` 时同时下一条 `CMD_SELECT_TRACK`（跟随载入工程的 sel）；(c) 开机 `state_init` 之后同样对齐一次（与 autosave resume 的 `sel` 一致）。优先 (a)+（c）。 |
-| **触发条件** | `STORE PROJ LOAD`（或 Task 12 的 PROJECTS 页 LOAD）载入 `sel` 与当前 `focus_track` 不同的工程；或开机 autosave 的 `sel != 0`；阶段 5 的 FM-1 push 改 `song.sel`。 |
-| **参考** | `firmware/components/sloop_state/src/cmd.c` 的 `cmd_select_track`/`state_refresh_locked`、`firmware/components/sloop_ui/src/input.c` 的 `act_focus`/`act_erase`、`firmware/components/sloop_ui/src/page_step.c` 的焦点格、`firmware/components/sloop_state/src/state.c` 的 `state_init`；证据：`docs/dev/verify/4-pb-2026-11-21/task-10-page-ids.txt`（`STATE SNAP` 的 `focus_track`/`selected_track` 两个字段分开打印） |
-| **登记** | 2026-11-22（P4-B Task 10 评审 R29 的 minor (b)：工程载入整份刷新引入的新触发点 + 开机 autosave resume 的既有触发点） |
-
 ## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB，音频重启超时）
 
 | 项 | 内容 |
@@ -178,3 +166,87 @@
 | **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB、音频无法重启）。 |
 | **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫） |
 | **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS） |
+
+## DI-27: 一次性 take 结果（`take_bars`）在设备脚本里不可稳定观测
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 6 按 spec/brief 让 `sloop_seq_rec_read` **消费**上游 `ft_bars`/`rec_go`（读即清零），`state_sync_from_engine` 每 30ms 读一次并把结果写进 `app_state_t.rec`。UI 定时器同一拍先 sync 再 draw，所以界面能看到；但 console `SEQ REC`/`STATE SNAP` 在注入命令到达时通常已晚于下一次 sync，读到 `take=none`/`rec_bars=0`（实测不稳定的窗口是 30ms + 串口往返 ~50ms）。 |
+| **影响面** | 仅**观测/注入**面（Task 12 的 sequence 场景、将来的 take 提示 UI 若要「保持显示到用户确认」）。录音与 free-take 的实际结果（LEN/BPM/步内容/播放）不受影响；音频与状态机无影响。 |
+| **为何可延迟** | 效果可由持久量断言（`ENG STEP`/`ENG SNAP`/`STATE SNAP bpm`/`PARAM P_SLEN`），不需要 one-shot 令牌；UI 的消费顺序正确。当前 30ms 窗口对人工使用无感。 |
+| **解决方向** | (a) 把 take 结果 latch 到 `s_status`-style 的投影（`take_bars` + 一个 generation/`last_take` 字段），由 UI 显示后显式清；或 (b) console `SEQ REC` 读投影而不再直接消费快照（投影仍会被 sync 覆盖，需配合 (a)）；或 (c) 增加 `SEQ REC LAST` 保存最近一次 take 的环形记录。优先 (a)，代价是 `sloop_rec_snapshot_t` 加一个 generation 字段（POD 变化需同步 host 测试）。 |
+| **触发条件** | Task 12 注入场景若需要断言「本次 take 是 1 bar / 被丢弃」；或 UI 需要把 take 结果做成可停留的提示。 |
+| **参考** | `firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_rec_read`、`firmware/components/sloop_state/src/state.c` 的 `state_sync_from_engine`、`docs/design/010-sequencer-arranger.md` §9 |
+| **登记** | 2026-11-22（P4-C Task 6 评审 minor：take 结果观测竞态）；2026-11-23 Task 12/13：`sequence` 场景按**持久效果**（LEN/步表/播放/`ENG STEP`）断言、不读 one-shot 令牌，最终矩阵绿——条目保留（触发条件未消失：任何需要断言「本次 take 是 N bar / 被丢弃」的新脚本或 UI 提示仍会踩到） |
+
+## DI-28: STEP 鼓 lane 位编辑是「30ms 投影读 + 整份 POD 写」，录音并发可能丢一位
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 9 的鼓格编辑按 brief 走 `CMD_DRUM_STEP_WRITE`：UI 从 `app_state_t.core.dstep_raw[c]`（每 30ms `state_sync_from_engine` 取的窗口投影）拷出整份 16 lane 字节，翻一位后把整份 POD 交给状态层写回。读（快照）与写（adapter 的引擎锁内 memcpy）是两次独立的引擎锁获取；若实时录音（`sloop_seq_drum_hit` → 上游 `drum_input/rec_hit`）在两者之间写了同一步的其他 lane，整份写回会把新录的位覆盖掉。合成轨的 `CMD_TOGGLE_STEP` 也是「先读步再写」的同类窗口（`cmd_toggle_step` 的 `sloop_core_read_step` + `write_step`/`SEQ_STEP_CLEAR` 两次取锁），只是它读的是紧邻的引擎真值而非 30ms 投影。**P4-C Task 10 fix round 1 扩展**：TRANSPORT 页鼓轨的 LVL/RAT 字段（`tr_action` 的 `SLOOP_TR_LVL_*`/`SLOOP_TR_RAT_*` 鼓分支）走同一条路径——从 30ms 投影 `dstep_raw[fs]` 读整份 POD、改选中 lane 的 2-bit 字段、`CMD_DRUM_STEP_WRITE` 整份写回；同一窗口同样会把并发录音写进同一步其他 lane 的 hit 覆盖掉（合成轨的 LVL/RAT 走 `CMD_STEP_EDIT`，adapter 单锁读改写，不受影响）。 |
+| **影响面** | 只有「同一鼓步正被另一个写入者（实时录音/自动化）修改」且用户同时点/按该步 lane 位（或 TRANSPORT 改该步某个 lane 的 LVL/RAT）的窄窗口；丢的是新录的一位鼓 hit（下一次录音或再点可恢复）。无音频/状态机/持久化影响；注入脚本串行执行，不受影响。 |
+| **为何可延迟** | brief 明确要求复用 `CMD_DRUM_STEP_WRITE`（整份原始 POD）；改成单锁 RMW 需要新增 adapter 入口（`sloop_seq_toggle_dstep_lane` 之类）+ 状态层命令 + host/state 门禁用例，属于接口扩张而不是本 UI 任务的完成条件。现有同类窗口（合成轨 toggle）也未被专门处理，修法应一次覆盖两者而不是只修鼓。 |
+| **解决方向** | (a) 在 `seq_tab5.c` 增加「引擎锁内读-改-写单 lane」的窄 adapter（`on` 位、`lvl`、`rat` 三种字段都按 lane 参数化），状态层新增一条命令（返回新值供 TAP 回显），STEP 鼓格与 TRANSPORT LVL/RAT 都改调它；(b) 或让状态层在**引擎锁内**完成 read-modify-write（把当前 `sloop_seq_read_dstep` + `write_dstep` 合成一个入口，避免投影陈旧）；(c) 顺带把合成轨 toggle 改成同一形态（上游 `CMD_TOGGLE_STEP` 的读改写在 adapter 内一次取锁）。优先 (b)+(a)，可同时消灭三处窗口。 |
+| **触发条件** | 任何「录音中进行步/lane 编辑」的门禁或人测场景；或 Task 12 的 sequence 场景要在 REC 进行中点击鼓格。 |
+| **参考** | `firmware/components/sloop_ui/src/page_step.c` 的 `drum_toggle`、`firmware/components/sloop_ui/src/page_transport.c` 的 `tr_action`（鼓轨 LVL/RAT 分支）、`firmware/components/sloop_state/src/cmd.c` 的 `cmd_drum_step`/`cmd_toggle_step`、`firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_read_dstep/write_dstep`、ADR-010 §6 |
+| **登记** | 2026-11-22（P4-C Task 9 评审 minor：鼓 lane 位编辑的读改写窗口）；2026-11-22 Task 10 fix round 1 扩展到 TRANSPORT 鼓 lane LVL/RAT |
+
+## DI-29: `ENG SELFTEST` 汇总行可能被并发 `ESP_LOG` 从中间插入，device-selftest 假红
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 9 设备复验时，同一固件（`192b4fe`）两次全量自检里有一次出现：`ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks` 被紧随其后的 `I (...) sloop_ui: 诊断期静默 OFF：…` 日志行**插入到同一物理行**；`scripts/device-selftest.py` 的 `SUMMARY = ^ENG SELFTEST cases=` 命中后立即停止读取，尾部 `expected_checks=7 main_rc=1 result=PASS` 丢失，`summary_fields()` 取不到 `result` ⇒ 打印 `DEVICE SUMMARY result=None`、`result=FAIL`、exit 1。另一次运行汇总行完整，182/182 PASS；截断那次设备侧计数也全部是 182 identical / mismatch 0 / deterministic 1（只缺尾字段）。证据：`.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/task-9-selftest-interleaved.log`（摘要 `task-9-selftest-interleaved-summary.txt`）。 |
+| **影响面** | 仅 `scripts/device-selftest.py` 门禁（和按日志 grep 的排障）：会把「设备实际 PASS」报成 FAIL，导致阶段矩阵假红/需要重跑。自检本身、引擎与音频无影响。 |
+| **为何可延迟** | 概率低（当前只在同一行写入窗口撞上 UI quiesce OFF 日志时发生），重跑即可恢复；修法要么改门禁脚本的读取/解析协议，要么改 console 输出原子性，二者都需要单独验证，不宜在 UI 任务里顺手改门禁工具。 |
+| **解决方向** | (a) 脚本命中 `SUMMARY` 前缀后继续读到 `sloop>` 提示符，把同一物理行的续行合并后再解析（并显式校验 `cases==expected`、`mismatch==0`、`deterministic=1`）；`result=` 缺失时按「计数一致 + 显式 WARN」处理而不是直接 FAIL。(b) 固件把汇总行放到没有并发 UI 日志的窗口（quiesce OFF 之前/之后若干拍），或用一次 `write()` 输出整行。(c) 给 console 输出加行锁/行缓冲（影响面最大）。优先 (a)+(b)，但门禁仍须保留 `result=PASS` 与 `identical==expected` 两条判据。 |
+| **触发条件** | 任何 `ENG SELFTEST` 门禁；UI 定时器恢复日志、存储 tick 等并发 `ESP_LOG` 恰好落在汇总 `printf` 写入中途。 |
+| **参考** | `scripts/device-selftest.py`（`SUMMARY`/`summary_fields`/`compare`）、`firmware/components/sloop_core/src/selftest.c`（汇总 printf）、`firmware/components/sloop_ui/src/ui.c`（quiesce OFF 日志）、DI-26（自检堆泄漏） |
+| **登记** | 2026-11-22（P4-C Task 9 设备复验：同一固件两次自检一次假红） |
+
+## DI-30: TRANSPORT 聚焦步字段没有「音符光标」与精确 span 读口
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 10 的聚焦步字段（LVL/RAT/SPAN/SLIDE）在 TRANSPORT 页编辑，数据源是 `app_state_t.core.step[ft][fs]`（窗口投影）。① STEP 页没有「和弦里第几个音符」的光标（上游 `ui.note_k`），所以 LVL/RAT 固定作用在**第 1 个音符**（`index=0`），和弦里其余音符的 2-bit 字段没有 UI 入口；② 快照不含上游 2.8.3 的 POLY span（音符长到后续和弦下方时以 CONT 延续），SPAN± 只能以**可见 TIE 链长度**为基准，POLY 场景下目标值可能短于实际 span。 |
+| **影响面** | 只在多音符和弦的 LVL/RAT 与「长音压在后续和弦下方」的 SPAN 上出现近似；单音符步、无 CONT 的普通长音完全准确。引擎/协议/持久化无影响（写的仍是上游字段，只是目标 index/长度由 UI 近似给出）。 |
+| **为何可延迟** | 两项都需要新的状态投影（音符光标 = UI 局部态 + 快照里逐音符可读的 span），属 UI/快照接口扩张；当前 STEP 页的深度呈现（Task 9）已能看见每音符 lvl 与 CONT 标记，用户可用 `SEQ EDIT LVL/RAT/SPAN` 诊断面做精确编辑。 |
+| **解决方向** | (a) STEP/TRANSPORT 增加音符光标（上游 `note_k` 语义：KNOB1 走音符，含空步），TRANSPORT 的 LVL/RAT 用它当 `edit.index`；(b) `sloop_core_snapshot_t` 增每音符 span（或 `sloop_seq` 加一个只读 `sloop_seq_note_span(track, step, index)`，引擎锁内算 `span_len`），SPAN± 以它为基准；(c) 两项都要补 state/注入用例（和弦 k=1 的 LVL、CONT 长音的 span 往返）。 |
+| **触发条件** | 用户报告「和弦里第二个音的力度改不了」；或 sequence 场景要覆盖 POLY span 的 UI 编辑；或 SONG/sequence 场景需要按音符编辑。 |
+| **参考** | `firmware/components/sloop_ui/src/page_transport.c`（`tr_action` 的 LVL/RAT/SPAN）、`firmware/components/sloop_core/src/seq_tab5.c`（`span_len`/`span_set`）、`third_party/sloop-fm1/firmware/src/ui.c`（`ui.note_k`/`note_span`）、ADR-005「TRANSPORT 录音、fill 与 pattern 工具区」§2 |
+| **登记** | 2026-11-22（P4-C Task 10：聚焦步字段的已知近似） |
+
+## DI-31: `SEQ_STEP_CLEAR` 对孤立 TIE 步是 no-op（上游 `step_clear` 会写回 REST）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 适配层 `sloop_seq_step_edit(SEQ_STEP_CLEAR)` 的实现是「while `step_on` → `note_del`，再清 lock/micro/fill」；`step_on` 要求 `n>0 && time==ST_NOTE`，所以对**只有 `time=ST_TIE`、n=0 的孤立 TIE 步**循环一次都不进，time 仍停在 TIE。上游 `ui.c` 的 `step_clear()` 是 `memset(st,0)` + `time=ST_REST`，任何步（含 TIE 尾巴）都回到 REST。 |
+| **影响面** | 用户在 `SEQ EDIT CLEAR <track> <step>` 或状态层 `STEP_CLEAR` 上清一个孤立 TIE 步时看不到变化；锚点步被单独清空后留下的 TIE 尾巴不会被同一条命令顺手清掉，后续 SPAN 以可见 TIE 链为基准时会多算（Task 11 `transport` 场景首轮中断后复跑踩到：SPAN 基点从 1 变 2）。正常 UI 路径（STEP 格 toggle）对 TIE 步按「空步 → 开音」处理，不直接依赖 CLEAR；`PATTERN CLEAR`（整轨）会整份 `step_clear`，不受影响。 |
+| **为何可延迟** | 不是 Task 11 引入的行为，改动会触碰 P4-C Task 4 已冻结的 CLEAR 语义与 `seq-test.sh` 的既有断言；当前唯一可复现入口是「锚点步被清空留下 orphan TIE + 后续 STEP_CLEAR」这一窄路径，且注入脚本已用「开一步再清」自愈。 |
+| **解决方向** | 把 `SEQ_STEP_CLEAR` 改成上游 `step_clear` 口径：`memset(&t->step[step],0)` + `time=ST_REST`（保留 LEN），补 `seq-test` 用例「孤立 TIE 步 CLEAR → time=REST」与 state/注入断言；确认 `PATTERN CLEAR` 与 undo 标记不被重复 memset。 |
+| **触发条件** | 用户报告「清不掉某个 TIE 步」；或 Task 12 的 `sequence` 场景在中断复跑时需要稳定的 CLEAR 归一；或任何改动 CLEAR 语义的任务。 |
+| **参考** | `firmware/components/sloop_core/src/seq_tab5.c`（`SEQ_STEP_CLEAR` 分支）、`third_party/sloop-fm1/firmware/src/ui.c`（`step_clear`）、`scripts/inject/inject.py` 的 `run_transport_tools`（归一注释） |
+| **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义）；2026-11-23 Task 12/13：`sequence` 的 ⓪ 归一与 DI-31 用例改用「开一步再清」，最终矩阵绿——CLEAR 语义本身仍未改，条目保留 |
+
+## DI-32: `STORE RAW` 只能写 project 对象，设置对象（PER1/2/3/side）无法从设备注入
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `STORE RAW END <obj> <slot>` 的对象名解析只接受 `project`（`store_tab5.c` 的 raw 上传入口与 `scripts/store_raw.py --obj`）；`OBJ_SETTINGS`（PER1/PER2/PER3 + side）没有注入通道，故 P4-C 的 settings 迁移/损坏路径只有 host 覆盖（`scripts/persist-host-test.c`），设备侧无法上传旧设置 fixture、也无法用损坏设置验证「加载拒绝且原对象不覆盖」。 |
+| **影响面** | 仅门禁覆盖：PER1/2 迁移的设备侧证据缺失；产品路径（`song_set` → 延迟 `st_save3`）不受影响，`STORE SONG`/`STORE TEST` 已覆盖设备写入与 A/B+CRC。 |
+| **为何可延迟** | 迁移逻辑是纯字节函数（`src/song_persist.h`），host 侧真实 `storage.c` + 8KB 假 flash 已逐字节回归；设备侧缺的是「同一函数在真 flash 上跑」的冗余证明。Task 13 收口矩阵不依赖它。 |
+| **解决方向** | 给 `STORE RAW END` 增加 `settings` 对象名（映射 `OBJ_SETTINGS`，走 `st_save3` 的 A/B+CRC 路径），写后按 `song_reload` 语义重载；`scripts/store_raw.py --obj settings`；在 `store` 或 `sequence` 场景加一条「上传 PER2 → `STORE SONG INFO kind=per2` → `SAVE` → `INFO kind=per3`」与一条「上传截断 settings → `SAVE` 回 `invalid` 且 `INFO` 不变」。 |
+| **触发条件** | 需要设备级证明 settings 迁移/损坏路径时；或 P4-E 改动 `OBJ_SETTINGS` 布局（theme/lights/MIDI 尾段）后重跑 song 持久化门禁时。 |
+| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_raw_*`）、`scripts/store_raw.py`、`scripts/persist-host-test.c`、`docs/design/009-storage-backend.md` §6.1 |
+| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 7 报告 §6.2 遗留） |
+
+## DI-33: warm reset 后 live section 不保留（上游保留 live section 及其 dirty 延迟写语义）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游在 warm reset 后保留 RAM 中的 live section（并靠 dirty 延迟写补落盘）；本固件 `sloop_store_init` 先按四槽 fetch 覆盖 RAM 槽，再进入正常使用——捕获后若在 1s 任务的门限（停走带 + 无发声 + idle ≥1.5s + gap ≥5s）之前发生软复位/看门狗复位，该段在重启后回到 flash 旧值（硬复位同理，但语义上本就没有「保留」期待）。 |
+| **影响面** | 仅「section 捕获后 ≤5s 内复位」的窄窗口；已落盘的段、歌曲顺序与工程槽不受影响（PER3 与 FUN6 各自 A/B 提交）。用户可见形态是「刚存的段重启后不见了」。 |
+| **为何可延迟** | 正常使用路径（STOP 后等待 ≥5s 或继续编辑）会由 1s 任务落盘；`sequence` 场景实测 2.1s 内排空 dirty。与上游的差异只在异常复位，且完全对齐需要跨复位的 RAM 槽保活（PSRAM 分配/`.noinit` 指针所有权），属存储启动策略变更，不宜在收口任务里动。 |
+| **解决方向** | 二选一：(a) 在可控重启路径（`esp_restart` 前/关机信号）同步 flush 所有 dirty 段与歌曲；(b) `sloop_store_init` 在检测到 warm boot 且 `.noinit` 槽指针有效时保留 RAM 槽并与 flash 比较，差异则保留 RAM 值 + 置 dirty（需先证明 PSRAM 内容在软复位后仍有效并处理分配器重入）。优先 (a)，并在 `sequence` 场景加「捕获后立即复位 → 段内容保持」的判别用例。 |
+| **触发条件** | 用户报告「刚捕获的段在重启后丢失」；或 P4-E/P4-F 要求与上游 warm reset 语义一致；或引入关机/重启 UI 时。 |
+| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_init` 的槽 fetch、`sloop_store_sections_tick`）、`.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/task-8-report.md` §8.5、ADR-009 §6.1 |
+| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 8 报告 §8.5 遗留） |

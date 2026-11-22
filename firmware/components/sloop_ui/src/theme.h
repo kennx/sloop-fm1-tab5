@@ -33,14 +33,16 @@
 
 /* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
  * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行最多
- * 5 个组签（PLAY/TRACKS/EDIT/SEQ/FILE），176px 宽（5×176+4×8=912，右端 928）；
- * 子行复用固定 UI_GROUP_MAX 个槽，只显示当前组已注册页（EDIT 5 页是最大组）。
- * 右侧 UI_TAB_RIGHT_RESERVE=220 给上行 SLOOP 标题与下行层键提示留位（提示盒
- * 起点 936 > 页签右端 928，宽度封顶 + 省略号截断，绝不压到页签）。 */
+ * 6 个组签（PLAY/TRACKS/EDIT/SEQ/SONG/FILE，P4-C Task 11），168px 宽
+ * （6×168+5×8=1,048，右端 1,064 < 上行 SLOOP 标题起点 ~1,191）；子行复用固定
+ * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 5 页是最大组，右端 928）。
+ * 右侧 UI_TAB_RIGHT_RESERVE=216 给上行 SLOOP 标题与下行层键提示留位：组行右端
+ * 1,064 = 1,280−216（正好用完 reserve）；子行右端 928，提示盒从 936 起，宽度封顶 +
+ * 省略号截断，绝不压到子签。 */
 #define UI_TAB_X0  16
 #define UI_TAB_GAP 8
-#define UI_TAB_RIGHT_RESERVE 220
-#define UI_GROUP_W 176
+#define UI_TAB_RIGHT_RESERVE 216
+#define UI_GROUP_W 168
 #define UI_GROUP_H 32
 #define UI_GROUP_Y 4
 #define UI_SUB_W   176
@@ -93,6 +95,16 @@ bool page_presets_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 void page_presets_slot_move(int8_t delta);
 void page_presets_load(void);
 const char *page_presets_status_text(void);
+
+/* SONG 编排页（P4-C Task 11，独立 SONG 组）：A–D section 卡 / 16 项歌曲顺序 /
+ * bars·loop 配置 / STORE·LOAD·ERASE·JUMP·SONG·CHAIN·REC 控件。build/update 契约
+ * 同上；entry_move/section_move/load 是 InputManager 的键盘路由（←/→ 选条目、
+ * ↑/↓ 选 section、ENTER = LOAD），在输入任务上下文调用、**不碰控件**（描边由下一拍
+ * update 渲染）。song_status_text 是 console `TAP` 回显的 `status="…"`（与屏幕同源）。 */
+lv_obj_t *page_song_build(lv_obj_t *parent);
+void page_song_update(const app_state_t *st);
+bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+const char *page_song_status_text(void); /* console TAP 回显（状态行文本，同源） */
 
 /* FILE 页状态行的单一映射（屏幕文本与 console `TAP … status="…"` 回显都从这里出）：
  * act = 本页最后一次动作（0 SAVE / 1 LOAD / 2 ERASE / 其它 = 尚无动作）；

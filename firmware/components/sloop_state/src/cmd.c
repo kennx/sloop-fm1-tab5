@@ -16,17 +16,15 @@ static const char *TAG = "sloop_state";
 
 /* 上游常量镜像（本组件不包含上游 core.h：host 单测不编译上游源码）：
  * core.h 的 enum { G_BPM, ... } → G_BPM = 0；params.c 的 GP[G_BPM] 范围 40..240；
- * core.h 的 enum { ST_NOTE, ST_TIE, ST_REST }；NSTEP = 步表长度 64。 */
+ * core.h 的 ST_NOTE = 0；NSTEP = 步表长度 64。 */
 #define STATE_G_BPM 0u
 #define STATE_BPM_MIN 40
 #define STATE_BPM_MAX 240
 #define STATE_ST_NOTE 0u
-#define STATE_ST_TIE 1u
-#define STATE_ST_REST 2u
 #define STATE_STEPS_MAX 64u
 #define STATE_WINDOW_STEP 16u   /* 一 bank 的步数 = window_start 对齐粒度 */
 #define STATE_WINDOW_START_MAX (STATE_STEPS_MAX - STATE_WINDOW_STEP) /* 48 */
-#define STATE_SYNTH_TRACKS 3u /* read_step/write_step 只覆盖合成轨（鼓轨只读） */
+#define STATE_SYNTH_TRACKS 3u /* 兼容 toggle/erase 命令只覆盖合成轨 */
 #define STATE_NOTE_MAX 127u
 
 static void cmd_note(app_state_t *s, uint32_t track, uint16_t note, bool on)
@@ -62,66 +60,38 @@ static void cmd_select_track(app_state_t *s, uint32_t track)
     state_refresh_params(s);
 }
 
-static uint32_t state_track_len(const app_state_t *s, uint32_t track)
+static void state_seq_result(app_state_t *s, esp_err_t ret)
 {
-    uint32_t len = s->core.trk[track].len;
-    if (len < 1u || len > STATE_STEPS_MAX) len = STATE_STEPS_MAX;
-    return len;
-}
-
-/* 上游 step_clear()：清空整步（n/note[]/vel/lvl/rat/flags）并置 REST。上游的
- * micro[]/fill[] 是步表外的独立数组（t->micro / t->fill），step_clear 不碰它们，
- * 故这里也保留——「删除对齐 upstream」只对齐步内字段，微调/填充不丢。 */
-static void state_step_clear(sloop_step_t *st)
-{
-    memset(st->note, 0, sizeof(st->note));
-    st->n = 0;
-    st->vel = 0;
-    st->lvl = 0;
-    st->rat = 0;
-    st->flags = 0;
-    st->time = STATE_ST_REST;
-}
-
-static void state_snapshot_step(app_state_t *s, uint32_t track, uint32_t idx, const sloop_step_t *st)
-{
-    /* 投影按窗口列存：引擎绝对步 idx → 列 idx - window_start；窗口外的步不投影 */
-    if (idx < s->window.window_start) return;
-    uint32_t col = idx - s->window.window_start;
-    if (col >= APP_STATE_STEPS) return;
-    s->core.step[track][col].n = st->n;
-    memcpy(s->core.step[track][col].note, st->note, sizeof(st->note));
-    s->core.step[track][col].vel = st->vel;
-    s->core.step[track][col].time = st->time;
-    s->core.step[track][col].flags = st->flags;
-}
-
-/* 镜像上游 ui.c note_del() 最后一音的 note_span_set(t,i,1)：步被清掉后，其后承载
- * 它的 TIE 连缀折回 REST。上游只折叠 n==0 的纯 TIE（带音符的旧格式 TIE 保留，
- * 见 seq.c span_set 的 act[j]==1），遇到非 TIE 或带音符的 TIE 即停。 */
-static void state_tie_collapse(app_state_t *s, uint32_t track, uint32_t idx)
-{
-    uint32_t len = state_track_len(s, track);
-    for (uint32_t j = idx + 1u; j < len; j++) {
-        sloop_step_t nx;
-        sloop_core_read_step(track, j, &nx);
-        if (nx.time != STATE_ST_TIE || nx.n != 0u) break;
-        state_step_clear(&nx);
-        sloop_core_write_step(track, j, &nx);
-        state_snapshot_step(s, track, j, &nx);
+    switch (ret) {
+    case ESP_OK: s->seq_status = SEQ_STATUS_OK; break;
+    case ESP_ERR_NOT_FOUND: s->seq_status = SEQ_STATUS_NOT_FOUND; break;
+    case ESP_ERR_INVALID_ARG: s->seq_status = SEQ_STATUS_INVALID; break;
+    case ESP_ERR_NO_MEM: s->seq_status = SEQ_STATUS_FULL; break;
+    case ESP_ERR_NOT_ALLOWED: s->seq_status = SEQ_STATUS_BLOCKED; break;
+    case ESP_ERR_INVALID_STATE: s->seq_status = SEQ_STATUS_FROZEN; break;
+    default: s->seq_status = SEQ_STATUS_ERROR; break;
     }
+    if (ret != ESP_OK) return;
+    uint8_t old_selected = s->core.selected_track;
+    sloop_core_read_window(s->window.window_start, &s->core);
+    if (s->core.selected_track != old_selected) s->focus_track = s->core.selected_track;
 }
 
 static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
 {
-    if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX) return;
+    if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
+        return;
+    }
 
     sloop_step_t st;
     sloop_core_read_step(track, idx, &st);
-    /* 「有音」与上游 sp_on 同口径（seq.c）；判定与 UI 共用 state_step_is_on() */
     bool on = state_step_is_on(st.n, st.time);
     if (!on) {
-        /* 上游新步先 memset 再写音符：残留的 lvl/rat/flags 不得漏进新音 */
         memset(st.note, 0, sizeof(st.note));
         st.note[0] = s->last_note != 0 ? s->last_note : APP_STATE_NOTE_DEFAULT;
         st.n = 1;
@@ -130,68 +100,29 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
         st.flags = 0;
         st.lvl = 0;
         st.rat = 0;
-        sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
-        state_snapshot_step(s, track, idx, &st);
+        sloop_core_write_step(track, idx, &st);
+        state_seq_result(s, sloop_seq_frozen() ? ESP_ERR_INVALID_STATE : ESP_OK);
         return;
     }
-    state_step_clear(&st);
-    sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
-    state_snapshot_step(s, track, idx, &st);
-    state_tie_collapse(s, track, idx);
-}
-
-/* 上游 step_t 的每音符 2bit 字段（lvl/rat）：删除第 k 个音符时把后面的前移
- * （镜像 ui.c 的 drop2，音符数 ≤4，字段只有 8 位）。 */
-static uint8_t state_drop2(uint8_t v, uint32_t k)
-{
-    return (uint8_t)((v & ((1u << (2u * k)) - 1u)) | ((v >> (2u * k + 2u)) << (2u * k)));
-}
-
-/* flags 的 CONT 位段（SF_CONT0=8，四音符各 1 位）：删除第 k 个音符时前移 */
-static uint8_t state_drop_cont(uint8_t flags, uint32_t k)
-{
-    uint32_t c = (flags & (15u * 8u)) / 8u;
-    c = (c & ((1u << k) - 1u)) | ((c >> (k + 1u)) << k);
-    return (uint8_t)((flags & ~(15u * 8u)) | c * 8u);
+    const sloop_step_edit_t edit = {
+        .track = (uint8_t)track, .step = (uint8_t)idx, .op = SEQ_STEP_CLEAR,
+    };
+    state_seq_result(s, sloop_seq_step_edit(&edit));
 }
 
 static void cmd_erase_note(app_state_t *s, uint32_t track, uint32_t idx, uint16_t note)
 {
     if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX || note == 0 || note > STATE_NOTE_MAX) {
+        s->seq_status = SEQ_STATUS_INVALID;
         return;
     }
-
-    sloop_step_t st;
-    sloop_core_read_step(track, idx, &st);
-    uint32_t n = st.n > 4u ? 4u : st.n;
-    bool removed = false;
-    for (uint32_t k = 0; k < n;) {
-        if (st.note[k] != note) {
-            k++;
-            continue;
-        }
-        for (uint32_t j = k; j + 1u < n; j++) st.note[j] = st.note[j + 1u];
-        st.note[n - 1u] = 0;
-        st.lvl = state_drop2(st.lvl, k);
-        st.rat = state_drop2(st.rat, k);
-        st.flags = state_drop_cont(st.flags, k);
-        n--;
-        removed = true;
-    }
-    if (!removed) return; /* 没有该音符：不写引擎（与越界同口径） */
-
-    st.n = (uint8_t)n;
-    if (n == 0) {
-        /* 最后一个音符删除：上游 note_del() 走 note_span_set(t,i,1) + step_clear
-         * ——整步清空（含 vel/lvl/rat/flags）并折叠其后的 TIE 连缀 */
-        state_step_clear(&st);
-        sloop_core_write_step(track, idx, &st); /* micro/fill 原样带回 */
-        state_snapshot_step(s, track, idx, &st);
-        state_tie_collapse(s, track, idx);
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
         return;
     }
-    sloop_core_write_step(track, idx, &st); /* vel/micro/fill 原样带回 */
-    state_snapshot_step(s, track, idx, &st);
+    /* 音高 → index 的查找与删除由 seq adapter 在**同一把引擎锁**内完成：实时录音
+     * 可能并发改步，状态层预读的 index 会在两次取锁之间失效（评审 deferral）。 */
+    state_seq_result(s, sloop_seq_note_del(track, idx, note));
 }
 
 static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
@@ -219,7 +150,9 @@ static void cmd_set_window(app_state_t *s, uint32_t start, uint32_t len)
     s->window.window_start = (uint8_t)st;
     s->window.window_len = (uint8_t)len;
     if (s->focus_step >= len) s->focus_step = (uint8_t)(len - 1u);
+    uint8_t old_selected = s->core.selected_track;
     sloop_core_read_window(st, &s->core);
+    if (s->core.selected_track != old_selected) s->focus_track = s->core.selected_track;
 }
 
 static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
@@ -288,6 +221,229 @@ static void cmd_set_global(app_state_t *s, uint32_t id, uint16_t value)
     sloop_core_set_global(id, (int16_t)value);
     state_refresh_params(s);
     if (id == STATE_G_BPM) s->core.bpm = (uint16_t)s->g[STATE_G_BPM];
+}
+
+static void cmd_step_edit(app_state_t *s, const sloop_step_edit_t *edit)
+{
+    if (edit == NULL || edit->track >= APP_STATE_TRACKS || edit->step >= STATE_STEPS_MAX ||
+        (int32_t)edit->op < 0 || edit->op > SEQ_STEP_CLEAR) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    state_seq_result(s, sloop_seq_step_edit(edit));
+}
+
+static void cmd_pattern(app_state_t *s, uint32_t track, uint32_t op, uint16_t arg)
+{
+    if (track >= APP_STATE_TRACKS || (int32_t)op < 0 || op > SEQ_PATTERN_REDO) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    state_seq_result(s, sloop_seq_pattern(track, (sloop_pattern_op_t)op, (int16_t)arg));
+}
+
+static void cmd_micro_fill(app_state_t *s, edit_cmd_type_t type,
+                           uint32_t track, uint32_t step, uint16_t value)
+{
+    if (track >= APP_STATE_TRACKS || step >= STATE_STEPS_MAX) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    int16_t sv = (int16_t)value;
+    if ((type == CMD_SET_MICRO && (sv < -32 || sv > 31)) ||
+        (type == CMD_SET_FILL && (sv < 0 || sv > 3))) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = type == CMD_SET_MICRO
+                        ? sloop_seq_set_micro(track, step, (int8_t)sv)
+                        : sloop_seq_set_fill(track, step, (uint8_t)sv);
+    state_seq_result(s, ret);
+}
+
+static void cmd_lock(app_state_t *s, edit_cmd_type_t type, uint32_t track,
+                     uint32_t step, uint32_t param, uint16_t value)
+{
+    bool valid = track < APP_STATE_TRACKS && step < STATE_STEPS_MAX &&
+                 (type == CMD_LOCK_DEL ? param <= SLOOP_CORE_P_COUNT
+                                       : param < SLOOP_CORE_P_COUNT);
+    if (!valid) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = type == CMD_LOCK_SET
+                        ? sloop_seq_lock_set(track, step, param, (int16_t)value)
+                        : sloop_seq_lock_del(track, step, param);
+    state_seq_result(s, ret);
+}
+
+/* 录音命令（P4-C Task 6）：adapter 是唯一状态机实现；成功后同拍重取快照投影，
+ * 让 `STATE SNAP`/UI 在下一拍 sync 之前就看到 armed/recording/off。快照是**一次
+ * 性**的（take 结果被消费），所以只在显式命令之后重取，不在每次分发都读。 */
+static void state_refresh_rec(app_state_t *s)
+{
+    sloop_seq_rec_read(&s->rec);
+}
+
+static void cmd_rec_toggle(app_state_t *s)
+{
+    esp_err_t ret = sloop_seq_rec_toggle();
+    state_seq_result(s, ret);
+    if (ret == ESP_OK) state_refresh_rec(s);
+}
+
+static void cmd_rec_config(app_state_t *s, uint32_t quant_off, uint32_t tempo_mode, uint32_t count_mode)
+{
+    if (quant_off > 1u || tempo_mode > 1u || count_mode > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_rec_config((uint8_t)quant_off, (uint8_t)tempo_mode,
+                                         (uint8_t)count_mode);
+    state_seq_result(s, ret);
+    if (ret == ESP_OK) state_refresh_rec(s);
+}
+
+static void cmd_fill_control(app_state_t *s, uint32_t held, uint32_t next_bar)
+{
+    if (held > 1u || next_bar > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    state_seq_result(s, sloop_seq_fill_control(held != 0u, next_bar != 0u));
+}
+
+/* 鼓演奏：lane/velocity 越界是命令错误（invalid，不调引擎）；成功不改 seq_status
+ * （演奏不是一次编辑），也从不回落合成轨 0。velocity 0 = 松开（自由录音的音符段）。 */
+static void cmd_drum_hit(app_state_t *s, uint32_t lane, uint32_t velocity)
+{
+    if (lane > 15u || velocity > 127u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_drum_hit(lane, velocity);
+    if (ret != ESP_OK) {
+        switch (ret) {
+        case ESP_ERR_INVALID_STATE: s->seq_status = SEQ_STATUS_FROZEN; break;
+        case ESP_ERR_INVALID_ARG: s->seq_status = SEQ_STATUS_INVALID; break;
+        default: s->seq_status = SEQ_STATUS_ERROR; break;
+        }
+    }
+}
+
+/* 物理 PLAY（面板按钮口径）：down/up 都透传；playing 投影留给下一拍 sync（start
+ * 请求在音频块边界才被上游消费，提前改写投影会抢跑引擎真值）。 */
+static void cmd_play_button(app_state_t *s, uint32_t down)
+{
+    (void)s;
+    sloop_seq_play_button(down != 0u);
+}
+
+/* ------------------------------------------------- P4-C Task 8: sections / chain / SONG ---
+ * 状态层只校验公共边界（槽号/模式值/数组指针）并分发；上游顺序时钟、场景应用、
+ * chain 与 SONG REC 状态机全在 seq adapter 一处。成功同拍刷新 song 快照（UI 不读上游
+ * 全局）；SECTION LOAD/ERASE 还会改轨/参数，故走整份投影刷新。
+ * 返回码：NOT_ALLOWED → BLOCKED（走带中/SONG 播放中/REC IS ON）；INVALID_STATE 且适配层
+ * 冻结 → FROZEN，其余 INVALID_STATE（存储未就绪）→ ERROR（与 sloop_seq.h 的约定一致）。 */
+static void state_song_result(app_state_t *s, esp_err_t ret)
+{
+    switch (ret) {
+    case ESP_OK: s->seq_status = SEQ_STATUS_OK; break;
+    case ESP_ERR_NOT_FOUND: s->seq_status = SEQ_STATUS_NOT_FOUND; break;
+    case ESP_ERR_INVALID_ARG: s->seq_status = SEQ_STATUS_INVALID; break;
+    case ESP_ERR_NOT_ALLOWED: s->seq_status = SEQ_STATUS_BLOCKED; break;
+    case ESP_ERR_INVALID_STATE:
+        s->seq_status = sloop_seq_frozen() ? SEQ_STATUS_FROZEN : SEQ_STATUS_ERROR;
+        break;
+    default: s->seq_status = SEQ_STATUS_ERROR; break;
+    }
+}
+
+static void state_refresh_song(app_state_t *s)
+{
+    sloop_seq_song_read(&s->song);
+}
+
+static void cmd_section(app_state_t *s, edit_cmd_type_t type, uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret;
+    switch (type) {
+    case CMD_SECTION_STORE: ret = sloop_seq_section(slot, true, false); break;
+    case CMD_SECTION_LOAD: ret = sloop_seq_section(slot, false, false); break;
+    case CMD_SECTION_ERASE: ret = sloop_seq_section(slot, false, true); break;
+    case CMD_SECTION_REQUEST: ret = sloop_seq_section_request(slot); break;
+    default: return;
+    }
+    state_song_result(s, ret);
+    if (ret != ESP_OK) return;
+    if (type == CMD_SECTION_LOAD || type == CMD_SECTION_ERASE)
+        state_refresh_locked(); /* 工程应用会改选中轨/参数/图案 */
+    else
+        state_refresh_song(s);
+}
+
+static void cmd_chain_begin(app_state_t *s, uint32_t first)
+{
+    if (first >= SLOOP_STORE_PROJECTS) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_chain_begin(first);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_chain_commit(app_state_t *s, const void *scenes, uint32_t count)
+{
+    if (count > 8u || (count != 0u && scenes == NULL)) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_chain_commit(scenes, count);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_mode(app_state_t *s, uint32_t enabled)
+{
+    if (enabled > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_song_mode(enabled != 0u);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_rec(app_state_t *s)
+{
+    esp_err_t ret = sloop_seq_song_rec();
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_set(app_state_t *s, const sloop_song_config_t *cfg)
+{
+    if (cfg == NULL) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_store_song_set(cfg); /* 只改内存 + dirty；落盘由 1s 任务完成 */
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_drum_step(app_state_t *s, uint32_t step, const sloop_dstep_t *dstep)
+{
+    if (step >= STATE_STEPS_MAX || dstep == NULL) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    state_seq_result(s, sloop_seq_write_dstep(step, dstep));
 }
 
 /* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
@@ -398,6 +554,28 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_PRESET_ERASE: cmd_preset(s, cmd->type, cmd->a, cmd->b); break;
     case CMD_BANK_PUT:
     case CMD_BANK_ERASE: cmd_bank(s, cmd->type, cmd->a); break;
+    case CMD_STEP_EDIT: cmd_step_edit(s, cmd->p); break;
+    case CMD_PATTERN: cmd_pattern(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_SET_MICRO:
+    case CMD_SET_FILL: cmd_micro_fill(s, cmd->type, cmd->a, cmd->b, cmd->v); break;
+    case CMD_LOCK_SET:
+    case CMD_LOCK_DEL: cmd_lock(s, cmd->type, cmd->a, cmd->b, cmd->n, cmd->v); break;
+    case CMD_DRUM_STEP_WRITE: cmd_drum_step(s, cmd->b, cmd->p); break;
+    case CMD_REC_TOGGLE: cmd_rec_toggle(s); break;
+    case CMD_REC_CONFIG: cmd_rec_config(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_FILL_CONTROL: cmd_fill_control(s, cmd->a, cmd->b); break;
+    case CMD_DRUM_HIT: cmd_drum_hit(s, cmd->a, cmd->v); break;
+    case CMD_PLAY_BUTTON: cmd_play_button(s, cmd->a); break;
+    case CMD_SECTION_STORE:
+    case CMD_SECTION_LOAD:
+    case CMD_SECTION_ERASE:
+    case CMD_SECTION_REQUEST: cmd_section(s, cmd->type, cmd->a); break;
+    case CMD_CHAIN_BEGIN: cmd_chain_begin(s, cmd->a); break;
+    case CMD_CHAIN_COMMIT: cmd_chain_commit(s, cmd->p, cmd->n); break;
+    case CMD_CHAIN_CANCEL: cmd_chain_commit(s, NULL, 0); break;
+    case CMD_SONG_MODE: cmd_song_mode(s, cmd->a); break;
+    case CMD_SONG_REC: cmd_song_rec(s); break;
+    case CMD_SONG_SET: cmd_song_set(s, cmd->p); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

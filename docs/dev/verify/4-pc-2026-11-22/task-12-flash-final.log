@@ -1,0 +1,109 @@
+已加载 ESP-IDF 环境: /home/kenn/esp/esp-idf/export.sh
+==> 使用串口: /dev/ttyACM0
+Executing action: flash
+Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
+Executing "ninja flash"...
+[1/5] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+sloop_fm1_tab5.bin binary size 0x192a70 bytes. Smallest app partition is 0x800000 bytes. 0x66d590 bytes (80%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+[3/5] No install step for 'bootloader'
+[4/5] Completed 'bootloader'
+[4/5] cd /home/kenn/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH=/home/kenn/esp/esp-idf -D "SERIAL_TOOL=/home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python;;/home/kenn/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32p4" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/kenn/projects/sloop-fm1-tab5/firmware/build -P /home/kenn/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB 0x2000 bootloader/bootloader.bin 0x10000 sloop_fm1_tab5.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.13.0
+Serial port /dev/ttyACM0
+Connecting...
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:41
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00002000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x001a2fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 23088 bytes to 14350...
+Writing at 0x00002000... (100 %)
+Wrote 23088 bytes (14350 compressed) at 0x00002000 in 0.2 seconds (effective 934.9 kbit/s)...
+Hash of data verified.
+Compressed 1649264 bytes to 987147...
+Writing at 0x00010000... (1 %)
+Writing at 0x0001a78c... (3 %)
+Writing at 0x000267b1... (4 %)
+Writing at 0x0002fe70... (6 %)
+Writing at 0x0003844b... (8 %)
+Writing at 0x0003d123... (9 %)
+Writing at 0x00041faf... (11 %)
+Writing at 0x000498f6... (13 %)
+Writing at 0x0004f594... (14 %)
+Writing at 0x00054f38... (16 %)
+Writing at 0x00059c57... (18 %)
+Writing at 0x0005ebf4... (19 %)
+Writing at 0x00063e8e... (21 %)
+Writing at 0x00069061... (22 %)
+Writing at 0x0006dd54... (24 %)
+Writing at 0x000722f3... (26 %)
+Writing at 0x00076b99... (27 %)
+Writing at 0x0007b1f4... (29 %)
+Writing at 0x0007fab2... (31 %)
+Writing at 0x0008715f... (32 %)
+Writing at 0x0008fccc... (34 %)
+Writing at 0x00099f9e... (36 %)
+Writing at 0x000a2828... (37 %)
+Writing at 0x000a9aaa... (39 %)
+Writing at 0x000b12d4... (40 %)
+Writing at 0x000b7735... (42 %)
+Writing at 0x000be32d... (44 %)
+Writing at 0x000c5672... (45 %)
+Writing at 0x000caf39... (47 %)
+Writing at 0x000d02ac... (49 %)
+Writing at 0x000d549f... (50 %)
+Writing at 0x000da3da... (52 %)
+Writing at 0x000df6ac... (54 %)
+Writing at 0x000e49f7... (55 %)
+Writing at 0x000e9df2... (57 %)
+Writing at 0x000ef53a... (59 %)
+Writing at 0x000f61c7... (60 %)
+Writing at 0x000fd910... (62 %)
+Writing at 0x00104972... (63 %)
+Writing at 0x0010b05c... (65 %)
+Writing at 0x00111385... (67 %)
+Writing at 0x00117f4a... (68 %)
+Writing at 0x0011f0f2... (70 %)
+Writing at 0x00124fcb... (72 %)
+Writing at 0x0012b13a... (73 %)
+Writing at 0x00130e2d... (75 %)
+Writing at 0x001370ca... (77 %)
+Writing at 0x0013f172... (78 %)
+Writing at 0x00149496... (80 %)
+Writing at 0x0014f80d... (81 %)
+Writing at 0x00156317... (83 %)
+Writing at 0x0015ef1e... (85 %)
+Writing at 0x00166256... (86 %)
+Writing at 0x0016e1c5... (88 %)
+Writing at 0x00173af6... (90 %)
+Writing at 0x0017b57f... (91 %)
+Writing at 0x00182577... (93 %)
+Writing at 0x0018978e... (95 %)
+Writing at 0x00190524... (96 %)
+Writing at 0x0019793d... (98 %)
+Writing at 0x0019f038... (100 %)
+Wrote 1649264 bytes (987147 compressed) at 0x00010000 in 6.5 seconds (effective 2044.6 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 138...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (138 compressed) at 0x00008000 in 0.0 seconds (effective 965.1 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+Done
+==> 烧录完成（如需看日志: scripts/flash.sh /dev/ttyACM0 --monitor）
