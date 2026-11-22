@@ -30,6 +30,11 @@
  * （经 sloop_ui_file_*，同样只写状态层/页内局部态；SAVE/ERASE 只走触摸按钮与 console，
  * 避免与演奏键冲突——spec §4.5）。
  *
+ * STEP 页路由（P4-C Task 9）：↑/↓ 走焦点环 T1,T2,T3,DRM L1..L16（sloop_ui_step_*，
+ * lane 是 UI 局部态）；ENTER 切换聚焦步的选中 drum lane 位（CMD_DRUM_STEP_WRITE）。
+ * 鼓轨不是只读行：触摸点 lane dot = 选中该 lane 并切换，点格内其它位置 = 切换当前
+ * 选中 lane（与控件回调同一动作函数）。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -401,13 +406,21 @@ static void dispatch(const key_binding_t *b, bool down)
         }
         break;
     case ACT_FILE_LOAD:
-        /* enter（spec §4.5：FILE 页 = LOAD）。其它页保持无动作——不抢走演奏键。 */
-        if (sloop_ui_file_page_active()) sloop_ui_file_load();
+        /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽。
+         * 其它页保持无动作——不抢走演奏键。 */
+        if (sloop_ui_step_page_active()) {
+            sloop_ui_step_drum_toggle();
+        } else if (sloop_ui_file_page_active()) {
+            sloop_ui_file_load();
+        }
         break;
     case ACT_FOCUS_TRACK:
-        /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新） */
+        /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新）；
+         * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位） */
         if (sloop_ui_param_page_active()) {
             sloop_ui_param_adjust((int8_t)-b->param);
+        } else if (sloop_ui_step_page_active()) {
+            sloop_ui_step_focus_vertical(b->param);
         } else {
             act_focus(false, b->param);
         }

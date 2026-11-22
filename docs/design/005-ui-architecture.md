@@ -358,3 +358,68 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 预算与峰值见 §5；实测：`store` 场景 ⓯ 的 FILE sum_delta 19,936B ≤ sum_est 20,992B，
   两页 delta 7,572–7,764 / 12,228–12,276 ≤ 8,192/12,800，过渡峰值 free 7,308–7,840B；
   PLAY↔TRACKS ×10 的 `pool_free` 变化 ≤84B（`styles_init` 每页只跑一次，评审 R34）。
+
+## STEP 深度呈现与鼓 lane 编辑（P4-C Task 9，2026-11-22）
+
+spec §4.4 要求 STEP 格呈现 TIE/SLIDE/lvl/rat/micro/fill 并开放鼓轨 lane 编辑，同时
+**不增加每格 label、不抬 STEP est（23,040B）**。落地取舍如下。
+
+### 1. 一个自绘层，不是 64 个新对象
+
+- 64 个格对象保持原样（bg/border 共享样式继续表达「有音/暗/焦点/播放头」）。
+- 新增**唯一**一个透明、不可点的 overlay 对象覆盖 16 列网格，在 `LV_EVENT_DRAW_MAIN`
+  里按每格的 `cell_view_t` 缓存自绘：文字（`lv_draw_label`）与小方块/内框（`lv_draw_rect`）。
+  这样没有每格 label / 每格事件回调（64 个 `lv_event_dsc_t` 约 2KB 池，会顶破 est 余量），
+  池增量只有 1 个对象量级。
+- 文字使用**静态缓冲**（`s_note_txt/s_mic_txt/s_rat_txt`，`text_local=0`），绘制任务只
+  引用它们，不在每帧做池分配；文本只在视图签名变化时重写。
+- 脏检查：每格保留 1 字节样式状态（原有）+ 1 个 32-bit 视图签名；签名变化才
+  `lv_obj_invalidate_area(overlay, 格矩形)`——只重画那一格，不整屏重画。样式变化
+  （亮/暗/隐藏/描边）本身会失效该格区域，overlay 在该区域的重入绘制因此同步。
+- 样式 `lv_style_t` 仍然只初始化一次（R34）：本任务没有新增共享样式。
+
+### 2. 格内视觉编码（图例写在页面底部两行提示里）
+
+| 状态 | 呈现 |
+|---|---|
+| NOTE | 轨色实心格 + 音符名（最多 4 个，2×2 槽）；名字颜色 = 每音符 lvl：白 NORM / 黄 HARD / 灰 SOFT / 深灰 GHOST |
+| TIE | 空心：格底是面板色 + 轨色内框（inset 3px）+ `TIE` 文本（暗格用 45% 轨色）——与实心 NOTE 明确不同 |
+| CONT | 该音符（`SF_CONT(k)`）名前左缘白色短竖条（长音从前一步延续）；状态行在音符名后加 `*` |
+| SLIDE / ACCENT | 顶条白色 `S` / `A`（`SF_SLIDE` / `SF_ACCENT`） |
+| fill | 顶条 `F`（fill-only，黄）/ `N`（no-fill，灰）；normal 不画 |
+| micro | 底条 `m±n`（`m+5` / `m-31`，灰） |
+| ratchet | 底条 `xN`（N = 该步最大击打数 = rat+1，白） |
+| DRM | 4×4 lane 网格：亮 dot 按 lane lvl 着色（橙 NORM / 白 HARD / 灰 SOFT / 深橙 GHOST），空格是暗色小方块（`UI_PANEL_SEL`），选中 lane 有白色 ring；顶/底条同上（鼓步的 fill/micro 由快照 `dstep[].fill/micro` 投影）。鼓格底色**保持空格样式**（不用聚合 `on` 填满鼓轨橙——同色的 NORM dot 会不可见），活动完全由 dot 表达 |
+
+状态行（右上 600px）由**聚焦步派生**（不再是「最后一次动作」）：合成轨
+`T1 S3 NOTE C4* E4 LVL H RAT x2 MIC +5 FILL F SLD ACC`（轨色），鼓轨
+`DRM S6 LANE 6 OPEN ON LVL N RAT x1 MIC +0 FILL -`（橙）。焦点/选 lane 变化立即可见，
+TAP 与键盘走同一投影。
+
+### 3. 鼓 lane 选择与原始位图编辑
+
+- **数据**：`sloop_core_snapshot_t` 追加 `dstep_raw[16]`（窗口列的原始 16 lane
+  on/lvl/rat，`sloop_dstep_t` 同型；定义移入 sloop_core.h）与 `dstep[].micro/fill`；
+  聚合 `dstep[].on/lvl/rat` 保持原义（`ENG SNAP`/`STATE SNAP FULL` 口径不变）。
+- **动作**：触摸点 4×4 网格里的 lane dot = 选中该 lane 并切换该步该位；点格内其它位置
+  = 切换当前选中 lane 的位。两条路径（控件回调与 `TAP` 注入）都走 `step_activate()`
+  → `drum_toggle()`：读快照原始字节 → 翻一位 → `state_set_focus(DRM, col)` →
+  `CMD_DRUM_STEP_WRITE`（整份 POD，lvl/rat 原样带回）。不再只写 "PHASE 4" 提示。
+- **键盘**：焦点环 = `T1,T2,T3,DRM L1..L16`（↑/↓；从 T3 下进入 L1、从 T1 上进入 L16、
+  L1 上回 T3、L16 下回 T1），`ENTER` = 切换聚焦步的选中 lane 位。lane 是 UI 局部态
+  （`page_step.c` 静态字节，跨组重建保留），console `UI LANE [<0..15>]` 读写同一状态
+  供脚本断言；非 STEP 页 ENTER/↑/↓ 语义不变（FILE LOAD / 焦点轨）。
+- **TAP 回显**：`-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0xNNNN`
+  （`sloop_tap_result_t` 的 a=lane b=绝对步 v=mask d=bit）。
+- **触摸几何**：`DRUM_GRID_X0/Y0=8/30`、`DRUM_LANE_PITCH=14`、dot 8×8（格内坐标），
+  注入脚本 `drum_lane_xy()` 与建/画用同一组宏。
+
+### 4. 容量与验证
+
+- STEP est 保持 **23,040B**；实测 delta 应只比旧值（21,788B）多 1 个 overlay 对象量级。
+  若超 est：先减字形/对象，不调大 est 或池（ADR-008 规则）。
+- 设备证据：`step_edit` 场景 ②e/②f（TIE≠NOTE 空心、S/F/m±/xN/HARD 像素、CONT 左缘 +
+  `flags&0x10`、鼓 dot 选中+位图往返、键盘 lane 环与 ENTER）与 `nav` ②（鼓轨 TAP 写
+  位图、焦点落鼓轨、ENG 只有该 dstep 行变化）；PNG 视觉读图，证据按 §5.4 晋升。
+- 未覆盖：CONT 的**演奏时序**（是否真的持续发声）属 host `seq` 门禁与听感项，本页只
+  呈现标记；鼓 lane 的 vel（lvl/rat 编辑）留给 TRANSPORT 聚焦步工具（Task 10）。

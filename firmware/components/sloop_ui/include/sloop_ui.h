@@ -184,7 +184,8 @@ void sloop_ui_cancel_pending_page(void);
 typedef enum {
     SLOOP_TAP_MISS = 0,
     SLOOP_TAP_STEP_CELL,     /* a=track b=绝对步号：设焦点（窗口列）+ CMD_TOGGLE_STEP */
-    SLOOP_TAP_STEP_DRUM,     /* b=绝对步号：鼓轨只读，只写状态行提示 */
+    SLOOP_TAP_STEP_DRUM,     /* 鼓轨 lane 位：a=lane(0..15) b=绝对步号 d=写入后的 bit
+                              * v=写入后的 16 lane 位图（CMD_DRUM_STEP_WRITE） */
     SLOOP_TAP_TRACK_CARD,    /* a=track：CMD_SELECT_TRACK */
     SLOOP_TAP_TRANSPORT_PLAY,
     SLOOP_TAP_TRANSPORT_STOP,
@@ -240,6 +241,20 @@ const char *sloop_ui_file_status_text(void);
 bool sloop_ui_param_page_active(void);
 void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
 void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
+
+/* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
+ *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、
+ *    从 T1 向上进入 lane 16；鼓轨上 ↑/↓ 逐 lane，越界回合成轨）。←/→ 仍是窗口列。
+ *  - lane 选择是 UI 局部态（page_step.c 的静态字节，跨组页面重建保留），不写引擎；
+ *    ENTER = 切换**聚焦步**上该 lane 的 on 位（CMD_DRUM_STEP_WRITE，整份原始
+ *    16 lane POD，lvl/rat 原样保留）。
+ * 这些入口都不取 LVGL 锁（输入任务/console 可调用）：状态改写走状态层命令，
+ * 控件由 30ms UI 定时器刷新。非 STEP 页为空操作（`..._active()` 返回 false）。 */
+bool sloop_ui_step_page_active(void);
+uint8_t sloop_ui_step_lane_get(void);
+void sloop_ui_step_lane_set(uint8_t lane);
+void sloop_ui_step_focus_vertical(int8_t delta); /* ↑=-1 / ↓=+1（含进/出鼓轨） */
+void sloop_ui_step_drum_toggle(void);            /* ENTER：聚焦步的选中 lane 位取反 */
 
 /* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
  * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页

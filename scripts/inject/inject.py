@@ -453,6 +453,35 @@ def step_cell_xy(col: int, row: int) -> tuple:
     return (STEP_GRID_X0 + col * STEP_CELL_PITCH + STEP_CELL_W // 2,
             STEP_GRID_Y0 + row * STEP_ROW_PITCH + STEP_CELL_H // 2)
 
+
+# 鼓格内的 16 lane 位（P4-C Task 9）：page_step.c 的 DRUM_GRID_X0/Y0/DRUM_LANE_PITCH/
+# DRUM_LANE_DOT 同名同值（格内相对坐标）。4×4 网格，lane = row*4+col（与上游
+# drums.c 的 lane 序号一致）；点中 dot 命中框 = 选中该 lane 并切换该步的原始位。
+STEP_DRUM_GRID_X0 = 8
+STEP_DRUM_GRID_Y0 = 30
+STEP_DRUM_LANE_PITCH = 14
+STEP_DRUM_LANE_DOT = 8
+
+
+def drum_lane_xy(col: int, lane: int) -> tuple:
+    """鼓格（窗口列 col、行 3）内 lane 位（0..15）的屏幕绝对中心。"""
+    lx = STEP_DRUM_GRID_X0 + (lane % 4) * STEP_DRUM_LANE_PITCH + STEP_DRUM_LANE_DOT // 2
+    ly = STEP_DRUM_GRID_Y0 + (lane // 4) * STEP_DRUM_LANE_PITCH + STEP_DRUM_LANE_DOT // 2
+    return (STEP_GRID_X0 + col * STEP_CELL_PITCH + lx,
+            STEP_GRID_Y0 + 3 * STEP_ROW_PITCH + ly)
+
+
+# 格内文本/标记的局部锚点（page_step.c 的自绘布局同源；屏幕坐标用 step_cell_box 派生）
+STEP_TOP_STRIP_Y = 4    # flags 行（A/S/F/N 字母）文字顶（16–20px 高）
+STEP_NOTE_Y = 22        # 音符名两行：22 与 42
+STEP_NOTE_ROW = 20
+STEP_BOT_STRIP_Y = 84   # micro/rat 行文字顶
+
+
+def step_cell_box(col: int, row: int) -> tuple:
+    """步格左上角的屏幕绝对坐标（与建格同一组宏推导）。"""
+    return (STEP_GRID_X0 + col * STEP_CELL_PITCH, STEP_GRID_Y0 + row * STEP_ROW_PITCH)
+
 # 注入坐标（屏幕绝对坐标 = 页内坐标 + 页签条 UI_TAB_BAR_H，各点取控件矩形中心）。
 # 每个数字对应固件里的布局宏——页面布局改动时按同名宏同步这里：
 #   UI_TAB_BAR_H  = 72   （ui.c）
@@ -773,7 +802,239 @@ def run_step_edit(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"playing=(\d+)", 0, "STATE SNAP playing（复位）")
     ensure_window(s, 0, 16)
+
+    # ②e 深度步态（P4-C Task 9）：同一个 64 格对象在格内呈现 TIE/SLIDE/fill/lvl/
+    # micro/rat/CONT，不新增每格 label。断言口径 = 引擎真值（ENG STEP）＋像素抽检
+    # （TIE 空心格与 NOTE 实心格不同、白色 S / 黄色 F / 灰 m± / 白色 xN / 黄色 HARD 音符名）。
+    run_step_deep_visuals(s)
+    # ②f 鼓 lane（P4-C Task 9）：点 dot 选 lane 并写原始 16 lane 位图；键盘 ↑/↓ 选
+    # lane、ENTER 切换位；鼓轨行不再是只读。
+    run_step_drum_lanes(s)
+
     s.cmd("UI play")
+
+
+def run_step_deep_visuals(s: Session) -> None:
+    """②e STEP 深度态：TIE 与 NOTE 不同的空心呈现 + SLIDE/fill/lvl/rat/micro/CONT 可见。
+
+    先用同一 TAP/console 动作造出真实引擎状态（不是伪造渲染），再截屏做像素抽检：
+      格 2：NOTE + SLIDE + fill-only + micro +5 + rat 2 击 + HARD；
+      格 3：TIE（SPAN 3 从格 2 长出来的 hold）；
+      格 4/6：CONT（格 4 的音符长到格 6 的音符上，SF_CONT 标记）。
+    结束把测试步清回空（脚本可重复）。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    ensure_window(s, 0, 16)
+    ensure_stopped(s)
+
+    # 基线：清掉轨 0 的测试列（CLEAR 对空步是幂等的）
+    for step in range(2, 7):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"②e 基线清步 0/{step}")
+
+    # 音高确定化：q = C4(60)，w = D4(62)（TAP 开步写 last_note）
+    for code, label in ((0x21, "q=C4"), (0x22, "w=D4")):
+        s.cmd(f"KEY 0x{code:02X} down")
+        s.cmd(f"KEY 0x{code:02X} up")
+        s.ser.note(f"②e 设置 last_note（{label}）")
+    s.cmd("KEY 0x21 down")
+    s.cmd("KEY 0x21 up")
+
+    def focus_step_to(target: int) -> None:
+        """←/→ 把焦点列移到 target（只前进，不发引擎写）——截屏探针避开焦点白框。"""
+        s.cmd("STATE SNAP")
+        cur = s.snap_int(r"focus_step=(\d+)")
+        for _ in range((target - cur) % 16):
+            s.cmd("KEY 0x4C down")
+            s.cmd("KEY 0x4C up")
+        s.cmd("STATE SNAP")
+        s.expect_int(r"focus_step=(\d+)", target, f"②e 焦点列移到 {target}（避开描边）")
+
+    # 格 2 = NOTE(C4)；SPAN 3 → 格 3/4 = TIE
+    xy2 = step_cell_xy(2, 0)
+    s.cmd("TAP %d %d" % xy2)
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "②e TAP 格 2（开）")
+    s.cmd("SEQ EDIT SPAN 0 2 3")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 3（格 3 长成 TIE）")
+    st3 = eng_step(s, 0, 3)
+    (s.ok if st3["time"] == 1 and st3["n"] == 0 else s.fail)(
+        f"②e 格 3 = TIE（time={st3['time']} n={st3['n']}，期望 time=1 n=0）")
+
+    # 格 2 的深度字段：SLIDE + fill-only + micro +5 + rat（2 击）+ HARD
+    s.cmd("SEQ EDIT SLIDE 0 2 1")
+    s.expect(r"SEQ EDIT SLIDE track=0 step=2 OK", "②e SLIDE on")
+    s.cmd("SEQ FILL 0 2 1")
+    s.expect(r"SEQ FILL track=0 step=2 value=1 OK", "②e fill-only")
+    s.cmd("SEQ MICRO 0 2 5")
+    s.expect(r"SEQ MICRO track=0 step=2 value=5 OK", "②e micro +5")
+    s.cmd("SEQ EDIT RAT 0 2 0 1")
+    s.expect(r"SEQ EDIT RAT track=0 step=2 OK", "②e rat index0 = 1（x2）")
+    s.cmd("SEQ EDIT LVL 0 2 0 3")
+    s.expect(r"SEQ EDIT LVL track=0 step=2 OK", "②e lvl index0 = 3（HARD）")
+
+    st2 = eng_step(s, 0, 2)
+    for key, want, label in (("time", 0, "NOTE"), ("flags", 2, "SLIDE"),
+                             ("fill", 1, "fill-only"), ("micro", 5, "micro +5"),
+                             ("lvl", 3, "lvl HARD"), ("rat", 1, "rat x2")):
+        (s.ok if st2[key] == want else s.fail)(
+            f"②e 格 2 {key}={st2[key]}（期望 {want}，{label}）")
+
+    time.sleep(0.15)  # ≥5 个 UI tick：自绘层按新快照重画
+    focus_step_to(10)  # 焦点白框移出被测格（探针不把 3px 描边当字形）
+    time.sleep(0.1)
+    img = s.capture("step-deep")
+    x0, y0 = step_cell_box(2, 0)
+    x3, y3 = step_cell_box(3, 0)
+    # TIE ≠ NOTE：NOTE 实心轨色；TIE 空心（面板底）+ 轨色内框
+    s.probe(img, "②e 格 2 NOTE 实心", x0 + STEP_CELL_W // 2, y0 + STEP_CELL_H // 2, C_BLUE)
+    s.probe(img, "②e 格 3 TIE 空心（中心为面板底）", x3 + STEP_CELL_W // 2,
+            y3 + STEP_CELL_H // 2, C_PANEL_HI, 10)
+    s.probe_region(img, "②e 格 3 TIE 内框（轨色，区别于空格）",
+                   (x3 + 2, y3 + 2, x3 + STEP_CELL_W - 2, y3 + 30), C_BLUE, 16, 40)
+    # 白色 S（slide）、黄色 F（fill-only）、灰 m+5、白色 x2、黄色 HARD 音符名
+    s.probe_region(img, "②e 格 2 SLIDE 标记 S", (x0 + 20, y0 + STEP_TOP_STRIP_Y,
+                                                 x0 + 32, y0 + STEP_TOP_STRIP_Y + 14),
+                   C_TEXT, 16, 3)
+    s.probe_region(img, "②e 格 2 FILL 标记 F", (x0 + 36, y0 + STEP_TOP_STRIP_Y,
+                                                x0 + 48, y0 + STEP_TOP_STRIP_Y + 14),
+                   C_YELLOW, 16, 3)
+    s.probe_region(img, "②e 格 2 micro 文本 m+5", (x0 + 2, y0 + STEP_BOT_STRIP_Y,
+                                                   x0 + 40, y0 + STEP_BOT_STRIP_Y + 16),
+                   C_TEXT_DIM, 16, 5)
+    s.probe_region(img, "②e 格 2 rat 文本 x2", (x0 + 40, y0 + STEP_BOT_STRIP_Y,
+                                                x0 + STEP_CELL_W - 4, y0 + STEP_BOT_STRIP_Y + 16),
+                   C_TEXT, 16, 3)
+    s.probe_region(img, "②e 格 2 HARD 音符名（黄）",
+                   (x0 + 10, y0 + STEP_NOTE_Y, x0 + STEP_CELL_W - 4,
+                    y0 + STEP_NOTE_Y + STEP_NOTE_ROW), C_YELLOW, 16, 5)
+
+    # CONT：格 6 放 D4，格 2 的 C4 长过去 → 格 6 = NOTE(D4) + CONT(C4)，带左缘标记
+    xy6 = step_cell_xy(6, 0)
+    s.cmd("KEY 0x22 down")
+    s.cmd("KEY 0x22 up")
+    s.cmd("TAP %d %d" % xy6)
+    s.expect(r"-> STEP track=0 step=6 CMD_TOGGLE_STEP", "②e TAP 格 6（D4）")
+    s.cmd("SEQ EDIT SPAN 0 2 5")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 5（C4 长到格 6 的 D4 上）")
+    st6 = eng_step(s, 0, 6)
+    cont6 = (st6["flags"] & 0x10) != 0  # SF_CONT(1)：第二个音符（C4）从前面延续
+    (s.ok if st6["n"] == 2 and cont6 else s.fail)(
+        f"②e 格 6 = NOTE(D4)+CONT(C4)（n={st6['n']} flags=0x{st6['flags']:02X}，"
+        f"期望 n=2 且 flags&0x10）")
+    time.sleep(0.15)
+    focus_step_to(10)  # TAP 格 6 把焦点移回 6；再移开描边
+    time.sleep(0.1)
+    img = s.capture("step-cont")
+    x6, y6 = step_cell_box(6, 0)
+    s.probe_region(img, "②e 格 6 CONT 左缘标记",
+                   (x6 + 4, y6 + STEP_NOTE_Y + 4, x6 + 9, y6 + STEP_NOTE_Y + 14),
+                   C_TEXT, 16, 3)
+
+    # 清理：SPAN 1 收回 TIE/CONT，再清两格（脚本可重复）
+    s.cmd("SEQ EDIT SPAN 0 2 1")
+    s.expect(r"SEQ EDIT SPAN track=0 step=2 OK", "②e SPAN 1（收回 TIE/CONT）")
+    for step in (2, 6):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"②e 清理格 0/{step}")
+        d = eng_step(s, 0, step)
+        (s.ok if d["n"] == 0 and d["time"] != 0 else s.fail)(
+            f"②e 清理后格 0/{step} 为空（n={d['n']} time={d['time']}）")
+
+
+def run_step_drum_lanes(s: Session) -> None:
+    """②f 鼓 lane：点 dot 选 lane 并切换该步原始位；键盘 ↑/↓ 选 lane、ENTER 切位。
+
+    断言引擎真值（SEQ DSTEP 的 on 位图）＋ TAP 回显（lane/bit/mask）＋ UI LANE
+    （选中 lane）＋ 像素（点亮的 dot 取 lane 主题色、选中 ring 白框）。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "UI step")
+    ensure_window(s, 0, 16)
+    ensure_stopped(s)
+
+    s.cmd("SEQ EDIT CLEAR 3 5")
+    s.expect(r"SEQ EDIT CLEAR track=3 step=5 OK", "②f 鼓步 5 清空")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f 鼓步 5 基线位图 = 0")
+
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=(\d+)", "②f UI LANE 读回")
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "②f UI LANE 归零")
+
+    # 点 lane 2 的 dot：选中 + 置位；再点一次：清除（同一路径）
+    lane2 = drum_lane_xy(5, 2)
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 bit=1 CMD_DRUM_STEP_WRITE mask=0x0004",
+             "②f TAP lane dot（选中并置位）")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)(
+        f"②f 鼓步 5 位图 = 0x{seq_dstep_mask(s, 5):04X}（期望 0x0004）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 3, "②f TAP 后焦点轨 = 鼓轨")
+
+    s.cmd("TAP %d %d" % lane2)
+    s.expect(r"-> STEP drum step=5 lane=2 bit=0 CMD_DRUM_STEP_WRITE mask=0x0000",
+             "②f 再点同一 dot（清除）")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f 鼓步 5 位图回 0")
+
+    # 格内非 dot 位置 = 切换「选中 lane」（仍为 2）
+    cell = step_cell_xy(5, 3)
+    s.cmd("TAP %d %d" % (cell[0], cell[1] - STEP_CELL_H // 2 + 12))
+    s.expect(r"-> STEP drum step=5 lane=2 bit=1 CMD_DRUM_STEP_WRITE mask=0x0004",
+             "②f TAP 格内空白（切换选中 lane）")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=2", "②f 选中 lane 不变")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f 位图 = 0x0004（选中 lane 置位）")
+
+    # 键盘：ENTER = 切换聚焦步的选中 lane；↑/↓ = lane 步进（环：T1,T2,T3,L1..L16）
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    s.expect(r"KEY 0x3D", "②f KEY ENTER")
+    (s.ok if seq_dstep_mask(s, 5) == 0 else s.fail)("②f ENTER 清除选中 lane 位")
+    s.cmd("KEY 0x3B down")  # ↑
+    s.cmd("KEY 0x3B up")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=1", "②f ↑ 选 lane 1")
+    s.cmd("KEY 0x4B down")  # ↓
+    s.cmd("KEY 0x4B up")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=2", "②f ↓ 回 lane 2")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    (s.ok if seq_dstep_mask(s, 5) == 0x0004 else s.fail)("②f ENTER 置位 lane 2")
+
+    time.sleep(0.15)
+    img = s.capture("step-drum-lane")
+    dx, dy = drum_lane_xy(5, 2)
+    s.probe(img, "②f lane 2 dot 已点亮（鼓轨色）", dx, dy, C_ORANGE, 12)
+    s.probe_region(img, "②f 选中 lane 2 ring（白框）", (dx - 6, dy - 6, dx + 6, dy + 6),
+                   C_TEXT, 16, 8)
+    ex, ey = drum_lane_xy(5, 3)
+    s.probe(img, "②f lane 3 dot 未点亮（暗网格）", ex, ey, C_PANEL_SEL, 10)
+
+    # 环的边界：lane 15 ↓ 离开鼓轨到 T1；T1 ↑ 从 lane 15 进入鼓轨；lane 0 ↑ 回 T3
+    s.cmd("UI LANE 15")
+    s.expect(r"UI LANE lane=15", "②f 归一到 lane 15")
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 0, "②f lane 15 ↓ → 焦点轨回 T1")
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 3, "②f T1 ↑ → 回到鼓轨")
+    s.cmd("UI LANE")
+    s.expect(r"UI LANE lane=15", "②f 从 T1 进入落在 lane 15")
+    s.cmd("UI LANE 0")
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", 2, "②f lane 0 ↑ → 焦点轨 T3")
+
+    # 收口：清鼓步、lane 归零、停止 + 默认窗口
+    s.cmd("SEQ EDIT CLEAR 3 5")
+    s.expect(r"SEQ EDIT CLEAR track=3 step=5 OK", "②f 收口清鼓步 5")
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "②f 收口 lane 归零")
+    ensure_window(s, 0, 16)
 
 
 def run_tracks(s: Session) -> None:
@@ -833,7 +1094,8 @@ NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog")
 NAV_LEAK_TRIPS = 10
 NAV_LEAK_NOISE = 128
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
-# 合成轨 TAP 后显示 "T1 S3"（轨色），鼓轨 TAP 后显示 "DRUM EDIT = PHASE 4"（橙）。
+# 文本由聚焦步/选中 drum lane 派生（P4-C Task 9）：合成轨 `T1 S3 NOTE C4 …`（轨色），
+# 鼓轨 `DRM S6 LANE 3 SNARE ON …`（橙）。焦点换轨即换色 ⇒ nav 用它判「焦点落到鼓轨」。
 NAV_STATUS_BOX = (1040, 82, 1258, 112)
 
 
@@ -896,9 +1158,18 @@ def nav_same(s: Session, label: str, before, after) -> None:
 
 def nav_set_focus(s: Session, track: int, step: int) -> None:
     """方向键把焦点归一到 (track, step)：焦点是 UI 局部态（state_set_focus），
-    ↑/↓ 在三条合成轨循环、←/→ 在窗口列循环，都不发引擎写。"""
+    ↑/↓ 在「T1,T2,T3,DRM L1..L16」环上走、←/→ 在窗口列循环，都不发引擎写。"""
     s.cmd("STATE SNAP")
     t0, s0 = s.snap_int(r"focus_track=(\d+)"), s.snap_int(r"focus_step=(\d+)")
+    if t0 >= 3:
+        # 鼓轨上 ↑/↓ 是 lane 步进：先逐 lane 上行离开鼓轨（最多 16 lane），再按三轨环归一
+        for _ in range(16 + 1):
+            s.cmd("KEY 0x3B down")
+            s.cmd("KEY 0x3B up")
+            s.cmd("STATE SNAP")
+            t0 = s.snap_int(r"focus_track=(\d+)")
+            if t0 < 3:
+                break
     for _ in range((track - t0) % 3):
         s.cmd("KEY 0x4B down")
         s.cmd("KEY 0x4B up")
@@ -969,8 +1240,9 @@ def run_nav(s: Session) -> None:
     """nav 场景：导航行为（阶段 4 路由重构最易静默破坏）+ 组作用域生命周期。
 
     ① 组签缝与组签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
-    ② STEP 鼓轨行 TAP 只读：回显 `-> STEP drum ... read-only`、无 CMD_TOGGLE_STEP、
-       焦点轨/列不变、ENG SNAP 全量不变、鼓格像素区不变、状态行橙字出现；
+    ② STEP 鼓轨行 TAP 编辑 lane：回显 `-> STEP drum … CMD_DRUM_STEP_WRITE`、焦点落到
+       鼓轨（T9 起鼓轨不再只读）、ENG SNAP 只有该步 dstep 行变化、鼓格像素变化；
+       再 TAP 一次复位位图，状态行由合成轨（蓝）换成鼓轨（橙）；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
        1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
@@ -993,9 +1265,9 @@ def run_nav(s: Session) -> None:
     time.sleep(0.1)  # ≥3 拍：切页首帧刷新稳定
 
     # 基线归一（所有截屏的确定性来源）：合成轨格 TAP 两次（落回原值，脚本可重复），
-    # 顺带把状态行从上一轮必然残留的 "DRUM EDIT = PHASE 4" 换成合成轨文本（蓝字）——
-    # 这样每次运行的状态行都从同一文本出发，PNG 跨运行逐字节一致；也让「鼓轨点击后
-    # 状态行变橙」在重复运行下仍可判定。第 2 列与用例②的目标焦点列一致，焦点只需换轨。
+    # 顺带把状态行（聚焦步派生文本）从上一轮残留换成 T1 的文本——这样每次运行的
+    # 状态行都从同一文本出发，PNG 跨运行逐字节一致；也让「焦点落到鼓轨后状态行变橙」
+    # 在重复运行下仍可判定。第 2 列与用例②的目标焦点列一致，焦点只需换轨。
     ctrl_xy = step_cell_xy(2, 0)
     s.cmd("TAP %d %d" % ctrl_xy)
     s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "基线：合成轨格 TAP（对照组）")
@@ -1024,40 +1296,60 @@ def run_nav(s: Session) -> None:
     s.probe(img_step, "① 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
     s.probe(img_step, "① 组签未选中（PLAY）", *C_TAB_PLAY, C_PANEL_HI, 10)
 
-    # ---------- ② STEP 鼓轨行只读 ----------
-    nav_set_focus(s, 2, 2)  # 非默认焦点：让「焦点不变」有判别力
+    # ---------- ② STEP 鼓轨行：TAP 编辑 lane（不再只读） ----------
+    s.cmd("UI LANE 0")
+    s.expect(r"UI LANE lane=0", "② 选中 lane 归零")
+    nav_set_focus(s, 0, 2)  # 合成轨焦点：焦点必须换到鼓轨才有判别力
     drum_xy = step_cell_xy(3, 3)  # 行 3 = DRM，窗口列 3 = 绝对步 3
-    s.ser.note(f"用例②：TAP 鼓轨格 {drum_xy[0]},{drum_xy[1]}（DRM 行只读）")
+    s.ser.note(f"用例②：TAP 鼓轨格 {drum_xy[0]},{drum_xy[1]}（DRM 行 lane 编辑）")
+    mask0 = seq_dstep_mask(s, 3)
+    bit0 = (mask0 >> 5) & 1  # 格中心 = 4×4 lane 网格的 (col 1,row 1) = lane 5
     st2 = nav_state_fields(s)
     eng2 = nav_eng_snapshot(s)
     img_before = s.capture("nav-02-drum-before")
     blue_before = count_region(img_before, NAV_STATUS_BOX, C_BLUE, 16)
     orange_before = count_region(img_before, NAV_STATUS_BOX, C_ORANGE, 16)
     (s.ok if blue_before >= 25 and orange_before == 0 else s.fail)(
-        f"② 状态行基线：蓝字（合成轨）{blue_before} / 橙字 {orange_before}"
+        f"② 状态行基线：蓝字（合成轨 T1）{blue_before} / 橙字 {orange_before}"
         f"（期望蓝 ≥25、橙 0）")
 
     s.cmd("TAP %d %d" % drum_xy)
-    s.expect(r"-> STEP drum step=3 read-only", "② 鼓轨 TAP read-only 回显")
-    (s.ok if "CMD_TOGGLE_STEP" not in s.last else s.fail)("② 鼓轨 TAP 未发 CMD_TOGGLE_STEP")
+    s.expect(rf"-> STEP drum step=3 lane=5 bit={1 - bit0} CMD_DRUM_STEP_WRITE "
+             rf"mask=0x{mask0 ^ 0x20:04X}", "② 鼓轨 TAP 写原始位图回显")
+    mask1 = seq_dstep_mask(s, 3)
+    (s.ok if mask1 == mask0 ^ 0x20 else s.fail)(
+        f"② 鼓步 3 on 位图 0x{mask0:04X} -> 0x{mask1:04X}（只翻 lane 5 = 0x20）")
     st2_after = nav_state_fields(s)
-    s.expect_int(r"focus_track=(\d+)", 2, "② STATE SNAP focus_track 不变")
-    s.expect_int(r"focus_step=(\d+)", 2, "② STATE SNAP focus_step 不变")
-    nav_same(s, "② STATE SNAP", st2, st2_after)
-    nav_same(s, "② ENG SNAP（无引擎写）", eng2, nav_eng_snapshot(s))
+    s.expect_int(r"focus_track=(\d+)", 3, "② 焦点轨落到鼓轨")
+    s.expect_int(r"focus_step=(\d+)", 3, "② 焦点列 = 窗口列 3")
+    nav_same(s, "② STATE SNAP（除焦点外）",
+             {k: v for k, v in st2.items() if not k.startswith("focus")},
+             {k: v for k, v in st2_after.items() if not k.startswith("focus")})
+    eng2_after = nav_eng_snapshot(s)
+    diff = [f"{a} -> {b}" for a, b in zip(eng2, eng2_after) if a != b]
+    only_dstep = len(diff) == 1 and diff[0].startswith("ENG SNAP dstep i=3 ")
+    (s.ok if only_dstep else s.fail)(
+        f"② ENG SNAP 只有鼓步 3 的 dstep 行变化（diff={diff}）")
 
-    img_after = s.capture("nav-03-drum-readonly")
+    img_after = s.capture("nav-03-drum-lane")
     box = (drum_xy[0] - STEP_CELL_W // 2 - 2, drum_xy[1] - STEP_CELL_H // 2 - 2,
            drum_xy[0] + STEP_CELL_W // 2 + 2, drum_xy[1] + STEP_CELL_H // 2 + 2)
-    same_cell = img_before.crop(box).tobytes() == img_after.crop(box).tobytes()
-    (s.ok if same_cell else s.fail)(
-        f"② 鼓格像素区 {box} 点击前后逐字节相同（只读、不点亮）" if same_cell
-        else f"② 鼓格像素区 {box} 点击后变化（鼓轨行不应可编辑）")
+    cell_changed = img_before.crop(box).tobytes() != img_after.crop(box).tobytes()
+    (s.ok if cell_changed else s.fail)(
+        f"② 鼓格像素区 {box} 点击后变化（lane 位点亮）" if cell_changed
+        else f"② 鼓格像素区 {box} 点击前后逐字节相同（lane 位未点亮）")
     orange_after = count_region(img_after, NAV_STATUS_BOX, C_ORANGE, 16)
     blue_after = count_region(img_after, NAV_STATUS_BOX, C_BLUE, 16)
     (s.ok if orange_after >= 25 and blue_after == 0 else s.fail)(
-        f"② 状态行点击后：橙字 {orange_after} / 蓝字 {blue_after}"
-        f"（期望 ≥25 / 0，DRUM EDIT = PHASE 4）")
+        f"② 状态行点击后：橙字（鼓轨）{orange_after} / 蓝字 {blue_after}"
+        f"（期望 ≥25 / 0）")
+
+    # 复位该 lane 位（脚本可重复）：同一 TAP 路径再点一次
+    s.cmd("TAP %d %d" % drum_xy)
+    s.expect(rf"-> STEP drum step=3 lane=5 bit={bit0} CMD_DRUM_STEP_WRITE "
+             rf"mask=0x{mask0:04X}", "② 再 TAP 复位 lane 5 位")
+    (s.ok if seq_dstep_mask(s, 3) == mask0 else s.fail)(
+        f"② 复位后鼓步 3 位图 = 0x{mask0:04X}")
 
     # ---------- ③ 同一拍：KEY tab + KEY PANIC ----------
     premise = False
@@ -1487,6 +1779,27 @@ def step_is_on(s: Session) -> bool:
     n = s.snap_int(r"\bn=(\d+)")
     t = s.snap_int(r"\btime=(\d+)")
     return n != 0 and t == 0
+
+
+def eng_step(s: Session, track: int, step: int) -> dict:
+    """`ENG STEP` 全字段（步的引擎真值；P4-C Task 9 的深度态断言入口）。"""
+    s.cmd(f"ENG STEP {track} {step}")
+    m = re.search(r"ENG STEP k=(\d+) i=(\d+) n=(\d+) note=(\d+),(\d+),(\d+),(\d+) vel=(\d+) "
+                  r"time=(\d+) flags=(\d+) lvl=(\d+) rat=(\d+) micro=(-?\d+) fill=(\d+)", s.last)
+    if m is None:
+        raise InjectError(f"ENG STEP 回显缺少字段：{s.last.strip()!r}")
+    keys = ("k", "i", "n", "note0", "note1", "note2", "note3", "vel", "time", "flags",
+            "lvl", "rat", "micro", "fill")
+    return {k: int(v) for k, v in zip(keys, m.groups())}
+
+
+def seq_dstep_mask(s: Session, step: int) -> int:
+    """`SEQ DSTEP <step>` 的原始 16 lane on 位图（bit k = lane k）。"""
+    s.cmd(f"SEQ DSTEP {step}")
+    m = re.search(r"SEQ DSTEP step=(\d+) on=([0-9A-Fa-f]{2}),([0-9A-Fa-f]{2})", s.last)
+    if m is None:
+        raise InjectError(f"SEQ DSTEP 回显缺少字段：{s.last.strip()!r}")
+    return int(m.group(3), 16) << 8 | int(m.group(2), 16)
 
 
 def normalize_pattern(s: Session, label: str = "归一图案参数") -> None:

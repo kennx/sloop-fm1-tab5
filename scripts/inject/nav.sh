@@ -2,7 +2,8 @@
 # nav.sh — 导航回归注入：五条导航行为（阶段 4 路由重构最易静默破坏）
 #   ① 页签条内、组签矩形外的 TAP → miss，状态/引擎不变（组签矩形内同样 miss：
 #      TAP 不路由页签，切页走 LVGL 回调/UI/KEY tab）
-#   ② STEP 鼓轨行 TAP 只读（回显 read-only、焦点不变、无引擎写、鼓格像素不变）
+#   ② STEP 鼓轨行 TAP 编辑 lane（P4-C Task 9：回显 CMD_DRUM_STEP_WRITE、焦点落鼓轨、
+#      ENG SNAP 只有该 dstep 行变化、鼓格像素变化；再 TAP 复位位图）
 #   ③ 同一 30ms 拍内 KEY tab + KEY PANIC → PANIC 撤销待切页，无回跳
 #   ④ 同一 30ms 拍内 3 次 KEY tab → 只前进一页（ADR-006「一拍一页」；TAB 顺序 =
 #      组顺序扁平轮转）

@@ -22,7 +22,8 @@
  *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
- *    无参打印当前窗口）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
+ *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
+ *    P4-C Task 9；无参打印当前值）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
  *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
  *    state=failed），对已建非当前页只删除控件回到未建态（回显 state=unbuilt，
  *    注入待命），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
@@ -39,7 +40,9 @@
  *    "TAP ERR quiesced"（都返回非零，令牌不同，脚本不得互相误判）。FILE 页
  *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
- *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
+ *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。STEP 鼓格
+ *    回显 "-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0x…"（P4-C
+ *    Task 9：写的是该步的原始 16 lane 位图）。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
  *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
@@ -1078,6 +1081,22 @@ static int ui_command(int argc, char **argv)
                (unsigned)w.window_start, (unsigned)w.window_len);
         return 0;
     }
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "lane") == 0) {
+        /* UI LANE [<n>]：STEP 页选中的鼓 lane（UI 局部态，0..15；无参打印当前值）。
+         * 与键盘 ↑/↓（sloop_ui_step_focus_vertical）和触摸点 dot 共用同一状态。 */
+        if (argc == 2) {
+            printf("UI LANE lane=%u\n", (unsigned)sloop_ui_step_lane_get());
+            return 0;
+        }
+        uint32_t lane = 0;
+        if (!eng_uint(argv[2], 15, &lane)) {
+            printf("用法: UI LANE [<lane=0..15>]\n");
+            return 1;
+        }
+        sloop_ui_step_lane_set((uint8_t)lane);
+        printf("UI LANE lane=%u\n", (unsigned)sloop_ui_step_lane_get());
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
@@ -1235,9 +1254,11 @@ static int ui_command(int argc, char **argv)
         return 1;
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
+           "UI LANE [<lane=0..15>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
+           "LANE: STEP 页选中的鼓 lane（0..15，UI 局部态）；无参打印当前值\n"
            "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
@@ -1356,7 +1377,11 @@ static int tap_command(int argc, char **argv)
                (unsigned)r.a, (unsigned)r.b);
         break;
     case SLOOP_TAP_STEP_DRUM:
-        printf("TAP %ld,%ld page=%u -> STEP drum step=%u read-only\n", x, y, page, (unsigned)r.b);
+        /* 鼓格 lane 位：a=lane b=步号 d=写入后的 bit v=写入后的 16 lane 位图 */
+        printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u bit=%u "
+               "CMD_DRUM_STEP_WRITE mask=0x%04X\n",
+               x, y, page, (unsigned)r.b, (unsigned)r.a, (unsigned)(r.d & 1),
+               (unsigned)(uint16_t)r.v);
         break;
     case SLOOP_TAP_TRACK_CARD:
         printf("TAP %ld,%ld page=%u -> TRACKS select track=%u CMD_SELECT_TRACK\n", x, y, page,

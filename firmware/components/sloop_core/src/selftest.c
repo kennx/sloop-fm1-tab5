@@ -334,6 +334,7 @@ _Static_assert(SLOOP_CORE_G_COUNT == G_COUNT, "G_COUNT drifted from the public s
 /* 采样率/块尺寸的三处表述（引擎 FS/HALF_FRAMES、公开 API、HAL 音频流）必须一致 */
 _Static_assert(SLOOP_CORE_RATE == FS, "SLOOP_CORE_RATE drifted from the engine's FS");
 _Static_assert(SLOOP_CORE_FRAMES == HALF_FRAMES, "SLOOP_CORE_FRAMES drifted from the engine's HALF_FRAMES");
+_Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "sloop_dstep_t 与上游 dstep_t 不同尺寸");
 _Static_assert(SLOOP_HAL_AUDIO_RATE == SLOOP_CORE_RATE, "HAL 音频流采样率与引擎不一致");
 _Static_assert(SLOOP_HAL_AUDIO_FRAMES == SLOOP_CORE_FRAMES, "HAL 音频流块尺寸与引擎不一致");
 
@@ -522,11 +523,15 @@ static void snapshot_fill_at(sloop_core_snapshot_t *out, uint32_t start)
             out->step[k][i].fill = (uint8_t)step_fill(&trk[k], start + i);
         }
     }
-    /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用） */
+    /* 鼓轨聚合：on = 任一声部触发；lvl/rat 取触发声部里的最强值（显示用）；
+     * 原始 16 lane 位图/字段另存 dstep_raw（STEP 页逐 lane 编辑与绘制）。 */
     for (uint32_t i = 0; i < 16; i++) {
         const dstep_t *d = &TDRUM->dstep[start + i];
         uint32_t on = (uint32_t)(d->on[0] | d->on[1]);
         out->dstep[i].on = on != 0;
+        out->dstep[i].micro = trk[3].micro[start + i];
+        out->dstep[i].fill = (uint8_t)step_fill(&trk[3], start + i);
+        memcpy(&out->dstep_raw[i], d, sizeof(dstep_t));
         for (uint32_t lane = 0; lane < DRUM_LANES; lane++) {
             if (!((on >> lane) & 1u)) continue;
             uint8_t lvl = (d->lvl[lane / 4u] >> (2u * (lane % 4u))) & 3u;

@@ -152,7 +152,10 @@ Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后�
 - 所有公共写入口先检查 `s_frozen`，再在 `s_engine_lock` 内复核并写入；host 的空
   `fm1_irq_off/on` 不是并发保护。void 读接口在越界或冻结时返回全零，`lock_list` 返回 0。
 - `sloop_core_snapshot_t.step[4][16]` 只追加 `lvl/rat/micro/fill` 字段；既有 UI/state 的字段名和
-  访问方式不变，窗口填充在既有引擎锁内完成，不增加取锁次数。
+  访问方式不变，窗口填充在既有引擎锁内完成，不增加取锁次数。P4-C Task 9（STEP 深度
+  呈现）在同一把锁里另追加 `dstep_raw[16]`（鼓轨窗口列的原始 16 lane on/lvl/rat，
+  `sloop_dstep_t` 同型、定义移入 sloop_core.h）与 `dstep[].micro/fill`；聚合
+  `dstep[].on/lvl/rat` 的原义与 `ENG SNAP`/`STATE SNAP FULL` 输出不变。
 - console 新增 `SEQ DSTEP [step]`、`SEQ MICRO/FILL <track> <step> <v>` 与
   `SEQ LOCK LIST|SET|DEL …`。`ESP_ERR_NO_MEM` 映射为 `SEQ ERR full`，非法/不可锁参数映射为
   `SEQ ERR invalid`，冻结映射为 `SEQ ERR frozen`。

@@ -5,13 +5,14 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "sloop_core.h"
 #include "sloop_store.h" /* sloop_song_config_t（歌曲快照内嵌，Task 8） */
 
 /* 原始鼓步与参数锁。所有写入口内部持引擎锁；诊断冻结时写回 ESP_ERR_INVALID_STATE，
  * void 读接口返回全零、lock_list 返回 0。轨/步/参数越界回 ESP_ERR_INVALID_ARG。
  * lock_set 的第 25 个不同 (step,param) 键回 ESP_ERR_NO_MEM；同键覆写不占新槽。
- * lock_del 的 param==P_COUNT 清除该步全部锁，其余值只删指定键。 */
-typedef struct { uint8_t on[2], lvl[4], rat[4]; } sloop_dstep_t;
+ * lock_del 的 param==P_COUNT 清除该步全部锁，其余值只删指定键。
+ * `sloop_dstep_t` 定义在 sloop_core.h（快照的 dstep_raw[] 同型）。 */
 typedef struct { uint8_t step, param; int16_t value; } sloop_lock_t;
 void sloop_seq_read_dstep(uint32_t step, sloop_dstep_t *out);
 esp_err_t sloop_seq_write_dstep(uint32_t step, const sloop_dstep_t *in);
