@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影；后续任务实现录音、持久化与 UI）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影 + Task 6 实时录音/16 lane 鼓输入/物理 PLAY 与原子音高删除；后续任务实现持久化与 UI）｜ 日期：2026-11-22
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -198,6 +198,44 @@ DI-24 按「选中轨变化才同步」收口：`state_init` 以引擎选中轨�
 存储成功后的 `state_refresh_locked`、`CMD_SET_WINDOW` 与音序成功刷新在 `selected_track` 相对上一份投影发生变化时同步
 `focus_track`（包括窗口刷新消费外部选轨变化的情形）。显式 `CMD_SELECT_TRACK/SET_TRACK` 已同时设置两者；选中轨不变时，键盘独立移动焦点不被
 周期投影覆盖。失败 LOAD 不刷新也不改焦点。`STATE SNAP` 在原有行尾追加 `seq_status`；详细 `synth step/dstep` 行只在 `STATE SNAP FULL` 打印，默认保持既有响应体量。`ENG STEP` 原有完整字段与所有既有 token 保持不变。`sloop_seq_frozen()` 让 toggle/erase 在被冻结的 void 读写入口之前先给出 FROZEN，而不是 OK/NOT_FOUND。
+
+### 9. 实时录音、16 lane 鼓输入与物理 PLAY 分叉
+
+Task 6 把 seq.c 已有的录音/鼓演奏状态机接到 Tab5，不复制其算法：
+
+- **录音快照**（`sloop_rec_snapshot_t`）只投影上游运行态：`ft_on → FREE_TAKE`、
+  `ci_on → COUNT_IN`、`rec_wait → ARMED`、`song.rec → RECORDING`（轨道取最低置位，
+  与 `rec_follow` 的单 arm 不变量一致）。`quant_off/tempo_mode/count_mode` 是运行期
+  配置，本阶段不写 settings（P4-E 完整面板设置）。
+- **一次性结果**：`rec_go` 与 `ft_bars` 由快照读取消费（读后清零），不在绘制函数里清。
+  `take_bars` 语义：0 无、0xFF 丢弃、其余为关闭的小节数。状态层只在 `state_sync_from_engine`
+  写回成功的那一拍读一次（重试循环里读会把 take 结果丢在第一次 attempt），命令
+  `CMD_REC_TOGGLE/CONFIG` 之后同拍补读一次，使 `STATE SNAP` 立即可断言。
+- **动作**：`CMD_REC_TOGGLE` = 上游 `ui_studio.c rec_toggle` 的状态转移（停止态
+  arm；走带中 `rec_begin`；再按关录音不停播放；自由录音中 `transport_req=1` 关闭）。
+  `rec_follow` 由 `sloop_core_select` 在已持引擎锁时调用 `seq_rec_follow_locked`
+  （互斥锁不可递归获取；适配函数因此不取锁）。`CMD_REC_CONFIG` 与
+  `CMD_FILL_CONTROL` 只写上游运行期变量（`rec_*`/`fill_held/fill_arm`）。
+- **物理 PLAY 与 API PLAY 分叉**：space 是面板按钮路径——`CMD_PLAY_BUTTON` →
+  `sloop_seq_play_button(down)`；自由录音中按下 = 置上游 PLAY 按钮位，`ft_block()`
+  上升沿 **drop**（工程不变，`ft_bars=0xFF`）。API/编辑命令的 PLAY 仍是
+  `sloop_core_play`（`transport_req=1`），对自由录音是 **close**。上游 `fm1_ms` 由
+  FM-1 的 1ms ISR 推进；Tab5 没有该定时器，`sloop_core_render` 在每次渲染回调开头用
+  `esp_timer_get_time()` 校正 `fm1_ms`，否则 `ft_owns_press()` 的 300ms 窗口永不
+  过期、第二次按键会被永久吞掉。
+- **16 lane 鼓**：`CMD_DRUM_HIT{a=lane,v=velocity}` → `sloop_seq_drum_hit` →
+  上游 `drum_input()/rec_hit()`（实时录音与自由录音同一路径）；velocity 0 = 松开
+  （上游 `KS_DRUM` key-up，结束自由录音的鼓音符段）。键位表在
+  `sloop_ui/src/input_map.h`（host 单测），选中鼓轨时其它演奏键忽略、**不回退
+  track 0**。成功不改 `seq_status`（演奏不是一次编辑），越界 → invalid 且不调引擎。
+- **音高删除原子化**（Task 5 评审 deferral）：`CMD_ERASE_NOTE` 不再「状态层预读步 →
+  另取锁删」，改由 `sloop_seq_note_del` 在**同一把引擎锁**内按音高找 index 并调上游
+  `note_del`。实时录音并发改步因此不会让预读的 index 失效。测试以引擎锁计数 = 1
+  与该步唯一被删音为判据（`seq-host-test`），状态层以「不读步、只调一次 adapter」
+  为判据（`state-test`）。
+- **arrangement 交互**归 Task 8：SONG 开始会清普通 REC；`rec_toggle`/物理 PLAY 的
+  「STOP THE SONG FIRST」「EMPTY SECTION」守卫在 Task 8 的 SONG 入口接上（本任务
+  `arrangement_enabled` 仍恒为 0，接通反而会形成未声明的跨任务状态）。
 
 ## 后果
 

@@ -478,3 +478,183 @@ esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg)
     engine_unlock();
     return ret;
 }
+
+/* ------------------------------------------------- P4-C Task 6: 录音/鼓 --- */
+/* 物理面板按钮在 Tab5 上的位（上游 ui_layers.c 由 panel.btn 派生；Tab5 没有面板，
+ * 这里给自由录音的 PLAY drop 一个稳定的位）。REC 不走按钮电平——键盘的 REC 按键
+ * 一次 down 调 rec_toggle，与上游 editor 的 REC 同一条 API 路径。 */
+#define SLOOP_BTN_PLAY 1u
+
+static void ft_masks_ensure(void)
+{
+    if (!ft_drop_mask) ft_drop_mask = SLOOP_BTN_PLAY;
+}
+
+/* 选中轨变更后的 rec 位跟随（上游 rec_follow）：由 sloop_core_select 在**已持引擎
+ * 锁**时调用（互斥锁不可递归获取，本函数不再取锁）。 */
+static void seq_rec_follow_locked(uint32_t track)
+{
+    if (song.rec) song.rec = (uint8_t)(1u << (track % NTRK));
+}
+
+static uint32_t rec_mask_track(uint8_t mask)
+{
+    for (uint32_t k = 0; k < NTRK; k++)
+        if (mask & (1u << k)) return k;
+    return 0;
+}
+
+void sloop_seq_rec_read(sloop_rec_snapshot_t *out)
+{
+    if (out == NULL) return;
+    memset(out, 0, sizeof(*out));
+    if (s_frozen) return;
+    engine_lock();
+    if (!s_frozen) {
+        out->quant_off = rec_quant_off;
+        out->tempo_mode = rec_tempo;
+        out->count_mode = rec_count;
+        if (ft_on) {
+            out->state = SEQ_REC_FREE_TAKE;
+            out->track = (uint8_t)(ft_trk % NTRK);
+        } else if (ci_on) {
+            out->state = SEQ_REC_COUNT_IN;
+            out->track = (uint8_t)(song.sel % NTRK);
+        } else if (rec_wait) {
+            out->state = SEQ_REC_ARMED;
+            out->track = (uint8_t)(song.sel % NTRK);
+        } else if (song.rec) {
+            out->state = SEQ_REC_RECORDING;
+            out->track = (uint8_t)rec_mask_track(song.rec);
+        }
+        out->take_bars = ft_bars;              /* 一次性：take 结果与开始闪示都由此消费 */
+        ft_bars = 0;
+        rec_go = 0;
+    }
+    engine_unlock();
+}
+
+esp_err_t sloop_seq_rec_toggle(void)
+{
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (ft_on) {
+        transport_req = 1;                     /* 自由录音进行中：REC 关闭它（上游 editor op 4） */
+    } else if (song.rec || rec_wait) {
+        song.rec = 0;                          /* 再按一次：关录音 / 撤销待命，播放继续 */
+        rec_wait = 0;
+    } else if (song.playing) {
+        rec_begin();                           /* 走带中：立即录当前选中轨 */
+    } else {
+        rec_wait = 1;                          /* 停止态：待命，首个音符（或 PLAY）启动 */
+    }
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_rec_config(uint8_t quant_off, uint8_t tempo_mode, uint8_t count_mode)
+{
+    if (quant_off > 1u || tempo_mode > 1u || count_mode > 1u) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    rec_quant_off = quant_off;
+    rec_tempo = tempo_mode;
+    rec_count = count_mode;
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_fill_control(bool held, bool next_bar)
+{
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    fill_held = held ? 1u : 0u;
+    if (next_bar) fill_arm = (uint8_t)!fill_arm;  /* 上游 GLO + key 10：一次按键翻转待命 */
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_drum_hit(uint32_t lane, uint32_t velocity)
+{
+    if (lane >= DRUM_LANES || velocity > 127u) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (velocity == 0u) {
+        if (ft_on && ft_trk == TRK_DRUM) ft_note_off(lane); /* 自由录音的鼓音符段到此为止 */
+    } else {
+        drum_input(lane, vel_lvl(velocity), 0, 1);
+    }
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_play_button(bool down)
+{
+    if (!down) {                               /* 松开：清按钮位（冻结也清，避免位挂住） */
+        engine_lock();
+        ft_masks_ensure();
+        fm1_in.buttons &= ~SLOOP_BTN_PLAY;
+        engine_unlock();
+        return ESP_OK;
+    }
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    ft_masks_ensure();
+    if (ft_owns_press()) {
+        if (ft_on) fm1_in.buttons |= SLOOP_BTN_PLAY; /* 上游 ft_block 的上升沿：丢弃 take */
+    } else {
+        /* 上游 ui_studio.c 的 B_PLAY；arrangement 的「EMPTY SECTION」守卫归 Task 8
+         * 的 SONG 入口（本任务不注册 arrangement 状态）。 */
+        transport_req = song.playing ? 2 : 1;
+    }
+    engine_unlock();
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_note_del(uint32_t track, uint32_t step, uint32_t note)
+{
+    if (track >= NTRK || step >= NSTEP || note == 0u || note > 127u) return ESP_ERR_INVALID_ARG;
+    if (is_drum(&trk[track])) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_ERR_NOT_FOUND;
+    track_t *t = &trk[track];
+    step_t *st = &t->step[step];
+    if (step_on(st)) {
+        uint32_t index = 0, n = st->n > 4u ? 4u : st->n;
+        while (index < n && st->note[index] != note) index++;
+        if (index < n) {
+            step_sess = 0;
+            layer_undo_mark(t);
+            note_del(t, step, index);
+            step_sess = 0;
+            ret = ESP_OK;
+        }
+    }
+    engine_unlock();
+    return ret;
+}

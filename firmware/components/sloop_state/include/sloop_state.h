@@ -79,6 +79,9 @@ typedef enum {
     CMD_BANK_PUT, CMD_BANK_ERASE,
     CMD_STEP_EDIT, CMD_PATTERN, CMD_SET_MICRO, CMD_SET_FILL,
     CMD_LOCK_SET, CMD_LOCK_DEL, CMD_DRUM_STEP_WRITE,
+    /* P4-C 录音/鼓演奏（Task 6）：REC 状态机、fill 表演控制、16 lane 鼓输入、
+     * 物理 PLAY 键（drop 自由录音；与 API PLAY 的 close 分开） */
+    CMD_REC_TOGGLE, CMD_REC_CONFIG, CMD_FILL_CONTROL, CMD_DRUM_HIT, CMD_PLAY_BUTTON,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -129,6 +132,20 @@ typedef enum {
  *  CMD_DRUM_STEP_WRITE b=step p=sloop_dstep_t：同步透传原始 16-lane 鼓步，不触碰
  *                    合成轨步表。上述命令先拒绝非法轨/步/param（不调引擎），返回码写入
  *                    seq_status；仅 ESP_OK 时同拍重取详细窗口投影。
+ *  CMD_REC_TOGGLE    （无参）：分发 sloop_seq_rec_toggle；成功后同拍重取录音快照
+ *                    （armed/recording/off 立即可断言，不等下一拍 sync）。
+ *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置，
+ *                    不写 settings；越界不调引擎，seq_status = invalid。
+ *  CMD_FILL_CONTROL  a=held(0/1) b=next_bar(0/1，1 = 一次 NEXT BAR 按键，翻转待命)：
+ *                    分发 sloop_seq_fill_control；越界不调引擎。
+ *  CMD_DRUM_HIT      a=lane(0..15) v=velocity(1..127 击打；**0 = 松开**，结束自由录音
+ *                    的鼓音符段)：分发 sloop_seq_drum_hit（上游 drum_input/rec_hit 同一
+ *                    路径）。选中鼓轨时**不回退合成轨 0**——本命令从不调 note 入口。
+ *                    成功不改 seq_status（演奏不是一次编辑）；越界 = invalid 且不调引擎。
+ *  CMD_PLAY_BUTTON   a=1 按下 / a=0 松开：物理 PLAY 键（上游面板按钮口径）。自由录音
+ *                    中按下 = **drop**；其余情况请求普通走带。与 CMD_PLAY（API PLAY，
+ *                    经过 sloop_core_play）分属两个入口：API PLAY 对自由录音是 close。
+ *                    投影的 playing 不在此改写（下一拍 sync 取引擎真值）。
  *  CMD_PROJECT_SAVE/LOAD/ERASE a=slot(0..3)：分发 sloop_store_project_*。槽号越界不调
  *                    存储 API、不改 store_status。否则返回码按 app_store_status_t 映射
  *                    写 store_status；**成功（ESP_OK）后整份刷新投影**（一次窗口快照 +
@@ -202,6 +219,8 @@ typedef struct {
     uint8_t layer_held;         /* 层键位掩码（APP_LAYER_*，InputManager 写、UI 读） */
     uint8_t store_status;       /* 最近一次存储命令的结果（app_store_status_t） */
     uint8_t seq_status;         /* 最近一次音序命令的结果（app_seq_status_t） */
+    sloop_rec_snapshot_t rec;   /* 录音状态投影（sloop_seq_rec_read；一次性 take 结果
+                                 * 在 sync/命令重取时被消费，见 sloop_seq.h） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */

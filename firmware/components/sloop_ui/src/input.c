@@ -12,10 +12,15 @@
  * 覆盖同键的基础功能（如 EDIT 层 c/d/e/g 是音名键而不是演奏键），而方向键/走带
  * 这类未进层的键在任何层下都可用。
  *
- * 层键：Sym=FX（MVP 无功能，只置 layer_held 位）、Aa=EDIT、Ctrl=SEL、Alt=GLO；
+ * 层键：Sym=FX（MVP 无功能，只置位 layer_held 位）、Aa=EDIT、Ctrl=SEL、Alt=GLO；
  * 按住生效（DI-4 子集：键盘固件逐键独立上报 down/up，组合不吞事件——见
  * docs/design/006-keyboard-mapping.md）。layer_held 写 AppState（state_set_layer）。
  * 演奏键只在「无层或仅 FX」时发声：EDIT/SEL/GLO 按住期间演奏键不弹音符。
+ *
+ * 演奏路由（P4-C Task 6）：选中合成轨走 24 音矩阵（`CMD_NOTE_ON/OFF`）；选中鼓轨
+ * 走 `input_map.h` 的 16 lane 表（`CMD_DRUM_HIT`，松开 v=0），其它演奏键在鼓轨忽略
+ * （不回落合成轨 0）。space 是**物理 PLAY 键**（`CMD_PLAY_BUTTON`，free take drop），
+ * `0` = REC 切换，`-` 按住 = FILL，`+` 点按 = FILL NEXT（ADR-006）。
  *
  * 参数页路由（ADR-008 §8）：当前页是参数页（GLOBAL/FX/ANALOG…）时，←/→ 在槽位间
  * 移动焦点、↑/↓ 调焦点槽的值（经 sloop_ui_param_*，只写状态层；控件由 30ms UI
@@ -38,6 +43,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "input_map.h"
 #include "sloop_state.h"
 #include "sloop_store.h"
 #include "sloop_ui.h"
@@ -69,6 +75,9 @@ static const char *TAG = "sloop_input";
 #define K_6     0x06
 #define K_7     0x07
 #define K_8     0x08
+#define K_0     0x0A
+#define K_MINUS 0x0B
+#define K_PLUS  0x0C
 #define K_TAB   0x20
 #define K_Q     0x21
 #define K_W     0x22
@@ -107,8 +116,11 @@ static const char *TAG = "sloop_input";
 
 typedef enum {
     ACT_LAYER,       /* param=APP_LAYER_*，按住置位/松开清位 */
-    ACT_NOTE,        /* param=相对 INPUT_BASE_NOTE 的半音偏移 */
-    ACT_PLAY_TOGGLE, /* space：播放/停止 */
+    ACT_NOTE,        /* param=相对 INPUT_BASE_NOTE 的半音偏移（鼓轨走 lane 表） */
+    ACT_PLAY_TOGGLE, /* space：物理 PLAY 键（free take drop；升/降两沿） */
+    ACT_REC,         /* 0：REC 切换（上游 rec_toggle） */
+    ACT_FILL_HOLD,   /* -：FILL 保持（按下/松开两沿） */
+    ACT_FILL_NEXT,   /* +：FILL NEXT BAR（按下翻转一次） */
     ACT_PAGE_PLAY,   /* esc */
     ACT_PAGE_NEXT,   /* tab */
     ACT_FOCUS_STEP,  /* 左右：param=±1（FILE 页改为选槽，见 ACT_FILE 路由） */
@@ -161,6 +173,9 @@ static const key_binding_t k_bindings[] = {
 
     /* ---- 走带 / 页面 / 焦点 ---- */
     {K_SPACE, 0, ACT_PLAY_TOGGLE, 0},
+    {K_0, 0, ACT_REC, 0},
+    {K_MINUS, 0, ACT_FILL_HOLD, 0},
+    {K_PLUS, 0, ACT_FILL_NEXT, 0},
     {K_ESC, 0, ACT_PAGE_PLAY, 0},
     {K_TAB, 0, ACT_PAGE_NEXT, 0},
     {K_LEFT, 0, ACT_FOCUS_STEP, -1},
@@ -186,10 +201,13 @@ static volatile uint32_t s_quiesce_ack;
  * 避免丢计数（诊断量级，不需要严格一致） */
 static atomic_uint s_quiesce_dropped;
 
-/* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响 */
+/* 按下的演奏键：note-off 用按下时的音符/轨号，不受层/选轨变化影响；鼓键单独记
+ * （鼓是一次性 one-shot，PANIC 不发送 note-off，只补发自由录音需要的松开）。 */
 static bool s_note_on[128];
 static uint8_t s_note_val[128];
 static uint8_t s_note_track[128];
+static bool s_drum_on[128];
+static bool s_play_down;
 
 static void input_lock(void)
 {
@@ -201,22 +219,31 @@ static void input_unlock(void)
     if (s_mutex != NULL) xSemaphoreGive(s_mutex);
 }
 
-static uint8_t play_track(const app_state_t *st)
-{
-    /* 演奏只走三条合成轨：选中鼓轨时落回 track 0（MVP 无鼓垫键盘映射） */
-    return st->core.selected_track < 3u ? st->core.selected_track : 0u;
-}
-
+/* 演奏键：选中合成轨 = 24 音半音矩阵；选中鼓轨 = 16 lane 鼓键表（ADR-006），其它
+ * 演奏键在鼓轨上忽略——**不回退 track 0**。 */
 static void act_note(uint8_t code, int8_t offset, bool down)
 {
+    app_state_t st;
+    state_get_copy(&st);
+
+    if (st.core.selected_track >= 3u) {
+        int8_t lane = input_map_drum_lane(code);
+        if (lane < 0 || !down) return; /* 鼓键松开由 sloop_ui_input_key 的早退路径处理 */
+        if (s_drum_on[code]) return;   /* 键盘不自动重复，防御重复 down */
+        const edit_cmd_t cmd = { .type = CMD_DRUM_HIT, .a = (uint32_t)lane,
+                                 .v = APP_STATE_VEL_DEFAULT };
+        state_apply(&cmd);
+        s_drum_on[code] = true;
+        ESP_LOGD(TAG, "drum hit lane=%d", (int)lane);
+        return;
+    }
+
     uint8_t note = (uint8_t)(INPUT_BASE_NOTE + offset);
     if (note > INPUT_NOTE_MAX) return;
 
     if (down) {
         if (s_note_on[code]) return; /* 键盘不自动重复，防御重复 down */
-        app_state_t st;
-        state_get_copy(&st);
-        uint8_t track = play_track(&st);
+        uint8_t track = st.core.selected_track;
         const edit_cmd_t cmd = { .type = CMD_NOTE_ON, .a = track, .v = note };
         state_apply(&cmd);
         s_note_on[code] = true;
@@ -236,11 +263,24 @@ static void act_note(uint8_t code, int8_t offset, bool down)
     }
 }
 
-static void act_play_toggle(void)
+/* 鼓键松开：velocity 0 结束自由录音里的鼓音符段（上游 KS_DRUM 的 key-up）；不在
+ * 自由录音时是无操作。 */
+static void act_drum_release(uint8_t code)
 {
-    app_state_t st;
-    state_get_copy(&st);
-    const edit_cmd_t cmd = { .type = st.core.playing ? CMD_STOP : CMD_PLAY };
+    int8_t lane = input_map_drum_lane(code);
+    s_drum_on[code] = false;
+    if (lane < 0) return;
+    const edit_cmd_t cmd = { .type = CMD_DRUM_HIT, .a = (uint32_t)lane, .v = 0 };
+    state_apply(&cmd);
+}
+
+/* space：物理 PLAY 键（上游面板按钮路径）。自由录音进行中由引擎丢弃 take（drop）；
+ * API PLAY（CMD_PLAY）仍是 close。按下/松开两沿都下发（按钮电平）。 */
+static void act_play_button(bool down)
+{
+    if (s_play_down == down) return;
+    s_play_down = down;
+    const edit_cmd_t cmd = { .type = CMD_PLAY_BUTTON, .a = down ? 1u : 0u };
     state_apply(&cmd);
 }
 
@@ -310,13 +350,30 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_NOTE:
         act_note(b->code, b->param, down);
         return;
+    case ACT_PLAY_TOGGLE: /* 物理 PLAY：两沿都下发（按钮电平，free take 的 drop 需要） */
+        act_play_button(down);
+        return;
+    case ACT_FILL_HOLD: { /* FILL 保持：两沿都下发 */
+        const edit_cmd_t cmd = { .type = CMD_FILL_CONTROL, .a = down ? 1u : 0u };
+        state_apply(&cmd);
+        return;
+    }
     default:
         break;
     }
     if (!down) return; /* 其余动作只在按下沿触发 */
 
     switch (b->action) {
-    case ACT_PLAY_TOGGLE: act_play_toggle(); break;
+    case ACT_REC: {
+        const edit_cmd_t cmd = { .type = CMD_REC_TOGGLE };
+        state_apply(&cmd);
+        break;
+    }
+    case ACT_FILL_NEXT: { /* 一次按下 = 上游 GLO + key 10 的翻转 */
+        const edit_cmd_t cmd = { .type = CMD_FILL_CONTROL, .a = 1, .b = 1 };
+        state_apply(&cmd);
+        break;
+    }
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
@@ -402,7 +459,13 @@ void sloop_ui_input_key(uint8_t code, bool down)
         return;
     }
     /* 释放先于层路由：按住演奏键期间再按层键（如 c 尚未松开就按 Aa）时，松开必须
-     * 仍然按「演奏键释放」处理，否则会被 EDIT 层的同名条目吞掉、音符挂住。 */
+     * 仍然按「演奏键释放」处理，否则会被 EDIT 层的同名条目吞掉、音符挂住。
+     * 鼓键同样先处理松开（自由录音的鼓音符段以 velocity 0 结束）。 */
+    if (!down && s_drum_on[code]) {
+        act_drum_release(code);
+        input_unlock();
+        return;
+    }
     if (!down && s_note_on[code]) {
         act_note(code, 0, false);
         input_unlock();
@@ -437,6 +500,11 @@ void sloop_ui_input_panic(void)
         state_apply(&cmd);
         released++;
     }
+    for (unsigned code = 0; code < 128u; code++) {
+        if (!s_drum_on[code]) continue;
+        act_drum_release((uint8_t)code); /* 自由录音里的鼓音符段也收口 */
+    }
+    if (s_play_down) act_play_button(false); /* 物理 PLAY 位不得挂住（否则下次 take 没有 drop 沿） */
     state_set_layer(0);
     sloop_ui_cancel_pending_page(); /* 撤销待执行切页（专用清空，无读当前页竞态） */
     input_unlock();

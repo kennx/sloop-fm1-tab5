@@ -232,6 +232,7 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
 {
     g_stub.seq_step_edit_calls++;
     if (cmd != NULL) g_stub.last_step_edit = *cmd;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
     if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
     if (cmd == NULL || cmd->track >= 4u || cmd->step >= STUB_ENGINE_STEPS)
         return ESP_ERR_INVALID_ARG;
@@ -250,6 +251,32 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
     st->flags = stub_drop_cont(st->flags, cmd->index);
     st->n = (uint8_t)(n - 1u);
     if (st->n == 0u) stub_clear_step(cmd->track, cmd->step);
+    return ESP_OK;
+}
+
+/* 按音高找 index 并删除（真引擎在同一把引擎锁内完成查找+删除；替身只模拟可观察
+ * 结果，锁纪律由 seq-host-test 对真实上游断言）。 */
+esp_err_t sloop_seq_note_del(uint32_t track, uint32_t step, uint32_t note)
+{
+    g_stub.note_del_calls++;
+    g_stub.note_del_last_track = track;
+    g_stub.note_del_last_step = step;
+    g_stub.note_del_last_note = note;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    if (g_stub.note_del_ret != ESP_OK) return g_stub.note_del_ret;
+    if (track >= STUB_ENGINE_TRACKS || step >= STUB_ENGINE_STEPS || note == 0u || note > 127u)
+        return ESP_ERR_INVALID_ARG;
+    sloop_step_t *st = &g_stub.step[track][step];
+    uint32_t index = 0, n = st->n > 4u ? 4u : st->n;
+    while (index < n && st->note[index] != note) index++;
+    if (index == n) return ESP_ERR_NOT_FOUND;
+    for (uint32_t i = index; i + 1u < n; i++) st->note[i] = st->note[i + 1u];
+    st->note[n - 1u] = 0;
+    st->lvl = stub_drop2(st->lvl, index);
+    st->rat = stub_drop2(st->rat, index);
+    st->flags = stub_drop_cont(st->flags, index);
+    st->n = (uint8_t)(n - 1u);
+    if (st->n == 0u) stub_clear_step(track, step);
     return ESP_OK;
 }
 
@@ -345,6 +372,57 @@ esp_err_t sloop_seq_write_dstep(uint32_t step, const sloop_dstep_t *in)
         if (rat > g_stub.dstep[step].rat) g_stub.dstep[step].rat = rat;
     }
     return ESP_OK;
+}
+
+/* ---- P4-C Task 6：录音 / 走带按钮 / 鼓演奏替身 ------------------------------- */
+void sloop_seq_rec_read(sloop_rec_snapshot_t *out)
+{
+    g_stub.rec_read_calls++;
+    if (out == NULL) return;
+    *out = g_stub.rec;
+}
+
+esp_err_t sloop_seq_rec_toggle(void)
+{
+    g_stub.rec_toggle_calls++;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    return g_stub.seq_ret;
+}
+
+esp_err_t sloop_seq_rec_config(uint8_t quant_off, uint8_t tempo_mode, uint8_t count_mode)
+{
+    g_stub.rec_config_calls++;
+    g_stub.rec_last_quant = quant_off;
+    g_stub.rec_last_tempo = tempo_mode;
+    g_stub.rec_last_count = count_mode;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    return g_stub.seq_ret;
+}
+
+esp_err_t sloop_seq_fill_control(bool held, bool next_bar)
+{
+    g_stub.fill_control_calls++;
+    g_stub.fill_last_held = held ? 1u : 0u;
+    g_stub.fill_last_next = next_bar ? 1u : 0u;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    return g_stub.seq_ret;
+}
+
+esp_err_t sloop_seq_drum_hit(uint32_t lane, uint32_t velocity)
+{
+    g_stub.drum_hit_calls++;
+    g_stub.drum_last_lane = lane;
+    g_stub.drum_last_vel = velocity;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    return g_stub.seq_ret;
+}
+
+esp_err_t sloop_seq_play_button(bool down)
+{
+    g_stub.play_button_calls++;
+    g_stub.play_button_last_down = down ? 1u : 0u;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    return g_stub.seq_ret;
 }
 
 /* 自动存档的活动计时（state_apply 的每个命令）：host 单测不编自动存档，空实现 */

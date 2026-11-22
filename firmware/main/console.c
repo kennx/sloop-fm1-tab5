@@ -40,8 +40,11 @@
  *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
  *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
- *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具诊断（P4-C，ADR-010）。
- *    LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与 "SEQ ERR invalid"。
+ *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
+ *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
+ *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL held next|BUTTON down]`
+ *    打印/驱动录音状态机（`SEQ REC` 读即消费一次性 take 结果），`SEQ HIT <lane>
+ *    [velocity]` 与键盘鼓键同一路径（同一 adapter），`STATE SNAP` 行尾带 rec 投影。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -627,12 +630,17 @@ static int state_command(int argc, char **argv)
         (argc == 3 && strcasecmp(argv[1], "snap") == 0 && strcasecmp(argv[2], "full") == 0)) {
         const bool full = argc == 3;
         app_state_t st;
-        state_get_copy(&st);        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u\n",
+        state_get_copy(&st);
+        static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
+        const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
                (unsigned)st.window.window_start, (unsigned)st.window.window_len,
-               (unsigned)st.seq_status);
+               (unsigned)st.seq_status, rec, (unsigned)st.rec.track,
+               (unsigned)st.rec.quant_off, (unsigned)st.rec.tempo_mode,
+               (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -1945,6 +1953,24 @@ static void seq_dstep_print(uint32_t step)
            d.rat[0], d.rat[1], d.rat[2], d.rat[3]);
 }
 
+/* 录音状态行（P4-C Task 6）：读一次快照即消费一次性 take 结果（sloop_seq.h）。
+ * take 结果：none / dropped / <n>bar；与 STATE SNAP 的 rec_* 字段同一投影。 */
+static void seq_rec_print(void)
+{
+    static const char *const STATE_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
+    sloop_rec_snapshot_t r;
+    sloop_seq_rec_read(&r);
+    const char *state = r.state <= SEQ_REC_FREE_TAKE ? STATE_NAME[r.state] : "?";
+    char take[16] = "none";
+    if (r.take_bars == 0xFFu)
+        snprintf(take, sizeof(take), "dropped");
+    else if (r.take_bars != 0u)
+        snprintf(take, sizeof(take), "%ubar", (unsigned)r.take_bars);
+    printf("SEQ REC state=%s track=%u quant=%s tempo=%s count=%s take=%s\n", state,
+           (unsigned)r.track, r.quant_off ? "off" : "on", r.tempo_mode ? "tempo" : "free",
+           r.count_mode ? "count" : "note", take);
+}
+
 static int seq_command(int argc, char **argv)
 {
     if (argc >= 2 && strcasecmp(argv[1], "DSTEP") == 0) {
@@ -2107,13 +2133,64 @@ static int seq_command(int argc, char **argv)
             return 0;
         }
     }
+    if (argc >= 2 && strcasecmp(argv[1], "REC") == 0) {
+        if (argc == 2) {
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "TOGGLE") == 0) {
+            esp_err_t ret = sloop_seq_rec_toggle();
+            if (ret != ESP_OK) return seq_err_print(ret);
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 6 && strcasecmp(argv[2], "CONFIG") == 0) {
+            uint32_t q, t, c;
+            if (!eng_uint(argv[3], 1, &q) || !eng_uint(argv[4], 1, &t) || !eng_uint(argv[5], 1, &c))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_rec_config((uint8_t)q, (uint8_t)t, (uint8_t)c);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            seq_rec_print();
+            return 0;
+        }
+        if (argc == 5 && strcasecmp(argv[2], "FILL") == 0) {
+            uint32_t held, next;
+            if (!eng_uint(argv[3], 1, &held) || !eng_uint(argv[4], 1, &next))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_fill_control(held != 0u, next != 0u);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC FILL held=%u next_press=%u OK\n", (unsigned)held, (unsigned)next);
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "BUTTON") == 0) {
+            uint32_t down;
+            if (!eng_uint(argv[3], 1, &down)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_play_button(down != 0u);
+            if (ret != ESP_OK) return seq_err_print(ret);
+            printf("SEQ REC BUTTON down=%u OK\n", (unsigned)down);
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "HIT") == 0) {
+        uint32_t lane, vel = 100;
+        if (!eng_uint(argv[2], 15, &lane) || (argc == 4 && !eng_uint(argv[3], 127, &vel)))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_drum_hit(lane, vel);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ HIT lane=%u velocity=%u OK\n", (unsigned)lane, (unsigned)vel);
+        return 0;
+    }
     printf("用法: SEQ DSTEP [step=0..63] | SEQ MICRO <track=0..3> <step=0..63> <v=-32..31> | "
            "SEQ FILL <track=0..3> <step=0..63> <v=0..3> | SEQ LOCK LIST <track=0..3> | "
            "SEQ LOCK SET <track> <step> <param=0..%u> <value> | "
            "SEQ LOCK DEL <track> <step> <param=0..%u；%u=整步清除> | "
            "SEQ EDIT <SPAN|DEL|MOVE|COPY|LVL|RAT|SLIDE|CLEAR> <track> <step> [index|target|value] | "
            "SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE> <track> <arg> | "
-           "SEQ PATTERN <CLEAR|UNDO|REDO> <track>\n",
+           "SEQ PATTERN <CLEAR|UNDO|REDO> <track> | "
+           "SEQ REC [TOGGLE | CONFIG <quant 0|1> <tempo 0|1> <count 0|1> | "
+           "FILL <held 0|1> <next_press 0|1> | BUTTON <0|1>] | "
+           "SEQ HIT <lane=0..15> [velocity=1..127；0=松开]\n",
            (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
     return 1;
 }

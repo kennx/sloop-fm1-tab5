@@ -9,6 +9,7 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -428,6 +429,10 @@ esp_err_t sloop_core_status(void)
  * 因此成立。diagnostic 的 SMOKE/PERF 也只在非自检期间由 console 调用。 */
 void sloop_core_render(int32_t *block, uint32_t frames)
 {
+    /* 上游 fm1_ms 由 FM-1 的 1ms 定时器 ISR 推进；Tab5 没有该定时器，而 seq.c 的自由
+     * 录音按键窗口（ft_owns_press，300ms）依赖它。渲染节奏即真实时间：每个音频块
+     * 用 esp_timer 的毫秒值校正一次（volatile，单写者=音频任务）。 */
+    fm1_ms = (uint32_t)(esp_timer_get_time() / 1000);
     engine_lock();
     fm6_poll();
     for (uint32_t b = 0; b < frames; b += CTL) {
@@ -759,11 +764,16 @@ void sloop_core_set_solo(uint8_t mask)
     engine_unlock();
 }
 
+/* seq_tab5.c（本 TU 末尾 include）定义：上游 rec_follow 的适配。调用方必须已持
+ * 引擎锁（互斥锁不可递归获取），因此本函数自身不取锁。 */
+static void seq_rec_follow_locked(uint32_t track);
+
 void sloop_core_select(uint32_t k)
 {
     if (k >= NTRK || s_frozen) return;
     engine_lock();
     song.sel = (uint8_t)k;
+    seq_rec_follow_locked(k); /* 上游 rec_follow：armed/recording 的 rec 位跟随选中轨 */
     engine_unlock();
 }
 

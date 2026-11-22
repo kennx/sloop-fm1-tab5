@@ -36,6 +36,16 @@ typedef struct {
     uint32_t last_seq_track, last_seq_step, last_seq_param;
     int32_t last_seq_value;
     sloop_dstep_t last_dstep;
+    /* P4-C Task 6：录音/走带/鼓演奏命令替身 */
+    sloop_rec_snapshot_t rec;      /* sloop_seq_rec_read 的返回值（sync 与命令后投影） */
+    uint32_t rec_read_calls, rec_toggle_calls, rec_config_calls, fill_control_calls;
+    uint32_t drum_hit_calls, play_button_calls, note_del_calls;
+    uint32_t rec_last_quant, rec_last_tempo, rec_last_count;
+    uint32_t fill_last_held, fill_last_next;
+    uint32_t drum_last_lane, drum_last_vel;
+    uint32_t play_button_last_down;
+    uint32_t note_del_last_track, note_del_last_step, note_del_last_note;
+    esp_err_t note_del_ret;
     /* 参数后端：set_params 写、read_params 读（与真引擎一样，钳位在写入口） */
     int16_t param[4][SLOOP_CORE_P_COUNT];
     int16_t param_g[SLOOP_CORE_G_COUNT];

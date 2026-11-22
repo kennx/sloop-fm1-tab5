@@ -47,6 +47,46 @@ static void reset(void)
     s_frozen = false;
     freeze_on_lock = false;
     engine_lock_calls = engine_unlock_calls = 0;
+    /* 录音/走带/自由录音的上游运行态（seq.c 的 static）：每个用例从干净的停走带开始 */
+    song.playing = 0;
+    song.rec = 0;
+    song.sel = 0;
+    transport_req = 0;
+    rec_wait = 0;
+    rec_go = 0;
+    ci_on = 0;
+    ci_beat = 0;
+    ci_u = 0;
+    rec_quant_off = 0;
+    rec_tempo = 0;
+    rec_count = 0;
+    ft_on = 0;
+    ft_n = 0;
+    ft_t = 0;
+    ft_trk = 0;
+    ft_bars = 0;
+    ft_closed = 0;
+    ft_close_ms = 0;
+    ft_btn_prev = 0;
+    ft_btn_mask = 0;
+    ft_drop_mask = 0;
+    fm1_in.buttons = 0;
+    fm1_in.notes = 0;
+    fill_held = 0;
+    fill_arm = 0;
+    fill_bar_on = 0;
+    fill_now = 0;
+}
+
+/* 一个音频块（CTL 帧）；fm1_ms 按块推进——ft_owns_press 的 300ms 窗口与上游一样
+ * 依赖毫秒时钟（host 的 mix_block 不推进它）。 */
+static int32_t blk_out[CTL * 2];
+static void blocks(uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++) {
+        fm1_ms++;
+        mix_block(blk_out, CTL);
+    }
 }
 
 static const sloop_lock_t *find_lock(const sloop_lock_t *locks, uint32_t n, uint32_t step, uint32_t param)
@@ -526,6 +566,300 @@ static void test_new_entry_locking(void)
           "step/pattern entries recheck freeze after locking and leave data unchanged");
 }
 
+static void test_note_del_atomic(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 3, 60, 0);
+    t->step[3].note[1] = 64;
+    t->step[3].n = 2;
+    uint32_t locks = engine_lock_calls;
+    check(sloop_seq_note_del(0, 3, 64) == ESP_OK && t->step[3].n == 1 && t->step[3].note[0] == 60 &&
+              engine_lock_calls == locks + 1u,
+          "pitch erase finds and deletes the note under one engine lock");
+    check(sloop_seq_note_del(0, 3, 64) == ESP_ERR_NOT_FOUND && t->step[3].n == 1,
+          "erasing an absent pitch returns not found and leaves the step unchanged");
+    check(sloop_seq_note_del(0, 4, 60) == ESP_ERR_NOT_FOUND,
+          "erasing from an empty step returns not found");
+    check(sloop_seq_note_del(3, 0, 60) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_note_del(NTRK, 0, 60) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_note_del(0, NSTEP, 60) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_note_del(0, 0, 0) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_note_del(0, 0, 128) == ESP_ERR_INVALID_ARG,
+          "pitch erase rejects the drum track, invalid steps and invalid pitches");
+    put_note(&trk[1], 2, 48, 0);
+    check(sloop_seq_note_del(1, 2, 48) == ESP_OK && trk[1].step[2].time == ST_REST &&
+              trk[1].step[2].n == 0,
+          "erasing the last pitch clears the step through the upstream delete");
+    s_frozen = true;
+    check(sloop_seq_note_del(0, 3, 60) == ESP_ERR_INVALID_STATE && t->step[3].n == 1,
+          "frozen pitch erase returns invalid state without touching the step");
+}
+
+static void rec_snapshot(sloop_rec_snapshot_t *out)
+{
+    memset(out, 0xA5, sizeof(*out));
+    sloop_seq_rec_read(out);
+}
+
+static void test_rec_config(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_OFF && r.track == 0 && r.quant_off == 0 && r.tempo_mode == 0 &&
+              r.count_mode == 0 && r.take_bars == 0,
+          "fresh transport reports REC off with note quant on and no take");
+    check(sloop_seq_rec_config(2, 0, 0) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_rec_config(0, 2, 0) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_rec_config(0, 0, 2) == ESP_ERR_INVALID_ARG,
+          "REC configuration accepts only 0/1 modes");
+    check(sloop_seq_rec_config(1, 1, 1) == ESP_OK,
+          "REC configuration accepts quant off / tempo / count");
+    rec_snapshot(&r);
+    check(r.quant_off == 1 && r.tempo_mode == 1 && r.count_mode == 1,
+          "REC configuration is projected in the snapshot (runtime only, not persisted)");
+    s_frozen = true;
+    check(sloop_seq_rec_config(0, 0, 0) == ESP_ERR_INVALID_STATE &&
+              sloop_seq_rec_toggle() == ESP_ERR_INVALID_STATE &&
+              sloop_seq_fill_control(true, false) == ESP_ERR_INVALID_STATE &&
+              sloop_seq_play_button(true) == ESP_ERR_INVALID_STATE,
+          "frozen diagnostic mode rejects REC / fill / play button entries");
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_OFF && r.quant_off == 0 && r.tempo_mode == 0 && r.count_mode == 0,
+          "frozen REC snapshot is zeroed and consumes no one-shot");
+}
+
+static void test_rec_arm_and_first_note(void)
+{
+    sloop_rec_snapshot_t r;
+    track_t *t = &trk[0];
+    reset();
+    put_note(&trk[1], 0, 55, 0); /* 非空工程：首音 = 下拍，不是 free take */
+    check(sloop_seq_rec_toggle() == ESP_OK, "REC toggles on while stopped");
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_ARMED && r.track == 0, "stopped REC arms and waits for a note");
+
+    input_on(t, 60, 100);
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_RECORDING && r.track == 0,
+          "the first note starts the loop and recording");
+    check(song.playing && song.rec == 1u && !rec_wait && !ft_on,
+          "the armed first note starts the transport instead of a free take");
+    check(t->step[0].time == ST_NOTE && t->step[0].n == 1 && t->step[0].note[0] == 60,
+          "the first note is recorded into step 0");
+    input_off(t, 60);
+
+    check(sloop_seq_rec_toggle() == ESP_OK && song.playing && song.rec == 0u && !rec_wait,
+          "REC off stops recording but keeps the transport playing");
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_OFF, "REC off projects the off state");
+    check(sloop_seq_rec_toggle() == ESP_OK && song.playing && song.rec == 1u,
+          "REC while playing starts recording at once");
+    check(sloop_seq_rec_toggle() == ESP_OK && song.rec == 0u, "a second REC press ends the take");
+
+    song.rec = 1u;
+    seq_rec_follow_locked(2);
+    check(song.rec == 4u, "selecting another track moves the REC bit");
+    song.rec = 0;
+    seq_rec_follow_locked(1);
+    check(song.rec == 0u, "a disarmed song stays disarmed on a track change");
+}
+
+static void test_rec_count_in(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    put_note(&trk[1], 0, 55, 0);
+    check(sloop_seq_rec_config(0, 0, 1) == ESP_OK && sloop_seq_rec_toggle() == ESP_OK,
+          "count-in fixture is armed with START=COUNT");
+    transport_req = 1; /* API PLAY */
+    blocks(1);
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_COUNT_IN && song.rec == 0u && !song.playing,
+          "API PLAY while armed in COUNT mode runs the count-in first");
+    uint32_t n = 0;
+    while (ci_on && n < 4000u) {
+        blocks(1);
+        n++;
+    }
+    rec_snapshot(&r);
+    check(n > 0u && n < 4000u && !ci_on && song.playing && song.rec == 1u &&
+              r.state == SEQ_REC_RECORDING,
+          "the four-beat count-in ends in the loop and the recording");
+}
+
+static uint32_t last_step_with(const track_t *t, uint32_t note)
+{
+    uint32_t i, k, last = 0;
+    for (i = 0; i < (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP); i++)
+        for (k = 0; k < t->step[i].n && k < 4u; k++)
+            if (t->step[i].note[k] == note) last = i;
+    return last;
+}
+
+static void test_rec_poly_independent_release(void)
+{
+    sloop_rec_snapshot_t r;
+    uint32_t sb;
+    reset();
+    put_note(&trk[1], 0, 55, 0); /* 非空工程 */
+    trk[0].p[P_SLEN] = 16;
+    trk[0].p[P_VOICE] = V_POLY;
+    sb = div_samples(2) / CTL;
+    check(sloop_seq_rec_toggle() == ESP_OK, "POLY fixture is armed");
+    input_on(&trk[0], 60, 100);
+    input_on(&trk[0], 64, 100);
+    blocks(sb * 2u);
+    input_off(&trk[0], 60);
+    blocks(sb * 2u);
+    input_off(&trk[0], 64);
+    blocks(1);
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_RECORDING && trk[0].step[0].n == 2,
+          "a POLY take records both notes of the chord in step 0");
+    uint32_t last60 = last_step_with(&trk[0], 60);
+    uint32_t last64 = last_step_with(&trk[0], 64);
+    check(last64 >= last60 + 2u,
+          "releasing one POLY key ends only its note; the other keeps its length");
+}
+
+static void test_free_take_close_and_drop(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    check(project_empty(), "free take fixture starts from an empty project");
+    check(sloop_seq_rec_toggle() == ESP_OK, "stopped REC arms an empty project");
+    input_on(&trk[0], 60, 100);
+    rec_snapshot(&r);
+    check(r.state == SEQ_REC_FREE_TAKE && ft_on && !song.playing,
+          "the first note of an empty project opens a free take");
+    blocks(FS * 2u / CTL); /* one bar at 120 BPM */
+    input_off(&trk[0], 60);
+    blocks(2);
+    check(sloop_seq_rec_toggle() == ESP_OK, "REC closes the free take");
+    blocks(1);
+    rec_snapshot(&r);
+    check(!ft_on && song.playing && r.take_bars == 1u && r.state == SEQ_REC_OFF,
+          "a valid free take closes into a one-bar loop and starts playing");
+    check(trk[0].step[0].time == ST_NOTE && trk[0].step[0].n == 1 && trk[0].step[0].note[0] == 60,
+          "the free take is quantised into step 0");
+    rec_snapshot(&r);
+    check(r.take_bars == 0u, "the take result is a one-shot consumed by the snapshot");
+    transport_req = 2;
+    blocks(1);
+
+    /* 太短的 take：< 0.5 s 丢弃（ft_bars = 0xFF），工程不变、不启动走带 */
+    reset();
+    check(sloop_seq_rec_toggle() == ESP_OK, "a second free take fixture is armed");
+    input_on(&trk[0], 62, 100);
+    blocks(100);
+    input_off(&trk[0], 62);
+    check(sloop_seq_rec_toggle() == ESP_OK, "REC closes the short take");
+    blocks(1);
+    rec_snapshot(&r);
+    check(!ft_on && !song.playing && r.take_bars == 0xFF && trk[0].step[0].n == 0,
+          "a free take shorter than half a second is dropped and leaves the project empty");
+}
+
+static void test_play_button_vs_api_play(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    check(sloop_seq_rec_toggle() == ESP_OK, "physical PLAY fixture is armed");
+    input_on(&trk[0], 60, 100);
+    blocks(FS * 2u / CTL); /* a valid take, one bar */
+    input_off(&trk[0], 60);
+    check(ft_on && !song.playing, "the free take is running before the PLAY press");
+    check(sloop_seq_play_button(true) == ESP_OK, "the physical PLAY key is accepted");
+    blocks(1);
+    check(!ft_on && !song.playing && transport_req == 0u && ft_bars == 0xFF,
+          "the physical PLAY key drops the free take instead of closing it");
+    check(sloop_seq_play_button(false) == ESP_OK, "releasing the physical PLAY key clears its button bit");
+    rec_snapshot(&r);
+    check(r.take_bars == 0xFF && trk[0].step[0].n == 0,
+          "the dropped take leaves the project empty and reports the drop");
+    blocks(100); /* 让 ft_owns_press 的 300ms 窗口过去 */
+
+    /* 同一条 take 由 API PLAY 关闭（sloop_core_play → transport_req = 1） */
+    reset();
+    check(sloop_seq_rec_toggle() == ESP_OK, "API PLAY fixture is armed");
+    input_on(&trk[0], 60, 100);
+    blocks(FS * 2u / CTL);
+    input_off(&trk[0], 60);
+    transport_req = 1;
+    blocks(1);
+    rec_snapshot(&r);
+    check(!ft_on && song.playing && r.take_bars == 1u && trk[0].step[0].n == 1,
+          "API PLAY closes the free take into a loop (it does not drop it)");
+    transport_req = 2;
+    blocks(1);
+
+    /* 非 take 时物理 PLAY 仍是普通走带按钮 */
+    reset();
+    check(sloop_seq_play_button(true) == ESP_OK, "physical PLAY starts the transport");
+    blocks(1);
+    check(transport_req == 0u && song.playing, "physical PLAY requests the transport when no take runs");
+    sloop_seq_play_button(false);
+    check(sloop_seq_play_button(true) == ESP_OK, "physical PLAY with the transport running stops it");
+    blocks(1);
+    check(!song.playing, "physical PLAY stops a running transport");
+    sloop_seq_play_button(false);
+}
+
+static void test_drum_hit_lanes(void)
+{
+    reset();
+    TDRUM->p[P_E0] = 0;
+    check(sloop_seq_drum_hit(15, 100) == ESP_OK, "drum hit accepts the last lane");
+    check(dstep_mask(&TDRUM->dstep[0]) == 0u && trk[0].step[0].n == 0,
+          "a live drum hit outside recording records nothing and never falls back to track 0");
+    check(sloop_seq_drum_hit(16, 100) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_drum_hit(0, 128) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_drum_hit(0, 0) == ESP_OK,
+          "drum hit rejects lane 16 and velocity 128; velocity 0 is a release");
+
+    reset();
+    TDRUM->p[P_E0] = 0;
+    song.playing = 1;
+    song.rec = (uint8_t)(1u << TRK_DRUM);
+    song.sel = TRK_DRUM;
+    check(sloop_seq_drum_hit(15, 127) == ESP_OK, "a recorded drum hit on lane 15 succeeds");
+    check(dstep_has(&TDRUM->dstep[0], 15) && dstep_lvl(&TDRUM->dstep[0], 15) == LV_HARD,
+          "the recorded hit writes lane 15 at its velocity level");
+    check(sloop_seq_drum_hit(3, 10) == ESP_OK && dstep_has(&TDRUM->dstep[0], 3) &&
+              dstep_lvl(&TDRUM->dstep[0], 3) == LV_GHOST,
+          "a second lane records separately at its own level");
+    check(dstep_mask(&TDRUM->dstep[0]) == (uint16_t)((1u << 15) | (1u << 3)),
+          "both recorded lanes share the step without touching the others");
+    song.rec = 0;
+    song.playing = 0;
+    s_frozen = true;
+    check(sloop_seq_drum_hit(1, 100) == ESP_ERR_INVALID_STATE,
+          "frozen drum hits return invalid state");
+}
+
+static void test_fill_control(void)
+{
+    reset();
+    check(sloop_seq_fill_control(true, false) == ESP_OK && fill_held == 1,
+          "FILL held sets the upstream performance flag");
+    blocks(1);
+    check(fill_now == 1, "the next rendered block plays the fill");
+    check(sloop_seq_fill_control(true, true) == ESP_OK && fill_arm == 1,
+          "FILL NEXT arms the next bar");
+    check(sloop_seq_fill_control(true, true) == ESP_OK && fill_arm == 0,
+          "FILL NEXT again cancels the arm");
+    check(sloop_seq_fill_control(false, false) == ESP_OK && fill_held == 0,
+          "releasing FILL clears the held flag");
+    check(sloop_seq_fill_control(true, true) == ESP_OK, "a fill is held and armed before STOP");
+    transport_req = 2;
+    blocks(1);
+    check(fill_held == 0 && fill_arm == 0 && fill_now == 0,
+          "STOP ends a held or armed fill");
+}
+
 int main(void)
 {
     _Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "public drum step has the upstream packed layout");
@@ -540,6 +874,15 @@ int main(void)
     test_pattern_rotate_length();
     test_pattern_transpose_clear_undo();
     test_new_entry_locking();
+    test_note_del_atomic();
+    test_rec_config();
+    test_rec_arm_and_first_note();
+    test_rec_count_in();
+    test_rec_poly_independent_release();
+    test_free_take_close_and_drop();
+    test_play_button_vs_api_play();
+    test_drum_hit_lanes();
+    test_fill_control();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }

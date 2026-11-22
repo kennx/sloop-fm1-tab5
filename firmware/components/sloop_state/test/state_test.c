@@ -395,10 +395,12 @@ static void case_copy_and_sync(void)
     check_ll("layer_held", s.layer_held, 3);
 }
 
-/* ⑥ ERASE_NOTE：把**显式步**（a=track b=step v=note）里的音高解析为 index，
- * 再透传完整上游 NOTE_DEL；不读 focus_step。其余音符前移，每音符字段（lvl/rat
- * 的 2bit、flags 的 CONT 位）随之前移；最后一个音符删除后整步清空 lock/micro/fill
- * 并折叠 TIE 连缀；无匹配/越界不调用编辑 API。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
+/* ⑥ ERASE_NOTE：把**显式步**（a=track b=step v=note）里的音高交给 seq adapter，
+ * 由它在**同一把引擎锁**内找到 index 并做完整上游 NOTE_DEL（录音并发改步不会让
+ * 预读的 index 失效）；不读 focus_step、状态层不再预读步。其余音符前移，每音符
+ * 字段（lvl/rat 的 2bit、flags 的 CONT 位）随之前移；最后一个音符删除后整步清空
+ * lock/micro/fill 并折叠 TIE 连缀；无匹配/越界不调用编辑 API。上游常量镜像：
+ * SF_ACCENT=1、SF_CONT0=8。 */
 static void case_erase_note(void)
 {
     stub_engine_reset();
@@ -415,14 +417,13 @@ static void case_erase_note(void)
     state_set_focus(0, 9);
 
     uint32_t reads0 = g_stub.read_step_calls;
-    uint32_t edits0 = g_stub.seq_step_edit_calls;
+    uint32_t dels0 = g_stub.note_del_calls;
     apply(CMD_ERASE_NOTE, 0, 5, 60);
-    check_ll("音高解析 read_step ×1", g_stub.read_step_calls - reads0, 1);
-    check_ll("NOTE_DEL 调用 ×1", g_stub.seq_step_edit_calls - edits0, 1);
-    check_ll("NOTE_DEL op", g_stub.last_step_edit.op, SEQ_STEP_NOTE_DEL);
-    check_ll("NOTE_DEL index", g_stub.last_step_edit.index, 0);
-    check_ll("NOTE_DEL track", g_stub.last_step_edit.track, 0);
-    check_ll("NOTE_DEL step", g_stub.last_step_edit.step, 5);
+    check_ll("音高解析不预读步（原子 adapter）", g_stub.read_step_calls - reads0, 0);
+    check_ll("pitch adapter 调用 ×1", g_stub.note_del_calls - dels0, 1);
+    check_ll("pitch adapter track", g_stub.note_del_last_track, 0);
+    check_ll("pitch adapter step", g_stub.note_del_last_step, 5);
+    check_ll("pitch adapter note", g_stub.note_del_last_note, 60);
     const sloop_step_t *st = &g_stub.step[0][5];
     check_ll("删首音后 n", st->n, 1);
     check_ll("删首音后 note0=原 note1", st->note[0], 64);
@@ -438,10 +439,11 @@ static void case_erase_note(void)
     check_ll("copy 步 n", s.core.step[0][5].n, 1);
     check_ll("copy 步 note0", s.core.step[0][5].note[0], 64);
 
-    /* 无匹配音符：不调用完整编辑 API */
-    edits0 = g_stub.seq_step_edit_calls;
+    /* 无匹配音符：adapter 回 not_found，不改步 */
+    dels0 = g_stub.note_del_calls;
     apply(CMD_ERASE_NOTE, 0, 5, 60);
-    check_ll("无匹配不调用 NOTE_DEL", g_stub.seq_step_edit_calls - edits0, 0);
+    check_ll("无匹配走一次 adapter", g_stub.note_del_calls - dels0, 1);
+    check_ll("无匹配不改步", g_stub.step[0][5].n, 1);
     state_get_copy(&s);
     check_ll("无匹配 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
 
@@ -505,21 +507,22 @@ static void case_erase_note(void)
     g_stub.step[2][11] = (sloop_step_t){
         .n = 1, .note = { 60, 0, 0, 0 }, .vel = 90, .time = 0, .flags = 0x08,
     };
+    uint32_t edits0 = g_stub.seq_step_edit_calls;
     apply(CMD_ERASE_NOTE, 2, 10, 48);
-    check_ll("CONT 删除走 NOTE_DEL", g_stub.last_step_edit.op, SEQ_STEP_NOTE_DEL);
-    check_ll("CONT 删除 index", g_stub.last_step_edit.index, 0);
+    check_ll("CONT 删除走 pitch adapter", g_stub.note_del_last_note, 48);
+    check_ll("CONT 删除不自行模拟 NOTE_DEL", g_stub.seq_step_edit_calls - edits0, 0);
     check_ll("CONT 后续 NOTE 不被状态层折叠", g_stub.step[2][11].n, 1);
     check_ll("CONT 后续 NOTE 音高不变", g_stub.step[2][11].note[0], 60);
 
-    /* 越界：鼓轨/步号越界/note 0/note 128 不读、不调用完整编辑 API */
+    /* 越界：鼓轨/步号越界/note 0/note 128 不读、不调用 adapter */
     reads0 = g_stub.read_step_calls;
-    edits0 = g_stub.seq_step_edit_calls;
+    dels0 = g_stub.note_del_calls;
     apply(CMD_ERASE_NOTE, 3, 0, 60);   /* 鼓轨 */
     apply(CMD_ERASE_NOTE, 0, 64, 60);  /* 步号越界 */
     apply(CMD_ERASE_NOTE, 0, 0, 0);    /* note 0 */
     apply(CMD_ERASE_NOTE, 0, 0, 200);  /* note 越界 */
     check_ll("越界不读", g_stub.read_step_calls - reads0, 0);
-    check_ll("越界不调用 NOTE_DEL", g_stub.seq_step_edit_calls - edits0, 0);
+    check_ll("越界不调用 pitch adapter", g_stub.note_del_calls - dels0, 0);
 }
 
 /* ⑦ 步窗抽象 {bank, window_start, window_len}：默认 {0,0,16}；窗口列 c 映射到
@@ -1279,6 +1282,92 @@ static void case_seq_drum_write(void)
     check_ll("非法鼓写不调引擎", g_stub.seq_dstep_write_calls - calls0, 0);
 }
 
+/* 录音 / fill / 鼓演奏 / 物理 PLAY 命令：透传 seq adapter；越界不调引擎。
+ * DRUM_HIT 绝不回落合成轨 0（不调 note 入口）；物理 PLAY 不冒充 API play。 */
+static void case_rec_and_drum_commands(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_REC_TOGGLE, 0, 0, 0);
+    check_ll("REC TOGGLE 调 adapter", g_stub.rec_toggle_calls, 1);
+    state_get_copy(&s);
+    check_ll("REC TOGGLE 成功 → ok", s.seq_status, SEQ_STATUS_OK);
+
+    g_stub.rec.state = SEQ_REC_ARMED;
+    g_stub.rec.track = 2;
+    apply(CMD_REC_TOGGLE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("REC 命令后同拍投影状态", s.rec.state, SEQ_REC_ARMED);
+    check_ll("REC 命令后同拍投影轨", s.rec.track, 2);
+
+    apply(CMD_REC_CONFIG, 1, 0, 1);
+    check_ll("REC CONFIG 调 adapter", g_stub.rec_config_calls, 1);
+    check_ll("REC CONFIG quant", g_stub.rec_last_quant, 1);
+    check_ll("REC CONFIG tempo", g_stub.rec_last_tempo, 0);
+    check_ll("REC CONFIG count", g_stub.rec_last_count, 1);
+    uint32_t calls0 = g_stub.rec_config_calls;
+    apply(CMD_REC_CONFIG, 2, 0, 0);
+    apply(CMD_REC_CONFIG, 0, 2, 0);
+    apply(CMD_REC_CONFIG, 0, 0, 2);
+    check_ll("REC CONFIG 超宽不调 adapter", g_stub.rec_config_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("REC CONFIG 超宽 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+
+    apply(CMD_FILL_CONTROL, 1, 1, 0);
+    check_ll("FILL held 透传", g_stub.fill_last_held, 1);
+    check_ll("FILL next 透传", g_stub.fill_last_next, 1);
+    calls0 = g_stub.fill_control_calls;
+    apply(CMD_FILL_CONTROL, 2, 0, 0);
+    apply(CMD_FILL_CONTROL, 0, 2, 0);
+    check_ll("FILL 超宽不调 adapter", g_stub.fill_control_calls - calls0, 0);
+
+    uint32_t notes0 = g_stub.note_calls;
+    apply(CMD_DRUM_HIT, 15, 0, 127);
+    check_ll("DRUM HIT lane", g_stub.drum_last_lane, 15);
+    check_ll("DRUM HIT velocity", g_stub.drum_last_vel, 127);
+    check_ll("DRUM HIT 不回落合成轨", g_stub.note_calls - notes0, 0);
+    calls0 = g_stub.drum_hit_calls;
+    apply(CMD_DRUM_HIT, 16, 0, 100);
+    apply(CMD_DRUM_HIT, 0, 0, 128);
+    check_ll("DRUM HIT 越界不调 adapter", g_stub.drum_hit_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("DRUM HIT 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    apply(CMD_DRUM_HIT, 3, 0, 0);
+    check_ll("DRUM HIT velocity 0 = 松开透传", g_stub.drum_last_vel, 0);
+
+    apply(CMD_PLAY_BUTTON, 1, 0, 0);
+    check_ll("PLAY BUTTON down 透传", g_stub.play_button_last_down, 1);
+    apply(CMD_PLAY_BUTTON, 0, 0, 0);
+    check_ll("PLAY BUTTON up 透传", g_stub.play_button_last_down, 0);
+    check_ll("PLAY BUTTON 不冒充 API play", g_stub.play_calls, 0);
+    state_get_copy(&s);
+    check_ll("PLAY BUTTON 不直接改写 playing 投影（下一拍 sync 取引擎真值）", s.core.playing, 0);
+}
+
+/* sync 把录音快照整份拷进 AppState（一次性 take 结果由快照消费，见 sloop_seq.h）。 */
+static void case_rec_sync_projection(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    g_stub.rec.state = SEQ_REC_FREE_TAKE;
+    g_stub.rec.track = 3;
+    g_stub.rec.quant_off = 1;
+    g_stub.rec.tempo_mode = 1;
+    g_stub.rec.count_mode = 1;
+    g_stub.rec.take_bars = 0xFF;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 拷贝 rec.state", s.rec.state, SEQ_REC_FREE_TAKE);
+    check_ll("sync 拷贝 rec.track", s.rec.track, 3);
+    check_ll("sync 拷贝 rec.quant", s.rec.quant_off, 1);
+    check_ll("sync 拷贝 rec.tempo", s.rec.tempo_mode, 1);
+    check_ll("sync 拷贝 rec.count", s.rec.count_mode, 1);
+    check_ll("sync 拷贝 rec.take_bars", s.rec.take_bars, 0xFF);
+}
+
 /* init、外部 sync 与 LOAD 的选轨变化都对齐焦点；单纯移动焦点不被下一拍覆盖。 */
 static void case_external_selection_focus(void)
 {
@@ -1338,6 +1427,13 @@ static void case_seq_frozen_and_range(void)
     check_ll("冻结 erase → frozen", s.seq_status, SEQ_STATUS_FROZEN);
     check_ll("冻结 erase 不调引擎", g_stub.seq_step_edit_calls, 0);
 
+    apply(CMD_REC_TOGGLE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结 REC toggle → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    apply(CMD_DRUM_HIT, 0, 0, 100);
+    state_get_copy(&s);
+    check_ll("冻结鼓 hit → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+
     g_stub.seq_frozen = false;
     apply(CMD_SET_MICRO, 0, 0, (uint16_t)(int16_t)250);
     state_get_copy(&s);
@@ -1374,6 +1470,8 @@ int main(void)
     run("PATTERN/micro/fill 标量透传与投影", case_seq_pattern_micro_fill);
     run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);
     run("DRUM_STEP_WRITE 原始 POD 与合成步隔离", case_seq_drum_write);
+    run("REC/fill/鼓演奏/物理 PLAY 命令透传", case_rec_and_drum_commands);
+    run("sync 拷贝录音快照投影", case_rec_sync_projection);
     run("外部选轨同步 focus_track", case_external_selection_focus);
     run("冻结 toggle/erase 与 micro/fill 超宽拒绝", case_seq_frozen_and_range);
 

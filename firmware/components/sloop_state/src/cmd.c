@@ -120,21 +120,9 @@ static void cmd_erase_note(app_state_t *s, uint32_t track, uint32_t idx, uint16_
         s->seq_status = SEQ_STATUS_FROZEN;
         return;
     }
-
-    sloop_step_t st;
-    sloop_core_read_step(track, idx, &st);
-    uint32_t n = st.n > 4u ? 4u : st.n;
-    uint32_t index = 0;
-    while (index < n && st.note[index] != note) index++;
-    if (index == n) {
-        s->seq_status = SEQ_STATUS_NOT_FOUND;
-        return;
-    }
-    const sloop_step_edit_t edit = {
-        .track = (uint8_t)track, .step = (uint8_t)idx,
-        .index = (uint8_t)index, .op = SEQ_STEP_NOTE_DEL,
-    };
-    state_seq_result(s, sloop_seq_step_edit(&edit));
+    /* 音高 → index 的查找与删除由 seq adapter 在**同一把引擎锁**内完成：实时录音
+     * 可能并发改步，状态层预读的 index 会在两次取锁之间失效（评审 deferral）。 */
+    state_seq_result(s, sloop_seq_note_del(track, idx, note));
 }
 
 static void cmd_set_bpm(app_state_t *s, uint16_t bpm)
@@ -289,6 +277,68 @@ static void cmd_lock(app_state_t *s, edit_cmd_type_t type, uint32_t track,
     state_seq_result(s, ret);
 }
 
+/* 录音命令（P4-C Task 6）：adapter 是唯一状态机实现；成功后同拍重取快照投影，
+ * 让 `STATE SNAP`/UI 在下一拍 sync 之前就看到 armed/recording/off。快照是**一次
+ * 性**的（take 结果被消费），所以只在显式命令之后重取，不在每次分发都读。 */
+static void state_refresh_rec(app_state_t *s)
+{
+    sloop_seq_rec_read(&s->rec);
+}
+
+static void cmd_rec_toggle(app_state_t *s)
+{
+    esp_err_t ret = sloop_seq_rec_toggle();
+    state_seq_result(s, ret);
+    if (ret == ESP_OK) state_refresh_rec(s);
+}
+
+static void cmd_rec_config(app_state_t *s, uint32_t quant_off, uint32_t tempo_mode, uint32_t count_mode)
+{
+    if (quant_off > 1u || tempo_mode > 1u || count_mode > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_rec_config((uint8_t)quant_off, (uint8_t)tempo_mode,
+                                         (uint8_t)count_mode);
+    state_seq_result(s, ret);
+    if (ret == ESP_OK) state_refresh_rec(s);
+}
+
+static void cmd_fill_control(app_state_t *s, uint32_t held, uint32_t next_bar)
+{
+    if (held > 1u || next_bar > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    state_seq_result(s, sloop_seq_fill_control(held != 0u, next_bar != 0u));
+}
+
+/* 鼓演奏：lane/velocity 越界是命令错误（invalid，不调引擎）；成功不改 seq_status
+ * （演奏不是一次编辑），也从不回落合成轨 0。velocity 0 = 松开（自由录音的音符段）。 */
+static void cmd_drum_hit(app_state_t *s, uint32_t lane, uint32_t velocity)
+{
+    if (lane > 15u || velocity > 127u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_drum_hit(lane, velocity);
+    if (ret != ESP_OK) {
+        switch (ret) {
+        case ESP_ERR_INVALID_STATE: s->seq_status = SEQ_STATUS_FROZEN; break;
+        case ESP_ERR_INVALID_ARG: s->seq_status = SEQ_STATUS_INVALID; break;
+        default: s->seq_status = SEQ_STATUS_ERROR; break;
+        }
+    }
+}
+
+/* 物理 PLAY（面板按钮口径）：down/up 都透传；playing 投影留给下一拍 sync（start
+ * 请求在音频块边界才被上游消费，提前改写投影会抢跑引擎真值）。 */
+static void cmd_play_button(app_state_t *s, uint32_t down)
+{
+    (void)s;
+    sloop_seq_play_button(down != 0u);
+}
+
 static void cmd_drum_step(app_state_t *s, uint32_t step, const sloop_dstep_t *dstep)
 {
     if (step >= STATE_STEPS_MAX || dstep == NULL) {
@@ -413,6 +463,11 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_LOCK_SET:
     case CMD_LOCK_DEL: cmd_lock(s, cmd->type, cmd->a, cmd->b, cmd->n, cmd->v); break;
     case CMD_DRUM_STEP_WRITE: cmd_drum_step(s, cmd->b, cmd->p); break;
+    case CMD_REC_TOGGLE: cmd_rec_toggle(s); break;
+    case CMD_REC_CONFIG: cmd_rec_config(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_FILL_CONTROL: cmd_fill_control(s, cmd->a, cmd->b); break;
+    case CMD_DRUM_HIT: cmd_drum_hit(s, cmd->a, cmd->v); break;
+    case CMD_PLAY_BUTTON: cmd_play_button(s, cmd->a); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，
