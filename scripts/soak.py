@@ -23,13 +23,20 @@
        物理键盘事件链（I2C 轮询/解码）在跑——键盘链路由人工逐键核对（DI-4）；
     6. 原始串口日志无 panic / Guru Meditation / task_wdt / abort / Backtrace；
     7. 每周期的切页回显与 STATE SNAP 页面断言全过（无切页回归）；
-    8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）。
+    8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）；
+    9. --save-window N（存储写窗口，P4-B）：窗口内停走带做一次 `STORE PROJ SAVE 0` +
+       `STORE PROJ LOAD 0`（音频流**不停**），窗口内 xrun 增量 ≤ 16；窗口后 streaming=1；
+       窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
+       （每次采样 xrun 必须为 0）；
+   10. 跨组池检查：SEQ(TRANSPORT)↔PLAY ×5 往返，`UI MEM` 的 pool_free 首末差与单次
+       下降都 ≤ 128B（组作用域不变量 + R34 实测噪声 84B）。
 
 产物（默认 $SLOOP_TAB5_PROJECT/build/verify/）：soak-<时间戳>.log（原始串口回显，
 同 inject.py 口径：逐字节写盘，唯一非固件字节是 `# [inject] ...` 注记）与
 soak-summary-<时间戳>.txt（采样表 + 判定）。退出码 0 = 判定通过。
 
 用法：python3 scripts/soak.py /dev/ttyACM0 [--duration 1800] [--interval 300] [--cycle 12]
+                              [--save-window 0]
 """
 import argparse
 import math
@@ -55,6 +62,9 @@ DUTY_BASELINE_PCT = 9.44        # 阶段 2 静默渲染基线（2-engine-2026-11
 DUTY_MAX_PCT = 2 * DUTY_BASELINE_PCT
 STACK_FLOOR = 2048
 KEY_EVENTS_PER_CYCLE = 2        # 每轮 KEY down + up
+SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash 擦写不饿死音频）
+POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
+POOL_RT_ROUNDS = 5              # 跨组往返次数（SEQ ↔ PLAY）
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -131,6 +141,75 @@ def ensure_playing(s) -> None:
         s.expect(r"-> TRANSPORT CMD_PLAY", "TAP PLAY（恢复播放）")
 
 
+def wait_playing(s, timeout: float = 2.0) -> None:
+    """走带请求只由渲染循环消费：轮询到 playing=1（否则紧随的 sample() 会假红）。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"playing=(\d)") == 1:
+            return
+        if time.monotonic() >= deadline:
+            s.fail("soak 恢复播放超时（2s 内 playing 仍为 0）")
+            return
+        time.sleep(0.05)
+
+
+def perf_counters(s):
+    """ENG PERF 的 (xrun, streaming)。不要求走带播放——save 窗口在停走带时取边界，
+    此时 sample() 的 playing=1 断言不适用。"""
+    s.cmd("ENG PERF")
+    perf = kv_raw(s.last)
+    return int(perf.get("xrun", -1)), perf.get("streaming", "?")
+
+
+def ui_pool_free(s) -> int:
+    s.cmd("UI MEM")
+    return kv_int(s.last).get("pool_free", -1)
+
+
+def pool_round_trip(s) -> dict:
+    """组作用域池检查：SEQ(TRANSPORT)↔PLAY ×N 跨组往返，每次回 SEQ 后的 pool_free
+    不得比出发时少超过 POOL_RT_NOISE（源组页面必须释放；styles_init 每页只跑一次）。"""
+    s.ser.note(f"soak 池检查：SEQ↔PLAY ×{POOL_RT_ROUNDS} 跨组往返")
+    start = ui_pool_free(s)
+    values = [start]
+    for _ in range(POOL_RT_ROUNDS):
+        switch(s, "play")
+        switch(s, "transport")
+        values.append(ui_pool_free(s))
+    steps = [b - a for a, b in zip(values, values[1:])]
+    pool = {"start": start, "end": values[-1], "delta": values[-1] - start,
+            "min_step": min(steps) if steps else 0, "rounds": POOL_RT_ROUNDS}
+    print(f"   池检查 SEQ↔PLAY ×{POOL_RT_ROUNDS}: pool_free {start} -> {values[-1]} "
+          f"(Δ={pool['delta']}B, 单次最小 {pool['min_step']}B, 容差 ±{POOL_RT_NOISE}B)")
+    return pool
+
+
+def save_window(s, seconds: float, take_sample) -> dict:
+    """--save-window：停走带 → 一次 STORE PROJ SAVE 0 + LOAD 0 → 保持 N 秒 → 恢复播放。
+
+    边界用 ENG PERF 取 xrun（sample() 要求 playing=1）；窗口后的采样同时断言
+    streaming=1 与页面/走带回到常态。xrun 是自启动累计值，窗口后由 verdict 冻结基线。
+    """
+    s.ser.note(f"soak save 窗口：停走带 SAVE 0 + LOAD 0，保持 {seconds:.0f}s")
+    inject.ensure_stopped(s)
+    x0, st0 = perf_counters(s)
+    s.cmd("STORE PROJ SAVE 0")
+    s.expect(r"PROJ 0 SAVED hash=[0-9A-F]{8}", "save 窗口：STORE PROJ SAVE 0")
+    s.cmd("STORE PROJ LOAD 0")
+    s.expect(r"PROJ 0 LOADED hash=[0-9A-F]{8}", "save 窗口：STORE PROJ LOAD 0")
+    time.sleep(seconds)
+    x1, st1 = perf_counters(s)
+    ensure_playing(s)
+    wait_playing(s)
+    row = take_sample()
+    win = {"seconds": seconds, "xrun_before": x0, "xrun_after": x1, "delta": x1 - x0,
+           "streaming_before": st0, "streaming_after": st1, "row_t": row["t"]}
+    print(f"   save 窗口 {seconds:.0f}s: xrun {x0} -> {x1}（增量 {win['delta']} ≤ "
+          f"{SAVE_WINDOW_XRUN_MAX}）, streaming={st1}, 恢复后 t={row['t']}s")
+    return win
+
+
 def cycle(s, n: int) -> None:
     """一轮：保持播放 → STEP 翻一格 → TRACKS 选一张卡 → PLAY 弹一个音 → 回 TRANSPORT。"""
     ensure_playing(s)
@@ -157,7 +236,8 @@ def cycle(s, n: int) -> None:
     switch(s, "transport")
 
 
-def verdict(rows: list, log_path: Path, elapsed: float, requested: float) -> list:
+def verdict(rows: list, log_path: Path, elapsed: float, requested: float,
+            window: dict = None, pool: dict = None) -> list:
     """按判定口径给出问题列表（空 = 通过）。"""
     problems = []
     if len(rows) < 2:
@@ -172,16 +252,30 @@ def verdict(rows: list, log_path: Path, elapsed: float, requested: float) -> lis
     if free[-1] - free[0] < HEAP_NET_FLOOR:
         problems.append(f"内部堆首末下降 {free[0]} -> {free[-1]}（阈值 {HEAP_NET_FLOOR}）")
     for i in range(len(free) - 2):
-        window = free[i:i + 3]
-        if window[0] >= window[1] >= window[2] and window[0] - window[2] > HEAP_JITTER:
-            problems.append(f"内部堆连续 3 次非增下滑 {window}（> {HEAP_JITTER}B）")
+        window_free = free[i:i + 3]
+        if window_free[0] >= window_free[1] >= window_free[2] and \
+                window_free[0] - window_free[2] > HEAP_JITTER:
+            problems.append(f"内部堆连续 3 次非增下滑 {window_free}（> {HEAP_JITTER}B）")
     if free[-1] - free[0] <= -HEAP_JITTER and all(b <= a for a, b in zip(free, free[1:])):
         problems.append(f"内部堆全程非增（含平段、无回升），净 {free[-1] - free[0]}B：{free}")
+    if window is None:
+        for r in rows:
+            if r["xrun"] != 0:
+                problems.append(f"t={r['t']}s xrun={r['xrun']}")
+    else:
+        # xrun 是自启动累计计数：判据是窗口内**增量**（基线可以是之前会话留下的计数，
+        # 例如同一会话先跑过 SELFTEST/注入场景），窗口后冻结在 win_after。
+        if window["delta"] > SAVE_WINDOW_XRUN_MAX:
+            problems.append(f"save 窗口内 xrun 增量 {window['delta']} > {SAVE_WINDOW_XRUN_MAX}")
+        if window["streaming_after"] != "1":
+            problems.append(f"save 窗口后 streaming={window['streaming_after']}")
+        for r in rows:
+            if r["xrun"] > window["xrun_after"]:
+                problems.append(f"t={r['t']}s save 窗口外新增 xrun：{r['xrun']} > "
+                                f"窗口后基线 {window['xrun_after']}")
     for r in rows:
         if r["streaming"] != "1":
             problems.append(f"t={r['t']}s 未流式输出")
-        if r["xrun"] != 0:
-            problems.append(f"t={r['t']}s xrun={r['xrun']}")
         if 0 <= r["audio_stack_free"] < STACK_FLOOR:
             problems.append(f"t={r['t']}s 音频任务栈余量 {r['audio_stack_free']}B < {STACK_FLOOR}B")
         if math.isnan(r["duty_mean"]):
@@ -189,6 +283,11 @@ def verdict(rows: list, log_path: Path, elapsed: float, requested: float) -> lis
         elif r["duty_mean"] > DUTY_MAX_PCT:
             problems.append(f"t={r['t']}s 占空比 duty_mean={r['duty_mean']:.2f}% > "
                             f"2×基线 {DUTY_MAX_PCT:.2f}%")
+    if pool is not None:
+        if pool["delta"] < -POOL_RT_NOISE:
+            problems.append(f"跨组往返池首末差 {pool['delta']}B（< -{POOL_RT_NOISE}B）")
+        if pool["min_step"] < -POOL_RT_NOISE:
+            problems.append(f"跨组往返单次最大下降 {-pool['min_step']}B（> {POOL_RT_NOISE}B）")
     text = log_path.read_text(errors="replace")
     hits = [tok for tok in PANIC_TOKENS if tok.lower() in text.lower()]
     if hits:
@@ -204,6 +303,9 @@ def main() -> None:
     ap.add_argument("--duration", type=float, default=1800, help="总时长秒（默认 1800）")
     ap.add_argument("--interval", type=float, default=300, help="采样间隔秒（默认 300）")
     ap.add_argument("--cycle", type=float, default=12, help="动作循环周期秒（默认 12）")
+    ap.add_argument("--save-window", type=float, default=0.0,
+                    help="存储写窗口秒数：窗口内停走带做一次 STORE PROJ SAVE 0 + LOAD 0，"
+                         "断言窗口内 xrun 增量 ≤16、窗口后 streaming=1（0 = 关闭，默认）")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
     args = ap.parse_args()
@@ -222,6 +324,8 @@ def main() -> None:
 
     rows = []
     problems = []
+    pool = None
+    window = None
     print(f"== soak {args.duration:.0f}s @ {args.port}（采样 {args.interval:.0f}s，循环 {args.cycle:.0f}s）")
     print(f"   串口原始日志: {log_path}")
     try:
@@ -232,8 +336,9 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        visit_all_pages(s)  # 九页各访问一次后采样（组作用域：只驻留 SEQ 组）
+        visit_all_pages(s)  # 11 页各访问一次后采样（组作用域：只驻留 SEQ 组）
         ensure_playing(s)
+        pool = pool_round_trip(s)  # 跨组往返的池水位（组作用域不变量）
 
         t0 = time.monotonic()
         next_sample = 0.0
@@ -241,6 +346,7 @@ def main() -> None:
         errors = 0
         last_key_count = None
         expected_events = 0  # 距上次采样的期望 KEY 事件数（每轮 down+up）
+        window = None
 
         def take_sample() -> dict:
             nonlocal last_key_count, expected_events
@@ -263,6 +369,10 @@ def main() -> None:
             if row["page"] != PAGES["transport"]:
                 s.fail(f"soak 页面漂移：page={row['page']}（期望 3=transport）")
             return row
+
+        if args.save_window > 0:
+            window = save_window(s, args.save_window, take_sample)
+            next_sample = args.interval  # 窗口后的采样已经取过，下一次按间隔
 
         while True:
             elapsed = time.monotonic() - t0
@@ -293,7 +403,7 @@ def main() -> None:
         s.cmd("TAP %d %d" % inject.TRANSPORT_STOP)
         s.expect(r"-> TRANSPORT CMD_STOP", "soak 收尾 STOP")
         switch(s, "play")
-        problems = verdict(rows, log_path, elapsed, args.duration)
+        problems = verdict(rows, log_path, elapsed, args.duration, window, pool)
         s.ser.note(f"soak 结束 cycles={n} samples={len(rows)} failures={s.failures} "
                    f"problems={len(problems)}")
     except inject.InjectError as e:
@@ -323,6 +433,19 @@ def main() -> None:
                  f"HEAP_JITTER={HEAP_JITTER}B（连续 3 采样非增累计下滑容差）")
     lines.append(f"占空比判定：基线 {DUTY_BASELINE_PCT:.2f}%（阶段 2 静默渲染），"
                  f"上限 2× = {DUTY_MAX_PCT:.2f}%（流式 render_mean_us / 块预算 5804µs）")
+    if pool is not None:
+        lines.append(f"池检查：SEQ↔PLAY ×{pool['rounds']} 往返 pool_free {pool['start']} -> "
+                     f"{pool['end']}（Δ={pool['delta']}B，单次最小 {pool['min_step']}B，"
+                     f"容差 ±{POOL_RT_NOISE}B）")
+    else:
+        lines.append("池检查：未执行")
+    if window is not None:
+        lines.append(f"save 窗口：{window['seconds']:.0f}s，STORE PROJ SAVE 0 + LOAD 0（停走带），"
+                     f"xrun {window['xrun_before']} -> {window['xrun_after']}"
+                     f"（增量 {window['delta']} ≤ {SAVE_WINDOW_XRUN_MAX}），"
+                     f"窗口后 streaming={window['streaming_after']}")
+    else:
+        lines.append("save 窗口：关闭（xrun 必须为 0）")
     lines.append(f"实测时长 {measured}s / 请求 {args.duration:.0f}s")
     lines.append(f"断言失败 {s.failures} 项")
     lines.append("判定问题：无" if not problems else "判定问题：\n- " + "\n- ".join(problems))
@@ -333,8 +456,9 @@ def main() -> None:
         print(f"  [FAIL] {p}")
     if s.failures or problems:
         sys.exit(f"[FAIL] soak: {s.failures} 项断言失败，{len(problems)} 项判定问题")
+    xrun_text = (f"xrun 窗口增量 {window['delta']}" if window is not None else "xrun=0")
     print(f"[PASS] soak: {len(rows)} 次采样（{measured}s），内部堆 {rows[0]['internal_free']} -> "
-          f"{rows[-1]['internal_free']}B，xrun=0，duty_mean 最大 "
+          f"{rows[-1]['internal_free']}B，{xrun_text}，duty_mean 最大 "
           f"{max(r['duty_mean'] for r in rows):.2f}%（上限 {DUTY_MAX_PCT:.2f}%），无 panic/WDT")
 
 if __name__ == "__main__":
