@@ -212,11 +212,13 @@ typedef enum {
                               * 动作结果由状态行/console 回显体现） */
     SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
     SLOOP_TAP_SONG_SECTION,  /* SONG 页 A–D 卡：a=页 id b=section(0..3)（UI 局部选中，不写引擎） */
-    SLOOP_TAP_SONG_ENTRY,    /* SONG 页歌曲条目 0..15：a=页 id b=entry（UI 局部选中） */
+    SLOOP_TAP_SONG_ENTRY,    /* SONG 页歌曲条目 **0 起**（0..15）：a=页 id b=entry（UI
+                              * 局部选中；屏幕 `01`/`ENTRY 2` 是 1 起，刻意的两种口径） */
     SLOOP_TAP_SONG_ACTION,   /* SONG 页动作 chip（P4-C Task 11）：
                               * a=页 id b=sloop_song_act_t v=写后回读值（scene/bars/count/
                               * loop/chain 项数；STORE/LOAD/… = 0）d=落点 section(0..3)
-                              * err=0 成功 / 1..7 = app_seq_status_t（映射见 console）。
+                              * err=0 成功 / 1..7 = app_seq_status_t（映射见 console）；
+                              * 页面守卫（未就绪/走带中 MODE 或配置）回 7/5 且不发命令。
                               * 动作结果文本由 `sloop_ui_song_status_text()` 与屏幕同源给出。 */
 } sloop_tap_kind_t;
 

@@ -1287,8 +1287,8 @@ def run_step_edit(s: Session) -> None:
     # span 停在下一个 NOTE，CONT 不出现）。显式选轨 0 并写 P_VOICE=POLY（脚本可重复；
     # 状态假设原 DI-23 的同类问题）。
     select_track(s, 0)
-    s.cmd("PARAM 37 0")  # P_VOICE = V_POLY
-    s.expect(r"PARAM track=0 id=37 value=0", "② VOICE 归一轨 0 = POLY（CONT 用例前提）")
+    s.cmd(f"PARAM {P_VOICE_ID} 0")  # P_VOICE = V_POLY
+    s.expect(rf"PARAM track=0 id={P_VOICE_ID} value=0", "② VOICE 归一轨 0 = POLY（CONT 用例前提）")
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "UI step")
 
@@ -2336,6 +2336,13 @@ def run_nav(s: Session) -> None:
     # 首末 `pool_free` 差 ≤ 噪声、且逐次往返无单调下降。
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑧ 起点 PLAY")
+    # 预热一次：PLAY/TRACKS 的全部状态串首次显示会触发一次性文本/字形缓存（~100B 量级，
+    # 不是逐次泄漏；R34 的回归是每往返 ~268B）。之后 10 个测量轮从同一稳态出发，
+    # 判据仍是首末差 ≤128B 与单次下降 ≤128B。
+    s.cmd("UI tracks")
+    s.expect(r"UI page=tracks \(1\)", "⑧ 预热：UI tracks")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑧ 预热：UI play")
     free0 = nav_pool_free(s)
     per_trip = []
     for trip in range(1, NAV_LEAK_TRIPS + 1):
@@ -2493,6 +2500,7 @@ def knob_locked(s: Session, slot: int, op: str, dx: int, dy: int) -> None:
 # P_SLEN = 图案长度（引擎快照 trk.len，STEP 的 DIM 判据）、P_SDIV = 时钟分频
 # （trk.div，各轨播放头是否同步）。
 P_SLEN_ID, P_SDIV_ID = 29, 30
+P_VOICE_ID = 37  # P_VOICE（POLY/MONO/LEGATO/UNISON）：②e CONT 用例要求 POLY
 PATTERN_LEN_DEF, PATTERN_DIV_DEF = 16, 2
 
 
@@ -5556,6 +5564,7 @@ def run_song(s: Session) -> None:
     for i, name in enumerate(SONG_CFG_NAMES):
         x0 = SONG_CFG_X0 + i * SONG_CFG_PITCH
         s.probe(img, f"② {name} chip 底", x0 + 20, 72 + SONG_CFG_Y + 6, C_PANEL_HI, 14)
+    s.probe(img, "② SONG 组签选中（六组导航）", *C_TAB_SONG, C_YELLOW)
 
     # ---------- ③ 卡选 + STORE A/B ----------
     for k, letter in enumerate("ABCD"):
@@ -5626,8 +5635,12 @@ def run_song(s: Session) -> None:
     s.probe_region(img, "④ 状态行文本（UI_TEXT_DIM）", (24, 72 + 20, 1000, 72 + 80),
                    C_TEXT_DIM, 16, 40)
 
-    # ---------- ⑤ project erase 后歌曲项同步消失 ----------
-    proj_erase(s, 1, "⑤ STORE PROJ ERASE B")
+    # ---------- ⑤ ERASE chip：section 引擎真值 + 歌曲引用同步消失 ----------
+    # 页面 ERASE = CMD_SECTION_ERASE（与 console `STORE PROJ ERASE` 同一存储对象）；
+    # B 在歌曲里有引用 ⇒ 同时验证 arr_drop_scene 把第 2 项拿走。
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤ 选中 B（ERASE 落点）")
+    song_action(s, song_sec_xy(2), "ERASE", "⑤ TAP ERASE(B)", "ERASE B: OK", section="B")
     cfg = song_cfg(s)
     (s.ok if cfg["count"] == 1 and cfg["entry"].get(0) == (0, 2) else s.fail)(
         f"⑤ ERASE B 后歌曲 count={cfg['count']} entry={cfg['entry']}（期望 1 / 0:2）")
@@ -5651,6 +5664,47 @@ def run_song(s: Session) -> None:
     (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
         f"⑤ 恢复 A2+B3：count={cfg['count']} entry={cfg['entry']}")
 
+    # ---------- ⑤b 键盘路由：←/→ 条目、↑/↓ section、ENTER = LOAD ----------
+    # 到达 SONG 页（同组已建），选中项/状态由动作回显或 SEQ SECTION 观测。
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑤b 回 SONG（键盘路由）")
+    s.cmd("TAP %d %d" % song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select scene=0 bars=2", "⑤b 归一到 entry 0（A2）")
+    s.cmd("KEY 0x4C down")  # →：条目 0→1
+    s.cmd("KEY 0x4C up")
+    song_action(s, song_cfg_xy(2), "BARS+", "⑤b → 后焦点 entry 1", "ENTRY 2 BARS 4")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤b entry 1 还原 B3", "ENTRY 2 BARS 3")
+    s.cmd("KEY 0x4A down")  # ←：条目 1→0
+    s.cmd("KEY 0x4A up")
+    song_action(s, song_cfg_xy(2), "BARS+", "⑤b ← 后焦点 entry 0", "ENTRY 1 BARS 3")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤b entry 0 还原 A2", "ENTRY 1 BARS 2")
+    # ↑/↓ 选 section：按 ↓ 到 B → LOAD 回显 section=B 且引擎 live=B；按 ↑ 回 A。
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑤b 归一到 section A")
+    s.cmd("KEY 0x4B down")  # ↓：A→B
+    s.cmd("KEY 0x4B up")
+    song_action(s, song_sec_xy(1), "LOAD", "⑤b ↓ 后 LOAD 落点 B", "LOAD B: OK", section="B")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤b ↓ 选 section 后 live=B")
+    s.cmd("KEY 0x3B down")  # ↑：B→A
+    s.cmd("KEY 0x3B up")
+    song_action(s, song_sec_xy(1), "LOAD", "⑤b ↑ 后 LOAD 落点 A", "LOAD A: OK", section="A")
+    (s.ok if song_section(s)["live"] == "A" else s.fail)("⑤b ↑ 选 section 后 live=A")
+    # ENTER = LOAD 选中 section（输入任务路径，无 TAP 回显）：选 B 后 ENTER。
+    s.cmd("TAP %d %d" % song_card_xy(1))
+    s.expect(r"-> SONG card=B select", "⑤b 选中 B（ENTER 落点）")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    deadline = time.monotonic() + 1.0
+    live = None
+    while time.monotonic() < deadline:
+        live = song_section(s)["live"]
+        if live == "B":
+            break
+        time.sleep(0.05)
+    (s.ok if live == "B" else s.fail)(f"⑤b ENTER → LOAD B：live={live}")
+    s.cmd("TAP %d %d" % song_card_xy(0))
+    s.expect(r"-> SONG card=A select", "⑤b 收口回 section A")
+
     # ---------- ⑥ live 播放 + JUMP scene B + 空 scene 可见拒绝 ----------
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑥ UI transport")
@@ -5660,6 +5714,20 @@ def run_song(s: Session) -> None:
     s.expect_int(r"playing=(\d)", 1, "⑥ STATE SNAP playing")
     s.cmd("UI song")
     s.expect(r"UI page=song \(11\)", "⑥ 回 SONG（重建）")
+    # 页面输入守卫（上游 SONG 屏语义）：走带中 MODE 与 16 项配置编辑回 STOP FIRST、
+    # 不发命令；section/chain 的播放语义不受影响（紧接的 JUMP/CHAIN 仍可用）。
+    cfg_before = song_cfg(s)
+    for xy, name, label in ((song_cfg_xy(1), "BARS-", "⑥ 播放中 BARS-"),
+                            (song_cfg_xy(0), "SCENE", "⑥ 播放中 SCENE"),
+                            (song_cfg_xy(4), "COUNT+", "⑥ 播放中 COUNT+"),
+                            (song_cfg_xy(5), "LOOP", "⑥ 播放中 LOOP"),
+                            (song_top_xy(0), "SONG", "⑥ 播放中 MODE")):
+        song_action(s, xy, name, label, "STOP FIRST", err="blocked")
+    cfg_after = song_cfg(s)
+    (s.ok if cfg_after == cfg_before else s.fail)(
+        f"⑥ 走带中的配置编辑不改歌曲：{cfg_after} vs {cfg_before}")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=loop", "⑥ 走带中的 MODE 未切换")
     s.cmd("TAP %d %d" % song_card_xy(1))
     s.expect(r"-> SONG card=B select", "⑥ 选中 B")
     song_action(s, song_sec_xy(3), "JUMP", "⑥ TAP JUMP(B)", "JUMP B: OK", section="B")
@@ -5821,6 +5889,17 @@ def run_song(s: Session) -> None:
     # 的 TLSF 碎片涨落——SEQ 两页建满时的 pool_free 本身有 ±200B 的分配序噪声）。
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑩ SEQ↔SONG 起点 PLAY")
+    # 预热一轮：首次把 SONG/STEP/TRANSPORT 三页的**新状态串**（STOP FIRST / RECORDING /
+    # CHAIN …）交给 LVGL 会做一次性文本/字形缓存（实测 ~400B，之后逐轮稳定）；它不是
+    # 逐次泄漏，不计入 10 轮判据。10 个测量轮仍从同一 PLAY 稳态出发。
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ SEQ↔SONG 预热：UI step")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ SEQ↔SONG 预热：UI transport")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "⑩ SEQ↔SONG 预热：UI song")
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "⑩ SEQ↔SONG 预热：回 PLAY")
     free0 = song_pool_free(s)
     per_trip = []
     for trip in range(1, NAV_LEAK_TRIPS + 1):
@@ -5866,6 +5945,25 @@ def run_song(s: Session) -> None:
         s.ser.note(f"⑩ FILE→STEP 过渡实测：STEP delta={delta}B、构建后 pool_free={free_after}B"
                    f"（账面 {UI_BASE_BYTES} + 20,992 + 23,040 + 4,096 = "
                    f"{UI_BASE_BYTES + 20992 + 23040 + 4096}B）")
+
+    # ---------- ⑩b 六组页签与子签截图（EDIT / SEQ 两组） ----------
+    # 6 个组签（168px）+ 当前组子签（176px、5 槽复用）——页签单对象化后的视觉归档。
+    s.cmd("UI TAB edit")
+    s.expect(r"UI TAB EDIT page=\w+ \(\d+\)", "⑩b UI TAB edit")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=global \(4\)", "⑩b EDIT 子签归一到 GLOBAL")
+    img = s.capture("task-11-tabs-edit")
+    s.probe(img, "⑩b 组签选中（EDIT）", *C_TAB_EDIT, C_YELLOW)
+    s.probe(img, "⑩b 子签选中（EDIT 首个子页）", *C_TAB_GLOBAL, C_YELLOW)
+    s.probe(img, "⑩b 组签未选中（SEQ）", *C_TAB_SEQ, C_PANEL_HI, 10)
+    s.cmd("UI TAB seq")
+    s.expect(r"UI TAB SEQ page=\w+ \(\d+\)", "⑩b UI TAB seq")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=step \(2\)", "⑩b SEQ 子签归一到 STEP")
+    img = s.capture("task-11-tabs-seq")
+    s.probe(img, "⑩b 组签选中（SEQ）", *C_TAB_SEQ, C_YELLOW)
+    s.probe(img, "⑩b 子签选中（STEP）", *C_TAB_STEP, C_YELLOW)
+    s.probe(img, "⑩b 子签未选中（TRANSPORT）", *C_TAB_TRANSPORT, C_PANEL_HI, 10)
 
     # ---------- ⑪ 收口 ----------
     s.cmd("UI play")

@@ -36,11 +36,12 @@
  * 6 个组签（PLAY/TRACKS/EDIT/SEQ/SONG/FILE，P4-C Task 11），168px 宽
  * （6×168+5×8=1,048，右端 1,064 < 上行 SLOOP 标题起点 ~1,191）；子行复用固定
  * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 5 页是最大组，右端 928）。
- * 右侧 UI_TAB_RIGHT_RESERVE=220 给上行 SLOOP 标题与下行层键提示留位（提示盒
- * 起点 936 > 子行右端 928，宽度封顶 + 省略号截断，绝不压到子签）。 */
+ * 右侧 UI_TAB_RIGHT_RESERVE=216 给上行 SLOOP 标题与下行层键提示留位：组行右端
+ * 1,064 = 1,280−216（正好用完 reserve）；子行右端 928，提示盒从 936 起，宽度封顶 +
+ * 省略号截断，绝不压到子签。 */
 #define UI_TAB_X0  16
 #define UI_TAB_GAP 8
-#define UI_TAB_RIGHT_RESERVE 220
+#define UI_TAB_RIGHT_RESERVE 216
 #define UI_GROUP_W 168
 #define UI_GROUP_H 32
 #define UI_GROUP_Y 4
@@ -103,10 +104,7 @@ const char *page_presets_status_text(void);
 lv_obj_t *page_song_build(lv_obj_t *parent);
 void page_song_update(const app_state_t *st);
 bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
-void page_song_entry_move(int8_t delta);
-void page_song_section_move(int8_t delta);
-void page_song_load(void);
-const char *page_song_status_text(void);
+const char *page_song_status_text(void); /* console TAP 回显（状态行文本，同源） */
 
 /* FILE 页状态行的单一映射（屏幕文本与 console `TAP … status="…"` 回显都从这里出）：
  * act = 本页最后一次动作（0 SAVE / 1 LOAD / 2 ERASE / 其它 = 尚无动作）；

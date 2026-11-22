@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影 + Task 6 实时录音/16 lane 鼓输入/物理 PLAY 与原子音高删除 + Task 7 PER3 歌曲持久化 + Task 8 sections/quick chain/SONG 公共命令与状态层；后续任务实现 SONG 页面）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影 + Task 6 实时录音/16 lane 鼓输入/物理 PLAY 与原子音高删除 + Task 7 PER3 歌曲持久化 + Task 8 sections/quick chain/SONG 公共命令与状态层 + Task 11 SONG 页与六组导航）｜ 日期：2026-11-22（Task 11 更新 2026-11-23）
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -121,22 +121,26 @@ P4-C 后续设置任务在 ADR-009 的 `OBJ_SETTINGS` 上实现最小 PER3 读�
 也不改变 FILE→STEP 的既有最坏有序对。六个组签仍复用 72px 两行页签条，16pt 字体和
 64KB LVGL 池不变。
 
-P4-C 规划上限：TRANSPORT 9,216B，SONG 12,288B；SONG 页落地后必须以 `UI MEM` 实测收紧，
-不能直接抬 est 或扩池。按 base 13,800B、切换余量 4,096B、TLSF 可用 63,120B 计算：
+**Task 11 已落地**（2026-11-23）：TRANSPORT est **9,216B**（实测 8,248–8,716B）、
+SONG est **12,288B**（实测 delta **11,136–11,548B**、构建 15–21ms），SONG 页 35 个单
+对象可点击 label；组页签/子签同时收敛为**单对象可点击 label**，基础占用
+13,800 → **11,624B**（boot `UI MEM` free 49,016 + PLAY 2,480）。按 base 11,624B、
+切换余量 4,096B、TLSF 可用 63,120B：
 
 | 有序对（源组全建 → 目标组首建） | 页面 est 对值 | 总账面 | 余量 |
 |---|---:|---:|---:|
-| FILE → STEP | `20,992 + 23,040 = 44,032B` | **61,928B** | 1,192B |
-| SEQ（STEP 23,040 + TRANSPORT 9,216）→ PRESETS | `32,256 + 12,800 = 45,056B` | **62,952B** | 168B |
-| SONG → PRESETS | `12,288 + 12,800 = 25,088B` | **42,984B** | 20,136B |
+| SEQ（23,040+9,216）→ PRESETS | `32,256 + 12,800 = 45,056B` | **60,776B** | 2,344B |
+| SEQ → SONG | `32,256 + 12,288 = 44,544B` | **60,264B** | 2,856B |
+| FILE → STEP | `20,992 + 23,040 = 44,032B` | **59,752B** | 3,368B |
+| EDIT → STEP | `19,968 + 23,040 = 43,008B` | **58,728B** | 4,392B |
+| SONG → PRESETS | `12,288 + 12,800 = 25,088B` | **40,808B** | 22,312B |
 
-三组均满足 `base + 对值 + 4,096 ≤ 63,120`。第二个对值成为新的账面最坏情况，实施时
-必须先量六个组签对 base 的影响，再验证 `free ≥ est`、过渡后 `pool_free ≥ 4,096` 和组
-往返无泄漏；任何超预算先减少对象，不扩大池。
+均满足 `base + 对值 + 4,096 ≤ 63,120`。设备实测过渡峰值：SEQ→PRESETS `pool_free
+8,324B`（`transport` ⑩j）、FILE→STEP `9,348B`（`song` ⑩）；SONG↔PLAY ×10 与
+SEQ↔SONG ×10 的 `pool_free` 首末差 +16/+84B（≤128B）。
 
-`TAB` 的规划顺序为：
-`PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY`；
-`UI TAB song` 与物理组签必须共用同一动作函数。本任务不注册页面，不改变当前 11 页行为。
+`TAB` 顺序 = `PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→
+PROJECTS→PRESETS→PLAY`；`UI TAB song` 与物理组签共用同一动作函数。
 
 ### 6. 原始步与参数锁只经同 TU 薄 adapter 公开
 
@@ -356,5 +360,4 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
 - pattern 工具沿用上游单槽 undo；它不是完整工程历史，fill/lock 的撤销缺失是刻意保留的上游边界。
 - PER3、SELFTEST 后歌曲恢复与完整扇区测试快照已由 Task 7 落地（ADR-009 §6.1/§3）；公共
   SONG/sections/chain 命令与状态层已由 Task 8 落地（§10），section 与歌曲共用同一 1s
-  dirty writer。SONG 页面（计划 Task 11）仍待完成；在此之前，本 ADR 的 UI 数字
-  是硬预算，不是已完成的实测声明。
+  dirty writer。SONG 页面已由 Task 11 落地（§5 的实测/有序对表即交付口径）。

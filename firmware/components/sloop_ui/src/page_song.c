@@ -3,10 +3,12 @@
  *
  * 布局（页面区相对坐标；页面区绝对 y 起点 = UI_TAB_BAR_H=72）：
  * - 状态行 (24,20) 宽 1232、20pt **两行**：第一行 `SONG <SONG|LOOP> <STOP|PLAY> BAR n
- *   LIVE <A-D|-> READY <ABCD 位掩码>`，第二行 `REC <OFF|ARM|REC> CHAIN <n/i|-> LAST
- *   <none|NO SONG|N> | <本页最后一次动作的结果>`（状态行文本是 TAP 回显的同一缓冲，
- *   见 page_song_status_text）。失败/空 scene 用红字（UI_ERROR），空闲灰（UI_TEXT_DIM）。
- *   存储未就绪时第一行是 `SONG  NO STORAGE`，所有动作只回状态、不发命令。
+ *   LIVE <A-D|-> READY <ABCD 位掩码>`，第二行 `REC <OFF|ARMED|RECORDING> CHAIN <n/i|->
+ *   LAST <none|NO SONG|N> | <本页最后一次动作的结果>`（状态行文本是 TAP 回显的同一
+ *   缓冲，见 page_song_status_text）。失败/空 scene 用红字（UI_ERROR），空闲灰。
+ *   存储未就绪时第一行是 `SONG  NO STORAGE`（动作回显若也是它则不重复），所有动作
+ *   只回状态、不发命令；走带中（live loop/SONG）的 MODE 与 16 项配置编辑由页面守卫
+ *   回 `STOP FIRST`（上游 SONG 屏语义），section/chain 的播放语义不受影响。
  * - A–D section 卡：x = 24 + k*304，y = 96，288×104；单对象可点击 label（两/三行
  *   `A\nUSED[\nLIVE]`），选中 = 6px UI_ACCENT outline + UI_PANEL_SEL 底。
  * - section 动作行 y=216（4 个 140×48 chip，x = 24 + i*148）：STORE / LOAD / ERASE /
@@ -14,8 +16,10 @@
  * - 歌曲动作行 y=216（x = 640 起，同样 4 槽）：SONG（模式切换）/ CHAIN（begin→commit）/
  *   CANCEL（链中可见）/ REC（SONG REC）。
  * - 16 项歌曲顺序：2 行 × 8 列，x = 24 + c*153，y = 300 + r*70，148×60 单对象
- *   `01 A 4`（序号 1 起 + section 字母 + bars）；count 之外的槽显示 `01 --`（暗色），
- *   选中 = 4px UI_ACCENT outline。
+ *   `01 A 4`（序号 **1 起** + section 字母 + bars）；count 之外的槽显示 `01 --`（暗色），
+ *   选中 = 4px UI_ACCENT outline。**索引口径**：屏幕/状态文本/测试断言用 **1 起**
+ *   （`01`、`ENTRY 2`），console `TAP` 回显的 `entry=` 与 `STORE SONG` 一样用 **0 起**
+ *   （page_song_tap 填 0..15），两者相差 1 是刻意的（与既有诊断面同口径）。
  * - 配置行 y=456（6 个 140×52 chip，x = 24 + i*148）：SCENE（循环 A→D）、BARS-/+、
  *   COUNT-/+、LOOP。每条动作 = **一条 CMD_SONG_SET**（整份 cfg 随命令下发），
  *   不直接写上游全局；新增项默认 `A4`，count/bars 的钳位由状态层/引擎做（页面不造值）。
@@ -27,9 +31,15 @@
  * 临时列表（≤8，空 scene 也在列表里，commit 时整份拒绝）；**再按 = commit**（一次原子
  * 安装，`sloop_seq_chain_commit` 首项自行请求）；CANCEL = 清临时列表与运行 chain。
  * 播放中按 CHAIN/未播放时 commit 由适配层回 blocked，页面显示 `CHAIN: BLOCKED`。
+ * **临时链的丢弃**：commit 失败（空 scene/走带中）与页面被组作用域销毁/重建都会清空
+ * 采集态与临时列表——不自动重试、不跨页保留（与上游「SAVE 松开即提交一次」一致；
+ * 失败时用户须重新 CHAIN 起链）。
  *
  * 键盘（InputManager）：←/→ 在 count 内的条目间移动、↑/↓ 在 A–D card 间移动、
  * ENTER = LOAD 选中 section（SAVE/ERASE/CHAIN 只走触摸 + console，避免与演奏键冲突）。
+ *
+ * 上限来源：条目/count = `SLOOP_SONG_ENTRIES`、bars = `SLOOP_SONG_BARS_MAX`、chain =
+ * `SLOOP_SONG_CHAIN_MAX`、section 数 = `SLOOP_STORE_PROJECTS`（不各写一份数字）。
  *
  * 内存：全部控件是**单对象可点击 label**（35 个对象；est 12,288B 是 spec §4.4 的
  * 计划上限，实测 delta 必须 ≤ 它——超了先改对象设计，不抬 est/不扩池）。样式是静态
@@ -79,10 +89,9 @@
 #define SONG_CFG_W      140
 #define SONG_CFG_H      52
 
-#define SONG_ENTRIES    16u /* = SLOOP_SONG_ENTRIES（歌曲项固定 16 槽） */
-#define SONG_CHAIN_MAX  8u  /* = 上游 CHAIN_MAX */
-#define SONG_COUNT_MAX  16u
-#define SONG_BARS_MAX   64u
+/* 共享上限（不各写一份）：条目/count 见 sloop_store.h，chain 见 sloop_seq.h。
+ * section 数复用工程槽数（A–D）。 */
+#define SONG_SECTIONS   SLOOP_STORE_PROJECTS
 
 /* 控件下标（顺序 = 建控件顺序 = TAP 命中表顺序） */
 enum {
@@ -113,7 +122,7 @@ static lv_obj_t *s_status;
 static lv_obj_t *s_card[4];
 static lv_obj_t *s_sec_chip[SONG_SEC_COUNT];
 static lv_obj_t *s_top_chip[SONG_TOP_COUNT];
-static lv_obj_t *s_entry_chip[SONG_ENTRIES];
+static lv_obj_t *s_entry_chip[SLOOP_SONG_ENTRIES];
 static lv_obj_t *s_cfg[SONG_CFG_COUNT];
 
 static lv_style_t s_st_card;
@@ -128,7 +137,7 @@ static portMUX_TYPE s_ui_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_sec;    /* 选中 section（A–D） */
 static uint8_t s_entry;  /* 选中歌曲条目 0..15 */
 static bool s_collect;   /* chain 采集中（SAVE 层按下） */
-static uint8_t s_chain_list[SONG_CHAIN_MAX];
+static uint8_t s_chain_list[SLOOP_SONG_CHAIN_MAX];
 static uint8_t s_chain_n;
 static char s_status_text[64];
 static uint8_t s_status_color; /* 0 灰 / 1 主文本 / 2 失败红 / 3 强调黄 */
@@ -137,7 +146,7 @@ static char s_status_echo[64]; /* console TAP 回显专用（另一任务） */
 /* 脏检查缓存（0xFF/空 = 尚未刷新） */
 static uint8_t s_card_shown[4];
 static uint8_t s_card_sel_shown;
-static char s_entry_cache[SONG_ENTRIES][10];
+static char s_entry_cache[SLOOP_SONG_ENTRIES][10];
 static uint8_t s_entry_sel_shown;
 static int8_t s_collect_shown = -1;
 static uint8_t s_mode_shown = 0xFF;
@@ -199,7 +208,7 @@ static void styles_init(void)
 
 static char scene_letter(uint8_t scene)
 {
-    return scene < 4u ? (char)('A' + scene) : '-';
+    return scene < SONG_SECTIONS ? (char)('A' + scene) : '-';
 }
 
 static void status_store(const char *text, uint8_t color)
@@ -214,7 +223,7 @@ static uint8_t count_of(const app_state_t *st)
 {
     uint8_t count = st->song.config.count;
     if (count < 1u) count = 1u;
-    if (count > SONG_COUNT_MAX) count = SONG_COUNT_MAX;
+    if (count > SLOOP_SONG_ENTRIES) count = SLOOP_SONG_ENTRIES;
     return count;
 }
 
@@ -235,7 +244,7 @@ const char *page_song_status_text(void)
 /* ---------------------------------------------------------------- 动作 --- */
 
 typedef struct {
-    uint8_t err;   /* 0 成功；app_seq_status_t；0xFF = 未下发（入口守卫） */
+    uint8_t err;   /* 0 成功；否则 app_seq_status_t（页面守卫回 BLOCKED，未下发命令） */
     int16_t value; /* 写后回读值（失败时 = 写前真值） */
 } song_result_t;
 
@@ -281,10 +290,10 @@ static void refresh(void)
 /* 选中 section（触摸/TAP/键盘共用；链采集时 tap 卡 = 进临时列表） */
 static void song_select_section(uint8_t sec)
 {
-    if (sec >= 4u) return;
+    if (sec >= SONG_SECTIONS) return;
     s_sec = sec;
     if (s_collect) {
-        if (s_chain_n >= SONG_CHAIN_MAX) {
+        if (s_chain_n >= SLOOP_SONG_CHAIN_MAX) {
             status_store("CHAIN: FULL", 2);
         } else {
             s_chain_list[s_chain_n++] = sec;
@@ -295,7 +304,7 @@ static void song_select_section(uint8_t sec)
 
 static void song_select_entry(uint8_t entry)
 {
-    if (entry >= SONG_ENTRIES) return;
+    if (entry >= SLOOP_SONG_ENTRIES) return;
     s_entry = entry;
 }
 
@@ -353,10 +362,16 @@ static song_result_t song_action_cfg(uint8_t act)
     song_result_t r = {0, 0};
     app_state_t st;
     state_get_copy(&st);
+    if (st.core.playing || st.song.running) {
+        /* 上游 SONG 屏：歌曲顺序编辑要求停止走带（STOP FIRST），页面守卫不发命令 */
+        status_store("STOP FIRST", 2);
+        r.err = SEQ_STATUS_BLOCKED;
+        return r;
+    }
     uint8_t count = count_of(&st);
     sloop_song_config_t cfg = st.song.config;
     cfg.count = count;
-    uint8_t entry = s_entry < SONG_ENTRIES ? s_entry : 0u;
+    uint8_t entry = s_entry < SLOOP_SONG_ENTRIES ? s_entry : 0u;
     if (act == SLOOP_SONG_SCENE || act == SLOOP_SONG_BARS_DN || act == SLOOP_SONG_BARS_UP) {
         if (entry >= cfg.count) {
             /* count 之外的槽是可见但不可编辑的（与屏幕上 `01 --` 同义） */
@@ -374,7 +389,7 @@ static song_result_t song_action_cfg(uint8_t act)
     case SLOOP_SONG_BARS_UP: {
         int32_t bars = (int32_t)cfg.entry[entry].bars + (act == SLOOP_SONG_BARS_UP ? 1 : -1);
         if (bars < 1) bars = 1;
-        if (bars > (int32_t)SONG_BARS_MAX) bars = (int32_t)SONG_BARS_MAX;
+        if (bars > (int32_t)SLOOP_SONG_BARS_MAX) bars = (int32_t)SLOOP_SONG_BARS_MAX;
         cfg.entry[entry].bars = (uint8_t)bars;
         return song_apply_cfg(&cfg, act, entry, 0);
     }
@@ -382,7 +397,7 @@ static song_result_t song_action_cfg(uint8_t act)
     case SLOOP_SONG_COUNT_UP: {
         int32_t n = (int32_t)cfg.count + (act == SLOOP_SONG_COUNT_UP ? 1 : -1);
         if (n < 1) n = 1;
-        if (n > (int32_t)SONG_COUNT_MAX) n = (int32_t)SONG_COUNT_MAX;
+        if (n > (int32_t)SLOOP_SONG_ENTRIES) n = (int32_t)SLOOP_SONG_ENTRIES;
         if (n > (int32_t)cfg.count) {
             /* 新增项默认 A4（与上游 arr_defaults 的条目口径一致、可预测） */
             for (uint32_t i = cfg.count; i < (uint32_t)n; i++) {
@@ -411,6 +426,11 @@ static song_result_t song_action(uint8_t act)
         return r;
     }
 
+    /* 页面输入守卫（上游 SONG 屏：所有歌曲顺序/模式改动要求停止走带）：
+     * 走带中（live loop 或 SONG）拒绝 MODE 与 16 项配置编辑；不发命令、回 BLOCKED。
+     * section/chain 动作有自己的播放语义（STORE/JUMP/CHAIN 允许播放中），不在此拦。 */
+    const bool transport_active = st.core.playing || st.song.running;
+
     switch (act) {
     case SLOOP_SONG_STORE:
     case SLOOP_SONG_LOAD:
@@ -428,6 +448,11 @@ static song_result_t song_action(uint8_t act)
         break;
     }
     case SLOOP_SONG_MODE: {
+        if (transport_active) {
+            status_store("STOP FIRST", 2);
+            r.err = SEQ_STATUS_BLOCKED;
+            break;
+        }
         edit_cmd_t cmd = {.type = CMD_SONG_MODE, .a = st.song.enabled ? 0u : 1u};
         state_apply(&cmd);
         state_get_copy(&st);
@@ -582,7 +607,7 @@ lv_obj_t *page_song_build(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_status, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_status, lv_color_hex(UI_TEXT_DIM), 0);
 
-    for (uint8_t k = 0; k < 4u; k++) {
+    for (uint8_t k = 0; k < SONG_SECTIONS; k++) {
         lv_obj_t *card = lv_label_create(parent);
         UI_BUILD_CHECK(card);
         lv_obj_set_clickable(card, true);
@@ -608,7 +633,7 @@ lv_obj_t *page_song_build(lv_obj_t *parent)
     }
     lv_obj_set_hidden(s_top_chip[SONG_TOP_CANCEL], true); /* 只在链采集中显示 */
 
-    for (uint8_t i = 0; i < SONG_ENTRIES; i++) {
+    for (uint8_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
         lv_obj_t *chip = make_chip(parent, SONG_ENTRY_X0 + (int32_t)(i % 8u) * SONG_ENTRY_PITCH_X,
                                    SONG_ENTRY_Y0 + (int32_t)(i / 8u) * SONG_ENTRY_PITCH_Y,
                                    SONG_ENTRY_W, SONG_ENTRY_H, "01 --", entry_clicked_cb,
@@ -635,7 +660,7 @@ void page_song_update(const app_state_t *st)
     char b[192];
 
     /* A–D 卡：USED（ready 位）/ LIVE / 选中描边。样式只在选中态变化时 add/remove。 */
-    for (uint8_t k = 0; k < 4u; k++) {
+    for (uint8_t k = 0; k < SONG_SECTIONS; k++) {
         uint8_t key = (uint8_t)((ready && (s->ready & (1u << k)) ? 1u : 0u) |
                                 (s->live == k ? 2u : 0u) | (s_sec == k ? 4u : 0u));
         if (key == s_card_shown[k]) continue;
@@ -651,7 +676,7 @@ void page_song_update(const app_state_t *st)
                                     lv_color_hex(used ? UI_TEXT : UI_TEXT_DIM), 0);
     }
     if (s_card_sel_shown != s_sec) {
-        for (uint8_t k = 0; k < 4u; k++) {
+        for (uint8_t k = 0; k < SONG_SECTIONS; k++) {
             if (k == s_sec) lv_obj_add_style(s_card[k], &s_st_card_sel, 0);
             else lv_obj_remove_style(s_card[k], &s_st_card_sel, 0);
         }
@@ -659,7 +684,7 @@ void page_song_update(const app_state_t *st)
     }
 
     /* 16 项歌曲顺序：`NN A B`（count 之外 `NN --`）。文字只在变化时重设。 */
-    for (uint8_t i = 0; i < SONG_ENTRIES; i++) {
+    for (uint8_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
         char eb[10];
         if (i < count) {
             snprintf(eb, sizeof(eb), "%02u %c %u", (unsigned)i + 1u,
@@ -675,7 +700,7 @@ void page_song_update(const app_state_t *st)
         }
     }
     if (s_entry_sel_shown != s_entry) {
-        for (uint8_t i = 0; i < SONG_ENTRIES; i++) {
+        for (uint8_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
             if (i == s_entry) lv_obj_add_style(s_entry_chip[i], &s_st_chip_sel, 0);
             else lv_obj_remove_style(s_entry_chip[i], &s_st_chip_sel, 0);
         }
@@ -724,16 +749,21 @@ void page_song_update(const app_state_t *st)
     portEXIT_CRITICAL(&s_ui_mux);
 
     if (!ready) {
-        snprintf(b, sizeof(b), "SONG  NO STORAGE\n%s", action);
+        /* 未就绪：第一行已明确写 NO STORAGE；动作回显若也是它，不再重复一次 */
+        if (action[0] == '\0' || strcmp(action, "NO STORAGE") == 0) {
+            snprintf(b, sizeof(b), "SONG  NO STORAGE");
+        } else {
+            snprintf(b, sizeof(b), "SONG  NO STORAGE\n| %s", action);
+        }
     } else {
         char ready_mask[5];
-        for (uint8_t k = 0; k < 4u; k++)
+        for (uint8_t k = 0; k < SONG_SECTIONS; k++)
             ready_mask[k] = (s->ready & (1u << k)) ? scene_letter(k) : '-';
         ready_mask[4] = '\0';
         char last[16] = "none";
         if (s->srec_done == 0xFFu) snprintf(last, sizeof(last), "NO SONG");
         else if (s->srec_done != 0u) snprintf(last, sizeof(last), "%u", (unsigned)s->srec_done);
-        static const char *const k_rec[] = {"OFF", "ARM", "REC"};
+        static const char *const k_rec[] = {"OFF", "ARMED", "RECORDING"};
         snprintf(b, sizeof(b),
                  "SONG %s  %s  BAR %u  LIVE %c  READY %s\n"
                  "REC %s  CHAIN %u/%u  LAST %s  | %s",
@@ -772,7 +802,7 @@ bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
             out->b = k_sec_act[i];
             out->v = r.value;
             out->d = (int8_t)s_sec;
-            out->err = r.err == 0xFFu ? 0u : r.err;
+            out->err = r.err;
         }
         return true;
     }
@@ -789,7 +819,7 @@ bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
             out->b = k_top_act[i];
             out->v = r.value;
             out->d = (int8_t)s_sec;
-            out->err = r.err == 0xFFu ? 0u : r.err;
+            out->err = r.err;
         }
         return true;
     }
@@ -805,11 +835,11 @@ bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
             out->b = k_cfg_act[i];
             out->v = r.value;
             out->d = (int8_t)s_sec;
-            out->err = r.err == 0xFFu ? 0u : r.err;
+            out->err = r.err;
         }
         return true;
     }
-    for (uint8_t k = 0; k < 4u; k++) {
+    for (uint8_t k = 0; k < SONG_SECTIONS; k++) {
         const int32_t cx = SONG_CARD_X0 + (int32_t)k * SONG_CARD_PITCH;
         if (x < cx || x >= cx + SONG_CARD_W || y < SONG_CARD_Y || y >= SONG_CARD_Y + SONG_CARD_H) {
             continue;
@@ -822,7 +852,7 @@ bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
         }
         return true;
     }
-    for (uint8_t i = 0; i < SONG_ENTRIES; i++) {
+    for (uint8_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
         const int32_t cx = SONG_ENTRY_X0 + (int32_t)(i % 8u) * SONG_ENTRY_PITCH_X;
         const int32_t cy = SONG_ENTRY_Y0 + (int32_t)(i / 8u) * SONG_ENTRY_PITCH_Y;
         if (x < cx || x >= cx + SONG_ENTRY_W || y < cy || y >= cy + SONG_ENTRY_H) continue;
@@ -858,8 +888,8 @@ void sloop_ui_song_entry_move(int8_t delta)
 void sloop_ui_song_section_move(int8_t delta)
 {
     int32_t v = (int32_t)s_sec + delta;
-    while (v < 0) v += 4;
-    while (v >= 4) v -= 4;
+    while (v < 0) v += SONG_SECTIONS;
+    while (v >= SONG_SECTIONS) v -= SONG_SECTIONS;
     s_sec = (uint8_t)v;
 }
 

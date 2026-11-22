@@ -236,6 +236,7 @@ bool sloop_store_autosave_enable(bool on);
  * `sections_tick(now_ms)` 由 1s 任务以 esp_timer 毫秒调用；诊断冻结时不写，渲染路径
  * 绝不写 flash。`song_info` 是 `STORE SONG INFO` 的诊断投影（只读 flash 对象）。 */
 #define SLOOP_SONG_ENTRIES 16u
+#define SLOOP_SONG_BARS_MAX 64u /* 每项 1..64 bars（上游 arr_valid） */
 typedef struct {
     uint8_t scene, bars;
 } sloop_song_entry_t;

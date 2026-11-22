@@ -78,6 +78,9 @@ esp_err_t sloop_seq_drum_hit(uint32_t lane, uint32_t velocity);
  * 其它情况与按钮一样请求走带。API PLAY（sloop_core_play / CMD_PLAY）仍是 close。 */
 esp_err_t sloop_seq_play_button(bool down);
 
+/* quick chain 上限（上游 CHAIN_MAX）：UI/快照共用，不各自写 8。 */
+#define SLOOP_SONG_CHAIN_MAX 8u
+
 /* ---- arranger：live sections / quick chain / SONG / SONG REC（P4-C Task 8）----
  * 快照是上游运行态的一份一致视图（引擎锁内取；config 是 arrangement 36B 的 POD 投影）：
  *   enabled     SONG 模式（arrangement_enabled；PLAY 时按它决定 SONG 或普通 loop）
@@ -97,7 +100,8 @@ esp_err_t sloop_seq_play_button(bool down);
 typedef struct {
     uint8_t enabled, running, index, bar, ready, live, dirty, chain_count, srec;
     uint8_t chain_index, chain_bars, srec_done;
-    uint8_t chain_scenes[8]; /* 正在跑/已安装的 quick chain（0..3；chain_count 之外未定义） */
+    uint8_t chain_scenes[SLOOP_SONG_CHAIN_MAX]; /* 正在跑/已安装的 quick chain
+                                                * （0..3；chain_count 之外未定义） */
     sloop_song_config_t config;
 } sloop_song_snapshot_t;
 void sloop_seq_song_read(sloop_song_snapshot_t *out);
