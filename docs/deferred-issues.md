@@ -90,7 +90,7 @@
 | 项 | 内容 |
 |---|---|
 | **背景** | ADR-008 的懒建失败路径只能判定**对象分配**（`lv_*_create` 返回 NULL，页内用 `UI_BUILD_CHECK` 检查）。LVGL 标签的文本缓冲在 `lv_label_set_text*` 内部 `lv_malloc`，API 无返回值；分配失败时 LVGL 只打 `LV_LOG_INFO`（默认级别不显示），页面会留下空文本而 `build()` 仍返回成功——不触发错误状态条/`UI ERR page_build`。 |
-| **影响面** | 阶段 4 参数页（文本密集：参数名/值/单位标签多）在池临近耗尽时可能出现「个别文本缺失但无错误出口」；现有四页实测余量 13–23%（est Σ=39,424B，四页全建后 free=19,648B），未观察到该现象。 |
+| **影响面** | 参数页（文本密集：参数名/值/单位标签多）在池临近耗尽时可能出现「个别文本缺失但无错误出口」。P4-B 交付态（组作用域，ADR-005 §5）：稳态只驻留一个组（`UI MEM` 的 pool_free 约 26–45KB），最坏过渡 FILE 全建 → 首建 STEP 实测 free 7,308–7,840B，仍未观察到该现象；余量最小时是跨组切换的那一帧。 |
 | **为何可延迟** | 当前预算余量与共享 `lv_style_t` 纪律下没有触发条件；判定手段需要额外设计（见解决方向），不影响本任务交付与门禁。 |
 | **解决方向** | ① 构建末尾做「文本哨兵」：每页把首个标签设成已知串再 `lv_label_get_text()` 比对（失败即当作构建失败删除半成品）；错误状态条自身也属同一类：`UI_ERROR` 文本缓冲分配失败时只剩 ERROR 日志 + console 令牌（画面为无控件页面区，非静默成功；标签对象都建不出时回退 bring-up 测试图），见 ADR-008 §4；② 或在 `theme.h` 提供 `UI_BUILD_TEXT(label, str)` 宏，把「set + 回读非空」合并成一处纪律；③ 诊断期可临时把 `LV_LOG_LEVEL` 调到 INFO 观察 `couldn't allocate memory` 日志。选型须在第一个参数页落地时一并决定（可写入 ADR-008 修订或新 ADR）。 |
 | **触发条件** | 第一个参数页落地时；或出现「页面控件在但文本缺失」/`UI MEM` 的 free 低于单页 est 的现象时立即升级处理。 |
@@ -104,7 +104,7 @@
 | **影响面** | 仅 console 诊断命令（`ENG DESC` 的 `first`/`last` 字段）；引擎参数读写/UI 投影不受影响。上游 `param_desc_t` 变更（新增 F_ENUM 引擎参数且漏名字）时才会触发。 |
 | **为何可延迟** | 现状无触发条件；`ENG DESC` 是排障入口，不参与产品行为；修复需要先定「名字表长度可信来源」的口径（终止符 vs 值域），与 Task 10/11 的参数页 desc 扩展同一决策面。 |
 | **解决方向** | ① console 侧保守化：先按 0 终止表扫描（上限 64）得到可用长度，`first/last` 只在该长度内取，越界打印 `-`；② 或让 `sloop_core_desc` 返回实际可读的 `enum_count`（F_ENUM 也按终止符校验，不一致时截断并在 desc-check 增加负例）。选型随参数页（Task 10/11）的 desc 扩展一并落地，并补 `desc-check.py` 用例。 |
-| **触发条件** | 第一次出现「`ENG DESC` 末枚举名乱码/越界字符串」，或上游新增带 names 的 `F_ENUM` 引擎参数时；最迟在 Task 11（3 引擎页 + desc 收口）前处理。 |
+| **触发条件** | 第一次出现「`ENG DESC` 末枚举名乱码/越界字符串」，或上游新增带 names 的 `F_ENUM` 引擎参数时。Task 11（3 引擎页 + desc 收口）已交付而未触发（`desc-check.py` 的 10 项抽样与 4 条越界不覆盖此边界，上游名字表当前与值域一致），故按「上游变更/现场乱码」触发。 |
 | **登记** | 2026-11-21（P4-A Task 9 评审：由 Task 8 carry 项升级为条目） |
 
 ## DI-16: 参数页旋钮的物理触摸手感未人测（接线/相对拖拽已机读覆盖）
@@ -155,26 +155,26 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-23: `store` 场景 ⑩ 的前置状态来自开机恢复的 autosave（人工改过设备会假红）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `scripts/inject/inject.py` 的 `store` 场景 ⓪ 是「esptool 硬复位」，复位后 autosave resume 把**上一轮 ⑪ 结束时的状态**装回引擎；⑩ 紧接着跑（在 ① 归一四槽之前），其中 ⑩c「按住 C ⇒ `ENG SNAP voices≥1`」依赖选中轨**未静音**（`P_MUTE` 是 `param_kept`，`ENG TRACK 0 0 0` 不会解锁），⑩f「foreign：图案保留（steps=1）」依赖轨 1 在捕获时恰有 1 个非空步。若在两次跑之间有人手工把设备改到别的工程（例如 `STORE PROJ LOAD 3` 一个 fixture，随后 AUTO ON 让它写进 autosave），⑩ 会以「voices=0」「steps=42」这类**与固件无关**的原因失败（Task 9 现场踩到：手工载入 FUN5 后 P_MUTE=40、轨 1 有 42 步）。 |
-| **影响面** | 只有 `store` 注入场景的 ⑩c/⑩f 两条前置断言；固件行为、其它场景与产品路径不受影响。失败是**响亮**的（断言红、exit≠0），不会假绿。 |
-| **为何可延迟** | 场景在自洽的历史上可重复（Task 6–9 每轮的起点都是上一轮 ⑪ 的产物，实测 run 2 起逐位稳定）；只有「人工改设备后直接跑门禁」这一种情况会红，且一眼能从断言值（mute/步数）看出不是固件问题。改断言需要先决定「⑩ 的起点应该由脚本自己造」还是「显式声明依赖 autosave」，属测试设计选择，适合与 Task 14 的门禁收口一起做。 |
-| **解决方向** | (a) ⓪ 之后、⑩ 之前显式归一：`PARAM 40 0`（P_MUTE=0）+ `PARAM 0 104`（P_LEVEL）+ 用 TAP 把轨 1 清成 0 步再建 1 步（或 `ENG TRACK 0 0 0` 之前先 `STORE PROJ LOAD 0` 载入已知工程）；(b) 把 ⑩f 的 `steps=1` 改成「与 `STORE PROJ SYNTH fmt1` 输出的轨 1 steps 相同」（同轮内相对比较，不假设历史）；(c) 只改 docstring 写清「起点 = 上一轮 ⑪ 的 autosave，人工改动后先 `STORE PROJ LOAD 0` 并等一次 autosave 写」。优先 (a)+(b)。 |
-| **触发条件** | 两次 `store.sh` 之间在设备上手工载入/编辑了工程（或跑了会改引擎状态的命令）且 autosave 已写入；或将来把 ⑩ 的用例拆到别的场景里跑。 |
-| **参考** | `scripts/inject/inject.py` 的 `run_store` ⓪/`run_store_engine` ⑩c/⑩f、`store_tab5.c` 的 `param_kept`（P_MUTE 不在 `apply_preset_to` 的覆盖范围）、`docs/dev/verify/4-pb-2026-11-21/task-9-*.txt` |
-| **登记** | 2026-11-22（P4-B Task 9 现场：手工 `STORE PROJ LOAD 3` FUN5 后 autosave 携带 P_MUTE=40 与 42 步，下一次 `store.sh` 在 ⑩c/⑩f 红；`STORE PROJ LOAD 0` + 等一次 autosave 写后恢复绿） |
-
 ## DI-24: `focus_track` 与引擎真值 `song.sel` 在「非选轨命令」改选轨后发散
 
 | 项 | 内容 |
 |---|---|
 | **背景** | `app_state_t.focus_track` 是 UI 局部态，`song.sel`（投影的 `core.selected_track`）是引擎真值。两者只在 `CMD_SELECT_TRACK`/`CMD_SET_TRACK`（`cmd_select_track` 同时写 focus）与 TRACKS 卡点击时同步。**P4-B Task 10 新增的 `CMD_PROJECT_LOAD` 成功后会整份刷新投影**——载入的工程带自己的 `sel`，`core.selected_track` 立即变成工程里的轨，而 `focus_track` 保持旧值。开机路径的同类发散早已存在（Task 6 的 autosave resume 把 `sel` 装回引擎，而 `state_init` 的 `focus_track` 恒为 0）。 |
 | **影响面** | 纯 UI 局部态（TRACKS 卡**没有**焦点环：它只按 `song.sel` 渲染选中描边，不做 `focus_track` 的视觉区分）：STEP 页的焦点格高亮列跟随 `focus_track`；EDIT 层擦除的目标轨也取 `focus_track`（`input.c` 的 `act_erase`，只影响显式擦除的目标，不会误写选中轨）；键盘轨轴焦点（`act_focus`）从 `focus_track` 起步，而参数页显示的是**选中轨**的参数——两者不一致时用户对「当前轨」会有两处不同的心理模型。用户在 TRACKS 卡点一次（或按选轨键）即自愈。引擎状态、存储与音频不受影响。 |
-| **为何可延迟** | 发散只在「引擎侧被别人改选轨」时出现，且下一次显式选轨即消失；P4-B 的 UI 入口（Task 12 的 PROJECTS/PRESETS 页）本来就以「载入后用户会看列表/继续操作」为前提。修法涉及「focus 是否应从 selected 派生」的 UX 决策（既有交互是键盘先移焦点、再显式选轨确认），适合与 Task 12 的 FILE 页交互一起定。 |
+| **为何可延迟** | 发散只在「引擎侧被别人改选轨」时出现，且下一次显式选轨即消失。Task 12 的 PROJECTS/PRESETS 页按此前提交付（载入后用户会看列表/继续操作），未加「LOAD 后同步 focus」的 UI 侧补丁；修法涉及「focus 是否应从 selected 派生」的 UX 决策（既有交互是键盘先移焦点、再显式选轨确认），留到 P4-F 的交互收口/阶段 5 的 FM-1 push。 |
 | **解决方向** | (a) 投影刷新处（`state_refresh_locked` / `state_sync_from_engine`）在检测到 `core.selected_track` 变化且变化的来源不是显式选轨命令时，把 `focus_track` 一并对齐（需要一条「外部改选轨」的判据，例如刷新前后 sel 不等且本命令不是 SELECT/SET_TRACK）；(b) 让 FILE 页在发起 `CMD_PROJECT_LOAD` 时同时下一条 `CMD_SELECT_TRACK`（跟随载入工程的 sel）；(c) 开机 `state_init` 之后同样对齐一次（与 autosave resume 的 `sel` 一致）。优先 (a)+（c）。 |
 | **触发条件** | `STORE PROJ LOAD`（或 Task 12 的 PROJECTS 页 LOAD）载入 `sel` 与当前 `focus_track` 不同的工程；或开机 autosave 的 `sel != 0`；阶段 5 的 FM-1 push 改 `song.sel`。 |
 | **参考** | `firmware/components/sloop_state/src/cmd.c` 的 `cmd_select_track`/`state_refresh_locked`、`firmware/components/sloop_ui/src/input.c` 的 `act_focus`/`act_erase`、`firmware/components/sloop_ui/src/page_step.c` 的焦点格、`firmware/components/sloop_state/src/state.c` 的 `state_init`；证据：`docs/dev/verify/4-pb-2026-11-21/task-10-page-ids.txt`（`STATE SNAP` 的 `focus_track`/`selected_track` 两个字段分开打印） |
 | **登记** | 2026-11-22（P4-B Task 10 评审 R29 的 minor (b)：工程载入整份刷新引入的新触发点 + 开机 autosave resume 的既有触发点） |
+
+## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB，音频重启超时）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-B Task 14 收口矩阵（注入六场景 → `device-selftest` → soak 同一会话）暴露：**每次全量 `ENG SELFTEST`（182 例）净减 ~40KB 内部堆**，且不随重启前的其它命令出现。实测 2026-11-22（固件 `6167039-dirty`）：复位后 `internal_free=99,739` → 全量 #1 后 `59,443` → 全量 #2 后 `19,323`；两次后 `ENG AUDIO ON` 超时（收 14 字节无提示符），需重启恢复。单用例重复 20 次 `-4,612B`（≈230B/执行 job）；未知用例（0 job）每次 ~40B；音频 OFF/ON ×3 与普通命令（`ENG MEM`/`ENG PERF`/`ENG SNAP`）无此量级变化——泄漏只在 regress job 执行路径上。同一会话里紧随其后的 soak 因此跌破 60KB 门禁（59,355B）；**复位后同一 soak 命令 PASS**（99,211→99,263B）。测量留档：`docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、`task-14-soak-fail-after-selftest*.txt`。 |
+| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
+| **为何可延迟** | 不在用户操作路径上；根因未定位（本条目按实测登记，不做猜测性修法）。门禁已用「selftest 之后复位再 soak」的矩阵顺序规避（AGENTS §5.1/§5.5 已注明），证据完整。修法涉及 selftest 快照/恢复与堆所有权（P4-B 起 store TU 编入同一快照窗口），需要单独一轮带堆跟踪的排查，避免在收口任务里盲改。 |
+| **解决方向** | ① 先定位：对 `ENG SELFTEST` 单用例做堆跟踪（`heap_caps_get_info` 前后快照 / `esp_heap_trace` 或二分 job 名单），确认是 regress job 内的库调用（如 `snprintf("%.2f")` 的 newlib 缓冲）还是 `selftest_restore()` 回滚了某个堆相关的全局；② 若为恢复回滚：把「自检期间分配、恢复后仍被使用的指针」移出快照窗口（`.noinit` 或重扫），参照 Task 7 的 `fm6_bank_boot`/`up_boot` 入口重扫；③ 若为库缓冲：改为定长格式化或预热；④ 无论修法，补一条门禁断言：连续两次全量 `ENG SELFTEST` 后 `internal_free` 下降 ≤1KB。 |
+| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话；P4-F 收口矩阵重跑前建议处理（否则每条矩阵都要额外复位）。 |
+| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫） |
+| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS） |

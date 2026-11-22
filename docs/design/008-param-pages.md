@@ -272,23 +272,25 @@ UI MEM page id=8 title=SAMPLE state=built est=3072 delta=2432
 ```
 
 （上面示例的数值是 P4-A 九页平铺时点（`pool_total`/`pool_used` 随池块拆分漂移，
-`reserve` 只是展示值，门禁见 §5）。P4-B Task 11 组作用域落地后 `UI MEM` 形如：
+`reserve` 只是展示值，门禁见 §5）。P4-B 交付态（11 页注册 + 组作用域；`store`/`nav`
+会话实测）`UI MEM` 形如：
 
 ```
-UI MEM pool_used=19748 pool_free=42520 pool_total=62268 registered=9 built=1 failed=0 sum_est=55296 reserve=6972 group=SEQ
-UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
-UI MEM GROUP EDIT built=0 sum_est=19968 sum_delta=0 build_ms=10
-UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=3828 build_ms=9
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=built est=4608 delta=3828 build_ms=6
+UI MEM pool_used=33568 pool_free=26688 pool_total=60256 registered=11 built=1 failed=0 sum_est=78848 reserve=-18592 group=SEQ
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=19968 sum_delta=0 build_ms=8
+UI MEM GROUP SEQ built=1 sum_est=27648 sum_delta=21316 build_ms=29
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=33
+UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 …（其余页 state=unbuilt delta=0 build_ms=0）
 ```
 
 （`group=<name>` = 当前页所属组；`sum_est` = 组内已注册成员 est，`sum_delta` = 已建
-成员池增量；离开组后该组 `built=0`、`sum_delta=0`。**交付态**（P4-B Task 12 起）：
-FILE 两页已注册 ⇒ `sum_est = 8,192 + 12,800 = 20,992`、上行 FILE 组签常显、
-`TAB` 轮转含两页；上面示例是 Task 11 时点（`sum_est=0`）的形状，保留为历史口径。）
+成员池增量；离开组后该组 `built=0`、`sum_delta=0`。`sum_est=78,848` 是**全部**已注册
+页的 est 之和，`reserve` 因此在组作用域下常为负——它是历史展示值，不是门禁（容量
+口径是 ADR-005 §5 的「base + 单组 Σest + 4KB」不变量，见 §5）。FILE 两页已注册 ⇒
+该组 `sum_est = 8,192 + 12,800 = 20,992`、上行 FILE 组签常显、`TAB` 轮转含两页。）
 
 ### 7. 参数写/读 API 与状态层投影（P4-0 Task 9 落地）
 

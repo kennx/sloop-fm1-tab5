@@ -1,6 +1,6 @@
 # 阶段 4 / P4-B：存储与预置设计规格（P4-B Spec）
 
-> 日期：2026-11-21 ｜ 状态：草案（待项目负责人评审）
+> 日期：2026-11-21 ｜ 状态：已收口（2026-11-22，`feat/phase4b` Task 14；证据见 `docs/dev/verify/4-pb-2026-11-21/readme.md`）
 > 上位文档：`docs/design/002-port-roadmap.md` §6（P4-B 行，权威）；`docs/superpowers/specs/2026-11-21-phase4-feature-parity-design.md` §3/§4.3（P4-B 的框架定义，本 spec 取代其 §4.3 的「FATFS 文件内 A/B」措辞，见 §3.1）；
 > ADR-005「导航信息架构」、ADR-008（池预算）、ADR-009（存储后端）；原「9 页参数页框架已达 LVGL 池容量天花板」延迟条目已关闭（决策见 ADR-005「导航决策」）。
 > 前置结论：P4-A 已把页签推到 9 张（107px/张）并实测 9 页全建 `pool_free` 2.2–2.7KB；**P4-B 必须先把导航信息架构与容量决策落地**（ADR-005 已登记为 P4-B 决策门）。
@@ -283,6 +283,17 @@ STORE FAULT <nth> [half]|CLEAR   # 故障注入（供脚本制造掉电窗口）
 - **人测外置**：听感（保存/加载后音色变化）、物理触摸按钮、视觉复检按 AGENTS §5.4 清单外部门禁。
 
 ## 6. 验证策略
+
+> **状态（Task 14 收口，2026-11-22；逐条对应下面编号）**：
+> 1 ✅ host 全绿（storage/project/upreset/fm6 测试随 `host-test.sh`）；
+> 2 ✅ 设备 `STORE TEST PASS 6/6`（×2 可重复）；
+> 3 ✅ 工程往返 hash（含重启后 `PROJ HASH`==RAM 槽）+ FUN5/FUN4/FUN1 fixture 逐字段（62 项）；
+> 4 ✅ `ENG PRESET` 向量 vs `ENG TRACK` 应用 71/71 + 独立上游表 oracle；预置 32 槽往返/跨轨/鼓轨拒绝；
+> 5 ✅ FM6 bank 字节一致（GET==LIVE）+ 断电后 used 保持 + PTCH 切槽出声；
+> 6 ✅ FILE 两页 TAP/键盘/像素抽检 + 组作用域（离开组 built=0）；`store.sh`/`nav.sh` exit 0；
+> 7 ✅ 自动存档四门（idle/gap/播放/发声）+ 硬复位恢复 + 第一拍不重写；
+> 8 ✅ soak 300s + `--save-window 60`（窗口内 SAVE/LOAD，xrun 增量 ≤16、窗口后 streaming=1、窗口外不增长；跨组池往返 ≤128B）。**矩阵顺序约束**：同一开机内先跑过全量 `ENG SELFTEST` 会让内部堆降至 60KB 以下（每次 ≈−40KB，DI-26），须复位再 soak；
+> 9 ✅ 证据包 `docs/dev/verify/4-pb-2026-11-21/`（readme + SHA256SUMS）+ verification-log 登记。
 
 1. **host（已有 + 新增）**：`host-test.sh` 的 `storage_test/project_test/upreset_test/fm6_test` 必须保持全绿（它们验证上游 A/B/torn-write/格式转换）；新增 `state-test` 用例覆盖存储命令（stub `sloop_store_*`：成功/空槽/播放中/鼓轨/越界）。
 2. **设备存储自检**：`STORE TEST` 6 个场景（对象 = `OBJ_SETTINGS`，测试前快照、结束后恢复；P4-B 不写 settings）——①两次提交后 A/B 选择 seq 大者；②擦除失败→旧副本可读；③payload 写一半失败→旧副本可读；④头写失败→旧副本可读；⑤回读校验失败→报错不报 SAVED；⑥擦除提交（`len=0`）→对象为空。全过打印 `STORE TEST PASS 6/6`。
