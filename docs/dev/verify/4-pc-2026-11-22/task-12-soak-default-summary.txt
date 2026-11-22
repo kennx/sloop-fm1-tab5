@@ -1,14 +1,14 @@
-# soak 20261123-035003 port=/dev/ttyACM0 requested=90s measured=97s interval=30s cycle=12s
+# soak 20261123-043528 port=/dev/ttyACM0 requested=90s measured=97s interval=30s cycle=12s
 # t_s internal_free internal_min psram_free streaming xrun audio_stack_free render_blocks render_mean_us render_max_us duty_mean duty_max key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm
-1  93227  86148  30099040  1  0  3168  7427  1032  3854  17.78  66.4  0  0  0  3776  41476  3  120
-37  93015  86148  30099040  1  0  3120  13629  916  3998  15.78  68.88  6  231  289  3776  41612  3  120
-61  93003  86148  30099040  1  0  3120  17763  884  3998  15.23  68.88  10  225  387  3776  41648  3  120
-97  93003  86148  30099040  1  0  3120  23965  857  3998  14.77  68.88  16  223  387  3776  41544  3  120
+1  93023  86148  30099040  1  0  3128  89022  809  4387  13.94  75.59  60  238  922  3744  41524  3  120
+37  93011  86148  30099040  1  0  3128  95224  807  4387  13.9  75.59  66  237  922  3744  41624  3  120
+61  93007  86148  30099040  1  0  3128  99359  806  4387  13.89  75.59  70  236  922  3744  41612  3  120
+97  93011  86148  30099040  1  0  3128  105561  804  4387  13.85  75.59  76  235  922  3744  41592  3  120
 
 内存判定：HEAP_FLOOR=61440B（internal_free 与 internal_min），HEAP_NET_FLOOR=-8192B（首末差），HEAP_JITTER=2048B（连续 3 采样非增累计下滑容差）
 占空比判定：基线 9.44%（阶段 2 静默渲染），上限 2× = 18.88%（流式 render_mean_us / 块预算 5804µs）
-池检查：PLAY 稳态 ×10 轮（每轮 transport→song→projects →play）；pool_free 47296 -> 47328（Δ=32B，单次最小 -48B，容差 ±128B）
-逐轮 pool_free: 47296 47308 47260 47300 47296 47300 47336 47296 47312 47284 47328
+池检查：PLAY 稳态 ×10 轮（每轮 transport→song→projects →play）；pool_free 47364 -> 47312（Δ=-52B，单次最小 -36B，容差 ±128B）
+逐轮 pool_free: 47364 47372 47388 47360 47364 47404 47368 47360 47352 47344 47312
 save 窗口：关闭（xrun 必须为 0）
 实测时长 97s / 请求 90s
 断言失败 0 项

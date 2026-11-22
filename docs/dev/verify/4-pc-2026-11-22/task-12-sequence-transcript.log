@@ -6,41 +6,41 @@ STORE AUTO off
 sloop>  SEQ REC
 SEQ REC state=off track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  SEQ SREC
-SEQ SREC srec=off last=none
+SEQ SREC srec=off last=no_song
 sloop>  SEQ REC CONFIG 0 0 0
 SEQ REC state=off track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
 sloop>  UI WINDOW 0 16
 UI WINDOW bank=0 start=0 len=16
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
 sloop>  UI tracks
-I (122816) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5764B 预算=7168B 池剩余=42948B 耗时=9ms
-I (122816) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (381346) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5824B 预算=7168B 池剩余=41572B 耗时=9ms
+I (381356) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
 sloop>  STORE PROJ ERASE 0
 STORE ERR empty
 Command returned non-zero error code: 0x1 (ERROR)
@@ -64,13 +64,13 @@ UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=0 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -80,13 +80,13 @@ UI page=tracks (1)
 sloop>  TAP 484 347
 TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=1 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -96,13 +96,13 @@ UI page=tracks (1)
 sloop>  TAP 796 347
 TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=2 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -112,13 +112,13 @@ UI page=tracks (1)
 sloop>  TAP 1108 347
 TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=3 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -128,13 +128,15 @@ UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
-STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0 104
+PARAM track=0 id=0 value=104 applied=104 min=0 max=127
 sloop>  PARAM 40 0
 PARAM track=0 id=40 value=0 applied=0 min=0 max=1
 sloop>  PARAM 17 0
@@ -145,16 +147,30 @@ sloop>  PARAM 37 0
 PARAM track=0 id=37 value=0 applied=0 min=0 max=3
 sloop>  UI tracks
 UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0 104
+PARAM track=1 id=0 value=104 applied=104 min=0 max=127
+sloop>  UI tracks
+UI page=tracks (1)
 sloop>  TAP 1108 347
 TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP page=1 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 40 0
 PARAM track=3 id=40 value=0 applied=0 min=0 max=1
 sloop>  SEQ PATTERN CLEAR 0
@@ -170,30 +186,30 @@ UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x00 live=- dirty=1 index=0 bar=0
 sloop>  # [inject] ① 深度步（SPAN/TIE/micro/fill）+ 24+25 锁与非法锁 + pattern 工具
 UI step
-I (127926) sloop_ui: 页面构建 page=STEP(2) 池增量=22112B 预算=23040B 池剩余=23236B 耗时=29ms
-I (127926) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=33ms
+I (386966) sloop_ui: 页面构建 page=STEP(2) 池增量=21612B 预算=23040B 池剩余=22384B 耗时=30ms
+I (386976) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
 UI page=step (2)
 sloop>  UI WINDOW 0 16
 UI WINDOW bank=0 start=0 len=16
 sloop>  STATE SNAP
-STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP page=2 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  UI step
 UI page=step (2)
 sloop>  TAP 121 208
@@ -224,51 +240,51 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=161
+KEY 0x4C down right elapsed_us=158
 sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=78
+KEY 0x4C up right elapsed_us=82
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=103
+KEY 0x4C down right elapsed_us=106
 sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=78
+KEY 0x4C up right elapsed_us=79
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=98
+KEY 0x4C down right elapsed_us=129
 sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=71
-sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=104
-sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=63
-sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=102
-sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=70
-sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=104
-sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=70
-sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=102
-sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=69
+KEY 0x4C up right elapsed_us=73
 sloop>  KEY 0x4C down
 KEY 0x4C down right elapsed_us=106
 sloop>  KEY 0x4C up
 KEY 0x4C up right elapsed_us=74
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=129
+KEY 0x4C down right elapsed_us=107
 sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=70
+KEY 0x4C up right elapsed_us=86
 sloop>  KEY 0x4C down
-KEY 0x4C down right elapsed_us=103
+KEY 0x4C down right elapsed_us=106
 sloop>  KEY 0x4C up
-KEY 0x4C up right elapsed_us=69
-sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-034151-step-deep.png
+KEY 0x4C up right elapsed_us=75
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=105
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=82
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=106
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=83
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=106
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=78
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=109
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=81
+sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-042427-step-deep.png
 SCR
-I (131906) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+I (390966) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI step
@@ -495,8 +511,8 @@ SEQ PATTERN TRANSPOSE track=0 arg=-1 OK
 sloop>  ENG STEP 0 1
 ENG STEP k=0 i=1 n=1 note=60,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  UI tracks
-I (156456) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5696B 预算=7168B 池剩余=23488B 耗时=9ms
-I (156466) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
+I (415186) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5756B 预算=7168B 池剩余=22604B 耗时=9ms
+I (415186) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
 UI page=tracks (1)
 sloop>  TAP 1108 347
 TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
@@ -507,7 +523,7 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ PATTERN TRANSPOSE 3 2
 SEQ ERR invalid
 Command returned non-zero error code: 0x1 (ERROR)
@@ -521,8 +537,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ PATTERN LENGTH 0 1
 SEQ PATTERN LENGTH track=0 arg=1 OK
 sloop>  PARAM 29
@@ -540,8 +556,8 @@ PARAM track=0 id=29 value=16 min=1 max=64
 sloop>  SEQ PATTERN CLEAR 0
 SEQ PATTERN CLEAR track=0 arg=0 OK
 sloop>  UI step
-I (158106) sloop_ui: 页面构建 page=STEP(2) 池增量=21648B 预算=23040B 池剩余=23104B 耗时=30ms
-I (158116) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+I (416826) sloop_ui: 页面构建 page=STEP(2) 池增量=21628B 预算=23040B 池剩余=22232B 耗时=31ms
+I (416836) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
 UI page=step (2)
 sloop>  TAP 121 208
 TAP 121,208 page=2 -> STEP track=0 step=0 CMD_TOGGLE_STEP
@@ -573,8 +589,8 @@ SEQ PATTERN CLEAR track=2 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 3
 SEQ PATTERN CLEAR track=3 arg=0 OK
 sloop>  UI tracks
-I (159806) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5624B 预算=7168B 池剩余=23436B 耗时=8ms
-I (159806) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (418516) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5636B 预算=7168B 池剩余=22556B 耗时=9ms
+I (418526) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
@@ -584,22 +600,22 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  # [inject] ② 录音：自由录音 API PLAY 收尾、物理 PLAY 丢弃、TEMPO 常规录音、16 lane 鼓、切轨松键、FILL held/arm
 SEQ REC CONFIG 0 0 0
 SEQ REC state=off track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  SEQ REC TOGGLE
 SEQ REC state=armed track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=346
+KEY 0x42 down z elapsed_us=328
 sloop>  SEQ REC
 SEQ REC state=free_take track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=107
+KEY 0x42 up z elapsed_us=108
 sloop>  UI transport
-I (168716) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8344B 预算=9216B 池剩余=36372B 耗时=12ms
-I (168726) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
+I (427436) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8376B 预算=9216B 池剩余=35452B 耗时=11ms
+I (427436) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=14ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -609,8 +625,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=64 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  SEQ REC
 SEQ REC state=off track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  PARAM 29
@@ -621,8 +637,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=64 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  ENG STEP 0 0
 ENG STEP k=0 i=0 n=1 note=48,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  ENG STEP 0 1
@@ -665,8 +681,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=64 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  SEQ PATTERN CLEAR 0
 SEQ PATTERN CLEAR track=0 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 1
@@ -680,11 +696,11 @@ PARAM track=0 id=29 value=64 min=1 max=64
 sloop>  SEQ REC TOGGLE
 SEQ REC state=armed track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=314
+KEY 0x42 down z elapsed_us=334
 sloop>  SEQ REC
 SEQ REC state=free_take track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=145
+KEY 0x42 up z elapsed_us=148
 sloop>  SEQ REC BUTTON 1
 SEQ REC BUTTON down=1 OK
 sloop>  SEQ REC BUTTON 0
@@ -697,8 +713,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=64 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  ENG STEP 0 0
 ENG STEP k=0 i=0 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  PARAM 29
@@ -719,14 +735,14 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  SEQ REC
 SEQ REC state=recording track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=574
+KEY 0x42 down z elapsed_us=400
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=202
+KEY 0x42 up z elapsed_us=198
 sloop>  SEQ REC TOGGLE
 SEQ REC state=off track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  STATE SNAP
@@ -735,8 +751,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  ENG STEP 0 0
 ENG STEP k=0 i=0 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  ENG STEP 0 1
@@ -750,7 +766,7 @@ ENG STEP k=0 i=4 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=
 sloop>  ENG STEP 0 5
 ENG STEP k=0 i=5 n=1 note=48,0,0,0 vel=100 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  ENG STEP 0 6
-ENG STEP k=0 i=6 n=0 note=0,0,0,0 vel=0 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+ENG STEP k=0 i=6 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  ENG STEP 0 7
 ENG STEP k=0 i=7 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
 sloop>  ENG STEP 0 8
@@ -779,8 +795,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  SEQ PATTERN CLEAR 0
 SEQ PATTERN CLEAR track=0 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 1
@@ -790,8 +806,8 @@ SEQ PATTERN CLEAR track=2 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 3
 SEQ PATTERN CLEAR track=3 arg=0 OK
 sloop>  UI tracks
-I (179716) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5664B 预算=7168B 池剩余=36624B 耗时=8ms
-I (179726) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (438486) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5624B 预算=7168B 池剩余=35832B 耗时=9ms
+I (438486) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
@@ -801,15 +817,15 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=112 swing=40
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=297
+KEY 0x42 down z elapsed_us=278
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=112 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -838,36 +854,14 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=112 swing=0
+STATE SNAP global bpm=112 swing=40
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=167
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=112 sel=3 pos=0,0,0,0
-ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
-ENG SNAP dstep i=0 on=0 lvl=0 rat=0
-ENG SNAP dstep i=1 on=0 lvl=0 rat=0
-ENG SNAP dstep i=2 on=0 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=0 lvl=0 rat=0
-ENG SNAP dstep i=6 on=0 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=0 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=0 lvl=0 rat=0
-ENG SNAP dstep i=13 on=0 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+KEY 0x42 up z elapsed_us=427
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=112 sel=3 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=64 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -885,13 +879,13 @@ ENG SNAP dstep i=12 on=0 lvl=0 rat=0
 ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>PARAM GLOBAL 0 40
+sloop>  PARAM GLOBAL 0 40
 PARAM GLOBAL id=0 value=40 applied=40 min=40 max=240
 sloop>  PARAM 29 16
 PARAM track=3 id=29 value=16 applied=16 min=1 max=64
 sloop>  UI transport
-I (180906) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8380B 预算=9216B 池剩余=36312B 耗时=13ms
-I (180906) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (439636) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8332B 预算=9216B 池剩余=35580B 耗时=13ms
+I (439636) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -902,73 +896,73 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP global bpm=40 swing=40
 sloop>  SEQ REC TOGGLE
 SEQ REC state=recording track=3 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=443
+KEY 0x42 down z elapsed_us=452
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=125
+KEY 0x42 up z elapsed_us=25
 sloop>  KEY 0x43 down
-KEY 0x43 down x elapsed_us=331
+KEY 0x43 down x elapsed_us=396
 sloop>  KEY 0x43 up
-KEY 0x43 up x elapsed_us=25
+KEY 0x43 up x elapsed_us=29
 sloop>  KEY 0x44 down
-KEY 0x44 down c elapsed_us=79
+KEY 0x44 down c elapsed_us=71
 sloop>  KEY 0x44 up
-KEY 0x44 up c elapsed_us=116
+KEY 0x44 up c elapsed_us=119
 sloop>  KEY 0x45 down
-KEY 0x45 down v elapsed_us=339
+KEY 0x45 down v elapsed_us=343
 sloop>  KEY 0x45 up
-KEY 0x45 up v elapsed_us=22
+KEY 0x45 up v elapsed_us=25
 sloop>  KEY 0x46 down
-KEY 0x46 down b elapsed_us=90
+KEY 0x46 down b elapsed_us=97
 sloop>  KEY 0x46 up
-KEY 0x46 up b elapsed_us=116
+KEY 0x46 up b elapsed_us=127
 sloop>  KEY 0x47 down
-KEY 0x47 down n elapsed_us=1020
+KEY 0x47 down n elapsed_us=296
 sloop>  KEY 0x47 up
-KEY 0x47 up n elapsed_us=26
+KEY 0x47 up n elapsed_us=25
 sloop>  KEY 0x48 down
-KEY 0x48 down m elapsed_us=83
+KEY 0x48 down m elapsed_us=87
 sloop>  KEY 0x48 up
-KEY 0x48 up m elapsed_us=120
+KEY 0x48 up m elapsed_us=112
 sloop>  KEY 0x49 down
-KEY 0x49 down . elapsed_us=309
+KEY 0x49 down . elapsed_us=303
 sloop>  KEY 0x49 up
-KEY 0x49 up . elapsed_us=22
+KEY 0x49 up . elapsed_us=18
 sloop>  KEY 0x21 down
-KEY 0x21 down q elapsed_us=420
+KEY 0x21 down q elapsed_us=82
 sloop>  KEY 0x21 up
-KEY 0x21 up q elapsed_us=33
+KEY 0x21 up q elapsed_us=113
 sloop>  KEY 0x22 down
-KEY 0x22 down w elapsed_us=464
+KEY 0x22 down w elapsed_us=321
 sloop>  KEY 0x22 up
 KEY 0x22 up w elapsed_us=22
 sloop>  KEY 0x23 down
-KEY 0x23 down e elapsed_us=412
+KEY 0x23 down e elapsed_us=389
 sloop>  KEY 0x23 up
-KEY 0x23 up e elapsed_us=33
+KEY 0x23 up e elapsed_us=26
 sloop>  KEY 0x24 down
-KEY 0x24 down r elapsed_us=68
+KEY 0x24 down r elapsed_us=63
 sloop>  KEY 0x24 up
-KEY 0x24 up r elapsed_us=22
+KEY 0x24 up r elapsed_us=21
 sloop>  KEY 0x25 down
-KEY 0x25 down t elapsed_us=389
+KEY 0x25 down t elapsed_us=468
 sloop>  KEY 0x25 up
-KEY 0x25 up t elapsed_us=65
+KEY 0x25 up t elapsed_us=114
 sloop>  KEY 0x26 down
-KEY 0x26 down y elapsed_us=64
+KEY 0x26 down y elapsed_us=297
 sloop>  KEY 0x26 up
-KEY 0x26 up y elapsed_us=123
+KEY 0x26 up y elapsed_us=127
 sloop>  KEY 0x27 down
-KEY 0x27 down u elapsed_us=299
+KEY 0x27 down u elapsed_us=294
 sloop>  KEY 0x27 up
-KEY 0x27 up u elapsed_us=25
+KEY 0x27 up u elapsed_us=22
 sloop>  KEY 0x28 down
-KEY 0x28 down i elapsed_us=75
+KEY 0x28 down i elapsed_us=87
 sloop>  KEY 0x28 up
-KEY 0x28 up i elapsed_us=123
+KEY 0x28 up i elapsed_us=18
 sloop>  SEQ REC TOGGLE
 SEQ REC state=off track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  UI transport
@@ -982,7 +976,7 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP global bpm=40 swing=40
 sloop>  SEQ DSTEP 0
 SEQ DSTEP step=0 on=00,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 1
@@ -992,9 +986,9 @@ SEQ DSTEP step=2 on=0C,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 3
 SEQ DSTEP step=3 on=30,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 4
-SEQ DSTEP step=4 on=40,00 lvl=00,00,00,00 rat=00,00,00,00
+SEQ DSTEP step=4 on=C0,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 5
-SEQ DSTEP step=5 on=80,01 lvl=00,00,00,00 rat=00,00,00,00
+SEQ DSTEP step=5 on=00,01 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 6
 SEQ DSTEP step=6 on=00,06 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 7
@@ -1016,8 +1010,8 @@ SEQ DSTEP step=14 on=00,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  SEQ DSTEP 15
 SEQ DSTEP step=15 on=00,00 lvl=00,00,00,00 rat=00,00,00,00
 sloop>  UI tracks
-I (186716) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5544B 预算=7168B 池剩余=36668B 耗时=9ms
-I (186716) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
+I (445456) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5644B 预算=7168B 池剩余=35836B 耗时=9ms
+I (445456) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
@@ -1027,8 +1021,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=40 swing=40
 sloop>  SEQ REC FILL HOLD 1
 SEQ REC FILL HOLD 1 OK
 sloop>  SEQ REC FILL NEXT
@@ -1044,8 +1038,8 @@ SEQ REC FILL NEXT OK
 sloop>  SEQ REC
 SEQ REC state=off track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  UI transport
-I (187836) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8336B 预算=9216B 池剩余=36368B 耗时=12ms
-I (187836) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (446576) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8308B 预算=9216B 池剩余=35536B 耗时=13ms
+I (446576) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -1055,8 +1049,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=40 swing=40
 sloop>  SEQ REC FILL HOLD 1
 SEQ REC FILL HOLD 1 OK
 sloop>  SEQ REC FILL NEXT
@@ -1071,8 +1065,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=40 swing=40
 sloop>  SEQ REC
 SEQ REC state=off track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
 sloop>  SEQ PATTERN CLEAR 0
@@ -1084,8 +1078,8 @@ SEQ PATTERN CLEAR track=2 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 3
 SEQ PATTERN CLEAR track=3 arg=0 OK
 sloop>  UI tracks
-I (189396) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5596B 预算=7168B 池剩余=36636B 耗时=8ms
-I (189406) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (448146) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5632B 预算=7168B 池剩余=35896B 耗时=9ms
+I (448146) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
@@ -1095,8 +1089,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=40 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=40 swing=40
 sloop>  PARAM GLOBAL 0 120
 PARAM GLOBAL id=0 value=120 applied=120 min=40 max=240
 sloop>  # [inject] ③ live sections：STORE 的 dirty 落盘、播放中 STORE、下一小节 REQUEST
@@ -1110,8 +1104,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=0 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -1126,8 +1120,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=64 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=1 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -1142,8 +1136,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=64 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=2 level=104 atk=12 dec=80 sus=120 rel=60 slen=64 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=2 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -1159,7 +1153,7 @@ STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 16
 PARAM track=3 id=29 value=16 applied=16 min=1 max=64
 sloop>  PARAM 30 2
@@ -1174,13 +1168,13 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 29 4
 PARAM track=0 id=29 value=4 applied=4 min=1 max=64
 sloop>  UI step
-I (192366) sloop_ui: 页面构建 page=STEP(2) 池增量=21564B 预算=23040B 池剩余=23088B 耗时=28ms
-I (192376) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=32ms
+I (451116) sloop_ui: 页面构建 page=STEP(2) 池增量=21588B 预算=23040B 池剩余=22296B 耗时=31ms
+I (451126) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
 UI page=step (2)
 sloop>  TAP 121 208
 TAP 121,208 page=2 -> STEP track=0 step=0 CMD_TOGGLE_STEP
@@ -1209,7 +1203,15 @@ SEQ SONG 3 scene=3 bars=4
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x01 live=A dirty=1 index=0 bar=0
 sloop>  SEQ SONG
-SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x01 live=A dirty=0 chain=0 srec=off count=4 loop=0
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x01 live=A dirty=1 chain=0 srec=off count=4 loop=0
+SEQ SONG 0 scene=0 bars=4
+SEQ SONG 1 scene=1 bars=4
+SEQ SONG 2 scene=2 bars=4
+SEQ SONG 3 scene=3 bars=4
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x01 live=A dirty=1 index=0 bar=0
+sloop>  SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x01 live=A dirty=1 chain=0 srec=off count=4 loop=0
 SEQ SONG 0 scene=0 bars=4
 SEQ SONG 1 scene=1 bars=4
 SEQ SONG 2 scene=2 bars=4
@@ -1223,16 +1225,16 @@ SEQ SONG 1 scene=1 bars=4
 SEQ SONG 2 scene=2 bars=4
 SEQ SONG 3 scene=3 bars=4
 sloop>  STORE PROJ HASH 0
-PROJ 0 HASH=099236FC
+PROJ 0 HASH=3B04E62E
 sloop>  STORE PROJ FIELDS 0
-PROJ 0 FIELDS fmt=6 sel=0 bpm=120 swing=0 dust=0 drdly=0 t0.eng=0 t0.pre=0 t0.lvl=104 t0.atk=10 t0.e0=0 t0.e1=0 t0.s0=1:48 t0.s1=0:0 t0.s2=0:0 t0.s3=0:0 t0.s4=0:0 t0.s5=0:0 t0.s6=0:0 t0.s7=0:0 t1.eng=0 t1.pre=0 t1.lvl=104 t1.atk=10 t1.e0=0 t1.e1=0 t1.s0=0:0 t1.s1=0:0 t1.s2=0:0 t1.s3=0:0 t1.s4=0:0 t1.s5=0:0 t1.s6=0:0 t1.s7=0:0 t2.eng=0 t2.pre=0 t2.lvl=104 t2.atk=10 t2.e0=0 t2.e1=0 t2.s0=0:0 t2.s1=0:0 t2.s2=0:0 t2.s3=0:0 t2.s4=0:0 t2.s5=0:0 t2.s6=0:0 t2.s7=0:0 t3.eng=0 t3.pre=0 t3.lvl=104 t3.atk=10 t3.e0=0 t3.e1=0 t3.s0=0:0 t3.s1=0:0 t3.s2=0:0 t3.s3=0:0 t3.s4=0:0 t3.s5=0:0 t3.s6=0:0 t3.s7=0:0
+PROJ 0 FIELDS fmt=6 sel=0 bpm=120 swing=40 dust=0 drdly=0 t0.eng=0 t0.pre=0 t0.lvl=104 t0.atk=0 t0.e0=3 t0.e1=0 t0.s0=1:48 t0.s1=0:0 t0.s2=0:0 t0.s3=0:0 t0.s4=0:0 t0.s5=0:0 t0.s6=0:0 t0.s7=0:0 t1.eng=0 t1.pre=0 t1.lvl=104 t1.atk=0 t1.e0=3 t1.e1=0 t1.s0=0:0 t1.s1=0:0 t1.s2=0:0 t1.s3=0:0 t1.s4=0:0 t1.s5=0:0 t1.s6=0:0 t1.s7=0:0 t2.eng=4 t2.pre=5 t2.lvl=104 t2.atk=12 t2.e0=5 t2.e1=0 t2.s0=0:0 t2.s1=0:0 t2.s2=0:0 t2.s3=0:0 t2.s4=0:0 t2.s5=0:0 t2.s6=0:0 t2.s7=0:0 t3.eng=0 t3.pre=0 t3.lvl=104 t3.atk=10 t3.e0=0 t3.e1=0 t3.s0=0:0 t3.s1=0:0 t3.s2=0:0 t3.s3=0:0 t3.s4=0:0 t3.s5=0:0 t3.s6=0:0 t3.s7=0:0
 sloop>  PARAM 0 80
 PARAM track=0 id=0 value=80 applied=80 min=0 max=127
 sloop>  PARAM GLOBAL 0 132
 PARAM GLOBAL id=0 value=132 applied=132 min=40 max=240
 sloop>  UI transport
-I (195426) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8200B 预算=9216B 池剩余=20720B 耗时=13ms
-I (195436) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=15ms
+I (454836) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8252B 预算=9216B 池剩余=19876B 耗时=12ms
+I (454836) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=15ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -1242,8 +1244,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=80 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=132 swing=0
+STATE SNAP param trk=0 level=80 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=132 swing=40
 sloop>  SEQ SECTION B STORE
 SEQ SECTION B STORE OK
 sloop>  SEQ SECTION
@@ -1254,10 +1256,16 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=80 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=132 swing=0
+STATE SNAP param trk=0 level=80 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=132 swing=40
 sloop>  SEQ SECTION A REQUEST
 SEQ SECTION A REQUEST OK
+sloop>  SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=4 loop=0
+SEQ SONG 0 scene=0 bars=4
+SEQ SONG 1 scene=1 bars=4
+SEQ SONG 2 scene=2 bars=4
+SEQ SONG 3 scene=3 bars=4
 sloop>  SEQ SONG
 SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=4 loop=0
 SEQ SONG 0 scene=0 bars=4
@@ -1310,8 +1318,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=132 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=132 swing=40
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x03 live=A dirty=1 index=0 bar=0
 sloop>  SEQ SECTION
@@ -1347,9 +1355,9 @@ SEQ SONG 1 scene=1 bars=4
 SEQ SONG 2 scene=2 bars=4
 SEQ SONG 3 scene=3 bars=4
 sloop>  STORE PROJ HASH 1
-PROJ 1 HASH=F706A500
+PROJ 1 HASH=6EBBEF0A
 sloop>  STORE PROJ FIELDS 1
-PROJ 1 FIELDS fmt=6 sel=0 bpm=132 swing=0 dust=0 drdly=0 t0.eng=0 t0.pre=0 t0.lvl=80 t0.atk=10 t0.e0=0 t0.e1=0 t0.s0=1:48 t0.s1=0:0 t0.s2=0:0 t0.s3=0:0 t0.s4=0:0 t0.s5=0:0 t0.s6=0:0 t0.s7=0:0 t1.eng=0 t1.pre=0 t1.lvl=104 t1.atk=10 t1.e0=0 t1.e1=0 t1.s0=0:0 t1.s1=0:0 t1.s2=0:0 t1.s3=0:0 t1.s4=0:0 t1.s5=0:0 t1.s6=0:0 t1.s7=0:0 t2.eng=0 t2.pre=0 t2.lvl=104 t2.atk=10 t2.e0=0 t2.e1=0 t2.s0=0:0 t2.s1=0:0 t2.s2=0:0 t2.s3=0:0 t2.s4=0:0 t2.s5=0:0 t2.s6=0:0 t2.s7=0:0 t3.eng=0 t3.pre=0 t3.lvl=104 t3.atk=10 t3.e0=0 t3.e1=0 t3.s0=0:0 t3.s1=0:0 t3.s2=0:0 t3.s3=0:0 t3.s4=0:0 t3.s5=0:0 t3.s6=0:0 t3.s7=0:0
+PROJ 1 FIELDS fmt=6 sel=0 bpm=132 swing=40 dust=0 drdly=0 t0.eng=0 t0.pre=0 t0.lvl=80 t0.atk=0 t0.e0=3 t0.e1=0 t0.s0=1:48 t0.s1=0:0 t0.s2=0:0 t0.s3=0:0 t0.s4=0:0 t0.s5=0:0 t0.s6=0:0 t0.s7=0:0 t1.eng=0 t1.pre=0 t1.lvl=104 t1.atk=0 t1.e0=3 t1.e1=0 t1.s0=0:0 t1.s1=0:0 t1.s2=0:0 t1.s3=0:0 t1.s4=0:0 t1.s5=0:0 t1.s6=0:0 t1.s7=0:0 t2.eng=4 t2.pre=5 t2.lvl=104 t2.atk=12 t2.e0=5 t2.e1=0 t2.s0=0:0 t2.s1=0:0 t2.s2=0:0 t2.s3=0:0 t2.s4=0:0 t2.s5=0:0 t2.s6=0:0 t2.s7=0:0 t3.eng=0 t3.pre=0 t3.lvl=104 t3.atk=10 t3.e0=0 t3.e1=0 t3.s0=0:0 t3.s1=0:0 t3.s2=0:0 t3.s3=0:0 t3.s4=0:0 t3.s5=0:0 t3.s6=0:0 t3.s7=0:0
 sloop>  PARAM 0 104
 PARAM track=0 id=0 value=104 applied=104 min=0 max=127
 sloop>  # [inject] ④ quick chain：A B A 的逐小节推进、9 项整份拒绝、8 项接受 + 取消、空 scene 拒绝
@@ -1365,8 +1373,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ CHAIN A B A
 SEQ CHAIN count=3 index=0 bars=1
 SEQ CHAIN 0 scene=0
@@ -1481,15 +1489,15 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=80 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=80 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SECTION A LOAD
 SEQ SECTION A LOAD OK
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -1508,8 +1516,8 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  UI tracks
-I (205876) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5732B 预算=7168B 池剩余=15332B 耗时=9ms
-I (205886) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
+I (465496) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5744B 预算=7168B 池剩余=14504B 耗时=9ms
+I (465496) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=15ms
 UI page=tracks (1)
 sloop>  TAP 484 347
 TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
@@ -1519,13 +1527,13 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG MODE loop
 SEQ SONG mode=loop
 sloop>  UI transport
-I (206386) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8364B 预算=9216B 池剩余=36408B 耗时=13ms
-I (206396) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (466006) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8412B 预算=9216B 池剩余=35580B 耗时=13ms
+I (466006) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
@@ -1535,11 +1543,11 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  UI song
-I (206856) sloop_ui: 页面构建 page=SONG(11) 池增量=11516B 预算=12288B 池剩余=30872B 耗时=17ms
-I (206856) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+I (466466) sloop_ui: 页面构建 page=SONG(11) 池增量=11404B 预算=12288B 池剩余=30212B 耗时=18ms
+I (466476) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
 UI page=song (11)
 sloop>  TAP 776 220
 TAP 776,220 page=11 -> SONG card=C select
@@ -1601,7 +1609,7 @@ sloop>  ENG SNAP
 ENG SNAP playing=1 bpm=120 sel=1 pos=2,2,2,2
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -1620,8 +1628,8 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  UI transport
-I (209026) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8268B 预算=9216B 池剩余=30832B 耗时=12ms
-I (209026) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
+I (468636) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8324B 预算=9216B 池剩余=30156B 耗时=12ms
+I (468646) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
 UI page=transport (3)
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
@@ -1631,13 +1639,13 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  PARAM 0 70
 PARAM track=1 id=0 value=70 applied=70 min=0 max=127
 sloop>  STORE LIVEHASH
-LIVEHASH E3DC11EB
-sloop>  # [inject] ⑤ 判别哈希：A=099236FC B=F706A500 工作 loop(h0)=E3DC11EB
+LIVEHASH 07D9E27D
+sloop>  # [inject] ⑤ 判别哈希：A=3B04E62E B=6EBBEF0A 工作 loop(h0)=07D9E27D
 STORE SONG SET 2 0 0:2 1:3
 STORE SONG SET count=2 loop=0 dirty=1
 sloop>  SEQ SONG MODE song
@@ -1652,8 +1660,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG
 SEQ SONG mode=song running=1 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
 SEQ SONG 0 scene=0 bars=2
@@ -1662,7 +1670,7 @@ sloop>  ENG SNAP
 ENG SNAP playing=1 bpm=120 sel=1 pos=2,10,10,10
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -1681,10 +1689,10 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  ENG SNAP
-ENG SNAP playing=1 bpm=120 sel=1 pos=3,11,11,11
+ENG SNAP playing=1 bpm=120 sel=1 pos=2,10,10,10
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -1710,460 +1718,460 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STATE SNAP
 STATE SNAP page=3 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=48 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=1 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=70 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=70 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG
 SEQ SONG mode=song running=0 index=1 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
 SEQ SONG 0 scene=0 bars=2
 SEQ SONG 1 scene=1 bars=3
 sloop>  STORE LIVEHASH
-LIVEHASH E3DC11EB
-sloop>  I (220376) sloop_store: 歌曲已保存 len=1552 来源=1
+LIVEHASH 07D9E27D
+sloop>  I (479976) sloop_store: 歌曲已保存 len=1552 来源=1
 ENG SNAP
 ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=70 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2187,8 +2195,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=70 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=70 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x03 live=B dirty=0 index=1 bar=0
 sloop>  STORE SONG SET 2 1 0:2 1:3
@@ -2205,8 +2213,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG
 SEQ SONG mode=song running=1 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=1
 SEQ SONG 0 scene=0 bars=2
@@ -2215,7 +2223,7 @@ sloop>  ENG SNAP
 ENG SNAP playing=1 bpm=120 sel=1 pos=2,6,6,6
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2234,10 +2242,10 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  ENG SNAP
-ENG SNAP playing=1 bpm=120 sel=1 pos=3,7,7,7
+ENG SNAP playing=1 bpm=120 sel=1 pos=2,7,7,7
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2256,20 +2264,20 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  STORE LIVEHASH
-LIVEHASH 72B37E15
-sloop>  # [inject] ⑤ loop=1 播到 B 时的 hash=72B37E15（工作 loop h0=E3DC11EB）
+LIVEHASH 3D45BE53
+sloop>  # [inject] ⑤ loop=1 播到 B 时的 hash=3D45BE53（工作 loop h0=07D9E27D）
 UI song
-I (226236) sloop_ui: 页面构建 page=SONG(11) 池增量=11344B 预算=12288B 池剩余=30712B 耗时=17ms
-I (226246) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+I (485836) sloop_ui: 页面构建 page=SONG(11) 池增量=11236B 预算=12288B 池剩余=30156B 耗时=16ms
+I (485836) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=19ms
 UI page=song (11)
-sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-034151-song-live.png
+sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-042427-song-live.png
 SCR
-I (226816) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+I (486436) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI transport
-I (243136) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8140B 预算=9216B 池剩余=30704B 耗时=13ms
-I (243136) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=18ms
+I (502716) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8212B 预算=9216B 池剩余=30172B 耗时=13ms
+I (502716) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
 UI page=transport (3)
 sloop>  UI transport
 UI page=transport (3)
@@ -2281,15 +2289,15 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=70 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=70 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STORE LIVEHASH
-LIVEHASH E3DC11EB
+LIVEHASH 07D9E27D
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=70 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2313,8 +2321,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=70 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=70 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG
 SEQ SONG mode=song running=0 index=0 bar=1 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=1
 SEQ SONG 0 scene=0 bars=2
@@ -2335,8 +2343,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=70 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=1 level=70 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG
 SEQ SONG mode=song running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
 SEQ SONG 0 scene=0 bars=2
@@ -2349,12 +2357,12 @@ SEQ SONG mode=loop
 sloop>  SEQ SECTION A LOAD
 SEQ SECTION A LOAD OK
 sloop>  STORE LIVEHASH
-LIVEHASH 099236FC
+LIVEHASH 3B04E62E
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2390,8 +2398,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SONG REC
 SEQ SREC srec=armed last=none
 sloop>  SEQ SONG MODE song
@@ -2409,8 +2417,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STORE SONG
 STORE SONG count=2 loop=0 dirty=1
 SONG 0 scene=0 bars=2
@@ -2429,8 +2437,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SECTION A LOAD
 SEQ ERR blocked
 Command returned non-zero error code: 0x1 (ERROR)
@@ -2468,7 +2476,7 @@ sloop>  ENG SNAP
 ENG SNAP playing=1 bpm=120 sel=0 pos=2,6,6,6
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2487,8 +2495,8 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  STORE LIVEHASH
-LIVEHASH ADC6AD84
-sloop>  # [inject] ⑥ take STOP 前：live=B、轨 0 level=80、hash=ADC6AD84（A 工作 loop h1=099236FC）
+LIVEHASH 6883EA26
+sloop>  # [inject] ⑥ take STOP 前：live=B、轨 0 level=80、hash=6883EA26（A 工作 loop h1=3B04E62E）
 UI transport
 UI page=transport (3)
 sloop>  TAP 560 210
@@ -2499,8 +2507,8 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=80 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=80 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  SEQ SREC
 SEQ SREC srec=off last=2
 sloop>  STORE SONG
@@ -2512,14 +2520,14 @@ SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 sre
 SEQ SONG 0 scene=0 bars=2
 SEQ SONG 1 scene=1 bars=1
 sloop>  STORE LIVEHASH
-LIVEHASH ADC6AD84
+LIVEHASH 6883EA26
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=0 preset=0 level=80 mute=0 armed=0 solo=0 len=4 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP dstep i=0 on=0 lvl=0 rat=0
 ENG SNAP dstep i=1 on=0 lvl=0 rat=0
@@ -2538,30 +2546,30 @@ ENG SNAP dstep i=13 on=0 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  STORE SONG SAVE
-I (256246) sloop_store: 歌曲已保存 len=1552 来源=1
+I (515826) sloop_store: 歌曲已保存 len=1552 来源=1
 STORE SONG SAVED len=1552 side=1
 sloop>  STORE SONG INFO
 STORE SONG INFO kind=per3 len=1552 side=1 count=2 loop=0
 sloop>  STORE SONG LOAD
-I (256406) sloop_store: 歌曲设置: 来源=1 count=2 loop=0
+I (515986) sloop_store: 歌曲设置: 来源=1 count=2 loop=0
 STORE SONG LOAD count=2 loop=0 dirty=0
 sloop>  STORE SONG
 STORE SONG count=2 loop=0 dirty=0
 SONG 0 scene=0 bars=2
 SONG 1 scene=1 bars=1
 sloop>  UI song
-I (256616) sloop_ui: 页面构建 page=SONG(11) 池增量=11260B 预算=12288B 池剩余=30696B 耗时=17ms
-I (256626) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+I (516206) sloop_ui: 页面构建 page=SONG(11) 池增量=11200B 预算=12288B 池剩余=30100B 耗时=18ms
+I (516206) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
 UI page=song (11)
-sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-034151-song-rec.png
+sloop>  # [inject] SCR 截屏 -> inject-sequence-20261123-042427-song-rec.png
 SCR
-I (257026) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
+I (516626) sloop_console: SCR: 传输前 PSRAM 剩余 28231260 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 # [inject] ⑦ STORE TEST 与单例 ENG SELFTEST 之后歌曲与 section 保持
 UI transport
-I (273506) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8168B 预算=9216B 池剩余=30648B 耗时=13ms
-I (273506) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
+I (534496) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8192B 预算=9216B 池剩余=30128B 耗时=13ms
+I (534496) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
@@ -2571,38 +2579,38 @@ STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=80 atk=10 dec=70 sus=90 rel=60 slen=4 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=80 atk=0 dec=112 sus=0 rel=52 slen=4 mute=0
+STATE SNAP global bpm=120 swing=40
 sloop>  STORE TEST
-I (273986) sloop_store: STORE TEST seq: v2 winner=copy1 seq=2 ok=1; v3 winner=copy0 seq=3 ok=1
-I (273986) sloop_store: STORE TEST seq ok
-I (274056) sloop_store: STORE TEST erase-fail: faults=1 armed=0 op=erase survivor=copy1
-I (274056) sloop_store: STORE TEST erase-fail ok
-I (274136) sloop_store: STORE TEST half-write: faults=1 armed=0 op=prog-payload survivor=copy1
-I (274136) sloop_store: STORE TEST half-write ok
-I (274216) sloop_store: STORE TEST header-fail: faults=1 armed=0 op=prog-header survivor=copy1
-I (274216) sloop_store: STORE TEST header-fail ok
-I (274276) sloop_store: STORE TEST corrupt ok
-I (274316) sloop_store: STORE TEST empty-commit ok
+I (535026) sloop_store: STORE TEST seq: v2 winner=copy1 seq=2 ok=1; v3 winner=copy0 seq=3 ok=1
+I (535026) sloop_store: STORE TEST seq ok
+I (535096) sloop_store: STORE TEST erase-fail: faults=1 armed=0 op=erase survivor=copy1
+I (535096) sloop_store: STORE TEST erase-fail ok
+I (535186) sloop_store: STORE TEST half-write: faults=1 armed=0 op=prog-payload survivor=copy1
+I (535186) sloop_store: STORE TEST half-write ok
+I (535276) sloop_store: STORE TEST header-fail: faults=1 armed=0 op=prog-header survivor=copy1
+I (535276) sloop_store: STORE TEST header-fail ok
+I (535336) sloop_store: STORE TEST corrupt ok
+I (535376) sloop_store: STORE TEST empty-commit ok
 STORE TEST PASS 6/6
 sloop>  STORE SONG
 STORE SONG count=2 loop=0 dirty=0
 SONG 0 scene=0 bars=2
 SONG 1 scene=1 bars=1
 sloop>  ENG AUDIO OFF
-I (274666) sloop_audio_stream: stream stopped, codec 保持打开
-ENG AUDIO streaming=0 xrun=1 OK
+I (535716) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=13 OK
 sloop>  ENG SELFTEST drums/gm_kit
-I (274766) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+I (535806) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
 ENG SELFTEST BEGIN drums/gm_kit
 regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 1.0 s
 drums/gm_kit 51ef07025d5d8f29
 ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
-I (275776) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
-I (275776) sloop_store: 歌曲设置: 来源=1 count=2 loop=0
+I (536816) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+I (536816) sloop_store: 歌曲设置: 来源=1 count=2 loop=0
 sloop>  ENG AUDIO ON
-I (275886) sloop_audio_stream: stream started, half=256 frames
-ENG AUDIO streaming=1 xrun=1 OK
+I (536926) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=13 OK
 sloop>  STORE SONG
 STORE SONG count=2 loop=0 dirty=0
 SONG 0 scene=0 bars=2
@@ -2625,11 +2633,11 @@ SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=- dirty=0 chain=0 sre
 SEQ SONG 0 scene=0 bars=2
 SEQ SONG 1 scene=1 bars=1
 sloop>  STORE SONG SAVE
-I (276736) sloop_store: 歌曲已保存 len=1552 来源=1
+I (537766) sloop_store: 歌曲已保存 len=1552 来源=1
 STORE SONG SAVED len=1552 side=1
 sloop>  # [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
 
-sloop>  I (4376) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+sloop>  I (4386) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
 STORE AUTO OFF
 STORE AUTO off
 sloop>  STORE SONG
@@ -2649,24 +2657,24 @@ SEQ SONG 1 scene=1 bars=1
 sloop>  SEQ SECTION
 SEQ SECTION ready=0x03 live=- dirty=0 index=0 bar=0
 sloop>  STORE PROJ HASH 0
-PROJ 0 HASH=099236FC
+PROJ 0 HASH=3B04E62E
 sloop>  STORE PROJ HASH 1
-PROJ 1 HASH=F706A500
+PROJ 1 HASH=6EBBEF0A
 sloop>  # [inject] ⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY、AUTO ON
 UI transport
-I (5266) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8672B 预算=9216B 池剩余=40652B 耗时=13ms
-I (5266) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
+I (5276) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8672B 预算=9216B 池剩余=40652B 耗时=12ms
+I (5276) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
 sloop>  STORE PROJ ERASE 0
 PROJ 0 ERASED
 sloop>  STORE PROJ ERASE 1
@@ -2680,24 +2688,26 @@ Command returned non-zero error code: 0x1 (ERROR)
 sloop>  STORE SONG SET 4 0 0:4 1:4 2:4 3:4
 STORE SONG SET count=4 loop=0 dirty=1
 sloop>  STORE SONG SAVE
-I (6206) sloop_store: 歌曲已保存 len=1552 来源=1
+I (6266) sloop_store: 歌曲已保存 len=1552 来源=1
 STORE SONG SAVED len=1552 side=1
 sloop>  SEQ SONG MODE loop
 SEQ SONG mode=loop
 sloop>  UI tracks
-I (6376) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6020B 预算=7168B 池剩余=37328B 耗时=9ms
-I (6376) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (6436) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6020B 预算=7168B 池剩余=37328B 耗时=10ms
+I (6436) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=0 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
-STATE SNAP global bpm=120 swing=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  PARAM 0 104
+PARAM track=0 id=0 value=104 applied=104 min=0 max=127
 sloop>  PARAM 17 0
 PARAM track=0 id=17 value=0 applied=0 min=0 max=14
 sloop>  PARAM 23 0
@@ -2706,6 +2716,32 @@ sloop>  PARAM 37 0
 PARAM track=0 id=37 value=0 applied=0 min=0 max=3
 sloop>  PARAM 29 16
 PARAM track=0 id=29 value=16 applied=16 min=1 max=64
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=110 sus=0 rel=58 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
+sloop>  PARAM 0 104
+PARAM track=1 id=0 value=104 applied=104 min=0 max=127
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=140 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=140 swing=0
 sloop>  PARAM GLOBAL 0 120
 PARAM GLOBAL id=0 value=120 applied=120 min=40 max=240
 sloop>  SEQ PATTERN CLEAR 0
@@ -2717,8 +2753,8 @@ SEQ PATTERN CLEAR track=2 arg=0 OK
 sloop>  SEQ PATTERN CLEAR 3
 SEQ PATTERN CLEAR track=3 arg=0 OK
 sloop>  UI play
-I (7686) sloop_ui: 页面构建 page=PLAY(0) 池增量=2376B 预算=3072B 池剩余=42956B 耗时=4ms
-I (7686) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+I (8556) sloop_ui: 页面构建 page=PLAY(0) 池增量=2376B 预算=3072B 池剩余=42944B 耗时=4ms
+I (8556) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
 UI page=play (0)
 sloop>  STORE AUTO ON
 STORE AUTO on
