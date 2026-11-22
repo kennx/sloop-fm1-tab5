@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "sloop_core.h"
+#include "sloop_seq.h"
 
 /* 状态层（spec §3.2 / ADR-005）：AppState = 引擎投影（core 快照）+ UI 局部态。
  *
@@ -76,9 +77,11 @@ typedef enum {
     CMD_PROJECT_SAVE, CMD_PROJECT_LOAD, CMD_PROJECT_ERASE,
     CMD_PRESET_STORE, CMD_PRESET_LOAD, CMD_PRESET_ERASE,
     CMD_BANK_PUT, CMD_BANK_ERASE,
+    CMD_STEP_EDIT, CMD_PATTERN, CMD_SET_MICRO, CMD_SET_FILL,
+    CMD_LOCK_SET, CMD_LOCK_DEL, CMD_DRUM_STEP_WRITE,
 } edit_cmd_type_t;
 
-/* 字段约定（未列出的字段忽略；越界参数一律忽略——不调引擎、不改状态）：
+/* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
  *  CMD_NOTE_ON/OFF   a=track(0..3) v=note(0..127)；NOTE_ON 同时更新 last_note
  *  CMD_PLAY/STOP     （STOP = play(false)）
  *  CMD_SELECT_TRACK  a=track(0..3)：选中轨（与 CMD_SET_TRACK 等价）；副作用：同时把
@@ -86,22 +89,17 @@ typedef enum {
  *  CMD_SET_TRACK     a=track(0..3)：选中轨（控制方裁定：SET_TRACK 的语义即选轨）
  *  CMD_TOGGLE_STEP   a=track(0..2) b=step(0..63)：空 → 开：清空残留字段
  *                    （note[]/lvl/rat/flags）后写 last_note（无则 60）、
- *                    n=1/vel=100/time=NOTE；开→关：整步清空（n=0、
- *                    note[]/vel/lvl/rat/flags=0、time=REST）并折叠其后的
- *                    TIE 连缀（对齐上游 note_del：note_span_set(t,i,1) 把
- *                    承载该音的 n==0 TIE 折回 REST，遇非 TIE / 带音符的 TIE 停）。
- *                    两种路径均 read-modify-write，保留 micro/fill（上游步表外字段）。
+ *                    n=1/vel=100/time=NOTE，保留 micro/fill；开→关：分发完整
+ *                    SEQ_STEP_CLEAR，由上游处理 CONT/TIE 并清 lock/micro/fill。
  *                    「空/开」判定见 state_step_is_on()：n>0 且 time==NOTE；
  *                    n>0 但 time 为 TIE/REST 的步算空（切换 → 开，不是 → 关）。
- *                    鼓轨（track 3）MVP 只读，忽略。
+ *                    鼓轨（track 3）由 CMD_DRUM_STEP_WRITE / STEP_EDIT(CLEAR) 编辑。
  *  CMD_SET_BPM       v 钳位到 40..240（上游 params.c 的 GP[G_BPM]）后写 G_BPM
  *  CMD_MUTE/CMD_SOLO a=track(0..3)：翻转该轨 mute/solo 位（solo 以整轨掩码写引擎）
  *  CMD_ERASE_NOTE    a=track(0..2) b=step(0..63) v=note(1..127)：从**显式指定的步**
- *                    删除该音符（步号由调用方在派发时解析，状态层不读 focus_step）。
- *                    read-modify-write：其余音符前移，每音符字段（lvl/rat 的 2bit、
- *                    flags 的 CONT 位）随之前移；最后一个音符删除后整步清空并对齐
- *                    上游折叠 TIE 连缀（同 CMD_TOGGLE_STEP 的关路径）。
- *                    步里没有该音符（或步已空）时不写引擎。鼓轨忽略。
+ *                    找到该音高的 index，分发完整 SEQ_STEP_NOTE_DEL（状态层不读
+ *                    focus_step、不自行处理 CONT/TIE）；无匹配 = SEQ_STATUS_NOT_FOUND，
+ *                    最后一个音符删除后的清步语义由上游动作保证。鼓轨拒绝。
  *  CMD_SET_WINDOW    a=bank（冗余，由 b 派生） b=start v=len：写步窗（UI 局部态）并
  *                    立即重取窗口列投影。start 向下对齐到 16 的倍数、钳位到 0..48；
  *                    bank = start/16；len 钳位到 1..APP_STATE_STEPS；focus_step 被夹到
@@ -121,6 +119,16 @@ typedef enum {
  *                    （与 CMD_SET_BPM 同一真值，TRANSPORT/STATE SNAP 不落后一拍）。
  *                    只用于**值参数**——动作类全局（G_LOAD/G_SAVE/G_CLRSEQ…）不得
  *                    经本命令下发（那只会改 song.g[]，不执行动作）。
+ *  CMD_STEP_EDIT     p=sloop_step_edit_t：完整 POD（含 op）同步透传
+ *                    sloop_seq_step_edit；指针只在 state_apply 返回前有效。
+ *  CMD_PATTERN       a=track b=op v=(uint16_t)arg：arg 还原为 int16 后交给
+ *                    sloop_seq_pattern；工具算法与钳位不在状态层复制。
+ *  CMD_SET_MICRO/FILL a=track b=step v=value：分别分发 sloop_seq_set_micro/fill。
+ *  CMD_LOCK_SET/DEL  a=track b=step n=param v=value（DEL 忽略 value；param=P_COUNT
+ *                    清该步全部锁）：分发 sloop_seq_lock_set/del。
+ *  CMD_DRUM_STEP_WRITE b=step p=sloop_dstep_t：同步透传原始 16-lane 鼓步，不触碰
+ *                    合成轨步表。上述命令先拒绝非法轨/步/param（不调引擎），返回码写入
+ *                    seq_status；仅 ESP_OK 时同拍重取详细窗口投影。
  *  CMD_PROJECT_SAVE/LOAD/ERASE a=slot(0..3)：分发 sloop_store_project_*。槽号越界不调
  *                    存储 API、不改 store_status。否则返回码按 app_store_status_t 映射
  *                    写 store_status；**成功（ESP_OK）后整份刷新投影**（一次窗口快照 +
@@ -148,8 +156,8 @@ typedef struct {
     edit_cmd_type_t type;
     uint32_t a, b;
     uint16_t v;
-    const void *p; /* CMD_SET_PARAM_BATCH：sloop_param_pair_t 数组（仅 apply 期间有效） */
-    uint32_t n;    /* CMD_SET_PARAM_BATCH：元素个数 */
+    const void *p; /* PARAM_BATCH=pair 数组；STEP_EDIT/DRUM_STEP_WRITE=POD（仅 apply 期间有效） */
+    uint32_t n;    /* CMD_SET_PARAM_BATCH：元素个数；CMD_LOCK_SET/DEL：param */
 } edit_cmd_t;
 
 /* 存储命令的结果（app_state_t.store_status）：UI 状态行按此映射文案
@@ -168,6 +176,19 @@ typedef enum {
                                    * 或 bank PUT 在状态层直接判鼓轨、不调存储 API） */
 } app_store_status_t;
 
+/* 最近一次音序编辑结果：blocked（CONT/目标占用）、full（锁/复制容量）与 frozen
+ * （诊断冻结）必须分开；INVALID_STATE 在 sloop_seq 公共 API 中只表示 frozen。 */
+typedef enum {
+    SEQ_STATUS_IDLE = 0,       /* 尚无音序命令 */
+    SEQ_STATUS_OK = 1,         /* 成功且详细窗口已同拍刷新 */
+    SEQ_STATUS_NOT_FOUND = 2,  /* 空步/无匹配音/无 undo */
+    SEQ_STATUS_INVALID = 3,    /* 非法轨、步、op、参数或参数值 */
+    SEQ_STATUS_FULL = 4,       /* ESP_ERR_NO_MEM */
+    SEQ_STATUS_BLOCKED = 5,    /* ESP_ERR_NOT_ALLOWED */
+    SEQ_STATUS_FROZEN = 6,     /* ESP_ERR_INVALID_STATE */
+    SEQ_STATUS_ERROR = 7,      /* 其它失败 */
+} app_seq_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -180,6 +201,7 @@ typedef struct {
     uint8_t last_note;          /* 最近演奏音；0 = 还没弹过（note 0 不记忆） */
     uint8_t layer_held;         /* 层键位掩码（APP_LAYER_*，InputManager 写、UI 读） */
     uint8_t store_status;       /* 最近一次存储命令的结果（app_store_status_t） */
+    uint8_t seq_status;         /* 最近一次音序命令的结果（app_seq_status_t） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */

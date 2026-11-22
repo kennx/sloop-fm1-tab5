@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo；后续任务实现状态接入、持久化与 UI）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo + Task 5 状态命令/详细投影；后续任务实现录音、持久化与 UI）｜ 日期：2026-11-22
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -177,6 +177,28 @@ Task 4 继续扩展同一 `seq_tab5.c`，不编入上游 UI，也不建立第二
 
 `scripts/seq-host-test.c` 继续使用真实 hostsim/seq.c/drums.c，增加复杂 CONT、move/copy 元数据、工具锚定、
 0/127 饱和、clear 与 undo 范围、一次取锁及取锁后冻结判别用例。
+
+### 8. 状态层命令、详细投影与焦点同步
+
+Task 5 将 spec §4.3 的命令面接入 `sloop_state`：`CMD_STEP_EDIT` 同步透传包含 `op` 的完整
+`sloop_step_edit_t`，`CMD_PATTERN{a=track,b=op,v=(uint16_t)arg}` 还原有符号 arg；
+`CMD_SET_MICRO/FILL` 携带 `a=track,b=step,v=value`；`CMD_LOCK_SET/DEL` 使用
+`a=track,b=step,n=param,v=value`；`CMD_DRUM_STEP_WRITE{b=step,p=sloop_dstep_t}` 只写原始鼓轨。
+POD 指针与既有参数批量命令一样，只需在 `state_apply()` 返回前有效。状态层只校验公共边界和分发，
+不复制上游 span、CONT、锁容量或钳位算法。
+
+`app_state_t.seq_status` 分别投影 `IDLE/OK/NOT_FOUND/INVALID/FULL/BLOCKED/FROZEN/ERROR`。
+其中 `ESP_ERR_NO_MEM → FULL`、`ESP_ERR_NOT_ALLOWED → BLOCKED`、`ESP_ERR_INVALID_STATE → FROZEN`，
+UI 无需把三种失败混成同一个错误。成功的音序写命令在同一 `state_apply` 内重取窗口；合成步的
+`lvl/rat/micro/fill` 与鼓步聚合随之更新，失败不改投影。旧 `CMD_TOGGLE_STEP` 的关路径与
+`CMD_ERASE_NOTE` 分别改走 `SEQ_STEP_CLEAR` 和 `SEQ_STEP_NOTE_DEL`，因此清步同时清 lock/micro/fill，
+复杂 CONT 删除不再由状态层的 MVP 循环模拟。
+
+DI-24 按「选中轨变化才同步」收口：`state_init` 以引擎选中轨初始化焦点，`state_sync_from_engine`、
+存储成功后的 `state_refresh_locked`、`CMD_SET_WINDOW` 与音序成功刷新在 `selected_track` 相对上一份投影发生变化时同步
+`focus_track`（包括窗口刷新消费外部选轨变化的情形）。显式 `CMD_SELECT_TRACK/SET_TRACK` 已同时设置两者；选中轨不变时，键盘独立移动焦点不被
+周期投影覆盖。失败 LOAD 不刷新也不改焦点。`STATE SNAP` 在原有行尾追加 `seq_status`，并追加每列详细
+`synth step/dstep` 行；`ENG STEP` 原有完整字段与所有既有 token 保持不变。
 
 ## 后果
 

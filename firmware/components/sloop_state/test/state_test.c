@@ -129,8 +129,9 @@ static void case_toggle_step_empty(void)
     check_ll("无 last_note 默认 60", g_stub.step[1][1].note[0], 60);
 }
 
-/* ③ read-modify-write：micro/fill 逐字段保留；开步清空残留步内字段（上游先 memset）；
- * 关步整步清空（对齐上游 step_clear）；邻居步逐字节不变；TIE（n>0 但 time≠NOTE）
+/* ③ 开步 read-modify-write 保留 micro/fill；关步走完整 STEP_CLEAR，同时清
+ * lock/micro/fill；开步清空残留步内字段（上游先 memset）；邻居步逐字节不变；
+ * TIE（n>0 但 time≠NOTE）
  * 按上游 sp_on 口径算「空」。 */
 static void case_toggle_step_preserves(void)
 {
@@ -169,7 +170,8 @@ static void case_toggle_step_preserves(void)
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
     CHECK(memcmp(&g_stub.step[0][6], &tie, sizeof(tie)) == 0);
 
-    /* 关：整步清空（上游 step_clear）——vel/lvl/rat/flags 一并归零，micro/fill 保留 */
+    /* 关：完整 STEP_CLEAR——vel/lvl/rat/flags 与 lock/micro/fill 一并归零 */
+    g_stub.lock_present[0][3] = 1;
     apply(CMD_TOGGLE_STEP, 0, 3, 0);
     check_ll("关 n", st->n, 0);
     check_ll("关 time", st->time, 2);
@@ -178,8 +180,10 @@ static void case_toggle_step_preserves(void)
     check_ll("关 rat 清零", st->rat, 0);
     check_ll("关 flags 清零", st->flags, 0);
     check_ll("关 note1..3 清零", st->note[1] | st->note[2] | st->note[3], 0);
-    check_ll("关 micro 保留", st->micro, -3);
-    check_ll("关 fill 保留", st->fill, 2);
+    check_ll("关 micro 清零", st->micro, 0);
+    check_ll("关 fill 清零", st->fill, 0);
+    check_ll("关步清 lock", g_stub.lock_present[0][3], 0);
+    check_ll("关步走 STEP_CLEAR", g_stub.last_step_edit.op, SEQ_STEP_CLEAR);
     CHECK(memcmp(&g_stub.step[0][4], &neighbor, sizeof(neighbor)) == 0);
 
     /* 再开一次：关步留下的 note[] 不得漏进新步 */
@@ -203,8 +207,8 @@ static void case_toggle_step_preserves(void)
     check_ll("TIE→开 fill 保留", ti->fill, 1);
 }
 
-/* ③b 关步折叠 TIE 连缀（对齐上游 note_del 的 note_span_set(t,i,1)）：
- * 其后 n==0 的 TIE 折回 REST，微调/填充保留；遇非 TIE 或带音符的 TIE 即停。 */
+/* ③b 关步经完整 STEP_CLEAR 折叠 TIE 连缀：起始步的 lock/micro/fill 清除；
+ * 其后 n==0 的 TIE 折回 REST，TIE 自身的微调/填充保留；遇非 TIE 或带音符的 TIE 即停。 */
 static void case_toggle_step_tie_collapse(void)
 {
     stub_engine_reset();
@@ -227,8 +231,12 @@ static void case_toggle_step_tie_collapse(void)
     g_stub.step[0][7] = tie_held;
     g_stub.step[0][8] = rest_after;
 
+    g_stub.lock_present[0][4] = 1;
     apply(CMD_TOGGLE_STEP, 0, 4, 0);
     check_ll("关步 n", g_stub.step[0][4].n, 0);
+    check_ll("关步 micro 清零", g_stub.step[0][4].micro, 0);
+    check_ll("关步 fill 清零", g_stub.step[0][4].fill, 0);
+    check_ll("关步 lock 清零", g_stub.lock_present[0][4], 0);
     check_ll("第一条 TIE 折回 REST", g_stub.step[0][5].time, 2);
     check_ll("第一条 TIE n=0", g_stub.step[0][5].n, 0);
     check_ll("第一条 TIE micro 保留", g_stub.step[0][5].micro, 5);
@@ -387,10 +395,10 @@ static void case_copy_and_sync(void)
     check_ll("layer_held", s.layer_held, 3);
 }
 
-/* ⑥ ERASE_NOTE：read-modify-write 删除**显式步**（a=track b=step v=note）里的指定
- * 音符；不读 focus_step。其余音符前移，每音符字段（lvl/rat 的 2bit、flags 的 CONT
- * 位）随之前移；最后一个音符删除后整步清空并折叠 TIE 连缀（对齐上游）；无匹配/
- * 越界一律不写引擎。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
+/* ⑥ ERASE_NOTE：把**显式步**（a=track b=step v=note）里的音高解析为 index，
+ * 再透传完整上游 NOTE_DEL；不读 focus_step。其余音符前移，每音符字段（lvl/rat
+ * 的 2bit、flags 的 CONT 位）随之前移；最后一个音符删除后整步清空 lock/micro/fill
+ * 并折叠 TIE 连缀；无匹配/越界不调用编辑 API。上游常量镜像：SF_ACCENT=1、SF_CONT0=8。 */
 static void case_erase_note(void)
 {
     stub_engine_reset();
@@ -402,14 +410,19 @@ static void case_erase_note(void)
                            .flags = 0x01u | 0x08u, .lvl = 0x09, .rat = 0x06,
                            .micro = -2, .fill = 1 };
     g_stub.step[0][5] = chord;
+    g_stub.lock_present[0][5] = 1;
     /* 焦点故意放在别的步：ERASE_NOTE 必须用命令里的显式步号 */
     state_set_focus(0, 9);
 
     uint32_t reads0 = g_stub.read_step_calls;
-    uint32_t writes0 = g_stub.write_step_calls;
+    uint32_t edits0 = g_stub.seq_step_edit_calls;
     apply(CMD_ERASE_NOTE, 0, 5, 60);
-    check_ll("RMW read_step ×1", g_stub.read_step_calls - reads0, 1);
-    check_ll("RMW write_step ×1", g_stub.write_step_calls - writes0, 1);
+    check_ll("音高解析 read_step ×1", g_stub.read_step_calls - reads0, 1);
+    check_ll("NOTE_DEL 调用 ×1", g_stub.seq_step_edit_calls - edits0, 1);
+    check_ll("NOTE_DEL op", g_stub.last_step_edit.op, SEQ_STEP_NOTE_DEL);
+    check_ll("NOTE_DEL index", g_stub.last_step_edit.index, 0);
+    check_ll("NOTE_DEL track", g_stub.last_step_edit.track, 0);
+    check_ll("NOTE_DEL step", g_stub.last_step_edit.step, 5);
     const sloop_step_t *st = &g_stub.step[0][5];
     check_ll("删首音后 n", st->n, 1);
     check_ll("删首音后 note0=原 note1", st->note[0], 64);
@@ -425,10 +438,12 @@ static void case_erase_note(void)
     check_ll("copy 步 n", s.core.step[0][5].n, 1);
     check_ll("copy 步 note0", s.core.step[0][5].note[0], 64);
 
-    /* 无匹配音符：不写引擎 */
-    writes0 = g_stub.write_step_calls;
+    /* 无匹配音符：不调用完整编辑 API */
+    edits0 = g_stub.seq_step_edit_calls;
     apply(CMD_ERASE_NOTE, 0, 5, 60);
-    check_ll("无匹配不写", g_stub.write_step_calls - writes0, 0);
+    check_ll("无匹配不调用 NOTE_DEL", g_stub.seq_step_edit_calls - edits0, 0);
+    state_get_copy(&s);
+    check_ll("无匹配 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
 
     /* 删除最后一个音符：整步清空（vel/lvl/rat/flags=0、time=REST），TIE 连缀折叠 */
     sloop_step_t tie = { .n = 0, .note = { 0 }, .vel = 0, .time = 1,
@@ -442,8 +457,9 @@ static void case_erase_note(void)
     check_ll("删末音后 lvl 清零", st->lvl, 0);
     check_ll("删末音后 rat 清零", st->rat, 0);
     check_ll("删末音后 flags 清零", st->flags, 0);
-    check_ll("删末音后 micro 保留", st->micro, -2);
-    check_ll("删末音后 fill 保留", st->fill, 1);
+    check_ll("删末音后 micro 清零", st->micro, 0);
+    check_ll("删末音后 fill 清零", st->fill, 0);
+    check_ll("删末音后 lock 清零", g_stub.lock_present[0][5], 0);
     check_ll("TIE 连缀折回 REST", g_stub.step[0][6].time, 2);
     check_ll("TIE micro 保留", g_stub.step[0][6].micro, 4);
     state_get_copy(&s);
@@ -482,15 +498,28 @@ static void case_erase_note(void)
     check_ll("删末音后 time=REST", trio_st->time, 2);
     check_ll("删末音后 vel 清零", trio_st->vel, 0);
 
-    /* 越界：鼓轨/步号越界/note 0/note 128 不读不写 */
+    /* CONT 跨后续 NOTE 的判别：状态层必须交上游 NOTE_DEL，不能自行做 MVP TIE 折叠。 */
+    g_stub.step[2][10] = (sloop_step_t){
+        .n = 1, .note = { 48, 0, 0, 0 }, .vel = 100, .time = 0, .flags = 0x08,
+    };
+    g_stub.step[2][11] = (sloop_step_t){
+        .n = 1, .note = { 60, 0, 0, 0 }, .vel = 90, .time = 0, .flags = 0x08,
+    };
+    apply(CMD_ERASE_NOTE, 2, 10, 48);
+    check_ll("CONT 删除走 NOTE_DEL", g_stub.last_step_edit.op, SEQ_STEP_NOTE_DEL);
+    check_ll("CONT 删除 index", g_stub.last_step_edit.index, 0);
+    check_ll("CONT 后续 NOTE 不被状态层折叠", g_stub.step[2][11].n, 1);
+    check_ll("CONT 后续 NOTE 音高不变", g_stub.step[2][11].note[0], 60);
+
+    /* 越界：鼓轨/步号越界/note 0/note 128 不读、不调用完整编辑 API */
     reads0 = g_stub.read_step_calls;
-    writes0 = g_stub.write_step_calls;
+    edits0 = g_stub.seq_step_edit_calls;
     apply(CMD_ERASE_NOTE, 3, 0, 60);   /* 鼓轨 */
     apply(CMD_ERASE_NOTE, 0, 64, 60);  /* 步号越界 */
     apply(CMD_ERASE_NOTE, 0, 0, 0);    /* note 0 */
     apply(CMD_ERASE_NOTE, 0, 0, 200);  /* note 越界 */
     check_ll("越界不读", g_stub.read_step_calls - reads0, 0);
-    check_ll("越界不写", g_stub.write_step_calls - writes0, 0);
+    check_ll("越界不调用 NOTE_DEL", g_stub.seq_step_edit_calls - edits0, 0);
 }
 
 /* ⑦ 步窗抽象 {bank, window_start, window_len}：默认 {0,0,16}；窗口列 c 映射到
@@ -1073,14 +1102,232 @@ static void case_page_ids(void)
     check_ll("越界页仍被拒", s.page, APP_PAGE_PRESETS);
 }
 
+static void apply_step_edit(const sloop_step_edit_t *edit)
+{
+    edit_cmd_t cmd = { .type = CMD_STEP_EDIT, .p = edit };
+    state_apply(&cmd);
+}
+
+static void apply_lock(edit_cmd_type_t type, uint32_t track, uint32_t step,
+                       uint32_t param, int16_t value)
+{
+    edit_cmd_t cmd = { .type = type, .a = track, .b = step, .n = param,
+                       .v = (uint16_t)value };
+    state_apply(&cmd);
+}
+
+/* STEP_EDIT 必须透传包含 op 的整个 POD；成功后同一 state_apply 内重取详细窗口。 */
+static void case_seq_step_edit_projection(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_WINDOW, 1, 16, 16);
+    g_stub.step[1][17] = (sloop_step_t){
+        .n = 2, .note = { 61, 65, 0, 0 }, .vel = 93, .time = 0,
+        .flags = 0x29, .lvl = 0x1b, .rat = 0x0e, .micro = -17, .fill = 2,
+    };
+    const sloop_step_edit_t edit = {
+        .track = 1, .step = 17, .index = 2, .target = 29,
+        .value = -123, .op = SEQ_STEP_NOTE_MOVE,
+    };
+    uint32_t calls0 = g_stub.seq_step_edit_calls;
+    uint32_t reads0 = g_stub.read_window_calls;
+    apply_step_edit(&edit);
+    check_ll("STEP_EDIT 调用 ×1", g_stub.seq_step_edit_calls - calls0, 1);
+    CHECK(memcmp(&g_stub.last_step_edit, &edit, sizeof(edit)) == 0);
+    check_ll("成功同拍重取窗口", g_stub.read_window_calls - reads0, 1);
+    state_get_copy(&s);
+    check_ll("STEP_EDIT 成功状态", s.seq_status, SEQ_STATUS_OK);
+    CHECK(memcmp(&s.core.step[1][1], &g_stub.step[1][17], sizeof(g_stub.step[1][17])) == 0);
+    check_ll("详细投影 lvl", s.core.step[1][1].lvl, 0x1b);
+    check_ll("详细投影 rat", s.core.step[1][1].rat, 0x0e);
+    check_ll("详细投影 micro", s.core.step[1][1].micro, -17);
+    check_ll("详细投影 fill", s.core.step[1][1].fill, 2);
+
+    calls0 = g_stub.seq_step_edit_calls;
+    const sloop_step_edit_t bad_track = { .track = 4, .step = 0, .op = SEQ_STEP_CLEAR };
+    const sloop_step_edit_t bad_step = { .track = 0, .step = 64, .op = SEQ_STEP_CLEAR };
+    const sloop_step_edit_t bad_op = { .track = 0, .step = 0, .op = (sloop_step_op_t)99 };
+    apply_step_edit(&bad_track);
+    apply_step_edit(&bad_step);
+    apply_step_edit(&bad_op);
+    apply_step_edit(NULL);
+    check_ll("非法 STEP_EDIT 不调引擎", g_stub.seq_step_edit_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("非法 STEP_EDIT → invalid", s.seq_status, SEQ_STATUS_INVALID);
+}
+
+/* PATTERN 与 micro/fill 的标量字段原样下发，负 arg/value 按有符号值还原。 */
+static void case_seq_pattern_micro_fill(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_PATTERN, 2, SEQ_PATTERN_TRANSPOSE, (uint16_t)(int16_t)-7);
+    check_ll("PATTERN 调用", g_stub.seq_pattern_calls, 1);
+    check_ll("PATTERN track", g_stub.last_pattern_track, 2);
+    check_ll("PATTERN op", g_stub.last_pattern_op, SEQ_PATTERN_TRANSPOSE);
+    check_ll("PATTERN 负 arg", g_stub.last_pattern_arg, -7);
+
+    apply(CMD_SET_MICRO, 1, 5, (uint16_t)(int16_t)-32);
+    check_ll("MICRO 调用", g_stub.seq_micro_calls, 1);
+    check_ll("MICRO track", g_stub.last_seq_track, 1);
+    check_ll("MICRO step", g_stub.last_seq_step, 5);
+    check_ll("MICRO value", g_stub.last_seq_value, -32);
+    apply(CMD_SET_FILL, 1, 5, 2);
+    check_ll("FILL 调用", g_stub.seq_fill_calls, 1);
+    check_ll("FILL value", g_stub.last_seq_value, 2);
+    state_get_copy(&s);
+    check_ll("micro 同拍投影", s.core.step[1][5].micro, -32);
+    check_ll("fill 同拍投影", s.core.step[1][5].fill, 2);
+    check_ll("标量命令成功状态", s.seq_status, SEQ_STATUS_OK);
+
+    uint32_t calls0 = g_stub.seq_pattern_calls + g_stub.seq_micro_calls + g_stub.seq_fill_calls;
+    apply(CMD_PATTERN, 4, SEQ_PATTERN_CLEAR, 0);
+    apply(CMD_PATTERN, 0, 99, 0);
+    apply(CMD_SET_MICRO, 0, 64, 0);
+    apply(CMD_SET_FILL, 4, 0, 0);
+    check_ll("非法 pattern/micro/fill 不调引擎",
+             g_stub.seq_pattern_calls + g_stub.seq_micro_calls + g_stub.seq_fill_calls - calls0, 0);
+}
+
+/* LOCK SET/DEL 使用 n=param、v=value；所有公开返回码在 seq_status 中可区分。 */
+static void case_seq_lock_and_status(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply_lock(CMD_LOCK_SET, 2, 9, 29, -300);
+    check_ll("LOCK SET 调用", g_stub.seq_lock_set_calls, 1);
+    check_ll("LOCK SET track", g_stub.last_seq_track, 2);
+    check_ll("LOCK SET step", g_stub.last_seq_step, 9);
+    check_ll("LOCK SET param", g_stub.last_seq_param, 29);
+    check_ll("LOCK SET value", g_stub.last_seq_value, -300);
+    check_ll("LOCK SET 落后端", g_stub.lock_present[2][9], 1);
+    apply_lock(CMD_LOCK_DEL, 2, 9, SLOOP_CORE_P_COUNT, 0);
+    check_ll("LOCK DEL 调用", g_stub.seq_lock_del_calls, 1);
+    check_ll("LOCK DEL clear-step param", g_stub.last_seq_param, SLOOP_CORE_P_COUNT);
+    check_ll("LOCK DEL 清后端", g_stub.lock_present[2][9], 0);
+
+    const struct { esp_err_t ret; uint8_t status; } results[] = {
+        { ESP_ERR_NOT_FOUND, SEQ_STATUS_NOT_FOUND },
+        { ESP_ERR_INVALID_ARG, SEQ_STATUS_INVALID },
+        { ESP_ERR_NO_MEM, SEQ_STATUS_FULL },
+        { ESP_ERR_NOT_ALLOWED, SEQ_STATUS_BLOCKED },
+        { ESP_ERR_INVALID_STATE, SEQ_STATUS_FROZEN },
+        { ESP_FAIL, SEQ_STATUS_ERROR },
+    };
+    for (uint32_t i = 0; i < sizeof(results) / sizeof(results[0]); i++) {
+        g_stub.seq_ret = results[i].ret;
+        uint32_t reads0 = g_stub.read_window_calls;
+        apply_lock(CMD_LOCK_SET, 0, 0, 1, 10);
+        state_get_copy(&s);
+        check_ll("LOCK 错误状态逐项映射", s.seq_status, results[i].status);
+        check_ll("失败不刷新投影", g_stub.read_window_calls - reads0, 0);
+    }
+    g_stub.seq_ret = ESP_OK;
+
+    uint32_t calls0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls;
+    apply_lock(CMD_LOCK_SET, 4, 0, 0, 0);
+    apply_lock(CMD_LOCK_SET, 0, 64, 0, 0);
+    apply_lock(CMD_LOCK_SET, 0, 0, SLOOP_CORE_P_COUNT, 0);
+    apply_lock(CMD_LOCK_DEL, 0, 0, SLOOP_CORE_P_COUNT + 1u, 0);
+    check_ll("非法 lock 不调引擎", g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("非法 lock → invalid", s.seq_status, SEQ_STATUS_INVALID);
+}
+
+/* 原始鼓步按同步 POD 写入，只改鼓后端与同拍聚合投影，不触碰任何合成步。 */
+static void case_seq_drum_write(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.step[0][7] = (sloop_step_t){
+        .n = 1, .note = { 60, 0, 0, 0 }, .vel = 100, .time = 0,
+        .flags = 0x08, .lvl = 1, .rat = 2, .micro = -4, .fill = 1,
+    };
+    const sloop_step_t before = g_stub.step[0][7];
+    const sloop_dstep_t drum = {
+        .on = { 0x29, 0x02 }, .lvl = { 0xe4, 0, 0, 0 }, .rat = { 0x1b, 0, 0, 0 },
+    };
+    edit_cmd_t cmd = { .type = CMD_DRUM_STEP_WRITE, .b = 7, .p = &drum };
+    uint32_t reads0 = g_stub.read_window_calls;
+    state_apply(&cmd);
+    check_ll("DRUM_STEP_WRITE 调用", g_stub.seq_dstep_write_calls, 1);
+    CHECK(memcmp(&g_stub.last_dstep, &drum, sizeof(drum)) == 0);
+    check_ll("DRUM_STEP_WRITE step", g_stub.last_seq_step, 7);
+    check_ll("鼓写同拍刷新窗口", g_stub.read_window_calls - reads0, 1);
+    CHECK(memcmp(&g_stub.step[0][7], &before, sizeof(before)) == 0);
+    state_get_copy(&s);
+    check_ll("鼓聚合 on", s.core.dstep[7].on, 1);
+    check_ll("鼓聚合 lvl", s.core.dstep[7].lvl, 3);
+    check_ll("鼓聚合 rat", s.core.dstep[7].rat, 3);
+    check_ll("鼓写成功状态", s.seq_status, SEQ_STATUS_OK);
+
+    uint32_t calls0 = g_stub.seq_dstep_write_calls;
+    cmd.p = NULL;
+    state_apply(&cmd);
+    cmd.p = &drum;
+    cmd.b = 64;
+    state_apply(&cmd);
+    check_ll("非法鼓写不调引擎", g_stub.seq_dstep_write_calls - calls0, 0);
+}
+
+/* init、外部 sync 与 LOAD 的选轨变化都对齐焦点；单纯移动焦点不被下一拍覆盖。 */
+static void case_external_selection_focus(void)
+{
+    stub_engine_reset();
+    g_stub.snap.selected_track = 2;
+    state_init();
+    app_state_t s;
+    state_get_copy(&s);
+    check_ll("init 焦点跟随外部选中轨", s.focus_track, 2);
+
+    state_set_focus(1, 4);
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("选中轨不变时保留独立焦点", s.focus_track, 1);
+
+    g_stub.snap.selected_track = 3;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("外部选中轨变化同步焦点", s.focus_track, 3);
+    check_ll("外部选中轨投影", s.core.selected_track, 3);
+
+    g_stub.store_ret = ESP_ERR_NOT_FOUND;
+    g_stub.snap.selected_track = 0;
+    apply(CMD_PROJECT_LOAD, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("失败 LOAD 不改焦点", s.focus_track, 3);
+
+    g_stub.store_ret = ESP_OK;
+    g_stub.snap.selected_track = 1;
+    apply(CMD_PROJECT_LOAD, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("成功 LOAD 对齐焦点", s.focus_track, 1);
+    check_ll("成功 LOAD 对齐选中轨", s.core.selected_track, 1);
+
+    g_stub.snap.selected_track = 2;
+    apply(CMD_SET_WINDOW, 1, 16, 16);
+    state_get_copy(&s);
+    check_ll("SET_WINDOW 消费外部选轨时也同步焦点", s.focus_track, 2);
+    check_ll("SET_WINDOW 采纳外部选中轨", s.core.selected_track, 2);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
     run("TOGGLE_STEP 空步↔关（last_note/默认 60）", case_toggle_step_empty);
-    run("TOGGLE_STEP read-modify-write 保留字段", case_toggle_step_preserves);
+    run("TOGGLE_STEP 开步保留字段/关步完整 CLEAR", case_toggle_step_preserves);
     run("TOGGLE_STEP 关步折叠 TIE 连缀", case_toggle_step_tie_collapse);
     run("MUTE/SOLO 引擎写入口与 sync 真值", case_mute_solo);
-    run("ERASE_NOTE 删除聚焦步音符（RMW/字段随移）", case_erase_note);
+    run("ERASE_NOTE 委托 NOTE_DEL（字段随移/CONT）", case_erase_note);
     run("步窗抽象：默认/映射/投影/钳位", case_step_window);
     run("步窗 sync 与 SET_WINDOW 交错按新基重取", case_window_sync_race);
     run("参数命令：单 SET 钳位/越界忽略", case_set_param);
@@ -1094,6 +1341,11 @@ int main(void)
     run("用户预置命令：鼓轨区分/轨号透传/越界", case_store_preset);
     run("FM6 银行命令：选中轨 patch/鼓轨/越界", case_store_bank);
     run("页 id 扩容（11 页）", case_page_ids);
+    run("STEP_EDIT 完整 POD 与详细窗口同拍投影", case_seq_step_edit_projection);
+    run("PATTERN/micro/fill 标量透传与投影", case_seq_pattern_micro_fill);
+    run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);
+    run("DRUM_STEP_WRITE 原始 POD 与合成步隔离", case_seq_drum_write);
+    run("外部选轨同步 focus_track", case_external_selection_focus);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

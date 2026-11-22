@@ -1,6 +1,5 @@
-/* host 单测的引擎替身：实现 sloop_state 调用的 12 个引擎函数并记录调用
- * （read/read_window/read_step/write_step/set_global/play/note/set_mute/set_solo/
- * select/set_params/read_params），以及状态层存储命令用的 sloop_store_* 替身
+/* host 单测的引擎替身：实现 sloop_state 调用的 sloop_core/sloop_seq 函数并记录调用，
+ * 以及状态层存储命令用的 sloop_store_* 替身
  * （固定返回码，见文件末尾）。
  * 快照/步表/参数就是 stub 的状态，state_sync_from_engine 走真实的 sloop_core_*
  * 读取路径。 */
@@ -11,6 +10,7 @@
 #include <stdint.h>
 
 #include "sloop_core.h"
+#include "sloop_seq.h"
 #include "sloop_store.h" /* SLOOP_STORE_BANK_PACKED（银行 PUT 的替身缓冲） */
 
 #define STUB_ENGINE_TRACKS 3u  /* 引擎的合成轨（鼓轨不在 read_step/write_step 范围） */
@@ -23,6 +23,18 @@ typedef struct {
     sloop_core_snapshot_t snap;                    /* sloop_core_read 的快照（步窗由 step[] 覆盖） */
     sloop_step_t step[STUB_ENGINE_TRACKS][STUB_ENGINE_STEPS]; /* read_step/write_step 后端 */
     struct { uint8_t on, lvl, rat; } dstep[STUB_ENGINE_STEPS]; /* 鼓轨聚合后端（窗口读） */
+    sloop_dstep_t raw_dstep[STUB_ENGINE_STEPS];
+    uint8_t lock_present[4][STUB_ENGINE_STEPS];
+    esp_err_t seq_ret;
+    uint32_t seq_step_edit_calls, seq_pattern_calls, seq_micro_calls, seq_fill_calls;
+    uint32_t seq_lock_set_calls, seq_lock_del_calls, seq_dstep_write_calls;
+    sloop_step_edit_t last_step_edit;
+    uint32_t last_pattern_track;
+    sloop_pattern_op_t last_pattern_op;
+    int32_t last_pattern_arg;
+    uint32_t last_seq_track, last_seq_step, last_seq_param;
+    int32_t last_seq_value;
+    sloop_dstep_t last_dstep;
     /* 参数后端：set_params 写、read_params 读（与真引擎一样，钳位在写入口） */
     int16_t param[4][SLOOP_CORE_P_COUNT];
     int16_t param_g[SLOOP_CORE_G_COUNT];

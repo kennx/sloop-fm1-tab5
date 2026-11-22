@@ -155,18 +155,6 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-24: `focus_track` 与引擎真值 `song.sel` 在「非选轨命令」改选轨后发散
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `app_state_t.focus_track` 是 UI 局部态，`song.sel`（投影的 `core.selected_track`）是引擎真值。两者只在 `CMD_SELECT_TRACK`/`CMD_SET_TRACK`（`cmd_select_track` 同时写 focus）与 TRACKS 卡点击时同步。**P4-B Task 10 新增的 `CMD_PROJECT_LOAD` 成功后会整份刷新投影**——载入的工程带自己的 `sel`，`core.selected_track` 立即变成工程里的轨，而 `focus_track` 保持旧值。开机路径的同类发散早已存在（Task 6 的 autosave resume 把 `sel` 装回引擎，而 `state_init` 的 `focus_track` 恒为 0）。 |
-| **影响面** | 纯 UI 局部态（TRACKS 卡**没有**焦点环：它只按 `song.sel` 渲染选中描边，不做 `focus_track` 的视觉区分）：STEP 页的焦点格高亮列跟随 `focus_track`；EDIT 层擦除的目标轨也取 `focus_track`（`input.c` 的 `act_erase`，只影响显式擦除的目标，不会误写选中轨）；键盘轨轴焦点（`act_focus`）从 `focus_track` 起步，而参数页显示的是**选中轨**的参数——两者不一致时用户对「当前轨」会有两处不同的心理模型。用户在 TRACKS 卡点一次（或按选轨键）即自愈。引擎状态、存储与音频不受影响。 |
-| **为何可延迟** | 发散只在「引擎侧被别人改选轨」时出现，且下一次显式选轨即消失。Task 12 的 PROJECTS/PRESETS 页按此前提交付（载入后用户会看列表/继续操作），未加「LOAD 后同步 focus」的 UI 侧补丁；修法涉及「focus 是否应从 selected 派生」的 UX 决策（既有交互是键盘先移焦点、再显式选轨确认），留到 P4-F 的交互收口/阶段 5 的 FM-1 push。 |
-| **解决方向** | (a) 投影刷新处（`state_refresh_locked` / `state_sync_from_engine`）在检测到 `core.selected_track` 变化且变化的来源不是显式选轨命令时，把 `focus_track` 一并对齐（需要一条「外部改选轨」的判据，例如刷新前后 sel 不等且本命令不是 SELECT/SET_TRACK）；(b) 让 FILE 页在发起 `CMD_PROJECT_LOAD` 时同时下一条 `CMD_SELECT_TRACK`（跟随载入工程的 sel）；(c) 开机 `state_init` 之后同样对齐一次（与 autosave resume 的 `sel` 一致）。优先 (a)+（c）。 |
-| **触发条件** | `STORE PROJ LOAD`（或 Task 12 的 PROJECTS 页 LOAD）载入 `sel` 与当前 `focus_track` 不同的工程；或开机 autosave 的 `sel != 0`；阶段 5 的 FM-1 push 改 `song.sel`。 |
-| **参考** | `firmware/components/sloop_state/src/cmd.c` 的 `cmd_select_track`/`state_refresh_locked`、`firmware/components/sloop_ui/src/input.c` 的 `act_focus`/`act_erase`、`firmware/components/sloop_ui/src/page_step.c` 的焦点格、`firmware/components/sloop_state/src/state.c` 的 `state_init`；证据：`docs/dev/verify/4-pb-2026-11-21/task-10-page-ids.txt`（`STATE SNAP` 的 `focus_track`/`selected_track` 两个字段分开打印） |
-| **登记** | 2026-11-22（P4-B Task 10 评审 R29 的 minor (b)：工程载入整份刷新引入的新触发点 + 开机 autosave resume 的既有触发点） |
-
 ## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB，音频重启超时）
 
 | 项 | 内容 |

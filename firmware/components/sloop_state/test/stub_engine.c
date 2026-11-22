@@ -46,6 +46,10 @@ static void stub_fill_window(sloop_core_snapshot_t *out, uint32_t start)
             out->step[k][i].vel = s->vel;
             out->step[k][i].time = s->time;
             out->step[k][i].flags = s->flags;
+            out->step[k][i].lvl = s->lvl;
+            out->step[k][i].rat = s->rat;
+            out->step[k][i].micro = s->micro;
+            out->step[k][i].fill = s->fill;
         }
     }
     for (uint32_t i = 0; i < 16; i++) {
@@ -181,6 +185,161 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
         else memset(p, 0, sizeof(g_stub.param[track]));
     }
     if (g != NULL) memcpy(g, g_stub.param_g, sizeof(g_stub.param_g));
+}
+
+static void stub_clear_step(uint32_t track, uint32_t step)
+{
+    if (track < STUB_ENGINE_TRACKS) {
+        memset(&g_stub.step[track][step], 0, sizeof(g_stub.step[track][step]));
+        g_stub.step[track][step].time = 2;
+        g_stub.lock_present[track][step] = 0;
+        for (uint32_t i = step + 1u; i < 16u; i++) {
+            sloop_step_t *next = &g_stub.step[track][i];
+            if (next->time != 1u || next->n != 0u) break;
+            int8_t micro = next->micro;
+            uint8_t fill = next->fill;
+            memset(next, 0, sizeof(*next));
+            next->time = 2;
+            next->micro = micro;
+            next->fill = fill;
+        }
+    } else if (track == 3u) {
+        memset(&g_stub.raw_dstep[step], 0, sizeof(g_stub.raw_dstep[step]));
+        memset(&g_stub.dstep[step], 0, sizeof(g_stub.dstep[step]));
+        g_stub.lock_present[track][step] = 0;
+    }
+}
+
+static uint8_t stub_drop2(uint8_t value, uint32_t index)
+{
+    return (uint8_t)((value & ((1u << (2u * index)) - 1u)) |
+                     ((value >> (2u * index + 2u)) << (2u * index)));
+}
+
+static uint8_t stub_drop_cont(uint8_t flags, uint32_t index)
+{
+    uint32_t cont = (flags & 0x78u) >> 3u;
+    cont = (cont & ((1u << index) - 1u)) | ((cont >> (index + 1u)) << index);
+    return (uint8_t)((flags & ~0x78u) | (cont << 3u));
+}
+
+esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
+{
+    g_stub.seq_step_edit_calls++;
+    if (cmd != NULL) g_stub.last_step_edit = *cmd;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (cmd == NULL || cmd->track >= 4u || cmd->step >= STUB_ENGINE_STEPS)
+        return ESP_ERR_INVALID_ARG;
+    if (cmd->op == SEQ_STEP_CLEAR) {
+        stub_clear_step(cmd->track, cmd->step);
+        return ESP_OK;
+    }
+    if (cmd->op != SEQ_STEP_NOTE_DEL || cmd->track >= STUB_ENGINE_TRACKS) return ESP_OK;
+    sloop_step_t *st = &g_stub.step[cmd->track][cmd->step];
+    if (cmd->index >= st->n) return ESP_ERR_INVALID_ARG;
+    uint32_t n = st->n;
+    for (uint32_t i = cmd->index; i + 1u < n; i++) st->note[i] = st->note[i + 1u];
+    st->note[n - 1u] = 0;
+    st->lvl = stub_drop2(st->lvl, cmd->index);
+    st->rat = stub_drop2(st->rat, cmd->index);
+    st->flags = stub_drop_cont(st->flags, cmd->index);
+    st->n = (uint8_t)(n - 1u);
+    if (st->n == 0u) stub_clear_step(cmd->track, cmd->step);
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg)
+{
+    g_stub.seq_pattern_calls++;
+    g_stub.last_pattern_track = track;
+    g_stub.last_pattern_op = op;
+    g_stub.last_pattern_arg = arg;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (track >= 4u) return ESP_ERR_INVALID_ARG;
+    if (op == SEQ_PATTERN_CLEAR) {
+        for (uint32_t i = 0; i < STUB_ENGINE_STEPS; i++) stub_clear_step(track, i);
+    }
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_set_micro(uint32_t track, uint32_t step, int8_t value)
+{
+    g_stub.seq_micro_calls++;
+    g_stub.last_seq_track = track;
+    g_stub.last_seq_step = step;
+    g_stub.last_seq_value = value;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (track >= 4u || step >= STUB_ENGINE_STEPS) return ESP_ERR_INVALID_ARG;
+    if (track < STUB_ENGINE_TRACKS) g_stub.step[track][step].micro = value;
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_set_fill(uint32_t track, uint32_t step, uint8_t value)
+{
+    g_stub.seq_fill_calls++;
+    g_stub.last_seq_track = track;
+    g_stub.last_seq_step = step;
+    g_stub.last_seq_value = value;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (track >= 4u || step >= STUB_ENGINE_STEPS) return ESP_ERR_INVALID_ARG;
+    if (track < STUB_ENGINE_TRACKS) g_stub.step[track][step].fill = value;
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_lock_set(uint32_t track, uint32_t step, uint32_t param, int16_t value)
+{
+    g_stub.seq_lock_set_calls++;
+    g_stub.last_seq_track = track;
+    g_stub.last_seq_step = step;
+    g_stub.last_seq_param = param;
+    g_stub.last_seq_value = value;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (track >= 4u || step >= STUB_ENGINE_STEPS || param >= SLOOP_CORE_P_COUNT)
+        return ESP_ERR_INVALID_ARG;
+    g_stub.lock_present[track][step] = 1;
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
+{
+    g_stub.seq_lock_del_calls++;
+    g_stub.last_seq_track = track;
+    g_stub.last_seq_step = step;
+    g_stub.last_seq_param = param;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (track >= 4u || step >= STUB_ENGINE_STEPS || param > SLOOP_CORE_P_COUNT)
+        return ESP_ERR_INVALID_ARG;
+    if (param == SLOOP_CORE_P_COUNT) g_stub.lock_present[track][step] = 0;
+    return ESP_OK;
+}
+
+void sloop_seq_read_dstep(uint32_t step, sloop_dstep_t *out)
+{
+    if (out == NULL) return;
+    memset(out, 0, sizeof(*out));
+    if (step < STUB_ENGINE_STEPS) *out = g_stub.raw_dstep[step];
+}
+
+esp_err_t sloop_seq_write_dstep(uint32_t step, const sloop_dstep_t *in)
+{
+    g_stub.seq_dstep_write_calls++;
+    if (in != NULL) g_stub.last_dstep = *in;
+    if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
+    if (step >= STUB_ENGINE_STEPS || in == NULL) return ESP_ERR_INVALID_ARG;
+    g_stub.raw_dstep[step] = *in;
+    g_stub.last_seq_step = step;
+    uint16_t on = (uint16_t)(in->on[0] | (uint16_t)in->on[1] << 8u);
+    g_stub.dstep[step].on = on != 0u;
+    g_stub.dstep[step].lvl = 0;
+    g_stub.dstep[step].rat = 0;
+    for (uint32_t lane = 0; lane < 16u; lane++) {
+        if (((on >> lane) & 1u) == 0u) continue;
+        uint8_t lvl = (in->lvl[lane / 4u] >> (2u * (lane % 4u))) & 3u;
+        uint8_t rat = (in->rat[lane / 4u] >> (2u * (lane % 4u))) & 3u;
+        if (lvl > g_stub.dstep[step].lvl) g_stub.dstep[step].lvl = lvl;
+        if (rat > g_stub.dstep[step].rat) g_stub.dstep[step].rat = rat;
+    }
+    return ESP_OK;
 }
 
 /* 自动存档的活动计时（state_apply 的每个命令）：host 单测不编自动存档，空实现 */

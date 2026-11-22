@@ -12,8 +12,8 @@
  *    向量（71 行 P<id>=<v>，注入侧的机器比对期望，无副作用；冻结态回 `ERR frozen`）；
  *    FREEZE <on|off> 是诊断冻结的手动入口（必须成对，供注入复验冻结拒绝路径）。
  *  - STATE：状态层自检（STATE SNAP：AppState 的页面/焦点/层键/步窗、走带
- *    bpm/playing 与引擎真值的选轨/mute/solo，以及选中轨参数投影 p[] 与全局 g[]
- *    的抽样字段；与 ENG SNAP 同源）。
+ *    bpm/playing、seq_status 与引擎真值的选轨/mute/solo，选中轨参数投影 p[]、全局 g[]
+ *    的抽样字段，以及每列合成步完整字段与鼓步聚合；与 ENG SNAP 同源）。
  *  - PARAM：参数写诊断注入（阶段 4 P4-A）：PARAM <id> <value> 经状态层
  *    CMD_SET_PARAM 写选中轨（钳位在引擎，回显 applied），PARAM BATCH <id> <value> …
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
@@ -618,17 +618,19 @@ enum {
 
 /* STATE 排障入口：打印 AppState（UI 渲染源），与 ENG SNAP（引擎真值）互补。
  * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
- * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。 */
+ * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。
+ * 既有行只在行尾追加 seq_status；详细窗口步另起 step/dstep 行，不改变既有解析 token。 */
 static int state_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
         app_state_t st;
         state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
-               (unsigned)st.window.window_start, (unsigned)st.window.window_len);
+               (unsigned)st.window.window_start, (unsigned)st.window.window_len,
+               (unsigned)st.seq_status);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -639,9 +641,26 @@ static int state_command(int argc, char **argv)
                (int)st.p[CONSOLE_P_SLEN], (int)st.p[CONSOLE_P_MUTE]);
         printf("STATE SNAP global bpm=%d swing=%d\n", (int)st.g[CONSOLE_G_BPM],
                (int)st.g[CONSOLE_G_SWING]);
+        for (uint32_t k = 0; k < 3; k++) {
+            for (uint32_t c = 0; c < APP_STATE_STEPS; c++) {
+                printf("STATE SNAP step k=%u c=%u i=%u n=%u note=%u,%u,%u,%u vel=%u time=%u flags=%u lvl=%u rat=%u micro=%d fill=%u\n",
+                       (unsigned)k, (unsigned)c, (unsigned)(st.window.window_start + c),
+                       (unsigned)st.core.step[k][c].n, (unsigned)st.core.step[k][c].note[0],
+                       (unsigned)st.core.step[k][c].note[1], (unsigned)st.core.step[k][c].note[2],
+                       (unsigned)st.core.step[k][c].note[3], (unsigned)st.core.step[k][c].vel,
+                       (unsigned)st.core.step[k][c].time, (unsigned)st.core.step[k][c].flags,
+                       (unsigned)st.core.step[k][c].lvl, (unsigned)st.core.step[k][c].rat,
+                       (int)st.core.step[k][c].micro, (unsigned)st.core.step[k][c].fill);
+            }
+        }
+        for (uint32_t c = 0; c < APP_STATE_STEPS; c++) {
+            printf("STATE SNAP dstep c=%u i=%u on=%u lvl=%u rat=%u\n", (unsigned)c,
+                   (unsigned)(st.window.window_start + c), (unsigned)st.core.dstep[c].on,
+                   (unsigned)st.core.dstep[c].lvl, (unsigned)st.core.dstep[c].rat);
+        }
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、引擎真值的选轨/mute/solo 与参数投影；同 ENG SNAP）\n");
+    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、seq_status、详细步投影、引擎真值与参数投影）\n");
     return 1;
 }
 
@@ -2167,7 +2186,7 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（选轨/mute/solo 为引擎真值，与 ENG SNAP 同源；含参数投影）",
+        .help = "状态层自检：STATE SNAP 打印 AppState（含 seq_status、详细步与参数投影；引擎真值与 ENG SNAP 同源）",
         .hint = "SNAP",
         .func = &state_command,
     };
