@@ -161,6 +161,42 @@ static int32_t note_shift(track_t *t, uint32_t i, int32_t dir, int copy)
     return (int32_t)to;
 }
 
+/* MOVE/COPY 的整条路径预检（只读）：note_shift 单步先校验再改，多步在中途被挡
+ * 时会留下已移动的前半段并已消耗 undo 标记。这里按同一规则预走一遍，失败时轨道
+ * 与 undo 都不动；成功后再 mark + 实际搬运（引擎锁内，路径不会被并发改变）。
+ * 返回值：OK / NOT_ALLOWED（span 或路径占用/越界）/ NO_MEM（COPY 的锁容量）。 */
+static esp_err_t note_shift_preflight(const track_t *t, uint32_t step, uint32_t target, bool copy)
+{
+    const uint32_t len = trk_len(t);
+    const uint32_t n = note_len(t, step);
+    if (!step_on(&t->step[step]) || note_span(t, step) != n) return ESP_ERR_NOT_ALLOWED;
+    int32_t at = (int32_t)step;
+    if (copy) {
+        if (step + 2u * n > len) return ESP_ERR_NOT_ALLOWED;
+        for (uint32_t j = 0; j < n; j++)
+            if (!step_free(t, step + n + j)) return ESP_ERR_NOT_ALLOWED;
+        /* 与 note_shift 的 COPY 分支同一容量口径：目标处缺的锁槽数 <= 空闲槽数 */
+        uint32_t free = 0, need = 0;
+        for (uint32_t j = 0; j < NLOCK; j++) {
+            free += t->lock[j].step == LOCK_FREE;
+            if (t->lock[j].step == step &&
+                lock_find(t, (uint32_t)(step + n), t->lock[j].param, 0) < 0)
+                need++;
+        }
+        if (need > free) return ESP_ERR_NO_MEM;
+        at = (int32_t)(step + n);
+    }
+    if (target > (uint32_t)at) {
+        if ((uint32_t)target + n > len) return ESP_ERR_NOT_ALLOWED;
+        for (uint32_t j = (uint32_t)at + n; j < target + n; j++)
+            if (!step_free(t, j)) return ESP_ERR_NOT_ALLOWED;
+    } else if (target < (uint32_t)at) {
+        for (uint32_t j = target; j < (uint32_t)at; j++)
+            if (!step_free(t, j)) return ESP_ERR_NOT_ALLOWED;
+    }
+    return ESP_OK;
+}
+
 static uint32_t step_sess;
 
 static void layer_undo_mark(track_t *t)
@@ -383,18 +419,19 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
         else if (!step_on(&t->step[step]))
             ret = ESP_ERR_NOT_FOUND;
         else {
-            layer_undo_mark(t);
-            int32_t at = (int32_t)step;
-            if (cmd->op == SEQ_STEP_NOTE_COPY) {
-                at = note_shift(t, (uint32_t)at, 1, 1);
-                if (at == -2)
-                    ret = ESP_ERR_NO_MEM;
-                else if (at < 0)
-                    ret = ESP_ERR_NOT_ALLOWED;
-            }
-            while (ret == ESP_OK && at != cmd->target) {
-                at = note_shift(t, (uint32_t)at, cmd->target > at ? 1 : -1, 0);
-                if (at < 0) ret = ESP_ERR_NOT_ALLOWED;
+            const bool copy = cmd->op == SEQ_STEP_NOTE_COPY;
+            if (!copy && cmd->target == step) {
+                /* 原地 MOVE：无动作、也不消耗 undo 标记 */
+            } else if ((ret = note_shift_preflight(t, step, cmd->target, copy)) != ESP_OK) {
+                /* 整条路径不可行：轨道与 undo 均未变（不留下半截移动） */
+            } else {
+                layer_undo_mark(t);
+                int32_t at = (int32_t)step;
+                if (copy) at = note_shift(t, (uint32_t)at, 1, 1);
+                while (ret == ESP_OK && at != (int32_t)cmd->target) {
+                    at = note_shift(t, (uint32_t)at, cmd->target > at ? 1 : -1, 0);
+                    if (at < 0) ret = ESP_ERR_NOT_ALLOWED;
+                }
             }
         }
     } else if (cmd->op == SEQ_STEP_LVL || cmd->op == SEQ_STEP_RAT) {

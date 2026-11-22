@@ -22,7 +22,8 @@
  *   （page_song_tap 填 0..15），两者相差 1 是刻意的（与既有诊断面同口径）。
  * - 配置行 y=456（6 个 140×52 chip，x = 24 + i*148）：SCENE（循环 A→D）、BARS-/+、
  *   COUNT-/+、LOOP。每条动作 = **一条 CMD_SONG_SET**（整份 cfg 随命令下发），
- *   不直接写上游全局；新增项默认 `A4`，count/bars 的钳位由状态层/引擎做（页面不造值）。
+ *   不直接写上游全局；COUNT+ 只把**结构非法**的槽 seed 成 `A4`（合法 tail 原样保留，
+ *   COUNT- 后再 COUNT+ 不会覆盖已持久化项），count/bars 的钳位由状态层/引擎做。
  *
  * 动作（控件回调、TAP 注入与键盘路由共用同一 `song_action`）：STORE/LOAD/ERASE/JUMP =
  * CMD_SECTION_*，SONG = CMD_SONG_MODE，REC = CMD_SONG_REC，CHAIN/CANCEL = CMD_CHAIN_*，
@@ -399,10 +400,17 @@ static song_result_t song_action_cfg(uint8_t act)
         if (n < 1) n = 1;
         if (n > (int32_t)SLOOP_SONG_ENTRIES) n = (int32_t)SLOOP_SONG_ENTRIES;
         if (n > (int32_t)cfg.count) {
-            /* 新增项默认 A4（与上游 arr_defaults 的条目口径一致、可预测） */
+            /* 只 seed **结构非法**的槽（scene>3 / bars==0 / bars>max）为 A4；合法 tail
+             * 原样保留——COUNT- 不抹掉 arrangement 里的项，COUNT+ 再把它们放回来时
+             * 不得覆盖已持久化的编辑（否则 8 项 → COUNT-4 → COUNT+5 会丢掉第 5 项）。
+             * A4 是上游 arr_defaults 的条目口径（A、4 小节），只用于从未初始化/损坏的槽。 */
             for (uint32_t i = cfg.count; i < (uint32_t)n; i++) {
-                cfg.entry[i].scene = 0u;
-                cfg.entry[i].bars = 4u;
+                sloop_song_entry_t *e = &cfg.entry[i];
+                if (e->scene >= SONG_SECTIONS || e->bars == 0u ||
+                    e->bars > SLOOP_SONG_BARS_MAX) {
+                    e->scene = 0u;
+                    e->bars = 4u;
+                }
             }
         }
         cfg.count = (uint8_t)n;

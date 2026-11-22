@@ -122,7 +122,7 @@ P4-C 后续设置任务在 ADR-009 的 `OBJ_SETTINGS` 上实现最小 PER3 读�
 64KB LVGL 池不变。
 
 **Task 11 已落地**（2026-11-23）：TRANSPORT est **9,216B**（实测 8,248–8,716B）、
-SONG est **12,288B**（实测 delta **11,136–11,548B**、构建 15–21ms），SONG 页 35 个单
+SONG est **12,288B**（实测 delta **11,136–11,564B**、构建 15–21ms），SONG 页 35 个单
 对象可点击 label；组页签/子签同时收敛为**单对象可点击 label**，基础占用
 13,800 → **11,624B**（boot `UI MEM` free 49,016 + PLAY 2,480）。按 base 11,624B、
 切换余量 4,096B、TLSF 可用 63,120B：
@@ -136,7 +136,7 @@ SONG est **12,288B**（实测 delta **11,136–11,548B**、构建 15–21ms）�
 | SONG → PRESETS | `12,288 + 12,800 = 25,088B` | **40,808B** | 22,312B |
 
 均满足 `base + 对值 + 4,096 ≤ 63,120`。设备实测过渡峰值：SEQ→PRESETS `pool_free
-8,324B`（`transport` ⑩j）、FILE→STEP `9,348B`（`song` ⑩）；SONG↔PLAY ×10 与
+8,324B`（`transport` ⑩j）、FILE→STEP `9,744–9,860B`（`song` ⑩）；SONG↔PLAY ×10 与
 SEQ↔SONG ×10 的 `pool_free` 首末差 +16/+84B（≤128B）。
 
 `TAB` 顺序 = `PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→
@@ -176,6 +176,8 @@ Task 4 继续扩展同一 `seq_tab5.c`，不编入上游 UI，也不建立第二
   `s_engine_lock` 后复核，并在同一把锁内完成动作。adapter 自有 `step_sess` 在每个公共动作前后归零，
   因而一次 API/console 命令对应一个 undo session，不依赖 240×240 `ui.step_sess` 的生命周期。
 - `SPAN.value` 是目标长度；`NOTE_MOVE/COPY.target` 是目标起点。move 通过重复上游单步 shift 到达目标；
+  适配层在 mark/搬运前对**整条路径**做只读预检（占用/越界/span + COPY 锁容量），中途
+  被挡时轨道与 undo 标记都不变（尾段不半截移动）；
   copy 先落在原音跨度之后，再按同一 shift 语义移动副本。复杂 CONT 跨度未先缩回普通 TIE 跨度或目标被
   占用时，move/copy 返回 `ESP_ERR_NOT_ALLOWED`（console `SEQ ERR blocked`）。note move/copy 携带
   micro/fill，并重定位/复制锁；copy 在任何 step/micro/fill/lock 写入前计算「目标已有同键锁除外」的

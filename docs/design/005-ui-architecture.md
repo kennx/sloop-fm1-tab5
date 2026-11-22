@@ -264,7 +264,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   （FM6 自 P4-B Task 13 起含 bank 存取行，est 3,584 → 6,144，实测 delta 4,956–5,100B）/ SEQ
   `STEP 23,040 + TRANSPORT 9,216 = 32,256`（TRANSPORT 自 P4-C Task 10 起含录音/fill/
   聚焦步字段/pattern 工具；实测 delta 8,248–8,716B，见 ADR-008 §3 注）/ SONG `12,288`
-  （P4-C Task 11：独立组单页；实测 delta 11,136–11,548B，见 ADR-008 §3 的 SONG 行）/
+  （P4-C Task 11：独立组单页；实测 delta 11,136–11,564B，见 ADR-008 §3 的 SONG 行）/
   FILE `PROJECTS 8,192 + PRESETS 12,800 = 20,992`（P4-B Task 12 按实测定稿：首次构建
   delta 7,764B / 12,260B，est = +5.5% / +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，
   实测对象数（26/36 个）远超，见 ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
@@ -306,7 +306,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   （≈2.6KB，取 4KB 余量）的 2.8 倍。
   **P4-C Task 11（12 页/6 组、页签单对象化）**：`transport` ⑩j 的 SEQ→PRESETS
   构建后 **`pool_free 8,324B`**（PRESETS delta 12,068B）；`song` ⑩ 的 FILE→STEP
-  构建后 **`pool_free 9,348B`**（STEP delta 21,664B、预算 23,040B）；两处均 ≥4,096B。
+  构建后 **`pool_free 9,744–9,860B`**（STEP delta 21,608–21,664B、预算 23,040B）；两处均 ≥4,096B。
   基础占用从 13,800 降到 11,624 后，两次最坏实测峰值从 7.3–7.8KB 抬到 8.3–9.3KB
   （离 4KB 底线更远）。
 - **为什么必须按峰值核算**：切组顺序是「建目标页 → 切到目标页 → 销毁源组页面」，源组的
@@ -316,7 +316,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - **P4-C 12 页预算（Task 11 已落地）**：SONG 使用 **独立顶层组** 而不是加入 SEQ，
   组顺序 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；TRANSPORT est 上限 **9,216B**（Task 10
   实测 delta 8,248–8,716B，est 保持上限——见 ADR-008 §3 注）、SONG est **12,288B**
-  （Task 11 实测 delta 11,136–11,548B，保持初估上限——它不参与最坏有序对，抬 est
+  （Task 11 实测 delta 11,136–11,564B，保持初估上限——它不参与最坏有序对，抬 est
   没有收益，收紧也没有必要）。基础占用 11,624B（页签单对象化）下：SEQ→PRESETS
   `45,056B`、账面 **60,776B**、余 **2,344B**（最坏）；SEQ→SONG `44,544B`、账面
   **60,264B**、余 2,856B；FILE→STEP `44,032B`、账面 **59,752B**、余 3,368B；
@@ -415,9 +415,13 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
     `LOOP`（文本随状态 `LOOP ON|OFF`，黄底 = ON）。
 - **动作 = 一条状态层命令**：STORE/LOAD/ERASE/JUMP = `CMD_SECTION_*`；SONG =
   `CMD_SONG_MODE`；REC = `CMD_SONG_REC`；CHAIN/CANCEL = `CMD_CHAIN_*`；六个配置 chip
-  各一条 `CMD_SONG_SET`（整份 cfg 随命令下发，新增项默认 A4，count 1..16/bars 1..64
-  由状态层/引擎钳位；页面不直接写上游全局）。值一律写后回读，失败显示
-  `EMPTY/INVALID/BLOCKED/FROZEN/ERROR` 并置红字。
+  各一条 `CMD_SONG_SET`（整份 cfg 随命令下发，count 1..16/bars 1..64 由状态层/引擎
+  钳位；页面不直接写上游全局）。值一律写后回读，失败显示 `EMPTY/INVALID/BLOCKED/
+  FROZEN/ERROR` 并置红字。**COUNT+ 的 seed 规则**：只把结构非法的槽（`scene>3` /
+  `bars==0` / `bars>64`）写成 `A4`；合法 tail 原样保留——`COUNT-` 不抹 arrangement 里的
+  项，`COUNT+` 放回时不得覆盖已持久化的编辑（设备断言：8 项、项 5=`C9` → COUNT-4 →
+  COUNT+5 后项 5 仍是 `C9`、项 6 才是新 seed 的 `A4`）。保留 `A4` 的理由：它是上游
+  `arr_defaults` 的条目口径（A/4 bars），只用于从未初始化或损坏的槽，不是对合法项的默认覆盖。
 - **chain = SAVE 层 begin/commit**：第一次按 CHAIN = `CMD_CHAIN_BEGIN(选中 section)`
   （立即作为普通 `live_req` 排队、清旧 chain）；链中 tap A–D 卡只进 ≤8 项 UI 临时
   列表（空 scene 也在列表里）；再按 = `CMD_CHAIN_COMMIT`（整份校验/原子安装）；
@@ -429,10 +433,12 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - **回显**：`-> SONG card=B select` / `-> SONG entry=1 select scene=0 bars=4` /
   `-> SONG <ACT> [section=A] value=<写后回读> status="<屏幕状态行>"`；失败另带
   `ERR <not_found|blocked|frozen|…>`。`sloop_ui_song_status_text()` 与屏幕同源。
-- **预算与实测**（`song` 场景）：SONG delta **11,136–11,548B ≤ est 12,288B**（+6.4%–10.3%
+- **预算与实测**（`song` 场景）：SONG delta **11,136–11,564B ≤ est 12,288B**（+6.3%–10.3%
   余量；构建 15–21ms）；SONG↔PLAY ×10 的 `pool_free` 首末差 **+16B**、单次最大下降 28B；
   SEQ↔SONG ×10（SEQ 两页全建 → SONG → 回 PLAY 稳态测量）首末差 **+84B**、单次最大
-  下降 28B（无逐次增长）；FILE 两页全建 → 首建 STEP 的过渡峰值 **free 9,348B ≥4,096B**。
+  下降 28B（无逐次增长）；修复轮复跑为 +68B / −16B（同一脚本的池历史差异，均 ≤128B；终审轮 +36/−8B；各有一轮预热以排除一次性
+  文本/字形缓存）；FILE 两页全建 → 首建 STEP 的过渡峰值
+  **free 9,744–9,860B ≥4,096B**。
   §5 的有序对按新表重排（SEQ→SONG 账面 60,264B 为次坏，SEQ→PRESETS 60,776B 仍最坏）。
 - 文档同时把「本任务只确定预算、不注册 SONG」改为落地口径；`AGENTS` §3/§5.1/§5.4.1/§5.5
   与 ADR-008 §1/§3/§5 同步。

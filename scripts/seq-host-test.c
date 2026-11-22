@@ -466,6 +466,38 @@ static void test_occupied_target(void)
           "occupied move/copy targets return blocked without changing the track");
 }
 
+static void test_move_blocked_far_target(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 60, 0);
+    put_note(t, 5, 64, 0);   /* 路径中途的占用：2→8 的第 3 步会撞上它 */
+    track_t before = *t;
+    check(edit_step(0, 2, SEQ_STEP_NOTE_MOVE, 0, 8, 0) == ESP_ERR_NOT_ALLOWED,
+          "far move blocked midway returns blocked");
+    check(memcmp(&before, t, sizeof(before)) == 0,
+          "far move blocked midway leaves the track unchanged（无半截移动）");
+    check(sloop_seq_pattern(0, SEQ_PATTERN_UNDO, 0) == ESP_ERR_NOT_FOUND,
+          "blocked far move does not consume an undo mark");
+}
+
+static void test_copy_blocked_far_target(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 62, 0);
+    put_note(t, 7, 65, 0);   /* 拷贝到 8 的路径第 4 步撞上它 */
+    track_t before = *t;
+    check(edit_step(0, 2, SEQ_STEP_NOTE_COPY, 0, 8, 0) == ESP_ERR_NOT_ALLOWED,
+          "far copy blocked midway returns blocked");
+    check(memcmp(&before, t, sizeof(before)) == 0,
+          "far copy blocked midway leaves the track unchanged（无半截拷贝）");
+    check(sloop_seq_pattern(0, SEQ_PATTERN_UNDO, 0) == ESP_ERR_NOT_FOUND,
+          "blocked far copy does not consume an undo mark");
+}
+
 static void test_step_fields_clear(void)
 {
     sloop_lock_t locks[NLOCK];
@@ -1677,6 +1709,8 @@ int main(void)
     test_note_move_copy();
     test_copy_capacity();
     test_occupied_target();
+    test_move_blocked_far_target();
+    test_copy_blocked_far_target();
     test_step_fields_clear();
     test_pattern_rotate_length();
     test_pattern_transpose_clear_undo();

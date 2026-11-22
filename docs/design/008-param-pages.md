@@ -124,7 +124,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | PROJECTS | 7,572–7,764 B（四次运行） | 8,192 B | +5.5% | 4 卡（字母/详情 2 label + 3 个单对象按钮）+ 状态行 = 26 对象；静态样式只 init 一次 |
 | PRESETS | 12,008–12,276 B（多次运行；Task 10 归档读数 12,008/12,044/12,276，见 `inject-nav-20261122-234244.log` 与 `task-10fix-transport-green.log`） | 12,800 B | +4.4% | 32 格（单对象可点击 label，两行文本）+ 3 按钮 + 状态行 = 36 对象 |
 | **FILE 组 Σ** | **19.8–20.0 KB** | **20,992 B** | — | 两页同时已建（组内切页只改显隐）；过渡峰值见 ADR-005 §5（free 7,308–7,840B） |
-| SONG | 11,136–11,548 B（P4-C Task 11，`song` 场景多次首建；`UI MEM` 读数 11,136/11,288/11,384/11,548） | 12,288 B | +6.4%–10.3% | 35 个单对象可点击 label（状态 1 + A–D 卡 4 + 动作 chip 8（CANCEL 常建、按态隐藏）+ 16 条目 + 配置 chip 6）+ 页容器；组预算下 FILE→STEP 不受影响，est 保持 spec 的计划上限 |
+| SONG | 11,136–11,564 B（P4-C Task 11，`song` 场景多次首建；`UI MEM` 读数 11,136/11,228/11,384/11,548/11,564） | 12,288 B | +6.3%–10.3% | 35 个单对象可点击 label（状态 1 + A–D 卡 4 + 动作 chip 8（CANCEL 常建、按态隐藏）+ 16 条目 + 配置 chip 6）+ 页容器；组预算下 FILE→STEP 不受影响，est 保持 spec 的计划上限 |
 
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
@@ -224,13 +224,13 @@ sum_est=32,256`）——跨度来自池历史（同页源码、不同分配序�
 **P4-C 12 页预算（Task 11 已落地）**：SONG 使用独立
 顶层组，组顺序 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`，不加入 SEQ 稳态；TRANSPORT est
 上限由 4,608 调整为 **9,216B**（落地实测 delta 8,248–8,716B），SONG est **12,288B**
-（Task 11 实测 delta 11,136–11,548B，保持计划上限——它不参与最坏对，抬 est 没有收益）。
+（Task 11 实测 delta 11,136–11,564B，保持计划上限——它不参与最坏对，抬 est 没有收益）。
 页签从 `lv_button + 子 label` 收敛为**单对象可点击 label**（11 个对象），基础占用
 13,800 → **11,624B**（boot `UI MEM` free 49,016 + PLAY 2,480）。按 base 11,624B 与
 4,096B 切换余量：最坏 = SEQ→PRESETS `60,776B`（余 2,344B）；SEQ→SONG `60,264B`
 （余 2,856B）；FILE→STEP `59,752B`（余 3,368B）；EDIT→STEP `58,728B`；SONG→PRESETS
 `40,808B`。均 ≤63,120B。落地面测：`transport` ⑩j 的 SEQ→PRESETS 峰值
-`pool_free 8,324B`、`song` ⑩ 的 FILE→STEP 峰值 `9,348B`（均 ≥4,096B）；逐页
+`pool_free 8,324B`、`song` ⑩ 的 FILE→STEP 峰值 `9,744–9,860B`（均 ≥4,096B）；逐页
 `free ≥ est` 不变；超预算先改对象设计，不抬 est、不扩池。
 
 ### 4. 失败可见性（不静默空白页）
@@ -290,7 +290,7 @@ sum_est=32,256`）——跨度来自池历史（同页源码、不同分配序�
      实测 base 11,624B：账面最坏对 = SEQ 全建 → 首建 PRESETS
      `11,624 + 45,056 + 4,096 = 60,776`、余 2,344B；次坏 = SEQ→SONG 60,264、余
      2,856B；FILE→STEP 59,752、余 3,368B；实测 SEQ→PRESETS 峰值 `pool_free 8,324B`、
-     FILE→STEP `9,348B`）。源组页面在切换后才释放，
+     FILE→STEP `9,744–9,860B`）。源组页面在切换后才释放，
      峰值是瞬态但必须被覆盖；稳态回落为 `base + max_group Σ est = 41,448B`。且离开组后
      该组 `built=0`（含原当前页；`UI MEM` 分组行可复核）——这是把「九页全建」的经验
      下沿换成可复核预算（ADR-005「导航决策」§5）。

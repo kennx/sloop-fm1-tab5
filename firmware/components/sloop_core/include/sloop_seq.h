@@ -29,8 +29,9 @@ bool sloop_seq_frozen(void);
  * NOTE_MOVE/COPY 的 target 是目标起点；LVL/RAT 写 index 音符的原始 2-bit 值，
  * SLIDE 的 value 只接受 0/1。CLEAR 清该步音符、lock/micro/fill，不改 LEN。
  * PATTERN 的 rotate/length 只动 step[]，transpose 扫描 64 步且拒绝鼓轨；
- * undo/redo 只交换 steps/micro/LEN，不含 fill/lock。COPY 在任意写入前预检锁容量，
- * 不足回 ESP_ERR_NO_MEM；不安全 CONT/目标占用回 ESP_ERR_NOT_ALLOWED（console: blocked），
+ * undo/redo 只交换 steps/micro/LEN，不含 fill/lock。MOVE/COPY 在**整条多步路径**上先
+ * 只读预检（占用/越界/span 与 COPY 锁容量），任何一步不可行都回 ESP_ERR_NOT_ALLOWED/
+ * ESP_ERR_NO_MEM 且轨道与 undo 标记不变（不留半截移动/拷贝）；
  * ESP_ERR_INVALID_STATE 只表示诊断冻结。 */
 typedef enum { SEQ_STEP_SPAN, SEQ_STEP_NOTE_DEL, SEQ_STEP_NOTE_MOVE, SEQ_STEP_NOTE_COPY,
                SEQ_STEP_LVL, SEQ_STEP_RAT, SEQ_STEP_SLIDE, SEQ_STEP_CLEAR } sloop_step_op_t;

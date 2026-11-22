@@ -225,8 +225,10 @@ bool sloop_store_autosave_enable(bool on);
  *   - 未知 magic / 长度不是任何历史格式：拒绝写（ESP_ERR_INVALID_ARG，console 的
  *     `STORE ERR invalid`），原扇区一个字节都不动。
  * `song_get` 只读**内存** arrangement（不需要存储就绪）；`song_set` 只改内存并置 dirty，
- * 落盘由 1s 任务的 `sections_tick` 在「停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s」
- * 时完成（失败保留 dirty，下个窗口重试）；`song_save` 是上游 `arrangement_save` 的同义
+ * **不要求存储就绪**（未就绪时 RAM 配置仍可编辑/校验，落盘由 tick 的 ready 检查拒绝；
+ * UI 的 SONG 页在未就绪时另行拒绝配置编辑并显示 NO STORAGE）。落盘由 1s 任务的
+ * `sections_tick` 在「停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s」时完成（失败
+ * 保留 dirty，下个窗口重试）；`song_save` 是上游 `arrangement_save` 的同义
  * 入口（停止态立即写，播放中 ESP_ERR_INVALID_STATE = `STOP BEFORE SAVE`）；
  * `song_reload` 从 flash 读回并**以 flash 为准**清 dirty（开机与 SELFTEST 之后用：
  * `arrangement` 是 arranger.c 的 static `.bss`，自检的 restore 会把它回滚到零）。读不到时

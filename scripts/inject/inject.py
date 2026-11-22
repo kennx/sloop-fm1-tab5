@@ -5486,8 +5486,10 @@ def run_song(s: Session) -> None:
       ② 空态截屏（A–D 卡 EMPTY、16 项配置槽、状态行）；
       ③ 卡选 + STORE A/B（`SEQ SECTION ready` 与页面状态行同源）；
       ④ 16 项配置编辑（count/scene/bars/loop）**全部经 CMD_SONG_SET**：屏幕 TAP 后
-         `STORE SONG` 逐字段一致；COUNT/BARS 的上下钳位；
-      ⑤ `STORE PROJ ERASE` 后歌曲项同步消失（arr_drop_scene）+ 列表立即刷新；
+         `STORE SONG` 逐字段一致；COUNT/BARS 的上下钳位；④b COUNT+ 只 seed 结构非法
+         槽（8 项非 A4 tail → COUNT-4 → COUNT+5 保留项 5=C9，仅 index8 seed A4）；
+      ⑤ 页面 ERASE chip 后 section/歌曲引用同步消失（arr_drop_scene）+ 列表立即刷新；
+         COUNT+ 保留合法 tail（不被 A4 覆盖）；
       ⑥ live 播放中 JUMP scene B（`SEQ SECTION live=B`）+ 空 scene 的可见拒绝
          （`JUMP C: EMPTY`）；截屏「播放 scene B」；
       ⑦ quick chain：CHAIN 起链（begin 立即请求首项）、卡 tap 进临时列表、再按
@@ -5634,6 +5636,32 @@ def run_song(s: Session) -> None:
     s.probe_region(img, "④ 状态行文本（UI_TEXT_DIM）", (24, 72 + 20, 1000, 72 + 80),
                    C_TEXT_DIM, 16, 40)
 
+    # ---------- ④b COUNT+ 只 seed 结构非法的槽（合法 tail 不被 A4 覆盖） ----------
+    # 8 项、项 5（0 起 index 4）= C9；COUNT-4 → 4，再 COUNT+5 → 9：
+    # index 4..7 的已持久化项必须原样保留，只有从未初始化的 index 8 才 seed 成 A4。
+    store_cmd(s, "STORE SONG SET 8 0 0:2 1:3 2:5 3:7 2:9 3:13 1:5 0:7",
+              r"^STORE SONG SET count=8", "④b 归一 8 项（项 5 = C9）")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④b 回 SONG")
+    s.cmd("TAP %d %d" % song_entry_xy(4))
+    s.expect(r"-> SONG entry=4 select scene=2 bars=9", "④b 项 5 = C9（0 起 entry=4）")
+    for want in (7, 6, 5, 4):
+        song_action(s, song_cfg_xy(3), "COUNT-", f"④b COUNT- → {want}", f"COUNT {want}")
+    for want in (5, 6, 7, 8, 9):
+        song_action(s, song_cfg_xy(4), "COUNT+", f"④b COUNT+ → {want}", f"COUNT {want}")
+    cfg = song_cfg(s)
+    (s.ok if cfg["count"] == 9 and cfg["entry"].get(4) == (2, 9)
+     and cfg["entry"].get(5) == (3, 13) and cfg["entry"].get(6) == (1, 5)
+     and cfg["entry"].get(7) == (0, 7) else s.fail)(
+        f"④b COUNT+ 保留合法 tail：count={cfg['count']} entry={cfg['entry']}"
+        "（期望 9 / 4:(2,9) 5:(3,13) 6:(1,5) 7:(0,7)）")
+    (s.ok if cfg["entry"].get(8) == (0, 4) else s.fail)(
+        f"④b 只有未初始化的 index 8 seed 为 A4（实得 {cfg['entry'].get(8)}）")
+    store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2",
+              "④b 恢复 A2+B3")
+    s.cmd("UI song")
+    s.expect(r"UI page=song \(11\)", "④b 回 SONG（恢复 A2+B3）")
+
     # ---------- ⑤ ERASE chip：section 引擎真值 + 歌曲引用同步消失 ----------
     # 页面 ERASE = CMD_SECTION_ERASE（与 console `STORE PROJ ERASE` 同一存储对象）；
     # B 在歌曲里有引用 ⇒ 同时验证 arr_drop_scene 把第 2 项拿走。
@@ -5656,9 +5684,9 @@ def run_song(s: Session) -> None:
     s.expect(r"-> SONG entry=0 select scene=0 bars=2", "⑤ entry0 仍是 A2")
     song_action(s, song_cfg_xy(4), "COUNT+", "⑤ COUNT+ → 2（新项默认 A4）", "COUNT 2")
     s.cmd("TAP %d %d" % song_entry_xy(1))
-    s.expect(r"-> SONG entry=1 select scene=0 bars=4", "⑤ 新项默认 A4")
-    song_action(s, song_cfg_xy(0), "SCENE", "⑤ 新项 SCENE → B", "SCENE B")
-    song_action(s, song_cfg_xy(1), "BARS-", "⑤ 新项 BARS- → 3", "BARS 3")
+    # COUNT+ 只 seed 结构非法的槽：ERASE 前的 tail（B4）仍合法，必须原样保留
+    s.expect(r"-> SONG entry=1 select scene=1 bars=4", "⑤ COUNT+ 保留合法 tail B4")
+    song_action(s, song_cfg_xy(1), "BARS-", "⑤ tail BARS- → 3", "BARS 3")
     cfg = song_cfg(s)
     (s.ok if cfg["count"] == 2 and cfg["entry"].get(1) == (1, 3) else s.fail)(
         f"⑤ 恢复 A2+B3：count={cfg['count']} entry={cfg['entry']}")

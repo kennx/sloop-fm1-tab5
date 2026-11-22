@@ -100,6 +100,11 @@ PER3 写规则：
 
 诊断命令新增 `SEQ STEP/DSTEP/LOCK/PATTERN/REC/FILL/SONG/CHAIN/SECTION` 子族；与 UI 使用同一 API。增加块级事件计数/小型跟踪缓冲，至少能判别 ratchet 触发次数、micro 顺序、SLIDE 是否重新 attack；串口轮询 `voices` 不作为时序证明。
 
+> **落地差异（Task 11 终审接受，host-only）**：块级事件计数/小型跟踪缓冲**未实现**；
+> ratchet 次数、micro 顺序与 SLIDE 重新 attack 的时序证明由 host 同源 `scripts/seq-test.sh`
+> （真实上游 `seq.c` 的块函数 + 逐样本断言）承担，设备侧只覆盖状态/投影/回显/像素。
+> 这是**明确接受**的 host-only 缺口，不是静默省略；设备注入不以串口 `voices` 轮询冒充时序证据。
+
 ### 4.2 存储与延迟任务
 
 - PER3/sections 写与手动 STORE、autosave 共用 `s_store_lock`；捕获在引擎锁内，擦写在锁外。
@@ -121,7 +126,7 @@ stub host 测试必须覆盖：命令校验、完整字段透传、锁满/非法
 - STEP 保持 64 格对象复用；用格内/边框与状态行呈现 TIE/SLIDE/lvl/rat/micro/fill，不增加每格 label。鼓格进入 lane 选择/编辑模式，不再显示“PHASE 4”只读提示。
 - TRANSPORT 扩成走带 + REC/fill + 聚焦步编辑 + pattern 工具区，使用单对象可点击 label，复用现有 ±/焦点模型。预算上限暂定 9,216B，实施后按实测收紧。
 - SONG 页包含 A–D section 卡、16 项顺序、bars/loop、SONG/CHAIN/REC/STORE/ERASE 控件与状态行；初估 12,288B，最终 est 必须来自 `UI MEM` 实测。
-- 以 est 上限复核最坏有序对：FILE→STEP 仍 61,928B；SEQ（23,040+9,216）→PRESETS 为 62,952B；SONG→PRESETS 为 42,984B，均满足 `base 13,800 + … + 4,096 ≤ 63,120`。任何超预算先改对象设计，不直接抬 est/池。
+- 以 est 上限复核最坏有序对（Task 11 落地实测 base **11,624B**，页签单对象化）：最坏 SEQ（23,040+9,216）→PRESETS 为 **60,776B**、次坏 SEQ→SONG **60,264B**、FILE→STEP **59,752B**、SONG→PRESETS **40,808B**，均满足 `11,624 + … + 4,096 ≤ 63,120`；设备实测峰值 SEQ→PRESETS `pool_free 8,324B`、FILE→STEP `9,744–9,860B`。任何超预算先改对象设计，不直接抬 est/池。
 - `TAB` 顺序为 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY；`UI TAB song` 与物理组签共用动作函数。
 - 触摸覆盖全部新编辑动作；实体键盘至少覆盖演奏、REC/PLAY/STOP、fill、导航、焦点与聚焦步编辑，不要求为 16 个歌曲项各设专用键。选中鼓轨时**取消回退合成轨 0**：低行 `z x c v b n m .` 映射 lane 0..7，高行 `q w e r t y u i` 映射 lane 8..15，经 `CMD_DRUM_HIT` 进入同一 `drum_input()/rec_hit()` 路径；其它演奏音阶键在鼓轨忽略。ADR-006 同步该表，注入测试覆盖 16 lane down/up 与实时录音。
 
