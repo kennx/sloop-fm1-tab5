@@ -449,7 +449,7 @@ static bool store_playing(void)
     return song.playing || transport_req;
 }
 
-/* 所有公共 API 的唯一门（load 也在内）：哨兵 + init 完成 + 三个 PSRAM 实体在位 + HAL 分区
+/* 所有公共 API 的唯一门（load 也在内）：哨兵 + init 完成 + 五类 PSRAM 实体在位 + HAL 分区
  * 就绪。HAL 的 ready 在 .bss，热复位后为 false ⇒ 即使 .noinit 的哨兵/指针还是上一次会话
  * 的，init 之前一律 no_storage（不碰悬垂指针与信号量）。 */
 bool sloop_store_ready(void)
