@@ -13,6 +13,12 @@
  * LOAD 载入选中轨（CMD_PRESET_LOAD 的 b = 选中轨）。所有变更经状态层命令；控件
  * 回调与 console `TAP` 注入共用 presets_action()。
  *
+ * 初始选中槽 = **U01**（`s_sel = 0`，build() 里复位）——与 PROJECTS 的「初始无选中」
+ * （`PROJ_NO_SLOT`）不同：预置页的 LOAD/SAVE/ERASE 总要有目标槽，键盘 `ENTER` 也不该
+ * 先要求选格。状态行在「本页尚无动作」时显示共享空闲文案 `SELECT A SLOT`
+ * （`theme.h` 的 `ui_file_status_text`，act>2），此时 U01 已被描边——该文案是两页
+ * 共用的「等用户选槽」提示，不是「当前无选中」的断言。
+ *
  * 播放中：LOAD **允许**（不写 flash，上游 MIDI PC 语义），SAVE/ERASE 被存储层拒绝
  * （状态行 `STOP BEFORE <ACT>`）——有意为之。
  *
