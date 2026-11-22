@@ -91,3 +91,38 @@
 - 失败/诊断：`task-14-store-fail-di23{,b,c,d,e}.txt` + `-transcript.log`、
   `task-14-soak-fail-after-selftest{,-summary}.txt`、`-transcript.log`、`task-14-selftest-heap-leak.txt`
 - 全值 SHA256：`SHA256SUMS`（本目录）
+
+## 最终审阅修复轮（2026-11-22，task-14fix-*）
+
+受测固件 = 本修复轮源码（HEAD `67141db` + 工作区；`App version: 67141db-dirty`），
+镜像 `0x184510`（1,591,312B）/ SHA256 见 `task-14fix-bin-sha.txt`。修复项见 `final-fix-report.md`；
+本目录的 `task-14fix-*` 是修复轮重跑的门禁证据。
+
+| 门禁 | 命令 | 结果 | 证据 |
+|---|---|---|---|
+| 构建（clean + 增量 ×2） | `scripts/build.sh --clean` 后 `scripts/build.sh` ×2 | rc=0、**警告 0、kconfig 提示 0** | `task-14fix-build{1,2,3}.log` |
+| 烧录 | `scripts/flash.sh` | 三段 `Hash of data verified` | `task-14fix-flash.log` |
+| 启动 | 硬复位 + 12s 抓取 | `App version: 67141db-dirty`、`sloop_store ready`、`UI 就绪: 11 页注册/1 已建`、内部堆 104,383B、无 fatal | `task-14fix-boot-log.txt` |
+| host / state / knob / 工具 | `host-test.sh` / `state-test.sh` / `knob-test.sh` / `screenshot.py --selftest` | 全绿（19/0、5/0、rc=0） | `task-14fix-{host-test,state-test,knob-test,screenshot-selftest}.log` |
+| 六场景同一会话（复位后） | nav / params / tracks / transport / step_edit / store | 128 / **149** / 11 / 43 / **90** / **902** PASS、0 FAIL、exit=0 | `task-14fix-{nav,params,tracks,transport,step_edit,store}.txt`、`task-14fix-store-transcript.log`、`task-14fix-*.png` |
+| 设备等价（自检前 AUTO OFF） | `python3 scripts/device-selftest.py /dev/ttyACM0` | **182/182**、`STORE AUTO off` 在 transcript 首段 | `task-14fix-selftest.log` |
+| 阶段收口 soak（复位后） | `python3 scripts/soak.py /dev/ttyACM0 --duration 1800 --interval 60 --save-window 60` | 见下 | `task-14fix-soak*.txt/.log` |
+
+修复轮新增/改变的断言点（均有 PASS 行）：
+
+- `UI KNOB` 在 FILE 页（PROJECTS/PRESETS）回 **`UI ERR not_params`**（params 场景 ⑨；
+  console 判定改为 `page < GLOBAL || page > SAMPLE`）。
+- `STORE PROJ ERASE` 空槽 = 上游 `EMPTY SECTION`（**不写 flash**）：store ① 的四个槽
+  归一里 `ERASE 1/2/3` 都打印「空槽：上游 EMPTY SECTION，未写 flash」；脚本 helper
+  接受 `ERASED`/`empty` 两种回显。
+- `STORE STATS` 报告 `last_xrun=… last_save_ms=…`：store ② 实测「xrun 增量 0 ≤16、
+  耗时 62ms ∈ (0,150]」。
+- ⑬a 故障探针改为「先 SAVE 3 → FAULT 1 → ERASE 3 ⇒ `STORE ERR save`」，并新增
+  `STORE PROJ FIELDS 3` 断言（flash 侧旧副本完好；LIST 只证明 RAM 槽）。
+- ⑪d 用临时 `P_MUTE=1`（`ensure_silent_tracks`/`restore_mutes`）代替缩/清图案——
+  场景不再破坏用户 pattern，连跑两轮幂等。
+
+### 阶段收口 soak 结果（修复轮）
+
+复位后跑 `--duration 1800 --interval 60 --save-window 60`：**VERDICT PASS**，31 次采样（实测 1801s）。内部堆 99,227 → 99,259B、`internal_min` 91,908B ≥60KB；xrun 全程 0（save 窗口增量 **0** ≤16，窗口后 `streaming=1`）；`duty_mean` 最大 11.85% ≤18.88%；音频栈余量 2,920–3,176B；跨组池 SEQ↔PLAY ×5 `pool_free` 44,100 → 44,068（Δ=−32B，单次最小 −52B ≤128B）；KEY 事件增量符合；日志无 panic/WDT。save 窗口前 `STORE AUTO OFF`（只量脚本写）、收尾最终采样后 `STORE AUTO ON`（证据见 `task-14fix-soak.txt` L51 与末尾）。
+
