@@ -1,0 +1,10 @@
+证据目录: docs/dev/verify/4-pc-2026-11-22
+图: task-12-step-deep.png  (1280, 720)
+  OK  step-deep: 22/22 项
+图: task-12-song-live.png  (1280, 720)
+  OK  song-live: 37/37 项
+图: task-12-song-rec.png  (1280, 720)
+  OK  song-rec: 37/37 项
+
+结果: PASS
+限制：本会话无图像查看/人眼读图工具——这些是像素/区域统计，不是视觉审美判定；人眼读图与物理触摸/听感仍是外部门禁。
