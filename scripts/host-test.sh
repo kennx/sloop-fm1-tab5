@@ -34,6 +34,20 @@ run "generate embedded samples" python3 tools/gen_samples.py build/gen/felucca_s
 run "generate drum kits" python3 tools/gen_drumkits.py build/gen/felucca_drumkits.h
 run "generate FM6 patches" python3 tools/gen_fm6_patches.py build/gen/felucca_fm6.h
 
+UI_ASSETS="$OUT/ui-assets"
+UPSTREAM_RAW=https://raw.githubusercontent.com/isod89/sloop-fm1/bac9c05ea7627449405aa10e48da21d75b6c8c56/assets
+mkdir -p "$UI_ASSETS/fonts"
+for asset in fonts/ter-u16b.bdf icons.json icons.png; do
+    if [[ ! -f "$UI_ASSETS/$asset" ]]; then
+        curl -fLsS --retry 3 --retry-all-errors "$UPSTREAM_RAW/$asset" -o "$UI_ASSETS/$asset"
+    fi
+done
+run "generate screen font" python3 -c \
+    'from pathlib import Path; import sys; import tools.gen_font as g; g.FONTS = Path(sys.argv[1]); g.main("build/gen/felucca_font.h")' \
+    "$UI_ASSETS/fonts"
+run "generate UI icons" python3 tools/gen_icons.py build/gen/felucca_icons.h "$UI_ASSETS"
+run "generate splash logo" python3 tools/gen_logo.py build/gen/sloop_logo.h
+
 compile regress tests/regress.c -lm
 run "regression: golden renders, health, voices, CPU budget" \
     "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
@@ -43,6 +57,21 @@ run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"
 
 compile seq2_test tests/seq2_test.c -lm
 run "sequencer 2.0" "$OUT/seq2_test"
+
+compile len_test tests/len_test.c -lm
+run "note length: POLY spans, MONO / STEP FULL limits, shrink and delete" "$OUT/len_test"
+
+compile hold_rec_test tests/hold_rec_test.c -lm
+run "held-note recording: live, overdub, free take, MIDI overflow" "$OUT/hold_rec_test"
+
+compile studio_drums_test tests/studio_drums_test.c -lm
+run "drum lanes, kit audio, metronome, record arm, free take" "$OUT/studio_drums_test"
+
+compile arranger_test tests/arranger_test.c -lm
+run "arranger: order, repeats, timing, loop, tempo change, scene validation" "$OUT/arranger_test"
+
+compile song_audio_test tests/song_audio_test.c -lm
+run "song audio: four tracks, scene transitions, SONG REC, clean stop" "$OUT/song_audio_test"
 
 compile project_test tests/project_test.c -lm
 run "project formats, capture / apply, autosave" "$OUT/project_test"
