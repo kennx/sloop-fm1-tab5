@@ -923,7 +923,8 @@ def run_transport_tools(s: Session) -> None:
     s.cmd("ENG STEP 0 18")
     n18 = s.snap_int(r"\bn=(\d+)")
     if n18 == 0:
-        s.ser.note("⑩ 绝对步 18 为空：先造一个音（结束清回）")
+        s.ser.note("⑩ 绝对步 18 为空：先造一个音（本用例不额外清；⑩g 的工程快照"
+                    "会把它一并保存/还原，下一次运行看到非空即跳过）")
         s.cmd("UI step")
         s.expect(r"UI page=step \(2\)", "⑩ UI step（bank1 造音）")
         s.cmd("TAP %d %d" % step_cell_xy(2, 0))

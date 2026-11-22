@@ -279,10 +279,10 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - **有序对 1 的设备实测（P4-C Task 10 fix round 1，`transport` 场景 ⑩j）**：建满
   SEQ（STEP+TRANSPORT，`GROUP SEQ built=2 sum_est=32,256`）后从 SEQ 直接 `UI presets`
   （跨组：目标页构建期间源组仍存活）——构建日志 `页面构建 page=PRESETS(10)
-  池增量=12,120B 预算=12,800B 池剩余=6,028B`（另两次 12,272B / 6,328B、12,276B /
-  6,240B），即 **过渡峰值点 `pool_free=6,028–6,328B`**（≥4,096B 门禁通过）；过渡后
-  `SEQ built=0 / FILE built=1`。PRESETS 的 delta 实测 12,120–12,276B（与表内历史
-  12,228–12,276B 同区间；池历史漂移）。
+  池增量=12,276B 预算=12,800B 池剩余=6,240B`（`task-10fix-transport-green.log`），
+  即 **过渡峰值点 `pool_free=6,240B`**（≥4,096B 门禁通过）；过渡后
+  `SEQ built=0 / FILE built=1`。PRESETS delta 的另一归档读数是 12,008B / 12,044B
+  （`inject-nav-20261122-234244.log`），归档区间 **12,008–12,276B**（池历史漂移）。
 - 同批证据另覆盖：`TAP` 回显的 `status="…"` 与屏幕同源、焦点轨 ≠ 选中轨的目标、
   冻结/空步/bank1 窗口的拒绝路径（见本文末节与 `task-10-report.md`）。
 - **实测过渡峰值**（构建日志的「池剩余」= 销毁源组之前的 free）：
