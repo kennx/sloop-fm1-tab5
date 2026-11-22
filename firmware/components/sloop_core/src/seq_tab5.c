@@ -3,6 +3,230 @@
 
 #include <string.h>
 
+static int step_on(const step_t *st) { return st->time == ST_NOTE && st->n; }
+
+static uint32_t note_len(const track_t *t, uint32_t i)
+{
+    uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP), n = 1;
+    while (i + n < len && t->step[i + n].time == ST_TIE)
+        n++;
+    return n;
+}
+
+static uint32_t note_set_len(track_t *t, uint32_t i, uint32_t want)
+{
+    uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP), n = note_len(t, i);
+    for (; n > want && n > 1u; n--) {
+        if (!t->step[i + n - 1u].n)
+            memset(&t->step[i + n - 1u], 0, sizeof(step_t));
+        t->step[i + n - 1u].time = ST_REST;
+    }
+    for (; n < want && i + n < len && !t->step[i + n].n; n++) {
+        memset(&t->step[i + n], 0, sizeof(step_t));
+        t->step[i + n].time = ST_TIE;
+    }
+    return n;
+}
+
+static uint32_t note_span(const track_t *t, uint32_t i)
+{
+    uint8_t s[4];
+    uint32_t ns;
+    if (!step_on(&t->step[i]) || !(ns = span_notes(&t->step[i], s)))
+        return note_len(t, i);
+    return span_len(t, i, s, ns);
+}
+
+static uint32_t note_span_set(track_t *t, uint32_t i, uint32_t want)
+{
+    uint8_t s[4];
+    uint32_t ns;
+    span_why = 3;
+    if (!step_on(&t->step[i]) || !(ns = span_notes(&t->step[i], s)))
+        return note_set_len(t, i, want);
+    return span_set(t, i, s, ns, want);
+}
+
+static void step_clear(step_t *st)
+{
+    memset(st, 0, sizeof *st);
+    st->time = ST_REST;
+}
+
+static uint8_t drop2(uint32_t v, uint32_t k)
+{
+    return (uint8_t)((v & ((1u << (2u * k)) - 1u)) | ((v >> (2u * k + 2u)) << (2u * k)));
+}
+
+static void note_del_one(step_t *st, uint32_t k)
+{
+    uint32_t j, c;
+    for (j = k; j + 1u < st->n; j++)
+        st->note[j] = st->note[j + 1u];
+    st->lvl = drop2(st->lvl, k);
+    st->rat = drop2(st->rat, k);
+    c = (st->flags & SF_CONT_ALL) / SF_CONT0;
+    c = (c & ((1u << k) - 1u)) | ((c >> (k + 1u)) << k);
+    st->flags = (uint8_t)((st->flags & ~SF_CONT_ALL) | c * SF_CONT0);
+    st->n--;
+}
+
+static void note_del(track_t *t, uint32_t i, uint32_t k)
+{
+    step_t *st = &t->step[i];
+    uint32_t j, c;
+    if (!step_on(st))
+        return;
+    if (st->n <= 1u) {
+        note_span_set(t, i, 1);
+        step_clear(st);
+        return;
+    }
+    {
+        uint32_t w = note_span(t, i);
+        if (w > 1u && w != note_len(t, i)) {
+            note_span_set(t, i, 1);
+            note_del_one(st, k);
+            note_span_set(t, i, w);
+            return;
+        }
+    }
+    for (j = k; j + 1u < st->n; j++)
+        st->note[j] = st->note[j + 1u];
+    st->lvl = drop2(st->lvl, k);
+    st->rat = drop2(st->rat, k);
+    c = (st->flags & SF_CONT_ALL) / SF_CONT0;
+    c = (c & ((1u << k) - 1u)) | ((c >> (k + 1u)) << k);
+    st->flags = (uint8_t)((st->flags & ~SF_CONT_ALL) | c * SF_CONT0);
+    st->n--;
+}
+
+static int step_free(const track_t *t, uint32_t i)
+{
+    return !step_on(&t->step[i]) && t->step[i].time != ST_TIE;
+}
+
+static int32_t note_shift(track_t *t, uint32_t i, int32_t dir, int copy)
+{
+    uint32_t len = trk_len(t), n = note_len(t, i), j, to;
+    if (!step_on(&t->step[i]) || note_span(t, i) != n)
+        return -1;
+    to = copy ? i + n : dir > 0 ? i + 1u : i - 1u;
+    if ((!copy && dir < 0 && i == 0u) || to + n > len)
+        return -1;
+    for (j = 0; j < n; j++)
+        if ((to + j < i || to + j >= i + n) && !step_free(t, to + j))
+            return -1;
+    if (copy) {
+        for (j = 0; j < n; j++)
+            t->step[to + j] = t->step[i + j];
+    } else if (dir > 0) {
+        for (j = n; j > 0; j--)
+            t->step[i + j] = t->step[i + j - 1u];
+        step_clear(&t->step[i]);
+    } else {
+        for (j = 0; j < n; j++)
+            t->step[i - 1u + j] = t->step[i + j];
+        step_clear(&t->step[i + n - 1u]);
+    }
+    t->micro[to] = t->micro[i];
+    step_fill_set(t, to, step_fill(t, i));
+    for (j = 0; j < NLOCK; j++)
+        if (t->lock[j].step == i) {
+            if (!copy)
+                t->lock[j].step = (uint8_t)to;
+            else {
+                int k = lock_find(t, to, t->lock[j].param, 1);
+                if (k >= 0) {
+                    t->lock[k].step = (uint8_t)to;
+                    t->lock[k].param = t->lock[j].param;
+                    t->lock[k].val = t->lock[j].val;
+                }
+            }
+        }
+    if (!copy) {
+        t->micro[i] = 0;
+        step_fill_set(t, i, FC_NORM);
+    }
+    return (int32_t)to;
+}
+
+static uint32_t step_sess;
+
+static void layer_undo_mark(track_t *t)
+{
+    if (!step_sess)
+        step_sess = (undo_sess += 4u) | 3u;
+    undo_mark(t, step_sess);
+}
+
+static void pattern_rotate(track_t *t, int32_t d)
+{
+    uint32_t len = trk_len(t), i;
+    step_t keep;
+    layer_undo_mark(t);
+    if (d > 0) {
+        keep = t->step[len - 1u];
+        for (i = len - 1u; i > 0; i--)
+            t->step[i] = t->step[i - 1u];
+        t->step[0] = keep;
+    } else {
+        keep = t->step[0];
+        for (i = 0; i + 1u < len; i++)
+            t->step[i] = t->step[i + 1u];
+        t->step[len - 1u] = keep;
+    }
+}
+
+static void pattern_length(track_t *t, int32_t d)
+{
+    uint32_t len = trk_len(t), i;
+    layer_undo_mark(t);
+    if (d > 0 && len * 2u <= NSTEP) {
+        for (i = 0; i < len; i++)
+            t->step[len + i] = t->step[i];
+        t->p[P_SLEN] = (int16_t)(len * 2u);
+    } else if (d < 0 && len >= 2u) {
+        t->p[P_SLEN] = (int16_t)(len / 2u);
+    }
+}
+
+static void pattern_transpose(track_t *t, int32_t d)
+{
+    uint32_t i, j;
+    if (is_drum(t))
+        return;
+    layer_undo_mark(t);
+    for (i = 0; i < NSTEP; i++)
+        for (j = 0; j < t->step[i].n && j < 4u; j++)
+            t->step[i].note[j] = (uint8_t)clamp(t->step[i].note[j] + (d > 0 ? 1 : -1), 0, 127);
+}
+
+static int undo_swap(int redo)
+{
+    track_t *t;
+    int16_t len;
+    if (!undo.valid || (uint32_t)!!redo != undo.undone)
+        return 0;
+    t = &trk[undo.trk % NTRK];
+    {
+        uint32_t i;
+        for (i = 0; i < NSTEP; i++) {
+            step_t x = t->step[i];
+            int8_t m = t->micro[i];
+            t->step[i] = undo.st[i];
+            undo.st[i] = x;
+            t->micro[i] = undo.micro[i];
+            undo.micro[i] = m;
+        }
+    }
+    len = t->p[P_SLEN];
+    t->p[P_SLEN] = undo.len;
+    undo.len = len;
+    undo.undone = (uint8_t)!redo;
+    return 1;
+}
+
 void sloop_seq_read_dstep(uint32_t step, sloop_dstep_t *out)
 {
     if (out == NULL) return;
@@ -102,4 +326,137 @@ uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
     }
     engine_unlock();
     return n;
+}
+
+esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
+{
+    if (cmd == NULL || cmd->track >= NTRK || cmd->step >= NSTEP || cmd->op > SEQ_STEP_CLEAR)
+        return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    track_t *t = &trk[cmd->track];
+    uint32_t step = cmd->step;
+    esp_err_t ret = ESP_OK;
+    step_sess = 0;
+    if (cmd->op != SEQ_STEP_CLEAR && is_drum(t)) {
+        ret = ESP_ERR_INVALID_ARG;
+    } else if (cmd->op == SEQ_STEP_SPAN) {
+        if (cmd->value < 1 || cmd->value > NSTEP)
+            ret = ESP_ERR_INVALID_ARG;
+        else if (!step_on(&t->step[step]))
+            ret = ESP_ERR_NOT_FOUND;
+        else {
+            layer_undo_mark(t);
+            note_span_set(t, step, (uint32_t)cmd->value);
+        }
+    } else if (cmd->op == SEQ_STEP_NOTE_DEL) {
+        if (!step_on(&t->step[step]))
+            ret = ESP_ERR_NOT_FOUND;
+        else if (cmd->index >= t->step[step].n)
+            ret = ESP_ERR_INVALID_ARG;
+        else {
+            layer_undo_mark(t);
+            note_del(t, step, cmd->index);
+        }
+    } else if (cmd->op == SEQ_STEP_NOTE_MOVE || cmd->op == SEQ_STEP_NOTE_COPY) {
+        if (cmd->target >= NSTEP)
+            ret = ESP_ERR_INVALID_ARG;
+        else if (!step_on(&t->step[step]))
+            ret = ESP_ERR_NOT_FOUND;
+        else {
+            layer_undo_mark(t);
+            int32_t at = (int32_t)step;
+            if (cmd->op == SEQ_STEP_NOTE_COPY) {
+                at = note_shift(t, (uint32_t)at, 1, 1);
+                if (at < 0) ret = ESP_ERR_INVALID_STATE;
+            }
+            while (ret == ESP_OK && at != cmd->target) {
+                at = note_shift(t, (uint32_t)at, cmd->target > at ? 1 : -1, 0);
+                if (at < 0) ret = ESP_ERR_INVALID_STATE;
+            }
+        }
+    } else if (cmd->op == SEQ_STEP_LVL || cmd->op == SEQ_STEP_RAT) {
+        if (cmd->value < 0 || cmd->value > 3 ||
+            (step_on(&t->step[step]) && cmd->index >= t->step[step].n))
+            ret = ESP_ERR_INVALID_ARG;
+        else if (!step_on(&t->step[step]))
+            ret = ESP_ERR_NOT_FOUND;
+        else {
+            layer_undo_mark(t);
+            uint32_t sh = 2u * cmd->index;
+            if (cmd->op == SEQ_STEP_LVL)
+                t->step[step].lvl = (uint8_t)((t->step[step].lvl & ~(3u << sh)) | (uint32_t)cmd->value << sh);
+            else
+                t->step[step].rat = (uint8_t)((t->step[step].rat & ~(3u << sh)) | (uint32_t)cmd->value << sh);
+        }
+    } else if (cmd->op == SEQ_STEP_SLIDE) {
+        if (cmd->value < 0 || cmd->value > 1)
+            ret = ESP_ERR_INVALID_ARG;
+        else if (!step_on(&t->step[step]))
+            ret = ESP_ERR_NOT_FOUND;
+        else {
+            layer_undo_mark(t);
+            t->step[step].flags = (uint8_t)(cmd->value ? t->step[step].flags | SF_SLIDE :
+                                                         t->step[step].flags & ~SF_SLIDE);
+        }
+    } else {
+        layer_undo_mark(t);
+        if (is_drum(t)) {
+            memset(&t->dstep[step], 0, sizeof(t->dstep[step]));
+        } else {
+            while (step_on(&t->step[step])) note_del(t, step, 0);
+        }
+        lock_del(t, step, P_COUNT);
+        t->micro[step] = 0;
+        step_fill_set(t, step, FC_NORM);
+    }
+    step_sess = 0;
+    engine_unlock();
+    return ret;
+}
+
+esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg)
+{
+    if (track >= NTRK || op > SEQ_PATTERN_REDO) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    track_t *t = &trk[track];
+    esp_err_t ret = ESP_OK;
+    step_sess = 0;
+    switch (op) {
+    case SEQ_PATTERN_ROTATE:
+        pattern_rotate(t, arg);
+        break;
+    case SEQ_PATTERN_LENGTH:
+        pattern_length(t, arg);
+        break;
+    case SEQ_PATTERN_TRANSPOSE:
+        if (is_drum(t))
+            ret = ESP_ERR_INVALID_ARG;
+        else
+            pattern_transpose(t, arg);
+        break;
+    case SEQ_PATTERN_CLEAR:
+        layer_undo_mark(t);
+        steps_clear(t);
+        break;
+    case SEQ_PATTERN_UNDO:
+    case SEQ_PATTERN_REDO:
+        if (!undo_swap(op == SEQ_PATTERN_REDO)) ret = ESP_ERR_NOT_FOUND;
+        break;
+    default:
+        ret = ESP_ERR_INVALID_ARG;
+        break;
+    }
+    step_sess = 0;
+    engine_unlock();
+    return ret;
 }

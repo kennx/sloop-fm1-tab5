@@ -19,4 +19,17 @@ esp_err_t sloop_seq_lock_set(uint32_t track, uint32_t step, uint32_t param, int1
 esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param);
 uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap);
 
+/* 一条命令是一个完整上游动作、一次引擎锁。SPAN 的 value 是目标长度 1..64；
+ * NOTE_MOVE/COPY 的 target 是目标起点；LVL/RAT 写 index 音符的原始 2-bit 值，
+ * SLIDE 的 value 只接受 0/1。CLEAR 清该步音符、lock/micro/fill，不改 LEN。
+ * PATTERN 的 rotate/length 只动 step[]，transpose 扫描 64 步且拒绝鼓轨；
+ * undo/redo 只交换 steps/micro/LEN，不含 fill/lock。 */
+typedef enum { SEQ_STEP_SPAN, SEQ_STEP_NOTE_DEL, SEQ_STEP_NOTE_MOVE, SEQ_STEP_NOTE_COPY,
+               SEQ_STEP_LVL, SEQ_STEP_RAT, SEQ_STEP_SLIDE, SEQ_STEP_CLEAR } sloop_step_op_t;
+typedef struct { uint8_t track, step, index, target; int16_t value; sloop_step_op_t op; } sloop_step_edit_t;
+esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd);
+typedef enum { SEQ_PATTERN_ROTATE, SEQ_PATTERN_LENGTH, SEQ_PATTERN_TRANSPOSE,
+               SEQ_PATTERN_CLEAR, SEQ_PATTERN_UNDO, SEQ_PATTERN_REDO } sloop_pattern_op_t;
+esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg);
+
 #endif

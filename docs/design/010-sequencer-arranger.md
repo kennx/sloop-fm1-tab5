@@ -1,6 +1,6 @@
 # ADR-010: 音序与编排接入 — 单 TU arranger、PER3 子集与 SONG 容量预算
 
-> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API；后续任务实现其余编辑、持久化与 UI）｜ 日期：2026-11-22
+> 状态：已接受（阶段 4 P4-C Task 2 编译骨架 + Task 3 原始步/参数锁 API + Task 4 span/note/pattern 工具与 undo；后续任务实现状态接入、持久化与 UI）｜ 日期：2026-11-22
 > 关联：P4-C spec `docs/superpowers/specs/2026-11-22-p4c-sequencer-arranger-design.md` §2/§3.1/§3.3/§4；
 > ADR-004（vendored 只读）、ADR-005（分组导航）、ADR-007（音频生命周期与锁）、ADR-008（LVGL 池）、ADR-009（存储后端）。
 
@@ -150,6 +150,31 @@ Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后�
 - `scripts/seq-test.sh` 编译同源 `hostsim.c + seq_tab5.c`，只以计数桩替代 FreeRTOS 互斥；
   测试必须调用真实上游打包和锁函数，不维护另一份锁/打包实现。
 
+### 7. 上游 span/note/pattern 动作与有限 undo
+
+Task 4 继续扩展同一 `seq_tab5.c`，不编入上游 UI，也不建立第二份步/锁引擎。`ui.c` 的
+`note_len/note_set_len/note_span/note_span_set/note_del/note_shift` 与 `ui_layers.c` 的
+`pattern_rotate/length/transpose` 只移植纯数据动作；IRQ/UI 消息由既有引擎锁和后续状态投影替代。
+
+- 新公共入口为 `sloop_seq_step_edit()` 与 `sloop_seq_pattern()`。两者都先查诊断冻结，取得一次
+  `s_engine_lock` 后复核，并在同一把锁内完成动作。adapter 自有 `step_sess` 在每个公共动作前后归零，
+  因而一次 API/console 命令对应一个 undo session，不依赖 240×240 `ui.step_sess` 的生命周期。
+- `SPAN.value` 是目标长度；`NOTE_MOVE/COPY.target` 是目标起点。move 通过重复上游单步 shift 到达目标；
+  copy 先落在原音跨度之后，再按同一 shift 语义移动副本。复杂 CONT 跨度未先缩回普通 TIE 跨度时拒绝
+  move/copy。note move/copy 携带 micro/fill，并重定位/复制锁。
+- `LVL/RAT` 写选中音符的原始 2-bit 字段，`SLIDE` 接受 0/1；`STEP_CLEAR` 删除该步音符（合成轨经
+  `note_del` 清净 CONT）并清 lock/micro/fill。`PATTERN_CLEAR` 调上游 `steps_clear()`，不改变 LEN。
+- rotate 和 length 只移动/复制 `step[]`，micro/fill/lock 锚定绝对步；transpose 对全部 64 步逐音饱和到
+  0/127，鼓轨返回 `ESP_ERR_INVALID_ARG`。undo/redo 直接交换上游 `undo` 中的 64 步、micro 和 LEN，
+  不恢复 fill/lock；没有有效方向时返回 `ESP_ERR_NOT_FOUND`。
+- brief 的 `sloop_step_edit_t` 原有字段无法承载 `sloop_step_op_t`，因此实际 POD 在原五字段末尾追加
+  `op`。这是让既定函数签名可分发动作所必需的接口修正，后续 `CMD_STEP_EDIT` 必须透传该字段。
+- console 新增 `SEQ EDIT <SPAN|DEL|MOVE|COPY|LVL|RAT|SLIDE|CLEAR> …` 与
+  `SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE|CLEAR|UNDO|REDO> …`；与公共 API 共用错误返回。
+
+`scripts/seq-host-test.c` 继续使用真实 hostsim/seq.c/drums.c，增加复杂 CONT、move/copy 元数据、工具锚定、
+0/127 饱和、clear 与 undo 范围、一次取锁及取锁后冻结判别用例。
+
 ## 后果
 
 - 固件获得上游 arranger/seq 的真实状态机与 RAM 场景切换能力，后续 adapter 可在同一 TU
@@ -158,5 +183,6 @@ Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后�
   host 用例共同防止「只编了启动文件、漏掉 seq/场景定义」或重复 include。
 - PSRAM 增加 3,816B，内部 RAM 只增加一个 `.noinit` 指针及 arranger 小型运行状态；现有
   内部堆与音频门禁不放宽。
+- pattern 工具沿用上游单槽 undo；它不是完整工程历史，fill/lock 的撤销缺失是刻意保留的上游边界。
 - PER3、SELFTEST 后歌曲恢复、完整扇区测试快照、公共 SONG 命令与 SONG 页面分别由后续
   P4-C 任务完成；在这些入口落地前，本 ADR 的 UI 数字是硬预算，不是已完成的实测声明。

@@ -40,8 +40,8 @@
  *    （PROJECTS/PRESETS）回显 "-> FILE <page> slot=k select" 或
  *    "-> FILE <page> slot=k action=save|load|erase status=\"…\""——后者带页面状态行
  *    文本（与屏幕同源），播放中拒绝/鼓轨/NO STORAGE 可被脚本按文本断言。
- *  - SEQ：原始鼓步、micro/fill 与参数锁诊断（P4-C，ADR-010）。LOCK SET 的锁满与
- *    非法参数分别回 "SEQ ERR full" 与 "SEQ ERR invalid"。
+ *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具诊断（P4-C，ADR-010）。
+ *    LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与 "SEQ ERR invalid"。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -1956,6 +1956,99 @@ static int seq_command(int argc, char **argv)
         printf("SEQ FILL track=%u step=%u value=%u OK\n", (unsigned)track, (unsigned)step, (unsigned)value);
         return 0;
     }
+    if (argc >= 3 && strcasecmp(argv[1], "EDIT") == 0) {
+        sloop_step_edit_t cmd = {0};
+        const char *op = argv[2];
+        if (strcasecmp(op, "SPAN") == 0)
+            cmd.op = SEQ_STEP_SPAN;
+        else if (strcasecmp(op, "DEL") == 0)
+            cmd.op = SEQ_STEP_NOTE_DEL;
+        else if (strcasecmp(op, "MOVE") == 0)
+            cmd.op = SEQ_STEP_NOTE_MOVE;
+        else if (strcasecmp(op, "COPY") == 0)
+            cmd.op = SEQ_STEP_NOTE_COPY;
+        else if (strcasecmp(op, "LVL") == 0)
+            cmd.op = SEQ_STEP_LVL;
+        else if (strcasecmp(op, "RAT") == 0)
+            cmd.op = SEQ_STEP_RAT;
+        else if (strcasecmp(op, "SLIDE") == 0)
+            cmd.op = SEQ_STEP_SLIDE;
+        else if (strcasecmp(op, "CLEAR") == 0)
+            cmd.op = SEQ_STEP_CLEAR;
+        else
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        uint32_t track, step, a, b;
+        if (argc < 5 || !eng_uint(argv[3], 3, &track) || !eng_uint(argv[4], 63, &step))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        cmd.track = (uint8_t)track;
+        cmd.step = (uint8_t)step;
+        switch (cmd.op) {
+        case SEQ_STEP_SPAN:
+            if (argc != 6 || !eng_uint(argv[5], 64, &a) || a == 0)
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.value = (int16_t)a;
+            break;
+        case SEQ_STEP_NOTE_DEL:
+            if (argc != 6 || !eng_uint(argv[5], 3, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.index = (uint8_t)a;
+            break;
+        case SEQ_STEP_NOTE_MOVE:
+        case SEQ_STEP_NOTE_COPY:
+            if (argc != 6 || !eng_uint(argv[5], 63, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.target = (uint8_t)a;
+            break;
+        case SEQ_STEP_LVL:
+        case SEQ_STEP_RAT:
+            if (argc != 7 || !eng_uint(argv[5], 3, &a) || !eng_uint(argv[6], 3, &b))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.index = (uint8_t)a;
+            cmd.value = (int16_t)b;
+            break;
+        case SEQ_STEP_SLIDE:
+            if (argc != 6 || !eng_uint(argv[5], 1, &a))
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            cmd.value = (int16_t)a;
+            break;
+        case SEQ_STEP_CLEAR:
+            if (argc != 5) return seq_err_print(ESP_ERR_INVALID_ARG);
+            break;
+        default:
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        }
+        esp_err_t ret = sloop_seq_step_edit(&cmd);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ EDIT %s track=%u step=%u OK\n", op, (unsigned)track, (unsigned)step);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[1], "PATTERN") == 0) {
+        sloop_pattern_op_t op;
+        int need_arg;
+        if (strcasecmp(argv[2], "ROTATE") == 0)
+            op = SEQ_PATTERN_ROTATE, need_arg = 1;
+        else if (strcasecmp(argv[2], "LENGTH") == 0)
+            op = SEQ_PATTERN_LENGTH, need_arg = 1;
+        else if (strcasecmp(argv[2], "TRANSPOSE") == 0)
+            op = SEQ_PATTERN_TRANSPOSE, need_arg = 1;
+        else if (strcasecmp(argv[2], "CLEAR") == 0)
+            op = SEQ_PATTERN_CLEAR, need_arg = 0;
+        else if (strcasecmp(argv[2], "UNDO") == 0)
+            op = SEQ_PATTERN_UNDO, need_arg = 0;
+        else if (strcasecmp(argv[2], "REDO") == 0)
+            op = SEQ_PATTERN_REDO, need_arg = 0;
+        else
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        uint32_t track;
+        int32_t arg = 0;
+        if (argc != (need_arg ? 5 : 4) || !eng_uint(argv[3], 3, &track) ||
+            (need_arg && !seq_int(argv[4], -32768, 32767, &arg)))
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        esp_err_t ret = sloop_seq_pattern(track, op, arg);
+        if (ret != ESP_OK) return seq_err_print(ret);
+        printf("SEQ PATTERN %s track=%u arg=%ld OK\n", argv[2], (unsigned)track, (long)arg);
+        return 0;
+    }
     if (argc >= 2 && strcasecmp(argv[1], "LOCK") == 0) {
         if (argc == 4 && strcasecmp(argv[2], "LIST") == 0) {
             uint32_t track;
@@ -1993,7 +2086,10 @@ static int seq_command(int argc, char **argv)
     printf("用法: SEQ DSTEP [step=0..63] | SEQ MICRO <track=0..3> <step=0..63> <v=-32..31> | "
            "SEQ FILL <track=0..3> <step=0..63> <v=0..3> | SEQ LOCK LIST <track=0..3> | "
            "SEQ LOCK SET <track> <step> <param=0..%u> <value> | "
-           "SEQ LOCK DEL <track> <step> <param=0..%u；%u=整步清除>\n",
+           "SEQ LOCK DEL <track> <step> <param=0..%u；%u=整步清除> | "
+           "SEQ EDIT <SPAN|DEL|MOVE|COPY|LVL|RAT|SLIDE|CLEAR> <track> <step> [index|target|value] | "
+           "SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE> <track> <arg> | "
+           "SEQ PATTERN <CLEAR|UNDO|REDO> <track>\n",
            (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
     return 1;
 }
@@ -2130,8 +2226,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t seq_cmd = {
         .command = "SEQ",
-        .help = "音序诊断：SEQ DSTEP [step]；MICRO/FILL <track> <step> <v>；LOCK LIST|SET|DEL",
-        .hint = "DSTEP [step]|MICRO <track> <step> <v>|FILL <track> <step> <v>|LOCK LIST <track>|LOCK SET <track> <step> <param> <value>|LOCK DEL <track> <step> <param>",
+        .help = "音序诊断：DSTEP/MICRO/FILL/LOCK；EDIT 音符工具；PATTERN 工具与 undo/redo",
+        .hint = "DSTEP [step]|MICRO/FILL <track> <step> <v>|LOCK ...|EDIT <op> <track> <step> [args]|PATTERN <op> <track> [arg]",
         .func = &seq_command,
     };
     ret = esp_console_cmd_register(&seq_cmd);

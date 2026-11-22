@@ -14,12 +14,14 @@
 #include "sloop_seq.h"
 
 static bool s_frozen;
+static bool freeze_on_lock;
 static uint32_t engine_lock_calls;
 static uint32_t engine_unlock_calls;
 
 static void engine_lock(void)
 {
     engine_lock_calls++;
+    if (freeze_on_lock) s_frozen = true;
 }
 
 static void engine_unlock(void)
@@ -41,7 +43,9 @@ static void reset(void)
 {
     host_tracks_init();
     for (uint32_t k = 0; k < NTRK; k++) trk[k].engine = trk[k].eng_req = 0;
+    memset(&undo, 0, sizeof(undo));
     s_frozen = false;
+    freeze_on_lock = false;
     engine_lock_calls = engine_unlock_calls = 0;
 }
 
@@ -175,12 +179,303 @@ static void test_locks(void)
     check(sloop_seq_lock_list(0, locks, NLOCK) == 0u, "frozen lock list is empty");
 }
 
+static esp_err_t edit_step(uint8_t track, uint8_t step, sloop_step_op_t op,
+                           uint8_t index, uint8_t target, int16_t value)
+{
+    sloop_step_edit_t cmd = {track, step, index, target, value, op};
+    return sloop_seq_step_edit(&cmd);
+}
+
+static void put_note(track_t *t, uint32_t step, uint32_t note, uint32_t ties)
+{
+    memset(&t->step[step], 0, sizeof(t->step[step]));
+    t->step[step].note[0] = (uint8_t)note;
+    t->step[step].n = 1;
+    t->step[step].time = ST_NOTE;
+    for (uint32_t k = 1; k <= ties; k++) {
+        memset(&t->step[step + k], 0, sizeof(t->step[step + k]));
+        t->step[step + k].time = ST_TIE;
+    }
+}
+
+static int has_note(const step_t *st, uint32_t note, int cont)
+{
+    for (uint32_t k = 0; k < st->n && k < 4u; k++)
+        if (st->note[k] == note && !!(st->flags & SF_CONT(k)) == cont) return 1;
+    return 0;
+}
+
+static void make_melody(track_t *t)
+{
+    put_note(t, 0, 36, 1);
+    put_note(t, 2, 48, 1);
+    put_note(t, 4, 50, 1);
+    put_note(t, 6, 52, 1);
+}
+
+static void test_complex_span(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    host_preset(t, 1, 0);
+    t->p[P_SLEN] = 16;
+    make_melody(t);
+    check(edit_step(0, 0, SEQ_STEP_SPAN, 0, 0, 10) == ESP_OK &&
+              has_note(&t->step[2], 36, 1) && has_note(&t->step[2], 48, 0) &&
+              has_note(&t->step[4], 36, 1) && has_note(&t->step[4], 50, 0) &&
+              has_note(&t->step[6], 36, 1) && has_note(&t->step[6], 52, 0) &&
+              has_note(&t->step[8], 36, 1) && t->step[9].time == ST_TIE,
+          "C1 spans C2/D2/E2 with CONT and a continuation-only note at step 8");
+
+    step_t before[NSTEP];
+    memcpy(before, t->step, sizeof(before));
+    check(edit_step(0, 0, SEQ_STEP_NOTE_MOVE, 0, 1, 0) == ESP_ERR_INVALID_STATE &&
+              edit_step(0, 0, SEQ_STEP_NOTE_COPY, 0, 10, 0) == ESP_ERR_INVALID_STATE &&
+              memcmp(before, t->step, sizeof(before)) == 0,
+          "move/copy reject a complex CONT span without changing any step");
+
+    check(edit_step(0, 0, SEQ_STEP_NOTE_DEL, 0, 0, 0) == ESP_OK &&
+          t->step[0].time == ST_REST && t->step[0].n == 0 &&
+          has_note(&t->step[2], 48, 0) && t->step[2].n == 1 &&
+          has_note(&t->step[4], 50, 0) && t->step[4].n == 1 &&
+          has_note(&t->step[6], 52, 0) && t->step[6].n == 1 &&
+          t->step[8].time == ST_REST && t->step[8].n == 0,
+          "deleting C1 removes every CONT residue and preserves C2/D2/E2");
+    for (uint32_t i = 0; i < NSTEP; i++)
+        check(!has_note(&t->step[i], 36, 0) && !has_note(&t->step[i], 36, 1),
+              "deleted C1 has no residual note in the pattern");
+}
+
+static void test_note_move_copy(void)
+{
+    sloop_lock_t locks[NLOCK];
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 60, 1);
+    t->micro[2] = -7;
+    step_fill_set(t, 2, FC_NOFILL);
+    check(sloop_seq_lock_set(0, 2, P_DIST, 77) == ESP_OK, "move fixture has a source lock");
+    check(edit_step(0, 2, SEQ_STEP_NOTE_MOVE, 0, 4, 0) == ESP_OK &&
+          t->step[2].time == ST_REST && t->step[3].time == ST_REST &&
+          has_note(&t->step[4], 60, 0) && t->step[5].time == ST_TIE &&
+          t->micro[4] == -7 && t->micro[2] == 0 &&
+          step_fill(t, 4) == FC_NOFILL && step_fill(t, 2) == FC_NORM,
+          "note move carries its span, micro and fill and clears the source metadata");
+    uint32_t n = sloop_seq_lock_list(0, locks, NLOCK);
+    check(n == 1u && find_lock(locks, n, 4, P_DIST) != NULL &&
+              find_lock(locks, n, 4, P_DIST)->value == 77,
+          "note move relocates its parameter lock");
+
+    reset();
+    t = &trk[0];
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 62, 1);
+    t->micro[2] = 11;
+    step_fill_set(t, 2, FC_FILL);
+    check(sloop_seq_lock_set(0, 2, P_DIST, 88) == ESP_OK, "copy fixture has a source lock");
+    check(edit_step(0, 2, SEQ_STEP_NOTE_COPY, 0, 4, 0) == ESP_OK &&
+          has_note(&t->step[2], 62, 0) && has_note(&t->step[4], 62, 0) &&
+          t->step[3].time == ST_TIE && t->step[5].time == ST_TIE &&
+          t->micro[2] == 11 && t->micro[4] == 11 &&
+          step_fill(t, 2) == FC_FILL && step_fill(t, 4) == FC_FILL,
+          "note copy duplicates its span, micro and fill without clearing the source");
+    n = sloop_seq_lock_list(0, locks, NLOCK);
+    check(n == 2u && find_lock(locks, n, 2, P_DIST) != NULL &&
+              find_lock(locks, n, 4, P_DIST) != NULL,
+          "note copy duplicates its parameter lock");
+}
+
+static void test_step_fields_clear(void)
+{
+    sloop_lock_t locks[NLOCK];
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 4, 60, 0);
+    t->step[4].note[1] = 64;
+    t->step[4].n = 2;
+    check(edit_step(0, 4, SEQ_STEP_LVL, 1, 0, LV_HARD) == ESP_OK &&
+              ((t->step[4].lvl >> 2) & 3u) == LV_HARD &&
+              edit_step(0, 4, SEQ_STEP_RAT, 1, 0, 3) == ESP_OK &&
+              ((t->step[4].rat >> 2) & 3u) == 3u &&
+              edit_step(0, 4, SEQ_STEP_SLIDE, 0, 0, 1) == ESP_OK &&
+              (t->step[4].flags & SF_SLIDE) != 0 &&
+              edit_step(0, 4, SEQ_STEP_SLIDE, 0, 0, 0) == ESP_OK &&
+              (t->step[4].flags & SF_SLIDE) == 0,
+          "step edit writes per-note lvl/rat and toggles slide");
+    check(edit_step(0, 4, SEQ_STEP_LVL, 2, 0, LV_HARD) == ESP_ERR_INVALID_ARG &&
+              edit_step(0, 4, SEQ_STEP_RAT, 0, 0, 4) == ESP_ERR_INVALID_ARG &&
+              edit_step(0, 4, SEQ_STEP_SLIDE, 0, 0, 2) == ESP_ERR_INVALID_ARG,
+          "step field edits reject an absent note index and out-of-range values");
+    t->micro[4] = 13;
+    step_fill_set(t, 4, FC_NOFILL);
+    check(sloop_seq_lock_set(0, 4, P_DIST, 91) == ESP_OK, "step clear fixture has a lock");
+    check(edit_step(0, 4, SEQ_STEP_CLEAR, 0, 0, 0) == ESP_OK &&
+          t->step[4].time == ST_REST && t->step[4].n == 0 && t->micro[4] == 0 &&
+          step_fill(t, 4) == FC_NORM && sloop_seq_lock_list(0, locks, NLOCK) == 0 &&
+          t->p[P_SLEN] == 16,
+          "step clear removes notes, lock, micro and fill without changing LEN");
+}
+
+static void test_pattern_rotate_length(void)
+{
+    sloop_lock_t locks[NLOCK];
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 4;
+    put_note(t, 0, 60, 0);
+    put_note(t, 3, 64, 0);
+    t->micro[0] = 5;
+    t->micro[3] = -4;
+    step_fill_set(t, 0, FC_FILL);
+    step_fill_set(t, 3, FC_NOFILL);
+    check(sloop_seq_lock_set(0, 0, P_DIST, 10) == ESP_OK &&
+              sloop_seq_lock_set(0, 3, P_DIST, 30) == ESP_OK,
+          "rotate fixture has anchored locks");
+    int8_t micro[NSTEP];
+    uint8_t fill[NSTEP / 4];
+    plock_t lock[NLOCK];
+    step_t before[NSTEP];
+    memcpy(micro, t->micro, sizeof(micro));
+    memcpy(fill, t->fill, sizeof(fill));
+    memcpy(lock, t->lock, sizeof(lock));
+    check(sloop_seq_pattern(0, SEQ_PATTERN_ROTATE, 1) == ESP_OK &&
+          has_note(&t->step[0], 64, 0) && has_note(&t->step[1], 60, 0) &&
+          t->step[3].time == ST_REST &&
+          memcmp(micro, t->micro, sizeof(micro)) == 0 &&
+          memcmp(fill, t->fill, sizeof(fill)) == 0 && memcmp(lock, t->lock, sizeof(lock)) == 0,
+          "rotate wraps the last step to the first while micro/fill/locks stay anchored");
+    check(sloop_seq_lock_list(0, locks, NLOCK) == 2u &&
+              find_lock(locks, 2, 0, P_DIST)->value == 10 && find_lock(locks, 2, 3, P_DIST)->value == 30,
+          "rotate leaves lock steps and values unchanged");
+
+    reset();
+    t = &trk[0];
+    t->p[P_SLEN] = 16;
+    for (uint32_t i = 0; i < 16; i++) put_note(t, i, 40 + i, 0);
+    t->micro[0] = 7;
+    t->micro[20] = -9;
+    step_fill_set(t, 0, FC_FILL);
+    step_fill_set(t, 20, FC_NOFILL);
+    memcpy(micro, t->micro, sizeof(micro));
+    memcpy(fill, t->fill, sizeof(fill));
+    memcpy(lock, t->lock, sizeof(lock));
+    check(sloop_seq_pattern(0, SEQ_PATTERN_LENGTH, 1) == ESP_OK && t->p[P_SLEN] == 32 &&
+              memcmp(&t->step[16], &t->step[0], 16 * sizeof(step_t)) == 0 &&
+              memcmp(micro, t->micro, sizeof(micro)) == 0 &&
+              memcmp(fill, t->fill, sizeof(fill)) == 0 && memcmp(lock, t->lock, sizeof(lock)) == 0,
+          "LEN 16 to 32 copies only step data and anchors micro/fill/locks");
+
+    reset();
+    t = &trk[0];
+    t->p[P_SLEN] = 3;
+    for (uint32_t i = 0; i < 6; i++) put_note(t, i, 50 + i, 0);
+    memcpy(before, t->step, sizeof(before));
+    check(sloop_seq_pattern(0, SEQ_PATTERN_LENGTH, -1) == ESP_OK && t->p[P_SLEN] == 1 &&
+              memcmp(before, t->step, sizeof(before)) == 0,
+          "LEN 3 to 1 uses upstream integer halving and does not move steps");
+}
+
+static void test_pattern_transpose_clear_undo(void)
+{
+    sloop_lock_t locks[NLOCK];
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 0, 0, 0);
+    put_note(t, 1, 127, 0);
+    put_note(t, 63, 60, 0);
+    check(sloop_seq_pattern(0, SEQ_PATTERN_TRANSPOSE, 1) == ESP_OK &&
+          t->step[0].note[0] == 1 && t->step[1].note[0] == 127 && t->step[63].note[0] == 61,
+          "transpose saturates at 127 and scans step 63 beyond LEN");
+    reset();
+    t = &trk[0];
+    put_note(t, 0, 0, 0);
+    put_note(t, 1, 127, 0);
+    check(sloop_seq_pattern(0, SEQ_PATTERN_TRANSPOSE, -1) == ESP_OK &&
+          t->step[0].note[0] == 0 && t->step[1].note[0] == 126,
+          "transpose saturates at zero");
+    put_note(&trk[3], 0, 36, 0);
+    step_t drum_before = trk[3].step[0];
+    check(sloop_seq_pattern(3, SEQ_PATTERN_TRANSPOSE, 1) == ESP_ERR_INVALID_ARG &&
+              memcmp(&drum_before, &trk[3].step[0], sizeof(drum_before)) == 0,
+          "transpose rejects the drum track without changing it");
+
+    reset();
+    t = &trk[0];
+    t->p[P_SLEN] = 16;
+    put_note(t, 0, 60, 1);
+    t->micro[0] = 9;
+    t->micro[1] = -3;
+    step_fill_set(t, 0, FC_NOFILL);
+    step_fill_set(t, 1, FC_FILL);
+    check(sloop_seq_lock_set(0, 0, P_DIST, 44) == ESP_OK &&
+              sloop_seq_lock_set(0, 1, P_E0, 5) == ESP_OK,
+          "clear/undo fixture has locks on both steps");
+    step_t saved[NSTEP];
+    memcpy(saved, t->step, sizeof(saved));
+    check(sloop_seq_pattern(0, SEQ_PATTERN_CLEAR, 0) == ESP_OK && t->p[P_SLEN] == 16 &&
+              t->step[0].time == ST_REST && t->step[1].time == ST_REST &&
+              t->micro[0] == 0 && t->micro[1] == 0 && step_fill(t, 0) == FC_NORM &&
+              step_fill(t, 1) == FC_NORM && sloop_seq_lock_list(0, locks, NLOCK) == 0,
+          "pattern clear removes steps, locks, micro and fill without changing LEN");
+    check(sloop_seq_pattern(0, SEQ_PATTERN_UNDO, 0) == ESP_OK &&
+              memcmp(saved, t->step, sizeof(saved)) == 0 && t->micro[0] == 9 && t->micro[1] == -3 &&
+              t->p[P_SLEN] == 16 && step_fill(t, 0) == FC_NORM && step_fill(t, 1) == FC_NORM &&
+              sloop_seq_lock_list(0, locks, NLOCK) == 0,
+          "undo restores only steps, micro and LEN, not fill or locks");
+    check(sloop_seq_pattern(0, SEQ_PATTERN_REDO, 0) == ESP_OK &&
+              t->step[0].time == ST_REST && t->step[1].time == ST_REST &&
+              t->micro[0] == 0 && t->micro[1] == 0 && step_fill(t, 0) == FC_NORM &&
+              sloop_seq_lock_list(0, locks, NLOCK) == 0,
+          "redo swaps the same limited scope back to the cleared pattern");
+}
+
+static void test_new_entry_locking(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    put_note(t, 0, 60, 0);
+    sloop_step_edit_t invalid = {.op = (sloop_step_op_t)-1};
+    check(sloop_seq_step_edit(NULL) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_step_edit(&invalid) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_pattern(0, (sloop_pattern_op_t)-1, 0) == ESP_ERR_INVALID_ARG,
+          "new entries reject null commands and negative operation values");
+    uint32_t locks = engine_lock_calls;
+    check(edit_step(0, 0, SEQ_STEP_SLIDE, 0, 0, 1) == ESP_OK &&
+              engine_lock_calls == locks + 1u && engine_unlock_calls == locks + 1u,
+          "step edit takes and releases the engine lock exactly once");
+    locks = engine_lock_calls;
+    check(sloop_seq_pattern(0, SEQ_PATTERN_ROTATE, 1) == ESP_OK &&
+              engine_lock_calls == locks + 1u && engine_unlock_calls == locks + 1u,
+          "pattern edit takes and releases the engine lock exactly once");
+
+    reset();
+    put_note(t, 0, 60, 0);
+    step_t before = t->step[0];
+    freeze_on_lock = true;
+    esp_err_t frozen_step = edit_step(0, 0, SEQ_STEP_SLIDE, 0, 0, 1);
+    s_frozen = false;
+    esp_err_t frozen_pattern = sloop_seq_pattern(0, SEQ_PATTERN_CLEAR, 0);
+    check(frozen_step == ESP_ERR_INVALID_STATE && frozen_pattern == ESP_ERR_INVALID_STATE &&
+              memcmp(&before, &t->step[0], sizeof(before)) == 0 && engine_lock_calls == 2u &&
+              engine_unlock_calls == 2u,
+          "step/pattern entries recheck freeze after locking and leave data unchanged");
+}
+
 int main(void)
 {
     _Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "public drum step has the upstream packed layout");
     test_dstep();
     test_micro_fill();
     test_locks();
+    test_complex_span();
+    test_note_move_copy();
+    test_step_fields_clear();
+    test_pattern_rotate_length();
+    test_pattern_transpose_clear_undo();
+    test_new_entry_locking();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }
