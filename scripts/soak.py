@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """soak.py — 稳定性能 soak（阶段 3 完成判据 4；阶段 4 长时 soak 复用同一口径）
 
-在真机上循环「播放 → 步编辑 → 音序动作（micro/fill/lock、SONG 页表格导航、播放中
-section 捕获）→ 选轨/切页 → 键盘音符」，保持 TRANSPORT 页播放中，
-每 --interval 秒采样一次引擎水位：
+在真机上循环「播放 → 步编辑 → 音序动作（micro/fill/lock、SONG 页表格导航；可选
+--section-capture 的播放中 section A 捕获）→ 选轨/切页 → 键盘音符」，保持 TRANSPORT
+页播放中，每 --interval 秒采样一次引擎水位：
     ENG MEM   internal_free / internal_min
     ENG PERF  streaming / xrun / audio_stack_free / render_mean_us / render_max_us /
               duty_mean / duty_max / min_free_since_boot_*
@@ -25,9 +25,10 @@ section 捕获）→ 选轨/切页 → 键盘音符」，保持 TRANSPORT 页播
     6. 原始串口日志无 panic / Guru Meditation / task_wdt / abort / Backtrace；
     7. 每周期的切页回显与 STATE SNAP 页面断言全过（无切页回归）；
     8. 实测时长 ≥ --duration（阶段收口口径 1800s；冒烟可用小值）；
-    9. --save-window N（存储写窗口，P4-B）：窗口内停走带做一次 `STORE PROJ SAVE 0` +
+    9. --save-window N（存储写窗口，P4-B）：窗口前先等 section/song 的延迟写把 dirty
+       清掉（否则 1s 任务的写会落进窗口、记到窗口账上），再 `STORE AUTO OFF`（只量
+       脚本写；收尾在最终采样后恢复 ON）；窗口内停走带做一次 `STORE PROJ SAVE 0` +
        `STORE PROJ LOAD 0`（音频流**不停**），窗口内 xrun 增量 ≤ 16；窗口后 streaming=1；
-       窗口前 `STORE AUTO OFF`（只量脚本写；收尾在最终采样后恢复 ON）；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
    10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE 三组各访问一次 → 回 PLAY」，
@@ -38,8 +39,11 @@ section 捕获）→ 选轨/切页 → 键盘音符」，保持 TRANSPORT 页播
 同 inject.py 口径：逐字节写盘，唯一非固件字节是 `# [inject] ...` 注记）与
 soak-summary-<时间戳>.txt（采样表 + 判定）。退出码 0 = 判定通过。
 
+`--section-capture`（默认关）每 SEQ_ACTION_EVERY 轮在播放中 `SEQ SECTION A STORE`：
+**破坏性**（覆盖工程槽 A 的 RAM/flash 内容），只用于要压 sections 写窗口的门禁。
+
 用法：python3 scripts/soak.py /dev/ttyACM0 [--duration 1800] [--interval 300] [--cycle 12]
-                              [--save-window 0]
+                              [--save-window 0] [--section-capture]
 """
 import argparse
 import math
@@ -208,6 +212,24 @@ def pool_round_trip(s) -> dict:
     return pool
 
 
+def wait_dirty_clear(s, timeout: float = 12.0) -> None:
+    """save 窗口前清掉待落盘的 section/song dirty（1s 任务的门限写不进窗口账）。
+    `--section-capture` 每 3 轮置 dirty；其余情况下这里通常立即返回。"""
+    t0 = time.monotonic()
+    while True:
+        s.cmd("SEQ SECTION")
+        sec = s.last
+        s.cmd("STORE SONG")
+        song = s.last
+        if "dirty=1" not in sec and "dirty=1" not in song:
+            print(f"   save 窗口前 dirty=0（{time.monotonic() - t0:.1f}s）")
+            return
+        if time.monotonic() - t0 > timeout:
+            s.fail(f"save 窗口前 section/song dirty 未清（{timeout:.0f}s）")
+            return
+        time.sleep(0.3)
+
+
 def save_window(s, seconds: float, take_sample) -> dict:
     """--save-window：停走带 → 一次 STORE PROJ SAVE 0 + LOAD 0 → 保持 N 秒 → 恢复播放。
 
@@ -215,6 +237,7 @@ def save_window(s, seconds: float, take_sample) -> dict:
     streaming=1 与页面/走带回到常态。xrun 是自启动累计值，窗口后由 verdict 冻结基线。
     """
     s.ser.note(f"soak save 窗口：停走带 SAVE 0 + LOAD 0，保持 {seconds:.0f}s")
+    wait_dirty_clear(s)   # 窗口只量脚本写：先把 1s 任务的延迟写排空
     # 窗口判据只量脚本化的 SAVE+LOAD：自动存档若在窗口里插一次写，xrun 会记到窗口账上。
     # AUTO 在窗口前关、整个 soak 期间保持关（收尾时恢复默认 ON，见 main）。
     s.cmd("STORE AUTO OFF")
@@ -240,10 +263,10 @@ def save_window(s, seconds: float, take_sample) -> dict:
 SEQ_ACTION_EVERY = 3   # 每 N 轮做一次 live section 捕获（其余轮只做轻量音序动作）
 
 
-def sequence_cycle(s, n: int) -> None:
+def sequence_cycle(s, n: int, section_capture: bool) -> None:
     """音序动作（P4-C Task 12）：micro/fill/lock 写后清（不累积）+ SONG 页表格导航；
-    每 SEQ_ACTION_EVERY 轮在播放中捕获一次 section A（dirty 由 1s 任务的延迟写落盘，
-    音频流不停——既覆盖 sections 写窗口，也检查 xrun 不增长）。"""
+    `section_capture` 时每 SEQ_ACTION_EVERY 轮在播放中捕获一次 section A（**破坏性**：
+    覆盖工程槽 A；dirty 由 1s 任务的延迟写落盘，音频流不停）。"""
     track, step = ((0, 2), (1, 5))[n % 2]
     s.cmd(f"SEQ MICRO {track} {step} {2 if n % 2 else -2}")
     s.expect(rf"SEQ MICRO track={track} step={step} value=-?\d+ OK", "SEQ MICRO")
@@ -258,12 +281,12 @@ def sequence_cycle(s, n: int) -> None:
     s.expect(r"-> SONG card=[A-D] select", "TAP SONG card")
     s.cmd("TAP %d %d" % inject.song_entry_xy(0))
     s.expect(r"-> SONG entry=0 select", "TAP SONG entry 0")
-    if n % SEQ_ACTION_EVERY == 0:
+    if section_capture and n % SEQ_ACTION_EVERY == 0:
         s.cmd("SEQ SECTION A STORE")
         s.expect(r"SEQ SECTION A STORE OK", "播放中 section 捕获（live STORE）")
 
 
-def cycle(s, n: int) -> None:
+def cycle(s, n: int, section_capture: bool = False) -> None:
     """一轮：保持播放 → STEP 翻一格 → 音序动作（micro/fill/lock + SONG 页）→ TRACKS 选卡
     → PLAY 弹一个音 → 回 TRANSPORT。"""
     ensure_playing(s)
@@ -274,7 +297,7 @@ def cycle(s, n: int) -> None:
     s.cmd("TAP %d %d" % cells[n % 2])
     s.expect(rf"-> STEP track={track} step={step} CMD_TOGGLE_STEP", f"TAP STEP {track}/{step}")
 
-    sequence_cycle(s, n)
+    sequence_cycle(s, n, section_capture)
 
     switch(s, "tracks")
     card = n % 4
@@ -362,6 +385,8 @@ def main() -> None:
     ap.add_argument("--save-window", type=float, default=0.0,
                     help="存储写窗口秒数：窗口内停走带做一次 STORE PROJ SAVE 0 + LOAD 0，"
                          "断言窗口内 xrun 增量 ≤16、窗口后 streaming=1（0 = 关闭，默认）")
+    ap.add_argument("--section-capture", action="store_true",
+                    help="每 3 轮在播放中 STORE section A（**破坏性**：覆盖工程槽 A；默认关）")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
     args = ap.parse_args()
@@ -438,7 +463,7 @@ def main() -> None:
                 next_sample += args.interval
                 take_sample()
             try:
-                cycle(s, n)
+                cycle(s, n, args.section_capture)
                 expected_events += KEY_EVENTS_PER_CYCLE
                 errors = 0
             except inject.InjectError as e:

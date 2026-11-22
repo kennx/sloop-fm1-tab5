@@ -2368,7 +2368,6 @@ def run_nav(s: Session) -> None:
     s.expect(r"UI page=play \(0\)", "复位 UI play")
 
 
-
 # ---- params 场景（参数页框架）：8 槽旋钮 + ± 细调 + 键盘 ↑/↓ ----
 # 几何与 page_params.c / knob.c 的宏同源：cell 300×290，x = 16 + c·316，
 # y = 72(页签条) + 52 + r·298；旋钮盒 160×160 在单元内 (70,26)；± 按钮在页眉
@@ -6014,6 +6013,12 @@ SEQ_KEY_NOTE = 0x42         # 低行白键 z：合成轨 = 音符，鼓轨 = lan
 SEQ_DRUM_LOW = (0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49)
 SEQ_DRUM_HIGH = (0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28)
 SEQ_FREE_TAKE_S = 8.0       # 自由录音按 4 小节（BPM 120）：门限 ±3% 内的抖动不影响 takt
+# section A/B 用**轨道字段**区分（BPM 是 globals，arranger 刻意不随 scene 应用）：
+# A 轨 0 level=104、B 轨 0 level=80；SONG 恢复的判别字段落在**选中轨 1**（level 70），
+# 因此「恢复工作 loop」与「停在最后应用的 scene」hash 可区分。
+SEQ_LEVEL_A = 104
+SEQ_LEVEL_B = 80
+SEQ_LEVEL_WORK = 70
 
 
 def seq_rec_fields(s: Session) -> dict:
@@ -6068,6 +6073,15 @@ def seq_param(s: Session, param_id: int) -> int:
     if m is None:
         raise InjectError(f"PARAM {param_id} 回显异常：{s.last.strip()!r}")
     return int(m.group(2))
+
+
+def eng_track_level(s: Session, track: int) -> int:
+    """`ENG SNAP` 的轨道 level（section 应用/恢复的判别字段；BPM 是 globals 不随 scene 走）。"""
+    s.cmd("ENG SNAP")
+    m = re.search(rf"ENG SNAP trk k={track} .* level=(\d+) ", s.last)
+    if m is None:
+        raise InjectError(f"ENG SNAP 缺少 trk k={track} 的 level：{s.last.strip()!r}")
+    return int(m.group(1))
 
 
 def seq_playing(s: Session) -> int:
@@ -6204,13 +6218,16 @@ def run_sequence(s: Session) -> None:
          TEMPO 模式的常规录音、16 lane 鼓录音（KEY 全键位）、切轨后松键回原轨、
          FILL held/arm 两个独立变量（STOP 清 held）；
       ③ live sections：STORE 的 dirty 延迟写落盘（FIELDS/HASH 证明）、播放中 STORE
-         允许、下一小节 REQUEST 生效、A/B 的 HASH 不同；
+         允许、下一小节 REQUEST 生效；A/B 在**轨道字段**（轨 0 level 104/80）上也不同
+         （BPM 是 globals，arranger 不随 scene 应用），HASH 因此可判别；
       ④ quick chain：A B A 的逐小节推进、9 项整份拒绝、8 项接受 + 单 tap 取消、
          空 scene 的 STORE/REQUEST/CHAIN 拒绝；
-      ⑤ SONG：A2+B3 自然结束恢复原 loop（LIVEHASH+选中轨）、loop=1 时 STOP 同样恢复、
-         缺 scene 整首拒播、SONG 页的空 scene JUMP 可见拒绝；
-      ⑥ SONG REC：未到下一小节取消不写配置（REC IS ON 时 MODE 被拒）、
-         真实 take 录到 A→B 两项（count/entries/dirty/SAVE/INFO/LOAD）；
+      ⑤ SONG：工作 loop 用**选中轨 1 的 level 70** 与 A/B 区分；A2+B3 自然结束与
+         SONG 模式 loop=1 的 STOP 都恢复该工作 loop（LIVEHASH+轨 level+选中轨）、
+         播放中应用 scene（A=104 / B=80）可观测；缺 scene 整首拒播 + 空 scene JUMP；
+      ⑥ SONG REC：未到下一小节取消不写配置（REC IS ON 时 MODE 被拒）、真实 take 录到
+         A→B 两项（count/entries/dirty/SAVE/INFO/LOAD）；**loop 模式**下 REQUEST B 是
+         live 段切换、STOP 后停在 B（无 song_restore），与 ⑤ 的 SONG 模式区分；
       ⑦ STORE TEST 与单例 SELFTEST 之后歌曲保持（自检的 `.bss` 回滚 + song_reload）；
       ⑧ esptool 硬复位后 PER3 歌曲与 section A/B 从 flash 恢复；
       ⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY 页、AUTO ON。
@@ -6218,8 +6235,24 @@ def run_sequence(s: Session) -> None:
     本场景**破坏性**：占用工程槽 A–C（section）与 D（诊断）、歌曲顺序与四条轨的图案。
     它自带归一，可重复运行。
     """
-    s.ser.note("sequence 场景开始：⓪ 归一（AUTO/走带/选轨/步窗/诊断槽/工程槽/图案/歌曲）")
+    s.ser.note("sequence 场景开始：⓪ 归一（AUTO/走带/遗留录音/选轨/步窗/诊断槽/工程槽/图案/歌曲）")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
+    # 上一轮异常中断可能留下 free take / SONG REC / 非默认 REC 配置：先收口再停走带
+    # （REC 关闭 free take 会启动走带，故 ensure_stopped 放在它后面）。
+    rec = seq_rec_fields(s)
+    if rec["state"] != "off":
+        s.cmd("SEQ REC TOGGLE")
+        s.expect(r"SEQ REC state=\w+", "⓪ 收口遗留录音/free take")
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline and seq_rec_fields(s)["state"] != "off":
+            time.sleep(0.05)
+    srec = seq_srec(s)
+    if srec["srec"] != "off":
+        s.cmd("SEQ SREC TOGGLE")
+        s.expect(r"SEQ SREC srec=off", "⓪ 收口遗留 SONG REC")
+    s.cmd("SEQ REC CONFIG 0 0 0")
+    s.expect(r"SEQ REC state=\w+ track=\d+ quant=on tempo=free count=note",
+             "⓪ REC 配置归一（quant on / FREE / NOTE）")
     ensure_stopped(s)
     ensure_window(s, 0, 16)
     select_track(s, SEQ_TRACK)
@@ -6384,22 +6417,31 @@ def run_sequence(s: Session) -> None:
         f"① LENGTH ÷2：LEN={seq_param(s, SEQ_LEN_ID)}（期望 16）")
 
     # DI-31：ROTATE -1 把 TIE 挪到 0、锚点挪到 15 → 孤立 TIE；CLEAR 是 no-op（已知
-    # deferral，只记录不判失败），用「开一步再清」自愈。
+    # deferral，只记录不判失败），用「开一步再清」自愈。先清轨：SPAN 只往**空步**长，
+    # 前面用例在步 1 留下的音符会让它停在 1 步（前提不成立）。
+    pattern_clear(s, SEQ_TRACK, "① DI-31 用例：清轨 0（保证步 1 是空步）")
     seq_tap_step(s, SEQ_TRACK, 0, "① DI-31 用例：步 0 开音")
     s.cmd("SEQ EDIT SPAN 0 0 2")
     s.expect(r"SEQ EDIT SPAN track=0 step=0 OK", "① DI-31 用例：SPAN 2")
     s.cmd("SEQ PATTERN ROTATE 0 -1")
     s.expect(r"SEQ PATTERN ROTATE track=0 arg=-1 OK", "① DI-31 用例：ROTATE -1")
     orphan = eng_step(s, SEQ_TRACK, 0)
-    s.ser.note(f"① DI-31 观察：旋转后步 0 time={orphan['time']} n={orphan['n']}"
-               f"（1/0 = 孤立 TIE；CLEAR 的窄路径不碰它，已知 deferral）")
+    # 先证明前提真的成立（旋转把 TIE 与锚点分离）：否则后面的「复现」只是空话
+    orphan_ok = orphan["time"] == 1 and orphan["n"] == 0
+    (s.ok if orphan_ok else s.fail)(
+        f"① DI-31 前提：旋转后步 0 是孤立 TIE（time={orphan['time']} n={orphan['n']}，期望 1/0）")
     s.cmd("SEQ EDIT CLEAR 0 0")
     s.expect(r"SEQ EDIT CLEAR track=0 step=0 OK", "① DI-31 用例：CLEAR（已知 no-op 路径）")
     after_clear = eng_step(s, SEQ_TRACK, 0)
-    if after_clear["time"] == 1:
-        s.ser.note("① DI-31 复现：孤立 TIE 步 CLEAR 后仍 time=1（自愈走「开一步再清」）")
+    if orphan_ok and after_clear["time"] == 1 and after_clear["n"] == 0:
+        s.ser.note("① DI-31 复现（前提已断言）：孤立 TIE 步 CLEAR 后仍 time=1，"
+                   "自愈走「开一步再清」")
+    elif orphan_ok:
+        s.ser.note(f"① DI-31 未复现（前提成立但 CLEAR 后 time={after_clear['time']} "
+                   f"n={after_clear['n']}）：deferral 可能已修")
     else:
-        s.ser.note("① DI-31 未复现：孤立 TIE 步已回 REST（deferral 可能已修）")
+        s.ser.note(f"① DI-31 前提未成立（旋转后 time={orphan['time']} n={orphan['n']}）："
+                   "本用例不判定复现")
     seq_tap_step(s, SEQ_TRACK, 0, "① DI-31 自愈：TAP 把 TIE 开成 NOTE")
     s.cmd("SEQ EDIT CLEAR 0 0")
     s.expect(r"SEQ EDIT CLEAR track=0 step=0 OK", "① DI-31 自愈：再 CLEAR")
@@ -6441,7 +6483,9 @@ def run_sequence(s: Session) -> None:
     for k in range(4):
         pattern_clear(s, k, f"② 清轨 {k}（丢弃收尾的 take，重建空工程）")
 
-    # 物理 PLAY 丢弃：不留步、不改 LEN（与 API PLAY 的 close 分叉）
+    # 物理 PLAY 丢弃：不留步、不改 LEN（与 API PLAY 的 close 分叉）。
+    # 收尾（API close）后的 300ms 内 REC 会被 ft_owns_press() 吞掉：显式跨过窗口再 arm。
+    time.sleep(0.4)
     length0 = seq_param(s, SEQ_LEN_ID)
     s.cmd("SEQ REC TOGGLE")
     s.expect(r"SEQ REC state=armed track=0", "② 丢弃用例：REC arm（再次空工程）")
@@ -6463,10 +6507,12 @@ def run_sequence(s: Session) -> None:
     st0 = eng_step(s, SEQ_TRACK, 0)
     (s.ok if st0["n"] == 0 else s.fail)(
         f"② 丢弃的 take 不留步（步 0 n={st0['n']}，期望 0）")
-    (s.ok if seq_param(s, SEQ_LEN_ID) == length0 else s.fail)(
-        f"② 丢弃的 take 不改 LEN（{seq_param(s, SEQ_LEN_ID)}，期望 {length0}）")
+    length_now = seq_param(s, SEQ_LEN_ID)
+    (s.ok if length_now == length0 else s.fail)(
+        f"② 丢弃的 take 不改 LEN（{length_now}，期望 {length0}）")
 
-    # TEMPO 模式常规录音（播放中 rec_begin + 量化的首音）
+    # TEMPO 模式常规录音（播放中 rec_begin + 量化的首音）；丢弃 take 后同样等过 300ms 窗口
+    time.sleep(0.4)
     s.cmd("SEQ REC CONFIG 0 1 0")
     s.expect(r"SEQ REC state=\w+ track=0 quant=on tempo=tempo count=note",
              "② TEMPO 模式配置（quant on / TEMPO / NOTE）")
@@ -6575,18 +6621,22 @@ def run_sequence(s: Session) -> None:
                         "③ A 的 RAM 槽 hash")
     (s.ok if hash_a != 0 else s.fail)(f"③ A 的 RAM 槽 hash={hash_a:08X}（非空）")
     s.cmd("STORE PROJ FIELDS 0")
-    store_expect(s, r"^PROJ 0 FIELDS fmt=6 .*t0\.s0=1:\d+",
-                 "③ A 已落 flash（FIELDS 走 st_load + proj_import）")
+    store_expect(s, r"^PROJ 0 FIELDS fmt=6 .*t0\.lvl=104 .*t0\.s0=1:\d+",
+                 "③ A 已落 flash（FIELDS 走 st_load + proj_import；轨 0 level=104）")
 
+    # section B 与 A 在**轨道字段**上也不同（level 104 → 80）：BPM 是 globals，arranger
+    # 刻意不随 scene 应用，只靠 BPM 的 A/B 在「应用/恢复」上不可判别。
+    seq_set_track_param(s, SEQ_TRACK, 0, SEQ_LEVEL_B, "③ section B 的轨 0 level=80")
     s.cmd("PARAM GLOBAL 0 132")
     s.expect(r"PARAM GLOBAL id=0 value=132 applied=132 ", "③ 改 BPM（section B 的内容）")
     seq_play(s, "③ 播放中 STORE B")
     s.cmd("SEQ SECTION B STORE")
     s.expect(r"SEQ SECTION B STORE OK", "③ 播放中 STORE B（允许）")
     sec = song_section(s)
-    (s.ok if (sec["ready"] & 0x02) and sec["live"] == "B" and seq_playing(s) == 1 else s.fail)(
+    playing_now = seq_playing(s)
+    (s.ok if (sec["ready"] & 0x02) and sec["live"] == "B" and playing_now == 1 else s.fail)(
         f"③ 播放中 STORE B 不停走带：ready=0x{sec['ready']:02X} live={sec['live']} "
-        f"playing={seq_playing(s)}")
+        f"playing={playing_now}")
     s.cmd("SEQ SECTION A REQUEST")
     s.expect(r"SEQ SECTION A REQUEST OK", "③ 下一小节 REQUEST A")
     if seq_wait_song(s, "live", "A", 6.0):
@@ -6600,7 +6650,9 @@ def run_sequence(s: Session) -> None:
     (s.ok if hash_b != 0 and hash_b != hash_a else s.fail)(
         f"③ A/B 是不同的 section：A={hash_a:08X} B={hash_b:08X}")
     s.cmd("STORE PROJ FIELDS 1")
-    store_expect(s, r"^PROJ 1 FIELDS fmt=6 ", "③ B 已落 flash（FIELDS 可读）")
+    store_expect(s, r"^PROJ 1 FIELDS fmt=6 .*bpm=132 .*t0\.lvl=80 ",
+                 "③ B 已落 flash（FIELDS：bpm=132、轨 0 level=80）")
+    seq_set_track_param(s, SEQ_TRACK, 0, SEQ_LEVEL_A, "③ 轨 0 level 回 104（后续 LOAD A 同值）")
 
     # ---------- ④ quick chain ----------
     s.ser.note("④ quick chain：A B A 的逐小节推进、9 项整份拒绝、8 项接受 + 取消、空 scene 拒绝")
@@ -6638,11 +6690,14 @@ def run_sequence(s: Session) -> None:
     s.expect(r"^SEQ ERR not_found\r?$", "④ 空 scene C 的 REQUEST → SEQ ERR not_found（判别性反例）")
 
     # ---------- ⑤ live loop JUMP / SONG A2+B3 / loop 恢复 / 缺 scene 拒播 ----------
-    s.ser.note("⑤ live loop 的 JUMP（空 scene 可见拒绝 + B 生效）；SONG A2+B3 自然结束与 loop=1 "
-               "STOP 都恢复原 loop；缺 scene 整首拒播")
+    s.ser.note("⑤ live loop 的 JUMP（空 scene 可见拒绝 + B 生效）；SONG A2+B3 自然结束与 "
+               "SONG 模式 loop=1 的 STOP 都恢复 playback 前的**工作 loop**；缺 scene 整首拒播")
     seq_stop(s, "⑤ 先停走带")
     s.cmd("SEQ SECTION A LOAD")
     s.expect(r"SEQ SECTION A LOAD OK", "⑤ 工作 loop 归一到 A")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_A else s.fail)(
+        f"⑤ LOAD A：轨 0 level={lvl}（section A 的 {SEQ_LEVEL_A}）")
     select_track(s, 1)
     s.cmd("SEQ SONG MODE loop")
     s.expect(r"SEQ SONG mode=loop", "⑤ loop 模式")
@@ -6659,15 +6714,29 @@ def run_sequence(s: Session) -> None:
     song_action(s, song_sec_xy(3), "JUMP", "⑤ live loop 中 JUMP B", "JUMP B: OK", section="B")
     (s.ok if seq_wait_song(s, "live", "B", 6.0) else s.fail)(
         "⑤ JUMP 在下一小节生效：SEQ SECTION live=B")
+    # JUMP 真的应用了**另一份**工程：section B 的轨 0 level = 80（A = 104）
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑤ JUMP B 应用 section B：轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
     seq_stop(s, "⑤ JUMP 用例收尾")
+    # 工作 loop 与 A、B 都不同：**选中轨 1** 的 level = 70。song_restore 若失效会停在最后
+    # 应用的 scene（A=104 / B=80），不会撞上 h0 ⇒ 「恢复工作 loop」的断言可判别。
+    seq_set_track_param(s, 1, 0, SEQ_LEVEL_WORK, "⑤ 工作 loop 的判别字段：轨 1 level 70")
     h0 = live_hash(s)
-    # SONG：A2+B3 自然结束（5 小节 @120 = 10s）后必须恢复 playback 前的 loop 与选中轨
+    s.ser.note(f"⑤ 判别哈希：A={hash_a:08X} B={hash_b:08X} 工作 loop(h0)={h0:08X}")
+    (s.ok if h0 not in (hash_a, hash_b) else s.fail)(
+        f"⑤ 工作 loop 的 hash 与 A/B 都不同（h0={h0:08X}）")
+    # SONG：A2+B3 自然结束（5 小节 @120 = 10s）后必须恢复 playback 前的工作 loop 与选中轨
     store_cmd(s, "STORE SONG SET 2 0 0:2 1:3", r"^STORE SONG SET count=2 loop=0",
               "⑤ 歌曲 A2+B3 / loop=0")
     s.cmd("SEQ SONG MODE song")
     s.expect(r"SEQ SONG mode=song", "⑤ SONG 模式")
     seq_play(s, "⑤ SONG 播放")
     (s.ok if seq_wait_song(s, "running", 1, 3.0) else s.fail)("⑤ SEQ SONG running=1")
+    time.sleep(1.0)   # 第一个小节：应用 section A（轨 0/1 level 都回到 104）
+    l0, l1 = eng_track_level(s, SEQ_TRACK), eng_track_level(s, 1)
+    (s.ok if l0 == SEQ_LEVEL_A and l1 == SEQ_LEVEL_A else s.fail)(
+        f"⑤ SONG 播放中应用 section A：轨 0/1 level={l0}/{l1}（期望 {SEQ_LEVEL_A}/{SEQ_LEVEL_A}）")
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑤ 回 TRANSPORT 等自然结束")
     if seq_wait_playing(s, 0, 18.0):
@@ -6677,17 +6746,31 @@ def run_sequence(s: Session) -> None:
     song = seq_song(s)
     (s.ok if song["running"] == 0 and song["index"] == 1 else s.fail)(
         f"⑤ 自然结束：running={song['running']} index={song['index']}（期望 0/1，count 夹取）")
-    (s.ok if live_hash(s) == h0 else s.fail)(
-        f"⑤ 自然结束恢复原 loop：LIVEHASH={live_hash(s):08X}（期望 {h0:08X}）")
+    h_end = live_hash(s)
+    (s.ok if h_end == h0 else s.fail)(
+        f"⑤ 自然结束恢复工作 loop：LIVEHASH={h_end:08X}（期望 {h0:08X}）")
+    l1 = eng_track_level(s, 1)
+    (s.ok if l1 == SEQ_LEVEL_WORK else s.fail)(
+        f"⑤ 恢复后轨 1 level={l1}（工作 loop 的 {SEQ_LEVEL_WORK}，不是 scene 的 "
+        f"{SEQ_LEVEL_A}/{SEQ_LEVEL_B}）")
     s.cmd("STATE SNAP")
     s.expect_int(r"selected_track=(\d+)", 1, "⑤ 恢复选中轨 1（song_backup/song_restore）")
-    # loop=1 时中途 STOP 同样恢复原 loop
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤ live 保持 B（song 应用不改 live）")
+    # SONG 模式 + loop=1：中途 STOP 走 seq_stop 的 arrangement_clock.running 分支 → song_restore
     store_cmd(s, "STORE SONG SET 2 1 0:2 1:3", r"^STORE SONG SET count=2 loop=1",
               "⑤ 歌曲 loop=1")
     s.cmd("SEQ SONG MODE song")
     s.expect(r"SEQ SONG mode=song", "⑤ SONG 模式（loop=1）")
     seq_play(s, "⑤ loop=1 播放")
     (s.ok if seq_wait_song(s, "running", 1, 3.0) else s.fail)("⑤ loop=1 running=1")
+    time.sleep(4.5)   # A2 播完 → section B 生效（轨 0 level=80、轨 1=104）
+    l0, l1 = eng_track_level(s, SEQ_TRACK), eng_track_level(s, 1)
+    (s.ok if l0 == SEQ_LEVEL_B and l1 == SEQ_LEVEL_A else s.fail)(
+        f"⑤ loop=1 播到 section B：轨 0/1 level={l0}/{l1}（期望 {SEQ_LEVEL_B}/{SEQ_LEVEL_A}）")
+    h_mid = live_hash(s)
+    s.ser.note(f"⑤ loop=1 播到 B 时的 hash={h_mid:08X}（工作 loop h0={h0:08X}）")
+    (s.ok if h_mid != h0 else s.fail)(
+        "⑤ loop=1 中途引擎是 scene B 的状态（≠ 工作 loop，恢复断言不是空话）")
     # 视觉证据：SONG 页在 SONG 播放中（loop=1 会一直循环，截屏期间不结束）
     s.cmd("UI song")
     s.expect(r"UI page=song \(11\)", "⑤ UI song（截 SONG 播放态）")
@@ -6703,11 +6786,19 @@ def run_sequence(s: Session) -> None:
     s.expect(r"UI page=transport \(3\)", "⑤ 回 TRANSPORT")
     time.sleep(0.2)
     seq_stop(s, "⑤ loop=1 中途 STOP")
-    (s.ok if live_hash(s) == h0 else s.fail)(
-        f"⑤ STOP 恢复原 loop：LIVEHASH={live_hash(s):08X}（期望 {h0:08X}）")
+    h_stop = live_hash(s)
+    (s.ok if h_stop == h0 else s.fail)(
+        f"⑤ SONG 模式 loop=1 的 STOP 恢复工作 loop：LIVEHASH={h_stop:08X}（期望 {h0:08X}）")
+    l1 = eng_track_level(s, 1)
+    (s.ok if l1 == SEQ_LEVEL_WORK else s.fail)(
+        f"⑤ STOP 后轨 1 level={l1}（恢复工作 loop 的 {SEQ_LEVEL_WORK}）")
     s.cmd("STATE SNAP")
     s.expect_int(r"selected_track=(\d+)", 1, "⑤ STOP 后选中轨仍 1")
-    (s.ok if seq_song(s)["running"] == 0 else s.fail)("⑤ STOP 后 SEQ SONG running=0")
+    song = seq_song(s)
+    # loop=1 的 STOP 可以落在循环任一 entry（index 0/1 都可能）；恢复由 hash/level 判
+    (s.ok if song["running"] == 0 and song["index"] in (0, 1) else s.fail)(
+        f"⑤ STOP 后 SEQ SONG running={song['running']} index={song['index']}（期望 0，index∈0/1）")
+    (s.ok if song_section(s)["live"] == "B" else s.fail)("⑤ STOP 后 live 仍是 B（song 不改 live）")
     # 缺 scene 整首拒播（C 为空）：PLAY 被拒，playing/running 都不动
     store_cmd(s, "STORE SONG SET 2 0 0:2 2:3", r"^STORE SONG SET count=2 loop=0",
               "⑤ 歌曲第 2 项改到空 scene C")
@@ -6723,13 +6814,18 @@ def run_sequence(s: Session) -> None:
               "⑤ 恢复 A2+B3")
 
     # ---------- ⑥ SONG REC ----------
-    s.ser.note("⑥ SONG REC：未到下一小节的空录制不写配置、REC IS ON 拒 MODE、"
-               "真实 take 录到 A→B 两项")
+    # loop 模式下 REQUEST B 是**live 段切换**（arrangement_apply），没有 song_restore：
+    # STOP 后引擎停在 B——不声称「恢复原 loop」（与 ⑤ 的 SONG 模式区分）。
+    s.ser.note("⑥ SONG REC：未到下一小节取消不写配置、REC IS ON 拒 MODE、真实 take 录到 A→B；"
+               "loop 模式的 live 切换在 STOP 后保留（停在 B，无 song_restore）")
     s.cmd("SEQ SONG MODE loop")
     s.expect(r"SEQ SONG mode=loop", "⑥ loop 模式")
     s.cmd("SEQ SECTION A LOAD")
     s.expect(r"SEQ SECTION A LOAD OK", "⑥ 工作 loop = A")
     h1 = live_hash(s)
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_A else s.fail)(
+        f"⑥ LOAD A：轨 0 level={lvl}（A 的 {SEQ_LEVEL_A}）")
     cfg0 = song_cfg(s)
     dirty0 = seq_song(s)["dirty"]
     seq_play(s, "⑥ 空 SONG REC 用例播放")
@@ -6743,8 +6839,9 @@ def run_sequence(s: Session) -> None:
     cfg1 = song_cfg(s)
     (s.ok if cfg1 == cfg0 else s.fail)(
         f"⑥ 空 SONG REC 不写配置：{cfg1}（期望 {cfg0}）")
-    (s.ok if seq_song(s)["dirty"] == dirty0 else s.fail)(
-        f"⑥ 空 SONG REC 不置 dirty：{seq_song(s)['dirty']}（期望 {dirty0}）")
+    dirty1 = seq_song(s)["dirty"]
+    (s.ok if dirty1 == dirty0 else s.fail)(
+        f"⑥ 空 SONG REC 不置 dirty：{dirty1}（期望 {dirty0}）")
 
     seq_play(s, "⑥ 真实 take 播放")
     s.cmd("SEQ SECTION A LOAD")   # 播放中 LOAD 会被拒；这里只为记录拒绝路径
@@ -6757,6 +6854,16 @@ def run_sequence(s: Session) -> None:
     s.cmd("SEQ SECTION B REQUEST")
     s.expect(r"SEQ SECTION B REQUEST OK", "⑥ take 中 REQUEST B（下一小节切段）")
     time.sleep(2.4)               # B 从下一小节起播 ≥1 小节
+    live_take = song_section(s)["live"]
+    (s.ok if live_take == "B" else s.fail)(
+        f"⑥ take 中 live 段={live_take}（期望 B）")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑥ REQUEST B 应用 section B：轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
+    h_take = live_hash(s)
+    s.ser.note(f"⑥ take STOP 前：live=B、轨 0 level={SEQ_LEVEL_B}、hash={h_take:08X}"
+               f"（A 工作 loop h1={h1:08X}）")
+    (s.ok if h_take != h1 else s.fail)("⑥ live 段切到 B 后引擎 ≠ A 工作 loop（判别的前提）")
     seq_stop(s, "⑥ take 收尾 STOP")
     srec = seq_srec(s)
     (s.ok if srec["srec"] == "off" and srec["last"] == "2" else s.fail)(
@@ -6768,6 +6875,18 @@ def run_sequence(s: Session) -> None:
     (s.ok if ok else s.fail)(
         f"⑥ 录到的歌曲顺序：{cfg['entry']}（期望 count=2、A…/B… 各 ≥1 小节、loop=0）")
     (s.ok if seq_song(s)["dirty"] == 1 else s.fail)("⑥ take 结束置 song dirty=1（延迟写待办）")
+    # loop 模式没有 song_restore：STOP 后停在 live 段 B（引擎与 STOP 前一致）
+    h_after = live_hash(s)
+    live_after = song_section(s)["live"]
+    (s.ok if live_after == "B" else s.fail)(
+        f"⑥ STOP 后 live 段={live_after}（期望 B：live 切换保留）")
+    (s.ok if h_after == h_take else s.fail)(
+        f"⑥ STOP 后引擎停在 B 的 live 段：LIVEHASH={h_after:08X}（期望 {h_take:08X}）")
+    (s.ok if h_after != h1 else s.fail)(
+        "⑥ 未回到 A 工作 loop（与 ⑤ SONG 模式的 song_restore 区分）")
+    lvl = eng_track_level(s, SEQ_TRACK)
+    (s.ok if lvl == SEQ_LEVEL_B else s.fail)(
+        f"⑥ STOP 后轨 0 level={lvl}（B 的 {SEQ_LEVEL_B}）")
     store_cmd(s, "STORE SONG SAVE", r"^STORE SONG SAVED len=\d+ side=1\r?$",
               "⑥ STORE SONG SAVE（写 PER3）")
     s.cmd("STORE SONG INFO")
@@ -6779,8 +6898,6 @@ def run_sequence(s: Session) -> None:
     cfg2 = song_cfg(s)
     (s.ok if cfg2["entry"] == cfg["entry"] else s.fail)(
         f"⑥ LOAD 后逐项一致：{cfg2['entry']}")
-    (s.ok if live_hash(s) == h1 else s.fail)(
-        f"⑥ take 收尾恢复原 loop：LIVEHASH={live_hash(s):08X}（期望 {h1:08X}）")
     s.cmd("UI song")
     s.expect(r"UI page=song \(11\)", "⑥ UI song（截 take 态）")
     img = s.capture("song-rec")
@@ -6811,8 +6928,8 @@ def run_sequence(s: Session) -> None:
     s.cmd("STORE SONG INFO")
     store_expect(s, r"^STORE SONG INFO kind=per3 .*count=2 loop=0\r?$",
                  "⑦ SELFTEST 后 flash 歌曲仍 per3/2 项")
-    (s.ok if seq_song(s)["dirty"] == 0 else s.fail)(
-        f"⑦ SELFTEST 后 song dirty={seq_song(s)['dirty']}（期望 0）")
+    dirty7 = seq_song(s)["dirty"]
+    (s.ok if dirty7 == 0 else s.fail)(f"⑦ SELFTEST 后 song dirty={dirty7}（期望 0）")
     sec = song_section(s)
     (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
         f"⑦ SELFTEST 后 section A/B 仍在（ready=0x{sec['ready']:02X}）")
@@ -6838,13 +6955,13 @@ def run_sequence(s: Session) -> None:
     sec = song_section(s)
     (s.ok if sec["ready"] & 0x03 == 0x03 else s.fail)(
         f"⑧ 复位后 section A/B 就绪：ready=0x{sec['ready']:02X}（开机 fetch RAM 槽）")
-    for slot in (SEQ_SEC_A, SEQ_SEC_B):
-        store_hash(s, f"STORE PROJ HASH {slot}", rf"^PROJ {slot} HASH=([0-9A-Fa-f]{{8}})\r?$",
-                   f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash 非空")
-    time.sleep(3.0)   # autosave 的第一拍（若门限成立）不得改设置对象
-    cfg6 = song_cfg(s)
-    (s.ok if cfg6["entry"] == cfg["entry"] else s.fail)(
-        "⑧ 开机 3s 内 autosave tick 不改歌曲设置")
+    # 开机 fetch 的 RAM 槽必须与 ③ 捕获的字节一致（hash 相等，不是「非空」）
+    for slot, ref in ((SEQ_SEC_A, hash_a), (SEQ_SEC_B, hash_b)):
+        got = store_hash(s, f"STORE PROJ HASH {slot}",
+                         rf"^PROJ {slot} HASH=([0-9A-Fa-f]{{8}})\r?$",
+                         f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash")
+        (s.ok if got == ref else s.fail)(
+            f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash={got:08X} == ③ 捕获的 {ref:08X}")
 
     # ---------- ⑨ 收口 ----------
     s.ser.note("⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY、AUTO ON")
@@ -6868,7 +6985,6 @@ def run_sequence(s: Session) -> None:
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑨ 回 PLAY")
     store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ STORE AUTO ON（恢复默认）")
-
 
 
 SCENARIOS = {
