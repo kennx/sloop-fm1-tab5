@@ -492,6 +492,42 @@ TRANSPORT_PLAY = (208, 210)       # TRANSPORT_PLAY 中心：x=48+320/2，y=72+48
 TRANSPORT_STOP = (560, 210)       # TRANSPORT_STOP 中心：x=400+320/2，y 同 PLAY
 TRANSPORT_BPM_PLUS = (1050, 262)  # TRANSPORT_BPM_PLUS 中心：x=1000+100/2，y=72+140+100/2
 TRANSPORT_BPM_MINUS = (910, 262)  # TRANSPORT_BPM_MINUS 中心：x=860+100/2，y 同 "+"
+
+# TRANSPORT 工具区（P4-C Task 10；page_transport.c 的 TR_* 宏同名同值）。
+# 录音/fill 行 y=384（页内）+56 高；聚焦步字段行 y=464、88 宽、间距 96（6 个
+# 单对象 chip：LVL / RAT / MIC- / MIC+ / SPAN / SLIDE）；pattern 区 x=792 起：
+# y=292 行 4×100（间距 8）、y=360 行 120/120/84/84、y=428 行 CLEAR 432 宽。
+# TAP 坐标 = 页内坐标 + 页签条 72。
+TR_REC = (48 + 70, 72 + 384 + 28)
+TR_FILL = (200 + 60, 72 + 384 + 28)
+TR_NEXT = (328 + 60, 72 + 384 + 28)
+TR_REC_W, TR_REC_H = 140, 56
+TR_FILL_W, TR_FILL_H = 120, 56
+TR_PAT_H = 56
+TR_STEP_X0, TR_STEP_Y, TR_STEP_W, TR_STEP_H, TR_STEP_PITCH = 24, 464, 88, 56, 96
+
+
+def tr_step_chip(i: int) -> tuple:
+    """聚焦步字段 chip i 的屏幕绝对中心（0 LVL / 1 RAT / 2 MIC- / 3 MIC+ /
+    4 SPAN / 5 SLIDE）。"""
+    return (TR_STEP_X0 + i * TR_STEP_PITCH + TR_STEP_W // 2,
+            72 + TR_STEP_Y + TR_STEP_H // 2)
+
+
+TR_LVL, TR_RAT = tr_step_chip(0), tr_step_chip(1)
+TR_MIC_DN, TR_MIC_UP = tr_step_chip(2), tr_step_chip(3)
+TR_SPAN, TR_SLIDE = tr_step_chip(4), tr_step_chip(5)
+
+TR_PAT_ROW0, TR_PAT_ROW1, TR_PAT_ROW2 = 72 + 292 + 28, 72 + 360 + 28, 72 + 428 + 28
+TR_ROT_DN = (842, TR_PAT_ROW0)
+TR_ROT_UP = (950, TR_PAT_ROW0)
+TR_LEN_X2 = (1058, TR_PAT_ROW0)
+TR_LEN_D2 = (1166, TR_PAT_ROW0)
+TR_TRANS_DN = (852, TR_PAT_ROW1)
+TR_TRANS_UP = (980, TR_PAT_ROW1)
+TR_UNDO = (1090, TR_PAT_ROW1)
+TR_REDO = (1182, TR_PAT_ROW1)
+TR_CLEAR = (1008, TR_PAT_ROW2)
 # 默认窗口 {0,0,16} 下的两个编辑格：轨 0 窗口列 2（绝对步 2）/ 轨 1 列 5（绝对步 5）。
 # soak.py 直接复用这两个点，故保留模块级常量（窗口默认口径下与 step_cell_xy 一致）。
 STEP_CELL_A = step_cell_xy(2, 0)
@@ -583,6 +619,16 @@ def run_transport(s: Session) -> None:
     s.probe(img, "页签选中（TRANSPORT）", *C_TAB_TRANSPORT, C_YELLOW)
     s.probe(img, "页面背景", 640, 690, C_BG)
 
+    # 停止态跑工具区（P4-C Task 10）：REC/fill 的状态机、聚焦步字段与 pattern
+    # 工具都需要确定性的停止态；结束复位为停止（下面的播放头用例再自行起播）。
+    run_transport_tools(s)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（回到走带用例）")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑩ 工具区收口：停止")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 0, "⑩ 工具区收口：playing=0")
+
     # 播放中切 STEP：先归一窗口（窗口是持久 UI 状态；播放头列扫描按 window_len 几何）。
     # 播放头由引擎 step_pos 驱动；SCR 抓的是"上一已刷新帧"（≤30ms 旧），所以每帧的
     # 播放头列应等于抓屏前 ENG SNAP 的 pos（或紧邻 1–2 列）；两帧的 pos 不同即证明
@@ -633,9 +679,14 @@ def run_transport(s: Session) -> None:
         if not ok_a or not ok_b:
             s.fail(f"行 {r} 播放头列与引擎 step_pos 不符（帧 A 允许 {sorted(want_a)}，"
                    f"帧 B 允许 {sorted(want_b)}）")
-    (s.ok if pre_a != pre_b else s.fail)(
-        f"引擎 step_pos 两帧间变化 {pre_a} -> {pre_b}（16 列环绕，按模计）" if pre_a != pre_b
-        else f"引擎 step_pos 两帧间未变化（均为 {pre_a}）")
+    # 播放推进的判据：引擎 pos 读数或**两帧的播放头列**任一变化即可。pos 是取帧前的
+    # ENG SNAP 读数、循环 1s（240 BPM×16 步），两次 16s 级的截屏恰好落在同一相位是
+    # 1/16 概率的采样巧合；帧列是独立观测（本次实测 pos 均 11、帧列 12→13），用它兜底
+    # 不是放宽断言——两帧各行的列仍必须落在各自 pos 的 ±2 窗口内。
+    advanced = pre_a != pre_b or cls_a != cls_b
+    (s.ok if advanced else s.fail)(
+        f"播放推进：引擎 pos {pre_a} -> {pre_b}，帧列 {cls_a} -> {cls_b}"
+        if advanced else f"两帧均未推进（pos={pre_a} 列={cls_a}）")
 
     # 复位：停止并回 PLAY 页（脚本可重复运行）
     s.cmd("UI transport")
@@ -644,6 +695,422 @@ def run_transport(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"playing=(\d)", 0, "STATE SNAP playing（复位）")
     s.cmd("UI play")
+
+
+# LVL 的响度序（page_transport.c 的 lvl_step 同源）：raw 1 GHOST < 2 SOFT < 0 NORM < 3 HARD
+TR_LVL_ORDER = (1, 2, 0, 3)
+
+
+def tr_lvl_step(raw: int, up: bool) -> int:
+    i = TR_LVL_ORDER.index(raw & 3)
+    return TR_LVL_ORDER[(i + (1 if up else 3)) % 4]
+
+
+def tr_focus_step(s: Session, track: int, step: int) -> None:
+    """在 STEP 页用键盘把焦点归一到 (track, step)（只写 UI 局部态、不发引擎写），
+    再回 TRANSPORT 页。"""
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（焦点归一）")
+    s.cmd("STATE SNAP")
+    t0, s0 = s.snap_int(r"focus_track=(\d+)"), s.snap_int(r"focus_step=(\d+)")
+    if t0 >= 3:  # 鼓轨上 ↑ 逐 lane 离开（最多 16 lane + 一步）
+        for _ in range(17):
+            s.cmd("KEY 0x3B down")
+            s.cmd("KEY 0x3B up")
+            s.cmd("STATE SNAP")
+            t0 = s.snap_int(r"focus_track=(\d+)")
+            if t0 < 3:
+                break
+    for _ in range((track - t0) % 3):
+        s.cmd("KEY 0x4B down")
+        s.cmd("KEY 0x4B up")
+    for _ in range((step - s0) % 16):
+        s.cmd("KEY 0x4C down")
+        s.cmd("KEY 0x4C up")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"focus_track=(\d+)", track, f"⑩ 焦点轨 = {track}")
+    s.expect_int(r"focus_step=(\d+)", step, f"⑩ 焦点列 = {step}")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（焦点已归一）")
+
+
+def run_transport_tools(s: Session) -> None:
+    """⑩ TRANSPORT 工具区（P4-C Task 10）：REC 五态、fill held/next、聚焦步字段
+    （LVL/RAT/MIC/SPAN/SLIDE）与 pattern 工具（ROT/LEN/TRANS/CLEAR/UNDO/REDO）。
+
+    判据：每个 TAP 回显一条对应 EditCmd（`-> TRANSPORT <CMD> <op> value=<写后回读>`），
+    引擎真值随之变化；非法动作（空步 LVL、鼓轨 SPAN/SLIDE、鼓轨 TRANSPOSE）回
+    ERR/ignored 且**不改状态**。pattern 工具会整轨改写（CLEAR 连 lock/micro/fill
+    一起清、UNDO 不含它们），所以先用诊断槽 3 快照工程、结束时 LOAD 还原并 ERASE，
+    用 `STORE LIVEHASH` 逐位证明还原。结束时焦点/选轨/走带都归一，脚本可重复。"""
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "⑩ 停止（工具区的确定性前提）")
+    normalize_pattern(s, "⑩ 归一 LEN/DIV")
+    ensure_window(s, 0, 16)
+    select_track(s, 0)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（回页）")
+
+    # 聚焦步 = 轨 0 / 窗口列 2（绝对步 2）：清空后经 TAP 开一步（C4=60，脚本可重复）
+    for step in (2, 3, 4, 5):
+        s.cmd(f"SEQ EDIT CLEAR 0 {step}")
+        s.expect(rf"SEQ EDIT CLEAR track=0 step={step} OK", f"⑩ 清空轨 0 步 {step}")
+    s.cmd("KEY 0x21 down")  # q = C4（设 last_note，TAP 开步用它）
+    s.cmd("KEY 0x21 up")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step（造聚焦步）")
+    s.cmd("TAP %d %d" % step_cell_xy(2, 0))
+    s.expect(r"-> STEP track=0 step=2 CMD_TOGGLE_STEP", "⑩ 开轨 0 步 2")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
+    base = eng_step(s, 0, 2)
+    (s.ok if base["n"] == 1 else s.fail)(f"⑩ 聚焦步基线 n={base['n']}（期望 1）")
+
+    # ---------- ⑩a REC 五态（arm/off；先归一，脚本可重复） ----------
+    s.cmd("STATE SNAP")
+    if re.search(r"\brec=armed\b", s.last):
+        s.ser.note("⑩ 基线：REC 已 ARMED（上一轮中断留下的状态）→ 先归一到 OFF")
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC（归一到 OFF）")
+        s.cmd("STATE SNAP")
+        s.expect(r"\brec=off\b", "⑩ REC 五态：OFF（归一）")
+    s.cmd("TAP %d %d" % TR_REC)
+    s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC → CMD_REC_TOGGLE")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=armed\b", "⑩ REC 五态：ARMED")
+    s.cmd("TAP %d %d" % TR_REC)
+    s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ TAP REC（再切换）")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=off\b", "⑩ REC 五态：OFF")
+
+    # ---------- ⑩b fill：HOLD 电平 / NEXT 脉冲（两个独立变量） ----------
+    # FILL chip 是切换：先读基线，再断言「写入的电平 = 1 - 基线」且引擎跟随；
+    # 两次切换回到基线（脚本可重复，不依赖上一轮留下的 fill 状态）。
+    s.cmd("SEQ REC")
+    held0 = s.snap_int(r"fill_held=(\d)")
+    s.cmd("TAP %d %d" % TR_FILL)
+    s.expect(rf"-> TRANSPORT CMD_FILL_CONTROL hold value={1 - held0}",
+             f"⑩ TAP FILL → held={1 - held0}")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_held=(\d)", 1 - held0, "⑩ FILL 保持电平跟随")
+    s.cmd("TAP %d %d" % TR_FILL)
+    s.expect(rf"-> TRANSPORT CMD_FILL_CONTROL hold value={held0}", "⑩ TAP FILL（回到基线）")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_held=(\d)", held0, "⑩ FILL 保持电平回基线")
+    arm0 = s.snap_int(r"fill_arm=(\d)")
+    s.cmd("TAP %d %d" % TR_NEXT)
+    s.expect(r"-> TRANSPORT CMD_FILL_CONTROL next value=1", "⑩ TAP NEXT → 脉冲")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_arm=(\d)", 1 - arm0, "⑩ FILL 下一小节待命翻转（脉冲只翻转 arm）")
+    s.cmd("TAP %d %d" % TR_NEXT)
+    s.expect(r"-> TRANSPORT CMD_FILL_CONTROL next value=1", "⑩ TAP NEXT（再翻转）")
+    s.cmd("SEQ REC")
+    s.expect_int(r"fill_arm=(\d)", arm0, "⑩ FILL 下一小节待命回基线")
+    s.expect_int(r"fill_held=(\d)", held0, "⑩ NEXT 脉冲不读写保持电平")
+
+    # ---------- ⑩c 聚焦步字段：LVL / RAT 循环、MIC ±（含边界） ----------
+    # LVL chip = 循环前进（响度序 GHOST<SOFT<NORM<HARD）：从 NORM(0) 起
+    # HARD(3) → GHOST(1) → SOFT(2) → NORM(0)，四拍回到基线。
+    for want in (3, 1, 2, 0):
+        s.cmd("TAP %d %d" % TR_LVL)
+        s.expect(rf"-> TRANSPORT CMD_STEP_EDIT lvl value={want}", f"⑩ TAP LVL → {want}")
+        got = eng_step(s, 0, 2)
+        (s.ok if (got["lvl"] & 3) == want else s.fail)(
+            f"⑩ 引擎 lvl={got['lvl'] & 3}（期望 {want}）")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ TAP LVL chip 同时落键盘焦点（lvl）")
+    # RAT chip = x1→x2→x3→x4→x1（raw 0..3 循环）
+    for want in (1, 2, 3, 0):
+        s.cmd("TAP %d %d" % TR_RAT)
+        s.expect(rf"-> TRANSPORT CMD_STEP_EDIT rat value={want}", f"⑩ TAP RAT → {want}")
+        got = eng_step(s, 0, 2)
+        (s.ok if (got["rat"] & 3) == want else s.fail)(
+            f"⑩ 引擎 rat={got['rat'] & 3}（期望 {want}）")
+
+    s.cmd("TAP %d %d" % TR_MIC_UP)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=1", "⑩ TAP MIC+ → +1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["micro"] == 1 else s.fail)(f"⑩ 引擎 micro={got['micro']}（期望 1）")
+    s.cmd("TAP %d %d" % TR_MIC_DN)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=0", "⑩ TAP MIC- → 0")
+    # 上界 31：UI 侧钳位后下发（值不变、不产生 invalid）
+    s.cmd("SEQ MICRO 0 2 31")
+    s.expect(r"SEQ MICRO track=0 step=2 value=31 OK", "⑩ micro 置 31（上界）")
+    s.cmd("TAP %d %d" % TR_MIC_UP)
+    s.expect(r"-> TRANSPORT CMD_SET_MICRO micro value=31", "⑩ TAP MIC+ 在 31 钳位")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["micro"] == 31 else s.fail)(f"⑩ 引擎 micro={got['micro']}（期望 31）")
+    s.cmd("SEQ MICRO 0 2 0")
+    s.expect(r"SEQ MICRO track=0 step=2 value=0 OK", "⑩ micro 归零")
+
+    # ---------- ⑩d SPAN / SLIDE（合成轨；鼓轨不适用在 ⑩f 覆盖） ----------
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span value=2", "⑩ TAP SPAN → 2")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=3 name=span", "⑩ TAP SPAN chip 落焦点 = span")
+    t3 = eng_step(s, 0, 3)
+    (s.ok if t3["time"] == 1 and t3["n"] == 0 else s.fail)(
+        f"⑩ 步 3 = TIE（time={t3['time']} n={t3['n']}，期望 time=1 n=0）")
+    # 焦点已在 span：键盘 ↓ = SPAN-（触摸 chip 只有循环前进，双向由键盘补）
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    t3 = eng_step(s, 0, 3)
+    (s.ok if t3["time"] == 2 and t3["n"] == 0 else s.fail)(
+        f"⑩ 键盘 ↓：SPAN 回到 1（time={t3['time']} n={t3['n']}，期望 time=2 n=0）")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide value=1", "⑩ TAP SLIDE → ON")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["flags"] & 0x02) != 0 else s.fail)(
+        f"⑩ 引擎 flags=0x{got['flags']:02X}（期望 SLIDE 位）")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide value=0", "⑩ TAP SLIDE → OFF")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["flags"] & 0x02) == 0 else s.fail)(
+        f"⑩ 引擎 flags=0x{got['flags']:02X}（SLIDE 已清）")
+
+    # ---------- ⑩e 非法动作不改状态：空步 LVL ----------
+    tr_focus_step(s, 0, 5)  # 步 5 已清空（聚焦步基线）
+    empty_before = eng_step(s, 0, 5)
+    s.cmd("TAP %d %d" % TR_LVL)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT lvl ERR not_found value=0",
+             "⑩ 空步 LVL → ERR not_found")
+    empty_after = eng_step(s, 0, 5)
+    (s.ok if empty_after == empty_before else s.fail)(
+        "⑩ 非法动作不改状态（空步逐字段不变）")
+
+    # ---------- ⑩f 鼓轨：选中 lane 的 LVL/RAT 读改写；SPAN/SLIDE 不适用 ----------
+    select_track(s, 3)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（鼓轨）")
+    s.cmd("UI LANE 5")
+    s.expect(r"UI LANE lane=5", "⑩ 选中鼓 lane 5")
+    d0 = seq_dstep(s, 5)
+    lvl0 = dstep_bits(d0["lvl"], 5)
+    s.cmd("TAP %d %d" % TR_LVL)
+    want_lvl = tr_lvl_step(lvl0, True)
+    s.expect(rf"-> TRANSPORT CMD_DRUM_STEP_WRITE lvl value={want_lvl}",
+             "⑩ 鼓轨 TAP LVL → CMD_DRUM_STEP_WRITE")
+    d1 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d1["lvl"], 5) == want_lvl and d1["on"] == d0["on"] else s.fail)(
+        f"⑩ 鼓 lane 5 lvl={dstep_bits(d1['lvl'], 5)}（期望 {want_lvl}），on 位图不变")
+    s.cmd("KEY 0x4B down")  # 焦点 = lvl（TAP 已设）→ LVL_DN 还原
+    s.cmd("KEY 0x4B up")
+    d2 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d2["lvl"], 5) == lvl0 else s.fail)(
+        f"⑩ 键盘 ↓：鼓 lane 5 lvl 回到 {lvl0}")
+
+    rat0 = dstep_bits(d2["rat"], 5)
+    if rat0 < 3:
+        s.cmd("TAP %d %d" % TR_RAT)
+        s.expect(rf"-> TRANSPORT CMD_DRUM_STEP_WRITE rat value={rat0 + 1}",
+                 "⑩ 鼓轨 TAP RAT → CMD_DRUM_STEP_WRITE")
+        d3 = seq_dstep(s, 5)
+        (s.ok if dstep_bits(d3["rat"], 5) == rat0 + 1 else s.fail)(
+            f"⑩ 鼓 lane 5 rat={dstep_bits(d3['rat'], 5)}（期望 {rat0 + 1}）")
+        s.cmd("KEY 0x4B down")  # 焦点 = rat → RAT_DN 还原
+        s.cmd("KEY 0x4B up")
+    else:
+        s.ser.note(f"⑩ 鼓 lane 5 rat 已在 x4（raw 3）：键盘 ↓/↑ 往返验证双向")
+        s.cmd("UI TOOL 1")
+        s.expect(r"UI TOOL field=1 name=rat", "⑩ UI TOOL 1 → rat")
+        s.cmd("KEY 0x4B down")
+        s.cmd("KEY 0x4B up")
+        s.cmd("KEY 0x3B down")
+        s.cmd("KEY 0x3B up")
+    d4 = seq_dstep(s, 5)
+    (s.ok if dstep_bits(d4["rat"], 5) == rat0 else s.fail)(
+        f"⑩ 鼓 lane 5 rat 回到 {rat0}（实得 {dstep_bits(d4['rat'], 5)}）")
+
+    s.cmd("TAP %d %d" % TR_SPAN)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT span ignored \(not_synth\) value=0",
+             "⑩ 鼓轨 SPAN → ignored (not_synth)")
+    s.cmd("TAP %d %d" % TR_SLIDE)
+    s.expect(r"-> TRANSPORT CMD_STEP_EDIT slide ignored \(not_synth\) value=0",
+             "⑩ 鼓轨 SLIDE → ignored (not_synth)")
+    (s.ok if seq_dstep(s, 5) == d4 else s.fail)("⑩ 不适用动作不改鼓步（逐字节不变）")
+
+    # ---------- ⑩g pattern 工具（先快照工程：CLEAR 会清 lock/micro/fill，UNDO 不含它们） ----------
+    store_cmd(s, "STORE PROJ SAVE 3", r"^PROJ 3 SAVED hash=[0-9A-F]{8}", "⑩ 工程快照 SAVE 3")
+    hash0 = live_hash(s)
+    select_track(s, 0)
+    tr_focus_step(s, 0, 2)
+
+    s.cmd("TAP %d %d" % TR_ROT_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN rotate value=1", "⑩ TAP ROT+ → rotate +1")
+    moved = eng_step(s, 0, 2)
+    got3 = eng_step(s, 0, 3)
+    (s.ok if moved["n"] == 0 and got3["note0"] == 60 else s.fail)(
+        f"⑩ 旋转后：步 2 n={moved['n']}、步 3 note0={got3['note0']}（期望 0 / 60）")
+    s.cmd("TAP %d %d" % TR_ROT_DN)
+    s.expect(r"-> TRANSPORT CMD_PATTERN rotate value=-1", "⑩ TAP ROT- → rotate -1")
+    back = eng_step(s, 0, 2)
+    (s.ok if back["note0"] == 60 else s.fail)(f"⑩ 反向旋转回位：步 2 note0={back['note0']}")
+
+    s.cmd("TAP %d %d" % TR_LEN_X2)
+    s.expect(r"-> TRANSPORT CMD_PATTERN length value=32", "⑩ TAP LEN x2 → LEN 32")
+    s.cmd("ENG SNAP")
+    s.expect_int(r"trk k=0 .*?\blen=(\d+)", 32, "⑩ ENG SNAP 轨 0 len（×2）")
+    s.cmd("TAP %d %d" % TR_LEN_D2)
+    s.expect(r"-> TRANSPORT CMD_PATTERN length value=16", "⑩ TAP LEN /2 → LEN 16")
+    s.cmd("ENG SNAP")
+    s.expect_int(r"trk k=0 .*?\blen=(\d+)", 16, "⑩ ENG SNAP 轨 0 len（÷2）")
+
+    s.cmd("TAP %d %d" % TR_TRANS_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose value=1", "⑩ TAP TRANS+ → +1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["note0"] == 61 else s.fail)(f"⑩ 移调后 note0={got['note0']}（期望 61）")
+    s.cmd("TAP %d %d" % TR_TRANS_DN)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose value=-1", "⑩ TAP TRANS- → -1")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["note0"] == 60 else s.fail)(f"⑩ 移调回位 note0={got['note0']}（期望 60）")
+
+    s.cmd("TAP %d %d" % TR_CLEAR)
+    s.expect(r"-> TRANSPORT CMD_PATTERN clear value=0", "⑩ TAP CLEAR → clear")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 0 else s.fail)(f"⑩ CLEAR 后步 2 n={got['n']}（期望 0）")
+    s.cmd("TAP %d %d" % TR_UNDO)
+    s.expect(r"-> TRANSPORT CMD_PATTERN undo value=0", "⑩ TAP UNDO → undo")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 1 and got["note0"] == 60 else s.fail)(
+        f"⑩ UNDO 恢复步 2（n={got['n']} note0={got['note0']}）")
+    s.cmd("TAP %d %d" % TR_REDO)
+    s.expect(r"-> TRANSPORT CMD_PATTERN redo value=0", "⑩ TAP REDO → redo")
+    got = eng_step(s, 0, 2)
+    (s.ok if got["n"] == 0 else s.fail)(f"⑩ REDO 后步 2 n={got['n']}（期望 0）")
+
+    # 鼓轨上的 TRANSPOSE 由上游拒绝（invalid），图案不变
+    select_track(s, 3)
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport（鼓轨 TRANSPOSE）")
+    d_before = seq_dstep(s, 5)
+    s.cmd("TAP %d %d" % TR_TRANS_UP)
+    s.expect(r"-> TRANSPORT CMD_PATTERN transpose ERR invalid value=1",
+             "⑩ 鼓轨 TRANSPOSE → ERR invalid")
+    (s.ok if seq_dstep(s, 5) == d_before else s.fail)("⑩ 被拒的 TRANSPOSE 不改鼓步")
+
+    # 工程还原（诊断槽 3 的 LOAD 连 lock/micro/fill 一起回原状态）+ 槽收口
+    store_cmd(s, "STORE PROJ LOAD 3", r"^PROJ 3 LOADED hash=[0-9A-F]{8}", "⑩ 工程还原 LOAD 3")
+    hash1 = live_hash(s)
+    (s.ok if hash1 == hash0 else s.fail)(
+        f"⑩ 还原后 LIVEHASH {hash1:08X} == 快照前 {hash0:08X}")
+    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASE", "⑩ 收口 ERASE 3")
+
+    # ---------- ⑩h 键盘：←/→ 移工具焦点、↑/↓ 调焦点字段、ENTER 切换 ----------
+    select_track(s, 0)
+    tr_focus_step(s, 0, 2)
+    s.cmd("UI TOOL 0")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ UI TOOL 0 → lvl")
+    s.cmd("UI TOOL 8")
+    s.expect(r"UI ERR tool", "⑩ UI TOOL 越界 → UI ERR tool")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 越界不改焦点（仍 lvl）")
+
+    lvl0 = eng_step(s, 0, 2)["lvl"] & 3
+    s.cmd("KEY 0x3B down")  # ↑ = 焦点字段 +1
+    s.cmd("KEY 0x3B up")
+    got = eng_step(s, 0, 2)
+    want = tr_lvl_step(lvl0, True)
+    (s.ok if (got["lvl"] & 3) == want else s.fail)(
+        f"⑩ 键盘 ↑：lvl {lvl0} -> {got['lvl'] & 3}（期望 {want}）")
+    s.cmd("KEY 0x4B down")  # ↓ = -1
+    s.cmd("KEY 0x4B up")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["lvl"] & 3) == lvl0 else s.fail)(
+        f"⑩ 键盘 ↓：lvl 回到 {lvl0}（实得 {got['lvl'] & 3}）")
+
+    s.cmd("KEY 0x4C down")  # → = 焦点字段 +1（lvl -> rat）
+    s.cmd("KEY 0x4C up")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=1 name=rat", "⑩ 键盘 →：焦点 = rat")
+    rat0 = eng_step(s, 0, 2)["rat"] & 3
+    s.cmd("KEY 0x3B down")
+    s.cmd("KEY 0x3B up")
+    got = eng_step(s, 0, 2)
+    want = (rat0 + 1) & 3  # RAT 是 x1..x4 的循环（x4 再前进回 x1）
+    (s.ok if (got["rat"] & 3) == want else s.fail)(
+        f"⑩ 键盘 ↑：rat {rat0} -> {got['rat'] & 3}（期望 {want}）")
+    s.cmd("KEY 0x4B down")
+    s.cmd("KEY 0x4B up")
+    got = eng_step(s, 0, 2)
+    (s.ok if (got["rat"] & 3) == rat0 else s.fail)(
+        f"⑩ 键盘 ↓：rat 回到 {rat0}（实得 {got['rat'] & 3}）")
+
+    s.cmd("UI TOOL 4")  # slide
+    s.expect(r"UI TOOL field=4 name=slide", "⑩ UI TOOL 4 → slide")
+    slide0 = 1 if (eng_step(s, 0, 2)["flags"] & 0x02) else 0
+    s.cmd("KEY 0x3D down")  # ENTER = 切换
+    s.cmd("KEY 0x3D up")
+    got = eng_step(s, 0, 2)
+    (s.ok if ((got["flags"] & 0x02) != 0) != bool(slide0) else s.fail)(
+        f"⑩ 键盘 ENTER：SLIDE {slide0} -> {(got['flags'] & 0x02) != 0}")
+    s.cmd("KEY 0x3D down")
+    s.cmd("KEY 0x3D up")
+    got = eng_step(s, 0, 2)
+    (s.ok if ((got["flags"] & 0x02) != 0) == bool(slide0) else s.fail)(
+        f"⑩ 键盘 ENTER（再按）：SLIDE 回到 {slide0}")
+
+    s.cmd("UI TOOL 7")
+    s.expect(r"UI TOOL field=7 name=trans", "⑩ UI TOOL 7 → trans")
+    s.cmd("KEY 0x4C down")  # 7 → 0 环绕
+    s.cmd("KEY 0x4C up")
+    s.cmd("UI TOOL")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 键盘 → 在字段环上环绕（trans -> lvl）")
+
+    # ---------- ⑩i 截屏：REC ARMED + FILL 保持 + 状态行的视觉证据 ----------
+    s.cmd("STATE SNAP")
+    if not re.search(r"\brec=armed\b", s.last):
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ 截屏前提：REC → ARMED")
+        s.cmd("STATE SNAP")
+        s.expect(r"\brec=armed\b", "⑩ 截屏前提：REC 已 ARMED")
+    s.cmd("SEQ REC")
+    if s.snap_int(r"fill_held=(\d)") == 0:
+        s.cmd("TAP %d %d" % TR_FILL)
+        s.expect(r"-> TRANSPORT CMD_FILL_CONTROL hold value=1", "⑩ 截屏前提：FILL 保持")
+        s.cmd("SEQ REC")
+        s.expect_int(r"fill_held=(\d)", 1, "⑩ 截屏前提：FILL 保持已建立")
+    img = s.capture("transport-tools")
+    # 探针取 chip 的**内缘**（左上/左下 14px）：避开 16pt 文本行与 12px 圆角。
+    rec_bg = (TR_REC[0] - TR_REC_W // 2 + 14, TR_REC[1] - TR_REC_H // 2 + 14)
+    fill_bg = (TR_FILL[0] - TR_FILL_W // 2 + 14, TR_FILL[1] - TR_FILL_H // 2 + 14)
+    lvl_bg = (TR_LVL[0] - TR_STEP_W // 2 + 14, TR_LVL[1] + TR_STEP_H // 2 - 14)
+    clear_bg = (TR_CLEAR[0] - 432 // 2 + 14, TR_CLEAR[1] + TR_PAT_H // 2 - 14)
+    s.probe(img, "REC chip 底（ARMED = UI_ACCENT）", *rec_bg, C_YELLOW)
+    s.probe(img, "FILL chip 底（held = UI_ACCENT）", *fill_bg, C_YELLOW)
+    s.probe(img, "聚焦步字段 chip 底（UI_PANEL_HI）", *lvl_bg, C_PANEL_HI)
+    s.probe(img, "pattern chip 底（UI_PANEL_HI）", *clear_bg, C_PANEL_HI)
+    s.probe_region(img, "状态行文本（STOPPED + 动作结果）",
+                   (48, 72 + 264, 808, 72 + 264 + 40), C_TEXT, 16, 30)
+
+    mem = param_mem(s)
+    state, est, delta = mem["pages"].get(3, ("?", 0, 0))
+    (s.ok if state == "built" and 0 < delta <= est else s.fail)(
+        f"⑩ UI MEM TRANSPORT state={state} delta={delta} est={est}（0 < delta ≤ est）")
+    seq_est = mem["groups"]["SEQ"]["sum_est"]
+    (s.ok if seq_est == 23040 + est else s.fail)(
+        f"⑩ UI MEM GROUP SEQ sum_est={seq_est}（期望 STEP 23040 + TRANSPORT {est}）")
+    pair = 13800 + seq_est + 12800 + 4096
+    s.ser.note(f"⑩ TRANSPORT 预算：est={est} delta={delta}（余量 "
+               f"{(est - delta) * 100.0 / max(delta, 1):.1f}%）；SEQ Σest={seq_est} ⇒ "
+               f"SEQ→PRESETS 有序对 = 13800 + {seq_est} + 12800 + 4096 = {pair}B"
+               f"（≤ 63120）")
+
+    # 收口：REC OFF + FILL 释放 + 默认焦点；走带仍停止（调用方再断言一次）
+    s.cmd("STATE SNAP")
+    if re.search(r"\brec=armed\b", s.last):
+        s.cmd("TAP %d %d" % TR_REC)
+        s.expect(r"-> TRANSPORT CMD_REC_TOGGLE value=0", "⑩ 收口：REC OFF")
+    s.cmd("SEQ REC")
+    if s.snap_int(r"fill_held=(\d)") == 1:
+        s.cmd("TAP %d %d" % TR_FILL)
+        s.expect(r"-> TRANSPORT CMD_FILL_CONTROL hold value=0", "⑩ 收口：FILL 释放")
+    s.cmd("UI TOOL 0")
+    s.expect(r"UI TOOL field=0 name=lvl", "⑩ 收口：工具焦点 = lvl")
+    s.cmd("STATE SNAP")
+    s.expect(r"\brec=off\b", "⑩ 收口：rec=off")
+    s.expect_int(r"playing=(\d)", 0, "⑩ 收口：playing=0")
 
 
 def run_step_edit(s: Session) -> None:
@@ -1855,6 +2322,15 @@ def eng_step(s: Session, track: int, step: int) -> dict:
     return {k: int(v) for k, v in zip(keys, m.groups())}
 
 
+def live_hash(s: Session) -> int:
+    """`STORE LIVEHASH` 的当前引擎捕获 hash（十六进制；工程往返门禁）。"""
+    s.cmd("STORE LIVEHASH")
+    m = re.search(r"LIVEHASH ([0-9A-F]{8})", s.last)
+    if m is None:
+        raise InjectError(f"STORE LIVEHASH 回显缺少哈希：{s.last.strip()!r}")
+    return int(m.group(1), 16)
+
+
 def seq_dstep_mask(s: Session, step: int) -> int:
     """`SEQ DSTEP <step>` 的原始 16 lane on 位图（bit k = lane k）。"""
     s.cmd(f"SEQ DSTEP {step}")
@@ -1862,6 +2338,23 @@ def seq_dstep_mask(s: Session, step: int) -> int:
     if m is None:
         raise InjectError(f"SEQ DSTEP 回显缺少字段：{s.last.strip()!r}")
     return int(m.group(3), 16) << 8 | int(m.group(2), 16)
+
+
+def seq_dstep(s: Session, step: int) -> dict:
+    """`SEQ DSTEP <step>` 的完整原始字段：on 位图 + lvl/rat（各 4 字节，每字节 4 lane×2bit）。"""
+    s.cmd(f"SEQ DSTEP {step}")
+    m = re.search(r"SEQ DSTEP step=(\d+) on=([0-9A-F]{2}),([0-9A-F]{2}) "
+                  r"lvl=([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}) "
+                  r"rat=([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2}),([0-9A-F]{2})", s.last)
+    if m is None:
+        raise InjectError(f"SEQ DSTEP 回显缺少字段：{s.last.strip()!r}")
+    g = [int(x, 16) for x in m.groups()[1:]]
+    return {"on": g[1] << 8 | g[0], "lvl": g[2:6], "rat": g[6:10]}
+
+
+def dstep_bits(arr, lane: int) -> int:
+    """鼓步打包字段（lvl/rat）的 lane 2-bit 值（page_transport.c 的 dstep_bits 同源）。"""
+    return (arr[lane // 4] >> (2 * (lane % 4))) & 3
 
 
 def normalize_pattern(s: Session, label: str = "归一图案参数") -> None:

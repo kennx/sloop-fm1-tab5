@@ -74,12 +74,15 @@ static const char *TAG = "sloop_ui";
  * 建完、STEP 最后建」时 free 实测 24,044–24,272B（P4-A 终审修复轮：params 场景
  * 顺序下 24,044B），delta+10% 的 24,064 会差 20B 被预算误拒（实际 delta 装得下）。
  * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 5 页 Σest 19,968B；FM6 自
- * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。 */
+ * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。
+ * TRANSPORT（P4-C Task 10）：est = **计划上限 9,216B**（SEQ→PRESETS 有序对把上限
+ * 锁死，见 ADR-005 §5）；实测 delta 8,248–8,716B（对最大 +5.7%，低于常态 +10–23%
+ * ——与 FILE 两页同类例外，理由是把 est 抬到实测 +10% 会顶破 63,120B；ADR-008 §3 注）。 */
 static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_PLAY, "PLAY", page_play_build, page_play_update, 3072},
     {APP_PAGE_TRACKS, "TRACKS", page_tracks_build, page_tracks_update, 7168},
     {APP_PAGE_STEP, "STEP", page_step_build, page_step_update, 23040},
-    {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 4608},
+    {APP_PAGE_TRANSPORT, "TRANSPORT", page_transport_build, page_transport_update, 9216},
     /* FILE 组（P4-B Task 12）：est = 实测首次构建 delta + 5.5%/4.4%、512 对齐
      * （PROJECTS 7,764B → 8,192；PRESETS 12,260B → 12,800；ADR-008 §3 表）。两页都
      * 不含 lv_button 的子 label——按钮/格子用单对象（见各页头部的内存注），组预算下

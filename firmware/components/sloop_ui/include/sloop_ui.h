@@ -191,6 +191,12 @@ typedef enum {
     SLOOP_TAP_TRANSPORT_PLAY,
     SLOOP_TAP_TRANSPORT_STOP,
     SLOOP_TAP_TRANSPORT_BPM, /* v=±1：CMD_SET_BPM */
+    SLOOP_TAP_TRANSPORT_TOOL, /* TRANSPORT 工具/聚焦步字段/pattern 动作（P4-C Task 10）：
+                               * a=sloop_transport_act_t v=**写后回读**值（lvl/rat 原始
+                               * 2-bit、micro、span 目标、slide 0/1、record hold 电平、
+                               * pattern arg、len 结果）d=±1 方向
+                               * err=0 成功 / 1..7 = app_seq_status_t / 8 = 不适用
+                               * （鼓轨上的 span/slide：**未下发命令**，v 为写前真值） */
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
     SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
     SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
@@ -205,13 +211,37 @@ typedef enum {
     SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
 } sloop_tap_kind_t;
 
+/* TRANSPORT 页的工具动作（P4-C Task 10）：控件回调与 console `TAP` 共用同一编号与
+ * 同一动作函数；一个动作 = 一条 EditCmd（REC / fill / 聚焦步字段 / pattern 工具）。
+ * console 回显按本编号给出命令名（见 console.c 的 tap 回显表）。 */
+typedef enum {
+    SLOOP_TR_REC = 0,    /* CMD_REC_TOGGLE（arm/off/record/close，状态机在上游） */
+    SLOOP_TR_FILL_HOLD,  /* CMD_FILL_CONTROL：a=翻转后的保持电平（点按 = 切换） */
+    SLOOP_TR_FILL_NEXT,  /* CMD_FILL_CONTROL：b=1 脉冲（只翻转 fill_arm） */
+    SLOOP_TR_LVL_DN, SLOOP_TR_LVL_UP,   /* CMD_STEP_EDIT lvl（鼓轨 = CMD_DRUM_STEP_WRITE） */
+    SLOOP_TR_RAT_DN, SLOOP_TR_RAT_UP,   /* CMD_STEP_EDIT rat（鼓轨 = CMD_DRUM_STEP_WRITE） */
+    SLOOP_TR_MIC_DN, SLOOP_TR_MIC_UP,   /* CMD_SET_MICRO（-32..31，UI 侧钳位） */
+    SLOOP_TR_SPAN_DN, SLOOP_TR_SPAN_UP, /* CMD_STEP_EDIT span（鼓轨不适用） */
+    SLOOP_TR_SLIDE,                     /* CMD_STEP_EDIT slide（toggle；鼓轨不适用） */
+    SLOOP_TR_ROT_DN, SLOOP_TR_ROT_UP,   /* CMD_PATTERN rotate（选中轨） */
+    SLOOP_TR_LEN_X2, SLOOP_TR_LEN_D2,   /* CMD_PATTERN length（×2 / ÷2） */
+    SLOOP_TR_TRANS_DN, SLOOP_TR_TRANS_UP, /* CMD_PATTERN transpose */
+    SLOOP_TR_CLEAR, SLOOP_TR_UNDO, SLOOP_TR_REDO, /* CMD_PATTERN clear/undo/redo */
+    SLOOP_TR_ACT_COUNT,
+} sloop_transport_act_t;
+
+/* TRANSPORT 工具动作的 err 值（sloop_tap_result_t.err）：0 成功；1..7 =
+ * app_seq_status_t；8 = 不适用（鼓轨上的 span/slide，未下发命令）。 */
+#define SLOOP_TR_ERR_NA 8u
+
 typedef struct {
     sloop_tap_kind_t kind;
     uint8_t a, b;
     int16_t v;
     int8_t d;  /* SLOOP_TAP_PARAM_STEP / SLOOP_TAP_BANK_SLOT：±1 步进/选槽方向 */
-    uint8_t err; /* 仅 SLOOP_TAP_STEP_DRUM：0 = 写入成功；否则 = app_seq_status_t
-                  * （6 frozen / 5 blocked / 4 full / 3 invalid / 2 not_found / 7 error）。
+    uint8_t err; /* SLOOP_TAP_STEP_DRUM / SLOOP_TAP_TRANSPORT_TOOL：0 = 成功；否则是
+                  * app_seq_status_t（6 frozen / 5 blocked / 4 full / 3 invalid /
+                  * 2 not_found / 7 error）；TRANSPORT 另有 8 = 不适用（未下发）。
                   * 失败时 v/d 仍是状态层写后回读的**真值**（未变），console 打 ERR 令牌。 */
 } sloop_tap_result_t;
 
@@ -259,6 +289,24 @@ uint8_t sloop_ui_step_lane_get(void);
 void sloop_ui_step_lane_set(uint8_t lane);
 void sloop_ui_step_focus_vertical(int8_t delta); /* ↑=-1 / ↓=+1（含进/出鼓轨） */
 void sloop_ui_step_drum_toggle(void);            /* ENTER：聚焦步的选中 lane 位取反 */
+
+/* TRANSPORT 页工具焦点（P4-C Task 10；InputManager 与 console `UI TOOL` 共用）：
+ *  - 焦点字段 = LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS（0..7）：←/→ 在环上移动、
+ *    ↑/↓ 调焦点字段（LVL/RAT/SLIDE/ROT/TRANS 走 ±1 或切换，MIC ±1，LEN ×2/÷2，
+ *    SPAN ±1 步）——与参数页的「焦点 + ↑/↓ 调值」同一模型（ADR-008 §8）。
+ *  - 动作仍走 page_transport.c 的唯一动作函数（一条动作 = 一条 EditCmd）；触摸点
+ *    任一字段 chip 也会把焦点落到该字段。
+ *  - 焦点是 UI 局部态（page_transport.c 的静态字节，跨组页面重建保留），不写引擎；
+ *    描边由 30ms UI 定时器落地。这些入口都不取 LVGL 锁（输入任务/console 可调用）。
+ *    只有调值入口按页面门控（`..._active()` 为假时静默忽略）；焦点读写/移动不受
+ *    页面限制（console `UI TOOL` 可在任意页预置，供脚本走查）。
+ *  - tool_set 越界返回 false（`UI ERR tool`，不改焦点）。 */
+#define SLOOP_UI_TRANSPORT_FIELDS 8u
+bool sloop_ui_transport_page_active(void);
+uint8_t sloop_ui_transport_tool_get(void);
+bool sloop_ui_transport_tool_set(uint8_t field);
+void sloop_ui_transport_focus_move(int8_t delta); /* ←/→：±1 字段（环绕） */
+void sloop_ui_transport_adjust(int8_t delta);     /* ↑/↓：+1 / -1 步进焦点字段 */
 
 /* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
  * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页

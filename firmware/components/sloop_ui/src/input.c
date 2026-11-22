@@ -35,6 +35,11 @@
  * 鼓轨不是只读行：触摸点 lane dot = 选中该 lane 并切换，点格内其它位置 = 切换当前
  * 选中 lane（与控件回调同一动作函数）。
  *
+ * TRANSPORT 页路由（P4-C Task 10）：←/→ 移动工具焦点字段（LVL,RAT,MIC,SPAN,SLIDE,
+ * ROT,LEN,TRANS），↑/↓ 调焦点字段（LVL/RAT/MIC/SPAN ±1、SLIDE/ROT/LEN/TRANS 见
+ * page_transport.c），ENTER = +1/切换——与参数页「焦点 + ↑/↓ 调值」同一模型。
+ * 动作仍是状态层命令（CMD_REC_TOGGLE/CMD_FILL_CONTROL/CMD_STEP_EDIT/…）。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -396,29 +401,36 @@ static void dispatch(const key_binding_t *b, bool down)
     }
     case ACT_FOCUS_STEP:
         /* FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；参数页：←/→ 在 8 槽间移动
-         * 焦点（不再驱动 STEP 焦点列） */
+         * 焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→ 移动工具焦点字段 */
         if (sloop_ui_file_page_active()) {
             sloop_ui_file_slot_move(b->param);
         } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_focus_move(b->param);
+        } else if (sloop_ui_transport_page_active()) {
+            sloop_ui_transport_focus_move(b->param);
         } else {
             act_focus(true, b->param);
         }
         break;
     case ACT_FILE_LOAD:
-        /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽。
-         * 其它页保持无动作——不抢走演奏键。 */
+        /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽；
+         * TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）。其它页保持无动作。 */
         if (sloop_ui_step_page_active()) {
             sloop_ui_step_drum_toggle();
         } else if (sloop_ui_file_page_active()) {
             sloop_ui_file_load();
+        } else if (sloop_ui_transport_page_active()) {
+            sloop_ui_transport_adjust(1);
         }
         break;
     case ACT_FOCUS_TRACK:
         /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新）；
-         * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位） */
+         * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位）；
+         * TRANSPORT 页：↑/↓ 调焦点工具字段（与参数页同一「焦点 + 调值」模型） */
         if (sloop_ui_param_page_active()) {
             sloop_ui_param_adjust((int8_t)-b->param);
+        } else if (sloop_ui_transport_page_active()) {
+            sloop_ui_transport_adjust((int8_t)-b->param);
         } else if (sloop_ui_step_page_active()) {
             sloop_ui_step_focus_vertical(b->param);
         } else {

@@ -38,9 +38,9 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | REC | `0` 0x0A | `CMD_REC_TOGGLE`（上游 `rec_toggle`）：停止态 arm（首个音符或 PLAY 启动）；走带中立即录选中轨；再按一次关录音**不停播放**；自由录音进行中 = 关闭它（收成 loop，与上游 editor 的 REC 同一 `transport_req=1` 路径；PLAY 才是 drop） |
 | FILL 保持 | `-` 0x0B（按住） | down/up 发 `CMD_FILL_CONTROL{a=1/0,b=0}` → 上游 `fill_held`：按住期间 fill 步条件成立（fill-only 步演奏、no-fill 步静音） |
 | FILL NEXT | `+` 0x0C（点按） | down 发 `CMD_FILL_CONTROL{a=0,b=1}` → **脉冲**：只翻转上游 `fill_arm`（下一小节 fill），**不读不写 `fill_held`**（按住 `-` 时点 `+` 不会清掉保持电平）；再按一次取消。STOP 清 held/armed |
-| ENTER 动作 | enter 0x3D | **STEP 页 = 切换聚焦步的选中 drum lane 位**（`sloop_ui_step_drum_toggle()` → `CMD_DRUM_STEP_WRITE`，P4-C Task 9）；**FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；其它页无动作（不抢演奏键）。FILE 的 SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
+| ENTER 动作 | enter 0x3D | **STEP 页 = 切换聚焦步的选中 drum lane 位**（`sloop_ui_step_drum_toggle()` → `CMD_DRUM_STEP_WRITE`，P4-C Task 9）；**FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；**TRANSPORT 页 = 焦点工具字段 +1/切换**（`sloop_ui_transport_adjust(1)`，P4-C Task 10：LVL/RAT 循环、MIC/SPAN ±1、SLIDE 切换、ROT/LEN/TRANS 前进）；其它页无动作（不抢演奏键）。FILE 的 SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
 | 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 12 页**（P4-C 预留，SONG 页由后续任务注册）PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（ADR-005 §4；当前已注册 11 页，跳过未注册页） |
-| 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；↑ 0x3B / ↓ 0x4B：普通页移焦点轨（三条合成轨环绕）；**STEP 页**走焦点环 `T1,T2,T3,DRM L1..L16`（`sloop_ui_step_focus_vertical()`：T3↓→L1、T1↑→L16、L1↑→T3、L16↓→T1，鼓轨上逐 lane） | `state_set_focus()` / `sloop_ui_step_focus_vertical()` / `sloop_ui_file_slot_move()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
+| 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；**TRANSPORT 页**在 8 个工具字段环上移动（`sloop_ui_transport_focus_move()`：LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS 环绕）；↑ 0x3B / ↓ 0x4B：普通页移焦点轨（三条合成轨环绕）；**STEP 页**走焦点环 `T1,T2,T3,DRM L1..L16`（`sloop_ui_step_focus_vertical()`：T3↓→L1、T1↑→L16、L1↑→T3、L16↓→T1，鼓轨上逐 lane）；**TRANSPORT 页**调焦点工具字段（`sloop_ui_transport_adjust(±1)`） | `state_set_focus()` / `sloop_ui_step_focus_vertical()` / `sloop_ui_file_slot_move()` / `sloop_ui_transport_focus_move()` / `sloop_ui_transport_adjust()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
 
 八度切换（原计划的 OCT±）**未实现**：`-` 0x0B / `+` 0x0C 已在 P4-C 分配给 FILL 保持 /
 FILL NEXT、`0` 0x0A 分配给 REC（见键表）；八度切换仍留给阶段 4 的完整层键位子集
@@ -82,6 +82,19 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 （不阻塞本任务：若实测发现组合缺事件，只改 `input.c` 的层键处理为「点按锁定/再按解锁」，
 映射表与架构不变）。注：按住 Aa 在本键盘内部还会改大小写状态（`aa_flag`，只影响 HID/字符
 模式），普通模式下对事件流无影响。
+
+### TRANSPORT 工具区（P4-C Task 10）
+
+- **焦点环**：TRANSPORT 页 ←/→ 在 8 个字段上移动（LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS），
+  ↑/↓ 调焦点字段，ENTER = +1/切换。字段焦点是 UI 局部态（`page_transport.c` 静态字节，
+  跨组重建保留），画成该字段 chip 的 3px 白描边；console `UI TOOL [<0..7>]` 读写同一状态
+  （脚本的键盘断言口：`UI TOOL field=<n> name=<lvl|rat|mic|span|slide|rot|len|trans>`）。
+- **↑/↓ 的字段语义**：LVL 循环（GHOST<SOFT<NORM<HARD）、RAT 循环（x1..x4）、MIC ±1（-32..31）、
+  SPAN ±1（1..LEN，越界回另一端）、SLIDE 切换（两向同义）、ROT ±1、LEN ×2/÷2、TRANS ±1；
+  每条都是**一条 EditCmd**（`page_transport.c` 的 `tr_action`，与 TAP/触摸同一个函数）。
+- **与 STEP 页的关系**：焦点步（轨×窗口列）在 STEP 页设、在 TRANSPORT 页改字段；鼓轨时
+  LVL/RAT 作用于 `UI LANE` 选中 lane 的原始 2-bit 字段（`CMD_DRUM_STEP_WRITE` 整份 POD），
+  SPAN/SLIDE 不适用（不发命令）。LVL/RAT 只改聚焦步第 1 个音符（无音符光标，DI-30）。
 
 ### 注入与延迟
 

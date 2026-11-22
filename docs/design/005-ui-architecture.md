@@ -54,7 +54,7 @@ console `TAP <x> <y>` 走 `sloop_ui_input_tap()`：取当前页，按页内 hit-
 |---|---|---|---|
 | STEP | 建格同一组宏 `GRID_X0/Y0、CELL_W/H、CELL_STEP_X、ROW_PITCH` 现场推导（行/列各一次区间判定）；鼓行再加 4×4 lane 网格命中（`DRUM_GRID_X0/Y0`、`DRUM_LANE_PITCH`） | 合成轨：`step_activate(r,c)`（`cell_clicked_cb` 的唯一调用体）；鼓轨：`drum_toggle()`（控件回调经 `step_activate` 鼓分支进入，`TAP` 命中 lane 后直接调用同一函数） | 合成轨：`state_set_focus()` + `CMD_TOGGLE_STEP`；鼓轨：`state_set_focus(DRM)` + `CMD_DRUM_STEP_WRITE`（P4-C Task 9 起；不再是「只写状态行」） |
 | TRACKS | `CARD_X0/Y/W/H/PITCH` | `tracks_select(k)`（`card_clicked_cb` 的唯一调用体） | `CMD_SELECT_TRACK` |
-| TRANSPORT | 静态表 `{x,y,w,h,kind,v}`，几何取自建按钮的 `TRANSPORT_*` 宏 | `transport_play()` / `transport_stop()` / `transport_bpm_step(delta)` | `CMD_PLAY` / `CMD_STOP` / `CMD_SET_BPM` |
+| TRANSPORT | 走带 4 项：静态表 `{x,y,w,h,kind,v}`（`TRANSPORT_*` 宏）；工具 18 项：`k_chips[]` 同一张表既建控件又做命中（几何/动作/初始文本的唯一来源） | `transport_play()` / `transport_stop()` / `transport_bpm_step(delta)` / `tr_action(act)`（P4-C Task 10；工具 chip 的所有动作） | `CMD_PLAY` / `CMD_STOP` / `CMD_SET_BPM`；工具：`CMD_REC_TOGGLE` / `CMD_FILL_CONTROL` / `CMD_STEP_EDIT` / `CMD_SET_MICRO` / `CMD_DRUM_STEP_WRITE`（鼓 lane LVL/RAT）/ `CMD_PATTERN` |
 | PLAY | 无编辑控件（纯呈现 + 音符指示） | — | 恒 `TAP miss` |
 
 **等价性声明（诚实边界）**：物理触摸 = LVGL hit-test → `LV_EVENT_CLICKED` → 回调；
@@ -256,23 +256,28 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   TLSF 块头，是低估，已作废；两行页签后已按本值重测回写。
 - 组 est：PLAY 3,072 / TRACKS 7,168 / EDIT `3×3,584 + 6,144 + 3,072 = 19,968`
   （FM6 自 P4-B Task 13 起含 bank 存取行，est 3,584 → 6,144，实测 delta 4,956–5,100B）/ SEQ
-  `STEP 23,040 + TRANSPORT 4,608 = 27,648` / FILE `PROJECTS 8,192 + PRESETS 12,800
-  = 20,992`（P4-B Task 12 按实测定稿：首次构建 delta 7,764B / 12,260B，est = +5.5% /
-  +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，实测对象数（26/36 个）远超，见
-  ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
+  `STEP 23,040 + TRANSPORT 9,216 = 32,256`（TRANSPORT 自 P4-C Task 10 起含录音/fill/
+  聚焦步字段/pattern 工具；实测 delta 8,248–8,716B，见 ADR-008 §3 注）/ FILE `PROJECTS 8,192 +
+  PRESETS 12,800 = 20,992`（P4-B Task 12 按实测定稿：首次构建 delta 7,764B / 12,260B，
+  est = +5.5% / +4.4%、512 对齐；初版 4,608/5,120 是**下限估算**，实测对象数（26/36 个）
+  远超，见 ADR-008 §3 的 FILE 表。构建前实测 est 以 ADR-008 表为准）。
 - **有序对按当前 est 表重算**（每条 = 源组全建 Σest + 目标组首建页 est；账面 =
   `base 13,800 + 对值 + 4,096`，不变量 ≤ 63,120）：
-  1. **FILE 两页全建 → SEQ 首建 STEP（最坏）**：`20,992 + 23,040 = 44,032B` ⇒ 账面
+  1. **SEQ 两页全建 → FILE 首建 PRESETS（P4-C Task 10 起的最坏）**：
+     `32,256 + 12,800 = 45,056B` ⇒ 账面 **62,952**、余 **168B**（保守 base 14,112B 时
+     63,264 **超 144B**）——TRANSPORT 从 4,608 抬到 9,216 的直接后果；余量只剩 168B，
+     故 TRANSPORT 的实测 delta 必须 ≤ est（实测 8,248–8,716B，见 ADR-008 §3 注）；
+  2. **FILE 两页全建 → SEQ 首建 STEP**：`20,992 + 23,040 = 44,032B` ⇒ 账面
      **61,928**、余 **1,192B**（base 取保守上界 14,112B 时 62,240、余 880B）；
-  2. **EDIT 全建 → SEQ 首建 STEP**：`19,968 + 23,040 = 43,008B` ⇒ 账面 **60,904**、
+  3. **EDIT 全建 → SEQ 首建 STEP**：`19,968 + 23,040 = 43,008B` ⇒ 账面 **60,904**、
      余 **2,216B**（保守 base：61,216、余 1,904B）——Task 13 的 FM6 bank 行把 EDIT 从
      17,408 抬到 19,968，它从旧「次坏并列（40,448）」升为单独次坏；
-  3. **SEQ 全建 → FILE 首建 PRESETS**：`27,648 + 12,800 = 40,448B` ⇒ 账面 **58,344**、
-     余 4,776B；
-  4. 反方向 SEQ（全建）→ EDIT 首建 GLOBAL：`27,648 + 3,584 = 31,232B` ⇒ 账面 49,128。
+  4. **SEQ 全建 → EDIT 首建 GLOBAL**：`32,256 + 3,584 = 35,840B` ⇒ 账面 53,736。
   （STEP 属 SEQ，所以它不可能是「SEQ 常驻时」的跨组目标；但可以是 EDIT→SEQ /
   FILE→SEQ 的目标——最坏对必须按有序对枚举，旧式「任意单页上限 + 任意最大组」是
-  病态上界。）
+  病态上界。有序对 1 的实测证据：Task 10 的 transport 场景在 SEQ 内测得 TRANSPORT
+  delta 8,248–8,716B、`GROUP SEQ sum_est=32,256`；跨组回 FILE 的峰值沿用既有 nav/params
+  场景的 ≥4,096B 门禁。）
 - **实测过渡峰值**（构建日志的「池剩余」= 销毁源组之前的 free）：
   2026-11-22 Task 11 最终固件：EDIT 五页全建 `pool_free 34,212B` → 跨组建 STEP
   （delta 21,856B、耗时 30ms）后 **`pool_free 12,356B`**；SEQ 两页全建
@@ -285,9 +290,10 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   池占用在**切换之后**才释放；若在切换前释放，会出现空白帧、输入路径在跨组切换期间
   没有活页。因此峰值 = 源组已建 Σ + 目标页实际构建量，是瞬态但必须被上式覆盖；切换
   完成后回落为稳态 `base + max_group Σ est = 41,448B ≤ 63,120B`。
-- **P4-C 12 页预算（规划，ADR-010 §5）**：SONG 使用**独立顶层组**而不是加入 SEQ，组
-  顺序变为 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；TRANSPORT est 上限调为 **9,216B**、SONG
-  初估 **12,288B**，落地后均按 `UI MEM` 实测收紧。有序对重算：FILE→STEP 仍
+- **P4-C 12 页预算（规划，ADR-010 §5；TRANSPORT 已按 Task 10 落地）**：SONG 使用
+  **独立顶层组**而不是加入 SEQ，组顺序变为 `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`；
+  TRANSPORT est 上限 **9,216B**（Task 10 实测 delta 8,248–8,716B，est 保持上限——见
+  ADR-008 §3 注）、SONG 初估 **12,288B**，落地后均按 `UI MEM` 实测收紧。有序对重算：FILE→STEP 仍
   `20,992+23,040=44,032B`、账面 **61,928B**；SEQ（23,040+9,216）→PRESETS 为
   `32,256+12,800=45,056B`、账面 **62,952B**、余 **168B**，成为新的账面最坏对；
   SONG→PRESETS 为 `12,288+12,800=25,088B`、账面 **42,984B**。六个组签仍在 72px
@@ -439,3 +445,79 @@ TAP 与键盘走同一投影。
   §5.4 晋升。
 - 未覆盖：CONT 的**演奏时序**（是否真的持续发声）属 host `seq` 门禁与听感项，本页只
   呈现标记；鼓 lane 的 vel（lvl/rat 编辑）留给 TRANSPORT 聚焦步工具（Task 10）。
+
+## TRANSPORT 录音、fill 与 pattern 工具区（P4-C Task 10，2026-11-22）
+
+走带三件套（PLAY/STOP/BPM±）保持；**4 个走带按钮也收敛为单对象可点击 label**，新增区全部是**单对象可点击 label**
+（18 个 chip：3 录音/fill + 6 聚焦步字段 + 9 pattern 工具），不引入
+`lv_button + 子 label`（对象数翻倍，预算装不下）。
+
+### 1. 布局（页面区相对坐标；绝对 y = 页内 y + 72）
+
+| 区 | 几何 | 内容 |
+|---|---|---|
+| 走带状态 | (48,264) 28pt 单行 | `PLAYING`/`STOPPED`；有工具动作后追加 `   <动作>: <结果>`（失败红字、N/A 黄字、其余主文本色）——**不新增状态行对象** |
+| 聚焦步摘要 | (48,320) 20pt 两行 | 第一行沿用 `TRACK n STEP pos / len`（选中轨播放头）；第二行 = 聚焦步字段真值 `LVL N RAT x1 MIC +0 SPAN 1 SLD -`（鼓轨 `DRM L<n> LVL.. RAT.. MIC..`） |
+| 录音/fill | y=384，56 高 | REC (48,140)：五态文本 `REC OFF`/`REC ARM`/`REC ON T<n>`/`REC CNT T<n>`/`FREE TAKE` + 底色（黄 arm / 红 record / 橙 count-in / 绿 free take）；FILL (200,120) `FILL`→`FILL ON`（黄底）；NEXT (328,120) `NEXT`→`NEXT ARM`（黄底） |
+| 聚焦步字段 | y=464，88×56、间距 8（x=24+i·96） | `LVL` `RAT` `MIC-` `MIC+` `SPAN` `SLIDE`；SLIDE 打开时黄底 |
+| pattern | x=792 起 | y=292 `ROT-`/`ROT+`/`LEN x2`/`LEN /2`（100 宽）；y=360 `TRANS-`/`TRANS+`（120）+`UNDO`/`REDO`（84）；y=428 `CLEAR T<n>`（432，破坏性动作单独一行，文本显示目标轨=选中轨） |
+| BPM | 既有 (900,40)/(880,72)/(860|1000,140) | 不变 |
+
+### 2. 动作（一个 chip 一条 EditCmd；控件回调/TAP/键盘共用一个 `tr_action`）
+
+| chip | 动作 | EditCmd |
+|---|---|---|
+| REC | 切换 | `CMD_REC_TOGGLE`（状态机在上游：arm/off/record close） |
+| FILL | 保持电平切换 | `CMD_FILL_CONTROL a=1-held` |
+| NEXT | 脉冲 | `CMD_FILL_CONTROL b=1`（只翻转 `fill_arm`，不读写 held） |
+| LVL | 响度循环前进（GHOST<SOFT<NORM<HARD） | `CMD_STEP_EDIT op=lvl`（鼓轨 = `CMD_DRUM_STEP_WRITE`，写选中 lane 的 2-bit 字段） |
+| RAT | x1→x2→x3→x4→x1 | `CMD_STEP_EDIT op=rat`（鼓轨同上） |
+| MIC-/+ | nudge ±1（-32..31 UI 钳位） | `CMD_SET_MICRO` |
+| SPAN | 目标长度 +1（到本轨 LEN 回 1） | `CMD_STEP_EDIT op=span` |
+| SLIDE | 切换 | `CMD_STEP_EDIT op=slide` |
+| ROT± / TRANS± | ±1 | `CMD_PATTERN rotate/transpose`（选中轨） |
+| LEN x2 / LEN /2 | ×2 或 ÷2 | `CMD_PATTERN length arg=±1` |
+| CLEAR / UNDO / REDO | — | `CMD_PATTERN clear/undo/redo`（选中轨） |
+
+- **值一律写后回读**（TAP 回显 `value=` 与屏幕状态行同源）：失败时报写前真值 + seq_status，
+  不按本地计算结果伪造。`CMD_FILL_CONTROL` 是唯一例外：状态层不重取 rec 投影（`sloop_seq_rec_read`
+  会消费一次性 take 结果），回显用命令写入的电平/翻转后的待命。
+- **LVL/RAT 作用于聚焦步的第 1 个音符**（`index=0`）：STEP 页没有音符光标；**SPAN 以可见
+  TIE 链长度为基准**（POLY 长音在后续和弦下方的 CONT 延伸不在快照里）。两条都记入
+  `docs/deferred-issues.md` DI-30，属已知近似而非协议偏差。
+- 鼓轨：LVL/RAT 改**选中 lane**（STEP 页 `UI LANE`/↑↓/点 dot 的同一字节）；SPAN/SLIDE
+  不适用——不发命令、回 `ignored (not_synth)`、芯片灰字；TRANSPOSE 由上游拒绝（`ERR invalid`）。
+- **触摸只保留常用方向**：LVL/RAT 是循环按钮、SPAN 只 +1（到 LEN 回 1）；反向由键盘
+  ↑/↓ 提供（见 §3）。MIC 保留 ± 两个 chip（nudge 双向是常用操作）。
+
+### 3. 键盘（ADR-006）
+
+TRANSPORT 页：`←/→` 在 8 个工具字段环上移动（LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS），
+`↑/↓` 调焦点字段（LVL/RAT 双向循环、MIC ±1、SPAN ±1、SLIDE 切换、ROT ±1、LEN ×2/÷2、
+TRANS ±1），`ENTER` = +1/切换——与参数页「焦点 + ↑/↓ 调值」同一模型。焦点画成该字段
+chip 的 3px 白描边，是 UI 局部态（跨组重建保留）；console `UI TOOL [<0..7>]` 读写同一状态
+供脚本断言。触摸点任一字段 chip 也把焦点落过去。
+
+### 4. 回显（console `TAP`；脚本断言口）
+
+`-> TRANSPORT <CMD> <op> value=<写后回读>`，例如
+`-> TRANSPORT CMD_STEP_EDIT lvl value=3` / `-> TRANSPORT CMD_DRUM_STEP_WRITE rat value=1` /
+`-> TRANSPORT CMD_PATTERN rotate value=1` / `-> TRANSPORT CMD_FILL_CONTROL hold value=1`；
+失败回 `-> TRANSPORT <CMD> <op> ERR <not_found|invalid|full|blocked|frozen|error> value=<写前真值>`，
+鼓轨上的 span/slide 回 `-> TRANSPORT CMD_STEP_EDIT span ignored (not_synth) value=0`。
+令牌与 STEP 鼓格共用 `seq_status_token()`（同一 `app_seq_status_t` 词表）。
+
+### 5. 容量与验证
+
+- **est 9,216B（计划上限），实测 delta 8,248–8,716B**（21 次首建读数）（`UI MEM`：`页面构建 page=TRANSPORT(3)
+  池增量=8668B 预算=9216B 池剩余=38172B 耗时=12ms`）。18 个新对象 + 既有 8 个对象
+  = 26 个对象（旧的 4 个 `lv_button` + 4 个子 label 也收敛成 4 个单对象大 chip）。
+  余量 +5.7%（对最大 8,716）低于 ADR-008 常态 +10–23%——这是**计划锁定的上限**（SEQ→PRESETS 有序对
+  的账面余量只剩 168B），与 FILE 两页（+4.4%/+5.5%）同一处理方式：不抬 est/池，靠
+  `free ≥ est` 与实测峰值门禁兜底。
+- 设备证据：`transport` 场景 ⑩a–⑩i（REC 五态、fill 两变量、LVL/RAT 循环、MIC ± 与 31
+  钳位、SPAN TIE 往返、SLIDE、空步 `ERR not_found` 且逐字段不变、鼓 lane 读改写与
+  `not_synth`、pattern 六动作、鼓轨 TRANSPOSE 拒绝、`LIVEHASH` 快照还原、键盘焦点环与
+  ↑/↓/ENTER、`UI MEM` 的 est/delta 与 `GROUP SEQ sum_est=32,256`、截屏像素抽检）。
+- 未覆盖：人眼视觉读图（本会话无图像查看工具，用 §5.4 的像素区扫描代替，见
+  `task-10-visual-check.txt`）；物理触摸手感与长按/连发不在 TAP 覆盖范围。

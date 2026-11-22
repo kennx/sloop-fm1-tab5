@@ -202,3 +202,15 @@
 | **触发条件** | 任何 `ENG SELFTEST` 门禁；UI 定时器恢复日志、存储 tick 等并发 `ESP_LOG` 恰好落在汇总 `printf` 写入中途。 |
 | **参考** | `scripts/device-selftest.py`（`SUMMARY`/`summary_fields`/`compare`）、`firmware/components/sloop_core/src/selftest.c`（汇总 printf）、`firmware/components/sloop_ui/src/ui.c`（quiesce OFF 日志）、DI-26（自检堆泄漏） |
 | **登记** | 2026-11-22（P4-C Task 9 设备复验：同一固件两次自检一次假红） |
+
+## DI-30: TRANSPORT 聚焦步字段没有「音符光标」与精确 span 读口
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-C Task 10 的聚焦步字段（LVL/RAT/SPAN/SLIDE）在 TRANSPORT 页编辑，数据源是 `app_state_t.core.step[ft][fs]`（窗口投影）。① STEP 页没有「和弦里第几个音符」的光标（上游 `ui.note_k`），所以 LVL/RAT 固定作用在**第 1 个音符**（`index=0`），和弦里其余音符的 2-bit 字段没有 UI 入口；② 快照不含上游 2.8.3 的 POLY span（音符长到后续和弦下方时以 CONT 延续），SPAN± 只能以**可见 TIE 链长度**为基准，POLY 场景下目标值可能短于实际 span。 |
+| **影响面** | 只在多音符和弦的 LVL/RAT 与「长音压在后续和弦下方」的 SPAN 上出现近似；单音符步、无 CONT 的普通长音完全准确。引擎/协议/持久化无影响（写的仍是上游字段，只是目标 index/长度由 UI 近似给出）。 |
+| **为何可延迟** | 两项都需要新的状态投影（音符光标 = UI 局部态 + 快照里逐音符可读的 span），属 UI/快照接口扩张；当前 STEP 页的深度呈现（Task 9）已能看见每音符 lvl 与 CONT 标记，用户可用 `SEQ EDIT LVL/RAT/SPAN` 诊断面做精确编辑。 |
+| **解决方向** | (a) STEP/TRANSPORT 增加音符光标（上游 `note_k` 语义：KNOB1 走音符，含空步），TRANSPORT 的 LVL/RAT 用它当 `edit.index`；(b) `sloop_core_snapshot_t` 增每音符 span（或 `sloop_seq` 加一个只读 `sloop_seq_note_span(track, step, index)`，引擎锁内算 `span_len`），SPAN± 以它为基准；(c) 两项都要补 state/注入用例（和弦 k=1 的 LVL、CONT 长音的 span 往返）。 |
+| **触发条件** | 用户报告「和弦里第二个音的力度改不了」；或 sequence 场景要覆盖 POLY span 的 UI 编辑；或 SONG/sequence 场景需要按音符编辑。 |
+| **参考** | `firmware/components/sloop_ui/src/page_transport.c`（`tr_action` 的 LVL/RAT/SPAN）、`firmware/components/sloop_core/src/seq_tab5.c`（`span_len`/`span_set`）、`third_party/sloop-fm1/firmware/src/ui.c`（`ui.note_k`/`note_span`）、ADR-005「TRANSPORT 录音、fill 与 pattern 工具区」§2 |
+| **登记** | 2026-11-22（P4-C Task 10：聚焦步字段的已知近似） |

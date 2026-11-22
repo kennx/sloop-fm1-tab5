@@ -23,7 +23,9 @@
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
- *    P4-C Task 9；无参打印当前值）；FORCEFAIL <page> [on|off] 强制构建失败（验证失败可见性，
+ *    P4-C Task 9；无参打印当前值）；TOOL [<0..7>] 读/写 TRANSPORT 页的键盘工具焦点
+ *    （P4-C Task 10；0 lvl/1 rat/2 mic/3 span/4 slide/5 rot/6 len/7 trans）；FORCEFAIL
+ *    <page> [on|off] 强制构建失败（验证失败可见性，
  *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
  *    state=failed），对已建非当前页只删除控件回到未建态（回显 state=unbuilt，
  *    注入待命），对未建页挂起到下一次构建；off 只撤销尚未消费的注入，
@@ -44,7 +46,10 @@
  *    回显 "-> STEP drum step=k lane=n bit=b CMD_DRUM_STEP_WRITE mask=0x…"（P4-C
  *    Task 9：写的是该步的原始 16 lane 位图；mask/bit 是**写后回读**）。写入被拒
  *    （诊断冻结等）改回 "-> STEP drum step=k lane=n ERR <frozen|invalid|…> mask=0x…"，
- *    mask 是未变的真值（不按本地翻转结果伪造）。
+ *    mask 是未变的真值（不按本地翻转结果伪造）。TRANSPORT 工具回显
+ *    "-> TRANSPORT <CMD> <op> value=<写后回读值>"（P4-C Task 10：REC/fill/聚焦步
+ *    字段/pattern 工具；失败回 "ERR <token> value=<写前真值>"，鼓轨上的 span/slide
+ *    回 "ignored (not_synth)"）。
  *  - SEQ：原始鼓步、micro/fill、参数锁、音符跨度与 pattern 工具、录音/鼓演奏诊断
  *    （P4-C，ADR-010）。LOCK SET 的锁满与非法参数分别回 "SEQ ERR full" 与
  *    "SEQ ERR invalid"。`SEQ REC [TOGGLE|CONFIG q t c|FILL HOLD 0|1|FILL NEXT|BUTTON down]`
@@ -1101,6 +1106,28 @@ static int ui_command(int argc, char **argv)
         printf("UI LANE lane=%u\n", (unsigned)sloop_ui_step_lane_get());
         return 0;
     }
+    if ((argc == 2 || argc == 3) && strcasecmp(argv[1], "tool") == 0) {
+        /* UI TOOL [<0..7>]：TRANSPORT 页的键盘工具焦点字段（UI 局部态；无参打印当前值）。
+         * 与 ←/→（sloop_ui_transport_focus_move）和点字段 chip 共用同一状态。 */
+        static const char *const k_tool_names[SLOOP_UI_TRANSPORT_FIELDS] = {
+            "lvl", "rat", "mic", "span", "slide", "rot", "len", "trans"};
+        if (argc == 2) {
+            const uint8_t f = sloop_ui_transport_tool_get();
+            printf("UI TOOL field=%u name=%s\n", (unsigned)f,
+                   k_tool_names[f < SLOOP_UI_TRANSPORT_FIELDS ? f : 0]);
+            return 0;
+        }
+        uint32_t field = 0;
+        if (!eng_uint(argv[2], SLOOP_UI_TRANSPORT_FIELDS - 1u, &field) ||
+            !sloop_ui_transport_tool_set((uint8_t)field)) {
+            /* 越界/非数字是取值错误（脚本按 `UI ERR tool` 断言，不改焦点） */
+            printf("UI ERR tool\n");
+            return 1;
+        }
+        printf("UI TOOL field=%u name=%s\n", (unsigned)field,
+               k_tool_names[field < SLOOP_UI_TRANSPORT_FIELDS ? field : 0]);
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
@@ -1258,11 +1285,13 @@ static int ui_command(int argc, char **argv)
         return 1;
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets> | UI MEM | UI WINDOW [<start> <len>] | "
-           "UI LANE [<lane=0..15>] | "
+           "UI LANE [<lane=0..15>] | UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
            "LANE: STEP 页选中的鼓 lane（0..15，UI 局部态）；无参打印当前值\n"
+           "TOOL: TRANSPORT 页的键盘工具焦点（0 lvl / 1 rat / 2 mic / 3 span / 4 slide / 5 rot / "
+           "6 len / 7 trans）；无参打印当前字段\n"
            "TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）\n"
            "FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态"
            "（state=unbuilt，注入待命）；未建页下一次构建失败；"
@@ -1334,6 +1363,69 @@ static int key_command(int argc, char **argv)
  * "TAP miss x,y page=P" 并返回 1（不改状态、不崩溃）。坐标上界取 SCR_W/SCR_H
  * （与截屏帧同一屏幕几何）。sloop_ui 未导出宽高，其私有 theme.h 的 UI_W/UI_H
  * 即同值 1280×720；main 不跨组件包含 sloop_ui/src 的私有头，故此处沿用 SCR_W/SCR_H。 */
+
+/* app_seq_status_t → console 令牌（TAP 的鼓格与 TRANSPORT 工具回显共用）。 */
+static const char *seq_status_token(uint8_t status)
+{
+    static const char *const tok[] = {"idle", "ok", "not_found", "invalid",
+                                      "full", "blocked", "frozen", "error"};
+    return status < sizeof(tok) / sizeof(tok[0]) ? tok[status] : "error";
+}
+
+/* TRANSPORT 工具动作 → 回显里的命令名（与 page_transport.c 的 tr_action 一一对应）。 */
+static const char *transport_act_cmd(uint8_t act)
+{
+    switch (act) {
+    case SLOOP_TR_REC: return "CMD_REC_TOGGLE";
+    case SLOOP_TR_FILL_HOLD: return "CMD_FILL_CONTROL hold";
+    case SLOOP_TR_FILL_NEXT: return "CMD_FILL_CONTROL next";
+    case SLOOP_TR_LVL_DN:
+    case SLOOP_TR_LVL_UP:
+    case SLOOP_TR_RAT_DN:
+    case SLOOP_TR_RAT_UP:
+    case SLOOP_TR_SPAN_DN:
+    case SLOOP_TR_SPAN_UP:
+    case SLOOP_TR_SLIDE: return "CMD_STEP_EDIT";
+    case SLOOP_TR_MIC_DN:
+    case SLOOP_TR_MIC_UP: return "CMD_SET_MICRO";
+    case SLOOP_TR_ROT_DN:
+    case SLOOP_TR_ROT_UP:
+    case SLOOP_TR_LEN_X2:
+    case SLOOP_TR_LEN_D2:
+    case SLOOP_TR_TRANS_DN:
+    case SLOOP_TR_TRANS_UP:
+    case SLOOP_TR_CLEAR:
+    case SLOOP_TR_UNDO:
+    case SLOOP_TR_REDO: return "CMD_PATTERN";
+    default: return "?";
+    }
+}
+
+static const char *transport_act_op(uint8_t act)
+{
+    switch (act) {
+    case SLOOP_TR_LVL_DN:
+    case SLOOP_TR_LVL_UP: return "lvl";
+    case SLOOP_TR_RAT_DN:
+    case SLOOP_TR_RAT_UP: return "rat";
+    case SLOOP_TR_MIC_DN:
+    case SLOOP_TR_MIC_UP: return "micro";
+    case SLOOP_TR_SPAN_DN:
+    case SLOOP_TR_SPAN_UP: return "span";
+    case SLOOP_TR_SLIDE: return "slide";
+    case SLOOP_TR_ROT_DN:
+    case SLOOP_TR_ROT_UP: return "rotate";
+    case SLOOP_TR_LEN_X2:
+    case SLOOP_TR_LEN_D2: return "length";
+    case SLOOP_TR_TRANS_DN:
+    case SLOOP_TR_TRANS_UP: return "transpose";
+    case SLOOP_TR_CLEAR: return "clear";
+    case SLOOP_TR_UNDO: return "undo";
+    case SLOOP_TR_REDO: return "redo";
+    default: return NULL;
+    }
+}
+
 static int tap_command(int argc, char **argv)
 {
     long x = 0, y = 0;
@@ -1383,13 +1475,9 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_STEP_DRUM: {
         /* 鼓格 lane 位：a=lane b=步号 d=写后回读的 bit v=写后回读的 16 lane 位图
          * err=0 成功；否则是 app_seq_status_t（冻结等——echo 不伪造本地翻转结果）。 */
-        static const char *const drum_err_tok[] = {"idle", "ok", "not_found", "invalid",
-                                                   "full", "blocked", "frozen", "error"};
         if (r.err != 0u) {
-            const char *tok = r.err < sizeof(drum_err_tok) / sizeof(drum_err_tok[0])
-                                  ? drum_err_tok[r.err] : "error";
             printf("TAP %ld,%ld page=%u -> STEP drum step=%u lane=%u ERR %s mask=0x%04X\n",
-                   x, y, page, (unsigned)r.b, (unsigned)r.a, tok,
+                   x, y, page, (unsigned)r.b, (unsigned)r.a, seq_status_token(r.err),
                    (unsigned)(uint16_t)r.v);
             break;
         }
@@ -1412,6 +1500,27 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_TRANSPORT_BPM:
         printf("TAP %ld,%ld page=%u -> TRANSPORT CMD_SET_BPM delta=%+d\n", x, y, page, (int)r.v);
         break;
+    case SLOOP_TAP_TRANSPORT_TOOL: {
+        /* TRANSPORT 工具：a=sloop_transport_act_t b=1 表示 LVL/RAT 落在鼓轨
+         * （CMD_DRUM_STEP_WRITE）v=写后回读值 err=0/app_seq_status_t/8（不适用，
+         * 未下发）。令牌与 STEP 鼓格共用 seq_status_token。 */
+        const char *cmd = transport_act_cmd((uint8_t)r.a);
+        const char *op = transport_act_op((uint8_t)r.a);
+        if (r.b != 0u) cmd = "CMD_DRUM_STEP_WRITE";
+        char what[40];
+        if (op != NULL) snprintf(what, sizeof(what), "%s %s", cmd, op);
+        else snprintf(what, sizeof(what), "%s", cmd);
+        if (r.err == SLOOP_TR_ERR_NA) {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ignored (not_synth) value=%d\n", x, y,
+                   page, what, (int)r.v);
+        } else if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s ERR %s value=%d\n", x, y, page, what,
+                   seq_status_token(r.err), (int)r.v);
+        } else {
+            printf("TAP %ld,%ld page=%u -> TRANSPORT %s value=%d\n", x, y, page, what, (int)r.v);
+        }
+        break;
+    }
     case SLOOP_TAP_PARAM_STEP:
         printf("TAP %ld,%ld page=%u -> PARAM slot=%u id=%u delta=%+d value=%d\n", x, y, page,
                (unsigned)r.a, (unsigned)r.b, (int)r.d, (int)r.v);
