@@ -1445,6 +1445,168 @@ static void case_seq_frozen_and_range(void)
     check_ll("FILL 超宽不调引擎", g_stub.seq_fill_calls, 0);
 }
 
+/* P4-C Task 8：sections / quick chain / SONG 命令与投影。状态层只校验公共边界、
+ * 透传 POD 并按返回码写 seq_status；UI 不读上游全局（song 快照由 sync/命令刷新）。 */
+static void case_song_section_chain(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    check_ll("init 读歌曲快照", g_stub.song_read_calls, 1);
+    g_stub.song_snap.enabled = 1;
+    g_stub.song_snap.running = 1;
+    g_stub.song_snap.index = 1;
+    g_stub.song_snap.bar = 2;
+    g_stub.song_snap.ready = 0x7;
+    g_stub.song_snap.live = 3;
+    g_stub.song_snap.dirty = 1;
+    g_stub.song_snap.chain_count = 2;
+    g_stub.song_snap.srec = 1;
+    g_stub.song_snap.config.count = 3;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 拷贝 song.enabled", s.song.enabled, 1);
+    check_ll("sync 拷贝 song.running", s.song.running, 1);
+    check_ll("sync 拷贝 song.index", s.song.index, 1);
+    check_ll("sync 拷贝 song.bar", s.song.bar, 2);
+    check_ll("sync 拷贝 song.ready", s.song.ready, 0x7);
+    check_ll("sync 拷贝 song.live", s.song.live, 3);
+    check_ll("sync 拷贝 song.dirty", s.song.dirty, 1);
+    check_ll("sync 拷贝 song.chain_count", s.song.chain_count, 2);
+    check_ll("sync 拷贝 song.srec", s.song.srec, 1);
+    check_ll("sync 拷贝 song.config.count", s.song.config.count, 3);
+    g_stub.song_snap.enabled = 0;
+    g_stub.song_snap.running = 0;
+
+    /* section store/load/erase/request：成功同拍刷新 song 快照 */
+    uint32_t reads = g_stub.song_read_calls;
+    apply(CMD_SECTION_STORE, 2, 0, 0);
+    check_ll("SECTION STORE 透传 slot", g_stub.section_last_slot, 2);
+    check_ll("SECTION STORE 透传 op", g_stub.section_last_op, 0);
+    check_ll("SECTION STORE 成功刷新快照", g_stub.song_read_calls, reads + 1);
+    state_get_copy(&s);
+    check_ll("SECTION STORE → ok", s.seq_status, SEQ_STATUS_OK);
+    reads = g_stub.song_read_calls;
+    apply(CMD_SECTION_LOAD, 1, 0, 0);
+    check_ll("SECTION LOAD op", g_stub.section_last_op, 1);
+    check_ll("SECTION LOAD 成功刷新快照", g_stub.song_read_calls, reads + 1);
+    apply(CMD_SECTION_ERASE, 3, 0, 0);
+    check_ll("SECTION ERASE op", g_stub.section_last_op, 2);
+    apply(CMD_SECTION_REQUEST, 0, 0, 0);
+    check_ll("SECTION REQUEST op", g_stub.section_last_op, 3);
+    uint32_t calls0 = g_stub.section_calls;
+    apply(CMD_SECTION_STORE, 4, 0, 0);
+    apply(CMD_SECTION_REQUEST, 4, 0, 0);
+    check_ll("SECTION 槽号越界不调 adapter", g_stub.section_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("SECTION 槽号越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+
+    /* 返回码映射：playing/blocked 与 frozen 分开；未就绪 → error */
+    g_stub.section_ret = ESP_ERR_NOT_ALLOWED;
+    apply(CMD_SECTION_LOAD, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("SECTION 播放中 → blocked", s.seq_status, SEQ_STATUS_BLOCKED);
+    g_stub.section_ret = ESP_ERR_NOT_FOUND;
+    apply(CMD_SECTION_LOAD, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("SECTION 空槽 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    g_stub.seq_frozen = true;
+    g_stub.section_ret = ESP_ERR_INVALID_STATE;
+    apply(CMD_SECTION_LOAD, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("SECTION 冻结 → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
+    apply(CMD_SECTION_LOAD, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("SECTION 存储未就绪 → error", s.seq_status, SEQ_STATUS_ERROR);
+    g_stub.section_ret = ESP_OK;
+
+    /* quick chain：begin 单值、commit POD 数组、cancel = count 0 */
+    apply(CMD_CHAIN_BEGIN, 2, 0, 0);
+    check_ll("CHAIN BEGIN 透传首项", g_stub.chain_last_first, 2);
+    const uint8_t scenes[] = {2, 0, 1};
+    edit_cmd_t c = {.type = CMD_CHAIN_COMMIT, .p = scenes, .n = 3};
+    state_apply(&c);
+    check_ll("CHAIN COMMIT 透传项数", g_stub.chain_last_count, 3);
+    check_ll("CHAIN COMMIT 首项", g_stub.chain_last_scenes[0], 2);
+    check_ll("CHAIN COMMIT 次项", g_stub.chain_last_scenes[1], 0);
+    check_ll("CHAIN COMMIT 末项", g_stub.chain_last_scenes[2], 1);
+    state_get_copy(&s);
+    check_ll("CHAIN COMMIT → ok", s.seq_status, SEQ_STATUS_OK);
+    apply(CMD_CHAIN_CANCEL, 0, 0, 0);
+    check_ll("CHAIN CANCEL = commit count 0", g_stub.chain_last_count, 0);
+    calls0 = g_stub.chain_begin_calls;
+    apply(CMD_CHAIN_BEGIN, 4, 0, 0);
+    check_ll("CHAIN BEGIN 槽号越界不调 adapter", g_stub.chain_begin_calls - calls0, 0);
+    c.p = NULL;
+    c.n = 2;
+    calls0 = g_stub.chain_commit_calls;
+    state_apply(&c);
+    check_ll("CHAIN COMMIT 空数组不调 adapter", g_stub.chain_commit_calls - calls0, 0);
+    g_stub.chain_ret = ESP_ERR_NOT_ALLOWED;
+    apply(CMD_CHAIN_BEGIN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("CHAIN 播放中（SONG）→ blocked", s.seq_status, SEQ_STATUS_BLOCKED);
+    g_stub.chain_ret = ESP_OK;
+
+    /* SONG MODE / REC / SET */
+    apply(CMD_SONG_MODE, 1, 0, 0);
+    check_ll("SONG MODE 透传", g_stub.song_mode_last, 1);
+    apply(CMD_SONG_MODE, 0, 0, 0);
+    check_ll("SONG MODE 关", g_stub.song_mode_last, 0);
+    calls0 = g_stub.song_mode_calls;
+    apply(CMD_SONG_MODE, 2, 0, 0);
+    check_ll("SONG MODE 越界不调 adapter", g_stub.song_mode_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("SONG MODE 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    apply(CMD_SONG_REC, 0, 0, 0);
+    check_ll("SONG REC 调 adapter", g_stub.song_rec_calls, 1);
+    g_stub.song_ret = ESP_ERR_NOT_ALLOWED;
+    apply(CMD_SONG_REC, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("SONG REC 走带中 → blocked", s.seq_status, SEQ_STATUS_BLOCKED);
+    g_stub.song_ret = ESP_OK;
+
+    sloop_song_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.count = 2;
+    cfg.loop = 1;
+    cfg.entry[0].scene = 0;
+    cfg.entry[0].bars = 2;
+    cfg.entry[1].scene = 1;
+    cfg.entry[1].bars = 3;
+    edit_cmd_t set = {.type = CMD_SONG_SET, .p = &cfg};
+    reads = g_stub.song_read_calls;
+    state_apply(&set);
+    check_ll("SONG SET 调存储入口", g_stub.song_set_calls, 1);
+    check_ll("SONG SET 透传 count", g_stub.song_set_last.count, 2);
+    check_ll("SONG SET 透传 loop", g_stub.song_set_last.loop, 1);
+    check_ll("SONG SET 透传 entry", g_stub.song_set_last.entry[1].bars, 3);
+    check_ll("SONG SET 成功刷新快照", g_stub.song_read_calls, reads + 1);
+    state_get_copy(&s);
+    check_ll("SONG SET → ok", s.seq_status, SEQ_STATUS_OK);
+    calls0 = g_stub.song_set_calls;
+    edit_cmd_t null_set = {.type = CMD_SONG_SET, .p = NULL};
+    state_apply(&null_set);
+    check_ll("SONG SET 空载荷不调存储", g_stub.song_set_calls - calls0, 0);
+    state_get_copy(&s);
+    check_ll("SONG SET 空载荷 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    g_stub.store_ret = ESP_ERR_INVALID_ARG;
+    state_apply(&set);
+    state_get_copy(&s);
+    check_ll("SONG SET 非法歌曲 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    g_stub.store_ret = ESP_OK;
+
+    /* Task 6 deferral：fill_held/fill_arm 进录音投影 */
+    g_stub.rec.fill_held = 1;
+    g_stub.rec.fill_arm = 1;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 拷贝 rec.fill_held", s.rec.fill_held, 1);
+    check_ll("sync 拷贝 rec.fill_arm", s.rec.fill_arm, 1);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -1474,6 +1636,7 @@ int main(void)
     run("sync 拷贝录音快照投影", case_rec_sync_projection);
     run("外部选轨同步 focus_track", case_external_selection_focus);
     run("冻结 toggle/erase 与 micro/fill 超宽拒绝", case_seq_frozen_and_range);
+    run("sections/chain/SONG 命令与歌曲投影", case_song_section_chain);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

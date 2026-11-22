@@ -82,6 +82,10 @@ typedef enum {
     /* P4-C 录音/鼓演奏（Task 6）：REC 状态机、fill 表演控制、16 lane 鼓输入、
      * 物理 PLAY 键（drop 自由录音；与 API PLAY 的 close 分开） */
     CMD_REC_TOGGLE, CMD_REC_CONFIG, CMD_FILL_CONTROL, CMD_DRUM_HIT, CMD_PLAY_BUTTON,
+    /* P4-C arranger（Task 8）：live sections、quick chain、SONG 模式/REC/顺序 */
+    CMD_SECTION_STORE, CMD_SECTION_LOAD, CMD_SECTION_ERASE, CMD_SECTION_REQUEST,
+    CMD_CHAIN_BEGIN, CMD_CHAIN_COMMIT, CMD_CHAIN_CANCEL,
+    CMD_SONG_MODE, CMD_SONG_REC, CMD_SONG_SET,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -147,6 +151,22 @@ typedef enum {
  *                    中按下 = **drop**；其余情况请求普通走带。与 CMD_PLAY（API PLAY，
  *                    经过 sloop_core_play）分属两个入口：API PLAY 对自由录音是 close。
  *                    投影的 playing 不在此改写（下一拍 sync 取引擎真值）。
+ *  CMD_SECTION_STORE/LOAD/ERASE/REQUEST a=slot(0..3)：分发 sloop_seq_section（STORE、
+ *                    LOAD/ERASE）与 sloop_seq_section_request。STORE 播放中也允许
+ *                    （RAM 捕获 + dirty，flash 由 1s 任务门限写）；LOAD/ERASE 仅停止态
+ *                    （走带中 adapter 回 NOT_ALLOWED → seq_status=BLOCKED）；REQUEST 只在
+ *                    live loop 播放中排队、下一小节生效。槽号越界不调 adapter。
+ *                    成功后同拍重读 song 快照；LOAD/ERASE 还整份刷新引擎投影（会改轨）。
+ *  CMD_CHAIN_BEGIN a=first(0..3)：sloop_seq_chain_begin（立即排队 live_req 并清旧 chain）。
+ *  CMD_CHAIN_COMMIT p=uint8_t 数组 n=1..8：一次原子安装（任一 scene 空/非法则整份拒绝）。
+ *  CMD_CHAIN_CANCEL = COMMIT count 0：清 chain、保留已排队的 section（单 tap 语义）。
+ *  CMD_SONG_MODE a=0|1：SONG/LOOP 模式；SONG REC 中 adapter 回 NOT_ALLOWED（"REC IS ON"）。
+ *  CMD_SONG_REC：SONG REC toggle（从下一小节录；再按 = 收尾并按门限落盘）。
+ *  CMD_SONG_SET p=sloop_song_config_t：透传 sloop_store_song_set（只改内存 + dirty，
+ *                   落盘由同一 1s 任务完成）；指针只在 state_apply 返回前有效。
+ *  上述命令的返回码写 seq_status：NOT_ALLOWED → BLOCKED（走带中/SONG 播放中/REC IS ON）、
+ *  INVALID_STATE 且 seq_frozen → FROZEN、其余 INVALID_STATE（存储未就绪）→ ERROR；
+ *  成功同拍刷新 app_state_t.song（UI 不读上游全局）。
  *  CMD_PROJECT_SAVE/LOAD/ERASE a=slot(0..3)：分发 sloop_store_project_*。槽号越界不调
  *                    存储 API、不改 store_status。否则返回码按 app_store_status_t 映射
  *                    写 store_status；**成功（ESP_OK）后整份刷新投影**（一次窗口快照 +
@@ -199,7 +219,7 @@ typedef enum {
 typedef enum {
     SEQ_STATUS_IDLE = 0,       /* 尚无音序命令 */
     SEQ_STATUS_OK = 1,         /* 成功且详细窗口已同拍刷新 */
-    SEQ_STATUS_NOT_FOUND = 2,  /* 空步/无匹配音/无 undo */
+    SEQ_STATUS_NOT_FOUND = 2,  /* 空步/无匹配音/无 undo/空 section/无此 scene */
     SEQ_STATUS_INVALID = 3,    /* 非法轨、步、op、参数或参数值 */
     SEQ_STATUS_FULL = 4,       /* ESP_ERR_NO_MEM */
     SEQ_STATUS_BLOCKED = 5,    /* ESP_ERR_NOT_ALLOWED */
@@ -222,6 +242,9 @@ typedef struct {
     uint8_t seq_status;         /* 最近一次音序命令的结果（app_seq_status_t） */
     sloop_rec_snapshot_t rec;   /* 录音状态投影（sloop_seq_rec_read；一次性 take 结果
                                  * 在 sync/命令重取时被消费，见 sloop_seq.h） */
+    sloop_song_snapshot_t song; /* arranger 只读投影（enabled/running/index/bar/ready/live/
+                                 * dirty/chain/srec + 16 项顺序）：SONG 页与 TRANSPORT 的
+                                 * 状态行都读这里，不直接碰上游全局（Task 8） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */

@@ -7,11 +7,64 @@
 #include <stdio.h>
 #include <string.h>
 
+/* P4-C Task 8：arranger/live sections/quick chain/SONG 是 seq.c 的 FELUCCA_ARRANGER
+ * 段，场景应用在 arranger_scene.c（消费 project.c 的 proj_slot/proj_apply）。与上游
+ * song_audio_test 同序编入：hostsim(FELUCCA_ARRANGER=1) → project.c(PROJ_HOST) →
+ * arranger_scene.c。 */
+#define FELUCCA_ARRANGER 1
 #define main hostsim_main
 #include "../third_party/sloop-fm1/tests/hostsim.c"
 #undef main
 
+#define PROJ_HOST 1
+static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? i : 0; }
+#include "../third_party/sloop-fm1/firmware/src/project.c"
+#undef PROJ_HOST
+static struct { uint8_t force; } ui;
+static uint8_t sync_reload;
+#include "../third_party/sloop-fm1/firmware/src/arranger_scene.c"
+
 #include "sloop_seq.h"
+#include "sloop_store.h"
+
+/* ---- Task 8 的存储替身（真实分区/flash 不在本可执行文件里）---------------------
+ * section 的 RAM 捕获在 seq_tab5.c（引擎锁内），这里只提供 dirty 记账与
+ * load/erase（真实实现在 store_tab5.c，设备 smoke 覆盖 flash 侧）。 */
+static uint8_t h_sec_dirty, h_song_dirty;
+
+bool sloop_store_sections_dirty(void) { return h_sec_dirty != 0; }
+bool sloop_store_song_dirty(void) { return h_song_dirty != 0; }
+void sloop_store_song_dirty_mark(void) { h_song_dirty = 1; }
+void sloop_store_section_dirty_mark(uint32_t slot)
+{
+    if (slot < 4u) h_sec_dirty |= (uint8_t)(1u << slot);
+}
+
+esp_err_t sloop_store_section_load(uint32_t slot)
+{
+    if (slot >= 4u) return ESP_ERR_INVALID_ARG;
+    if (song.playing || transport_req) return ESP_ERR_NOT_ALLOWED;
+    project_t *p = &proj_slot[slot];
+    if (!proj_ok(p)) return ESP_ERR_NOT_FOUND;
+    transport_req = 2;
+    panic_req = (1u << NTRK) - 1u;
+    proj_apply(p, 1);
+    song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
+    live_sec = (int8_t)slot;
+    return ESP_OK;
+}
+
+esp_err_t sloop_store_section_erase(uint32_t slot)
+{
+    if (slot >= 4u) return ESP_ERR_INVALID_ARG;
+    if (song.playing || transport_req) return ESP_ERR_NOT_ALLOWED;
+    if (!proj_ok(&proj_slot[slot])) return ESP_ERR_NOT_FOUND;
+    memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+    h_sec_dirty &= (uint8_t)~(1u << slot);
+    if (live_sec == (int8_t)slot) live_sec = -1;
+    if (arr_drop_scene(&arrangement, slot)) h_song_dirty = 1;
+    return ESP_OK;
+}
 
 static bool s_frozen;
 static bool freeze_on_lock;
@@ -76,6 +129,22 @@ static void reset(void)
     fill_arm = 0;
     fill_bar_on = 0;
     fill_now = 0;
+    /* P4-C Task 8：arranger / live sections / chain / SONG REC 的上游运行态 */
+    arr_defaults(&arrangement);
+    arrangement_enabled = 0;
+    memset(&arrangement_clock, 0, sizeof arrangement_clock);
+    live_req = -1;
+    live_sec = -1;
+    live_bar = 0xFFFFFFFFu;
+    chain_n = chain_i = chain_bars = 0;
+    memset((void *)chain_sec, 0, sizeof chain_sec);
+    srec = srec_n = srec_done = 0;
+    memset(srec_e, 0, sizeof srec_e);
+    clk_beat = 0;
+    clk_pos = 0;
+    h_sec_dirty = h_song_dirty = 0;
+    s_srec_marked = 0;
+    memset(proj_slot, 0, sizeof proj_slot);
 }
 
 /* 一个音频块（CTL 帧）；fm1_ms 按块推进——ft_owns_press 的 300ms 窗口与上游一样
@@ -948,6 +1017,483 @@ static void test_rec_toggle_swallows_recent_take(void)
     rec_wait = 0;
 }
 
+/* ------------------------------------------------- P4-C Task 8: sections / chain / SONG --- */
+#define TEST_BPM 120u
+static uint32_t bar_blocks(void)
+{
+    return (uint32_t)((double)FS * 60.0 / (double)TEST_BPM * 4.0 / CTL + 0.5);
+}
+
+/* 构造一个 section：轨 0 一个音、LEN/div 决定 section_bars（16/div2 = 1 bar，32 = 2 bars） */
+static void build_section(uint32_t slot, uint8_t note, uint32_t len)
+{
+    for (uint32_t i = 0; i < NSTEP; i++) memset(&trk[0].step[i], 0, sizeof trk[0].step[i]);
+    trk[0].p[P_SLEN] = (int16_t)len;
+    trk[0].p[P_SDIV] = 2;
+    put_note(&trk[0], 0, note, 0);
+    proj_capture(&proj_slot[slot]);
+}
+
+/* 跑到绝对小节 bar 的开头（clk_beat 的 beat/4；按真实音频块推进，不伪造时钟） */
+static void run_until_abs_bar(uint32_t bar)
+{
+    uint32_t guard = 0;
+    while ((clk_beat >> 2) < bar && guard++ < 200000u) blocks(1);
+    blocks(1); /* live_block 在小节的第一拍之后才看到新小节（clk_beat 在块尾推进） */
+}
+
+static void song_snapshot(sloop_song_snapshot_t *out)
+{
+    memset(out, 0xA5, sizeof(*out));
+    sloop_seq_song_read(out);
+}
+
+static void test_song_snapshot_defaults(void)
+{
+    sloop_song_snapshot_t s;
+    reset();
+    song_snapshot(&s);
+    check(s.enabled == 0 && s.running == 0 && s.index == 0 && s.bar == 0 && s.ready == 0 &&
+              s.live == 0xFF && s.dirty == 0 && s.chain_count == 0 && s.srec == 0,
+          "fresh snapshot: loop mode, no section, no chain, no SONG REC");
+    check(s.config.count == 4 && s.config.loop == 0 && s.config.entry[0].scene == 0 &&
+              s.config.entry[1].scene == 1 && s.config.entry[2].scene == 2 &&
+              s.config.entry[3].scene == 3 && s.config.entry[0].bars == 4,
+          "default song order is A/B/C/D, 4 bars each (upstream arr_defaults)");
+    build_section(0, 40, 16);
+    build_section(2, 44, 16);
+    song_snapshot(&s);
+    check(s.ready == 0x5u, "ready is the A-D bitmap of valid project slots");
+    check(sloop_seq_song_mode(true) == ESP_OK, "SONG mode can be enabled");
+    song_snapshot(&s);
+    check(s.enabled == 1, "snapshot projects the SONG mode flag");
+    check(sloop_seq_song_mode(false) == ESP_OK, "SONG mode can be disabled");
+    srec = 1;
+    check(sloop_seq_song_mode(true) == ESP_ERR_NOT_ALLOWED, "SONG mode is refused while SONG REC runs");
+    srec = 0;
+    s_frozen = true;
+    song_snapshot(&s);
+    check(s.enabled == 0 && s.config.count == 0, "frozen snapshot is zeroed");
+    check(sloop_seq_song_mode(true) == ESP_ERR_INVALID_STATE &&
+              sloop_seq_song_rec() == ESP_ERR_INVALID_STATE,
+          "frozen arranger actions return invalid state");
+}
+
+static void test_song_a2b3_loop0(void)
+{
+    project_t live, after;
+    sloop_song_snapshot_t s;
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    for (uint32_t k = 0; k < NTRK; k++) {
+        trk[k].p[P_SLEN] = 16;
+        trk[k].p[P_SDIV] = 2;
+    }
+    put_note(&trk[0], 0, 36, 0);
+    song.sel = 1;
+    proj_capture(&live); /* the working loop the song must give back */
+    build_section(0, 40, 16); /* A: 1 bar */
+    build_section(1, 52, 32); /* B: 2 bars */
+    proj_apply(&live, 1); /* the working loop is the one playing (as section_load would) */
+    song.sel = 1;
+    arr_defaults(&arrangement);
+    arrangement.count = 2;
+    arrangement.loop = 0;
+    arrangement.entry[0] = (arr_entry_t){0, 2};
+    arrangement.entry[1] = (arr_entry_t){1, 3};
+    check(sloop_seq_song_mode(true) == ESP_OK, "A2+B3 fixture is in SONG mode");
+    transport_req = 1;
+    uint32_t bar = bar_blocks(), t = 0, at_b = 0, at_stop = 0;
+    for (uint32_t i = 0; i < 7u * bar && !at_stop; i++) {
+        blocks(1);
+        t++;
+        if (arrangement_clock.index == 1u && !at_b) at_b = t;
+        if (!song.playing) at_stop = t;
+    }
+    check(song.playing == 0 && arrangement_clock.running == 0, "loop=0 SONG stops by itself after the last bar");
+    check(at_b >= 2u * bar && at_b < 2u * bar + 32u,
+          "entry B starts exactly after A's 2 bars");
+    check(at_stop >= 5u * bar && at_stop < 5u * bar + 32u,
+          "A2+B3 ends after 5 bars in total");
+    proj_capture(&after);
+    check(after.sum == live.sum && song.sel == 1u && memcmp(&after, &live, sizeof after) == 0,
+          "the working loop and its selected track come back after the song ends");
+    check(trk[0].step[0].note[0] == 36, "the loop's pattern is restored, not the last section's");
+    song_snapshot(&s);
+    check(s.running == 0 && s.enabled == 1, "snapshot after the natural end: loop mode flag kept, no song running");
+}
+
+static void test_song_loop1_stop_restore(void)
+{
+    project_t live, after;
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    for (uint32_t k = 0; k < NTRK; k++) {
+        trk[k].p[P_SLEN] = 16;
+        trk[k].p[P_SDIV] = 2;
+    }
+    put_note(&trk[0], 0, 38, 0);
+    song.sel = 2;
+    proj_capture(&live);
+    build_section(0, 41, 16);
+    build_section(1, 53, 16);
+    proj_apply(&live, 1);
+    song.sel = 2;
+    arr_defaults(&arrangement);
+    arrangement.count = 2;
+    arrangement.loop = 1;
+    arrangement.entry[0] = (arr_entry_t){0, 1};
+    arrangement.entry[1] = (arr_entry_t){1, 1};
+    check(sloop_seq_song_mode(true) == ESP_OK, "loop=1 fixture is in SONG mode");
+    transport_req = 1;
+    blocks(bar_blocks() + bar_blocks() / 2u); /* 1.5 bars: B is playing */
+    check(song.playing && arrangement_clock.index == 1u, "loop=1 wraps into entry B");
+    transport_req = 2;
+    blocks(2);
+    proj_capture(&after);
+    check(!song.playing && arrangement_clock.running == 0, "STOP ends loop=1 SONG");
+    check(after.sum == live.sum && song.sel == 2u && memcmp(&after, &live, sizeof after) == 0,
+          "STOP gives the working loop and selected track back");
+}
+
+static void test_song_missing_scene(void)
+{
+    project_t live, after;
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    for (uint32_t k = 0; k < NTRK; k++) {
+        trk[k].p[P_SLEN] = 16;
+        trk[k].p[P_SDIV] = 2;
+    }
+    put_note(&trk[0], 0, 39, 0);
+    proj_capture(&live);
+    build_section(0, 42, 16);
+    proj_apply(&live, 1); /* the working loop is playing again */
+    arr_defaults(&arrangement);
+    arrangement.count = 2;
+    arrangement.entry[0] = (arr_entry_t){0, 2};
+    arrangement.entry[1] = (arr_entry_t){3, 2}; /* D: no project */
+    check(sloop_seq_song_mode(true) == ESP_OK, "missing-scene fixture is in SONG mode");
+    transport_req = 1;
+    blocks(4);
+    proj_capture(&after);
+    check(!song.playing && arrangement_clock.running == 0 && arrangement_clock.error,
+          "a missing later scene refuses the whole song (not even scene A starts)");
+    check(after.sum == live.sum && memcmp(&after, &live, sizeof after) == 0,
+          "the refused song leaves the working loop untouched");
+}
+
+static void test_section_live_store(void)
+{
+    sloop_song_snapshot_t s;
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    transport_req = 1;
+    blocks(1);
+    live_sec = 0;
+    put_note(&trk[0], 4, 67, 0);
+    uint32_t locks = engine_lock_calls;
+    check(sloop_seq_section(0, true, false) == ESP_OK, "live STORE captures a section while playing");
+    check(engine_lock_calls == locks + 1u, "section capture takes the engine lock exactly once");
+    check(proj_ok(&proj_slot[0]) && proj_slot[0].t[0].step[4].note[0] == 67,
+          "the captured section is immediately the RAM slot's content");
+    check(live_sec == 0 && (h_sec_dirty & 1u) && h_song_dirty == 0,
+          "STORE marks only the section dirty (flash happens later, outside the engine lock)");
+    song_snapshot(&s);
+    check(s.live == 0 && s.dirty == 1 && s.ready == 0x1u,
+          "snapshot reports the live section and the pending flush");
+    check(sloop_seq_section(4, true, false) == ESP_ERR_INVALID_ARG &&
+              sloop_seq_section(0, true, true) == ESP_ERR_INVALID_ARG,
+          "section store rejects invalid slots and store+erase together");
+    step_t before = proj_slot[0].t[0].step[4];
+    s_frozen = true;
+    check(sloop_seq_section(0, true, false) == ESP_ERR_INVALID_STATE &&
+              memcmp(&before, &proj_slot[0].t[0].step[4], sizeof before) == 0,
+          "frozen section store returns invalid state without capturing");
+    transport_req = 2;
+    blocks(1);
+}
+
+static void test_section_load_erase(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(1, 50, 16);
+    check(sloop_seq_section(1, false, false) == ESP_OK && live_sec == 1 &&
+              trk[0].step[0].note[0] == 50,
+          "stopped LOAD applies the RAM section and makes it live");
+    blocks(2); /* 上游 project_apply 置 transport_req=2：渲染块消费掉它 */
+    check(sloop_seq_section(2, false, false) == ESP_ERR_NOT_FOUND, "LOAD of an empty section is not found");
+    check(sloop_seq_section(1, false, true) == ESP_OK, "ERASE clears a stopped section");
+    check(!proj_ok(&proj_slot[1]) && live_sec == -1 && (h_sec_dirty & 2u) == 0,
+          "ERASE clears the RAM slot, the live section and its dirty bit");
+    check(sloop_seq_section(1, false, true) == ESP_ERR_NOT_FOUND, "ERASE of an empty section is not found");
+    arrangement.count = 2;
+    arrangement.entry[0] = (arr_entry_t){1, 3};
+    arrangement.entry[1] = (arr_entry_t){1, 2};
+    check(sloop_seq_section(0, false, true) == ESP_ERR_NOT_FOUND, "ERASE of an empty slot writes nothing");
+    build_section(0, 51, 16);
+    arrangement.count = 2;
+    arrangement.entry[0] = (arr_entry_t){0, 3};
+    arrangement.entry[1] = (arr_entry_t){1, 2};
+    check(sloop_seq_section(0, false, true) == ESP_OK && arrangement.count == 1u,
+          "ERASE drops the erased scene from the song order");
+    check(arrangement.entry[0].scene == 1 && arrangement.entry[0].bars == 2 && h_song_dirty,
+          "the surviving song entry is kept and the song is marked dirty");
+    transport_req = 1;
+    blocks(1);
+    check(sloop_seq_section(0, false, false) == ESP_ERR_NOT_ALLOWED,
+          "section LOAD is refused while the transport runs (scene changes go through live_req)");
+    transport_req = 2;
+    blocks(1);
+}
+
+static void test_section_request(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    build_section(1, 52, 32);
+    check(sloop_seq_section(0, false, false) == ESP_OK, "request fixture loads A");
+    transport_req = 1;
+    blocks(1);
+    check(sloop_seq_section_request(1) == ESP_OK && live_req == 1 && chain_n == 0,
+          "a live request is queued for the next bar and cancels any chain");
+    blocks(bar_blocks() + 2u);
+    check(live_sec == 1, "the queued section starts on the next bar");
+    check(sloop_seq_section_request(3) == ESP_ERR_NOT_FOUND, "requesting an empty section is not found");
+    check(sloop_seq_section_request(4) == ESP_ERR_INVALID_ARG, "requesting slot 4 is invalid");
+    transport_req = 2;
+    blocks(2);
+    check(sloop_seq_section_request(0) == ESP_ERR_NOT_ALLOWED,
+          "a stopped transport has no next bar to request for (LOAD instead)");
+    transport_req = 1;
+    blocks(1);
+    arrangement_enabled = 1;
+    arr_defaults(&arrangement);
+    arrangement.count = 1;
+    arrangement.entry[0] = (arr_entry_t){0, 1};
+    transport_req = 2;
+    blocks(1);
+    transport_req = 1;
+    blocks(2);
+    check(arrangement_clock.running, "song fixture is playing");
+    check(sloop_seq_section_request(1) == ESP_ERR_NOT_ALLOWED,
+          "a live section request is refused while the song plays");
+    transport_req = 2;
+    blocks(1);
+}
+
+static void test_chain_auto_bars(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16); /* 1 bar */
+    build_section(1, 52, 32); /* 2 bars */
+    check(sloop_seq_section(0, false, false) == ESP_OK, "chain fixture loads A");
+    transport_req = 1;
+    blocks(bar_blocks() * 2u); /* settle mid bar 2 */
+    check(sloop_seq_chain_begin(0) == ESP_OK && live_req == 0 && chain_n == 0,
+          "chain begin queues the first section right away (and cancels an older chain)");
+    const uint8_t ab[] = {0, 1};
+    check(sloop_seq_chain_commit(ab, 2) == ESP_OK, "chain commit installs A/B atomically");
+    sloop_song_snapshot_t s;
+    song_snapshot(&s);
+    check(s.chain_count == 2 && s.chain_index == 0 && s.chain_bars == 1,
+          "the chain state follows: A first, one bar");
+    uint32_t bar = bar_blocks(), t = 0, n = 0;
+    uint8_t seen[3] = {1, 0, 0};
+    uint32_t at[3] = {0, 0, 0};
+    int8_t last = live_sec;
+    for (uint32_t i = 0; i < 6u * bar + 4u && n < 3u; i++) {
+        blocks(1);
+        t++;
+        if (live_sec != last) {
+            last = live_sec;
+            seen[n] = (uint8_t)live_sec;
+            at[n++] = t;
+        }
+    }
+    check(n == 3u && seen[0] == 1 && seen[1] == 0 && seen[2] == 1,
+          "chain A/B/A keeps the order");
+    check(n == 3u && at[0] + 32u >= bar && at[0] <= bar + 32u,
+          "A plays its own bar count (B starts one bar in)");
+    check(n == 3u && at[1] - at[0] + 32u >= 2u * bar && at[1] - at[0] <= 2u * bar + 32u,
+          "B plays two bars (its longest pattern) before A returns");
+    song_snapshot(&s);
+    check(s.chain_count == 2 && s.chain_index == 1 && s.chain_bars == 2,
+          "after the round the chain state follows: entry B, two bars");
+    transport_req = 2;
+    blocks(1);
+    check(!song.playing && chain_n == 0, "STOP drops the chain");
+}
+
+static void test_chain_limits_and_cancel(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    build_section(1, 52, 16);
+    check(sloop_seq_chain_begin(0) == ESP_ERR_NOT_ALLOWED,
+          "chain begin needs a playing live loop");
+    check(sloop_seq_chain_commit((const uint8_t[]){0}, 1) == ESP_ERR_NOT_ALLOWED,
+          "chain commit needs a playing live loop");
+    check(sloop_seq_section(0, false, false) == ESP_OK, "chain-limit fixture loads A");
+    transport_req = 1;
+    blocks(1);
+    const uint8_t two[] = {0, 1};
+    check(sloop_seq_chain_begin(0) == ESP_OK && sloop_seq_chain_commit(two, 2) == ESP_OK,
+          "chain fixture is playing A/B");
+    const uint8_t nine[] = {0, 1, 0, 1, 0, 1, 0, 1, 0};
+    check(sloop_seq_chain_commit(nine, 9) == ESP_ERR_INVALID_ARG && chain_n == 2u,
+          "a nine-entry chain is refused and leaves the installed chain unchanged");
+    check(sloop_seq_chain_commit(NULL, 1) == ESP_ERR_INVALID_ARG, "a null scene list is invalid");
+    const uint8_t empty[] = {3};
+    check(sloop_seq_chain_commit(empty, 1) == ESP_ERR_NOT_FOUND && chain_n == 2u,
+          "a chain naming an empty section is refused atomically");
+    check(sloop_seq_chain_commit(NULL, 0) == ESP_OK && chain_n == 0u,
+          "count 0 cancels the chain");
+    check(sloop_seq_chain_begin(0) == ESP_OK && sloop_seq_chain_commit(two, 2) == ESP_OK,
+          "the cancelled chain can be rebuilt");
+    blocks(bar_blocks());
+    check(sloop_seq_chain_begin(0) == ESP_OK && chain_n == 0 && live_req == 0,
+          "a single section tap cancels the chain and asks for A");
+    int8_t first = live_sec;
+    blocks(bar_blocks() * 3u);
+    check(live_sec == 0 && first == 0, "the single tap keeps A playing (no chain comes back)");
+    transport_req = 2;
+    blocks(1);
+}
+
+static void test_srec_next_bar(void)
+{
+    sloop_song_snapshot_t s;
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    build_section(1, 52, 16);
+    check(sloop_seq_section(0, false, false) == ESP_OK, "SONG REC fixture loads A");
+    blocks(2); /* 消费 section LOAD 的 transport_req=2 */
+    transport_req = 1;
+    blocks(1);
+    uint32_t b0 = clk_beat >> 2;
+    check(sloop_seq_song_rec() == ESP_OK && srec == 1 && arrangement_enabled == 0,
+          "SONG REC arms on the next bar and forces loop mode");
+    run_until_abs_bar(b0 + 1u); /* 下一个小节：take 开始 */
+    check(srec == 2 && srec_n == 1u && srec_e[0].scene == 0 && srec_e[0].bars == 0u,
+          "the take starts at the next bar, with the live section");
+    run_until_abs_bar(b0 + 2u); /* A 完整播放了 1 小节 */
+    check(srec_e[0].bars == 1u, "A's first bar is counted");
+    check(sloop_seq_section_request(1) == ESP_OK, "B is asked for at the next bar");
+    /* section 切换会 seq_reset_tracks（小节号归零），所以按「请求后再跑 3.25 小节」
+     * 计时：B 在下一小节开始，播满 2 小节 + 停止时的当前小节 = 3 小节。 */
+    blocks(3u * bar_blocks() + bar_blocks() / 4u);
+    transport_req = 2;
+    blocks(2);
+    check(srec == 0 && srec_done == 2u, "STOP finishes the take with two parts");
+    check(arrangement.count == 2u && arrangement.entry[0].scene == 0 && arrangement.entry[0].bars == 2u &&
+              arrangement.entry[1].scene == 1 && arrangement.entry[1].bars == 3u,
+          "SONG REC writes A 2 bars + B 3 bars (the bar playing counts)");
+    song_snapshot(&s);
+    check(s.srec == 0 && s.srec_done == 2u && s.dirty == 1,
+          "the finished take is projected and marks the song dirty for the delayed writer");
+    h_song_dirty = 0;
+    s_srec_marked = 0; /* 模拟一次新的适配层视图：srec_done 对账应只发生一次 */
+    song_snapshot(&s);
+    check(h_song_dirty == 1, "the dirty mark is reconciled from srec_done once per take");
+    h_song_dirty = 0;
+    song_snapshot(&s);
+    check(h_song_dirty == 0, "later 30ms snapshots do not re-mark the same take");
+}
+
+static void test_srec_64_bars_split(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    check(sloop_seq_section(0, false, false) == ESP_OK, "64-bar fixture loads A");
+    blocks(2);
+    transport_req = 1;
+    blocks(1);
+    uint32_t b0 = clk_beat >> 2;
+    check(sloop_seq_song_rec() == ESP_OK, "64-bar take arms");
+    run_until_abs_bar(b0 + 1u);
+    check(srec == 2 && srec_n == 1u, "the take is recording");
+    run_until_abs_bar(b0 + 66u); /* 第 64 小节边界处拆分；再多跑两小节余量 */
+    check(srec_n == 2u && srec_e[0].scene == 0 && srec_e[0].bars == 64u && srec_e[1].bars >= 1u,
+          "64 bars of one section split into a second entry (never more than 64 bars)");
+    blocks(bar_blocks() / 4u);
+    transport_req = 2;
+    blocks(2);
+    check(srec == 0 && srec_done == 2u && arrangement.count == 2u && arrangement.entry[0].bars == 64u,
+          "the split take finishes as a two-entry song");
+}
+
+static void test_srec_16_items_finish(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    build_section(1, 52, 16);
+    check(sloop_seq_section(0, false, false) == ESP_OK, "16-item fixture loads A");
+    blocks(2);
+    transport_req = 1;
+    blocks(1);
+    uint32_t b0 = clk_beat >> 2;
+    check(sloop_seq_song_rec() == ESP_OK, "16-item take arms");
+    run_until_abs_bar(b0 + 1u);
+    check(srec == 2 && srec_n == 1u, "16-item take is recording");
+    for (uint32_t rounds = 0; srec_n < 16u && rounds < 40u; rounds++) {
+        uint32_t bar = clk_beat >> 2;
+        check(sloop_seq_section_request(srec_n & 1u) == ESP_OK, "the next section is requested");
+        run_until_abs_bar(bar + 1u);
+    }
+    check(srec == 2 && srec_n == 16u, "sixteen section changes fill the song");
+    {
+        uint32_t bar = clk_beat >> 2;
+        sloop_seq_section_request(1);
+        run_until_abs_bar(bar + 1u);
+    }
+    check(srec == 0 && srec_done == 16u && arrangement.count == 16u,
+          "a seventeenth change finishes the take with 16 entries (upstream srec_finish)");
+    transport_req = 2;
+    blocks(1);
+}
+
+static void test_srec_empty_no_song(void)
+{
+    sloop_song_snapshot_t s;
+    arr_config_t before;
+    reset();
+    before = arrangement;
+    srec = 2;
+    srec_n = 0;
+    check(sloop_seq_song_rec() == ESP_OK, "stopping an empty take is accepted");
+    check(srec == 0 && srec_done == 0xFFu, "an empty take reports NO SONG (0xFF), not a zero-part song");
+    check(memcmp(&arrangement, &before, sizeof before) == 0, "an empty take leaves the song order untouched");
+    song_snapshot(&s);
+    check(s.srec_done == 0xFFu && s.dirty == 0, "NO SONG is projected and marks nothing dirty");
+    srec = 1;
+    check(sloop_seq_song_rec() == ESP_OK && srec == 0 && srec_done == 0xFFu,
+          "cancelling an armed (not yet recording) take keeps the old result");
+}
+
+static void test_rec_fill_projection(void)
+{
+    sloop_rec_snapshot_t r;
+    reset();
+    check(sloop_seq_fill_control(true, false) == ESP_OK, "FILL held goes down");
+    rec_snapshot(&r);
+    check(r.fill_held == 1 && r.fill_arm == 0, "REC snapshot projects the FILL hold level");
+    check(sloop_seq_fill_control(false, true) == ESP_OK, "FILL NEXT is a pulse");
+    rec_snapshot(&r);
+    check(r.fill_held == 1 && r.fill_arm == 1,
+          "NEXT flips the arm without touching the hold level");
+    check(sloop_seq_fill_control(false, false) == ESP_OK, "FILL released");
+    rec_snapshot(&r);
+    check(r.fill_held == 0 && r.fill_arm == 1, "release clears only the hold level");
+}
+
 static void test_play_release_without_lock(void)
 {
     reset();
@@ -991,6 +1537,20 @@ int main(void)
     test_fill_next_independent_of_held();
     test_rec_toggle_swallows_recent_take();
     test_play_release_without_lock();
+    test_song_snapshot_defaults();
+    test_song_a2b3_loop0();
+    test_song_loop1_stop_restore();
+    test_song_missing_scene();
+    test_section_live_store();
+    test_section_load_erase();
+    test_section_request();
+    test_chain_auto_bars();
+    test_chain_limits_and_cancel();
+    test_srec_next_bar();
+    test_srec_64_bars_split();
+    test_srec_16_items_finish();
+    test_srec_empty_no_song();
+    test_rec_fill_projection();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }

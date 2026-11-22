@@ -46,6 +46,13 @@
  *    打印/驱动录音状态机（`SEQ REC` 读即消费一次性 take 结果；FILL HOLD 只写保持电平，
  *    FILL NEXT 是脉冲、只翻转下一小节待命），`SEQ HIT <lane>
  *    [velocity]` 与键盘鼓键同一路径（同一 adapter），`STATE SNAP` 行尾带 rec 投影。
+ *    `SEQ SECTION [<A-D> STORE|LOAD|ERASE|REQUEST]`、`SEQ CHAIN [<A-D>…]`、
+ *    `SEQ SONG [MODE song|loop|REC]` 与 `SEQ SREC [TOGGLE]` 是 arranger 诊断面
+ *    （Task 8）：`SEQ SECTION`/`SEQ SONG`/`SEQ CHAIN` 无参打印 ready/live/dirty/
+ *    index/bar/config/chain；STORE 播放中也允许（RAM 捕获 + dirty，flash 由 1s 任务
+ *    门限写），LOAD/ERASE 只在停止态，REQUEST 下一小节生效（绝不用 project LOAD 做
+ *    播放中切场景）；`SEQ SREC` 打印 srec 状态与最近一次结果（none/no_song/N）。
+ *    错误令牌：blocked = 走带中/SONG 播放中/REC IS ON，frozen = 诊断冻结。
  *  - STORE：存储/工程诊断（P4-B，ADR-009）。STORE STATS 打印后端与对象状态
  *    （ready/base/span/map/objects/faults/armed）；STORE RAWTEST 对空闲逻辑扇区
  *    0xFB000（分区内 0x64000）做 erase → 写 0x5A 模式 → 校验 → 再 erase
@@ -2030,6 +2037,7 @@ static int seq_err_print(esp_err_t err)
     const char *token = err == ESP_ERR_NO_MEM ? "full" :
                         err == ESP_ERR_INVALID_ARG ? "invalid" :
                         err == ESP_ERR_NOT_ALLOWED ? "blocked" :
+                        err == ESP_ERR_NOT_FOUND ? "not_found" :
                         err == ESP_ERR_INVALID_STATE ? "frozen" : esp_err_to_name(err);
     printf("SEQ ERR %s\n", token);
     return 1;
@@ -2057,9 +2065,99 @@ static void seq_rec_print(void)
         snprintf(take, sizeof(take), "dropped");
     else if (r.take_bars != 0u)
         snprintf(take, sizeof(take), "%ubar", (unsigned)r.take_bars);
-    printf("SEQ REC state=%s track=%u quant=%s tempo=%s count=%s take=%s\n", state,
-           (unsigned)r.track, r.quant_off ? "off" : "on", r.tempo_mode ? "tempo" : "free",
-           r.count_mode ? "count" : "note", take);
+    printf("SEQ REC state=%s track=%u quant=%s tempo=%s count=%s take=%s fill_held=%u fill_arm=%u\n",
+           state, (unsigned)r.track, r.quant_off ? "off" : "on", r.tempo_mode ? "tempo" : "free",
+           r.count_mode ? "count" : "note", take, (unsigned)r.fill_held, (unsigned)r.fill_arm);
+}
+
+/* ------------------------------------------------- P4-C Task 8: sections / chain / SONG ---
+ * console 是诊断执行器：与 SONG 页/状态层共用 sloop_seq_section/chain/song_* 与
+ * sloop_store_song_*，只把运行态变成脚本可断言的回显。错误令牌沿用 SEQ 族：
+ * blocked = 走带中/SONG 播放中/REC IS ON，frozen = 诊断冻结，invalid = 参数/槽号，
+ * not_found = 空 section/无此音；存储未就绪的 INVALID_STATE 明确回 no_storage。 */
+static int seq_song_err(esp_err_t err)
+{
+    if (err == ESP_ERR_INVALID_STATE && !sloop_seq_frozen()) {
+        printf("SEQ ERR %s\n", sloop_store_ready() ? "playing" : "no_storage");
+        return 1;
+    }
+    return seq_err_print(err);
+}
+
+static const char *seq_scene_name(uint8_t scene, char *buf)
+{
+    if (scene < 4u) {
+        buf[0] = (char)('A' + scene);
+        buf[1] = 0;
+        return buf;
+    }
+    return "-";
+}
+
+static bool seq_scene_arg(const char *text, uint32_t *out)
+{
+    if (text[0] != 0 && text[1] == 0) {
+        if (text[0] >= 'A' && text[0] <= 'D') {
+            *out = (uint32_t)(text[0] - 'A');
+            return true;
+        }
+        if (text[0] >= 'a' && text[0] <= 'd') {
+            *out = (uint32_t)(text[0] - 'a');
+            return true;
+        }
+    }
+    return eng_uint(text, 3, out);
+}
+
+static const char *const SEQ_SREC_NAME[] = {"off", "armed", "recording"};
+
+static void seq_song_print(void)
+{
+    sloop_song_snapshot_t s;
+    char live[2];
+    sloop_seq_song_read(&s);
+    const char *srec = s.srec <= 2u ? SEQ_SREC_NAME[s.srec] : "?";
+    printf("SEQ SONG mode=%s running=%u index=%u bar=%u ready=0x%02X live=%s dirty=%u "
+           "chain=%u srec=%s count=%u loop=%u\n",
+           s.enabled ? "song" : "loop", (unsigned)s.running, (unsigned)s.index, (unsigned)s.bar,
+           (unsigned)s.ready, seq_scene_name(s.live, live), (unsigned)s.dirty,
+           (unsigned)s.chain_count, srec, (unsigned)s.config.count, (unsigned)s.config.loop);
+    for (uint32_t i = 0; i < s.config.count && i < SLOOP_SONG_ENTRIES; i++)
+        printf("SEQ SONG %u scene=%u bars=%u\n", (unsigned)i, (unsigned)s.config.entry[i].scene,
+               (unsigned)s.config.entry[i].bars);
+}
+
+/* SONG REC 状态与最近一次结果（0 = 无、0xFF = NO SONG、否则项数）。 */
+static void seq_srec_print(void)
+{
+    sloop_song_snapshot_t s;
+    char last[16] = "none";
+    sloop_seq_song_read(&s);
+    if (s.srec_done == 0xFFu)
+        snprintf(last, sizeof last, "no_song");
+    else if (s.srec_done != 0u)
+        snprintf(last, sizeof last, "%u", (unsigned)s.srec_done);
+    printf("SEQ SREC srec=%s last=%s\n",
+           s.srec <= 2u ? SEQ_SREC_NAME[s.srec] : "?", last);
+}
+
+static void seq_chain_print(void)
+{
+    sloop_song_snapshot_t s;
+    sloop_seq_song_read(&s);
+    printf("SEQ CHAIN count=%u index=%u bars=%u\n", (unsigned)s.chain_count,
+           (unsigned)s.chain_index, (unsigned)s.chain_bars);
+    for (uint32_t i = 0; i < s.chain_count && i < 8u; i++)
+        printf("SEQ CHAIN %u scene=%u\n", (unsigned)i, (unsigned)s.chain_scenes[i]);
+}
+
+static void seq_section_print(void)
+{
+    sloop_song_snapshot_t s;
+    char live[2];
+    sloop_seq_song_read(&s);
+    printf("SEQ SECTION ready=0x%02X live=%s dirty=%u index=%u bar=%u\n", (unsigned)s.ready,
+           seq_scene_name(s.live, live), (unsigned)s.dirty, (unsigned)s.index, (unsigned)s.bar);
 }
 
 static int seq_command(int argc, char **argv)
@@ -2278,6 +2376,93 @@ static int seq_command(int argc, char **argv)
         printf("SEQ HIT lane=%u velocity=%u OK\n", (unsigned)lane, (unsigned)vel);
         return 0;
     }
+    if (argc >= 2 && strcasecmp(argv[1], "SECTION") == 0) {
+        if (argc == 2) {
+            seq_section_print();
+            return 0;
+        }
+        uint32_t slot;
+        if (argc != 4 || !seq_scene_arg(argv[2], &slot)) return seq_err_print(ESP_ERR_INVALID_ARG);
+        const char *act = NULL;
+        esp_err_t ret;
+        if (strcasecmp(argv[3], "store") == 0) {
+            act = "STORE";
+            ret = sloop_seq_section(slot, true, false);
+        } else if (strcasecmp(argv[3], "load") == 0) {
+            act = "LOAD";
+            ret = sloop_seq_section(slot, false, false);
+        } else if (strcasecmp(argv[3], "erase") == 0) {
+            act = "ERASE";
+            ret = sloop_seq_section(slot, false, true);
+        } else if (strcasecmp(argv[3], "request") == 0) {
+            act = "REQUEST";
+            ret = sloop_seq_section_request(slot);
+        } else {
+            return seq_err_print(ESP_ERR_INVALID_ARG);
+        }
+        if (ret != ESP_OK) return seq_song_err(ret);
+        char name[2];
+        printf("SEQ SECTION %s %s OK\n", seq_scene_name((uint8_t)slot, name), act);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "CHAIN") == 0) {
+        if (argc == 2) {
+            seq_chain_print();
+            return 0;
+        }
+        if (argc > 10) return seq_err_print(ESP_ERR_INVALID_ARG); /* 1..8 个 scene */
+        uint8_t scenes[8];
+        uint32_t n = (uint32_t)argc - 2u;
+        for (uint32_t i = 0; i < n; i++) {
+            uint32_t scene;
+            if (!seq_scene_arg(argv[2 + i], &scene)) return seq_err_print(ESP_ERR_INVALID_ARG);
+            scenes[i] = (uint8_t)scene;
+        }
+        esp_err_t ret = sloop_seq_chain_begin(scenes[0]);
+        if (ret == ESP_OK && n >= 2u) ret = sloop_seq_chain_commit(scenes, n);
+        if (ret != ESP_OK) return seq_song_err(ret);
+        seq_chain_print();
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SONG") == 0) {
+        if (argc == 2) {
+            seq_song_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "REC") == 0) {
+            esp_err_t ret = sloop_seq_song_rec();
+            if (ret != ESP_OK) return seq_song_err(ret);
+            seq_srec_print();
+            return 0;
+        }
+        if (argc == 4 && strcasecmp(argv[2], "MODE") == 0) {
+            bool enabled;
+            if (strcasecmp(argv[3], "song") == 0 || strcmp(argv[3], "1") == 0)
+                enabled = true;
+            else if (strcasecmp(argv[3], "loop") == 0 || strcmp(argv[3], "0") == 0)
+                enabled = false;
+            else
+                return seq_err_print(ESP_ERR_INVALID_ARG);
+            esp_err_t ret = sloop_seq_song_mode(enabled);
+            if (ret != ESP_OK) return seq_song_err(ret);
+            printf("SEQ SONG mode=%s\n", enabled ? "song" : "loop");
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SREC") == 0) {
+        if (argc == 2) {
+            seq_srec_print();
+            return 0;
+        }
+        if (argc == 3 && strcasecmp(argv[2], "TOGGLE") == 0) {
+            esp_err_t ret = sloop_seq_song_rec();
+            if (ret != ESP_OK) return seq_song_err(ret);
+            seq_srec_print();
+            return 0;
+        }
+        return seq_err_print(ESP_ERR_INVALID_ARG);
+    }
     printf("用法: SEQ DSTEP [step=0..63] | SEQ MICRO <track=0..3> <step=0..63> <v=-32..31> | "
            "SEQ FILL <track=0..3> <step=0..63> <v=0..3> | SEQ LOCK LIST <track=0..3> | "
            "SEQ LOCK SET <track> <step> <param=0..%u> <value> | "
@@ -2287,7 +2472,10 @@ static int seq_command(int argc, char **argv)
            "SEQ PATTERN <CLEAR|UNDO|REDO> <track> | "
            "SEQ REC [TOGGLE | CONFIG <quant 0|1> <tempo 0|1> <count 0|1> | "
            "FILL HOLD <0|1> | FILL NEXT | BUTTON <0|1>] | "
-           "SEQ HIT <lane=0..15> [velocity=1..127；0=松开]\n",
+           "SEQ HIT <lane=0..15> [velocity=1..127；0=松开] | "
+           "SEQ SECTION [<A-D|0..3> STORE|LOAD|ERASE|REQUEST] | "
+           "SEQ CHAIN [<A-D|0..3>…] | "
+           "SEQ SONG [MODE <song|loop>|REC] | SEQ SREC [TOGGLE]\n",
            (unsigned)SLOOP_CORE_P_COUNT - 1u, (unsigned)SLOOP_CORE_P_COUNT, (unsigned)SLOOP_CORE_P_COUNT);
     return 1;
 }
@@ -2424,8 +2612,12 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t seq_cmd = {
         .command = "SEQ",
-        .help = "音序诊断：DSTEP/MICRO/FILL/LOCK；EDIT 音符工具；PATTERN 工具与 undo/redo",
-        .hint = "DSTEP [step]|MICRO/FILL <track> <step> <v>|LOCK ...|EDIT <op> <track> <step> [args]|PATTERN <op> <track> [arg]",
+        .help = "音序诊断：DSTEP/MICRO/FILL/LOCK；EDIT 音符工具；PATTERN 工具与 undo/redo；"
+                "REC/HIT 录音与鼓演奏；SECTION/CHAIN/SONG/SREC arranger（live section、"
+                "quick chain、SONG 模式与 SONG REC）",
+        .hint = "DSTEP [step]|MICRO/FILL <track> <step> <v>|LOCK ...|EDIT <op> <track> <step> [args]|"
+                "PATTERN <op> <track> [arg]|REC ...|HIT <lane> [vel]|SECTION [<A-D> STORE|LOAD|ERASE|REQUEST]|"
+                "CHAIN [<A-D>…]|SONG [MODE song|loop|REC]|SREC [TOGGLE]",
         .func = &seq_command,
     };
     ret = esp_console_cmd_register(&seq_cmd);

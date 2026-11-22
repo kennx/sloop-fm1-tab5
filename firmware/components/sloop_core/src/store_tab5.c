@@ -421,9 +421,13 @@ static volatile bool s_busy __attribute__((section(".noinit"))); /* 有线程持
  * 还没落盘」。`s_input_ms` 用 esp_timer 毫秒（与 autosave 的 FreeRTOS tick 各记各的，
  * 见 sloop_store_sections_tick 的说明）。`s_song_refused` 让「设置对象损坏」只告警一次。 */
 static song_pending_t s_song __attribute__((section(".noinit")));
-static uint32_t s_song_tried_ms __attribute__((section(".noinit")));
+static uint32_t s_sections_tried_ms __attribute__((section(".noinit")));
 static uint32_t s_input_ms __attribute__((section(".noinit")));
 static bool s_song_refused __attribute__((section(".noinit")));
+/* live sections A–D 的 dirty 位（P4-C Task 8）：捕获在 seq_tab5.c（引擎锁内），flash
+ * 与歌曲共用下面 tick 的停止/安静/idle 门限；.noinit 与 s_song 同理（自检 restore 不得
+ * 把「还没落盘」抹成已落盘）。 */
+static volatile uint8_t s_sec_dirty __attribute__((section(".noinit")));
 
 /* 上一次写动作（st_save / up_put / fm6_bank_put）的代价：spec §4.4/§5 要求 STORE STATS
  * 报告每次保存的 xrun 增量与耗时（擦除会关 cache、音频任务停顿，xrun 必然增长）。
@@ -502,8 +506,9 @@ esp_err_t sloop_store_init(void)
     s_last_input_ms = 0;
     s_input_ms = 0;
     memset(&s_song, 0, sizeof s_song);
-    s_song_tried_ms = 0;
+    s_sections_tried_ms = 0;
     s_song_refused = false;
+    s_sec_dirty = 0;
     s_busy = false;
     s_auto_task = NULL;
     sloop_store_raw_abort(); /* R27：RAW 上传状态在开机时归零（.noinit 是冷启动垃圾） */
@@ -626,6 +631,8 @@ esp_err_t sloop_store_project_save(uint32_t slot)
     engine_unlock();
     /* 擦/写 flash 期间不持引擎锁（ADR-009 §3 锁序）；失败时 RAM 槽保留新值（上游语义） */
     int rc = st_save(OBJ_PROJECT0 + slot, &proj_slot[slot], sizeof(project_t));
+    /* 不清 section dirty 位：擦写期间可能又有 live STORE 捕获同一槽（上游 project_save
+     * 同样不碰 sec_dirty）。多写一次是安全的，清掉新捕获才是丢数据。 */
     store_unlock();
     store_note_write(xr0, us0);
     if (rc != 0) {
@@ -633,6 +640,32 @@ esp_err_t sloop_store_project_save(uint32_t slot)
         return ESP_ERR_NOT_FINISHED;
     }
     return ESP_OK;
+}
+
+/* 上游 project.c 的 project_apply（UI 级：停走带 + panic + 应用整份工程 + 两条 fallback）。
+ * 调用方必须持存储锁且**不持引擎锁**；本函数内部取一次引擎锁。section_load 与普通
+ * PROJECT LOAD 共用，避免第二份「应用工程」语义。 */
+static void store_project_apply_locked(const project_t *p)
+{
+    engine_lock();
+    /* 接下来换成另一份工程，正在发声的音符必须释放、走带请求置停，鼓静音与 MIDI 表情
+     * 不随工程走（上游 project_apply）。 */
+    transport_req = 2;
+    panic_req = (uint8_t)((1u << NTRK) - 1u);
+    drum_mute = 0;
+    for (uint32_t k = 0; k < NTRK; k++) ex_off[k] = 0;
+    proj_apply(p, 1);
+    song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
+    /* 上游 project_apply 的后两步（project.c:663-668）：格式 1 工程里 preset == 0xFF
+     * 的轨（旧格式没有预置号）取默认声音并清图案；随后把「本固件没有的引擎」的轨
+     * 换回默认声音（proj_apply 已把引擎号绕回，参数是别人的）。 */
+    for (uint32_t k = 0; k < NPART; k++)
+        if (p->t[k].preset == 0xFFu) {
+            preset_apply_locked(&trk[k], TRK_DEF[k][1]);
+            steps_clear(&trk[k]);
+        }
+    proj_foreign_parts(p);
+    engine_unlock();
 }
 
 esp_err_t sloop_store_project_load(uint32_t slot)
@@ -659,25 +692,7 @@ esp_err_t sloop_store_project_load(uint32_t slot)
         store_unlock();
         return ESP_ERR_NOT_FOUND;
     }
-    engine_lock();
-    /* 上游 project_apply 的前置（spec §4.2：load = 停走带 + panic 全部轨）：接下来换成
-     * 另一份工程，正在发声的音符必须释放、走带请求置停，鼓静音与 MIDI 表情不随工程走。 */
-    transport_req = 2;
-    panic_req = (uint8_t)((1u << NTRK) - 1u);
-    drum_mute = 0;
-    for (uint32_t k = 0; k < NTRK; k++) ex_off[k] = 0;
-    proj_apply(p, 1);
-    song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
-    /* 上游 project_apply 的后两步（project.c:663-668）：格式 1 工程里 preset == 0xFF
-     * 的轨（旧格式没有预置号）取默认声音并清图案；随后把「本固件没有的引擎」的轨
-     * 换回默认声音（proj_apply 已把引擎号绕回，参数是别人的）。 */
-    for (uint32_t k = 0; k < NPART; k++)
-        if (p->t[k].preset == 0xFFu) {
-            preset_apply_locked(&trk[k], TRK_DEF[k][1]);
-            steps_clear(&trk[k]);
-        }
-    proj_foreign_parts(p);
-    engine_unlock();
+    store_project_apply_locked(p);
     store_unlock();
     return ESP_OK;
 }
@@ -698,7 +713,16 @@ esp_err_t sloop_store_project_erase(uint32_t slot)
     uint32_t xr0 = sloop_hal_audio_xruns();
     int64_t us0 = esp_timer_get_time();
     int rc = st_save(OBJ_PROJECT0 + slot, NULL, 0);
-    if (rc == 0) memset(&proj_slot[slot], 0, sizeof(project_t));
+    if (rc == 0) {
+        memset(&proj_slot[slot], 0, sizeof(project_t));
+        /* 上游 project_erase 的 IRQ off 段：清 dirty 位、撤 live_sec、把歌曲里引用该
+         * scene 的项拿走（一段不剩回默认歌曲）并置 song dirty。 */
+        engine_lock();
+        s_sec_dirty &= (uint8_t)~(1u << slot);
+        if (live_sec == (int8_t)slot) live_sec = -1;
+        if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        engine_unlock();
+    }
     store_unlock();
     store_note_write(xr0, us0);
     if (rc != 0) {
@@ -1375,18 +1399,10 @@ _Static_assert(SLOOP_SONG_ENTRIES == ARR_STEPS && ARR_SCENES == 4u,
                "公共歌曲 POD 与上游 arr_config_t 的 16 项 / 4 scene 一致");
 _Static_assert(SONG_SIDE_LEN <= ST_SIDE_MAX, "settings 的 side record 放得进副本扇区的侧区");
 
-/* 持存储锁调用：把当前 arrangement 写进 OBJ_SETTINGS。gated = 延迟写窗口
- * （sections_tick 的停止/无发声门限；arrangement_save 同义入口在调用前已判走带）。 */
-static esp_err_t song_write_locked(bool gated)
+/* 持存储锁调用：把当前 arrangement 写进 OBJ_SETTINGS。停止/安静门限由调用方判
+ * （sections_tick 的窗口或 arrangement_save 同义入口）；这里只做字节组装 + 擦写。 */
+static esp_err_t song_write_locked(void)
 {
-    /* 门限先判（一次短引擎锁）：走带中/有发声时不读 flash、不组装（上游 sections_flush
-     * 同序），也不推进重试计时。 */
-    if (gated) {
-        engine_lock();
-        bool blocked = song.playing || transport_req || !audio_quiet();
-        engine_unlock();
-        if (blocked) return ESP_ERR_INVALID_STATE;
-    }
     /* 现有对象 + side 先读出来：合法 PER3 的尾段/side 必须原样随新副本提交 */
     int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
     uint8_t side[SONG_SIDE_LEN];
@@ -1479,9 +1495,9 @@ esp_err_t sloop_store_song_save(void)
     if (s_frozen) return ESP_ERR_INVALID_STATE;
     if (store_playing()) return ESP_ERR_INVALID_STATE;
     store_lock();
-    esp_err_t err = song_write_locked(false);
+    esp_err_t err = song_write_locked();
     store_unlock();
-    if (err != ESP_ERR_INVALID_STATE) s_song_tried_ms = store_esp_ms(); /* 失败也推进 5s 窗口 */
+    s_sections_tried_ms = store_esp_ms(); /* 尝试过就推进 gap（失败也按 5s 窗口重试） */
     return err;
 }
 
@@ -1569,20 +1585,127 @@ esp_err_t sloop_store_song_info(sloop_store_song_info_t *out)
 
 bool sloop_store_song_dirty(void)
 {
-    return s_song.dirty != 0;
+    return sloop_store_ready() && s_song.dirty != 0;
+}
+
+void sloop_store_song_dirty_mark(void)
+{
+    engine_lock(); /* 与 song_pending_mark 的其它调用点同一把锁（gen 记账原子） */
+    song_pending_mark(&s_song);
+    engine_unlock();
+}
+
+/* ---- live sections A–D（P4-C Task 8）---------------------------------------- */
+
+void sloop_store_section_dirty_mark(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) return;
+    engine_lock(); /* 单字节 RMW 与 tick 的清除/失败重置互斥（不取存储锁：捕获路径很短） */
+    s_sec_dirty |= (uint8_t)(1u << slot);
+    engine_unlock();
+}
+
+bool sloop_store_sections_dirty(void)
+{
+    return sloop_store_ready() && s_sec_dirty != 0;
+}
+
+/* 停止态把 **RAM 槽** 变成工作 loop（上游 section_load：project_apply(&proj_slot[s])，
+ * 不回落 flash、不写存储）。播放中的 section 切换只能走 sloop_seq_section_request。 */
+esp_err_t sloop_store_section_load(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_NOT_ALLOWED;
+    store_lock();
+    project_t *p = &proj_slot[slot];
+    if (!proj_ok(p)) {
+        store_unlock();
+        return ESP_ERR_NOT_FOUND;
+    }
+    store_project_apply_locked(p);
+    engine_lock();
+    live_sec = (int8_t)slot;
+    engine_unlock();
+    store_unlock();
+    return ESP_OK;
+}
+
+/* 停止态擦除一个 section（上游 project_erase）：空槽不写 flash；成功写空对象、清 RAM
+ * 槽/dirty 位、撤 live_sec，并从歌曲顺序里拿走该 scene（有项被删 → song dirty）。 */
+esp_err_t sloop_store_section_erase(uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_NOT_ALLOWED;
+    store_lock();
+    if (!proj_ok(&proj_slot[slot])) {
+        store_unlock();
+        return ESP_ERR_NOT_FOUND;
+    }
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
+    int rc = st_save(OBJ_PROJECT0 + slot, NULL, 0);
+    if (rc == 0) {
+        memset(&proj_slot[slot], 0, sizeof(project_t));
+        engine_lock();
+        s_sec_dirty &= (uint8_t)~(1u << slot);
+        if (live_sec == (int8_t)slot) live_sec = -1;
+        if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        engine_unlock();
+    }
+    store_unlock();
+    store_note_write(xr0, us0);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "SECTION %u ERASE 失败 rc=%d", (unsigned)slot, rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+    return ESP_OK;
 }
 
 /* 延迟写（1s 任务）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s 才落盘。
- * 拿不到存储锁就跳过本拍（不与写者排队，也不阻塞 1s 任务）。 */
+ * dirty 段与歌曲同一拍、同一门限（ADR-009 §6.1）：段先写（上游 sections_write 顺序），
+ * 再走 PER3 歌曲。段的快照在引擎锁内拷进暂存，擦写期间不持引擎锁；拿不到存储锁就
+ * 跳过本拍（不与写者排队，也不阻塞 1s 任务）。 */
 void sloop_store_sections_tick(uint32_t now_ms)
 {
     if (!sloop_store_ready() || !flash_ok || s_frozen || s_busy) return;
-    if (!s_song.dirty) return;
-    if (now_ms - s_song_tried_ms < SECTIONS_GAP) return;
+    if (!s_song.dirty && !s_sec_dirty) return;
+    if (now_ms - s_sections_tried_ms < SECTIONS_GAP) return;
     if (now_ms - s_input_ms < SECTIONS_IDLE) return;
     if (!store_trylock()) return;
-    esp_err_t err = song_write_locked(true);
-    if (err != ESP_ERR_INVALID_STATE) s_song_tried_ms = now_ms; /* 上游同：尝试过就推进 gap */
+    engine_lock();
+    bool blocked = song.playing || transport_req || !audio_quiet();
+    engine_unlock();
+    if (!blocked) {
+        for (uint32_t i = 0; i < SLOOP_STORE_PROJECTS; i++) {
+            uint8_t bit = (uint8_t)(1u << i);
+            if (!(s_sec_dirty & bit)) continue;
+            /* 先清位再快照：捕获若在快照期间发生会重新置位（下一窗口再写新值），
+             * 而失败要能重试。 */
+            engine_lock();
+            s_sec_dirty &= (uint8_t)~bit;
+            memcpy(&proj_tmp.v6, &proj_slot[i], sizeof(project_t));
+            engine_unlock();
+            uint32_t xr0 = sloop_hal_audio_xruns();
+            int64_t us0 = esp_timer_get_time();
+            int rc = st_save(OBJ_PROJECT0 + i, &proj_tmp.v6, sizeof(project_t));
+            store_note_write(xr0, us0);
+            if (rc != 0) {
+                engine_lock();
+                s_sec_dirty |= bit;
+                engine_unlock();
+                ESP_LOGE(TAG, "SECTION %u 延迟写失败 rc=%d（保留 dirty，下个窗口重试）", (unsigned)i, rc);
+            }
+        }
+        if (s_song.dirty) {
+            esp_err_t err = song_write_locked(); /* 门限已在上面判过 */
+            if (err != ESP_OK) ESP_LOGE(TAG, "歌曲延迟写失败: %s", esp_err_to_name(err));
+        }
+        s_sections_tried_ms = now_ms; /* 上游同：尝试过就推进 gap（失败按 5s 窗口重试） */
+    }
     store_unlock();
 }
 

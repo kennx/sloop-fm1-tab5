@@ -264,7 +264,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 | 延迟写 | `sloop_store_sections_tick`（1s 任务，esp_timer 毫秒）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s。`arrangement_save` 同义入口 `sloop_store_song_save()` 立即写（播放中 `playing`） |
 | dirty | `.noinit` 的 `song_pending_t{dirty,gen}`：**写成功且期间无新修改**才清；失败保留、下个窗口重试（上游在写前就清，被此修正替代） |
 | SELFTEST | `arrangement` 是 `arranger.c` 的 static `.bss`，自检的 restore 会把它回滚到零 ⇒ 自检结束后 `sloop_store_song_reload()` 从 settings 重读（以 flash 为准、清 dirty；读不到/对象损坏 → `song_per_loaded` 落上游默认歌曲，字节不覆盖；读 flash 期间有新的 `song_set` 则由代次守卫保留 RAM） |
-| 不做 | `arrangement_enabled`（歌曲模式）、quick chain、SONG REC 临时态都不持久化（上游同）；sections A–D 的内容仍是 FUN6 工程对象（`st_save(OBJ_PROJECT0+s)`），其 dirty 门限由 Task 8 的 section 命令接入同一 tick |
+| 不做 | `arrangement_enabled`（歌曲模式）、quick chain、SONG REC 临时态都不持久化（上游同）；sections A–D 的内容仍是 FUN6 工程对象（`st_save(OBJ_PROJECT0+s)`），其 dirty/落盘见 §6.2 |
 
 - **新建对象的默认值已固定**（本阶段不随设置变化）：palette/lowcut/zoom = 0、panel =
   `panel.c` 的 `PANEL_DEFAULT` 字面量、lights = 0、DSU = `dsu_defaults()`、MIDI 尾段省略、
@@ -280,10 +280,32 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   都在**引擎锁内**，gen 比较因此原子——否则「gen 相符 → 清 dirty」之间挤进来的修改会被吞掉
   （修改丢失且不再重试）。`song_reload` 在读 flash 前后各取一次 gen：期间有新的 `song_set`
   就不覆盖 RAM、也不清 dirty。
-- 新增 `.noinit` 状态：`s_song`（5B）、`s_song_tried_ms`、`s_input_ms`、`s_song_refused`
+- 新增 `.noinit` 状态：`s_song`（5B）、`s_sections_tried_ms`、`s_input_ms`、`s_song_refused`、
+  `s_sec_dirty`（4 位 section 待写）
   ——本 TU 的 `.bss` 在 `ENG SELFTEST` 的快照窗口里，dirty/时间戳留在 `.bss` 会被一次自检
   清掉。PER3 的 payload 组装复用 `proj_tmp`（4,096B PSRAM，与 preset/import/RAW 同一块，
   全程持存储锁），不新增常驻缓冲。
+
+#### 6.2 live sections A–D 的延迟写（P4-C Task 8）
+
+- **对象**：A–D 仍写 `OBJ_PROJECT0 + slot`（FUN6，与 `STORE PROJ SAVE` 同一对象/同一
+  `st_save`），不新建 section 对象。
+- **捕获**：`sloop_seq_section(slot, store)` 在**引擎锁内** `proj_capture` 到 RAM 槽、
+  `live_sec = slot`，随后置 `.noinit` 的 `s_sec_dirty` 位；播放中也允许（上游
+  `section_store` 的 IRQ off 段），此刻**不写 flash**。
+- **落盘**：`sloop_store_sections_tick` 与歌曲使用**同一拍、同一门限**
+  （停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s）。每段：持存储锁 + 引擎锁把
+  `proj_slot[i]` 拷进 `proj_tmp` → **松开引擎锁** `st_save` → 成功清 dirty、失败复位
+  dirty（下个 5s 窗口重试）。全部 dirty 段写完后才走歌曲 PER3（上游 `sections_write`
+  顺序）。干净位在快照前清，捕获若在快照期间发生会重新置位，因此不会吞掉新内容。
+- **与 PROJECT SAVE/ERASE 的交集**：`project_save` **不**清该槽 dirty 位（上游同；擦写
+  期间可能又有 live STORE 捕获同一槽，清掉新捕获会丢数据——多写一次是安全的）；
+  `project_erase` 成功清位，并在引擎锁内撤 `live_sec`、`arr_drop_scene`（有项被删则置
+  song dirty、一段不剩回默认歌曲）。
+- **边界**：`section_load`/`erase` 只在停止态（走带中回 `ESP_ERR_NOT_ALLOWED`，与
+  `STORE` 的 `playing` 语义分开），load 只应用 **RAM 槽**、不回落 flash。冷/热复位后
+  仍按开机四槽 fetch：RAM 槽最终以 flash 为准，播放中 capture 若在 5s 落盘窗口内掉电
+  会丢（与 Task 7 的「开机 fetch」口径一致，不是新增缺陷）。
 
 ### 7. 内存：PSRAM 宏重定向与内部 SRAM 边界
 

@@ -339,6 +339,104 @@ static void cmd_play_button(app_state_t *s, uint32_t down)
     sloop_seq_play_button(down != 0u);
 }
 
+/* ------------------------------------------------- P4-C Task 8: sections / chain / SONG ---
+ * 状态层只校验公共边界（槽号/模式值/数组指针）并分发；上游顺序时钟、场景应用、
+ * chain 与 SONG REC 状态机全在 seq adapter 一处。成功同拍刷新 song 快照（UI 不读上游
+ * 全局）；SECTION LOAD/ERASE 还会改轨/参数，故走整份投影刷新。
+ * 返回码：NOT_ALLOWED → BLOCKED（走带中/SONG 播放中/REC IS ON）；INVALID_STATE 且适配层
+ * 冻结 → FROZEN，其余 INVALID_STATE（存储未就绪）→ ERROR（与 sloop_seq.h 的约定一致）。 */
+static void state_song_result(app_state_t *s, esp_err_t ret)
+{
+    switch (ret) {
+    case ESP_OK: s->seq_status = SEQ_STATUS_OK; break;
+    case ESP_ERR_NOT_FOUND: s->seq_status = SEQ_STATUS_NOT_FOUND; break;
+    case ESP_ERR_INVALID_ARG: s->seq_status = SEQ_STATUS_INVALID; break;
+    case ESP_ERR_NOT_ALLOWED: s->seq_status = SEQ_STATUS_BLOCKED; break;
+    case ESP_ERR_INVALID_STATE:
+        s->seq_status = sloop_seq_frozen() ? SEQ_STATUS_FROZEN : SEQ_STATUS_ERROR;
+        break;
+    default: s->seq_status = SEQ_STATUS_ERROR; break;
+    }
+}
+
+static void state_refresh_song(app_state_t *s)
+{
+    sloop_seq_song_read(&s->song);
+}
+
+static void cmd_section(app_state_t *s, edit_cmd_type_t type, uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_PROJECTS) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret;
+    switch (type) {
+    case CMD_SECTION_STORE: ret = sloop_seq_section(slot, true, false); break;
+    case CMD_SECTION_LOAD: ret = sloop_seq_section(slot, false, false); break;
+    case CMD_SECTION_ERASE: ret = sloop_seq_section(slot, false, true); break;
+    case CMD_SECTION_REQUEST: ret = sloop_seq_section_request(slot); break;
+    default: return;
+    }
+    state_song_result(s, ret);
+    if (ret != ESP_OK) return;
+    if (type == CMD_SECTION_LOAD || type == CMD_SECTION_ERASE)
+        state_refresh_locked(); /* 工程应用会改选中轨/参数/图案 */
+    else
+        state_refresh_song(s);
+}
+
+static void cmd_chain_begin(app_state_t *s, uint32_t first)
+{
+    if (first >= APP_STATE_TRACKS) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_chain_begin(first);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_chain_commit(app_state_t *s, const void *scenes, uint32_t count)
+{
+    if (count > 8u || (count != 0u && scenes == NULL)) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_chain_commit(scenes, count);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_mode(app_state_t *s, uint32_t enabled)
+{
+    if (enabled > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_seq_song_mode(enabled != 0u);
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_rec(app_state_t *s)
+{
+    esp_err_t ret = sloop_seq_song_rec();
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
+static void cmd_song_set(app_state_t *s, const sloop_song_config_t *cfg)
+{
+    if (cfg == NULL) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_store_song_set(cfg); /* 只改内存 + dirty；落盘由 1s 任务完成 */
+    state_song_result(s, ret);
+    if (ret == ESP_OK) state_refresh_song(s);
+}
+
 static void cmd_drum_step(app_state_t *s, uint32_t step, const sloop_dstep_t *dstep)
 {
     if (step >= STATE_STEPS_MAX || dstep == NULL) {
@@ -468,6 +566,16 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_FILL_CONTROL: cmd_fill_control(s, cmd->a, cmd->b); break;
     case CMD_DRUM_HIT: cmd_drum_hit(s, cmd->a, cmd->v); break;
     case CMD_PLAY_BUTTON: cmd_play_button(s, cmd->a); break;
+    case CMD_SECTION_STORE:
+    case CMD_SECTION_LOAD:
+    case CMD_SECTION_ERASE:
+    case CMD_SECTION_REQUEST: cmd_section(s, cmd->type, cmd->a); break;
+    case CMD_CHAIN_BEGIN: cmd_chain_begin(s, cmd->a); break;
+    case CMD_CHAIN_COMMIT: cmd_chain_commit(s, cmd->p, cmd->n); break;
+    case CMD_CHAIN_CANCEL: cmd_chain_commit(s, NULL, 0); break;
+    case CMD_SONG_MODE: cmd_song_mode(s, cmd->a); break;
+    case CMD_SONG_REC: cmd_song_rec(s); break;
+    case CMD_SONG_SET: cmd_song_set(s, cmd->p); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

@@ -46,6 +46,17 @@ typedef struct {
     uint32_t play_button_last_down;
     uint32_t note_del_last_track, note_del_last_step, note_del_last_note;
     esp_err_t note_del_ret;
+    /* P4-C Task 8：sections / chain / SONG 命令替身 */
+    sloop_song_snapshot_t song_snap; /* sloop_seq_song_read 的返回值 */
+    uint32_t song_read_calls, section_calls, chain_begin_calls, chain_commit_calls;
+    uint32_t song_mode_calls, song_rec_calls, song_set_calls;
+    uint32_t section_last_slot, section_last_op; /* 0 store / 1 load / 2 erase / 3 request */
+    uint32_t chain_last_first, chain_last_count;
+    uint8_t chain_last_scenes[8];
+    uint32_t song_mode_last;
+    sloop_song_config_t song_set_last;
+    esp_err_t section_ret, chain_ret, song_ret;
+    bool song_dirty, sections_dirty;
     /* 参数后端：set_params 写、read_params 读（与真引擎一样，钳位在写入口） */
     int16_t param[4][SLOOP_CORE_P_COUNT];
     int16_t param_g[SLOOP_CORE_G_COUNT];

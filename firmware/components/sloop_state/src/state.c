@@ -61,6 +61,8 @@ void state_init(void)
     sloop_core_read_params(s_state.core.selected_track, s_state.p, s_state.g);
     /* 录音投影同拍初化（一次性 take 结果在开机时必为空） */
     sloop_seq_rec_read(&s_state.rec);
+    /* arranger 只读投影（SONG 页/TRANSPORT 状态行） */
+    sloop_seq_song_read(&s_state.song);
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -123,6 +125,7 @@ void state_sync_from_engine(void)
             /* 录音快照只在写回成功的这一拍读一次：take 结果是一次性的（读即消费），
              * 重试循环里读会把结果丢在第一次 attempt 上。 */
             sloop_seq_rec_read(&s_state.rec);
+            sloop_seq_song_read(&s_state.song);
             state_unlock();
             return;
         }
@@ -174,4 +177,5 @@ void state_refresh_locked(void)
     memcpy(s_state.p, param_p, sizeof(param_p));
     memcpy(s_state.g, param_g, sizeof(param_g));
     sloop_seq_rec_read(&s_state.rec);
+    sloop_seq_song_read(&s_state.song);
 }

@@ -536,6 +536,8 @@ void sloop_seq_rec_read(sloop_rec_snapshot_t *out)
         rec_go = 0;                            /* 投影里没有独立字段：ARMED→RECORDING 的
                                                 * 状态迁移已表达「刚开始录音」；消费掉是为了
                                                 * 不把一次性标志留给之后无关的读者 */
+        out->fill_held = fill_held;            /* Task 6 deferral：FILL 表演态的设备观测口 */
+        out->fill_arm = fill_arm;
     }
     engine_unlock();
 }
@@ -669,5 +671,200 @@ esp_err_t sloop_seq_note_del(uint32_t track, uint32_t step, uint32_t note)
         }
     }
     engine_unlock();
+    return ret;
+}
+
+/* --------------------------------------- P4-C Task 8: sections / chain / SONG ---
+ * 全部是上游 seq.c（FELUCCA_ARRANGER 段）与 arranger_scene.c 的运行态薄封装：
+ * 不复制顺序时钟/场景应用/录音状态机，也不在渲染路径写 flash。公共边界只暴露 POD
+ * 与 esp_err_t；越界在取锁前拒绝，冻结在取锁后复核（与 Task 3/4 同口径）。
+ * 「正在播放」的门限返回 ESP_ERR_NOT_ALLOWED（console: blocked），
+ * ESP_ERR_INVALID_STATE 只表示诊断冻结（与 sloop_seq.h 的全局约定一致）。 */
+
+/* SONG REC 的结果（srec_done）由快照读取对账一次：一次 take 结束（含 STOP 收尾）后
+ * 置 song dirty，延迟写才会把新歌曲顺序落盘。s_srec_marked 记住已对账的值，避免每拍
+ * 30ms 的 sync 反复 mark 让 dirty 的「写成功才清」永远清不掉。 */
+static uint8_t s_srec_marked;
+
+static void song_result_reconcile(void)
+{
+    if (srec_done == s_srec_marked) return;
+    s_srec_marked = srec_done;
+    if (srec_done != 0u && srec_done != 0xFFu) sloop_store_song_dirty_mark();
+}
+
+void sloop_seq_song_read(sloop_song_snapshot_t *out)
+{
+    if (out == NULL) return;
+    memset(out, 0, sizeof(*out));
+    if (s_frozen) return;
+    engine_lock();
+    if (!s_frozen) {
+        out->enabled = arrangement_enabled ? 1u : 0u;
+        out->running = arrangement_clock.running ? 1u : 0u;
+        out->index = arrangement_clock.index;
+        out->bar = arrangement_clock.bar;
+        out->ready = (uint8_t)arrangement_ready();
+        out->live = live_sec < 0 ? 0xFFu : (uint8_t)live_sec;
+        out->chain_count = chain_n;
+        out->chain_index = chain_i;
+        out->chain_bars = chain_bars;
+        for (uint32_t i = 0; i < 8u; i++) out->chain_scenes[i] = chain_sec[i];
+        out->srec = srec;
+        out->srec_done = srec_done;
+        out->config.count = arrangement.count;
+        out->config.loop = arrangement.loop;
+        for (uint32_t i = 0; i < SLOOP_SONG_ENTRIES; i++) {
+            out->config.entry[i].scene = arrangement.entry[i].scene;
+            out->config.entry[i].bars = arrangement.entry[i].bars;
+        }
+    }
+    engine_unlock();
+    if (s_frozen) {
+        memset(out, 0, sizeof(*out)); /* 取锁期间被冻结：不给半份投影 */
+        return;
+    }
+    song_result_reconcile(); /* 先对账：本次 take 的 dirty 在同一份快照里可见 */
+    out->dirty = (sloop_store_song_dirty() || sloop_store_sections_dirty()) ? 1u : 0u;
+}
+
+esp_err_t sloop_seq_section(uint32_t slot, bool store, bool erase)
+{
+    if (slot >= ARR_SCENES || (store && erase)) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (erase) return sloop_store_section_erase(slot);
+    if (!store) return sloop_store_section_load(slot);
+    /* live STORE：播放中也允许（上游 section_store 在 IRQ off 下 proj_capture）。
+     * 捕获只改 RAM 槽与 live_sec；flash 由 1s 任务在停止+安静+idle 后锁外写。 */
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    proj_capture(&proj_slot[slot]);
+    live_sec = (int8_t)slot;
+    engine_unlock();
+    sloop_store_section_dirty_mark(slot);
+    return ESP_OK;
+}
+
+esp_err_t sloop_seq_section_request(uint32_t slot)
+{
+    if (slot >= ARR_SCENES) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_OK;
+    if (!song.playing || arrangement_clock.running) {
+        ret = ESP_ERR_NOT_ALLOWED; /* SONG 播放中（SONG PLAYS）或没有可切换的 live loop */
+    } else if (!(arrangement_ready() & (1u << slot))) {
+        ret = ESP_ERR_NOT_FOUND; /* EMPTY <section> */
+    } else {
+        chain_n = 0; /* 上游第一次 section tap：任何 chain 到此为止 */
+        live_req = (int8_t)slot;
+    }
+    engine_unlock();
+    return ret;
+}
+
+esp_err_t sloop_seq_chain_begin(uint32_t first)
+{
+    if (first >= ARR_SCENES) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_OK;
+    if (!song.playing || arrangement_clock.running) {
+        ret = ESP_ERR_NOT_ALLOWED; /* chain 只属于 live loop，不属于 SONG */
+    } else if (!(arrangement_ready() & (1u << first))) {
+        ret = ESP_ERR_NOT_FOUND;
+    } else {
+        chain_n = 0; /* 单 section tap 同时是「取消 chain」：A 继续播放，chain 不再回来 */
+        live_req = (int8_t)first;
+    }
+    engine_unlock();
+    return ret;
+}
+
+esp_err_t sloop_seq_chain_commit(const uint8_t *scenes, uint32_t count)
+{
+    if (count > CHAIN_MAX || (count != 0u && scenes == NULL)) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_OK;
+    if (!song.playing || arrangement_clock.running) {
+        ret = ESP_ERR_NOT_ALLOWED;
+    } else {
+        /* 先整份校验：半条 chain 不得装上（空/越界 scene 原子拒绝） */
+        uint32_t ready = arrangement_ready();
+        for (uint32_t i = 0; i < count && ret == ESP_OK; i++) {
+            if (scenes[i] >= ARR_SCENES)
+                ret = ESP_ERR_INVALID_ARG;
+            else if (!(ready & (1u << scenes[i])))
+                ret = ESP_ERR_NOT_FOUND;
+        }
+        if (ret == ESP_OK) {
+            if (count == 0u) {
+                chain_n = 0; /* cancel：保留已排队的首项请求（单 section tap 的语义） */
+            } else {
+                for (uint32_t i = 0; i < count; i++) chain_sec[i] = (uint8_t)(scenes[i] & 3u);
+                chain_i = 0;
+                chain_bars = (uint8_t)section_bars(scenes[0]); /* 首项已在播放/被请求 */
+                chain_n = (uint8_t)count;
+            }
+        }
+    }
+    engine_unlock();
+    return ret;
+}
+
+esp_err_t sloop_seq_song_mode(bool enabled)
+{
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_OK;
+    if (srec)
+        ret = ESP_ERR_NOT_ALLOWED; /* 上游 UI："REC IS ON" */
+    else
+        arrangement_enabled = enabled ? 1u : 0u;
+    engine_unlock();
+    return ret;
+}
+
+esp_err_t sloop_seq_song_rec(void)
+{
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t ret = ESP_OK;
+    if (srec) {
+        /* 再按一次 / STOP：录到的顺序写入歌曲（空录制 = NO SONG，不覆盖原歌曲） */
+        srec_stop();
+    } else if (arrangement_clock.running) {
+        ret = ESP_ERR_NOT_ALLOWED; /* 上游 UI："STOP FIRST" */
+    } else {
+        arrangement_enabled = 0; /* SONG REC 只录 live sections（上游强制 loop 模式） */
+        srec_done = 0;           /* 新一轮 take：清掉上一次结果的显示/对账 */
+        srec = 1;                /* 下一个小节起录（live_block 的 srec==1 分支） */
+    }
+    engine_unlock();
+    if (ret == ESP_OK) song_result_reconcile();
     return ret;
 }

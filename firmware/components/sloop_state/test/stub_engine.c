@@ -425,6 +425,76 @@ esp_err_t sloop_seq_play_button(bool down)
     return g_stub.seq_ret;
 }
 
+/* ---- P4-C Task 8：sections / chain / SONG 替身 ---------------------------------- */
+void sloop_seq_song_read(sloop_song_snapshot_t *out)
+{
+    g_stub.song_read_calls++;
+    if (out != NULL) *out = g_stub.song_snap;
+}
+
+esp_err_t sloop_seq_section(uint32_t slot, bool store, bool erase)
+{
+    g_stub.section_calls++;
+    g_stub.section_last_slot = slot;
+    g_stub.section_last_op = store ? 0u : erase ? 2u : 1u;
+    return g_stub.section_ret;
+}
+
+esp_err_t sloop_seq_section_request(uint32_t slot)
+{
+    g_stub.section_calls++;
+    g_stub.section_last_slot = slot;
+    g_stub.section_last_op = 3u;
+    return g_stub.section_ret;
+}
+
+esp_err_t sloop_seq_chain_begin(uint32_t first)
+{
+    g_stub.chain_begin_calls++;
+    g_stub.chain_last_first = first;
+    return g_stub.chain_ret;
+}
+
+esp_err_t sloop_seq_chain_commit(const uint8_t *scenes, uint32_t count)
+{
+    g_stub.chain_commit_calls++;
+    g_stub.chain_last_count = count;
+    if (scenes != NULL)
+        for (uint32_t i = 0; i < count && i < sizeof g_stub.chain_last_scenes; i++)
+            g_stub.chain_last_scenes[i] = scenes[i];
+    return g_stub.chain_ret;
+}
+
+esp_err_t sloop_seq_song_mode(bool enabled)
+{
+    g_stub.song_mode_calls++;
+    g_stub.song_mode_last = enabled ? 1u : 0u;
+    return g_stub.song_ret;
+}
+
+esp_err_t sloop_seq_song_rec(void)
+{
+    g_stub.song_rec_calls++;
+    return g_stub.song_ret;
+}
+
+/* 歌曲顺序落盘入口（CMD_SONG_SET）：状态层只做透传与结果映射。 */
+esp_err_t sloop_store_song_set(const sloop_song_config_t *cfg)
+{
+    g_stub.song_set_calls++;
+    if (cfg != NULL) g_stub.song_set_last = *cfg;
+    return g_stub.store_ret;
+}
+
+bool sloop_store_song_dirty(void) { return g_stub.song_dirty; }
+bool sloop_store_sections_dirty(void) { return g_stub.sections_dirty; }
+void sloop_store_song_dirty_mark(void) { g_stub.song_dirty = 1; }
+void sloop_store_section_dirty_mark(uint32_t slot)
+{
+    (void)slot;
+    g_stub.sections_dirty = 1;
+}
+
 /* 自动存档的活动计时（state_apply 的每个命令）：host 单测不编自动存档，空实现 */
 void sloop_store_note_activity(uint32_t now_ms)
 {
