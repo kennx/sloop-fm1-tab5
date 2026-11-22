@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """soak.py — 稳定性能 soak（阶段 3 完成判据 4；阶段 4 长时 soak 复用同一口径）
 
-在真机上循环「播放 → 步编辑 → 选轨/切页 → 键盘音符」，保持 TRANSPORT 页播放中，
+在真机上循环「播放 → 步编辑 → 音序动作（micro/fill/lock、SONG 页表格导航、播放中
+section 捕获）→ 选轨/切页 → 键盘音符」，保持 TRANSPORT 页播放中，
 每 --interval 秒采样一次引擎水位：
     ENG MEM   internal_free / internal_min
     ENG PERF  streaming / xrun / audio_stack_free / render_mean_us / render_max_us /
@@ -29,8 +30,9 @@
        窗口前 `STORE AUTO OFF`（只量脚本写；收尾在最终采样后恢复 ON）；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
-   10. 跨组池检查：SEQ(TRANSPORT)↔PLAY ×5 往返，`UI MEM` 的 pool_free 首末差与单次
-       下降都 ≤ 128B（组作用域不变量 + R34 实测噪声 84B）。
+   10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE 三组各访问一次 → 回 PLAY」，
+       `UI MEM` 的 pool_free 首末差与单次下降都 ≤ 128B（组作用域不变量 + R34 实测
+       噪声 84B；测量点固定在 PLAY 稳态，避开各页面 TLSF 碎片的涨落）。
 
 产物（默认 $SLOOP_TAB5_PROJECT/build/verify/）：soak-<时间戳>.log（原始串口回显，
 同 inject.py 口径：逐字节写盘，唯一非固件字节是 `# [inject] ...` 注记）与
@@ -65,7 +67,8 @@ STACK_FLOOR = 2048
 KEY_EVENTS_PER_CYCLE = 2        # 每轮 KEY down + up
 SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash 擦写不饿死音频）
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
-POOL_RT_ROUNDS = 5              # 跨组往返次数（SEQ ↔ PLAY）
+POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 SEQ/SONG/FILE 三组各一次）
+POOL_RT_GROUPS = ("transport", "song", "projects")   # 除 PLAY 外的三个组（组作用域销毁/重建）
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -126,10 +129,16 @@ def switch(s, page: str) -> None:
     s.expect_int(r"page=(\d+)", PAGES[page], f"STATE page（{page}）")
 
 
+GROUPS = ("play", "tracks", "edit", "seq", "song", "file")
+
+
 def visit_all_pages(s) -> None:
-    """采样前把 12 页都访问一遍（每页的首次构建都过一次分配面），最终停在 TRANSPORT
-    ——组作用域（ADR-005 §5）下采样时只驻留 SEQ 组的页面；`UI MEM` 的分组行给出
-    该组的 built/sum_delta。"""
+    """采样前把 12 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过六个组签
+    （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
+    只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
+    for group in GROUPS:
+        s.cmd(f"UI TAB {group}")
+        s.expect(rf"UI TAB (\w+) page=\w+ \(\d+\)", f"UI TAB {group}")
     for page in PAGES:
         switch(s, page)
     switch(s, "transport")
@@ -169,20 +178,33 @@ def ui_pool_free(s) -> int:
 
 
 def pool_round_trip(s) -> dict:
-    """组作用域池检查：SEQ(TRANSPORT)↔PLAY ×N 跨组往返，每次回 SEQ 后的 pool_free
-    不得比出发时少超过 POOL_RT_NOISE（源组页面必须释放；styles_init 每页只跑一次）。"""
-    s.ser.note(f"soak 池检查：SEQ↔PLAY ×{POOL_RT_ROUNDS} 跨组往返")
+    """组作用域池检查（PLAY 稳态口径，与 nav ⑧ / song ⑩ 同源）：每轮把 SEQ/SONG/FILE
+    三组各访问一次再回 PLAY，**测量点固定在 PLAY 稳态**（离开组即销毁，PLAY 的池水位
+    不含任何页面的 TLSF 碎片涨落）。R34 的每往返 ~268B 泄漏（styles_init 每页只跑一次）
+    会被 10 轮累计显著超过；首末差与单次下降都 ≤ POOL_RT_NOISE。
+
+    先做一轮预热：跨组销毁后的首次重建会做一次性文本/字形缓存（Task 11 §3 实测
+    ~400B），不是逐次泄漏。"""
+    s.ser.note(f"soak 池检查：PLAY 稳态下 {POOL_RT_ROUNDS} 轮（每轮 "
+               + "→".join(POOL_RT_GROUPS) + " →play）")
+    for group in POOL_RT_GROUPS:   # 预热：每组的首次重建
+        switch(s, group)
+    switch(s, "play")
     start = ui_pool_free(s)
     values = [start]
     for _ in range(POOL_RT_ROUNDS):
+        for group in POOL_RT_GROUPS:
+            switch(s, group)
         switch(s, "play")
-        switch(s, "transport")
         values.append(ui_pool_free(s))
     steps = [b - a for a, b in zip(values, values[1:])]
     pool = {"start": start, "end": values[-1], "delta": values[-1] - start,
-            "min_step": min(steps) if steps else 0, "rounds": POOL_RT_ROUNDS}
-    print(f"   池检查 SEQ↔PLAY ×{POOL_RT_ROUNDS}: pool_free {start} -> {values[-1]} "
+            "min_step": min(steps) if steps else 0, "rounds": POOL_RT_ROUNDS,
+            "values": values}
+    print(f"   池检查（PLAY 稳态 ×{POOL_RT_ROUNDS} 轮）: pool_free {start} -> {values[-1]} "
           f"(Δ={pool['delta']}B, 单次最小 {pool['min_step']}B, 容差 ±{POOL_RT_NOISE}B)")
+    print(f"   逐轮: {values}")
+    switch(s, "transport")   # 采样断言要求当前页 = TRANSPORT（池检查的最后一轮停在 PLAY）
     return pool
 
 
@@ -215,8 +237,35 @@ def save_window(s, seconds: float, take_sample) -> dict:
     return win
 
 
+SEQ_ACTION_EVERY = 3   # 每 N 轮做一次 live section 捕获（其余轮只做轻量音序动作）
+
+
+def sequence_cycle(s, n: int) -> None:
+    """音序动作（P4-C Task 12）：micro/fill/lock 写后清（不累积）+ SONG 页表格导航；
+    每 SEQ_ACTION_EVERY 轮在播放中捕获一次 section A（dirty 由 1s 任务的延迟写落盘，
+    音频流不停——既覆盖 sections 写窗口，也检查 xrun 不增长）。"""
+    track, step = ((0, 2), (1, 5))[n % 2]
+    s.cmd(f"SEQ MICRO {track} {step} {2 if n % 2 else -2}")
+    s.expect(rf"SEQ MICRO track={track} step={step} value=-?\d+ OK", "SEQ MICRO")
+    s.cmd(f"SEQ FILL {track} {step} 1")
+    s.expect(rf"SEQ FILL track={track} step={step} value=1 OK", "SEQ FILL")
+    s.cmd(f"SEQ LOCK SET {track} {step} 1 50")
+    s.expect(rf"SEQ LOCK SET track={track} step={step} param=1 value=50 OK", "SEQ LOCK SET")
+    s.cmd(f"SEQ LOCK DEL {track} {step} 1")
+    s.expect(rf"SEQ LOCK DEL track={track} step={step} param=1 OK", "SEQ LOCK DEL")
+    switch(s, "song")
+    s.cmd("TAP %d %d" % inject.song_card_xy(n % 4))
+    s.expect(r"-> SONG card=[A-D] select", "TAP SONG card")
+    s.cmd("TAP %d %d" % inject.song_entry_xy(0))
+    s.expect(r"-> SONG entry=0 select", "TAP SONG entry 0")
+    if n % SEQ_ACTION_EVERY == 0:
+        s.cmd("SEQ SECTION A STORE")
+        s.expect(r"SEQ SECTION A STORE OK", "播放中 section 捕获（live STORE）")
+
+
 def cycle(s, n: int) -> None:
-    """一轮：保持播放 → STEP 翻一格 → TRACKS 选一张卡 → PLAY 弹一个音 → 回 TRANSPORT。"""
+    """一轮：保持播放 → STEP 翻一格 → 音序动作（micro/fill/lock + SONG 页）→ TRACKS 选卡
+    → PLAY 弹一个音 → 回 TRANSPORT。"""
     ensure_playing(s)
 
     switch(s, "step")
@@ -224,6 +273,8 @@ def cycle(s, n: int) -> None:
     track, step = ((0, 2), (1, 5))[n % 2]
     s.cmd("TAP %d %d" % cells[n % 2])
     s.expect(rf"-> STEP track={track} step={step} CMD_TOGGLE_STEP", f"TAP STEP {track}/{step}")
+
+    sequence_cycle(s, n)
 
     switch(s, "tracks")
     card = n % 4
@@ -444,9 +495,10 @@ def main() -> None:
     lines.append(f"占空比判定：基线 {DUTY_BASELINE_PCT:.2f}%（阶段 2 静默渲染），"
                  f"上限 2× = {DUTY_MAX_PCT:.2f}%（流式 render_mean_us / 块预算 5804µs）")
     if pool is not None:
-        lines.append(f"池检查：SEQ↔PLAY ×{pool['rounds']} 往返 pool_free {pool['start']} -> "
-                     f"{pool['end']}（Δ={pool['delta']}B，单次最小 {pool['min_step']}B，"
-                     f"容差 ±{POOL_RT_NOISE}B）")
+        lines.append(f"池检查：PLAY 稳态 ×{pool['rounds']} 轮（每轮 " + "→".join(POOL_RT_GROUPS)
+                     + f" →play）；pool_free {pool['start']} -> {pool['end']}"
+                     f"（Δ={pool['delta']}B，单次最小 {pool['min_step']}B，容差 ±{POOL_RT_NOISE}B）")
+        lines.append("逐轮 pool_free: " + " ".join(str(v) for v in pool["values"]))
     else:
         lines.append("池检查：未执行")
     if window is not None:
