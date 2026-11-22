@@ -92,6 +92,34 @@ static void test_dsyn_fields(void)
               crush == DS_KITS[0].crush && src == 0u,
           "factory kit: sound/name/crush/src = DS_KITS[0]");
 
+    /* 24 字段的原始字节偏移 oracle（**独立于实现表**，按 dsnd_t 声明顺序手写）：
+     * 逐字段写一个互不相同的值再读 22B，能抓到描述符表里的转置/重复偏移。
+     * SRC/CLAP 共用 byte1、FLT_MODE/FLT_RES 共用 byte15，按各自的位段断言。 */
+    {
+        static const uint8_t want_off[SLOOP_DSYN_FIELDS] = {
+            0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 16, 17, 18, 19, 20, 21,
+        };
+        static const int16_t want_val[SLOOP_DSYN_FIELDS] = {
+            2, 3, 1, 61, 13, 37, 71, 77, 41, 99, 17, 83, 55, 91, 23, 67, 6, 21, 88, -60, 44, 72, 29, 200,
+        };
+        char msg[96];
+        for (i = 0; i < SLOOP_DSYN_FIELDS; i++) {
+            int16_t applied = sloop_core_dsyn_set(0, 0, i, want_val[i]);
+            int okf;
+            raw_sound(0, 0, b);
+            switch (i) {
+            case SLOOP_DSYN_SRC: okf = (b[1] & 15u) == (uint8_t)want_val[i]; break;
+            case SLOOP_DSYN_CLAP: okf = ((b[1] & 0x10u) != 0) == (want_val[i] != 0); break;
+            case SLOOP_DSYN_FLT_MODE: okf = (b[15] & 7u) == (uint8_t)want_val[i]; break;
+            case SLOOP_DSYN_FLT_RES: okf = (b[15] >> 3) == (uint8_t)want_val[i]; break;
+            default: okf = b[want_off[i]] == (uint8_t)want_val[i]; break;
+            }
+            snprintf(msg, sizeof msg, "field %2u %-8s writes raw[%u] = %d", (unsigned)i, want[i],
+                     (unsigned)want_off[i], (int)want_val[i]);
+            check(applied == want_val[i] && okf, msg);
+        }
+    }
+
     /* 单字段写：返回值 = 钳位后的值，原始 22B 的对应字节随之改变 */
     check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_WAVE, 1) == 1 && raw_sound(0, 0, b) == ESP_OK && b[0] == 1u,
           "WAVE=1 -> raw[0]");
@@ -122,7 +150,8 @@ static void test_dsyn_fields(void)
     check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_FLT_MODE, 1) == 1, "FLT_MODE back to LP");
 
     /* CLAP 是 SRC 的 bit4：写一个不动另一个 */
-    check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_SRC, 2) == 2 && raw_sound(0, 0, b) == ESP_OK && b[1] == 2u,
+    check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_SRC, 2) == 2 && raw_sound(0, 0, b) == ESP_OK &&
+              (b[1] & 15u) == 2u,
           "SRC=2 -> raw[1] low nibble");
     check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_CLAP, 1) == 1 && raw_sound(0, 0, b) == ESP_OK && b[1] == 0x12u &&
               sloop_core_dsyn_field(0, 0, SLOOP_DSYN_SRC) == 2,
@@ -162,9 +191,19 @@ static void test_dsyn_fields(void)
               "field_from_sound decodes bytes (and rejects field 24)");
     }
 
-    /* 试听队列（drums.c drum_audition_poll 的输入） */
+    /* dirty 记账（上游 ED_DSYN_PUT：任何成功的单字段写都置 dsu_dirty） */
+    dsu_dirty = 0;
+    check(!sloop_core_dsyn_dirty(), "dsu_dirty can be cleared (test hook)");
+    (void)sloop_core_dsyn_set(0, 0, SLOOP_DSYN_DRIVE, 11);
+    check(sloop_core_dsyn_dirty(), "a single set marks dsu_dirty");
+
+    /* 试听队列（drums.c drum_audition_poll 的输入）；velocity 0/越界按上游 ED_DSYN_PLAY 拒绝 */
     sloop_core_dsyn_audition(2, 5, 100);
     check(dsu_aud_k == 2 && dsu_aud_lane == 5 && dsu_aud_vel == 100, "audition queues kit/lane/velocity");
+    sloop_core_dsyn_audition(2, 6, 0);
+    check(dsu_aud_k == 2 && dsu_aud_lane == 5 && dsu_aud_vel == 100, "audition rejects velocity 0");
+    sloop_core_dsyn_audition(2, 6, 200);
+    check(dsu_aud_k == 2 && dsu_aud_lane == 5 && dsu_aud_vel == 100, "audition rejects velocity > 127");
     sloop_core_dsyn_audition(4, 0, 100);
     check(dsu_aud_k == 2 && dsu_aud_lane == 5 && dsu_aud_vel == 100, "audition rejects kit 4");
     dsu_aud_vel = 0;

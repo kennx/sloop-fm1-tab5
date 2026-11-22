@@ -228,7 +228,8 @@ int16_t sloop_core_dsyn_text(uint32_t field, int16_t v, char *out, uint32_t n);
 /* 套用工厂 kit（覆盖该 kit 的编辑，置 dsu_dirty）。kit 越界或 src >= DS_NKITS 回
  * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。 */
 esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src);
-/* 试听一段该 kit/lane（写上游 dsu_aud_* 队列，由音频路径消费；不改数据）。 */
+/* 试听一段该 kit/lane（写上游 dsu_aud_* 队列，由音频路径消费；不改数据）。
+ * 越界 kit/lane 与 velocity 0（「无声」）或 > 127 一律拒绝（上游 ED_DSYN_PLAY 同口径）。 */
 void sloop_core_dsyn_audition(uint32_t kit, uint32_t lane, uint32_t velocity);
 bool sloop_core_dsyn_dirty(void);
 

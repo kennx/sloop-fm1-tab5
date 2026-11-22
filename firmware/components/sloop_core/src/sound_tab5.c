@@ -275,13 +275,14 @@ esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src)
 
 void sloop_core_dsyn_audition(uint32_t kit, uint32_t lane, uint32_t velocity)
 {
-    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES || s_frozen)
+    /* 上游 ED_DSYN_PLAY：k/lane 越界或 velocity == 0 都拒绝（0 是「无声」，不是「试听」） */
+    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES || velocity == 0 || velocity > 127 || s_frozen)
         return;
     engine_lock();
     if (!s_frozen) {
         dsu_aud_k = (uint8_t)kit;
         dsu_aud_lane = (uint8_t)lane;
-        dsu_aud_vel = (uint8_t)clamp((int32_t)velocity, 0, 127);   /* 最后写：poll 见 vel 即消费 */
+        dsu_aud_vel = (uint8_t)velocity;   /* 最后写：poll 见 vel 即消费 */
     }
     engine_unlock();
 }
