@@ -686,23 +686,34 @@ esp_err_t sloop_seq_note_del(uint32_t track, uint32_t step, uint32_t note)
  * 30ms 的 sync 反复 mark 让 dirty 的「写成功才清」永远清不掉。 */
 static uint8_t s_srec_marked;
 
+static void song_result_mark(uint8_t done)
+{
+    if (done == s_srec_marked) return;
+    s_srec_marked = done; /* 0 / 0xFF 也记账：否则「2 项 → NO SONG → 2 项」会漏 mark */
+    if (done != 0u && done != 0xFFu) sloop_store_song_dirty_mark();
+}
+
 static void song_result_reconcile(void)
 {
-    if (srec_done == s_srec_marked) return;
-    s_srec_marked = srec_done;
-    if (srec_done != 0u && srec_done != 0xFFu) sloop_store_song_dirty_mark();
+    song_result_mark(srec_done);
 }
 
 void sloop_seq_song_read(sloop_song_snapshot_t *out)
 {
     if (out == NULL) return;
     memset(out, 0, sizeof(*out));
-    if (s_frozen) return;
+    /* 存储未就绪时 proj_slot 是 NULL/垃圾 PSRAM 指针：arrangement_ready() 会解引用它。
+     * 快照的契约是「未就绪 = 全零」，绝不在门内取引擎锁或碰工程槽。 */
+    if (s_frozen || !sloop_store_ready()) return;
     engine_lock();
     if (!s_frozen) {
         out->enabled = arrangement_enabled ? 1u : 0u;
         out->running = arrangement_clock.running ? 1u : 0u;
+        /* loop=0 自然结束时 upstream 把 index 停在 count（ARR_DONE）；count==16 的消费者
+         * 不能拿它索引 entry[]。统一夹到最后一个有效条目。 */
         out->index = arrangement_clock.index;
+        if (arrangement.count && out->index >= arrangement.count)
+            out->index = (uint8_t)(arrangement.count - 1u);
         out->bar = arrangement_clock.bar;
         out->ready = (uint8_t)arrangement_ready();
         out->live = live_sec < 0 ? 0xFFu : (uint8_t)live_sec;
@@ -732,6 +743,7 @@ esp_err_t sloop_seq_section(uint32_t slot, bool store, bool erase)
 {
     if (slot >= ARR_SCENES || (store && erase)) return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE; /* no_storage：proj_slot 无效 */
     if (erase) return sloop_store_section_erase(slot);
     if (!store) return sloop_store_section_load(slot);
     /* live STORE：播放中也允许（上游 section_store 在 IRQ off 下 proj_capture）。
@@ -743,8 +755,8 @@ esp_err_t sloop_seq_section(uint32_t slot, bool store, bool erase)
     }
     proj_capture(&proj_slot[slot]);
     live_sec = (int8_t)slot;
+    sloop_store_section_dirty_mark_locked(slot); /* 与 capture 同一临界区（erase 的 gen 门） */
     engine_unlock();
-    sloop_store_section_dirty_mark(slot);
     return ESP_OK;
 }
 
@@ -752,6 +764,7 @@ esp_err_t sloop_seq_section_request(uint32_t slot)
 {
     if (slot >= ARR_SCENES) return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE; /* arrangement_ready 会碰 proj_slot */
     engine_lock();
     if (s_frozen) {
         engine_unlock();
@@ -774,6 +787,7 @@ esp_err_t sloop_seq_chain_begin(uint32_t first)
 {
     if (first >= ARR_SCENES) return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
     engine_lock();
     if (s_frozen) {
         engine_unlock();
@@ -796,6 +810,7 @@ esp_err_t sloop_seq_chain_commit(const uint8_t *scenes, uint32_t count)
 {
     if (count > CHAIN_MAX || (count != 0u && scenes == NULL)) return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
     engine_lock();
     if (s_frozen) {
         engine_unlock();
@@ -817,10 +832,16 @@ esp_err_t sloop_seq_chain_commit(const uint8_t *scenes, uint32_t count)
             if (count == 0u) {
                 chain_n = 0; /* cancel：保留已排队的首项请求（单 section tap 的语义） */
             } else {
+                uint8_t first = (uint8_t)(scenes[0] & 3u);
                 for (uint32_t i = 0; i < count; i++) chain_sec[i] = (uint8_t)(scenes[i] & 3u);
                 chain_i = 0;
-                chain_bars = (uint8_t)section_bars(scenes[0]); /* 首项已在播放/被请求 */
+                chain_bars = (uint8_t)section_bars(first);
                 chain_n = (uint8_t)count;
+                /* standalone COMMIT 不能跳过 entry 0：首项既没在播放、也没有相同的
+                 * pending 请求时，commit 自己请求它（begin 只负责立即反馈与单 tap 取消，
+                 * 不是 commit 的前置条件）。若 live_req 指向别处，以 chain 首项为准。 */
+                if (live_req != (int8_t)first && !(live_req < 0 && live_sec == (int8_t)first))
+                    live_req = (int8_t)first;
             }
         }
     }
@@ -839,6 +860,8 @@ esp_err_t sloop_seq_song_mode(bool enabled)
     esp_err_t ret = ESP_OK;
     if (srec)
         ret = ESP_ERR_NOT_ALLOWED; /* 上游 UI："REC IS ON" */
+    else if (enabled && !sloop_store_ready())
+        ret = ESP_ERR_INVALID_STATE; /* 播放 SONG 时 arrangement_start 会读 proj_slot */
     else
         arrangement_enabled = enabled ? 1u : 0u;
     engine_unlock();
@@ -854,17 +877,20 @@ esp_err_t sloop_seq_song_rec(void)
         return ESP_ERR_INVALID_STATE;
     }
     esp_err_t ret = ESP_OK;
+    uint8_t prev_done = 0;
     if (srec) {
         /* 再按一次 / STOP：录到的顺序写入歌曲（空录制 = NO SONG，不覆盖原歌曲） */
         srec_stop();
     } else if (arrangement_clock.running) {
         ret = ESP_ERR_NOT_ALLOWED; /* 上游 UI："STOP FIRST" */
     } else {
+        prev_done = srec_done;   /* 上一轮结果若还没被 sync 读走，先对账再清 */
         arrangement_enabled = 0; /* SONG REC 只录 live sections（上游强制 loop 模式） */
         srec_done = 0;           /* 新一轮 take：清掉上一次结果的显示/对账 */
         srec = 1;                /* 下一个小节起录（live_block 的 srec==1 分支） */
     }
     engine_unlock();
+    if (prev_done) song_result_mark(prev_done);
     if (ret == ESP_OK) song_result_reconcile();
     return ret;
 }

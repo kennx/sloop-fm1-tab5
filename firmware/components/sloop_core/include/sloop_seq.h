@@ -81,7 +81,8 @@ esp_err_t sloop_seq_play_button(bool down);
  * 快照是上游运行态的一份一致视图（引擎锁内取；config 是 arrangement 36B 的 POD 投影）：
  *   enabled     SONG 模式（arrangement_enabled；PLAY 时按它决定 SONG 或普通 loop）
  *   running     SONG 正在播放（arrangement_clock.running；此时 live section 动作被拒）
- *   index/bar   SONG 当前条目与条目内小节（停止后保留最后一次值）
+ *   index/bar   SONG 当前条目与条目内小节；index 恒被夹到 0..count-1（上游在 loop=0
+ *               自然结束时把它停在 count，count==16 的消费者不能拿它索引 entry[]）
  *   ready       A–D 有效工程槽的位掩码（bit0 = A；`proj_ok` 口径，与上游 arrangement_ready 同）
  *   live        正在/最近一个 live section（0..3），0xFF = 无（= 上游 live_sec）
  *   dirty       有尚未落盘的 section 或歌曲修改（Task 7 的 1s 门限写）
@@ -89,8 +90,9 @@ esp_err_t sloop_seq_play_button(bool down);
  *   chain_index/chain_bars 当前 chain 项与它的小节数（上游 chain_i/chain_bars）
  *   srec        SONG REC 状态：0 off / 1 armed（下一个小节起）/ 2 recording
  *   srec_done   最近一次 SONG REC 的结果：0 无、0xFF 什么都没录到（NO SONG）、否则项数
- * 诊断冻结时快照全零（不读、不消费）。dirty 的歌曲部分由 `srec_done` 对账：一次
- * take 结束（含 STOP 收尾）后置 song dirty，保证延迟写把新歌曲顺序落盘。 */
+ * 诊断冻结或存储未就绪时快照全零（不读、不消费；未就绪时 `proj_slot` 是 NULL/垃圾
+ * PSRAM 指针，`arrangement_ready()` 会解引用它）。dirty 的歌曲部分由 `srec_done` 对账：
+ * 一次 take 结束（含 STOP 收尾）后置 song dirty，保证延迟写把新歌曲顺序落盘。 */
 typedef struct {
     uint8_t enabled, running, index, bar, ready, live, dirty, chain_count, srec;
     uint8_t chain_index, chain_bars, srec_done;
@@ -107,21 +109,28 @@ void sloop_seq_song_read(sloop_song_snapshot_t *out);
  *               dirty；空槽 ESP_ERR_NOT_FOUND 且不写 flash；
  *   两者皆 false = load（仅停止态）：把 RAM 槽应用到引擎、live_sec = slot。**不是**
  *   project LOAD（不回落 flash、不写存储）。
- * 槽号越界 invalid、诊断冻结 invalid state。 */
+ * 槽号越界 invalid、诊断冻结或存储未就绪 invalid state（console/状态层按
+ * `no_storage`/ERROR 区分；未就绪时**绝不**解引用 proj_slot）。 */
 esp_err_t sloop_seq_section(uint32_t slot, bool store, bool erase);
 /* live 播放中请求一个 section：下一个小节生效（上游 live_req → arrangement_apply 在
  * 渲染块边界）。只在「live loop 正在播放且 SONG 未播放」时接受；空槽 not found、
- * 走带中/其它情形 not allowed（= console 的 blocked）。请求同时取消正在跑的 quick chain
- * （上游第一次 section tap 的语义）。**绝不**用 project LOAD 做播放中切换。 */
+ * 走带中/其它情形 not allowed（= console 的 blocked）、存储未就绪 invalid state。
+ * 请求同时取消正在跑的 quick chain（上游第一次 section tap 的语义）。**绝不**用
+ * project LOAD 做播放中切换。 */
 esp_err_t sloop_seq_section_request(uint32_t slot);
 /* quick chain（SAVE 按住的多 section tap）：begin(first) 立即把 first 作为普通
  * live_req 排队并清旧 chain；commit 以 1..8 项原子安装（首项保持已请求/正在播放，
  * 之后每项播放 `section_bars()` 小节并循环）。count 0 = **cancel**（清 chain，保留
  * 已排队的请求——这就是「单 section tap 取消 chain、该 section 继续播放」）。
- * 任一 scene 空/非法则整份拒绝（原子，不安装半条 chain）。 */
+ * 任一 scene 空/非法则整份拒绝（原子，不安装半条 chain）。
+ * **begin/commit 配对不是强制前提**：commit 若发现首项既没在播放、也没有相同的 pending
+ * 请求，会自行请求 scenes[0]（standalone COMMIT 不会从 entry 1 开始）；首项已在播放
+ * 则不重复请求。`count==1` 是合法的「单 section 循环 chain」（上游 UI 的单 tap 只做
+ * begin、不 commit，因此行为上等价于普通 jump；console 的单 scene 参数也只做 begin）。 */
 esp_err_t sloop_seq_chain_begin(uint32_t first);
 esp_err_t sloop_seq_chain_commit(const uint8_t *scenes, uint32_t count);
-/* SONG 模式切换（上游 SONG MODE / LOOP MODE）：SONG REC 进行中拒绝（not allowed）。 */
+/* SONG 模式切换（上游 SONG MODE / LOOP MODE）：SONG REC 进行中拒绝（not allowed）；
+ * 存储未就绪时**启**用拒绝（invalid state）——PLAY 的 arrangement_start 会读 proj_slot。 */
 esp_err_t sloop_seq_song_mode(bool enabled);
 /* SONG REC（上游 ui_layers.c 的 section w=13）：未录音时强制 loop 模式并从下一个小节
  * 开始录制实际播放过的 section（每个 section 播放的小节数）；录音中/armed 时 = 停止并

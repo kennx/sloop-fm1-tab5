@@ -388,7 +388,7 @@ static void cmd_section(app_state_t *s, edit_cmd_type_t type, uint32_t slot)
 
 static void cmd_chain_begin(app_state_t *s, uint32_t first)
 {
-    if (first >= APP_STATE_TRACKS) {
+    if (first >= SLOOP_STORE_PROJECTS) {
         s->seq_status = SEQ_STATUS_INVALID;
         return;
     }

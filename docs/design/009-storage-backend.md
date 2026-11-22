@@ -291,8 +291,10 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - **对象**：A–D 仍写 `OBJ_PROJECT0 + slot`（FUN6，与 `STORE PROJ SAVE` 同一对象/同一
   `st_save`），不新建 section 对象。
 - **捕获**：`sloop_seq_section(slot, store)` 在**引擎锁内** `proj_capture` 到 RAM 槽、
-  `live_sec = slot`，随后置 `.noinit` 的 `s_sec_dirty` 位；播放中也允许（上游
-  `section_store` 的 IRQ off 段），此刻**不写 flash**。
+  `live_sec = slot`，随后置 `.noinit` 的 `s_sec_dirty` 位并 ++section gen；播放中也
+  允许（上游 `section_store` 的 IRQ off 段），此刻**不写 flash**。存储未就绪时
+  store/load/erase 一律 `ESP_ERR_INVALID_STATE`（`proj_slot` 是 NULL/垃圾 PSRAM 指针，
+  绝不 touch）。
 - **落盘**：`sloop_store_sections_tick` 与歌曲使用**同一拍、同一门限**
   （停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s）。每段：持存储锁 + 引擎锁把
   `proj_slot[i]` 拷进 `proj_tmp` → **松开引擎锁** `st_save` → 成功清 dirty、失败复位
@@ -301,7 +303,9 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - **与 PROJECT SAVE/ERASE 的交集**：`project_save` **不**清该槽 dirty 位（上游同；擦写
   期间可能又有 live STORE 捕获同一槽，清掉新捕获会丢数据——多写一次是安全的）；
   `project_erase` 成功清位，并在引擎锁内撤 `live_sec`、`arr_drop_scene`（有项被删则置
-  song dirty、一段不剩回默认歌曲）。
+  song dirty、一段不剩回默认歌曲）。两种 erase 都在擦写前记下 section gen：若擦写期间
+  发生了新的 capture（gen 变化），**保留新捕获与 dirty 位**、不 memset/不清位/不撤
+  live_sec/song 项，flash 里的空对象由下一个 tick 用新 RAM 槽重写——不静默丢并发写入。
 - **边界**：`section_load`/`erase` 只在停止态（走带中回 `ESP_ERR_NOT_ALLOWED`，与
   `STORE` 的 `playing` 语义分开），load 只应用 **RAM 槽**、不回落 flash。冷/热复位后
   仍按开机四槽 fetch：RAM 槽最终以 flash 为准，播放中 capture 若在 5s 落盘窗口内掉电

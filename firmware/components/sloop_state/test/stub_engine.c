@@ -489,7 +489,7 @@ esp_err_t sloop_store_song_set(const sloop_song_config_t *cfg)
 bool sloop_store_song_dirty(void) { return g_stub.song_dirty; }
 bool sloop_store_sections_dirty(void) { return g_stub.sections_dirty; }
 void sloop_store_song_dirty_mark(void) { g_stub.song_dirty = 1; }
-void sloop_store_section_dirty_mark(uint32_t slot)
+void sloop_store_section_dirty_mark_locked(uint32_t slot)
 {
     (void)slot;
     g_stub.sections_dirty = 1;

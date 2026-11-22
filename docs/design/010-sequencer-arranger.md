@@ -272,34 +272,47 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   `sloop_seq_chain_begin/commit`、`sloop_seq_song_mode/rec`。快照含
   enabled/running/index/bar/ready(bitmask)/live/dirty/chain(count/index/bars/scenes)/
   srec/srec_done + 16 项 `sloop_song_config_t`；`ready` 与 `arrangement_ready()` 同源
-  （`proj_ok` 位掩码），UI 不再读上游全局。
+  （`proj_ok` 位掩码），UI 不再读上游全局。`index` 在快照里恒夹到 `0..count-1`
+  （上游 loop=0 自然结束时停在 count；count==16 的消费者不能拿它索引 `entry[]`）。
+  **存储未就绪时快照全零且不取引擎锁**：此时 `proj_slot` 是 NULL/垃圾 PSRAM 指针，
+  `arrangement_ready()` 会解引用它。
 - **section**：`store=true` 在引擎锁内 `proj_capture(&proj_slot[s])` + `live_sec = s`，
   **播放中也允许**（上游 `section_store` 的 IRQ off 段），随后只置 section dirty；
   `erase=true` / 两者皆 false（load）只在停止态（adapter 回 `ESP_ERR_NOT_ALLOWED`，
   console/状态层 = blocked）。load 把 **RAM 槽**应用到引擎（不回落 flash、不写存储）；
   erase 写空对象、清 RAM 槽/dirty 位/`live_sec`，并 `arr_drop_scene`（有项被删 →
   `song_pending_mark`；一段不剩回默认歌曲）。空槽 = `ESP_ERR_NOT_FOUND` 且不写 flash。
-- **request**：只接受「live loop 播放中且 SONG 未播放」；空槽 = not_found；排队
+  **存储未就绪**时 store/load/erase 都回 `ESP_ERR_INVALID_STATE`（console `no_storage`），
+  绝不 touch `proj_slot`；erase 若在擦写期间遇到新的 capture（section gen 变化）则保留
+  新捕获与 dirty 位，由下一个 tick 重写 flash（不静默丢并发写入）。
+- **request**：只接受「live loop 播放中且 SONG 未播放」；空槽 = not_found；存储未就绪
+  = invalid state（不碰 `proj_slot`）；排队
   `live_req` 并 `chain_n = 0`（上游第一次 section tap 同时取消 chain）。下一个小节
   由 `live_block` 调 `arrangement_apply` + `seq_reset_tracks`。
 - **quick chain**：`begin(first)` 立即排队 `live_req=first` 并清旧 chain；`commit(scenes,
-  1..8)` 先整份校验（scene < 4 且 ready），再原子写 `chain_sec/chain_i/chain_bars/chain_n`
-  （`chain_bars = section_bars(first)`，首项保持已请求/正在播放）。`count 0` = **cancel**
-  （清 chain、保留已排队请求）；console 的 `SEQ CHAIN <s>` 只做 begin = 单 tap 取消。
-  第 9 项/空 scene 整份拒绝，不安装半条 chain。
-- **SONG**：`song_mode` 只改 `arrangement_enabled`；SONG REC 进行中拒绝（REC IS ON）。
+  1..8)` 先整份校验（scene < 4 且 ready 且存储就绪），再原子写
+  `chain_sec/chain_i/chain_bars/chain_n`（`chain_bars = section_bars(first)`）。**begin 不是
+  commit 的前提**：首项既没在播放、也没有相同的 pending 请求时，commit 自己请求
+  `scenes[0]`（standalone COMMIT 不会从 entry 1 开始）；首项已在播放则不重复请求。
+  `count 0` = **cancel**（清 chain、保留已排队请求）；`count==1` 是合法的单 section
+  循环 chain（console 的单 scene 参数只做 begin = 上游单 tap 语义）。`SEQ CHAIN <s>` 只做
+  begin = 单 tap 取消；第 9 项/空 scene 整份拒绝，不安装半条 chain。
+- **SONG**：`song_mode` 只改 `arrangement_enabled`；SONG REC 进行中拒绝（REC IS ON）；
+  存储未就绪时**启**用拒绝（invalid state：PLAY 的 `arrangement_start` 会读 `proj_slot`）。
   `song_rec` 未录音时强制 loop 模式、`srec=1`（下一个小节起录；`live_sec<0` 则等选定
   section），录音中/armed 时 = `srec_stop()` 收尾（空录制 `srec_done=0xFF`，不覆盖原歌）。
   SONG 正在播放（`arrangement_clock.running`）时拒绝（STOP FIRST）。
 - **SONG REC 结果 → dirty**：`srec_done` 在适配层按代次对账（`s_srec_marked`）——一次 take
   结束（含 STOP 收尾）后置 `song_dirty`，延迟写才把新顺序落盘；每 30ms 的 sync 不会重复
-  mark 造成 dirty 永远清不掉。启动新 take 时清 `srec_done`（`SEQ SREC last=none`）。
+  mark 造成 dirty 永远清不掉。启动新 take 时**先对账上一轮结果**再清 `srec_done`
+  （`SEQ SREC last=none`）——否则两次命令间没跑 30ms sync 时会丢掉上一轮的歌曲顺序。
 - **延迟写（ADR-009 §6.1）**：`sloop_store_sections_tick(now_ms)` 现在同时处理 section
   与歌曲 dirty：同一停止/无发声/idle/gap 门限。section 先写（上游 `sections_write` 顺序）：
   持存储锁 + 引擎锁把 `proj_slot[i]` 拷进暂存 → **松开引擎锁** `st_save` → 成功清 dirty、
   失败复位 dirty（下个 5s 窗口重试）。随后 `song_write_locked()` 走 Task 7 的 PER3 组装与
-  代次清 dirty。`project_save` 成功清该槽 dirty 位；`project_erase` 清位并同步
-  `live_sec`/`arr_drop_scene`/`song_dirty`。
+  代次清 dirty。`project_save` **不**清 section dirty 位（capture 本身不清 dirty；只有
+  一次成功 flush 才清——擦写期间的新捕获不能被旧 SAVE 清掉）；`project_erase` 清位并
+  同步 `live_sec`/`arr_drop_scene`/`song_dirty`（同样受 section gen 保护）。
 - **状态层**：`app_state_t.song`（快照）+ `CMD_SECTION_STORE/LOAD/ERASE/REQUEST`、
   `CMD_CHAIN_BEGIN/COMMIT/CANCEL`、`CMD_SONG_MODE/REC/SET`。`CMD_SONG_SET` 只把
   `sloop_song_config_t` 透传给 `sloop_store_song_set`（改内存 + dirty；播放中禁用属于
@@ -317,16 +330,19 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   自然结束与 loop=1 STOP 都恢复原 loop hash/sel、后续缺 scene 整首拒播、live STORE
   播放中立即生效且只置 dirty、load/erase/arr_drop、request 下一小节、chain A/B/A 的
   `section_bars` 时长与 8 项上限/单 tap 取消、SONG REC 从下一小节/64 bars 拆分/16 项完成/
-  空录制 NO SONG；`scripts/state-test.sh` 覆盖命令透传、边界与 `seq_status` 映射。
+  空录制 NO SONG；另覆盖 **存储未就绪（proj_slot 置 NULL，SIGSEGV 守卫）** 的快照全零与
+  store/load/erase/request/chain/song_mode 拒绝、**standalone COMMIT 自行请求首项**、
+  **index 夹到 count-1**、**新 take 前对账旧结果**。`scripts/state-test.sh` 覆盖命令透传、
+  边界与 `seq_status` 映射。
 - **设备 smoke**：A/B STORE → dirty 在门限后落盘（hash 非 0）→ 播放中 STORE C 立即
   live=C 且 dirty=1 → request B 下一小节生效 → chain A/B/A 的 index 按 1/2 小节推进 →
   单 tap 取消；SONG A2+B3 在 240 BPM 自然结束且 `LIVEHASH` 回到进入前；缺 D 的歌曲
   拒播；SONG REC 得到 `last=2` 并落盘；硬复位后歌曲 count/entries 与 A/B/C 三个
   section hash 逐字节不变；`SECTION C ERASE` 把歌曲项同步移除；最终镜像复验 live STORE
-  与 dirty 落盘。证据在 `.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/`
-  （阶段收口按 AGENTS §5.4 晋升 `docs/dev/verify/`）。
+  与 dirty 落盘。证据：`docs/dev/verify/4-pc-2026-11-22/task-8-device-smoke.log`
+  （阶段收口时按 AGENTS §5.4 入库；当前在任务目录暂存）。
 
-
+## 后果
 
 - 固件获得上游 arranger/seq 的真实状态机与 RAM 场景切换能力，后续 adapter 可在同一 TU
   内安全封装，而不复制调度器或修改 vendored 源码。

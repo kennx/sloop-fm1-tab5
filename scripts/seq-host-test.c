@@ -2,6 +2,8 @@
  * P4-C Task 3: Tab5 步/鼓/参数锁适配的同源 host 测试。
  * hostsim.c 提供真实上游 seq.c/drums.c；锁桩只替代 FreeRTOS 互斥并计数。
  */
+#include <setjmp.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -18,8 +20,13 @@
 
 #define PROJ_HOST 1
 static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? i : 0; }
+/* 与固件 store_tab5.c 同法：proj_slot 退化为指针（PSRAM 槽），init 之前指针可以为
+ * NULL/垃圾。no-storage 用例把指针置 NULL——没有 sloop_store_ready() 门的实现会在这里
+ * 段错误，而不是在设备上偶发 panic。 */
+#define proj_slot (*h_slot_ps)
 #include "../third_party/sloop-fm1/firmware/src/project.c"
 #undef PROJ_HOST
+static project_t h_slot_mem[4];
 static struct { uint8_t force; } ui;
 static uint8_t sync_reload;
 #include "../third_party/sloop-fm1/firmware/src/arranger_scene.c"
@@ -31,11 +38,13 @@ static uint8_t sync_reload;
  * section 的 RAM 捕获在 seq_tab5.c（引擎锁内），这里只提供 dirty 记账与
  * load/erase（真实实现在 store_tab5.c，设备 smoke 覆盖 flash 侧）。 */
 static uint8_t h_sec_dirty, h_song_dirty;
+static bool h_store_ready = true;
 
+bool sloop_store_ready(void) { return h_store_ready; }
 bool sloop_store_sections_dirty(void) { return h_sec_dirty != 0; }
 bool sloop_store_song_dirty(void) { return h_song_dirty != 0; }
 void sloop_store_song_dirty_mark(void) { h_song_dirty = 1; }
-void sloop_store_section_dirty_mark(uint32_t slot)
+void sloop_store_section_dirty_mark_locked(uint32_t slot)
 {
     if (slot < 4u) h_sec_dirty |= (uint8_t)(1u << slot);
 }
@@ -144,6 +153,8 @@ static void reset(void)
     clk_pos = 0;
     h_sec_dirty = h_song_dirty = 0;
     s_srec_marked = 0;
+    h_store_ready = true;
+    h_slot_ps = &h_slot_mem;
     memset(proj_slot, 0, sizeof proj_slot);
 }
 
@@ -1060,6 +1071,21 @@ static void test_song_snapshot_defaults(void)
               s.config.entry[1].scene == 1 && s.config.entry[2].scene == 2 &&
               s.config.entry[3].scene == 3 && s.config.entry[0].bars == 4,
           "default song order is A/B/C/D, 4 bars each (upstream arr_defaults)");
+    /* 停止时 arrangement_clock.index 会停在 count（loop=0 的最后一个 ARR_DONE），
+     * count==16 的消费者不能拿它索引 entry[]。 */
+    arrangement.count = 16;
+    arrangement_clock.index = 16;
+    arrangement_clock.running = 0;
+    song_snapshot(&s);
+    check(s.index == 15 && s.config.count == 16,
+          "a stopped song clamps index to the last valid entry");
+    arrangement.count = 2;
+    arrangement_clock.index = 5;
+    arrangement_clock.running = 1;
+    song_snapshot(&s);
+    check(s.index == 1, "index is clamped to count-1 for consumers");
+    arrangement_clock.running = 0;
+    arrangement_clock.index = 0;
     build_section(0, 40, 16);
     build_section(2, 44, 16);
     song_snapshot(&s);
@@ -1077,6 +1103,78 @@ static void test_song_snapshot_defaults(void)
     check(sloop_seq_song_mode(true) == ESP_ERR_INVALID_STATE &&
               sloop_seq_song_rec() == ESP_ERR_INVALID_STATE,
           "frozen arranger actions return invalid state");
+}
+
+/* 存储 init 失败/未就绪：proj_slot 指针无效。song_read 与所有 section/chain 动作必须
+ * 在任何 proj_slot 解引用之前拒绝（固件里这是 NULL/垃圾 PSRAM 指针 ⇒ panic）。 */
+static sloop_song_snapshot_t h_nr_snap;
+static esp_err_t h_nr_ret;
+static void h_nr_read(void) { song_snapshot(&h_nr_snap); }
+static void h_nr_store(void) { h_nr_ret = sloop_seq_section(0, true, false); }
+static void h_nr_load(void) { h_nr_ret = sloop_seq_section(0, false, false); }
+static void h_nr_erase(void) { h_nr_ret = sloop_seq_section(0, false, true); }
+static void h_nr_request(void) { h_nr_ret = sloop_seq_section_request(0); }
+static void h_nr_chain_begin(void) { h_nr_ret = sloop_seq_chain_begin(0); }
+static void h_nr_chain_commit(void) { h_nr_ret = sloop_seq_chain_commit((const uint8_t[]){0, 1}, 2); }
+
+static sigjmp_buf h_guard_env;
+static volatile sig_atomic_t h_guard_fault;
+static void h_guard_handler(int sig)
+{
+    (void)sig;
+    h_guard_fault = 1;
+    siglongjmp(h_guard_env, 1);
+}
+
+/* 运行 fn；若它解引用无效 proj_slot（SIGSEGV）返回 0。 */
+static int guard_run(void (*fn)(void))
+{
+    struct sigaction sa, old;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_handler = h_guard_handler;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, &old);
+    h_guard_fault = 0;
+    if (sigsetjmp(h_guard_env, 1) == 0) fn();
+    sigaction(SIGSEGV, &old, NULL);
+    return h_guard_fault == 0;
+}
+
+static void test_no_storage_gate(void)
+{
+    reset();
+    build_section(0, 40, 16);
+    build_section(1, 52, 16);
+    h_store_ready = false;
+    h_slot_ps = NULL; /* 固件未就绪时的 proj_slot（NULL/垃圾） */
+    memset(&h_nr_snap, 0xA5, sizeof h_nr_snap);
+    check(guard_run(h_nr_read), "storage not ready: song_read does not touch proj_slot");
+    check(h_nr_snap.enabled == 0 && h_nr_snap.ready == 0 && h_nr_snap.config.count == 0 &&
+              h_nr_snap.dirty == 0,
+          "storage not ready: song snapshot is zeroed");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_store) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: section STORE returns invalid state (no capture)");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_load) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: section LOAD returns invalid state");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_erase) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: section ERASE returns invalid state");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_request) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: section REQUEST returns invalid state");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_chain_begin) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: CHAIN BEGIN returns invalid state");
+    h_nr_ret = ESP_OK;
+    check(guard_run(h_nr_chain_commit) && h_nr_ret == ESP_ERR_INVALID_STATE,
+          "storage not ready: CHAIN COMMIT returns invalid state");
+    check(sloop_seq_song_mode(true) == ESP_ERR_INVALID_STATE,
+          "storage not ready: SONG mode cannot be enabled (audio path would call arrangement_ready)");
+    check(sloop_seq_song_mode(false) == ESP_OK, "storage not ready: SONG mode can still be disabled");
+    h_store_ready = true;
+    h_slot_ps = &h_slot_mem;
 }
 
 static void test_song_a2b3_loop0(void)
@@ -1284,6 +1382,38 @@ static void test_section_request(void)
     blocks(1);
 }
 
+/* COMMIT 不依赖 begin：若第一个 scene 既未在播放也没有相同的 pending 请求，commit
+ * 必须自行请求它，否则 standalone COMMIT 会从 entry 1 开始（跳过 entry 0）。 */
+static void test_chain_commit_requests_first(void)
+{
+    reset();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    build_section(0, 40, 16);
+    build_section(1, 52, 16);
+    check(sloop_seq_section(0, false, false) == ESP_OK, "standalone COMMIT fixture loads A");
+    blocks(2);
+    transport_req = 1;
+    blocks(1);
+    check(live_sec == 0 && live_req < 0, "the fixture is playing A with no pending request");
+    const uint8_t ba[] = {1, 0};
+    uint32_t locks = engine_lock_calls;
+    check(sloop_seq_chain_commit(ba, 2) == ESP_OK && engine_lock_calls == locks + 1u,
+          "standalone COMMIT installs the chain with one engine lock");
+    check(live_req == 1, "COMMIT independently requests its first scene");
+    blocks(bar_blocks() + 2u);
+    check(live_sec == 1, "the chain starts at entry 0 on the next bar");
+    /* 已在播放的首项不需要再请求 */
+    live_req = -1;
+    const uint8_t bb[] = {1, 0};
+    check(sloop_seq_chain_commit(bb, 2) == ESP_OK && live_req < 0,
+          "COMMIT does not re-request a first scene that is already playing");
+    const uint8_t one[] = {1};
+    check(sloop_seq_chain_commit(one, 1) == ESP_OK && chain_n == 1u,
+          "a one-entry chain is accepted (a looping single section)");
+    transport_req = 2;
+    blocks(2);
+}
+
 static void test_chain_auto_bars(void)
 {
     reset();
@@ -1478,6 +1608,32 @@ static void test_srec_empty_no_song(void)
           "cancelling an armed (not yet recording) take keeps the old result");
 }
 
+/* 上一轮 take 的结果若还没被 30ms sync 读走，开始下一轮前必须先对账，否则新 take
+ * 清掉 srec_done 会让那次歌曲顺序永远不落盘。 */
+static void test_srec_reconcile_before_new_take(void)
+{
+    reset();
+    srec = 0;
+    srec_done = 3;
+    s_srec_marked = 0;
+    h_song_dirty = 0;
+    check(sloop_seq_song_rec() == ESP_OK, "a new take can start with a stale result pending");
+    check(srec == 1 && srec_done == 0, "the new take clears the visible result");
+    check(h_song_dirty == 1 && s_srec_marked == 0,
+          "the stale take is reconciled (song dirty) before the reset; the new take shows none");
+    /* NO SONG 也要推进已对账值：否则「2 项 → NO SONG → 2 项」会因 marked 仍为 2 而漏写 */
+    srec = 0;
+    srec_done = 0xFF;
+    h_song_dirty = 0;
+    sloop_seq_song_read(&(sloop_song_snapshot_t){0});
+    check(s_srec_marked == 0xFF && h_song_dirty == 0, "NO SONG advances the reconciled value (no dirty)");
+    srec_done = 2;
+    sloop_seq_song_read(&(sloop_song_snapshot_t){0});
+    check(h_song_dirty == 1 && s_srec_marked == 2,
+          "a later take with the same part count is marked again after NO SONG");
+    reset();
+}
+
 static void test_rec_fill_projection(void)
 {
     sloop_rec_snapshot_t r;
@@ -1538,18 +1694,21 @@ int main(void)
     test_rec_toggle_swallows_recent_take();
     test_play_release_without_lock();
     test_song_snapshot_defaults();
+    test_no_storage_gate();
     test_song_a2b3_loop0();
     test_song_loop1_stop_restore();
     test_song_missing_scene();
     test_section_live_store();
     test_section_load_erase();
     test_section_request();
+    test_chain_commit_requests_first();
     test_chain_auto_bars();
     test_chain_limits_and_cancel();
     test_srec_next_bar();
     test_srec_64_bars_split();
     test_srec_16_items_finish();
     test_srec_empty_no_song();
+    test_srec_reconcile_before_new_take();
     test_rec_fill_projection();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;

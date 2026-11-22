@@ -428,6 +428,10 @@ static bool s_song_refused __attribute__((section(".noinit")));
  * 与歌曲共用下面 tick 的停止/安静/idle 门限；.noinit 与 s_song 同理（自检 restore 不得
  * 把「还没落盘」抹成已落盘）。 */
 static volatile uint8_t s_sec_dirty __attribute__((section(".noinit")));
+/* section capture 的代次：erase 擦写期间若又有 live capture（gen 变化），保留新捕获与
+ * dirty 位，不 memset 掉它（flash 里的空对象由下一个 tick 重写）。与 s_sec_dirty 同一把
+ * 引擎锁访问；只需在单次 erase 调用内比较，故留在 .bss。 */
+static volatile uint32_t s_sec_gen[SLOOP_STORE_PROJECTS];
 
 /* 上一次写动作（st_save / up_put / fm6_bank_put）的代价：spec §4.4/§5 要求 STORE STATS
  * 报告每次保存的 xrun 增量与耗时（擦除会关 cache、音频任务停顿，xrun 必然增长）。
@@ -509,6 +513,7 @@ esp_err_t sloop_store_init(void)
     s_sections_tried_ms = 0;
     s_song_refused = false;
     s_sec_dirty = 0;
+    memset((void *)s_sec_gen, 0, sizeof s_sec_gen);
     s_busy = false;
     s_auto_task = NULL;
     sloop_store_raw_abort(); /* R27：RAW 上传状态在开机时归零（.noinit 是冷启动垃圾） */
@@ -712,15 +717,21 @@ esp_err_t sloop_store_project_erase(uint32_t slot)
     }
     uint32_t xr0 = sloop_hal_audio_xruns();
     int64_t us0 = esp_timer_get_time();
+    engine_lock();
+    uint32_t gen0 = s_sec_gen[slot];
+    engine_unlock();
     int rc = st_save(OBJ_PROJECT0 + slot, NULL, 0);
     if (rc == 0) {
-        memset(&proj_slot[slot], 0, sizeof(project_t));
-        /* 上游 project_erase 的 IRQ off 段：清 dirty 位、撤 live_sec、把歌曲里引用该
-         * scene 的项拿走（一段不剩回默认歌曲）并置 song dirty。 */
+        /* 上游 project_erase 的 IRQ off 段：清 RAM 槽/dirty 位、撤 live_sec、把歌曲里
+         * 引用该 scene 的项拿走（一段不剩回默认歌曲）并置 song dirty。擦写期间若又有
+         * section capture（gen 变化），保留新捕获与它的 dirty 位，由 tick 重写 flash。 */
         engine_lock();
-        s_sec_dirty &= (uint8_t)~(1u << slot);
-        if (live_sec == (int8_t)slot) live_sec = -1;
-        if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        if (s_sec_gen[slot] == gen0) {
+            memset(&proj_slot[slot], 0, sizeof(project_t));
+            s_sec_dirty &= (uint8_t)~(1u << slot);
+            if (live_sec == (int8_t)slot) live_sec = -1;
+            if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        }
         engine_unlock();
     }
     store_unlock();
@@ -1597,12 +1608,13 @@ void sloop_store_song_dirty_mark(void)
 
 /* ---- live sections A–D（P4-C Task 8）---------------------------------------- */
 
-void sloop_store_section_dirty_mark(uint32_t slot)
+/* 调用方持引擎锁（sloop_seq_section 的 capture 临界区）：置 dirty 与 ++gen 必须和
+ * proj_capture 原子，否则 erase 可能在这两步之间擦掉刚捕获的槽。 */
+void sloop_store_section_dirty_mark_locked(uint32_t slot)
 {
     if (slot >= SLOOP_STORE_PROJECTS) return;
-    engine_lock(); /* 单字节 RMW 与 tick 的清除/失败重置互斥（不取存储锁：捕获路径很短） */
     s_sec_dirty |= (uint8_t)(1u << slot);
-    engine_unlock();
+    s_sec_gen[slot]++;
 }
 
 bool sloop_store_sections_dirty(void)
@@ -1645,15 +1657,22 @@ esp_err_t sloop_store_section_erase(uint32_t slot)
         store_unlock();
         return ESP_ERR_NOT_FOUND;
     }
+    engine_lock();
+    uint32_t gen0 = s_sec_gen[slot];
+    engine_unlock();
     uint32_t xr0 = sloop_hal_audio_xruns();
     int64_t us0 = esp_timer_get_time();
     int rc = st_save(OBJ_PROJECT0 + slot, NULL, 0);
     if (rc == 0) {
-        memset(&proj_slot[slot], 0, sizeof(project_t));
+        /* 擦写期间的新 capture（gen 变化）保留：不清位、不 memset、不撤 live_sec/歌曲项；
+         * flash 里的空对象由下一个 tick 用新 RAM 槽重写。 */
         engine_lock();
-        s_sec_dirty &= (uint8_t)~(1u << slot);
-        if (live_sec == (int8_t)slot) live_sec = -1;
-        if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        if (s_sec_gen[slot] == gen0) {
+            memset(&proj_slot[slot], 0, sizeof(project_t));
+            s_sec_dirty &= (uint8_t)~(1u << slot);
+            if (live_sec == (int8_t)slot) live_sec = -1;
+            if (arr_drop_scene(&arrangement, slot)) song_pending_mark(&s_song);
+        }
         engine_unlock();
     }
     store_unlock();

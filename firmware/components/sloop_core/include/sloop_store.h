@@ -272,16 +272,21 @@ void sloop_store_sections_tick(uint32_t now_ms);
 /* ---- live sections A–D（P4-C Task 8）：捕获在 sloop_seq_section（引擎锁内，见
  * sloop_seq.h），这里只做 dirty 记账、停止态载入/擦除与延迟写。A–D 的内容仍是 FUN6
  * 工程对象（OBJ_PROJECT0 + slot），与普通 PROJECT SAVE 同一对象。
- *   dirty_mark(slot)  置 section dirty（捕获后调用；单字节写，不取锁）
- *   sections_dirty()  有任一段未落盘（`dirty` 投影/诊断读）
- *   section_load(slot) 仅停止态（走带中 ESP_ERR_NOT_ALLOWED），把 **RAM 槽**应用到引擎
- *                     （不回落 flash、不写存储），live_sec = slot；空槽 NOT_FOUND
+ *   dirty_mark_locked(slot) 置 section dirty + ++section gen；**调用方必须已持引擎锁**
+ *                     （与 proj_capture 同一临界区，erase 的 gen 比较才能看到每一次捕获；
+ *                     本函数不取锁，不取存储锁——捕获路径很短）
+ *   sections_dirty()  有任一段未落盘（`dirty` 投影/诊断读；存储未就绪时 false）
+ *   section_load(slot) 仅停止态（走带中 ESP_ERR_NOT_ALLOWED），存储未就绪
+ *                     ESP_ERR_INVALID_STATE；把 **RAM 槽**应用到引擎（不回落 flash、
+ *                     不写存储），live_sec = slot；空槽 NOT_FOUND
  *   section_erase(slot) 仅停止态；空槽 NOT_FOUND 且不写 flash；成功写空对象、清 RAM 槽
  *                     与 dirty 位、live_sec 归 -1，并从歌曲顺序里 `arr_drop_scene`
- *                     （有项被删就置 song dirty；一段不剩回默认歌曲）
+ *                     （有项被删就置 song dirty；一段不剩回默认歌曲）。擦写期间若有新的
+ *                     section capture（gen 变化）则保留新捕获与 dirty 位，槽由下一个
+ *                     tick 重写——不静默丢掉并发写入
  * 1s 任务的 `sections_tick` 把 dirty 段与歌曲放在同一拍、同一门限（停止 + 无发声 +
  * 输入空闲 ≥1.5s + 间隔 ≥5s）里写：引擎锁内把槽快照进暂存，**擦写期间不持引擎锁**。 */
-void sloop_store_section_dirty_mark(uint32_t slot);
+void sloop_store_section_dirty_mark_locked(uint32_t slot);
 bool sloop_store_sections_dirty(void);
 esp_err_t sloop_store_section_load(uint32_t slot);
 esp_err_t sloop_store_section_erase(uint32_t slot);
