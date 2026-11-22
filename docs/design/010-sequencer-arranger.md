@@ -160,8 +160,10 @@ Task 4 继续扩展同一 `seq_tab5.c`，不编入上游 UI，也不建立第二
   `s_engine_lock` 后复核，并在同一把锁内完成动作。adapter 自有 `step_sess` 在每个公共动作前后归零，
   因而一次 API/console 命令对应一个 undo session，不依赖 240×240 `ui.step_sess` 的生命周期。
 - `SPAN.value` 是目标长度；`NOTE_MOVE/COPY.target` 是目标起点。move 通过重复上游单步 shift 到达目标；
-  copy 先落在原音跨度之后，再按同一 shift 语义移动副本。复杂 CONT 跨度未先缩回普通 TIE 跨度时拒绝
-  move/copy。note move/copy 携带 micro/fill，并重定位/复制锁。
+  copy 先落在原音跨度之后，再按同一 shift 语义移动副本。复杂 CONT 跨度未先缩回普通 TIE 跨度或目标被
+  占用时，move/copy 返回 `ESP_ERR_NOT_ALLOWED`（console `SEQ ERR blocked`）。note move/copy 携带
+  micro/fill，并重定位/复制锁；copy 在任何 step/micro/fill/lock 写入前计算「目标已有同键锁除外」的
+  需求与空槽数，容量不足返回 `ESP_ERR_NO_MEM` 且整轨不变。`ESP_ERR_INVALID_STATE` 只表示冻结。
 - `LVL/RAT` 写选中音符的原始 2-bit 字段，`SLIDE` 接受 0/1；`STEP_CLEAR` 删除该步音符（合成轨经
   `note_del` 清净 CONT）并清 lock/micro/fill。`PATTERN_CLEAR` 调上游 `steps_clear()`，不改变 LEN。
 - rotate 和 length 只移动/复制 `step[]`，micro/fill/lock 锚定绝对步；transpose 对全部 64 步逐音饱和到
@@ -169,6 +171,7 @@ Task 4 继续扩展同一 `seq_tab5.c`，不编入上游 UI，也不建立第二
   不恢复 fill/lock；没有有效方向时返回 `ESP_ERR_NOT_FOUND`。
 - brief 的 `sloop_step_edit_t` 原有字段无法承载 `sloop_step_op_t`，因此实际 POD 在原五字段末尾追加
   `op`。这是让既定函数签名可分发动作所必需的接口修正，后续 `CMD_STEP_EDIT` 必须透传该字段。
+  两个公共入口都以有符号转换显式拒绝负 op，再检查上界，不依赖编译器选择 enum 的底层类型。
 - console 新增 `SEQ EDIT <SPAN|DEL|MOVE|COPY|LVL|RAT|SLIDE|CLEAR> …` 与
   `SEQ PATTERN <ROTATE|LENGTH|TRANSPOSE|CLEAR|UNDO|REDO> …`；与公共 API 共用错误返回。
 

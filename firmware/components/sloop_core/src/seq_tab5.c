@@ -118,6 +118,16 @@ static int32_t note_shift(track_t *t, uint32_t i, int32_t dir, int copy)
         if ((to + j < i || to + j >= i + n) && !step_free(t, to + j))
             return -1;
     if (copy) {
+        uint32_t free = 0, need = 0;
+        for (j = 0; j < NLOCK; j++)
+            free += t->lock[j].step == LOCK_FREE;
+        for (j = 0; j < NLOCK; j++)
+            if (t->lock[j].step == i && lock_find(t, to, t->lock[j].param, 0) < 0)
+                need++;
+        if (need > free)
+            return -2;
+    }
+    if (copy) {
         for (j = 0; j < n; j++)
             t->step[to + j] = t->step[i + j];
     } else if (dir > 0) {
@@ -330,7 +340,8 @@ uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
 
 esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
 {
-    if (cmd == NULL || cmd->track >= NTRK || cmd->step >= NSTEP || cmd->op > SEQ_STEP_CLEAR)
+    if (cmd == NULL || cmd->track >= NTRK || cmd->step >= NSTEP ||
+        (int32_t)cmd->op < 0 || cmd->op > SEQ_STEP_CLEAR)
         return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
     engine_lock();
@@ -372,11 +383,14 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
             int32_t at = (int32_t)step;
             if (cmd->op == SEQ_STEP_NOTE_COPY) {
                 at = note_shift(t, (uint32_t)at, 1, 1);
-                if (at < 0) ret = ESP_ERR_INVALID_STATE;
+                if (at == -2)
+                    ret = ESP_ERR_NO_MEM;
+                else if (at < 0)
+                    ret = ESP_ERR_NOT_ALLOWED;
             }
             while (ret == ESP_OK && at != cmd->target) {
                 at = note_shift(t, (uint32_t)at, cmd->target > at ? 1 : -1, 0);
-                if (at < 0) ret = ESP_ERR_INVALID_STATE;
+                if (at < 0) ret = ESP_ERR_NOT_ALLOWED;
             }
         }
     } else if (cmd->op == SEQ_STEP_LVL || cmd->op == SEQ_STEP_RAT) {
@@ -421,7 +435,7 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
 
 esp_err_t sloop_seq_pattern(uint32_t track, sloop_pattern_op_t op, int32_t arg)
 {
-    if (track >= NTRK || op > SEQ_PATTERN_REDO) return ESP_ERR_INVALID_ARG;
+    if (track >= NTRK || (int32_t)op < 0 || op > SEQ_PATTERN_REDO) return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;
     engine_lock();
     if (s_frozen) {

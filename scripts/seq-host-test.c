@@ -56,6 +56,16 @@ static const sloop_lock_t *find_lock(const sloop_lock_t *locks, uint32_t n, uint
     return NULL;
 }
 
+static int fill_locks_to(uint32_t track, uint32_t used, uint32_t source_step, uint32_t target_step)
+{
+    sloop_lock_t locks[NLOCK];
+    for (uint32_t step = 0; step < NSTEP && sloop_seq_lock_list(track, locks, NLOCK) < used; step++) {
+        if (step == source_step || step == target_step) continue;
+        if (sloop_seq_lock_set(track, step, P_DIST, (int16_t)step) != ESP_OK) return 0;
+    }
+    return sloop_seq_lock_list(track, locks, NLOCK) == used;
+}
+
 static void test_dstep(void)
 {
     sloop_dstep_t want = {0}, got;
@@ -227,12 +237,12 @@ static void test_complex_span(void)
               has_note(&t->step[8], 36, 1) && t->step[9].time == ST_TIE,
           "C1 spans C2/D2/E2 with CONT and a continuation-only note at step 8");
 
-    step_t before[NSTEP];
-    memcpy(before, t->step, sizeof(before));
-    check(edit_step(0, 0, SEQ_STEP_NOTE_MOVE, 0, 1, 0) == ESP_ERR_INVALID_STATE &&
-              edit_step(0, 0, SEQ_STEP_NOTE_COPY, 0, 10, 0) == ESP_ERR_INVALID_STATE &&
-              memcmp(before, t->step, sizeof(before)) == 0,
-          "move/copy reject a complex CONT span without changing any step");
+    track_t before = *t;
+    esp_err_t move_ret = edit_step(0, 0, SEQ_STEP_NOTE_MOVE, 0, 1, 0);
+    esp_err_t copy_ret = edit_step(0, 0, SEQ_STEP_NOTE_COPY, 0, 10, 0);
+    check(move_ret == ESP_ERR_NOT_ALLOWED && copy_ret == ESP_ERR_NOT_ALLOWED &&
+              memcmp(&before, t, sizeof(before)) == 0,
+          "unsafe CONT move/copy return blocked without changing the track");
 
     check(edit_step(0, 0, SEQ_STEP_NOTE_DEL, 0, 0, 0) == ESP_OK &&
           t->step[0].time == ST_REST && t->step[0].n == 0 &&
@@ -284,6 +294,56 @@ static void test_note_move_copy(void)
     check(n == 2u && find_lock(locks, n, 2, P_DIST) != NULL &&
               find_lock(locks, n, 4, P_DIST) != NULL,
           "note copy duplicates its parameter lock");
+}
+
+static void test_copy_capacity(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 62, 1);
+    t->micro[2] = 11;
+    step_fill_set(t, 2, FC_FILL);
+    check(sloop_seq_lock_set(0, 2, P_DIST, 88) == ESP_OK && fill_locks_to(0, NLOCK, 2, 4),
+          "full-table copy fixture reaches 24 locks");
+    track_t before = *t;
+    esp_err_t copy_ret = edit_step(0, 2, SEQ_STEP_NOTE_COPY, 0, 4, 0);
+    check(copy_ret == ESP_ERR_NO_MEM, "copy with a full lock table returns no memory");
+    check(memcmp(&before, t, sizeof(before)) == 0,
+          "full-table copy rejection leaves the whole track unchanged");
+
+    reset();
+    t = &trk[0];
+    t->p[P_SLEN] = 16;
+    put_note(t, 2, 64, 1);
+    t->micro[2] = -5;
+    step_fill_set(t, 2, FC_NOFILL);
+    check(sloop_seq_lock_set(0, 2, P_DIST, 91) == ESP_OK &&
+              sloop_seq_lock_set(0, 2, P_E0, 7) == ESP_OK && fill_locks_to(0, NLOCK - 1u, 2, 4),
+          "insufficient-capacity copy fixture has two source locks and one free slot");
+    before = *t;
+    copy_ret = edit_step(0, 2, SEQ_STEP_NOTE_COPY, 0, 4, 0);
+    check(copy_ret == ESP_ERR_NO_MEM, "copy preflight rejects two locks with one free slot");
+    check(memcmp(&before, t, sizeof(before)) == 0,
+          "insufficient-capacity copy rejection preserves the whole track");
+}
+
+static void test_occupied_target(void)
+{
+    track_t *t = &trk[0];
+    reset();
+    t->p[P_SLEN] = 16;
+    put_note(t, 0, 60, 0);
+    put_note(t, 1, 64, 0);
+    t->micro[0] = 6;
+    step_fill_set(t, 0, FC_FILL);
+    check(sloop_seq_lock_set(0, 0, P_DIST, 66) == ESP_OK, "occupied-target fixture has a source lock");
+    track_t before = *t;
+    esp_err_t move_ret = edit_step(0, 0, SEQ_STEP_NOTE_MOVE, 0, 1, 0);
+    esp_err_t copy_ret = edit_step(0, 0, SEQ_STEP_NOTE_COPY, 0, 1, 0);
+    check(move_ret == ESP_ERR_NOT_ALLOWED && copy_ret == ESP_ERR_NOT_ALLOWED &&
+              memcmp(&before, t, sizeof(before)) == 0,
+          "occupied move/copy targets return blocked without changing the track");
 }
 
 static void test_step_fields_clear(void)
@@ -438,10 +498,12 @@ static void test_new_entry_locking(void)
     reset();
     put_note(t, 0, 60, 0);
     sloop_step_edit_t invalid = {.op = (sloop_step_op_t)-1};
+    track_t invalid_before = *t;
     check(sloop_seq_step_edit(NULL) == ESP_ERR_INVALID_ARG &&
               sloop_seq_step_edit(&invalid) == ESP_ERR_INVALID_ARG &&
-              sloop_seq_pattern(0, (sloop_pattern_op_t)-1, 0) == ESP_ERR_INVALID_ARG,
-          "new entries reject null commands and negative operation values");
+              sloop_seq_pattern(0, (sloop_pattern_op_t)-1, 0) == ESP_ERR_INVALID_ARG &&
+              memcmp(&invalid_before, t, sizeof(invalid_before)) == 0,
+          "null and negative operations are rejected without changing the track");
     uint32_t locks = engine_lock_calls;
     check(edit_step(0, 0, SEQ_STEP_SLIDE, 0, 0, 1) == ESP_OK &&
               engine_lock_calls == locks + 1u && engine_unlock_calls == locks + 1u,
@@ -472,6 +534,8 @@ int main(void)
     test_locks();
     test_complex_span();
     test_note_move_copy();
+    test_copy_capacity();
+    test_occupied_target();
     test_step_fields_clear();
     test_pattern_rotate_length();
     test_pattern_transpose_clear_undo();

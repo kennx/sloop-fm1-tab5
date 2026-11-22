@@ -1907,6 +1907,7 @@ static int seq_err_print(esp_err_t err)
 {
     const char *token = err == ESP_ERR_NO_MEM ? "full" :
                         err == ESP_ERR_INVALID_ARG ? "invalid" :
+                        err == ESP_ERR_NOT_ALLOWED ? "blocked" :
                         err == ESP_ERR_INVALID_STATE ? "frozen" : esp_err_to_name(err);
     printf("SEQ ERR %s\n", token);
     return 1;
