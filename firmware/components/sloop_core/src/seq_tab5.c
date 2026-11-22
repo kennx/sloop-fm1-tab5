@@ -338,9 +338,13 @@ uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
     return n;
 }
 
-esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
+bool sloop_seq_frozen(void)
 {
-    if (cmd == NULL || cmd->track >= NTRK || cmd->step >= NSTEP ||
+    return s_frozen != 0;
+}
+
+esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
+{    if (cmd == NULL || cmd->track >= NTRK || cmd->step >= NSTEP ||
         (int32_t)cmd->op < 0 || cmd->op > SEQ_STEP_CLEAR)
         return ESP_ERR_INVALID_ARG;
     if (s_frozen) return ESP_ERR_INVALID_STATE;

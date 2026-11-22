@@ -197,8 +197,7 @@ UI 无需把三种失败混成同一个错误。成功的音序写命令在同�
 DI-24 按「选中轨变化才同步」收口：`state_init` 以引擎选中轨初始化焦点，`state_sync_from_engine`、
 存储成功后的 `state_refresh_locked`、`CMD_SET_WINDOW` 与音序成功刷新在 `selected_track` 相对上一份投影发生变化时同步
 `focus_track`（包括窗口刷新消费外部选轨变化的情形）。显式 `CMD_SELECT_TRACK/SET_TRACK` 已同时设置两者；选中轨不变时，键盘独立移动焦点不被
-周期投影覆盖。失败 LOAD 不刷新也不改焦点。`STATE SNAP` 在原有行尾追加 `seq_status`，并追加每列详细
-`synth step/dstep` 行；`ENG STEP` 原有完整字段与所有既有 token 保持不变。
+周期投影覆盖。失败 LOAD 不刷新也不改焦点。`STATE SNAP` 在原有行尾追加 `seq_status`；详细 `synth step/dstep` 行只在 `STATE SNAP FULL` 打印，默认保持既有响应体量。`ENG STEP` 原有完整字段与所有既有 token 保持不变。`sloop_seq_frozen()` 让 toggle/erase 在被冻结的 void 读写入口之前先给出 FROZEN，而不是 OK/NOT_FOUND。
 
 ## 后果
 

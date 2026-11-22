@@ -622,10 +622,11 @@ enum {
  * 既有行只在行尾追加 seq_status；详细窗口步另起 step/dstep 行，不改变既有解析 token。 */
 static int state_command(int argc, char **argv)
 {
-    if (argc == 2 && strcasecmp(argv[1], "snap") == 0) {
+    if ((argc == 2 && strcasecmp(argv[1], "snap") == 0) ||
+        (argc == 3 && strcasecmp(argv[1], "snap") == 0 && strcasecmp(argv[2], "full") == 0)) {
+        const bool full = argc == 3;
         app_state_t st;
-        state_get_copy(&st);
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u\n",
+        state_get_copy(&st);        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
@@ -641,6 +642,7 @@ static int state_command(int argc, char **argv)
                (int)st.p[CONSOLE_P_SLEN], (int)st.p[CONSOLE_P_MUTE]);
         printf("STATE SNAP global bpm=%d swing=%d\n", (int)st.g[CONSOLE_G_BPM],
                (int)st.g[CONSOLE_G_SWING]);
+        if (full) {
         for (uint32_t k = 0; k < 3; k++) {
             for (uint32_t c = 0; c < APP_STATE_STEPS; c++) {
                 printf("STATE SNAP step k=%u c=%u i=%u n=%u note=%u,%u,%u,%u vel=%u time=%u flags=%u lvl=%u rat=%u micro=%d fill=%u\n",
@@ -658,9 +660,10 @@ static int state_command(int argc, char **argv)
                    (unsigned)(st.window.window_start + c), (unsigned)st.core.dstep[c].on,
                    (unsigned)st.core.dstep[c].lvl, (unsigned)st.core.dstep[c].rat);
         }
+        }
         return 0;
     }
-    printf("用法: STATE SNAP（AppState 页面/焦点/层键、步窗、seq_status、详细步投影、引擎真值与参数投影）\n");
+    printf("用法: STATE SNAP [FULL]（AppState 页面/焦点/层键、步窗、seq_status、参数投影；FULL 追加详细步）\n");
     return 1;
 }
 
@@ -2186,8 +2189,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t state_cmd = {
         .command = "STATE",
-        .help = "状态层自检：STATE SNAP 打印 AppState（含 seq_status、详细步与参数投影；引擎真值与 ENG SNAP 同源）",
-        .hint = "SNAP",
+        .help = "状态层自检：STATE SNAP [FULL] 打印 AppState（FULL 含详细步；引擎真值与 ENG SNAP 同源）",
+        .hint = "SNAP [FULL]",
         .func = &state_command,
     };
     ret = esp_console_cmd_register(&state_cmd);

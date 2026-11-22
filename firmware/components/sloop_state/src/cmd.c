@@ -83,6 +83,10 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
         s->seq_status = SEQ_STATUS_INVALID;
         return;
     }
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
+        return;
+    }
 
     sloop_step_t st;
     sloop_core_read_step(track, idx, &st);
@@ -97,7 +101,7 @@ static void cmd_toggle_step(app_state_t *s, uint32_t track, uint32_t idx)
         st.lvl = 0;
         st.rat = 0;
         sloop_core_write_step(track, idx, &st);
-        state_seq_result(s, ESP_OK);
+        state_seq_result(s, sloop_seq_frozen() ? ESP_ERR_INVALID_STATE : ESP_OK);
         return;
     }
     const sloop_step_edit_t edit = {
@@ -110,6 +114,10 @@ static void cmd_erase_note(app_state_t *s, uint32_t track, uint32_t idx, uint16_
 {
     if (track >= STATE_SYNTH_TRACKS || idx >= STATE_STEPS_MAX || note == 0 || note > STATE_NOTE_MAX) {
         s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
         return;
     }
 
@@ -253,9 +261,15 @@ static void cmd_micro_fill(app_state_t *s, edit_cmd_type_t type,
         s->seq_status = SEQ_STATUS_INVALID;
         return;
     }
+    int16_t sv = (int16_t)value;
+    if ((type == CMD_SET_MICRO && (sv < -32 || sv > 31)) ||
+        (type == CMD_SET_FILL && (sv < 0 || sv > 3))) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
     esp_err_t ret = type == CMD_SET_MICRO
-                        ? sloop_seq_set_micro(track, step, (int8_t)value)
-                        : sloop_seq_set_fill(track, step, (uint8_t)value);
+                        ? sloop_seq_set_micro(track, step, (int8_t)sv)
+                        : sloop_seq_set_fill(track, step, (uint8_t)sv);
     state_seq_result(s, ret);
 }
 

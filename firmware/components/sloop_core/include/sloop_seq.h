@@ -1,6 +1,7 @@
 #ifndef SLOOP_SEQ_H
 #define SLOOP_SEQ_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "esp_err.h"
@@ -18,6 +19,9 @@ esp_err_t sloop_seq_set_fill(uint32_t track, uint32_t step, uint8_t value);
 esp_err_t sloop_seq_lock_set(uint32_t track, uint32_t step, uint32_t param, int16_t value);
 esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param);
 uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap);
+/* 诊断冻结只读查询：供状态层在 void 读/写入口（toggle/erase 的预读）之前区分
+ * frozen 与 empty，避免把被丢弃的写报成 OK/NOT_FOUND。 */
+bool sloop_seq_frozen(void);
 
 /* 一条命令是一个完整上游动作、一次引擎锁。SPAN 的 value 是目标长度 1..64；
  * NOTE_MOVE/COPY 的 target 是目标起点；LVL/RAT 写 index 音符的原始 2-bit 值，

@@ -223,6 +223,11 @@ static uint8_t stub_drop_cont(uint8_t flags, uint32_t index)
     return (uint8_t)((flags & ~0x78u) | (cont << 3u));
 }
 
+bool sloop_seq_frozen(void)
+{
+    return false;
+}
+
 esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
 {
     g_stub.seq_step_edit_calls++;
