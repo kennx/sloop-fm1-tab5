@@ -119,6 +119,9 @@ mkdir -p "$OUT/fm6-demo"
 run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos" \
     "$OUT/fm6_test" "$OUT/fm6-demo"
 
+compile sample_pitch_test tests/sample_pitch_test.c -lm
+run "SAMPLE pitch/loop" "$OUT/sample_pitch_test"
+
 compile drumkit_test tests/drumkit_test.c -lm
 run "synthesised drum kits" \
     "$OUT/drumkit_test" "$OUT/drum-kits.wav" "$OUT/drum-kits.txt"
