@@ -177,7 +177,7 @@
 | **解决方向** | (a) 把 take 结果 latch 到 `s_status`-style 的投影（`take_bars` + 一个 generation/`last_take` 字段），由 UI 显示后显式清；或 (b) console `SEQ REC` 读投影而不再直接消费快照（投影仍会被 sync 覆盖，需配合 (a)）；或 (c) 增加 `SEQ REC LAST` 保存最近一次 take 的环形记录。优先 (a)，代价是 `sloop_rec_snapshot_t` 加一个 generation 字段（POD 变化需同步 host 测试）。 |
 | **触发条件** | Task 12 注入场景若需要断言「本次 take 是 1 bar / 被丢弃」；或 UI 需要把 take 结果做成可停留的提示。 |
 | **参考** | `firmware/components/sloop_core/src/seq_tab5.c` 的 `sloop_seq_rec_read`、`firmware/components/sloop_state/src/state.c` 的 `state_sync_from_engine`、`docs/design/010-sequencer-arranger.md` §9 |
-| **登记** | 2026-11-22（P4-C Task 6 评审 minor：take 结果观测竞态） |
+| **登记** | 2026-11-22（P4-C Task 6 评审 minor：take 结果观测竞态）；2026-11-23 Task 12/13：`sequence` 场景按**持久效果**（LEN/步表/播放/`ENG STEP`）断言、不读 one-shot 令牌，最终矩阵绿——条目保留（触发条件未消失：任何需要断言「本次 take 是 N bar / 被丢弃」的新脚本或 UI 提示仍会踩到） |
 
 ## DI-28: STEP 鼓 lane 位编辑是「30ms 投影读 + 整份 POD 写」，录音并发可能丢一位
 
@@ -225,4 +225,28 @@
 | **解决方向** | 把 `SEQ_STEP_CLEAR` 改成上游 `step_clear` 口径：`memset(&t->step[step],0)` + `time=ST_REST`（保留 LEN），补 `seq-test` 用例「孤立 TIE 步 CLEAR → time=REST」与 state/注入断言；确认 `PATTERN CLEAR` 与 undo 标记不被重复 memset。 |
 | **触发条件** | 用户报告「清不掉某个 TIE 步」；或 Task 12 的 `sequence` 场景在中断复跑时需要稳定的 CLEAR 归一；或任何改动 CLEAR 语义的任务。 |
 | **参考** | `firmware/components/sloop_core/src/seq_tab5.c`（`SEQ_STEP_CLEAR` 分支）、`third_party/sloop-fm1/firmware/src/ui.c`（`step_clear`）、`scripts/inject/inject.py` 的 `run_transport_tools`（归一注释） |
-| **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义） |
+| **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义）；2026-11-23 Task 12/13：`sequence` 的 ⓪ 归一与 DI-31 用例改用「开一步再清」，最终矩阵绿——CLEAR 语义本身仍未改，条目保留 |
+
+## DI-32: `STORE RAW` 只能写 project 对象，设置对象（PER1/2/3/side）无法从设备注入
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `STORE RAW END <obj> <slot>` 的对象名解析只接受 `project`（`store_tab5.c` 的 raw 上传入口与 `scripts/store_raw.py --obj`）；`OBJ_SETTINGS`（PER1/PER2/PER3 + side）没有注入通道，故 P4-C 的 settings 迁移/损坏路径只有 host 覆盖（`scripts/persist-host-test.c`），设备侧无法上传旧设置 fixture、也无法用损坏设置验证「加载拒绝且原对象不覆盖」。 |
+| **影响面** | 仅门禁覆盖：PER1/2 迁移的设备侧证据缺失；产品路径（`song_set` → 延迟 `st_save3`）不受影响，`STORE SONG`/`STORE TEST` 已覆盖设备写入与 A/B+CRC。 |
+| **为何可延迟** | 迁移逻辑是纯字节函数（`src/song_persist.h`），host 侧真实 `storage.c` + 8KB 假 flash 已逐字节回归；设备侧缺的是「同一函数在真 flash 上跑」的冗余证明。Task 13 收口矩阵不依赖它。 |
+| **解决方向** | 给 `STORE RAW END` 增加 `settings` 对象名（映射 `OBJ_SETTINGS`，走 `st_save3` 的 A/B+CRC 路径），写后按 `song_reload` 语义重载；`scripts/store_raw.py --obj settings`；在 `store` 或 `sequence` 场景加一条「上传 PER2 → `STORE SONG INFO kind=per2` → `SAVE` → `INFO kind=per3`」与一条「上传截断 settings → `SAVE` 回 `invalid` 且 `INFO` 不变」。 |
+| **触发条件** | 需要设备级证明 settings 迁移/损坏路径时；或 P4-E 改动 `OBJ_SETTINGS` 布局（theme/lights/MIDI 尾段）后重跑 song 持久化门禁时。 |
+| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_raw_*`）、`scripts/store_raw.py`、`scripts/persist-host-test.c`、`docs/design/009-storage-backend.md` §6.1 |
+| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 7 报告 §6.2 遗留） |
+
+## DI-33: warm reset 后 live section 不保留（上游保留 live section 及其 dirty 延迟写语义）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游在 warm reset 后保留 RAM 中的 live section（并靠 dirty 延迟写补落盘）；本固件 `sloop_store_init` 先按四槽 fetch 覆盖 RAM 槽，再进入正常使用——捕获后若在 1s 任务的门限（停走带 + 无发声 + idle ≥1.5s + gap ≥5s）之前发生软复位/看门狗复位，该段在重启后回到 flash 旧值（硬复位同理，但语义上本就没有「保留」期待）。 |
+| **影响面** | 仅「section 捕获后 ≤5s 内复位」的窄窗口；已落盘的段、歌曲顺序与工程槽不受影响（PER3 与 FUN6 各自 A/B 提交）。用户可见形态是「刚存的段重启后不见了」。 |
+| **为何可延迟** | 正常使用路径（STOP 后等待 ≥5s 或继续编辑）会由 1s 任务落盘；`sequence` 场景实测 2.1s 内排空 dirty。与上游的差异只在异常复位，且完全对齐需要跨复位的 RAM 槽保活（PSRAM 分配/`.noinit` 指针所有权），属存储启动策略变更，不宜在收口任务里动。 |
+| **解决方向** | 二选一：(a) 在可控重启路径（`esp_restart` 前/关机信号）同步 flush 所有 dirty 段与歌曲；(b) `sloop_store_init` 在检测到 warm boot 且 `.noinit` 槽指针有效时保留 RAM 槽并与 flash 比较，差异则保留 RAM 值 + 置 dirty（需先证明 PSRAM 内容在软复位后仍有效并处理分配器重入）。优先 (a)，并在 `sequence` 场景加「捕获后立即复位 → 段内容保持」的判别用例。 |
+| **触发条件** | 用户报告「刚捕获的段在重启后丢失」；或 P4-E/P4-F 要求与上游 warm reset 语义一致；或引入关机/重启 UI 时。 |
+| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_init` 的槽 fetch、`sloop_store_sections_tick`）、`.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/task-8-report.md` §8.5、ADR-009 §6.1 |
+| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 8 报告 §8.5 遗留） |
