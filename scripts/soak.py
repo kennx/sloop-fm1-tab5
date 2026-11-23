@@ -32,7 +32,7 @@
        恢复 ON；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
-   10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE/SYNTH 四组各访问一次 → 回 PLAY」，
+   10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE/SYNTH/SYS 五组各访问一次 → 回 PLAY」，
        `UI MEM` 的 pool_free 首末差与单次下降都 ≤ 128B（组作用域不变量 + R34 实测
        噪声 84B；测量点固定在 PLAY 稳态，避开各页面 TLSF 碎片的涨落）。
 
@@ -65,7 +65,7 @@ import inject  # noqa: E402
 PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
          "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8,
          "song": 11, "projects": 9, "presets": 10,
-         "dsyn": 12, "fm6p": 13}  # 14 页：SONG（P4-C Task 11）+ FILE 组两页 + SYNTH 组三页
+         "dsyn": 12, "fm6p": 13, "system": 14}  # 15 页：P4-E 追加 SYS/SYSTEM
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -75,8 +75,8 @@ STACK_FLOOR = 2048
 KEY_EVENTS_PER_CYCLE = 2        # 每轮 KEY down + up
 SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash 擦写不饿死音频）
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
-POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 SEQ/SONG/FILE/SYNTH 四组各一次）
-POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn")   # 四个非 PLAY 组的代表页（组作用域销毁/重建）
+POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 SEQ/SONG/FILE/SYNTH/SYS 五组各一次）
+POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system")   # 五个非 PLAY 组的代表页（组作用域销毁/重建）
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -141,7 +141,7 @@ GROUPS = ("play", "tracks", "edit", "synth", "seq", "song", "file")
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 14 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过七个组签
+    """采样前把 15 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过八个组签
     （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:
@@ -467,7 +467,7 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        visit_all_pages(s)  # 14 页各访问一次后采样（组作用域：只驻留 SEQ 组）
+        visit_all_pages(s)  # 15 页各访问一次后采样（组作用域：只驻留 SEQ 组）
         ensure_playing(s)
         pool = pool_round_trip(s)  # 跨组往返的池水位（组作用域不变量）
 

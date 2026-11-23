@@ -3,12 +3,13 @@
 #   ① 归一（STORE AUTO OFF、停走带、ENG AUDIO ON）→ `STORE SETTINGS INFO` 解析 →
 #      `SET palette 2` ⇒ `dirty=1` → `SAVE` ⇒ `STORE SETTINGS SAVED len=<n> side=<0|1>`、
 #      `dirty=0` → esptool 硬复位 → INFO 仍 `palette=2` → 收口（palette 回起点值、AUTO ON）
-#   （后续任务在同一条 run_sys 里追加状态层命令 / SYSTEM 页 / RAW settings 注入等段落）
+#   ①b RAW settings 往返；② SYSTEM/SYS 页与 8 组签；③ TAP/键盘/走带中 NVS；
+#   ④ 硬复位持久化与 REC 三项；⑤ 182 例 golden；⑥ SEQ↔SYS 池峰值；⑦ 收口
 # 用法: bash scripts/inject/sys.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言都在 scripts/inject/inject.py 的 sys 场景里；本脚本只是入口。
 # **破坏性**（改写 OBJ_SETTINGS 的 palette），自带归一、可重复。
-# 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-sys-<时间戳>.log
+# 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-sys-<时间戳>.{log,png}
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../env.sh

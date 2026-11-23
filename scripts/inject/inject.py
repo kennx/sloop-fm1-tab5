@@ -31,6 +31,7 @@ import importlib.util
 import os
 import re
 import struct
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -357,17 +358,17 @@ C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
 # 页签条几何（ADR-005「导航决策」两行页签；theme.h UI_GROUP_*/UI_SUB_* 同源）：
-# 上行组签 y∈[4,36)、**142px** 宽、间距 8（7×142+6×8=1,042，右端 1,058 <
-# SLOOP 标题起点 ~1,191；P4-D Task 8 起 7 组，168→142 见 ADR-005 §5.1）；下行子签
+# 上行组签 y∈[4,36)、**122px** 宽、间距 8（8×122+7×8=1,032，右端 1,048 <
+# SLOOP 标题起点 ~1,191；P4-E Task 6 起 8 组，142→122 见 ADR-005 §5.2）；下行子签
 # y∈[38,68)、176px，只显示当前组已注册页（固定 5 槽复用，右端 928）。页面区起点
 # 仍是 y=72，页内几何全部不变。
 # 探针取页签**左上内缘**（x = 签左 + 20，y = 行顶 + 4）：避开 10px 圆角与 16pt
 # 文本行（组签文本 ≈10..30，子签 ≈43..63），命中填充色（选中 UI_ACCENT / 未选中
 # UI_PANEL_HI）而不是字形抗锯齿。
 UI_TAB_X0, UI_TAB_GAP = 16, 8
-UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 142, 32, 4
+UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 122, 32, 4
 UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
-UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SYNTH", "SEQ", "SONG", "FILE")
+UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SYNTH", "SEQ", "SONG", "FILE", "SYS")
 
 
 def group_tab_xy(i: int) -> tuple:
@@ -386,7 +387,7 @@ def sub_tab_probe(i: int) -> tuple:
     return (UI_TAB_X0 + i * (UI_SUB_W + UI_TAB_GAP) + 20, UI_SUB_Y + 4)
 
 
-# 单页组（PLAY/TRACKS）的选中态在上行组签；多页组（EDIT/SYNTH/SEQ/FILE）的选中态在
+# 单页组（PLAY/TRACKS/SONG/SYS）的选中态在上行组签；多页组（EDIT/SYNTH/SEQ/FILE）的选中态在
 # 下行子签。注意 C_TAB_GLOBAL 与 C_TAB_STEP/C_TAB_SAMPLE（C_TAB_FX 与 C_TAB_TRANSPORT、
 # C_TAB_DSYN）坐标相同：都是「当前组第一/二张子签」，语义由当前组决定——探针只在对应组
 # 为当前组时使用。
@@ -397,6 +398,7 @@ C_TAB_SYNTH = group_tab_probe(3)   # P4-D Task 8：SAMPLE/DSYN/FM6P 组
 C_TAB_SEQ = group_tab_probe(4)
 C_TAB_SONG = group_tab_probe(5)
 C_TAB_FILE = group_tab_probe(6)
+C_TAB_SYS = group_tab_probe(7)
 C_TAB_STEP = sub_tab_probe(0)
 C_TAB_TRANSPORT = sub_tab_probe(1)
 C_TAB_GLOBAL = sub_tab_probe(0)
@@ -1790,11 +1792,11 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
-# TAB 扁平整轮顺序（ADR-005 §4/§5.1 的最终 14 页；SONG 独立组在 P4-C Task 11 落地，
-# SYNTH 组三页在 P4-D Task 8 落地）—— group 顺序 + 组内顺序，与 ui.c 的 k_groups[] 同源。
+# TAB 扁平整轮顺序（P4-E Task 6 的最终 15 页 / 8 组）——group 顺序 + 组内顺序，
+# 与 ui.c 的 k_groups[] 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog"), (7, "fm6"),
              (8, "sample"), (12, "dsyn"), (13, "fm6p"), (2, "step"), (3, "transport"),
-             (11, "song"), (9, "projects"), (10, "presets"))
+             (11, "song"), (9, "projects"), (10, "presets"), (14, "system"))
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
@@ -1964,7 +1966,7 @@ def run_nav(s: Session) -> None:
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
        FILE 组两页、SONG 单页组、**SYNTH 组三页**（P4-D Task 8：`UI TAB synth` /
        `UI SUB 0..2`、离开组 built=0）各走一遍；
-    ⑦ `TAB` 全 14 页轮转（最终顺序 …FM6→SAMPLE→DSYN→FM6P→STEP→…→PRESETS→PLAY），
+    ⑦ `TAB` 全 15 页轮转（最终顺序 …FM6→SAMPLE→DSYN→FM6P→STEP→…→PRESETS→SYSTEM→PLAY），
        异步切页用 STATE SNAP 轮询等落地、回卷到 PLAY；
     ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
        且无逐次递增（每页 `styles_init` 只跑一次）。
@@ -2370,12 +2372,12 @@ def run_nav(s: Session) -> None:
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
-    # ---------- ⑦ TAB 全 14 页轮转（最终顺序，ADR-005 §4/§5.1；SYNTH 组 Task 8 注册） ----------
-    # 一拍一页从 PLAY 走完 14 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # ---------- ⑦ TAB 全 15 页轮转（P4-E Task 6 追加 SYSTEM） ----------
+    # 一拍一页从 PLAY 走完 15 页并回卷到 PLAY：每个目标页都由**当前页**计算
     # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
     # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
     s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→"
-               "STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY")
+               "STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY")
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
     for pid, name in NAV_ORDER[1:] + NAV_ORDER[:1]:
@@ -2831,8 +2833,8 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 14 else s.fail)(
-        f"UI MEM registered=14（4 基础 + 4 EDIT 参数页 + 3 SYNTH + 2 FILE + SONG）实得 "
+    (s.ok if mem0["head"]["registered"] == 15 else s.fail)(
+        f"UI MEM registered=15（4 基础 + 4 EDIT + 3 SYNTH + 2 FILE + SONG + SYSTEM）实得 "
         f"{mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
@@ -7901,9 +7903,7 @@ def run_synth(s: Session) -> None:
         s.expect(rf"^ENG SNAP trk k={k} engine=0 ", f"⑥ ENG SNAP 轨 {k} engine=0（无 FM6 泄漏）")
 
 
-# ---- sys 场景（P4-E 设置页）：生效副本 / 延迟写 / 自检后重载 --------------------------
-# 后续任务（状态层命令、SYSTEM 页、RAW settings 注入、SELFTEST chip）在同一条 run_sys 里
-# 按 ②③… 追加段落；本任务只有 ①。
+# ---- sys 场景（P4-E 设置页）：存储/状态/SYSTEM 页/持久化/golden/池全矩阵 -----------
 SETTINGS_INFO_RE = (
     r"^STORE SETTINGS INFO kind=(\w+) len=(\d+) side=([01]) "
     r"palette=(\d+) lowcut=(\d+) zoom=(\d+) lights=(\d+) theme_on=(\d+) reso=(\d+) "
@@ -7975,6 +7975,65 @@ def sys_per3_88(palette: int, song: dict) -> bytes:
     return struct.pack("<IIII", 0x50455233, palette, 0, 0) + SYS_PANEL_DEF + bytes(arr) + lights
 
 
+# 与 page_system.c 的布局宏同源；坐标换成屏幕绝对坐标（页区 y + 72）。
+SYS_ROW_Y = (32, 76, 106, 174, 254, 298, 342, 372, 510)
+SYS_CHIP_ROWS = {1, 6}
+
+
+def sys_tap(s: Session, row: int, delta: int = 1) -> None:
+    if row in SYS_CHIP_ROWS:
+        x, y = 304 + 70, SYS_ROW_Y[row] + 15
+    elif row == 8:
+        x, y = 24 + 70, SYS_ROW_Y[row] + 22
+    else:
+        x = 24 + (21 if delta < 0 else 420 - 21)
+        y = SYS_ROW_Y[row] + 22
+    s.cmd(f"TAP {x} {y + 72}")
+
+
+def sys_key(s: Session, code: int) -> None:
+    s.cmd(f"KEY 0x{code:02X} down")
+    s.cmd(f"KEY 0x{code:02X} up")
+
+
+def sys_wait_nvs(s: Session, want: int, label: str, timeout: float = 16.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"set_nvs=(\d+)") == want:
+            s.ok(f"{label} set_nvs={want}")
+            return
+        time.sleep(0.2)
+    s.fail(f"{label} 超时（set_nvs 未到 {want}）")
+
+
+def sys_wait_settings_dirty(s: Session, want: int, label: str, timeout: float = 16.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        info = settings_info(s)
+        if info["dirty"] == want:
+            s.ok(f"{label} dirty={want}")
+            return
+        time.sleep(0.2)
+    s.fail(f"{label} 超时（dirty 未到 {want}）")
+
+
+def sys_device_selftest(s: Session) -> None:
+    """释放串口后运行真实 182 例设备 golden 门禁，再恢复原 Session。"""
+    s.ser.note("⑤ device-selftest.py（本 Session 暂时关闭串口；完整 182 例 golden 比对）")
+    s.ser.close()
+    try:
+        cp = subprocess.run([sys.executable, str(SCRIPTS_DIR / "device-selftest.py"), s.port],
+                            cwd=SCRIPTS_DIR.parent, capture_output=True, text=True, timeout=240)
+        print(cp.stdout, end="")
+        if cp.stderr:
+            print(cp.stderr, end="", file=sys.stderr)
+    finally:
+        s.ser = s._open()
+        s.wait_ready(timeout=20.0)
+    (s.ok if cp.returncode == 0 else s.fail)(f"⑤ device-selftest.py exit={cp.returncode}（期望 0）")
+
+
 def run_sys(s: Session) -> None:
     """sys 场景（P4-E）：设置页的存储层 → 状态层 → SYSTEM 页的端到端矩阵。
 
@@ -7985,7 +8044,11 @@ def run_sys(s: Session) -> None:
        INFO/SONG INFO 报上传的字节；RAM 的 `STORE SONG` 也是上传的歌（R15：歌曲/DSU/生效
        副本按新对象重载）且随后一次 `STORE SONG SAVE` 不把它写回旧值；**工程槽 A 的 RAM
        缓存逐位不变**（`STORE PROJ HASH 0` 前后相同——settings 与 project 的 slot 都是 0）
-    收口：palette/歌曲顺序回起点值 + SAVE、槽 A 回起点状态、AUTO ON
+    ② SYSTEM/SYS 注册、10,240B 预算、单页组导航与第 8 组签像素；
+    ③ 全部设置行 + THEME 第 6 档 + 键盘 + 播放中 20 次平台写（xrun 不增）；
+    ④ settings/NVS/REC 三项的延迟写与硬复位保持；⑤ lowcut=1/reso=6 下 182 例 golden；
+    ⑥ SEQ↔SYS 有序对过渡峰值；⑦ 归一 SAVE + AUTO ON。
+    ①b 收口先恢复槽 A 的空/非空状态，再恢复歌曲，避免 `arr_drop_scene` 截断待恢复歌曲。
 
     **破坏性**（整份替换 OBJ_SETTINGS：上传的 88B 没有 SYN kit 银行 ⇒ 之后落工厂 SYN kit；
     palette/歌曲顺序由收口恢复），自带归一、可重复；`STORE AUTO OFF` 防止 autosave 把
@@ -7997,6 +8060,9 @@ def run_sys(s: Session) -> None:
     s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
     ensure_stopped(s)
     base = settings_info(s)
+    if base["dirty"] != 0:
+        settings_save(s, "① 起点 dirty=1：先 SAVE 归一（允许上次中断后续跑）")
+        base = settings_info(s)
     (s.ok if base["kind"] in ("per3", "empty") and base["dirty"] == 0 else s.fail)(
         f"① 起点 kind={base['kind']} dirty={base['dirty']}（期望 per3|empty / 0）")
 
@@ -8060,7 +8126,9 @@ def run_sys(s: Session) -> None:
     s.expect(rf"^STORE SONG INFO kind=per3 len=\d+ side=\d count={up_want[0]} loop={up_want[1]}\r?$",
              "①b 随后的保存写的是已重载的歌（不是上传前的旧 RAM）")
 
-    s.ser.note("收口：palette/歌曲顺序回起点值 + SAVE；槽 A 回起点状态；AUTO ON")
+    s.ser.note("收口：槽 A 先回起点状态，再恢复 palette/歌曲顺序 + SAVE；AUTO ON")
+    if created_slot0:
+        proj_erase(s, 0, "收口 先擦回起点为空的槽 A（避免 arr_drop_scene 截断待恢复歌曲）")
     song_restore = " ".join(f"{song0['entry'][i][0]}:{song0['entry'][i][1]}" for i in range(song0["count"]))
     store_cmd(s, f"STORE SONG SET {song0['count']} {song0['loop']} {song_restore}",
               rf"^STORE SONG SET count={song0['count']} loop={song0['loop']} ", "收口 恢复起点歌曲顺序")
@@ -8074,10 +8142,239 @@ def run_sys(s: Session) -> None:
     for i in range(song0["count"]):
         scene, bars = song0["entry"][i]
         s.expect(rf"^SONG {i} scene={scene} bars={bars}\r?$", f"收口后 SONG {i}")
-    if created_slot0:
-        proj_erase(s, 0, "收口 擦回起点为空的槽 A")
+
+    # ---------- ② SYSTEM 页 / SYS 单页组 / 8 组签 ----------
+    s.ser.note("② SYSTEM 页：UI system / UI MEM / UI TAB sys / UI SUB 0 / 截屏")
+    settings_set(s, "palette", 4, label="② 归一 MONO（组签像素锚点）")
+    settings_save(s, "② 归一 SAVE")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "② UI system → SYSTEM(14)")
+    mem = param_mem(s)
+    grp = mem["groups"].get("SYS", {})
+    (s.ok if grp.get("built") == 1 and grp.get("sum_est") == 10240 else s.fail)(
+        f"② GROUP SYS built={grp.get('built')} sum_est={grp.get('sum_est')}（期望 1 / 10,240）")
+    (s.ok if 0 < grp.get("build_ms", 0) <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"② GROUP SYS build_ms={grp.get('build_ms')}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    state, est, delta = mem["pages"].get(14, ("?", 0, 0))
+    (s.ok if state == "built" and est == 10240 and 0 < delta <= est else s.fail)(
+        f"② SYSTEM state={state} est={est} delta={delta}（期望 built / 10,240 / 0<delta≤est）")
+    s.cmd("UI TAB sys")
+    s.expect(r"^UI TAB SYS page=system \(14\)\r?$", "② UI TAB sys")
+    s.cmd("UI SUB 0")
+    s.expect(r"^UI ERR sub 0\r?$", "② SYS 单页组：UI SUB 0 回 ERR（子行为空）")
+    img = s.capture("system")
+    s.probe_region(img, "② 第 8 个组签 SYS 高亮", (926, 4, 1048, 36), C_YELLOW, 16, 500)
+
+    # ---------- ③ TAP / 键盘 / 走带中平台写 ----------
+    s.ser.note("③ SYSTEM 行编辑：COLOR/ZOOM/BRIGHT/LIGHTS/VOLUME/OUTPUT/LOWCUT/RESO + 键盘")
+    ensure_stopped(s)
+    settings_set(s, "palette", 4, label="③ 归一 palette=MONO")
+    settings_set(s, "zoom", 0, label="③ 归一 ZOOM OFF")
+    settings_set(s, "lights", 0, label="③ 归一 LIGHTS OFF")
+    settings_set(s, "lowcut", 0, label="③ 归一 LOWCUT OFF")
+    settings_set(s, "reso", 0, label="③ 归一 RESO OFF")
+    s.cmd("DISP BRIGHT 100")
+    s.expect(r"^DISP BRIGHT applied=100\r?$", "③ 归一 BRIGHT 100")
+    s.cmd("AUD VOL 70")
+    s.expect(r"^AUD VOL applied=70\r?$", "③ 归一 VOLUME 70")
+    s.cmd("AUD OUT speaker")
+    s.expect(r"^AUD OUT applied=speaker\r?$", "③ 归一 OUTPUT speaker")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "③ UI system")
+
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"SELFTEST: N/A\"", "③ SELFTEST chip 占位")
+
+    palette_rgb = ((120, 255, 148), (255, 164, 40), (140, 220, 255),
+                   (255, 108, 92), C_YELLOW)
+    palette_names = ("GREEN", "AMBER", "CYAN", "RED", "MONO")
+    mono_accent = None
+    for palette in range(5):
+        sys_tap(s, 0, 1)
+        s.expect(rf"-> SYS COLOR value={palette_names[palette]} status=\"OK\"",
+                 f"③ COLOR + → {palette_names[palette]}")
+        settings_expect(s, {"palette": palette, "theme_on": 0}, f"③ COLOR {palette_names[palette]} INFO")
+        img = s.capture(f"color-{palette_names[palette].lower()}")
+        s.probe(img, f"③ {palette_names[palette]} accent", *C_TAB_SYS, palette_rgb[palette])
+        if palette == 4:
+            mono_accent = img.getpixel(C_TAB_SYS)
+        if palette == 2:
+            s.cmd("UI tracks")
+            s.expect(r"^UI page=tracks \(1\)\r?$", "③ CYAN 兄弟页 UI tracks")
+            img = s.capture("tracks-cyan")
+            s.probe(img, "③ TRACKS 兄弟页采用 CYAN accent", *C_TAB_TRACKS, palette_rgb[palette])
+            s.cmd("UI system")
+            s.expect(r"^UI page=system \(14\)\r?$", "③ 回 SYSTEM")
+
+    theme = settings_info(s)
+    if theme["theme_valid"]:
+        sys_tap(s, 0, 1)
+        s.expect(rf"-> SYS COLOR value={re.escape(theme['theme'])} status=\"OK\"",
+                 "③ COLOR 第 6 档 = side theme")
+        settings_expect(s, {"palette": 4, "theme_on": 1}, "③ THEME_ON=1 且 palette 保持 MONO")
+        img = s.capture("color-theme")
+        (s.ok if img.getpixel(C_TAB_SYS) != mono_accent else s.fail)(
+            "③ THEME accent 与 MONO 不同")
+        sys_tap(s, 0, 1)
+        s.expect(r"-> SYS COLOR value=GREEN status=\"OK\"",
+                 "③ THEME→GREEN：先 THEME_ON=0 再 PALETTE=0")
+        settings_expect(s, {"palette": 0, "theme_on": 0}, "③ 回内置 palette")
+
+    sys_tap(s, 2, -1)
+    s.expect(r"-> SYS BRIGHT value=90 status=\"OK\"", "③ BRIGHT − → 90")
+    sys_tap(s, 2, -1)
+    s.expect(r"-> SYS BRIGHT value=80 status=\"OK\"", "③ BRIGHT − → 80")
+    s.cmd("DISP BRIGHT")
+    s.expect(r"^DISP BRIGHT applied=80\r?$", "③ DISP BRIGHT 读回 80")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"sys_bright=(\d+)", 80, "③ STATE sys_bright")
+    s.expect_int(r"set_nvs=(\d+)", 1, "③ BRIGHT 置 NVS dirty")
+
+    sys_tap(s, 4, 1)
+    s.expect(r"-> SYS VOLUME value=75 status=\"OK\"", "③ VOLUME + → 75")
+    s.cmd("AUD VOL")
+    s.expect(r"^AUD VOL applied=75\r?$", "③ AUD VOL 读回 75")
+
+    sys_tap(s, 3, 1)
+    s.expect(r"-> SYS LIGHTS value=1 status=\"OK\"", "③ LIGHTS + → LOW")
+    time.sleep(0.1)
+    s.cmd("KBD RGB")
+    s.expect(r"^KBD RGB applied=low\r?$", "③ LIGHTS 经 30ms UI 拍驱动 KBD RGB low")
+
+    sys_tap(s, 5, 1)
+    s.expect(r"-> SYS OUTPUT value=0 status=\"N/A\"", "③ OUTPUT headphone 不支持：N/A")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"sys_out=(\d+)", 0, "③ OUTPUT 失败后 sys.out 不变")
+
+    sys_tap(s, 6)
+    s.expect(r"-> SYS LOWCUT value=ON status=\"OK\"", "③ LOWCUT chip ON")
+    settings_expect(s, {"lowcut": 1}, "③ LOWCUT INFO")
+    for reso in (1, 2, 3):
+        sys_tap(s, 7, 1)
+        s.expect(rf"-> SYS RESO value={reso} status=\"OK\"", f"③ RESO + → {reso}")
+    settings_expect(s, {"reso": 3}, "③ RESO INFO")
+
+    sys_tap(s, 1)
+    s.expect(r"-> SYS ZOOM value=ON status=\"OK\"", "③ ZOOM chip ON")
+    sys_key(s, 0x4B)  # ↓：ZOOM → BRIGHT
+    sys_key(s, 0x3B)  # ↑：BRIGHT → ZOOM
+    sys_key(s, 0x3D)  # ENTER：ZOOM toggle
+    settings_expect(s, {"zoom": 0}, "③ 键盘焦点环 + ENTER 将 ZOOM 切回 OFF")
+    sys_tap(s, 7, 1)  # 焦点落到 RESO，3→4
+    sys_key(s, 0x4A)  # ←：4→3
+    settings_expect(s, {"reso": 3}, "③ 键盘 ← 调 RESO")
+    sys_key(s, 0x3D)  # ENTER：3→4
+    sys_key(s, 0x4A)  # ←：回 3
+    settings_expect(s, {"reso": 3}, "③ 键盘 ENTER/← 往返")
+
+    s.ser.note("③ 走带中平台写：TRANSPORT PLAY + 20 次亮度交替，xrun 增量必须为 0")
+    s.cmd("UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "③ PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 1, "③ 走带中 playing=1")
+    s.cmd("ENG PERF")
+    xrun0 = s.snap_int(r"xrun=(\d+)")
+    for i in range(20):
+        value = 90 if i % 2 == 0 else 80
+        s.cmd(f"DISP BRIGHT {value}")
+        s.expect(rf"^DISP BRIGHT applied={value}\r?$", f"③ 播放中 DISP BRIGHT {value}")
+    s.cmd("ENG PERF")
+    s.expect_int(r"xrun=(\d+)", xrun0, "③ 20 次播放中亮度写 xrun 增量 0")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_nvs=(\d+)", 1, "③ 播放中 NVS dirty 持续置位")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "③ STOP")
+    sys_wait_nvs(s, 0, "③ 停止后静默窗口提交 NVS")
+    s.cmd("UI system")
+
+    # ---------- ④ settings/NVS 延迟写与硬复位保持；REC 三项 ----------
+    s.ser.note("④ 持久化：settings dirty 窗口、side 不变、硬复位、REC CONFIG")
+    ensure_stopped(s)
+    s.cmd("STORE SONG INFO")
+    side0 = s.snap_int(r"side=(\d+)")
+    settings_set(s, "palette", 3, label="④ SET palette=RED")
+    settings_expect(s, {"palette": 3, "dirty": 1}, "④ 改值后即时 INFO")
+    sys_wait_settings_dirty(s, 0, "④ 停止+空闲窗口落盘 settings")
+    s.cmd("STORE SONG INFO")
+    s.expect_int(r"side=(\d+)", side0, "④ settings 保存不改变 side")
+    expected = settings_info(s)
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "④ 复位后 AUTO OFF")
+    settings_expect(s, {k: expected[k] for k in
+                        ("palette", "lowcut", "zoom", "lights", "theme_on", "reso", "dirty")},
+                    "④ 硬复位保持 settings")
+    s.cmd("DISP BRIGHT")
+    s.expect(r"^DISP BRIGHT applied=80\r?$", "④ 硬复位保持 NVS bright=80")
+    s.cmd("AUD VOL")
+    s.expect(r"^AUD VOL applied=75\r?$", "④ 硬复位保持 NVS vol=75")
+
+    s.cmd("SEQ REC CONFIG 1 1 1")
+    s.expect(r"quant=off tempo=tempo count=count", "④ REC CONFIG 1 1 1 即时生效")
+    settings_expect(s, {"rec_tempo": 1, "rec_count": 1, "rec_quant": 1, "dirty": 1},
+                    "④ REC 三项置 settings dirty")
+    sys_wait_settings_dirty(s, 0, "④ REC 三项过静默窗口落盘")
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "④ REC 复位后 AUTO OFF")
+    s.cmd("SEQ REC")
+    s.expect(r"quant=off tempo=tempo count=count", "④ 硬复位保持 REC quant/tempo/count")
+    settings_expect(s, {"rec_tempo": 1, "rec_count": 1, "rec_quant": 1}, "④ REC settings INFO")
+
+    # ---------- ⑤ lowcut=1 / reso=6 下完整 golden 自检 ----------
+    s.ser.note("⑤ golden：lowcut=1 reso=6，自检运行期归零、结束后按 settings 重载")
+    settings_set(s, "lowcut", 1, label="⑤ SET lowcut=1")
+    settings_set(s, "reso", 6, label="⑤ SET reso=6")
+    settings_save(s, "⑤ 自检前 SAVE")
+    sys_device_selftest(s)
+    settings_expect(s, {"lowcut": 1, "reso": 6}, "⑤ 自检后 settings 保持")
+
+    # ---------- ⑥ SEQ↔SYS 有序对过渡峰值 ----------
+    s.ser.note("⑥ 有序对：SEQ 两页全建→SYS、SYS→STEP，构建后池剩余 ≥4,096")
+    s.cmd("UI step")
+    s.expect(r"^UI page=step \(2\)\r?$", "⑥ UI step")
+    s.cmd("UI transport")
+    s.expect(r"^UI page=transport \(3\)\r?$", "⑥ UI transport（SEQ 两页全建）")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑥ SEQ→SYSTEM")
+    m = re.search(r"页面构建 page=SYSTEM\(14\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑥ SEQ→SYS 构建日志缺 SYSTEM 池剩余")
+    else:
+        (s.ok if int(m.group(3)) >= 4096 else s.fail)(
+            f"⑥ SEQ→SYS 过渡池剩余={m.group(3)}B（≥4,096）")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["SEQ"]["sum_est"] == 32256 else s.fail)(
+        f"⑥ GROUP SEQ sum_est={mem['groups']['SEQ']['sum_est']}（期望 32,256）")
+    s.cmd("UI step")
+    s.expect(r"^UI page=step \(2\)\r?$", "⑥ SYS→STEP")
+    m = re.search(r"页面构建 page=STEP\(2\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑥ SYS→STEP 构建日志缺 STEP 池剩余")
+    else:
+        (s.ok if int(m.group(3)) >= 4096 else s.fail)(
+            f"⑥ SYS→STEP 过渡池剩余={m.group(3)}B（≥4,096）")
+
+    # ---------- ⑦ 收口 ----------
+    s.ser.note("⑦ 收口：palette 4 / zoom 0 / lights 0 / lowcut 0 / reso 0 / bright 100 / vol 70")
+    ensure_stopped(s)
+    for field, value in (("palette", 4), ("zoom", 0), ("lights", 0),
+                         ("lowcut", 0), ("reso", 0), ("theme_on", 0)):
+        settings_set(s, field, value, label=f"⑦ SET {field}={value}")
+    s.cmd("DISP BRIGHT 100")
+    s.expect(r"^DISP BRIGHT applied=100\r?$", "⑦ BRIGHT 100")
+    s.cmd("AUD VOL 70")
+    s.expect(r"^AUD VOL applied=70\r?$", "⑦ VOLUME 70")
+    s.cmd("AUD OUT speaker")
+    s.expect(r"^AUD OUT applied=speaker\r?$", "⑦ OUTPUT speaker")
+    s.cmd("SEQ REC CONFIG 0 0 0")
+    s.expect(r"quant=on tempo=free count=note", "⑦ REC 配置回默认")
+    settings_save(s, "⑦ STORE SETTINGS SAVE（含 NVS flush）")
+    settings_expect(s, {"palette": 4, "zoom": 0, "lights": 0, "lowcut": 0,
+                        "reso": 0, "theme_on": 0, "dirty": 0}, "⑦ 收口 INFO")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_nvs=(\d+)", 0, "⑦ NVS dirty 已清")
     s.cmd("STORE AUTO ON")
-    s.expect(r"^STORE AUTO on", "STORE AUTO ON（恢复默认）")
+    s.expect(r"^STORE AUTO on", "⑦ STORE AUTO ON（恢复默认）")
 
 
 SCENARIOS = {
