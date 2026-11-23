@@ -145,6 +145,9 @@
  *    `-> FM6P op=.. page=.. select` / `-> FM6P <field> value=<写后回读> status="…"` /
  *    `-> FM6P BANK slot=k select` / `-> FM6P SAVE status="…"`（P4-D Task 10）。
  *    STATE SNAP 行尾追加 dsyn_kit/dsyn_lane/dsyn_dirty 与 fm6p_slot/fm6p_engine_ok。
+ *  - P4-E Task 4：STATE SNAP 行尾再追加平台设置 sys_bright/sys_vol/sys_out 与 settings
+ *    投影 set_palette/set_lowcut/set_zoom/set_lights/set_theme（theme_on）/set_reso/
+ *    set_dirty，末尾 set_nvs（= HAL 的 nvs_dirty；停止过静默窗口后归 0）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -818,7 +821,8 @@ enum {
  * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
  * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。
  * 既有行只在行尾追加 seq_status；`STATE SNAP FULL` 才另起 step/dstep 详细行，默认保持
- * 既有响应体量。 */
+ * 既有响应体量。P4-E 起行尾另带 settings/平台投影（set_* / sys_*；set_dirty=1 与
+ * set_nvs=1 表示等待 1s 任务的静默窗口落盘）。 */
 static int state_command(int argc, char **argv)
 {
     if ((argc == 2 && strcasecmp(argv[1], "snap") == 0) ||
@@ -828,7 +832,7 @@ static int state_command(int argc, char **argv)
         state_get_copy(&st);
         static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
         const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u sys_bright=%u sys_vol=%u sys_out=%u set_palette=%u set_lowcut=%u set_zoom=%u set_lights=%u set_theme=%u set_reso=%u set_dirty=%u set_nvs=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
@@ -837,7 +841,12 @@ static int state_command(int argc, char **argv)
                (unsigned)st.rec.quant_off, (unsigned)st.rec.tempo_mode,
                (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars,
                (unsigned)st.dsyn.kit, (unsigned)st.dsyn.lane, (unsigned)st.dsyn.dirty,
-               (unsigned)st.fm6p.slot, (unsigned)st.fm6p.engine_ok);
+               (unsigned)st.fm6p.slot, (unsigned)st.fm6p.engine_ok,
+               (unsigned)st.sys.bright, (unsigned)st.sys.vol, (unsigned)st.sys.out,
+               (unsigned)st.settings.palette, (unsigned)st.settings.lowcut,
+               (unsigned)st.settings.zoom, (unsigned)st.settings.lights,
+               (unsigned)st.settings.theme_on, (unsigned)st.settings.reso,
+               (unsigned)st.settings.dirty, (unsigned)st.sys.nvs_dirty);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
