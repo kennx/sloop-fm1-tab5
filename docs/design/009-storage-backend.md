@@ -334,7 +334,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   再清镜像/擦 flash（上游 `ed_smp_erase` 同序）。
 - **Tab5 差异**：走带中**所有**上传入口（含 `hdr_append`）一律拒绝（spec §3.5；上游允许
   播放中上传）；擦写期间持存储锁、**不持引擎锁**，扫描/失效那一小段才进引擎锁。
-- 设备证据（Task 11 的 `synth` 场景）：上传 2s 正弦 → `SMP INFO USED name=SINE zones=1
+- 设备证据（Task 11/12 的 `synth` 场景；Task 12 最终矩阵复跑通过）：上传 2s 正弦 → `SMP INFO USED name=SINE zones=1
   kb=21` → 按住键 `voices≥1`；`SMP ERASE`/BEGIN-不-END/CRC 坏数据后 `voices` 恒 0 且
   `SMP INFO EMPTY`；CRC 坏数据 `SMP END` 回 `SMP ERR crc`（header 未提交）；走带中
   `SMP BEGIN`/`ERASE` 回 `SMP ERR playing`；硬复位后槽仍 USED（开机 reload）。

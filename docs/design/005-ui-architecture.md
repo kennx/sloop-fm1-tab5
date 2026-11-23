@@ -349,11 +349,11 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 组 est：EDIT `3×3,584 + 6,144 = 16,896`（FM6 的 bank 行不变）/ SYNTH
   `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
   DSYN/FM6P 按 spec §4.4 的计划上限落位）。
-- **实测（P4-D Task 11 归档的 `params` + `synth` ×2 transcript；每页取跨快照 min–max）**：
+- **实测（P4-D Task 11/12 归档的九条场景 transcript，nav/params/song/sequence/synth 覆盖三页；每页取跨快照 min–max）**：
   SAMPLE **4,360–4,508B**（`UI MEM` delta；`页面构建` 池增量 4,148–4,508）、DSYN
-  **6,396–6,452B**（构建日志 6,240–6,452）、FM6P **7,032–7,068B**（构建日志 6,860–7,072）；
+  **6,344–6,452B**（构建日志 6,172–6,452）、FM6P **6,980–7,092B**（构建日志 6,832–7,092）；
   三页 est 6,144/7,168/7,168 均 ≥ 对应上沿。SYNTH `sum_delta` 单独取 `built=3` 那一拍：
-  **17,824–17,856B**（`sum_est` 20,480），`build_ms` 12–13ms（≤100ms）。**三页 delta 来自
+  **17,696–17,936B**（`sum_est` 20,480），`build_ms` 12–13ms（≤100ms）。**三页 delta 来自
   不同快照，区间不相加**（逐页门禁才是 `delta ≤ est`，合计口径只有同一拍的 `sum_delta`）。
   三页 `delta ≤ est` 全部成立；SAMPLE 的 est 是 spec §4.4 的**固定上限**（实测只用到
   71–73%，属预留，不参与最坏有序对的调节）。
@@ -362,11 +362,11 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   **59,240**、余 3,880B；**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面 **55,656**、
   余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。
 - **实测过渡峰值**（`synth` ⑤：SYNTH 三页全建后直接 `UI step`，构建日志
-  `页面构建 page=STEP(2) 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms`，两次运行相同）⇒
-  `pool_free=11,244B ≥ 4,096B`；过渡后稳态 `pool_free 28,800B`（`UI MEM` 实测）。
+  `页面构建 page=STEP(2) 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms`（复跑 27ms，耗时不同、余量相同）⇒
+  `pool_free=11,244B ≥ 4,096B`；过渡后稳态 `pool_free 28,800B`（`UI MEM` 实测）。Task 12 最终矩阵同口径的最低跨组余量是 `song` ⑩ 的 FILE→STEP `pool_free 8,924B`（池历史漂移，仍 ≥4,096B）。
   同批 `synth` ⑤ 的 10 轮 SEQ/SONG/FILE/SYNTH 往返（SYNTH 代表页 dsyn/sample/fm6p
   **轮换**）`47,092 → 47,008`（Δ−84B、单次最大下降 92B ≤128B），复跑 `→ 47,044`
-  （Δ−48B、单次 80B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−64B（单次 72B）。跨组池不泄漏口径不变。
+  （Δ−48B、单次 80B），Task 12 最终矩阵 `→ 47,028`（Δ−64B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−64B（单次 72B）。跨组池不泄漏口径不变。
 - 采样槽管理行（SAMPLE 页底部 `U1..U4` + `ERASE` + 状态行，y=552..596）与 FM6 bank 行
   同几何；状态行单一映射在 `theme.h`（选中槽 `SET U<n>` / `ERASE OK` / `NOT USR` /
   `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。`sloop_store_sample_info` 是
