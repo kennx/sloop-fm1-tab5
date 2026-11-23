@@ -22,6 +22,10 @@ uint8_t *sloop_hal_user_samples(void)
 {
     return h_samples;
 }
+bool sloop_hal_storage_ready(void)
+{
+    return true;
+}
 #define SMP_USER_XIP(k) ((const uint8_t *)h_samples + (uint32_t)(k) * H_SAMPLE_SIZE)
 
 #define main hostsim_main
@@ -599,6 +603,10 @@ static void sample_env_reset(void)
     memset(h_samples, 0xFF, sizeof h_samples);
     memset(usr_nz, 0, sizeof usr_nz);
     memset(usr_zone, 0, sizeof usr_zone);
+    /* 上传暂存是 sound_tab5.c 的 static：不显式关掉，后面的用例可能继承一个 open 上传 */
+    s_smp_open = (uint8_t)SLOOP_STORE_SAMPLES;
+    s_smp_hdr_n = 0;
+    s_smp_erased = 0;
     s_frozen = false;
     h_store_ready = true;
     song.playing = 0;
@@ -678,9 +686,9 @@ static int sample_flash_hdr_ff(uint32_t slot)
 
 static void test_sample_slot(void)
 {
-    static uint8_t data[1024], corrupt[1024], hdr[480];
+    static uint8_t data[1024], hdr[480];
     sloop_store_sample_info_t info;
-    uint32_t base, i, l, u;
+    uint32_t base, i, l, u, e, x;
     int ok;
 
     sample_env_reset();
@@ -694,8 +702,6 @@ static void test_sample_slot(void)
     check(sizeof(smp_user_hdr_t) == 480u && SLOOP_STORE_SAMPLE_DATA == 512u, "header is 480B, data at +512");
 
     for (i = 0; i < sizeof data; i++) data[i] = (uint8_t)(i * 37u + 11u);
-    memcpy(corrupt, data, sizeof corrupt);
-    corrupt[300] ^= 0x40u;
 
     /* 空槽 */
     memset(&info, 0xAA, sizeof info);
@@ -708,13 +714,6 @@ static void test_sample_slot(void)
               sloop_store_sample_write(0, 512, data, 256) == ESP_ERR_INVALID_STATE &&
               sloop_store_sample_end(0) == ESP_ERR_INVALID_STATE,
           "hdr_append/write/end without begin -> state");
-
-    /* BEGIN 不 END：镜像 header 0xFF（INFO 空）+ 槽失效，flash header 扇区被擦 */
-    check(sloop_store_sample_begin(0) == ESP_OK, "begin(0)");
-    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 0u && h_samples[0] == 0xFF &&
-              h_samples[479] == 0xFF && usr_nz[0] == 0u,
-          "begin without end: info empty, mirror header 0xFF, nz cleared");
-    check(sample_flash_hdr_ff(0), "begin erases the flash header sector");
 
     /* 合法上传 */
     check(sample_upload(0, "TONE", data, sizeof data, 0, 0, NULL, 1) == ESP_OK,
@@ -733,6 +732,21 @@ static void test_sample_slot(void)
     sloop_store_sample_reload(0);
     check(sample_mirror_is_flash(0) && usr_nz[0] == 1u, "reload: flash -> mirror + scan (boot path)");
     check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u, "reload keeps the slot visible");
+
+    /* BEGIN 不 END，在**已填充**的槽上：镜像 header 0xFF、zone/nz 清空、flash header 扇区被擦
+     * （在空槽上做同样断言是空洞的：0xFF/0 本来就成立） */
+    check(sloop_store_sample_begin(0) == ESP_OK, "begin(0) again on a filled slot");
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 0u && h_samples[0] == 0xFF &&
+              h_samples[479] == 0xFF && usr_nz[0] == 0u,
+          "re-begin without end: info empty, mirror header 0xFF, nz cleared");
+    check(sample_flash_hdr_ff(0), "re-begin erases the header sector of a filled slot");
+    /* 恢复：同一槽再上传一次，读回一份完整采样 */
+    check(sample_upload(0, "TONE2", data, sizeof data, 0, 0, NULL, 1) == ESP_OK,
+          "recovery upload after an interrupted begin");
+    memset(&info, 0, sizeof info);
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u && strcmp(info.name, "TONE2") == 0 &&
+              usr_nz[0] == 1u && sample_mirror_is_flash(0),
+          "recovered: new header, nz rescanned, mirror == flash");
 
     /* 写边界：off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256、必须是 open slot */
     check(sloop_store_sample_begin(1) == ESP_OK, "begin(1) for boundary cases");
@@ -769,30 +783,40 @@ static void test_sample_slot(void)
     check(sample_upload(2, "Z2", data, sizeof data, 0, 3, NULL, 1) == ESP_ERR_INVALID_ARG,
           "wrong magic -> invalid arg");
 
-    /* 走带中拒绝（spec §3.5 的 Tab5 安全差异）；读仍可用 */
+    /* 走带中拒绝（spec §3.5 的 Tab5 安全差异）：hdr_append 也在内；读仍可用。
+     * 停走带后同一个 hdr_append 必须成功——证明拦下它的就是走带门，而不是别的错误。 */
+    check(sloop_store_sample_begin(1) == ESP_OK, "begin(1) before the playing cases");
     song.playing = 1;
     check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
-              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE,
-          "begin/erase while playing -> state");
+              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_hdr_append(hdr, 4) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_write(1, 512, data, 256) == ESP_ERR_INVALID_STATE,
+          "begin/erase/hdr_append/write while playing -> state");
     check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u,
           "info is readable while playing (and the slot survived)");
     song.playing = 0;
+    check(sloop_store_sample_hdr_append(hdr, 4) == ESP_OK,
+          "hdr_append works again after STOP (control: the gate was the transport)");
     transport_req = 1;
-    check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE, "begin with a transport request -> state");
+    check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_hdr_append(hdr, 4) == ESP_ERR_INVALID_STATE,
+          "begin/hdr_append with a transport request -> state");
     transport_req = 0;
 
-    /* 诊断冻结：写/擦拒绝，读不受影响 */
+    /* 诊断冻结：写/擦/累积拒绝，读不受影响 */
     s_frozen = true;
     check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
-              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE,
-          "begin/erase while frozen -> state");
+              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_hdr_append(hdr, 4) == ESP_ERR_INVALID_STATE,
+          "begin/erase/hdr_append while frozen -> state");
     check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u, "frozen does not block info");
     s_frozen = false;
 
     /* 存储未就绪 */
     h_store_ready = false;
     check(sloop_store_sample_info(0, &info) == ESP_ERR_INVALID_STATE &&
-              sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE,
+              sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_hdr_append(hdr, 4) == ESP_ERR_INVALID_STATE,
           "not ready -> state");
     h_store_ready = true;
 
@@ -808,6 +832,17 @@ static void test_sample_slot(void)
     }
     check(ok, "erase: mirror and flash slot both 0xFF");
 
+    /* USR4（槽 3）的基址是 0xE7000，不是 0xA0000 + k*0x14000：单独走一遍完整往返 */
+    check(sample_upload(3, "USR4", data, sizeof data, 0, 0, NULL, 1) == ESP_OK,
+          "upload to slot 3 (USR4 @ 0xE7000)");
+    memset(&info, 0, sizeof info);
+    check(sloop_store_sample_info(3, &info) == ESP_OK && info.used == 1u && strcmp(info.name, "USR4") == 0 &&
+              usr_nz[3] == 1u && sample_mirror_is_flash(3),
+          "slot 3: info, scan and mirror == flash");
+    check(sloop_store_sample_erase(3) == ESP_OK &&
+              sloop_store_sample_info(3, &info) == ESP_OK && info.used == 0u && usr_nz[3] == 0u,
+          "erase(3)");
+
     /* 参数越界 */
     check(sloop_store_sample_info(4, &info) == ESP_ERR_INVALID_ARG &&
               sloop_store_sample_begin(4) == ESP_ERR_INVALID_ARG &&
@@ -816,25 +851,62 @@ static void test_sample_slot(void)
               sloop_store_sample_info(0, NULL) == ESP_ERR_INVALID_ARG,
           "slot >= 4 / NULL out -> invalid arg");
 
-    /* 一次动作一次引擎锁（smp_user_scan 的保护：设备上 fm1_irq_off 是空壳） */
-    l = engine_lock_calls;
-    u = engine_unlock_calls;
-    (void)sloop_store_sample_begin(0);
-    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "begin takes the engine lock once");
-    l = engine_lock_calls;
-    u = engine_unlock_calls;
-    (void)sloop_store_sample_erase(0);
-    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "erase takes the engine lock once");
-    l = engine_lock_calls;
-    u = engine_unlock_calls;
-    sloop_store_sample_reload(0);
-    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "reload takes the engine lock once");
-
-    /* 每个写入口都经存储锁（设备上是 store_tab5.c 的同一把，host 只计数） */
+    /* 锁的次数：写入口各取一次存储锁；只有会 `smp_user_scan` 的动作另取一次引擎锁
+     * （smp_user_scan 的保护：设备上 fm1_irq_off 是空壳）；hdr_append/info/write 不取引擎锁 */
     l = store_lock_calls;
     u = store_unlock_calls;
+    e = engine_lock_calls;
+    x = engine_unlock_calls;
     (void)sloop_store_sample_begin(0);
-    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u, "begin takes the store lock once");
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e + 1u &&
+              engine_unlock_calls == x + 1u,
+          "begin: one store + one engine lock");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    (void)sloop_store_sample_hdr_append(hdr, 4);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e,
+          "hdr_append: one store lock, no engine lock");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    (void)sloop_store_sample_info(0, &info);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e,
+          "info: one store lock (no torn header), no engine lock");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    (void)sloop_store_sample_write(0, 512, data, 256);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e,
+          "write: one store lock, no engine lock");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    x = engine_unlock_calls;
+    (void)sloop_store_sample_erase(0);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e + 1u &&
+              engine_unlock_calls == x + 1u,
+          "erase: one store + one engine lock");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    x = engine_unlock_calls;
+    sloop_store_sample_reload(0);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u && engine_lock_calls == e + 1u &&
+              engine_unlock_calls == x + 1u,
+          "reload: one store + one engine lock");
+    /* END 的成功提交：一次存储锁 + 一次扫描（header 回读失败也照此收口） */
+    sample_hdr(hdr, "ONE", data, 256, 0, 0);
+    check(sloop_store_sample_begin(2) == ESP_OK && sloop_store_sample_hdr_append(hdr, 480) == ESP_OK &&
+              sloop_store_sample_write(2, 512, data, 256) == ESP_OK,
+          "mini upload to slot 2 for the end lock count");
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    e = engine_lock_calls;
+    x = engine_unlock_calls;
+    check(sloop_store_sample_end(2) == ESP_OK && store_lock_calls == l + 1u && store_unlock_calls == u + 1u &&
+              engine_lock_calls == e + 1u && engine_unlock_calls == x + 1u,
+          "end: one store + one engine lock (commit)");
 
     sample_env_reset();
 }

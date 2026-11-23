@@ -109,18 +109,27 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
  *   begin(slot)            擦槽的 header 扇区并**同时使镜像失效**（header 0xFF、`usr_nz`/
  *                          zone 清零、`smp_user_gen` 递增）——槽立即对引擎不可见；清掉
  *                          上一次未完成的上传（同一时点只允许一个 open slot）；
- *   hdr_append(p, n)       累积 480B header（console 一行上限 120B，故分 4 次）；
+ *   hdr_append(p, n)       累积 480B header（console 一行上限 120B，故分 4 次）；挂起中
+ *                          没有 open slot、走带中、冻结或存储未就绪都拒绝；
  *   write(slot, off, ..)   off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256；跨 4KB 边界
  *                          的扇区在首次写入前擦除；写成后同步镜像对应偏移（不动 header）；
  *   end(slot)              校验 header（magic/version/nz/data_len/zone 合法）与 CRC（对
- *                          **flash 回读**的数据算，`st_crc32`），最后写 header（提交点），
- *                          整槽 flash→镜像并 `smp_user_scan`；
- *   erase(slot)            擦 20 个扇区（80KiB/4KB）+ 镜像整槽 0xFF + 失效扫描；
- *   reload(slot)           flash→镜像 + 扫描（开机装载与自检收尾；`void`，未就绪时静默）。
+ *                          **flash 回读**的数据算，`st_crc32`），最后写 header（提交点）。
+ *                          **写 header 成功即提交**：上传随即结束；随后的 512B header 回读
+ *                          若失败，用刚落盘的 header 字节补齐镜像（闪存里已是完整采样），
+ *                          仍回 ESP_OK，槽立即可用，不需要额外 reload；
+ *   erase(slot)            先失效（header 0xFF + 扫描递增 gen，正在发声的 voice 在下一次
+ *                          取 zone 时结束——上游 `ed_smp_erase` 同序），再清镜像数据区、
+ *                          擦 20 个扇区（80KiB/4KB）；
+ *   reload(slot)           flash→镜像 + 扫描（开机装载与自检收尾；`void`）。只要求 HAL 与
+ *                          镜像在位——开机装载在 READY 置位之前完成，故不能走
+ *                          `sloop_store_ready()` 门。
  * **Tab5 安全差异（spec §3.5，明确接受）**：走带中 begin/hdr_append/write/end/erase 一律
  * 拒绝（`ESP_ERR_INVALID_STATE`）——80KiB 擦写会关 cache、必然可闻，按 "STOP BEFORE SAVE"
- * 纪律处理；上游允许播放中上传。读写期间持存储锁、**不持引擎锁**（`smp_user_scan` 与
+ * 纪律处理；上游允许播放中上传。写入期间持存储锁、**不持引擎锁**（`smp_user_scan` 与
  * 镜像失效的那一小段在引擎锁内，设备上 `fm1_irq_off` 是空壳，引擎锁才是真保护）。
+ * `info` 在存储锁内拷贝 header 并校验数据 CRC（最坏等一个 flash 写窗口），SAMPLE 页不会
+ * 读到 END/ERASE 中途的撕裂 header。
  * 返回码：
  *   ESP_OK                    成功（`info`：未使用/不可用也算成功，`out->used == 0`）
  *   ESP_ERR_INVALID_ARG       槽号 ≥ 4、`out == NULL`；END 的 header 长度/魔数/版本/nz/
@@ -128,8 +137,8 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
  *   ESP_ERR_INVALID_SIZE      header 累积超过 480B；write 的 off/n 越界（`size`）
  *   ESP_ERR_INVALID_CRC       END 的数据 CRC 不符（`crc`）
  *   ESP_ERR_INVALID_STATE     存储未就绪、诊断冻结、走带中，或没有对应的 open slot
- *   ESP_ERR_NOT_FINISHED      flash 擦/写/读失败（`flash`）
- * END 失败时上传保持 open（可重发数据后重试），但 header 未提交 ⇒ 槽仍是空的。 */
+ *   ESP_ERR_NOT_FINISHED      flash 擦/写/读失败（`flash`）；END 的 header 写失败也在内
+ * END 失败（header 未写入）时上传保持 open（可重发数据后重试），槽仍是空的。 */
 #define SLOOP_STORE_SAMPLES     4u
 #define SLOOP_STORE_SAMPLE_SIZE 0x14000u /* 80KiB / 槽（20 个 4KB 扇区） */
 #define SLOOP_STORE_SAMPLE_DATA 512u     /* header 480B + 32B padding，数据从这里起 */

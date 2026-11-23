@@ -458,7 +458,12 @@ int16_t sloop_fm6_field_from_patch(const uint8_t patch[SLOOP_FM6_PATCH_SIZE], ui
  * 镜像失效的那一小段在引擎锁内——上游用 fm1_irq_off/on 排空音频中断，那在本固件是空壳，
  * 引擎锁才是真正的保护（voice 读 usr_zone/usr_nz 都在渲染路径）。锁函数本身来自
  * store_tab5.c（同一 TU 的 static；不复制第二把锁），host 门禁给出同签名的单线程桩。 */
-uint8_t *sloop_hal_user_samples(void); /* 声明见 sloop_hal.h；host TU 不 include 它（带 esp_codec_dev.h） */
+#ifndef ESP_PLATFORM
+/* host 门禁（scripts/synth-host-test.c）在本文件之前给出同签名实现；设备 TU 由 selftest.c
+ * 已包含的 sloop_hal.h 声明（那支头带 esp_codec_dev.h，host 没有）。故这里只在 host 补声明。 */
+uint8_t *sloop_hal_user_samples(void);
+bool sloop_hal_storage_ready(void);
+#endif
 
 #define SMP_HDR_SIZE 480u                 /* smp_user_hdr_t：32B 固定头 + 16×28B zone */
 #define SMP_SECTOR 4096u
@@ -530,14 +535,22 @@ esp_err_t sloop_store_sample_info(uint32_t slot, sloop_store_sample_info_t *out)
     if (out == NULL) return ESP_ERR_INVALID_ARG;
     if (ret != ESP_OK) return ret;
     memset(out, 0, sizeof *out);
-    const smp_user_hdr_t *h = (const smp_user_hdr_t *)smp_slot_mirror(slot);
-    if (!smp_hdr_ok(h)) return ESP_OK; /* 空/不可用：used=0（不是错误） */
-    if (st_crc32((const uint8_t *)h + SMP_USER_DATA, h->data_len) != h->crc) return ESP_OK;
+    const uint8_t *m = smp_slot_mirror(slot);
+    /* END/ERASE 会整段重写镜像：header 拷贝与数据 CRC 放在同一段存储锁内，SAMPLE 页不会
+     * 读到撕裂的 header。代价是最多等一个 flash 写窗口（写者持锁的那一小段），
+     * 4 槽全满一次 CRC 约 320KB。 */
+    smp_user_hdr_t h;
+    bool ok;
+    store_lock();
+    memcpy(&h, m, SMP_HDR_SIZE);
+    ok = smp_hdr_ok(&h) && st_crc32(m + SMP_USER_DATA, h.data_len) == h.crc;
+    store_unlock();
+    if (!ok) return ESP_OK; /* 空/不可用：used=0（不是错误） */
     out->used = 1;
-    out->zones = h->nz;
-    memcpy(out->name, h->name, sizeof h->name);
-    out->name[sizeof h->name] = '\0';
-    out->data_kb = (uint16_t)(h->data_len / 1024u);
+    out->zones = h.nz;
+    memcpy(out->name, h.name, sizeof h.name);
+    out->name[sizeof h.name] = '\0';
+    out->data_kb = (uint16_t)(h.data_len / 1024u);
     return ESP_OK;
 }
 
@@ -568,7 +581,7 @@ esp_err_t sloop_store_sample_begin(uint32_t slot)
 esp_err_t sloop_store_sample_hdr_append(const uint8_t *p, uint32_t n)
 {
     if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
-    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (s_frozen || store_playing()) return ESP_ERR_INVALID_STATE; /* 与其它写入口同一门 */
     if (p == NULL || n == 0) return ESP_ERR_INVALID_ARG;
     store_lock();
     esp_err_t ret = ESP_OK;
@@ -631,15 +644,20 @@ esp_err_t sloop_store_sample_end(uint32_t slot)
         return ESP_ERR_INVALID_CRC;
     }
     rc = st_prog(SMP_USER_OFF(slot), s_smp_hdr, SMP_HDR_SIZE); /* 提交点：最后写 header */
-    if (rc == 0) rc = st_read(SMP_USER_OFF(slot), m, SMP_USER_DATA); /* 镜像 header 与 flash 一致 */
-    if (rc == 0) {
-        engine_lock();
-        smp_user_scan(slot);
-        engine_unlock();
-        s_smp_open = (uint8_t)SLOOP_STORE_SAMPLES;
+    if (rc != 0) {
+        store_unlock();
+        return ESP_ERR_NOT_FINISHED; /* header 没提交：槽仍空，上传保持 open 可重试 */
     }
+    /* 提交点已过：上传结束（flash 里已是一份完整采样，下面的回读只是镜像同步） */
+    s_smp_open = (uint8_t)SLOOP_STORE_SAMPLES;
+    if (st_read(SMP_USER_OFF(slot), m, SMP_USER_DATA) != 0)
+        memcpy(m, s_smp_hdr, SMP_HDR_SIZE); /* 回读失败：用刚落盘的 header 补镜像（同一批字节，
+                                             * pad 仍是上面整槽回读得到的 0xFF）⇒ 槽立即可用 */
+    engine_lock();
+    smp_user_scan(slot);
+    engine_unlock();
     store_unlock();
-    return rc == 0 ? ESP_OK : ESP_ERR_NOT_FINISHED;
+    return ESP_OK;
 }
 
 esp_err_t sloop_store_sample_erase(uint32_t slot)
@@ -652,10 +670,13 @@ esp_err_t sloop_store_sample_erase(uint32_t slot)
         s_smp_open = (uint8_t)SLOOP_STORE_SAMPLES;
         s_smp_hdr_n = 0;
     }
-    memset(m, 0xFF, SLOOP_STORE_SAMPLE_SIZE);
+    /* 先失效（上游 ed_smp_erase 同语义）：header 0xFF + 扫描递增 gen ⇒ 正在发声的 voice
+     * 不再取用该槽，然后才清数据区与擦 flash——它们读到的不是半擦的 0xFF 区。 */
+    memset(m, 0xFF, SMP_USER_DATA);
     engine_lock();
     smp_slot_invalidate_locked(slot);
     engine_unlock();
+    memset(m + SMP_USER_DATA, 0xFF, SLOOP_STORE_SAMPLE_SIZE - SMP_USER_DATA);
     int rc = 0;
     for (uint32_t s = 0; s < SMP_SECTORS && rc == 0; s++)
         rc = st_erase(SMP_USER_OFF(slot) + s * SMP_SECTOR);
@@ -665,7 +686,11 @@ esp_err_t sloop_store_sample_erase(uint32_t slot)
 
 void sloop_store_sample_reload(uint32_t slot)
 {
-    if (slot >= SLOOP_STORE_SAMPLES || !sloop_store_ready() || sloop_hal_user_samples() == NULL) return;
+    /* 只要求 HAL 与镜像在位：开机装载在 `s_init_magic` 置位**之前**调用（此刻
+     * sloop_store_ready() 还是 false），而热复位后 HAL 的 .bss s_ready 为 false，
+     * 这条门也挡住 .noinit 里上一次会话的悬垂句柄。 */
+    if (slot >= SLOOP_STORE_SAMPLES || !sloop_hal_storage_ready() || sloop_hal_user_samples() == NULL)
+        return;
     uint8_t *m = smp_slot_mirror(slot);
     store_lock();
     if (st_read(SMP_USER_OFF(slot), m, SLOOP_STORE_SAMPLE_SIZE) != 0)
