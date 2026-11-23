@@ -15,6 +15,7 @@
 
 #include "input_map.h"
 #include "knob_math.h"
+#include "theme_derive.h"
 
 static int g_failures;
 static int g_passed;
@@ -295,6 +296,65 @@ static void case_key_route(void)
     CHECK(input_map_key_route(2, 0x02, true) == INPUT_ROUTE_NOTE);
 }
 
+static void case_theme_mono_equals_constants(void)
+{
+    ui_theme_t t;
+    ui_theme_derive_mono(&t);
+    check_ll("MONO bg", t.bg, 0x101418);
+    check_ll("MONO panel", t.panel, 0x1B2026);
+    check_ll("MONO panel_hi", t.panel_hi, 0x242B33);
+    check_ll("MONO panel_sel", t.panel_sel, 0x2C3540);
+    check_ll("MONO text", t.text, 0xF2F5F8);
+    check_ll("MONO text_dim", t.text_dim, 0x8A949E);
+    check_ll("MONO accent", t.accent, 0xE0B32A);
+    check_ll("MONO error", t.error, 0xE0542A);
+    static const uint32_t tracks[4] = {0x3B7BD8, 0x3FA34D, 0xE0B32A, 0xE06A1B};
+    for (int i = 0; i < 4; i++) check_ll("MONO track", t.track[i], tracks[i]);
+}
+
+#define RGB565(r, g, b) ((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
+
+static void case_theme_green_accent(void)
+{
+    static const uint16_t green[5] = {
+        RGB565(0, 40, 12), RGB565(0, 84, 30), RGB565(16, 140, 54),
+        RGB565(56, 200, 92), RGB565(120, 255, 146),
+    };
+    ui_theme_t t;
+    ui_theme_derive_palette(green, &t);
+    check_ll("GREEN accent", t.accent, 0x78FF92);
+    check_ll("GREEN bg 不变", t.bg, 0x101418);
+    static const uint32_t tracks[4] = {0x3B7BD8, 0x3FA34D, 0xE0B32A, 0xE06A1B};
+    for (int i = 0; i < 4; i++) check_ll("GREEN track 不变", t.track[i], tracks[i]);
+}
+
+static void case_theme_custom_overrides(void)
+{
+    song_theme_view_t th;
+    memset(&th, 0, sizeof th);
+    for (int i = 0; i < 5; i++) {
+        th.c[i][0] = (uint8_t)(20 + i * 20);
+        th.c[i][1] = (uint8_t)(30 + i * 20);
+        th.c[i][2] = (uint8_t)(40 + i * 20);
+    }
+    for (int i = 0; i < 4; i++) {
+        th.trk[i][0] = (uint8_t)(10 + i);
+        th.trk[i][1] = (uint8_t)(20 + i);
+        th.trk[i][2] = (uint8_t)(30 + i);
+    }
+    th.bg[0] = 1; th.bg[1] = 2; th.bg[2] = 3;
+    th.hi[0] = 240; th.hi[1] = 230; th.hi[2] = 220;
+    ui_theme_t t;
+    ui_theme_derive_theme(&th, &t);
+    check_ll("THEME bg", t.bg, 0x010203);
+    check_ll("THEME accent", t.accent, 0xF0E6DC);
+    check_ll("THEME text 由 hi 派生", t.text, 0xF0E6DC);
+    for (int i = 0; i < 4; i++) {
+        check_ll("THEME track", t.track[i],
+                 ((uint32_t)th.trk[i][0] << 16) | ((uint32_t)th.trk[i][1] << 8) | th.trk[i][2]);
+    }
+}
+
 int main(void)
 {
     run("值 ↔ 弧线值往返与钳位", case_arc_roundtrip);
@@ -304,6 +364,9 @@ int main(void)
     run("格式化表（上游生成表口径）", case_format);
     run("鼓演奏 16 lane 键位（不回落合成轨）", case_drum_lanes);
     run("演奏键路由（释放永远回原轨）", case_key_route);
+    run("MONO 色表恰等于现行常量", case_theme_mono_equals_constants);
+    run("GREEN accent 与固定字段", case_theme_green_accent);
+    run("自定义 theme 覆盖颜色", case_theme_custom_overrides);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

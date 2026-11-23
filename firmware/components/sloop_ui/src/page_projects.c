@@ -86,7 +86,21 @@ static void styles_init(void)
     /* 只初始化一次：组作用域下页面会反复销毁/重建，lv_style_init 会 memzero 掉
      * 已分配的 props 数组（LVGL 在 ASSERT_STYLE 下也会告警「Potential memory leak」） */
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_bg_color(&s_st_card, lv_color_hex(UI_PANEL));
+        lv_style_set_outline_color(&s_st_card, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_bg_color(&s_st_card_sel, lv_color_hex(UI_PANEL_SEL));
+        lv_style_set_outline_color(&s_st_card_sel, lv_color_hex(UI_ACCENT));
+        for (int i = 0; i < 3; i++) {
+            uint32_t bg = i == 0 ? ui_track_color(1) : i == 1 ? UI_ACCENT : ui_track_color(3);
+            uint32_t fg = i == 1 ? UI_BG : UI_TEXT;
+            lv_style_set_bg_color(&s_st_btn[i], lv_color_hex(bg));
+            lv_style_set_text_color(&s_st_btn[i], lv_color_hex(fg));
+        }
+        lv_style_set_text_color(&s_st_letter, lv_color_hex(UI_TEXT));
+        lv_style_set_text_color(&s_st_detail, lv_color_hex(UI_TEXT_DIM));
+        return;
+    }
     done = true;
 
     lv_style_init(&s_st_card);

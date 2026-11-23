@@ -24,6 +24,7 @@
 #include "esp_err.h"
 #include "lvgl.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 
 #define SLOOP_UI_GROUPS 7 /* PLAY / TRACKS / EDIT / SYNTH / SEQ / SONG / FILE（ADR-005） */
 
@@ -134,6 +135,13 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
  * 返回错误，调用方回退 app_display_draw_test_pattern()。单页构建失败不算框架失败：
  * 错误状态条留在屏上，本函数仍返回 ESP_OK。 */
 esp_err_t sloop_ui_start(void);
+
+/* P4-E Task 5：palette/side theme 的运行时应用与 ZOOM 大读数条。主题应用复用组切换
+ * 销毁序；ZOOM 是屏幕层懒建的唯一 label，不计入任何页面 est。 */
+struct knob;
+void sloop_ui_theme_apply(const sloop_settings_t *s);
+void sloop_ui_rebuild_all(void);
+void sloop_ui_zoom_knob(const struct knob *k);
 
 /* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG 7=FM6 8=SAMPLE
  * 9=PROJECTS 10=PRESETS 11=SONG（同 app_page_t）；首次进入时构建该页。

@@ -60,6 +60,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "knob.h"
 #include "page_dsyn.h"
 #include "page_fm6p.h"
 #include "page_layout.h"
@@ -138,6 +139,13 @@ static const ui_page_t *s_registry[APP_STATE_PAGES];
 static uint8_t s_reg_count;
 
 static lv_obj_t *s_root;
+static lv_obj_t *s_tab_bar;
+static lv_obj_t *s_title;
+static lv_obj_t *s_zoom;
+static ui_theme_t s_theme;
+static uint8_t s_applied_palette = 0xFF;
+static uint8_t s_applied_theme_on;
+static uint8_t s_applied_theme_valid;
 static lv_obj_t *s_group_tabs[GROUP_COUNT];  /* 上行组签（按组下标） */
 static lv_obj_t *s_group_labels[GROUP_COUNT];
 static lv_obj_t *s_sub_tabs[UI_GROUP_MAX];   /* 下行子签：固定槽复用，按组成员下标 */
@@ -159,6 +167,11 @@ static lv_timer_t *s_timer;
 static inline uint32_t now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+const ui_theme_t *ui_theme(void)
+{
+    return &s_theme;
 }
 
 /* 音符指示邮箱：输入层只写、30ms 定时器消费（见 sloop_ui_flash_note） */
@@ -234,6 +247,7 @@ static uint8_t group_member_at(uint8_t g, uint8_t idx)
 }
 
 static uint8_t sub_tab_count(uint8_t g);
+static void update_layer_hint(uint8_t layer);
 
 /* 上行组签 + 下行子签的选中态与可见性（组签宽度按已注册组数排布）。页签对象固定
  * 创建，切换只改位置/文本/颜色。子行只显示**多页组**的成员（单页组留空，ADR-005
@@ -395,6 +409,7 @@ static void destroy_group_pages(int g, uint8_t keep)
 static esp_err_t show_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES || page_def(page) == NULL) return ESP_ERR_INVALID_ARG;
+    sloop_ui_zoom_knob(NULL);
     /* 任何切页（含组签/子签回调）都作废同一 30ms 拍内排队的异步切页请求：tab 刚记下
      * 目标页、紧接着的手指点击必须赢（R30）。定时器路径上邮箱在调用前已被取走，
      * 这里是 no-op；同步 console 切页另有入口处的同一次清空（幂等）。 */
@@ -430,6 +445,46 @@ static esp_err_t show_page(uint8_t page)
                  cross ? "跨组" : "组内首建", (unsigned)dt);
     }
     return ret;
+}
+
+void sloop_ui_rebuild_all(void)
+{
+    if (!s_started || s_root == NULL) return;
+    uint8_t current = s_page;
+    uint8_t temporary = current == APP_PAGE_PLAY ? APP_PAGE_TRACKS : APP_PAGE_PLAY;
+    /* 与跨组切换完全同序：临时目标先建成活页，再销毁原组；返回时同理。 */
+    (void)show_page(temporary);
+    (void)show_page(current);
+}
+
+void sloop_ui_theme_apply(const sloop_settings_t *s)
+{
+    if (s == NULL) {
+        ui_theme_derive_mono(&s_theme);
+        return;
+    }
+    s_applied_palette = (uint8_t)s->f.palette;
+    s_applied_theme_on = (uint8_t)s->f.theme_on;
+    s_applied_theme_valid = (uint8_t)s->theme_valid;
+    if (s->theme_valid && s->f.theme_on) {
+        ui_theme_derive_theme(&s->theme, &s_theme);
+    } else if (s->f.palette == 4u) {
+        ui_theme_derive_mono(&s_theme);
+    } else {
+        ui_theme_derive_palette(ui_palette_ramps[s->f.palette < 4u ? s->f.palette : 0u], &s_theme);
+    }
+    if (s_root == NULL) return;
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(UI_BG), 0);
+    lv_obj_set_style_bg_color(s_root, lv_color_hex(UI_BG), 0);
+    lv_obj_set_style_bg_color(s_tab_bar, lv_color_hex(UI_PANEL), 0);
+    lv_obj_set_style_text_color(s_title, lv_color_hex(UI_TEXT_DIM), 0);
+    lv_obj_set_style_text_color(s_page_error, lv_color_hex(UI_ERROR), 0);
+    refresh_tabs();
+    uint8_t layer = s_layer_shown == 0xFF ? 0 : s_layer_shown;
+    s_layer_shown = 0xFF;
+    update_layer_hint(layer);
+    lv_obj_invalidate(s_root);
+    sloop_ui_rebuild_all();
 }
 
 /* 组签动作（物理点击与 console `UI TAB <group>` 共用，R32）：进入该组上次的子页
@@ -502,6 +557,7 @@ static bool create_tab_bar(void)
 {
     lv_obj_t *bar = make_plain(s_root);
     if (bar == NULL) return false;
+    s_tab_bar = bar;
     lv_obj_set_pos(bar, 0, 0);
     lv_obj_set_size(bar, UI_W, UI_TAB_BAR_H);
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
@@ -534,6 +590,7 @@ static bool create_tab_bar(void)
     /* SLOOP 标题留在上行右侧（7 个组签右端 1,058；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
+    s_title = title;
     lv_label_set_text(title, "SLOOP");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(UI_TEXT_DIM), 0);
@@ -639,11 +696,47 @@ static void update_layer_hint(uint8_t layer)
                                 lv_color_hex(layer != 0 ? UI_ACCENT : UI_TEXT_DIM), 0);
 }
 
+void sloop_ui_zoom_knob(const knob_t *k)
+{
+    const sloop_settings_t *settings = sloop_store_settings();
+    bool knob_page = page_layout_index(s_page) >= 0 || s_page == APP_PAGE_DSYN ||
+                     s_page == APP_PAGE_FM6P;
+    if (k == NULL || !settings->f.zoom || !knob_page || !k->active ||
+        k->obj == NULL || lv_obj_get_parent(k->obj) != s_page_obj[s_page]) {
+        if (s_zoom != NULL) lv_obj_set_hidden(s_zoom, true);
+        return;
+    }
+    if (s_zoom == NULL) {
+        s_zoom = lv_label_create(lv_screen_active());
+        if (s_zoom == NULL) return;
+        lv_obj_set_pos(s_zoom, 0, UI_TAB_BAR_H);
+        lv_obj_set_size(s_zoom, UI_W, 40);
+        lv_obj_set_style_text_font(s_zoom, &lv_font_montserrat_28, 0);
+        lv_obj_set_style_text_align(s_zoom, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_pad_top(s_zoom, 2, 0);
+        lv_obj_set_style_bg_opa(s_zoom, LV_OPA_70, 0);
+    }
+    char value[24];
+    if (k->text_cb == NULL || k->text_cb(k, k->value, value, sizeof(value)) <= 0) {
+        knob_format_value(&k->desc, k->value, value, sizeof(value));
+    }
+    lv_label_set_text_fmt(s_zoom, "%s  %s", k->desc.label != NULL ? k->desc.label : "?", value);
+    lv_obj_set_style_text_color(s_zoom, lv_color_hex(UI_TEXT), 0);
+    lv_obj_set_style_bg_color(s_zoom, lv_color_hex(UI_PANEL), 0);
+    lv_obj_set_hidden(s_zoom, false);
+    lv_obj_move_foreground(s_zoom);
+}
+
 /* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
     state_sync_from_engine();
+    const sloop_settings_t *settings = sloop_store_settings();
+    if (s_applied_palette != settings->f.palette || s_applied_theme_on != settings->f.theme_on ||
+        s_applied_theme_valid != settings->theme_valid) {
+        sloop_ui_theme_apply(settings);
+    }
     app_state_t st;
     state_get_copy(&st);
     update_layer_hint(st.layer_held);
@@ -704,6 +797,10 @@ esp_err_t sloop_ui_start(void)
     s_page = APP_PAGE_PLAY;
     s_page_error = NULL;
     s_layer_hint = NULL;
+    s_tab_bar = NULL;
+    s_title = NULL;
+    s_zoom = NULL;
+    sloop_ui_theme_apply(sloop_store_settings());
 
     lv_obj_t *scr = lv_screen_active();
     lv_obj_clean(scr); /* 移除 bring-up 测试图；失败回退由调用方重画 */

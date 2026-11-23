@@ -17,20 +17,22 @@
 #include "sloop_state.h"
 #include "sloop_store.h"
 #include "sloop_ui.h"
+#include "theme_derive.h"
 
 #define UI_W 1280
 #define UI_H 720
 #define UI_TAB_BAR_H 72
 
-/* 配色 */
-#define UI_BG       0x101418 /* 全局背景（页面区） */
-#define UI_PANEL    0x1B2026 /* 页签条/面板底 */
-#define UI_PANEL_HI 0x242B33 /* 未选中页签/次级按钮/空步格 */
-#define UI_PANEL_SEL 0x2C3540 /* 选中态的卡片底（比 UI_PANEL 亮一档） */
-#define UI_TEXT     0xF2F5F8 /* 主文本 */
-#define UI_TEXT_DIM 0x8A949E /* 次级文本 */
-#define UI_ACCENT   0xE0B32A /* 选中页签/播放头（强调色） */
-#define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
+/* 运行时配色（P4-E Task 5）：MONO 派生结果与旧编译期常量逐项相同。 */
+const ui_theme_t *ui_theme(void);
+#define UI_BG        (ui_theme()->bg)       /* 全局背景（页面区） */
+#define UI_PANEL     (ui_theme()->panel)    /* 页签条/面板底 */
+#define UI_PANEL_HI  (ui_theme()->panel_hi) /* 未选中页签/次级按钮/空步格 */
+#define UI_PANEL_SEL (ui_theme()->panel_sel)/* 选中态的卡片底 */
+#define UI_TEXT      (ui_theme()->text)     /* 主文本 */
+#define UI_TEXT_DIM  (ui_theme()->text_dim) /* 次级文本 */
+#define UI_ACCENT    (ui_theme()->accent)   /* 选中页签/播放头（强调色） */
+#define UI_ERROR     (ui_theme()->error)    /* 可见错误（仅失败路径出现） */
 
 /* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
  * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行 7 个组签
@@ -64,8 +66,7 @@ _Static_assert(UI_TAB_X0 + (SLOOP_UI_GROUPS * (UI_GROUP_W + UI_TAB_GAP)) - UI_TA
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)
 {
-    static const uint32_t colors[APP_STATE_TRACKS] = {0x3B7BD8, 0x3FA34D, 0xE0B32A, 0xE06A1B};
-    return colors[k < APP_STATE_TRACKS ? k : 0];
+    return ui_theme()->track[k < APP_STATE_TRACKS ? k : 0];
 }
 
 /* 页面构建函数（懒建，ADR-008）：在 parent 内建本页控件，成功返回 parent；

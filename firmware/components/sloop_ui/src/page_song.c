@@ -163,7 +163,19 @@ static void styles_init(void)
 {
     /* 只初始化一次：组作用域会反复销毁/重建本页（ADR-008 §3 R34） */
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_bg_color(&s_st_card, lv_color_hex(UI_PANEL));
+        lv_style_set_outline_color(&s_st_card, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_bg_color(&s_st_card_sel, lv_color_hex(UI_PANEL_SEL));
+        lv_style_set_outline_color(&s_st_card_sel, lv_color_hex(UI_ACCENT));
+        lv_style_set_bg_color(&s_st_chip, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_text_color(&s_st_chip, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip_accent, lv_color_hex(UI_ACCENT));
+        lv_style_set_text_color(&s_st_chip_accent, lv_color_hex(UI_BG));
+        lv_style_set_bg_color(&s_st_chip_sel, lv_color_hex(UI_PANEL_SEL));
+        lv_style_set_outline_color(&s_st_chip_sel, lv_color_hex(UI_ACCENT));
+        return;
+    }
     done = true;
 
     lv_style_init(&s_st_card);
