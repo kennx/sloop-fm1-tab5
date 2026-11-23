@@ -137,7 +137,7 @@ def switch(s, page: str) -> None:
     s.expect_int(r"page=(\d+)", PAGES[page], f"STATE page（{page}）")
 
 
-GROUPS = ("play", "tracks", "edit", "synth", "seq", "song", "file")
+GROUPS = ("play", "tracks", "edit", "synth", "seq", "song", "file", "sys")
 
 
 def visit_all_pages(s) -> None:
