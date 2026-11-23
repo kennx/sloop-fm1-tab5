@@ -120,6 +120,7 @@
  *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）；
  *    `END settings 0` 写 OBJ_SETTINGS（现有 side 随新副本保留，随后 settings_reload 生效，
  *    P4-E spec §8.3）。
+ *    `STORE RAW SIDE <160 hex>` 单独提交 80B side record（theme/FAVS），payload 不动。
  *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
  *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
@@ -832,7 +833,7 @@ static int state_command(int argc, char **argv)
         state_get_copy(&st);
         static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
         const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u sys_bright=%u sys_vol=%u sys_out=%u set_palette=%u set_lowcut=%u set_zoom=%u set_lights=%u set_theme=%u set_reso=%u set_dirty=%u set_nvs=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u sys_bright=%u sys_vol=%u sys_out=%u set_palette=%u set_lowcut=%u set_zoom=%u set_lights=%u set_theme=%u set_reso=%u set_dirty=%u set_nvs=%u selftest_req=%u selftest_done=%u selftest_ran=%u selftest_failed=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
@@ -846,7 +847,9 @@ static int state_command(int argc, char **argv)
                (unsigned)st.settings.palette, (unsigned)st.settings.lowcut,
                (unsigned)st.settings.zoom, (unsigned)st.settings.lights,
                (unsigned)st.settings.theme_on, (unsigned)st.settings.reso,
-               (unsigned)st.settings.dirty, (unsigned)st.sys.nvs_dirty);
+               (unsigned)st.settings.dirty, (unsigned)st.sys.nvs_dirty,
+               (unsigned)st.selftest_req, (unsigned)st.selftest_done,
+               (unsigned)st.selftest_ran, (unsigned)st.selftest_failed);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -2610,6 +2613,8 @@ static int store_test_cmd(void)
  *                        <slot=0..3>，或 settings 0：原样写 OBJ_SETTINGS、现有 side 随新
  *                        副本保留（没有则写默认 80B），随后 settings_reload 立即生效；
  *                        其它槽号回 invalid）
+ *   SIDE <160 hex>     → 单独提交 OBJ_SETTINGS 的 80B side record，payload 原样保留，
+ *                        回 "STORE RAW SIDE saved len=80"，随后按 R15 重载歌曲/DSU/settings
  *   ABORT              → "STORE RAW ABORTED"
  * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27 的会话互斥；RAW 已有独立
  * 暂存（P4-D 评审 I1），这条不再为缓冲安全所必需，保留为诊断面的确定性约定）。
@@ -2619,6 +2624,7 @@ static int store_test_cmd(void)
  * = 251B < 256B，故与调度时序无关。 */
 #define STORE_RAW_HEX_MAX 240u
 #define STORE_RAW_BUF (STORE_RAW_HEX_MAX / 2u)
+#define STORE_RAW_SIDE_LEN 80u
 
 static int store_hex_nibble(char c)
 {
@@ -2631,7 +2637,8 @@ static int store_hex_nibble(char c)
 static int store_raw_usage(void)
 {
     printf("用法: STORE RAW BEGIN <len=1..%u> | STORE RAW <hex≤%u> | "
-           "STORE RAW END <project> <slot=0..%u> | STORE RAW END settings 0 | STORE RAW ABORT\n",
+           "STORE RAW END <project> <slot=0..%u> | STORE RAW END settings 0 | "
+           "STORE RAW SIDE <160 hex> | STORE RAW ABORT\n",
            (unsigned)SLOOP_STORE_RAW_MAX, (unsigned)STORE_RAW_HEX_MAX,
            (unsigned)(SLOOP_STORE_PROJECTS - 1u));
     return 1;
@@ -2647,6 +2654,21 @@ static int store_raw(int argc, char **argv)
         esp_err_t err = sloop_store_raw_begin(len);
         if (err != ESP_OK) return store_err_print(err);
         printf("STORE RAW BEGIN len=%u\n", (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "side") == 0) {
+        if (argc != 4) return store_raw_usage();
+        const char *hex = argv[3];
+        uint8_t side[STORE_RAW_SIDE_LEN];
+        if (strlen(hex) != 2u * sizeof side) return store_err_print(ESP_ERR_INVALID_ARG);
+        for (size_t i = 0; i < sizeof side; i++) {
+            int hi = store_hex_nibble(hex[2u * i]), lo = store_hex_nibble(hex[2u * i + 1u]);
+            if (hi < 0 || lo < 0) return store_err_print(ESP_ERR_INVALID_ARG);
+            side[i] = (uint8_t)((hi << 4) | lo);
+        }
+        esp_err_t err = sloop_store_raw_side(side);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW SIDE saved len=%u\n", (unsigned)sizeof side);
         return 0;
     }
     if (argc >= 3 && strcasecmp(argv[2], "end") == 0) {
@@ -2724,7 +2746,7 @@ static int store_command(int argc, char **argv)
            "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | "
            "STORE SETTINGS [INFO|SET <field> <v>|SAVE] | "
            "STORE LIVEHASH | "
-           "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
+           "STORE RAW BEGIN|hex|END|SIDE|ABORT（分块上传对象 payload / 80B side） | "
            "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 "
            "完整 4KB 副本扇区） | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
