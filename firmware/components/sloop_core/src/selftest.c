@@ -806,12 +806,23 @@ void sloop_core_diag_quiesce_hook(bool (*hook)(bool on))
     s_quiesce_hook = hook;
 }
 
+static uint32_t s_selftest_ran;
+static uint32_t s_selftest_failed;
+
+void sloop_core_selftest_stats(uint32_t *ran, uint32_t *failed)
+{
+    if (ran != NULL) *ran = s_selftest_ran;
+    if (failed != NULL) *failed = s_selftest_failed;
+}
+
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
         printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
+    s_selftest_ran = 0;
+    s_selftest_failed = 0;
     /* 诊断期（ADR-007）：静默 UI → 冻结引擎 → 跑用例 → 恢复，成对且只有一条出口。
      * 1) quiesce：暂停 30ms UI 定时器与 LVGL 定时器、input 任务阻塞等恢复通知；
      *    等 input 任务回到批次边界后才算静默生效——置标志时它可能正派发。
@@ -933,6 +944,8 @@ int sloop_core_selftest(const char *case_name)
      * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
      * `smp_user_scan`），槽内容因此与 flash 一致。 */
     for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
+    s_selftest_ran = cases;
+    s_selftest_failed = pass ? 0u : (cases > identical ? cases - identical : 1u);
     return pass ? 0 : 1;
 }
 

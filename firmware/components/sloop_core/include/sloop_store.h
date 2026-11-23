@@ -183,6 +183,9 @@ esp_err_t sloop_store_raw_begin(uint32_t len);
 esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);
 uint32_t sloop_store_raw_received(void);
 esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot);
+/* 单独替换 OBJ_SETTINGS 的 80B side record，payload 原样随新副本提交；无 payload 时
+ * 按当前 RAM 构造 canonical。停止/冻结/存储锁纪律与 raw_end 相同，成功后按 R15 重载。 */
+esp_err_t sloop_store_raw_side(const uint8_t *side);
 void sloop_store_raw_abort(void);
 
 /* 用户预置 0..31（上游 upreset.c：32 槽 / 2 个银行对象，`UPB1` 记录布局原样）。

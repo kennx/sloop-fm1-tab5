@@ -49,6 +49,8 @@ void sloop_core_play(bool on);
 uint32_t sloop_core_rate(void);
 uint32_t sloop_core_frames(void);
 int sloop_core_selftest(const char *case_name);
+/* 最近一次自检运行器的实际计数（ran=0 = 尚无结果）；不假定全量用例数。 */
+void sloop_core_selftest_stats(uint32_t *ran, uint32_t *failed);
 
 /* 鼓轨一步的原始状态（上游 `dstep_t`，10 字节）：`on` 为 2×8 lane 位图
  * （lane k = bit k），`lvl`/`rat` 每 lane 2 bit（lane k = 字节 k/4 的

@@ -1034,6 +1034,53 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     return ESP_OK;
 }
 
+esp_err_t sloop_store_raw_side(const uint8_t *side)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen || store_playing()) return ESP_ERR_INVALID_STATE;
+    if (side == NULL) return ESP_ERR_INVALID_ARG;
+
+    uint32_t xr0 = sloop_hal_audio_xruns();
+    int64_t us0 = esp_timer_get_time();
+    store_lock();
+    int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    uint32_t len = n > 0 ? (uint32_t)n : 0u;
+    if (len == 0) {
+        /* 没有 payload 时走 canonical 构造路径，当前歌曲/DSU/settings 都来自 RAM；
+         * side 由调用方显式提供，song_per_build 不得用默认记录覆盖它。 */
+        engine_lock();
+        song_per_kind_t kind = song_per_build(proj_tmp.raw, &len, sizeof proj_tmp.raw,
+                                              &arrangement, (uint8_t *)side, true);
+        if (kind != SONG_PER_BAD)
+            len = song_per_put_settings(proj_tmp.raw, len, sizeof proj_tmp.raw, &s_set.f, s_midi_def);
+        engine_unlock();
+        if (kind == SONG_PER_BAD) {
+            store_unlock();
+            return ESP_ERR_INVALID_ARG;
+        }
+    }
+    st_side = (uint8_t *)side;
+    st_side_len = SONG_SIDE_LEN;
+    int rc = st_save3(OBJ_SETTINGS, proj_tmp.raw, len, 0, 0, 0, 0);
+    st_side = 0;
+    st_side_len = 0;
+    store_unlock();
+    store_note_write(xr0, us0);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "RAW SIDE 失败 rc=%d", rc);
+        return ESP_ERR_NOT_FINISHED;
+    }
+
+    esp_err_t song_ret = sloop_store_song_reload();
+    esp_err_t dsu_ret = sloop_store_dsu_reload();
+    sloop_store_settings_reload();
+    if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "RAW SIDE 之后歌曲重载: %s", esp_err_to_name(song_ret));
+    if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "RAW SIDE 之后 SYN kit 重载: %s", esp_err_to_name(dsu_ret));
+    return ESP_OK;
+}
+
 /* 上游语义（upreset.c）：
  *   up_store(k, 0)      = 选中轨的声音 → 槽 k（鼓轨返回 1）；
  *   up_load_to(t, k)    = 槽 k → 轨 t 的声音（引擎 + 除混音/图案参数外的参数 + PTCH；
