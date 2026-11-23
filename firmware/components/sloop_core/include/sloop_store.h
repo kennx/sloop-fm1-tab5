@@ -374,4 +374,23 @@ bool sloop_store_sections_dirty(void);
 esp_err_t sloop_store_section_load(uint32_t slot);
 esp_err_t sloop_store_section_erase(uint32_t slot);
 
+/* ---- settings 字段（OBJ_SETTINGS 的 persist_t 头 + MIDI 尾段，P4-E Task 1，spec §8.1）----
+ * 上游 persist_t（88B）的 palette@4 / lowcut@8 / zoom@12、lights word@84 里本固件拥有的
+ * 5 个位（lights_lvl 0..3 / rec_tempo 9 / rec_count 10 / theme_on 30 / rec_quant_off 31）、
+ * 以及 MIDI 尾段 byte38 bits 2..5 的 flt_reso（0..10）。字节层的读写是 src/song_persist.h 的
+ * `song_per_put_settings` / `song_per_get_settings`（纯函数，host 同源）；
+ * `song_per_side_theme` 把 side record 的 theme_t（"THM2" + name[8] + RGB565 色表 + CRC）
+ * 校验并展开成下面的 RGB888 视图。字段取值即上游原值（lowcut/zoom 0|1，palette 是内置
+ * 调色板号）。 */
+typedef struct {
+    uint32_t palette, lowcut, zoom, lights_lvl, theme_on, rec_tempo, rec_count, rec_quant_off, flt_reso;
+} song_settings_t;
+typedef struct {
+    uint8_t c[5][3];   /* 屏幕五级色，RGB888 */
+    uint8_t trk[4][3]; /* 四轨色，RGB888 */
+    uint8_t bg[3];     /* 背景 */
+    uint8_t hi[3];     /* 强调色（触摸/光标/播放头） */
+    char name[9];      /* 上游 name[8] 补 NUL */
+} song_theme_view_t;
+
 #endif

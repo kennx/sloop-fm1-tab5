@@ -7,10 +7,15 @@
  *     0   magic "PER3"（uint32）
  *     4   palette   8 lowcut   12 zoom
  *     16  panel_t（32B，PAN5 + 14 个按钮 + 7 个编码器 + 7 个方向）
- *     48  arr_config_t（36B：count/loop/reserved + 16×(scene,bars)）← 本模块唯一读写的一段
+ *     48  arr_config_t（36B：count/loop/reserved + 16×(scene,bars)）
  *     84  lights（uint32）
  *     88  dsu_bank_t（1,464B，默认 SYN kit 银行）      ⇒ canonical = 1,552B
  *     1552.. 可选的 MIDI LEARN 尾段（完整 40B；2.5/2.6 测试写过 32/36，也合法）
+ *                 尾段 byte38（= payload 的倒数第二字节）bits 2..5 = flt_reso（2.7.2）
+ *
+ * 本模块读写的段：48..83（歌曲顺序，整段替换）、88..1,551（DSU，整段替换）、palette/lowcut/
+ * zoom（直写）、lights 的 5 个 owned 位与尾段 byte38 的 bits 2..5（RMW，见文件尾「settings
+ * 字段」节）；panel 16..47 与其余字节从不触碰。
  *
  * 侧记录（side record，80B = theme 40B + "FAV1" + 16×收藏 + CRC）不在 payload 里：
  * storage.c 的 st_save3 把它写在副本扇区偏移 64..143，随 A/B 副本一起提交。侧区全 0xFF
@@ -36,6 +41,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "sloop_store.h" /* song_settings_t / song_theme_view_t（公共头，Task 2 起暴露给 store_tab5.c 的调用方） */
 
 /* 布局常量：与上游 project.c 的 persist_t/arr_config_t 与 ui.c 的 side_rec_t 逐字节相同 */
 #define SONG_PER_MAGIC  0x50455233u /* "PER3"：含歌曲顺序 */
@@ -315,6 +322,128 @@ static uint32_t song_pending_gen(const song_pending_t *p)
 static void song_pending_done(song_pending_t *p, bool ok, uint32_t gen)
 {
     if (ok && p->gen == gen) p->dirty = 0;
+}
+
+/* ---- settings 字段（P4-E Task 1，spec §8.1）-------------------------------------- */
+/* 上游 persist_boot/settings_write 散在 project.c/panel.c 里的那几处读写的字节镜像。
+ * 写侧只动**自己拥有**的字段/位：lights word 的其余位（keys/notes/usb/sync/vis/cpu1/
+ * knob_accel）本固件没有对应语义，按上游默认留在盘上，不因保存而被清掉。 */
+#define SONG_PAL_OFF    4u
+#define SONG_LOWCUT_OFF 8u
+#define SONG_ZOOM_OFF   12u
+/* lights word（panel.c lights_word）：lights_lvl 0..3 / rec_tempo 9 / rec_count 10 /
+ * theme_on 30 / rec_quant_off 31 */
+#define SONG_SET_LIGHTS_MASK (0xFu | 1u << 9 | 1u << 10 | 1u << 30 | 1u << 31)
+#define SONG_MIDI_RESO_OFF (SONG_MIDI_MAX - 2u) /* 尾段 byte38 = payload 倒数第二字节 */
+#define SONG_RESO_MASK  0x3Cu /* bits 2..5 */
+#define SONG_RESO_MAX   10u
+#define SONG_THEME_MAGIC 0x324D4854u /* "THM2"（gfx.c；"THM1" 是 36B 的 beta 格式，不认） */
+#define SONG_THEME_NAME  4u
+#define SONG_THEME_C     12u  /* c[5] RGB565 */
+#define SONG_THEME_TRK   22u  /* trk[4] RGB565 */
+#define SONG_THEME_BG    30u
+#define SONG_THEME_HI    32u
+#define SONG_THEME_CRC   36u  /* 覆盖 0..35 */
+
+static uint8_t song_reso_byte(uint8_t b, uint32_t reso)
+{
+    if (reso > SONG_RESO_MAX) reso = SONG_RESO_MAX;
+    return (uint8_t)((b & (uint8_t)~SONG_RESO_MASK) | (reso << 2));
+}
+
+/* 在 song_per_build/put_dsu **之后**调用（payload 已是合法 PER3，len ≥ 88）。就地写
+ * palette/lowcut/zoom 与 lights 的 owned 位；flt_reso 写进尾段 byte38：
+ *   - 已有 40B 尾段（len ≥ 1,592）⇒ RMW（byte 在 payload 的倒数第二字节，不假定 1,592）；
+ *   - 没有尾段（len == 1,552）且 reso ≠ 0 ⇒ 追加 tail_def（上游 midi_part_fill 的 40B 默认
+ *     尾段，设备侧由调用方生成）再打点——与上游 settings_write「非默认才写尾段」同语义；
+ *     tail_def == NULL 或 cap 不够 ⇒ 不追加，reso 丢弃（返回 len 不变）；
+ *   - 32/36B 的历史尾段没有 byte38 ⇒ 不写、不追加。
+ * 返回新 len。len < 88（不是 PER3）⇒ 什么都不写。 */
+static uint32_t song_per_put_settings(uint8_t *payload, uint32_t len, uint32_t cap,
+                                      const song_settings_t *f, const uint8_t *tail_def)
+{
+    uint32_t w;
+    if (payload == 0 || f == 0 || len < SONG_PER_BASE) return len;
+    song_per_put_word(payload + SONG_PAL_OFF, f->palette);
+    song_per_put_word(payload + SONG_LOWCUT_OFF, f->lowcut);
+    song_per_put_word(payload + SONG_ZOOM_OFF, f->zoom);
+    w = (song_per_word(payload + SONG_LIGHTS_OFF) & ~SONG_SET_LIGHTS_MASK) |
+        ((f->lights_lvl & 0xFu) | (f->rec_tempo & 1u) << 9 | (f->rec_count & 1u) << 10 |
+         (f->theme_on & 1u) << 30 | (f->rec_quant_off & 1u) << 31);
+    song_per_put_word(payload + SONG_LIGHTS_OFF, w);
+    if (len >= SONG_PER_CANON + SONG_MIDI_MAX) {
+        uint8_t *b = payload + len - SONG_MIDI_MAX + SONG_MIDI_RESO_OFF;
+        *b = song_reso_byte(*b, f->flt_reso);
+    } else if (len == SONG_PER_CANON && f->flt_reso != 0u && tail_def != 0 &&
+               cap >= len + SONG_MIDI_MAX) {
+        memcpy(payload + len, tail_def, SONG_MIDI_MAX);
+        payload[len + SONG_MIDI_RESO_OFF] = song_reso_byte(tail_def[SONG_MIDI_RESO_OFF], f->flt_reso);
+        len += SONG_MIDI_MAX;
+    }
+    return len;
+}
+
+/* 读回 settings 字段（上游 persist_boot 口径）。false = 没有对象或对象损坏（未知 magic/
+ * 长度），*out 不动。PER1/PER2 只取 palette（其余 0）；PER3 不足 88B（2.2）⇒ lights 读 0；
+ * 只有 40B 尾段才有 flt_reso（bits 2..5，>10 钳到 10），32/36B 尾段与无尾段 ⇒ 0。 */
+static bool song_per_get_settings(const uint8_t *payload, uint32_t len, song_settings_t *out)
+{
+    song_per_kind_t kind;
+    uint32_t w;
+    if (payload == 0 || out == 0) return false;
+    kind = song_per_kind(payload, len);
+    if (kind == SONG_PER_NEW || kind == SONG_PER_BAD) return false;
+    out->palette = song_per_word(payload + SONG_PAL_OFF);
+    out->lowcut = 0;
+    out->zoom = 0;
+    out->lights_lvl = 0;
+    out->rec_tempo = 0;
+    out->rec_count = 0;
+    out->theme_on = 0;
+    out->rec_quant_off = 0;
+    out->flt_reso = 0;
+    if (kind != SONG_PER3) return true;
+    out->lowcut = song_per_word(payload + SONG_LOWCUT_OFF);
+    out->zoom = song_per_word(payload + SONG_ZOOM_OFF);
+    if (len < SONG_PER_BASE) return true; /* 2.2 的 84B：没有 lights（上游当 0） */
+    w = song_per_word(payload + SONG_LIGHTS_OFF);
+    out->lights_lvl = w & 0xFu;
+    out->rec_tempo = (w >> 9) & 1u;
+    out->rec_count = (w >> 10) & 1u;
+    out->theme_on = (w >> 30) & 1u;
+    out->rec_quant_off = (w >> 31) & 1u;
+    if (len >= SONG_PER_CANON + SONG_MIDI_MAX) {
+        out->flt_reso = (payload[len - SONG_MIDI_MAX + SONG_MIDI_RESO_OFF] >> 2) & 0xFu;
+        if (out->flt_reso > SONG_RESO_MAX) out->flt_reso = SONG_RESO_MAX;
+    }
+    return true;
+}
+
+/* RGB565 → RGB888（5/6/5 位各自 ×255 满量程）。 */
+static void song_rgb888(uint16_t v, uint8_t out[3])
+{
+    out[0] = (uint8_t)(((v >> 11) & 31u) * 255u / 31u);
+    out[1] = (uint8_t)(((v >> 5) & 63u) * 255u / 63u);
+    out[2] = (uint8_t)((v & 31u) * 255u / 31u);
+}
+
+/* side record 开头的 theme_t（40B）：magic "THM2" + CRC-32（0..35）都对才算有效主题
+ * （上游 gfx.c theme_check 的前半；名字可打印/与背景的对比度由 UI 应用时再判）。
+ * false ⇒ *out 不动。 */
+static bool song_per_side_theme(const uint8_t *side, song_theme_view_t *out)
+{
+    uint32_t i;
+    if (side == 0 || out == 0) return false;
+    if (song_per_word(side) != SONG_THEME_MAGIC ||
+        song_per_word(side + SONG_THEME_CRC) != st_crc32(side, SONG_THEME_CRC))
+        return false;
+    memcpy(out->name, side + SONG_THEME_NAME, sizeof out->name - 1u);
+    out->name[sizeof out->name - 1u] = 0;
+    for (i = 0; i < 5; i++) song_rgb888((uint16_t)song_per_word(side + SONG_THEME_C + 2u * i), out->c[i]);
+    for (i = 0; i < 4; i++) song_rgb888((uint16_t)song_per_word(side + SONG_THEME_TRK + 2u * i), out->trk[i]);
+    song_rgb888((uint16_t)song_per_word(side + SONG_THEME_BG), out->bg);
+    song_rgb888((uint16_t)song_per_word(side + SONG_THEME_HI), out->hi);
+    return true;
 }
 
 #endif
