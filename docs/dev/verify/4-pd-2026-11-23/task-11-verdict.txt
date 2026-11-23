@@ -12,7 +12,8 @@ host：host-test=0（ALL HOST TESTS PASSED）、state=0（30 passed）、synth=0
 
 关键读数：
   UI MEM GROUP SYNTH built=3 sum_est=20480 sum_delta=17824 build_ms=14
-    SAMPLE delta 4,360-4,508 / est 6,144；DSYN 6,168-6,452 / 7,168；FM6P 7,004-7,068 / 7,168
+    synth 场景：SAMPLE 4,360-4,508 / est 6,144；DSYN 6,168-6,452 / 7,168；FM6P 7,004-7,068 / 7,168
+    params 场景：SAMPLE 4,392；DSYN 6,476；FM6P 7,108（SYNTH sum_delta 17,976）
   SYNTH 全建 -> STEP 首建：构建日志 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms
   过渡后稳态 pool_free=28,800B；10 轮 SEQ/SONG/FILE/SYNTH 往返 47,072 -> 47,040（Δ-32B，单次 -44B）
   nav 8：PLAY<->TRACKS x10 46,872 -> 46,828（Δ-44B，单次 -72B）

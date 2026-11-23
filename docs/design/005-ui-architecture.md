@@ -350,9 +350,9 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
   DSYN/FM6P 按 spec §4.4 的计划上限落位）。
 - **实测（P4-D Task 11，`params` + `synth`，`UI MEM` 池增量 / `页面构建` 日志）**：
-  SAMPLE **4,360–4,508B**（est 6,144）、DSYN **6,168–6,452B**（est 7,168；Task 9 首测
+  SAMPLE **4,360–4,508B**（est 6,144）、DSYN **6,168–6,476B**（est 7,168；Task 9 首测
   6,436）、FM6P **6,892–7,124B**（est 7,168；Task 10 首测 6,892–7,124，本轮 7,004–7,068）；
-  SYNTH `sum_delta` **17,824B**（`sum_est` 20,480），`build_ms` 11–14ms（≤100ms）。
+  SYNTH `sum_delta` **17,824–17,976B**（`sum_est` 20,480，两场景读数），`build_ms` 11–14ms（≤100ms）。
   三页 `delta ≤ est` 全部成立；SAMPLE 的 est 是 spec §4.4 的**固定上限**（实测只用到
   71–73%，属预留，不参与最坏有序对的调节）。
 - 有序对（§5 的 base 11,624 + 对值 + 4,096 ≤ 63,120）：**SEQ→PRESETS 仍最坏 60,776
