@@ -41,17 +41,6 @@
 | **触发条件** | 下一次有人在 Tab5 + Tab5 Keyboard 硬件旁工作时执行；阶段 1 门禁 3 收口前必须完成。 |
 | **登记** | 2026-11-19（阶段 1 Task 6）；2026-11-21 阶段 3 收口：注入路径（`KEY` 与物理同入口）在 30min soak 中 150 组 note on/off（300 事件）全部回显正常、无丢键，仍不能替代物理逐键核对，条目保留 |
 
-## DI-6: ES8388 决定性输出寄存器未二分定位（阶段 2 音频调优）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | 阶段 1 无声修复（4278509）以「DAC 0dB + 四路输出音量全 0x21」的实证组合出声即收口；未二分定位：功放输入取自 LOUT1 还是 LOUT2、0x1E 与 0x21 的听感差、耳机通路是否独立可用。取证见 `docs/dev/device-notes.md` §5。 |
-| **影响面** | 阶段 2 sloop_hal_tab5 音频落地的音量/增益策略（当前全开为保守实证态，可能底噪偏大、动态余量受限）；DI-2 同款排查入口已备（`AUD REG/PA/L2/MAX` 命令）。 |
-| **为何可延迟** | 当前配置已出声且稳定；引擎移植阶段（P2-3/P2-4）不依赖音量精度，仅依赖通路可用。 |
-| **解决方向** | 阶段 2 音频任务内做二分实验（L1/L2 各自开闭 × 0x1E/0x21），定出功放输入通道与合理默认音量；复核 44.1kHz 音高（I2S 日志已证 44100/256×MCLK，缺人耳音高确认）；耳机通路单独人测。 |
-| **触发条件** | sloop_hal_tab5 音频组件立项（P2-3）时处理；DI-4 人测若发现键盘问题与此无关。 |
-| **登记** | 2026-11-19（听音人测排障会话） |
-
 ## DI-7: ENG TRIG 合成/鼓人耳听音待收尾
 
 | 项 | 内容 |
@@ -298,3 +287,15 @@
 | **触发条件** | 用户报告「调好的鼓音色重启后没了」；或 P4-E 统一「会话/持久化」语义时。 |
 | **参考** | `firmware/components/sloop_core/src/song_persist.h`（`song_per_put_dsu`/`song_per_saved`）、`store_tab5.c` 的 `sloop_store_dsu_store`/`sloop_store_sections_tick`、ADR-011 §3、P4-D spec §3.4 |
 | **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-39: 输出路由只能 speaker-only（扬声器功放与耳机左声道共用 ES8388 LOUT1）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-E Task 3（spec §5 D10）实现输出路由时按官方原理图（`Tab5_Schematics_PDF.pdf` 第 3 页，U14/C67/C68/U15）核对通路：ES8388 **LOUT1**(pin 12) 经 C68 22µF → 网络 `HPOUT_L`，**同时**接耳机左声道与 NS4150B 功放输入（100nF → R43 68K → INP；INN 经 R44 68K 接 AGND）；**ROUT1**(pin 11) 经 C67 → `HPOUT_R` 只到耳机右声道；**LOUT2/ROUT2(pin 15/14) 未连接**（真机 `AUD REG` 读回 `0x2E..0x31 = 0x21`）。扬声器与耳机左声道共用 LOUT1，不存在只靠 ES8388 音量寄存器把两者分开的组合——把 LOUT1/ROUT1 写 0（-33.5dB）是两者一起近静音，即阶段 1 默认态人测无声的原因。本条同时承接已关闭的 DI-6 的未决余项。 |
+| **影响面** | 输出路由设置降级为 speaker-only：`sloop_hal_settings_set_output` 只接受 speaker，`AUD OUT headphone` 回 `AUD OUT ERR not_supported` 且状态不变，SYSTEM 页的 OUTPUT 行给不出可用的 HEADPHONE。另：扬声器**只重放左声道**（功放取 LOUT1），右声道/声像在扬声器上丢失。 |
+| **为何可延迟** | 默认态（四路输出 0x21）扬声器与耳机都可用，是阶段 1 人测出声的实证态；缺的只是「切换」，不影响可听性。真正的路由要动功放使能（新的硬件副作用），不宜在设置页任务里顺手做。 |
+| **解决方向** | (a) 用 **SPK_EN**（PI4IOE5V6408-1 @0x43 的 E1.P1，`bsp_feature_enable(BSP_FEATURE_SPEAKER, …)`）做路由：headphone = 关功放（耳机仍由 LOUT1/ROUT1 驱动）、speaker = 开功放；实现前先核实 BSP 该开关的确切副作用（是否连带其它电源域/静音时序）。(b) 扬声器单声道：在 HAL 输出级做 L/R 混音，或由引擎提供 mono 合成（产品裁决）。(c) DI-6 余项的人测：输出电平 `0x21` 与 `0x1E` 的听感差、底噪与合理默认音量；耳机通路单独听音；44.1kHz 音高复核（I2S 日志已证 44100，缺人耳）。 |
+| **触发条件** | SYSTEM 页需要可用的 HEADPHONE 选项时；或人测报告扬声器底噪偏大 / 单声道不可接受时。(c) 在硬件旁做听音时顺手完成，完成后从本条删除。 |
+| **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定） |
+| **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |

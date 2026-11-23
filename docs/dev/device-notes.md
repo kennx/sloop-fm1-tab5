@@ -62,7 +62,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
   - ES8388 寄存器默认态：CHIPPOWER/DACPOWER 正常、DACCONTROL3 未静音，但 **DACCONTROL26/27（LOUT2/ROUT2）=0x00**（esp_codec_dev es8388 初始化显式写 0，-33.5dB 近静音），DAC 数字音量 0x16（=set_out_vol(70)→-11dB）；
   - 实验：仅 L2/R2→0x1E 仍无声；DAC 0dB + 四路输出（0x2E..0x31）→0x21 **出声**。
 - 结论：板级功放输入路径需要显式初始化输出音量；开机态固化为四路 0x21（`audio_tone_init` 板级修正）。
-- 未决：决定性寄存器（L1 还是 L2、0x21 是否必要）未二分（DI-6）；耳机通路未单独人测。
+- 未决：决定性寄存器（L1 还是 L2、0x21 是否必要）未二分（DI-6；2026-11-23 按官方原理图确定功放取自 LOUT1、LOUT2/ROUT2 未连接，条目关闭，余项见 DI-39 与 `docs/tab5-hardware.md` §3.2）；耳机通路未单独人测。
 - 附录：`esp_codec_dev_read_reg` 对 es8388 不透传（恒失败），读寄存器须走裸 I2C（BSP 总线句柄 + 0x10 从地址）。
 
 ## 6. 音频流所有权与启停（DI-8，2026-11-20 解决）

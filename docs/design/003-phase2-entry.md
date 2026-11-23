@@ -37,7 +37,7 @@
 | 项 | 内容 | 处理时机 |
 |---|---|---|
 | DI-2 | `sdkconfig.defaults` 被 `firmware/sdkconfig` 掩盖的构建陷阱 | 阶段 2 首次改 defaults 前顺手修进 `build.sh`（或继续手动 rm） |
-| DI-6 | ES8388 决定性输出寄存器未二分；音量全开为保守实证态 | P2-3 sloop_hal_tab5 音频落地时二分并定音量策略；复核 44.1kHz 音高（人耳） |
+| DI-6 | ES8388 决定性输出寄存器未二分；音量全开为保守实证态 | **已关闭（2026-11-23）**：功放输入取自 LOUT1 由官方原理图确定（`docs/tab5-hardware.md` §3.2）；音量策略/音高/耳机听音等余项并入 DI-39 |
 | DI-4 | 键盘 70 键矩阵人测 | 随时可在硬件旁执行（清单在 `docs/dev/verify/1-bringup-2026-11-19/`）；不阻塞阶段 2 |
 | 触摸校准/测试图目检 | 阶段 1 剩余人测 | 同上 |
 | console 排障命令 | `SCR/KB/AUD(REG/PA/L2/MAX)` 已就位 | `ENG SELFTEST/TRIG/PERF` 按同一模式扩展（console.c） |
