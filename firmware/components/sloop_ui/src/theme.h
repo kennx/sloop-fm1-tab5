@@ -32,17 +32,17 @@
 #define UI_ERROR    0xE0542A /* 页面构建失败的可见错误（仅失败路径出现） */
 
 /* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
- * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行最多
- * 6 个组签（PLAY/TRACKS/EDIT/SEQ/SONG/FILE，P4-C Task 11），168px 宽
- * （6×168+5×8=1,048，右端 1,064 < 上行 SLOOP 标题起点 ~1,191）；子行复用固定
- * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 5 页是最大组，右端 928）。
+ * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行 7 个组签
+ * （PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE，P4-D Task 8），142px 宽
+ * （7×142+6×8=1,042，右端 16+1,042=1,058 ≤ 1,280−216=1,064）；子行复用固定
+ * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 4 页是最大组，右端 744）。
  * 右侧 UI_TAB_RIGHT_RESERVE=216 给上行 SLOOP 标题与下行层键提示留位：组行右端
- * 1,064 = 1,280−216（正好用完 reserve）；子行右端 928，提示盒从 936 起，宽度封顶 +
+ * 1,058（≤1,064 = 1,280−216）；子行右端 928，提示盒从 936 起，宽度封顶 +
  * 省略号截断，绝不压到子签。 */
 #define UI_TAB_X0  16
 #define UI_TAB_GAP 8
 #define UI_TAB_RIGHT_RESERVE 216
-#define UI_GROUP_W 168
+#define UI_GROUP_W 142
 #define UI_GROUP_H 32
 #define UI_GROUP_Y 4
 #define UI_SUB_W   176
@@ -54,6 +54,11 @@
 _Static_assert(UI_TAB_X0 + UI_GROUP_MAX * (UI_SUB_W + UI_TAB_GAP) - UI_TAB_GAP <=
                    UI_W - UI_TAB_RIGHT_RESERVE,
                "子签槽位超出行宽（与右侧层提示重叠）");
+/* 组签槽位：宽度按组数取（§2 的 min(176, …) 结果），右端不得越过 reserve 线
+ * （SLOOP 标题从 ~1,191 起；7 组时右端 1,058）。 */
+_Static_assert(UI_TAB_X0 + (SLOOP_UI_GROUPS * (UI_GROUP_W + UI_TAB_GAP)) - UI_TAB_GAP <=
+                   UI_W - UI_TAB_RIGHT_RESERVE,
+               "组签槽位超出行宽（与右侧 SLOOP 标题重叠）");
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)
@@ -142,6 +147,54 @@ static inline uint32_t ui_file_status_color(uint8_t act, uint8_t status, bool re
     case APP_STORE_STATUS_DRUM: return UI_ACCENT;
     case APP_STORE_STATUS_PLAYING: return UI_ERROR; /* 走带中或存储未就绪：都是红字 */
     case APP_STORE_STATUS_ERROR: return UI_ERROR;
+    default: return UI_TEXT_DIM;
+    }
+}
+
+/* SAMPLE 页槽管理行的状态行（P4-D Task 8；单一口径——屏幕文本与 console `TAP`
+ * 回显都从这里出）。状态是**页面本地**结果，不写 app_state_t（与 FM6 bank 行的
+ * NOT FM6 同口径）：
+ *   SELECT_OK  槽选中已把 SET 宏（P_E0 = 8 + k）写入选中轨 → `SAVE OK`
+ *   ERASE_OK   CMD_SAMPLE_ERASE 成功 → `ERASE OK`
+ *   NOT_USR    当前 SET 不在 USR1..USR4（8..11）→ `NOT USR`（**未下发命令**）
+ *   PLAYING    走带中（synth_status = BLOCKED）→ `STOP BEFORE ERASE`
+ *   NO_STORAGE 存储未就绪 → `NO STORAGE`
+ *   ERROR      其它失败（含诊断冻结）→ `ERASE ERROR`
+ *   NONE       尚无动作 → 空串（不显示过期结果） */
+typedef enum {
+    UI_SAMPLE_STATUS_NONE = 0,
+    UI_SAMPLE_STATUS_SELECT_OK,
+    UI_SAMPLE_STATUS_ERASE_OK,
+    UI_SAMPLE_STATUS_NOT_USR,
+    UI_SAMPLE_STATUS_PLAYING,
+    UI_SAMPLE_STATUS_NO_STORAGE,
+    UI_SAMPLE_STATUS_ERROR,
+} ui_sample_status_t;
+
+static inline const char *ui_sample_status_text(char *buf, size_t n, uint8_t status)
+{
+    switch (status) {
+    case UI_SAMPLE_STATUS_SELECT_OK: snprintf(buf, n, "SAVE OK"); break;
+    case UI_SAMPLE_STATUS_ERASE_OK: snprintf(buf, n, "ERASE OK"); break;
+    case UI_SAMPLE_STATUS_NOT_USR: snprintf(buf, n, "NOT USR"); break;
+    case UI_SAMPLE_STATUS_PLAYING: snprintf(buf, n, "STOP BEFORE ERASE"); break;
+    case UI_SAMPLE_STATUS_NO_STORAGE: snprintf(buf, n, "NO STORAGE"); break;
+    case UI_SAMPLE_STATUS_ERROR: snprintf(buf, n, "ERASE ERROR"); break;
+    default: if (n > 0) buf[0] = '\0'; break;
+    }
+    return buf;
+}
+
+/* 状态行颜色（同一映射的视觉侧）：OK 绿 / NOT USR 强调黄 / 走带与失败红 / 其余灰。 */
+static inline uint32_t ui_sample_status_color(uint8_t status)
+{
+    switch (status) {
+    case UI_SAMPLE_STATUS_SELECT_OK:
+    case UI_SAMPLE_STATUS_ERASE_OK: return ui_track_color(1);
+    case UI_SAMPLE_STATUS_NOT_USR: return UI_ACCENT;
+    case UI_SAMPLE_STATUS_PLAYING:
+    case UI_SAMPLE_STATUS_NO_STORAGE:
+    case UI_SAMPLE_STATUS_ERROR: return UI_ERROR;
     default: return UI_TEXT_DIM;
     }
 }

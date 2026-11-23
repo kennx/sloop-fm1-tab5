@@ -19,7 +19,7 @@
  *    走一次 CMD_SET_PARAM_BATCH；id 在该轨上无描述符时回 PARAM ERR 且不写。
  *    PARAM RAW <id> <value> 跳过 desc 预判直接下发，用于验证引擎「无描述符 id
  *    逐条忽略」的路径（正常 PARAM 在 console 层就拒绝了）。
- *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>）；无参打印当前页；QUIESCE <on|off>
+ *  - UI：切页（UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>）；无参打印当前页；QUIESCE <on|off>
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
@@ -879,7 +879,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -893,6 +893,9 @@ static int param_command(int argc, char **argv)
 static const char *const k_page_names[APP_STATE_PAGES] = {
     "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
     "projects", "presets", "song",
+    /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN/FM6P 是 Task 9/10 的实体页，
+     * 本任务先注册占位页） */
+    "dsyn", "fm6p",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1154,7 +1157,7 @@ static int ui_command(int argc, char **argv)
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
             printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
-                   "projects|presets|song|0..%u)\n",
+                   "dsyn|fm6p|projects|presets|song|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1281,7 +1284,7 @@ static int ui_command(int argc, char **argv)
         }
         char *end = NULL;
         long idx = strtol(argv[2], &end, 0);
-        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT 5 页）：
+        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT/SYNTH ≤4 页）：
          * 0..4 之外的 index 一律用法错误（与 sloop_ui_sub_select 的上界同口径）。 */
         if (end == argv[2] || *end != '\0' || idx < 0 || idx > 4) {
             printf("用法: UI SUB <index=0..4>（当前组的子签下标；组内最多 5 页）\n");
@@ -1306,7 +1309,7 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -1588,6 +1591,25 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> BANK slot=%u action=%s status=\"%s\"\n", x, y, page,
                (unsigned)r.b, r.kind == SLOOP_TAP_BANK_STORE ? "save" : "erase",
                text != NULL ? text : "?");
+        break;
+    }
+    case SLOOP_TAP_SAMPLE_SLOT:
+        /* SAMPLE 页槽管理行：选中槽 = 把 SET 宏写到 8 + 槽号（锁定页不下发） */
+        printf("TAP %ld,%ld page=%u -> SAMPLE slot=%u select\n", x, y, page, (unsigned)r.b);
+        break;
+    case SLOOP_TAP_SAMPLE_ACTION: {
+        /* ERASE chip：与 BANK 行同一回显形态（动作 + 状态行文本同源：
+         * sloop_ui_sample_status_text）。`NOT USR`（当前 SET 不在 USR1..USR4）、
+         * `STOP BEFORE ERASE`（走带中）、`NO STORAGE`（存储未就绪）都能按文本断言。 */
+        const char *text = sloop_ui_sample_status_text();
+        /* b = 当前 SET 指向的槽；`NOT USR` 时没有槽号（页面未下发命令）→ 回显 `slot=-` */
+        if (r.b < SLOOP_STORE_SAMPLES) {
+            printf("TAP %ld,%ld page=%u -> SAMPLE slot=%u action=erase status=\"%s\"\n", x, y,
+                   page, (unsigned)r.b, text != NULL ? text : "?");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SAMPLE slot=- action=erase status=\"%s\"\n", x, y,
+                   page, text != NULL ? text : "?");
+        }
         break;
     }
     case SLOOP_TAP_SONG_SECTION:
@@ -3343,7 +3365,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|song>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

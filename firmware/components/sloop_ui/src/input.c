@@ -396,8 +396,8 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的最终 12 页顺序：
-         * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 14 页顺序：PLAY→TRACKS→
+         * GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→
          * PRESETS→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */

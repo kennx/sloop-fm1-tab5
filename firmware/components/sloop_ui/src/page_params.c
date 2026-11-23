@@ -31,6 +31,18 @@
  * 擦写发生在 LVGL 回调里（TAP/按钮 → state_apply → 存储层），一次 SAVE 最坏阻塞
  * 一次整银行擦写窗口（spec §4.3 接受的 ≤150ms 级 UI 停顿）；bank 是 4KB 扇区重写，
  * 与工程/预置保存同一条「擦写期间不持引擎锁」纪律（ADR-009 §3）。
+ *
+ * 槽管理行（仅 SAMPLE 页，P4-D Task 8）：同一底部行几何（页面区相对 y=552..596）——
+ * `U1..U4` 四个单对象 label（`USED name z<n> <KB>K` / `EMPTY`）+ `ERASE` chip + 状态行。
+ * 点槽 = 把 SET 宏（P_E0）切到 `SMP_NSETS + k`（**8..11**，不是工厂槽号 32）经
+ * `CMD_SET_PARAM` 下发；`ERASE` 只在当前 SET 落在 USR1..USR4 时发 `CMD_SAMPLE_ERASE`
+ * （槽号 = SET − 8），否则状态行 `NOT USR` 且**不下发命令**。状态行是页面本地结果
+ * （theme.h 的 ui_sample_status_text 单一映射：`SAVE OK`/`ERASE OK`/`STOP BEFORE ERASE`/
+ * `NO STORAGE`/`ERASE ERROR`）。
+ * 槽信息读取是**文档化的只读例外**（与 FILE 页同口径）：`sloop_store_sample_info` 会
+ * 对每个已用槽算 ≤80KiB 的数据 CRC，因此只在建页、槽动作之后与 update 里至多 ~1s
+ * 一次（或 synth_status/SET 变化时）读取——绝不每 30ms 轮询（P4-D Task 4 评审的
+ * UI 停顿风险）。
  */
 #include "page_params.h"
 
@@ -38,6 +50,7 @@
 #include <string.h>
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "knob.h"
 #include "page_layout.h"
 #include "sloop_store.h"
@@ -78,6 +91,23 @@
 #define BANK_STATUS_X 600
 #define BANK_STATUS_W 664
 
+/* SAMPLE 槽管理行（仅 SAMPLE 页，P4-D Task 8）：与 BANK 行同一底部带（y=552、高 44），
+ * 4 个槽 label（200px，2 行 16pt：`U1 USED` / `PIANO z1 12K`）+ ERASE chip + 状态行。
+ * 16+4×208=848 右端（末槽 640..840）、ERASE 856..956、状态行 972..1264。 */
+#define SAMPLE_ROW_Y      552
+#define SAMPLE_ROW_H      44
+#define SAMPLE_SLOT_X0    16
+#define SAMPLE_SLOT_W     200
+#define SAMPLE_SLOT_PITCH 208
+#define SAMPLE_ERASE_X    856
+#define SAMPLE_STATUS_X   972
+#define SAMPLE_STATUS_W   292
+
+/* 上游 eng_sample.c 的 SMP_NSETS（生成头 felucca_samples.h 的 8 个工厂 SET 名）；
+ * USR1..USR4 的 SET 宏值 = SMP_NSETS + k = 8..11。写成字面量免于在 UI 层包含上游
+ * 生成头（它与 console 的 SMP 诊断面同源，改上游版本时由 host 门禁暴露）。 */
+#define SAMPLE_USR_SET_BASE 8u
+
 /* 页声明引擎号 9 = FM6（布局表 L_ENG_FM6，上游 ENGINES[] 的 FM6）；bank 行只在这一页。 */
 #define PARAM_ENGINE_FM6 9u
 
@@ -106,6 +136,10 @@ typedef struct {
     lv_obj_t *bank_status;
     uint8_t bank_shown_slot;  /* 已显示的目标槽（0..26）；0xFF = 未显示 */
     uint32_t bank_status_key; /* (act | status<<8 | ready<<16) 脏检查键 */
+    /* 槽管理行（仅 SAMPLE 页；其它页为 NULL） */
+    lv_obj_t *sample_label[SLOOP_STORE_SAMPLES];
+    lv_obj_t *sample_erase;
+    lv_obj_t *sample_status;
 } page_ui_t;
 
 static page_ui_t s_ui[PARAM_PAGE_COUNT];
@@ -119,6 +153,18 @@ static uint8_t s_bank_act = 0xFF;
  * 被拒（提示 `NOT FM6`），0 = 无。 */
 static uint8_t s_bank_refused;
 static char s_bank_echo[32]; /* console TAP 回显专用（REPL 任务，避开 LVGL 标签缓冲） */
+
+/* 槽管理行（仅 SAMPLE 页）：槽信息缓存 + 状态行（页面本地结果，不写 app_state_t）。
+ * s_sample_info_key = (synth_status << 8) | SET：变化即立刻重读（动作结果的可见性）；
+ * 其余情况下 update 每 ~1s 至多重读一次（info 的 CRC 成本见文件头）。 */
+static sloop_store_sample_info_t s_sample_info[SLOOP_STORE_SAMPLES];
+static uint16_t s_sample_info_key;
+static uint32_t s_sample_info_ms;
+static bool s_sample_info_valid;
+static uint8_t s_sample_act = 0xFF; /* 0 = 槽选中（SAVE 语义）/ 2 = ERASE / 其它 = 尚无动作 */
+static ui_sample_status_t s_sample_status = UI_SAMPLE_STATUS_NONE;
+static uint32_t s_sample_row_sig = 0xFFFFFFFFu; /* 整行渲染脏检查键 */
+static char s_sample_echo[32];                  /* console TAP 回显专用 */
 
 /* 焦点槽（UI 局部态）：TAP 在 LVGL 上下文写、键盘在输入任务读/写 → 临界区保护。 */
 static portMUX_TYPE s_focus_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -201,6 +247,13 @@ static uint8_t page_engine(const param_page_t *pg)
 static bool bank_row_present(const param_page_t *pg)
 {
     return pg != NULL && page_engine(pg) == PARAM_ENGINE_FM6;
+}
+
+/* SAMPLE 页 = 布局表的 SAMPLE 下标（参数页是 app_page_t 的连续段，page_layout.c 有
+ * 静态断言）：槽管理行只在这一页建（TAP 命中表/更新/回显同源）。 */
+static bool sample_row_present(const param_page_t *pg)
+{
+    return pg != NULL && pg == page_layout_get((uint8_t)(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL));
 }
 
 /* 引擎页不可编辑：选中鼓轨（没有引擎槽）或所选轨引擎与页声明不符 */
@@ -407,6 +460,159 @@ static void bank_cb(lv_event_t *e)
     else bank_action(index, op == 2u ? 0u : 2u);
 }
 
+/* ---------------------------------------------------------------- 槽管理行 --- */
+/* 选中轨的 SET 宏（P_E0）→ USR 槽号；不在 USR1..USR4（SET 8..11）返回 0xFF。 */
+static uint8_t sample_selected_slot(const app_state_t *st)
+{
+    int16_t set = st->p[PARAM_ENGINE_BASE];
+    if (set < (int16_t)SAMPLE_USR_SET_BASE ||
+        set >= (int16_t)(SAMPLE_USR_SET_BASE + SLOOP_STORE_SAMPLES)) {
+        return 0xFF;
+    }
+    return (uint8_t)(set - SAMPLE_USR_SET_BASE);
+}
+
+/* 槽信息（文档化只读例外）：force 或 synth_status/SET 变化、或距上次 ≥1s 才重读。
+ * info 会对每个已用槽算 ≤80KiB 数据 CRC，是全页最贵的调用，绝不能每拍跑。 */
+static void sample_info_poll(const app_state_t *st, bool force)
+{
+    uint16_t key = (uint16_t)(((uint16_t)st->synth_status << 8) |
+                              (uint8_t)st->p[PARAM_ENGINE_BASE]);
+    uint32_t now = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+    if (!force && s_sample_info_valid && key == s_sample_info_key &&
+        (uint32_t)(now - s_sample_info_ms) < 1000u) {
+        return;
+    }
+    for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+        sloop_store_sample_info_t info;
+        memset(&info, 0, sizeof(info));
+        if (sloop_store_sample_info(k, &info) != ESP_OK) memset(&info, 0, sizeof(info));
+        s_sample_info[k] = info;
+    }
+    s_sample_info_key = key;
+    s_sample_info_ms = now;
+    s_sample_info_valid = true;
+}
+
+static uint32_t sig_mix(uint32_t h, uint32_t v)
+{
+    for (unsigned i = 0; i < 4; i++) {
+        h ^= (v >> (i * 8u)) & 0xFFu;
+        h *= 16777619u;
+    }
+    return h;
+}
+
+/* 整行渲染脏检查键：选择槽 + 动作/状态 + ready + 四个槽的 (used/zones/KB/name)。 */
+static uint32_t sample_row_sig(const app_state_t *st)
+{
+    uint32_t h = 2166136261u;
+    h = sig_mix(h, sample_selected_slot(st));
+    h = sig_mix(h, s_sample_act);
+    h = sig_mix(h, (uint32_t)s_sample_status);
+    h = sig_mix(h, sloop_store_ready() ? 1u : 0u);
+    for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+        const sloop_store_sample_info_t *in = &s_sample_info[k];
+        h = sig_mix(h, in->used);
+        h = sig_mix(h, in->zones);
+        h = sig_mix(h, in->data_kb);
+        for (unsigned i = 0; i < 8u; i++) h = sig_mix(h, (uint8_t)in->name[i]);
+    }
+    return h;
+}
+
+/* 渲染整行（4 槽文本/颜色 + 状态行）。选中槽（SET 指向的 USR）用强调色。 */
+static void sample_render(uint8_t index, const app_state_t *st)
+{
+    page_ui_t *ui = &s_ui[index];
+    uint8_t sel = sample_selected_slot(st);
+    for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+        const sloop_store_sample_info_t *in = &s_sample_info[k];
+        char text[48];
+        if (in->used) {
+            snprintf(text, sizeof(text), "U%u USED\n%s z%u %uK", (unsigned)(k + 1u), in->name,
+                     (unsigned)in->zones, (unsigned)in->data_kb);
+        } else {
+            snprintf(text, sizeof(text), "U%u EMPTY", (unsigned)(k + 1u));
+        }
+        lv_label_set_text(ui->sample_label[k], text);
+        lv_obj_set_style_text_color(
+            ui->sample_label[k],
+            lv_color_hex(k == sel ? UI_ACCENT : (in->used ? UI_TEXT : UI_TEXT_DIM)), 0);
+    }
+    char text[32];
+    ui_sample_status_text(text, sizeof(text), (uint8_t)s_sample_status);
+    lv_label_set_text(ui->sample_status, text);
+    lv_obj_set_style_text_color(ui->sample_status,
+                                lv_color_hex(ui_sample_status_color((uint8_t)s_sample_status)), 0);
+}
+
+/* 槽选中（控件回调与 TAP 的共同路径）：把 SET 宏切到 SMP_NSETS + k（8..11）经
+ * CMD_SET_PARAM 下发。锁定页（选中轨引擎 ≠ SAMPLE，含鼓轨）不下发、不改状态行
+ * （与旋钮页同一口径；槽列表仍只读显示）。 */
+static bool sample_select(uint8_t index, uint8_t slot)
+{
+    if (slot >= SLOOP_STORE_SAMPLES) return false;
+    if (!slot_write(index, 0, (int16_t)(SAMPLE_USR_SET_BASE + slot), NULL)) return false;
+    s_sample_act = 0u;
+    s_sample_status = UI_SAMPLE_STATUS_SELECT_OK;
+    app_state_t st;
+    state_get_copy(&st);
+    sample_info_poll(&st, true);
+    refresh(index);
+    return true;
+}
+
+/* ERASE（控件回调与 TAP 的共同路径）：只在当前 SET ∈ USR1..USR4 时发 CMD_SAMPLE_ERASE
+ * （槽号 = SET − 8），否则 `NOT USR` 且不下发命令。结果按 synth_status 映射成状态行
+ * （BLOCKED = 走带中；ERROR + 未就绪 = NO STORAGE）。
+ * 锁定页（选中轨引擎 ≠ SAMPLE）**必须**先拒绝：否则会把别的引擎的 E0 值（恰好落在
+ * 8..11）当成 SET 而擦掉一个用户槽（槽不存在于该轨的声音里，用户意图也无从成立）。 */
+static void sample_erase(uint8_t index)
+{
+    const param_page_t *pg = page_layout_get(index);
+    app_state_t st;
+    state_get_copy(&st);
+    s_sample_act = 2u;
+    if (page_locked(pg, &st)) {
+        s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        refresh(index);
+        return;
+    }
+    uint8_t slot = sample_selected_slot(&st);
+    if (slot == 0xFFu) {
+        s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        refresh(index);
+        return;
+    }
+    edit_cmd_t cmd = {0};
+    cmd.type = CMD_SAMPLE_ERASE;
+    cmd.a = slot;
+    state_apply(&cmd);
+    state_get_copy(&st);
+    switch (st.synth_status) {
+    case APP_SYNTH_STATUS_OK: s_sample_status = UI_SAMPLE_STATUS_ERASE_OK; break;
+    case APP_SYNTH_STATUS_BLOCKED: s_sample_status = UI_SAMPLE_STATUS_PLAYING; break;
+    case APP_SYNTH_STATUS_ERROR:
+        s_sample_status =
+            sloop_store_ready() ? UI_SAMPLE_STATUS_ERROR : UI_SAMPLE_STATUS_NO_STORAGE;
+        break;
+    default: s_sample_status = UI_SAMPLE_STATUS_ERROR; break;
+    }
+    sample_info_poll(&st, true);
+    refresh(index);
+}
+
+static void sample_cb(lv_event_t *e)
+{
+    /* user_data = (页下标 << 4 | 操作位)：0..3 = 槽选中、4 = ERASE */
+    uintptr_t ctx = (uintptr_t)lv_event_get_user_data(e);
+    uint8_t index = (uint8_t)(ctx >> 4);
+    uint8_t op = (uint8_t)(ctx & 0x0Fu);
+    if (op < SLOOP_STORE_SAMPLES) (void)sample_select(index, op);
+    else sample_erase(index);
+}
+
 /* ---------------------------------------------------------------- 键盘路由 --- */
 /* 当前页在布局表里的下标；非参数页/UI 未启动返回 -1（不取任何锁） */
 static int current_index(void)
@@ -523,29 +729,33 @@ static void bank_style_init(void)
     lv_style_set_bg_color(&s_st_bank_erase, lv_color_hex(ui_track_color(3)));
 }
 
-static lv_obj_t *make_bank_button(lv_obj_t *parent, int16_t x, int16_t w, const char *text,
-                                  lv_style_t *accent, void *user)
+/* 底部行按钮（BANK 行与 SAMPLE 槽管理行共用：20pt / 44px / 10 圆角，accent 只覆盖
+ * 底色；回调由调用方给出——两行的动作函数不同）。 */
+static lv_obj_t *make_row_button(lv_obj_t *parent, int16_t x, int16_t y, int16_t w,
+                                 const char *text, lv_style_t *accent, lv_event_cb_t cb,
+                                 void *user)
 {
     bank_style_init();
     lv_obj_t *btn = lv_label_create(parent);
     if (btn == NULL) return NULL;
-    lv_obj_set_pos(btn, x, BANK_ROW_Y);
+    lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, BANK_ROW_H);
     lv_obj_add_style(btn, &s_st_bank, 0);
     if (accent != NULL) lv_obj_add_style(btn, accent, 0); /* 后加的样式优先（只覆盖颜色） */
     lv_obj_set_clickable(btn, true);
     lv_label_set_text(btn, text);
-    lv_obj_add_event_cb(btn, bank_cb, LV_EVENT_CLICKED, user);
+    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
     return btn;
 }
 
-/* 行内静态/动态文本（BANK 标签、目标槽、状态行）：20pt，行内垂直居中（pad_top 10）。 */
-static lv_obj_t *make_bank_label(lv_obj_t *parent, int16_t x, int16_t w, uint32_t color,
-                                 lv_text_align_t align)
+/* 行内静态/动态文本（BANK 标签、目标槽、状态行、SAMPLE 状态行）：20pt，行内垂直
+ * 居中（pad_top 10）。 */
+static lv_obj_t *make_row_label(lv_obj_t *parent, int16_t x, int16_t y, int16_t w,
+                                uint32_t color, lv_text_align_t align)
 {
     lv_obj_t *label = lv_label_create(parent);
     if (label == NULL) return NULL;
-    lv_obj_set_pos(label, x, BANK_ROW_Y);
+    lv_obj_set_pos(label, x, y);
     lv_obj_set_size(label, w, BANK_ROW_H);
     lv_obj_set_style_text_font(label, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
@@ -564,30 +774,79 @@ static lv_obj_t *build_bank_row(uint8_t index, lv_obj_t *parent)
     ui->bank_shown_slot = 0xFF;
     ui->bank_status_key = 0xFFFFFFFFu;
 
-    ui->bank_label = make_bank_label(parent, BANK_LABEL_X, BANK_LABEL_W, UI_TEXT_DIM,
-                                     LV_TEXT_ALIGN_LEFT);
+    ui->bank_label = make_row_label(parent, BANK_LABEL_X, BANK_ROW_Y, BANK_LABEL_W, UI_TEXT_DIM,
+                                    LV_TEXT_ALIGN_LEFT);
     UI_BUILD_CHECK(ui->bank_label);
     lv_label_set_text(ui->bank_label, "BANK");
 
-    ui->bank_value = make_bank_label(parent, BANK_VAL_X, BANK_VAL_W, UI_ACCENT,
-                                     LV_TEXT_ALIGN_CENTER);
+    ui->bank_value = make_row_label(parent, BANK_VAL_X, BANK_ROW_Y, BANK_VAL_W, UI_ACCENT,
+                                    LV_TEXT_ALIGN_CENTER);
     UI_BUILD_CHECK(ui->bank_value);
 
     const uintptr_t ctx = (uintptr_t)((unsigned)index << 4);
-    ui->bank_dec = make_bank_button(parent, BANK_DEC_X, BANK_SLOT_W, "-", NULL, (void *)(ctx | 0u));
+    ui->bank_dec = make_row_button(parent, BANK_DEC_X, BANK_ROW_Y, BANK_SLOT_W, "-", NULL,
+                                   bank_cb, (void *)(ctx | 0u));
     UI_BUILD_CHECK(ui->bank_dec);
-    ui->bank_inc = make_bank_button(parent, BANK_INC_X, BANK_SLOT_W, "+", NULL, (void *)(ctx | 1u));
+    ui->bank_inc = make_row_button(parent, BANK_INC_X, BANK_ROW_Y, BANK_SLOT_W, "+", NULL,
+                                   bank_cb, (void *)(ctx | 1u));
     UI_BUILD_CHECK(ui->bank_inc);
-    ui->bank_save = make_bank_button(parent, BANK_SAVE_X, BANK_ACT_W, "SAVE", &s_st_bank_save,
-                                     (void *)(ctx | 2u));
+    ui->bank_save = make_row_button(parent, BANK_SAVE_X, BANK_ROW_Y, BANK_ACT_W, "SAVE",
+                                    &s_st_bank_save, bank_cb, (void *)(ctx | 2u));
     UI_BUILD_CHECK(ui->bank_save);
-    ui->bank_erase = make_bank_button(parent, BANK_ERASE_X, BANK_ACT_W, "ERASE", &s_st_bank_erase,
-                                      (void *)(ctx | 3u));
+    ui->bank_erase = make_row_button(parent, BANK_ERASE_X, BANK_ROW_Y, BANK_ACT_W, "ERASE",
+                                     &s_st_bank_erase, bank_cb, (void *)(ctx | 3u));
     UI_BUILD_CHECK(ui->bank_erase);
 
-    ui->bank_status = make_bank_label(parent, BANK_STATUS_X, BANK_STATUS_W, UI_TEXT_DIM,
-                                      LV_TEXT_ALIGN_LEFT);
+    ui->bank_status = make_row_label(parent, BANK_STATUS_X, BANK_ROW_Y, BANK_STATUS_W, UI_TEXT_DIM,
+                                     LV_TEXT_ALIGN_LEFT);
     UI_BUILD_CHECK(ui->bank_status);
+    return parent;
+}
+
+/* 槽 label：单对象可点击（16pt 两行：`U1 USED` / `PIANO z1 12K`；`EMPTY` 一行），
+ * 200×44、左对齐、CLIP；选中槽的强调色由 update 的整行渲染落地。 */
+static lv_obj_t *make_sample_slot_label(lv_obj_t *parent, uint8_t k, void *user)
+{
+    lv_obj_t *label = lv_label_create(parent);
+    if (label == NULL) return NULL;
+    lv_obj_set_pos(label, SAMPLE_SLOT_X0 + (int16_t)k * SAMPLE_SLOT_PITCH, SAMPLE_ROW_Y);
+    lv_obj_set_size(label, SAMPLE_SLOT_W, SAMPLE_ROW_H);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(UI_TEXT_DIM), 0);
+    lv_obj_set_style_pad_top(label, 2, 0);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
+    lv_obj_set_clickable(label, true);
+    lv_obj_add_event_cb(label, sample_cb, LV_EVENT_CLICKED, user);
+    lv_label_set_text(label, "");
+    return label;
+}
+
+/* 槽管理行（仅 SAMPLE 页）：选择状态归零 + 建 4 个槽 label（回调 ctx = index<<4|k）、
+ * ERASE chip（ctx = index<<4|4）与状态行；建页时读一次槽信息（之后 update 至多 1s
+ * 一次）。首帧文本由紧随的 update 渲染（s_sample_row_sig 强制失效）。 */
+static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
+{
+    page_ui_t *ui = &s_ui[index];
+    s_sample_act = 0xFF;
+    s_sample_status = UI_SAMPLE_STATUS_NONE;
+    s_sample_row_sig = 0xFFFFFFFFu;
+    app_state_t st;
+    state_get_copy(&st);
+    sample_info_poll(&st, true);
+
+    for (uint8_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+        ui->sample_label[k] = make_sample_slot_label(
+            parent, k, (void *)(uintptr_t)(((unsigned)index << 4) | k));
+        UI_BUILD_CHECK(ui->sample_label[k]);
+    }
+    const uintptr_t ctx = (uintptr_t)((unsigned)index << 4);
+    ui->sample_erase = make_row_button(parent, SAMPLE_ERASE_X, SAMPLE_ROW_Y, BANK_ACT_W, "ERASE",
+                                       &s_st_bank_erase, sample_cb, (void *)(ctx | 4u));
+    UI_BUILD_CHECK(ui->sample_erase);
+    ui->sample_status = make_row_label(parent, SAMPLE_STATUS_X, SAMPLE_ROW_Y, SAMPLE_STATUS_W,
+                                       UI_TEXT_DIM, LV_TEXT_ALIGN_LEFT);
+    UI_BUILD_CHECK(ui->sample_status);
     return parent;
 }
 
@@ -645,6 +904,8 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
 
     /* bank 存取行（仅 FM6 页）：旋钮之后建，几何在页面区底部（不覆盖旋钮环） */
     if (bank_row_present(pg) && build_bank_row(index, parent) == NULL) return NULL;
+    /* 槽管理行（仅 SAMPLE 页）：同一底部带，页内唯一 */
+    if (sample_row_present(pg) && build_sample_row(index, parent) == NULL) return NULL;
     return parent;
 }
 
@@ -731,6 +992,17 @@ void page_params_update(uint8_t index, const app_state_t *st)
             }
         }
     }
+
+    /* 槽管理行（仅 SAMPLE）：槽信息至多 ~1s 读一次（或 synth_status/SET 变化时），
+     * 然后按签名脏检查整行重渲染（30ms 一拍无条件重设 4 段文本会让 LVGL 持续重绘）。 */
+    if (sample_row_present(pg) && ui->sample_label[0] != NULL) {
+        sample_info_poll(st, false);
+        uint32_t sig = sample_row_sig(st);
+        if (sig != s_sample_row_sig) {
+            s_sample_row_sig = sig;
+            sample_render(index, st);
+        }
+    }
 }
 
 /* ---------------------------------------------------------------- TAP --- */
@@ -779,6 +1051,32 @@ static void bank_tap_action(uint8_t index, uint8_t act, sloop_tap_result_t *out)
     }
 }
 
+static void sample_tap_slot(uint8_t index, uint8_t slot, sloop_tap_result_t *out)
+{
+    (void)sample_select(index, slot); /* 锁定页不下发；回显仍表达「选中该槽」的意图 */
+    if (out != NULL) {
+        out->kind = SLOOP_TAP_SAMPLE_SLOT;
+        out->a = APP_PAGE_SAMPLE;
+        out->b = slot;
+    }
+}
+
+static void sample_tap_action(uint8_t index, sloop_tap_result_t *out)
+{
+    /* 回显的槽号 = 本次真正作用的槽；锁定页/非 USR 没有槽（console 打 `slot=-`） */
+    const param_page_t *pg = page_layout_get(index);
+    app_state_t st;
+    state_get_copy(&st);
+    uint8_t slot = page_locked(pg, &st) ? 0xFFu : sample_selected_slot(&st);
+    sample_erase(index);
+    if (out != NULL) {
+        out->kind = SLOOP_TAP_SAMPLE_ACTION;
+        out->a = APP_PAGE_SAMPLE;
+        out->b = slot;
+        out->v = 2; /* ERASE（与 FILE/BANK 的动作编号一致） */
+    }
+}
+
 bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     const param_page_t *pg = page_layout_get(index);
@@ -807,6 +1105,21 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
             out->a = slot;
         }
         return true;
+    }
+
+    /* 槽管理行（仅 SAMPLE；矩形与建控件同源）：槽 = 选 SET，ERASE = 擦当前 SET 指向的槽 */
+    if (sample_row_present(pg) && ui->sample_label[0] != NULL) {
+        for (uint8_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+            if (rect_hit(x, y, SAMPLE_SLOT_X0 + (int16_t)k * SAMPLE_SLOT_PITCH, SAMPLE_ROW_Y,
+                         SAMPLE_SLOT_W, SAMPLE_ROW_H)) {
+                sample_tap_slot(index, k, out);
+                return true;
+            }
+        }
+        if (rect_hit(x, y, SAMPLE_ERASE_X, SAMPLE_ROW_Y, BANK_ACT_W, SAMPLE_ROW_H)) {
+            sample_tap_action(index, out);
+            return true;
+        }
     }
 
     /* bank 行（仅 FM6；矩形的建控件/命中同源）：槽 ± 只改目标槽，SAVE/ERASE 发状态层命令 */
@@ -838,6 +1151,10 @@ void page_params_forget(uint8_t index)
     if (index >= PARAM_PAGE_COUNT) return;
     memset(&s_ui[index], 0, sizeof s_ui[index]);
     s_bank_refused = 0;
+    s_sample_act = 0xFF;
+    s_sample_status = UI_SAMPLE_STATUS_NONE;
+    s_sample_info_valid = false;
+    s_sample_row_sig = 0xFFFFFFFFu;
 }
 
 const char *page_params_bank_status_text(uint8_t index)
@@ -850,4 +1167,12 @@ const char *page_params_bank_status_text(uint8_t index)
     state_get_copy(&st);
     return ui_file_status_text(s_bank_echo, sizeof(s_bank_echo), s_bank_act, st.store_status,
                                sloop_store_ready());
+}
+
+const char *page_params_sample_status_text(uint8_t index)
+{
+    if (index >= PARAM_PAGE_COUNT || !sample_row_present(page_layout_get(index))) return NULL;
+    /* 行未建（页未构建/已随源组销毁）时没有可回显的页面状态 */
+    if (s_ui[index].sample_label[0] == NULL) return NULL;
+    return ui_sample_status_text(s_sample_echo, sizeof(s_sample_echo), (uint8_t)s_sample_status);
 }

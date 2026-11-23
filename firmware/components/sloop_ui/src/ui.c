@@ -3,8 +3,8 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SEQ|SONG|FILE（y∈[4,36)，无已注册页的组不显示），下行当前组的
- * 子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
+ * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE（y∈[4,36)，无已注册页的组不显示），下行当前
+ * 组的子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
@@ -13,7 +13,9 @@
  * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
  * SONG（page_song.c，P4-C Task 11）/
  * FILE 组 PROJECTS|PRESETS（page_projects.c / page_presets.c，P4-B Task 12）都在
- * 组表 k_groups[] 里声明；组顺序 = 子签顺序 = `TAB` 扁平轮转顺序。
+ * 组表 k_groups[] 里声明；组顺序 = 子签顺序 = `TAB` 扁平轮转顺序。P4-D Task 8 起
+ * SAMPLE 随 SYNTH 组（SAMPLE/DSYN/FM6P）——DSYN/FM6P 本任务只注册**占位页**，
+ * Task 9/10 换成实体页面。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
  * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
@@ -67,6 +69,20 @@
 
 static const char *TAG = "sloop_ui";
 
+/* 占位页（P4-D Task 8）：SYNTH 组的 DSYN/FM6P 实体页面由 Task 9/10 落地，本任务只
+ * 保证注册表/页签/`TAB`/`UI MEM` 的 14 页导航成立。build 只返回 ensure_page_built
+ * 已建好的页面容器（无子控件 = 空白页），update 无操作。est 已按实体页的计划上限
+ * 落位（见 k_builtin_pages），因此构建前预算门槛是真口径。 */
+static lv_obj_t *page_placeholder_build(lv_obj_t *parent)
+{
+    return parent;
+}
+
+static void page_placeholder_update(const app_state_t *st)
+{
+    (void)st;
+}
+
 /* 内置页面注册表（ADR-008）：注册顺序 = 组内子签顺序。est_bytes 为构建前预算门槛
  * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 10–26% 余量、512 对齐
  * （ADR-008 预算表；STEP 因 9 页末页自由量见下的例外取 +5.4%）；预算门槛的
@@ -74,8 +90,9 @@ static const char *TAG = "sloop_ui";
  * STEP 9 页口径：est = 23,040（实测 delta 21,484–21,864B，+5.4%）——「其它八页
  * 建完、STEP 最后建」时 free 实测 24,044–24,272B（P4-A 终审修复轮：params 场景
  * 顺序下 24,044B），delta+10% 的 24,064 会差 20B 被预算误拒（实际 delta 装得下）。
- * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 5 页 Σest 19,968B；FM6 自
- * Task 13 起带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。
+ * 组作用域（ADR-005）之后同时已建页 ≤ 单组成员（EDIT 4 页 Σest 16,896B；SYNTH 3 页
+ * Σest 20,480B——P4-D Task 8 把 SAMPLE 移入 SYNTH 并新增 DSYN/FM6P；FM6 自 Task 13 起
+ * 带 bank 存取行、est 6,144B），九页平铺的容量天花板不再是约束。
  * TRANSPORT（P4-C Task 10）：est = **计划上限 9,216B**（SEQ→PRESETS 有序对把上限
  * 锁死，见 ADR-005 §5）；实测 delta 8,248–8,716B（对最大 +5.7%，低于常态 +10–23%
  * ——与 FILE 两页同类例外，理由是把 est 抬到实测 +10% 会顶破 63,120B；ADR-008 §3 注）。 */
@@ -95,6 +112,12 @@ static const ui_page_t k_builtin_pages[] = {
      * 6 配置 chip；实测 delta 见 ADR-008 §3 的 SONG 行）。est 是构建前门槛，
      * 不是精确账本；实测超限先改对象设计，不抬 est/不扩池。 */
     {APP_PAGE_SONG, "SONG", page_song_build, page_song_update, 12288},
+    /* SYNTH 组两页（P4-D Task 8 先注册占位；Task 9/10 换成 DSYN/FM6P 实体页面）：
+     * est = spec §4.4 的计划上限 **7,168B/页**（8 旋钮 + 页内选择器 + 状态行，约
+     * 20–25 个对象）。占位页只返回父容器、无子控件，est 先按计划上限落位（构建前
+     * 预算门槛因此按实体页口径检查）。 */
+    {APP_PAGE_DSYN, "DSYN", page_placeholder_build, page_placeholder_update, 7168},
+    {APP_PAGE_FM6P, "FM6P", page_placeholder_build, page_placeholder_update, 7168},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
@@ -111,7 +134,10 @@ typedef struct {
 static const ui_group_t k_groups[] = {
     {"PLAY", 1, {APP_PAGE_PLAY}},
     {"TRACKS", 1, {APP_PAGE_TRACKS}},
-    {"EDIT", 5, {APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE}},
+    {"EDIT", 4, {APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6}},
+    /* SYNTH（P4-D Task 8）：SAMPLE 参数页从 EDIT 移入，与 DSYN/FM6P 同组；
+     * EDIT 因此缩为 4 页（Σest 16,896），SYNTH Σest 20,480（ADR-005 §5）。 */
+    {"SYNTH", 3, {APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P}},
     {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
     {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
     {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
@@ -459,7 +485,7 @@ static void sub_clicked_cb(lv_event_t *e)
 }
 
 /* 页签用**单对象可点击 label**（P4-C Task 11）：`lv_button + 子 label` 每个签两个
- * 对象（6 组签 + 5 子签 = 11 个多余对象，实测基础占用 +900B 量级）；label 自己当
+ * 对象（7 组签 + 5 子签 = 12 个多余对象，实测基础占用 +900B 量级）；label 自己当
  * 按钮省掉子 label，仍用共享样式表达选中态（与 FILE/TRANSPORT/SONG 页同一纪律）。
  * 文本 16pt 单行：pad_top 把行高 (~20px) 压到签高中心。 */
 static lv_obj_t *make_tab_button(lv_obj_t *bar, int32_t w, int32_t h,
@@ -490,7 +516,7 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 GROUP_COUNT 槽（6 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（7 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
@@ -502,7 +528,8 @@ static bool create_tab_bar(void)
         s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
-    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 5 页） */
+    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 4 页，
+     * SYNTH 3 页） */
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_t *btn = make_tab_button(bar, UI_SUB_W, UI_SUB_H, sub_clicked_cb,
                                         (void *)(uintptr_t)i);
@@ -513,7 +540,7 @@ static bool create_tab_bar(void)
         s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（6 个组签右端 1,064；标题从 ~1,191 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（7 个组签右端 1,058；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
     lv_label_set_text(title, "SLOOP");
@@ -980,6 +1007,13 @@ const char *sloop_ui_bank_status_text(void)
     if (!s_started) return NULL;
     int idx = page_layout_index(s_page); /* 非参数页（含未注册页）返回 -1 */
     return idx >= 0 ? page_params_bank_status_text((uint8_t)idx) : NULL;
+}
+
+const char *sloop_ui_sample_status_text(void)
+{
+    if (!s_started || s_page != APP_PAGE_SAMPLE) return NULL;
+    int idx = page_layout_index(s_page);
+    return idx >= 0 ? page_params_sample_status_text((uint8_t)idx) : NULL;
 }
 
 const char *sloop_ui_song_status_text(void)

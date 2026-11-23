@@ -62,10 +62,10 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   （`static done` 标志 + 按 id 去重）；无已注册页的组不显示。输入层的 `TAB` 轮转
   用 `sloop_ui_page_order_next()`（组顺序的**扁平**轮转：组内子页→下一组第一页），
   不按 `sloop_ui_page_count()`，也不按 `APP_STATE_PAGES`。
-- **7 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
-  SONG + FILE 组 PROJECTS/PRESETS）；参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE）由
-  `page_layout_register()` 注册进同一注册表——交付态共 **12 页 / 6 组**（ADR-005「导航
-  决策」）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
+- **9 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
+  SONG + FILE 组 PROJECTS/PRESETS + P4-D Task 8 的 SYNTH 占位页 DSYN/FM6P）；参数页
+  （GLOBAL/FX/ANALOG/FM6/SAMPLE）由 `page_layout_register()` 注册进同一注册表——交付态
+  共 **14 页 / 7 组**（ADR-005 §5.1）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
   `state_set_page`、input 的组/子签、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
 
 ### 2. 懒建策略
@@ -103,7 +103,7 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | FX | 2,856 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
 | ANALOG | 2,868 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,868） |
 | FM6 | 2,864 B（Task 11）→ **4,956–5,100 B**（Task 13，含 bank 行） | 3,584 B → **6,144 B** | +25% → **+20.5%**（对 5,100；区间 4,956 处 +24.0%，见 §3 注） | 8 旋钮（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH）+ 底部 bank 存取行（BANK 标签/±/槽号/SAVE/ERASE/状态行 = 7 个单对象 label，Task 13） |
-| SAMPLE | 2,432 B | 3,072 B | +26% | 6 旋钮（空槽 edit[5]/edit[7] 不建，Task 11） |
+| SAMPLE | 2,432 B（P4-D Task 8 前；加槽管理行后的实测在 Task 11） | 3,072 B → **6,144 B**（Task 8） | +26%（旧口径） | 6 旋钮（空槽 edit[5]/edit[7] 不建）+ 槽管理行（`U1..U4` / `ERASE` / 状态行 = 6 个单对象 label，P4-D Task 8） |
 | **合计** | **48,048 B**（Task 11 时点；Task 13 后 FM6 +2,268B） | **55,296 B**（Task 11；现 57,856B） | — | 九页全建后 `UI MEM` 同次输出（Task 11）：pool_used 55,064 / pool_free **2,816** / pool_total 57,880。**reserve（total − sum_est）不是可用余量**（见 §5 invariant 1）；P4-A 终审轮 STEP est 再下调到 23,040 后，九页全建 `pool_free` 实测 2.2–2.7KB 量级（终审轮 2,628–2,644B）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
 
 > **STEP 的 est 在 9 页口径两次下调：24,576 → 24,064（Task 11）→ 23,040（P4-A 终审
@@ -493,8 +493,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 #### 8.5 预算与验证
 
 - 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
-  行）、SAMPLE 3,072B）；P4-B 起按组核算（EDIT 组 Σ 19,968B，全建后 `pool_free`
-  实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
+  行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行））；P4-B 起按组核算：P4-D Task 8 起
+  SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
+  全建后 `pool_free` 实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
   `STATE SNAP` 断言；**`UI KNOB` press/drag 证明触摸回调接线与相对拖拽**——按下不改值、
   +90° 改 +67（BPM range 200）、拖回锚点回原值、中心/环带外被忽略；FM6/SAMPLE 页

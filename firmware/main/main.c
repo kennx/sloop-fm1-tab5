@@ -8,7 +8,8 @@
  * 键盘全矩阵/触摸校准/听音为人工验证项（docs/dev/verification-log.md）。
  * 阶段 2 已接入 sloop_core 同源自测组合 TU、RAM 存储与 ES8388 引擎音频流
  * （阶段 3 起开机即启流，ENG AUDIO ON|OFF 可停启，DI-8）。
- * 阶段 3 起 sloop_ui（LVGL 页面框架；P4-B 5 组 / 11 页，P4-C Task 11 起 6 组 / 12 页）在引擎/状态层就绪后接管屏幕；启动失败
+ * 阶段 3 起 sloop_ui（LVGL 页面框架；P4-B 5 组 / 11 页，P4-C Task 11 起 6 组 / 12 页，
+ * P4-D Task 8 起 7 组 / 14 页）在引擎/状态层就绪后接管屏幕；启动失败
  * 回退 bring-up 测试图（app_display_draw_test_pattern）并记 ERROR。
  */
 #include "audio_tone.h"
@@ -102,7 +103,8 @@ void app_main(void)
         }
     }
 
-    /* 阶段 3 UI：状态层就绪后接管屏幕（单容器屏 + 两行页签：6 组 / 12 页，P4-C Task 11）。失败回退 bring-up
+    /* 阶段 3 UI：状态层就绪后接管屏幕（单容器屏 + 两行页签：7 组 / 14 页，P4-D Task 8）。
+     * 失败回退 bring-up
      * 测试图并记 ERROR——不留空白屏；UI 成功时测试图不再是开机画面。 */
     ESP_LOGI(TAG, "UI 启动前内部堆剩余 %u 字节",
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
