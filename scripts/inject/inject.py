@@ -2318,6 +2318,9 @@ def run_nav(s: Session) -> None:
         f"SAMPLE={mem_synth['pages'].get(8, ('?',))[0]}（期望 2 / built）")
     s.cmd("UI SUB 2")
     s.expect(r"UI SUB 2 page=fm6p \(13\)", "⑥ UI SUB 2 切 FM6P")
+    mem_synth = param_mem(s)
+    (s.ok if mem_synth["groups"]["SYNTH"]["built"] == 3 else s.fail)(
+        f"⑥ SYNTH 三页已建：built={mem_synth['groups']['SYNTH']['built']}（期望 3）")
     s.cmd("UI SUB 3")
     s.expect(r"UI ERR sub 3", "⑥ SYNTH 组只有 3 张子签：UI SUB 3 越界")
     s.cmd("UI")
@@ -2462,7 +2465,141 @@ BANK_ACT_W = 100
 
 # SAMPLE 槽管理行（P4-D Task 8）：与 BANK 行同一底部带（页面区相对 y=552、44 高 ⇒
 # 屏幕 y=624..668）；槽卡 x0=16、宽 200、间距 208，ERASE 在 x=856（宽 BANK_ACT_W）。
+# `SAMPLE_ROW_CY` 是行中心（TAP 用）；`SAMPLE_ROW_Y` 只是顶边（区域探针用）。
 SAMPLE_ROW_Y = 72 + 552
+SAMPLE_SLOT_X0, SAMPLE_SLOT_W, SAMPLE_SLOT_PITCH = 16, 200, 208
+SAMPLE_ERASE_X, SAMPLE_STATUS_X, SAMPLE_STATUS_W = 856, 972, 292
+SAMPLE_ROW_H, SAMPLE_ROW_CY = 44, SAMPLE_ROW_Y + 22
+SAMPLE_SLOT_BOX = (SAMPLE_SLOT_X0, SAMPLE_ROW_Y, SAMPLE_SLOT_X0 + SAMPLE_SLOT_W,
+                   SAMPLE_ROW_Y + SAMPLE_ROW_H)
+SAMPLE_STATUS_BOX = (SAMPLE_STATUS_X, SAMPLE_ROW_Y, SAMPLE_STATUS_X + SAMPLE_STATUS_W,
+                     SAMPLE_ROW_Y + SAMPLE_ROW_H)
+
+
+def sample_slot_xy(k: int) -> tuple:
+    """槽管理行 U1..U4 卡中心（k=0..3）。"""
+    return (SAMPLE_SLOT_X0 + k * SAMPLE_SLOT_PITCH + SAMPLE_SLOT_W // 2, SAMPLE_ROW_CY)
+
+
+def sample_erase_xy() -> tuple:
+    return (SAMPLE_ERASE_X + BANK_ACT_W // 2, SAMPLE_ROW_CY)
+
+# DSYN / FM6P 页眉与底部几何：与 page_dsyn.c / page_fm6p.c 的 **同名宏**一一对应
+# （页内坐标 + 页签条 72）。TAP 命中点与像素探针一律由这些宏派生，不写死数字；
+# 页面布局改动时先改页面宏、再同步这里（与 step_cell_xy / param_knob_xy 同纪律）。
+DSYN_HEAD_Y, DSYN_HEAD_H = 72 + 4, 32          # DSYN_HEAD_Y / DSYN_CHIP_H
+DSYN_KIT_X0, DSYN_KIT_W, DSYN_KIT_PITCH = 16, 64, 70
+DSYN_LANE_X, DSYN_LANE_W, DSYN_LANE_ZONE = 298, 180, 42
+DSYN_PAGE_X0, DSYN_PAGE_W, DSYN_PAGE_PITCH = 526, 68, 74
+DSYN_AUD_X, DSYN_AUD_W = 828, 116
+DSYN_STORE_X, DSYN_STORE_W = 952, 88
+DSYN_STATUS_X, DSYN_STATUS_W = 1048, 216
+DSYN_ADJ_Y, DSYN_ADJ_H = 72 + 552, 44
+DSYN_ADJ_DEC_X, DSYN_ADJ_INC_X, DSYN_ADJ_W = 16, 104, 80
+
+FM6P_HEAD_Y, FM6P_HEAD_H = 72 + 4, 32          # FM6P_HEAD_Y / FM6P_CHIP_H
+FM6P_OP_X0, FM6P_OP_W, FM6P_OP_PITCH = 16, 56, 60
+FM6P_PAGE_X0, FM6P_PAGE_W, FM6P_PAGE_PITCH = 380, 64, 68
+FM6P_BANK_X, FM6P_BANK_W, FM6P_BANK_ZONE = 792, 124, 40
+FM6P_SAVE_X, FM6P_SAVE_W = 924, 72
+FM6P_STATUS_X, FM6P_STATUS_W = 1004, 260
+FM6P_ADJ_X, FM6P_ADJ_Y, FM6P_ADJ_W, FM6P_ADJ_H, FM6P_ADJ_ZONE = 16, 72 + 552, 168, 44, 72
+
+
+def _chip_xy(x0: int, w: int, y: int, h: int, index: int = 0, pitch: int = 0) -> tuple:
+    """页眉 chip 中心（屏幕绝对坐标）。"""
+    return (x0 + index * pitch + w // 2, y + h // 2)
+
+
+def _chip_probe(x0: int, y: int, index: int = 0, pitch: int = 0) -> tuple:
+    """页眉 chip 左上内缘（x0+20, top+4）：避开 10px 圆角与字形，命中 chip 底色。"""
+    return (x0 + index * pitch + 20, y + 4)
+
+
+def dsyn_kit_chip_xy(k: int) -> tuple:
+    return _chip_xy(DSYN_KIT_X0, DSYN_KIT_W, DSYN_HEAD_Y, DSYN_HEAD_H, k, DSYN_KIT_PITCH)
+
+
+def dsyn_kit_chip_probe(k: int) -> tuple:
+    return _chip_probe(DSYN_KIT_X0, DSYN_HEAD_Y, k, DSYN_KIT_PITCH)
+
+
+def dsyn_lane_zone_xy(delta: int) -> tuple:
+    """LANE 三区对象的 −（delta<0）/ +（delta>0）区中心。"""
+    x = DSYN_LANE_X + (DSYN_LANE_ZONE // 2 if delta < 0 else DSYN_LANE_W - DSYN_LANE_ZONE // 2)
+    return (x, DSYN_HEAD_Y + DSYN_HEAD_H // 2)
+
+
+def dsyn_lane_mid_xy() -> tuple:
+    """LANE 对象的中段（纯标签，TAP 必须 miss）。"""
+    return (DSYN_LANE_X + DSYN_LANE_W // 2, DSYN_HEAD_Y + DSYN_HEAD_H // 2)
+
+
+def dsyn_page_chip_xy(p: int) -> tuple:
+    return _chip_xy(DSYN_PAGE_X0, DSYN_PAGE_W, DSYN_HEAD_Y, DSYN_HEAD_H, p, DSYN_PAGE_PITCH)
+
+
+def dsyn_page_chip_probe(p: int) -> tuple:
+    return _chip_probe(DSYN_PAGE_X0, DSYN_HEAD_Y, p, DSYN_PAGE_PITCH)
+
+
+def dsyn_audition_xy() -> tuple:
+    return _chip_xy(DSYN_AUD_X, DSYN_AUD_W, DSYN_HEAD_Y, DSYN_HEAD_H)
+
+
+def dsyn_store_xy() -> tuple:
+    return _chip_xy(DSYN_STORE_X, DSYN_STORE_W, DSYN_HEAD_Y, DSYN_HEAD_H)
+
+
+def dsyn_adj_xy(inc: bool) -> tuple:
+    x = DSYN_ADJ_INC_X if inc else DSYN_ADJ_DEC_X
+    return (x + DSYN_ADJ_W // 2, DSYN_ADJ_Y + DSYN_ADJ_H // 2)
+
+
+DSYN_STATUS_BOX = (DSYN_STATUS_X, DSYN_HEAD_Y, DSYN_STATUS_X + DSYN_STATUS_W,
+                   DSYN_HEAD_Y + DSYN_HEAD_H)
+
+
+def fm6p_op_chip_xy(k: int) -> tuple:
+    return _chip_xy(FM6P_OP_X0, FM6P_OP_W, FM6P_HEAD_Y, FM6P_HEAD_H, k, FM6P_OP_PITCH)
+
+
+def fm6p_op_chip_probe(k: int) -> tuple:
+    return _chip_probe(FM6P_OP_X0, FM6P_HEAD_Y, k, FM6P_OP_PITCH)
+
+
+def fm6p_page_chip_xy(p: int) -> tuple:
+    return _chip_xy(FM6P_PAGE_X0, FM6P_PAGE_W, FM6P_HEAD_Y, FM6P_HEAD_H, p, FM6P_PAGE_PITCH)
+
+
+def fm6p_page_chip_probe(p: int) -> tuple:
+    return _chip_probe(FM6P_PAGE_X0, FM6P_HEAD_Y, p, FM6P_PAGE_PITCH)
+
+
+def fm6p_bank_xy(delta: int) -> tuple:
+    """BANK 三区对象的 −（delta<0）/ +（delta>0）区中心（中段 44px 是槽号标签）。"""
+    x = (FM6P_BANK_X + FM6P_BANK_ZONE // 2 if delta < 0
+         else FM6P_BANK_X + FM6P_BANK_W - FM6P_BANK_ZONE // 2)
+    return (x, FM6P_HEAD_Y + FM6P_HEAD_H // 2)
+
+
+def fm6p_save_xy() -> tuple:
+    return _chip_xy(FM6P_SAVE_X, FM6P_SAVE_W, FM6P_HEAD_Y, FM6P_HEAD_H)
+
+
+def fm6p_adj_xy(inc: bool) -> tuple:
+    """底部三区对象的 − / + 区中心（中段 24px 死区，TAP 必须 miss）。"""
+    x = (FM6P_ADJ_X + FM6P_ADJ_ZONE // 2 if not inc
+         else FM6P_ADJ_X + FM6P_ADJ_W - FM6P_ADJ_ZONE // 2)
+    return (x, FM6P_ADJ_Y + FM6P_ADJ_H // 2)
+
+
+def fm6p_adj_dead_xy() -> tuple:
+    return (FM6P_ADJ_X + FM6P_ADJ_W // 2, FM6P_ADJ_Y + FM6P_ADJ_H // 2)
+
+
+FM6P_STATUS_BOX = (FM6P_STATUS_X, FM6P_HEAD_Y, FM6P_STATUS_X + FM6P_STATUS_W,
+                   FM6P_HEAD_Y + FM6P_HEAD_H)
 
 
 def bank_slot_btn_xy(delta: int) -> tuple:
@@ -2980,18 +3117,13 @@ def run_params(s: Session) -> None:
     cut0 = param_value(s)
     s.ser.note(f"SAMPLE 基线 set={set0} loop={loop0} cut={cut0}")
 
-    # 槽管理行（P4-D Task 8，页面区 y=552..596 ⇒ 屏幕 y=624..668）：点槽 = 把 SET 宏
-    # 切到 USR1（8）；ERASE 只在 SET ∈ 8..11 时下发。槽 1..4 中心 x = 16+208k+100。
-    sample_row_y = SAMPLE_ROW_Y
-    sample_erase_xy = (856 + 100 // 2, sample_row_y)
+    # 槽管理行（P4-D Task 8）：点槽 = 把 SET 宏切到 USR1（8）；ERASE 只在 SET ∈ 8..11
+    # 时下发。几何由 SAMPLE_SLOT_*/SAMPLE_ERASE_X 派生（与 page_params.c 同名宏）。
 
-    def slot_xy(k: int) -> tuple:
-        return (16 + 208 * k + 100, sample_row_y)
-
-    s.cmd("TAP %d %d" % slot_xy(0))
+    s.cmd("TAP %d %d" % sample_slot_xy(0))
     s.expect(r"-> SAMPLE slot=0 select", "TAP 槽 U1 → SET 宏切到 USR1")
     param_expect_value(s, "PARAM 63", 8, "PARAM 63（SET=8 = USR1）")
-    s.cmd("TAP %d %d" % sample_erase_xy)
+    s.cmd("TAP %d %d" % sample_erase_xy())
     s.expect(r'-> SAMPLE slot=0 action=erase status="ERASE OK"',
              "TAP ERASE（USR1 空槽擦除 → ERASE OK）")
     # 状态行「SET U1」= 选中槽文本（绿）；槽 U1 标签文字用 UI_ACCENT（选中色）
@@ -3003,11 +3135,9 @@ def run_params(s: Session) -> None:
     # 空槽 5/7 没有旋钮：其环顶像素应是页面背景（UI_BG）
     s.probe(img, "空槽 5（行 1 列 1）无旋钮", 482, 454, C_BG, 12)
     s.probe(img, "空槽 7（行 1 列 3）无旋钮", 1114, 454, C_BG, 12)
-    s.probe_region(img, "槽 U1 标签（选中 = UI_ACCENT）",
-                   (16, 624, 216, 668), C_YELLOW, 24, 30)
-    s.probe_region(img, "状态行（SET U1 = 轨 1 绿）",
-                   (972, 624, 1264, 668), C_GREEN, 24, 30)
-    s.cmd("TAP %d %d" % slot_xy(0))  # 重复点槽：幂等（重发 SET=8）
+    s.probe_region(img, "槽 U1 标签（选中 = UI_ACCENT）", SAMPLE_SLOT_BOX, C_YELLOW, 24, 30)
+    s.probe_region(img, "状态行（SET U1 = 轨 1 绿）", SAMPLE_STATUS_BOX, C_GREEN, 24, 30)
+    s.cmd("TAP %d %d" % sample_slot_xy(0))  # 重复点槽：幂等（重发 SET=8）
     s.expect(r"-> SAMPLE slot=0 select", "TAP 槽 U1 幂等")
     mem_sample = param_mem(s)
     st, est, delta = mem_sample["pages"].get(8, ("?", 0, 0))
@@ -3060,7 +3190,7 @@ def run_params(s: Session) -> None:
     # 非 USR 选择（SET=0 PIANO）：ERASE 由页面本地拒绝（`NOT USR`，不下发命令）
     s.cmd("PARAM 63 0")
     s.expect(r"PARAM track=1 id=63 value=0 applied=0", "SAMPLE SET=0（非 USR 选择）")
-    s.cmd("TAP %d %d" % sample_erase_xy)
+    s.cmd("TAP %d %d" % sample_erase_xy())
     s.expect(r'-> SAMPLE slot=- action=erase status="NOT USR"',
              "TAP ERASE（SET 不在 USR1..USR4 → NOT USR、无命令）")
     param_expect_value(s, "PARAM 63", 0, "PARAM 63（NOT USR 拒绝不改 SET）")
@@ -3068,10 +3198,10 @@ def run_params(s: Session) -> None:
     # 锁定页（选中轨引擎 ≠ SAMPLE）：槽点击/ERASE/KNOB 全部拒绝，且保留 `NOT USR`
     s.cmd("ENG TRACK 1 0 0")
     s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "ENG TRACK 轨 1 → ANALOG（SAMPLE 页锁定）")
-    s.cmd("TAP %d %d" % slot_xy(0))
+    s.cmd("TAP %d %d" % sample_slot_xy(0))
     s.expect(r'-> SAMPLE slot=- select status="NOT USR"',
              "锁定页 TAP 槽 → SAMPLE slot=- select status=NOT USR（未下发命令）")
-    s.cmd("TAP %d %d" % sample_erase_xy)
+    s.cmd("TAP %d %d" % sample_erase_xy())
     s.expect(r'-> SAMPLE slot=- action=erase status="NOT USR"',
              "锁定页 TAP ERASE → NOT USR")
     knob_locked(s, 0, "press", 0, -73)
@@ -3110,11 +3240,13 @@ def run_params(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"dsyn_kit=(\d+)", 0, "STATE SNAP dsyn_kit（与页面选择同源）")
     s.expect_int(r"dsyn_lane=(\d+)", 0, "STATE SNAP dsyn_lane（与页面选择同源）")
-    s.cmd("TAP %d %d" % (526 + 74 * 2 + 34, 92))  # 字段页 chip SND3（p=2；页眉 y=4..36+72）
+    s.cmd("TAP %d %d" % dsyn_page_chip_xy(2))   # 字段页 chip SND3
     s.expect(r"-> DSYN kit=0 lane=0 page=2 select", "TAP 字段页 chip SND3 → page=2")
-    s.cmd("TAP %d %d" % (298 + 180 // 2, 92))  # LANE 三区对象的中段（纯标签）
-    s.expect(r"TAP miss 388,92 page=12", "DSYN LANE 中段（标签）→ TAP miss")
-    s.cmd("TAP 886 92")  # AUDITION chip
+    lane_mid = dsyn_lane_mid_xy()
+    s.cmd("TAP %d %d" % lane_mid)                # LANE 三区对象的中段（纯标签）
+    s.expect(rf"TAP miss {lane_mid[0]},{lane_mid[1]} page=12",
+             "DSYN LANE 中段（标签）→ TAP miss")
+    s.cmd("TAP %d %d" % dsyn_audition_xy())
     s.expect(r"-> DSYN AUDITION lane=0", "TAP AUDITION（试听队列）")
     s.cmd("UI DSYN PAGE 0")
     s.expect(r"UI DSYN kit=0 lane=0 page=0", "UI DSYN PAGE 0（SND1）")
@@ -3132,23 +3264,31 @@ def run_params(s: Session) -> None:
     s.expect(r"UI FM6P op=0 page=0", "UI FM6P PAGE 0（EG）")
     s.cmd("STATE SNAP")
     s.expect_int(r"fm6p_engine_ok=(\d+)", 0, "STATE SNAP fm6p_engine_ok=0（轨 1 = ANALOG）")
-    s.cmd("TAP %d %d" % (16 + 60 + 28, 92))  # OP2 chip（页眉 y=4..36 + 72）
+    s.cmd("TAP %d %d" % fm6p_op_chip_xy(1))      # OP2 chip
     s.expect(r"-> FM6P op=0 page=0 select", "锁定页 TAP OP2 → 选择不变（op=0）")
-    s.cmd("TAP %d %d" % (380 + 68 * 2 + 32, 92))  # PAGE PITCH chip
+    s.cmd("TAP %d %d" % fm6p_page_chip_xy(2))    # PAGE PITCH chip
     s.expect(r"-> FM6P op=0 page=0 select", "锁定页 TAP PAGE PITCH → 字段页不变（page=0）")
-    s.cmd("TAP %d %d" % (792 + 124 - 20, 92))  # BANK +
+    s.cmd("TAP %d %d" % fm6p_bank_xy(-1))
+    s.expect(r"-> FM6P BANK slot=0 select", "锁定页 TAP BANK − → 槽号不变（slot=0）")
+    s.cmd("TAP %d %d" % fm6p_bank_xy(+1))
     s.expect(r"-> FM6P BANK slot=0 select", "锁定页 TAP BANK + → 槽号不变（slot=0）")
-    s.cmd("TAP %d %d" % (924 + 72 // 2, 92))  # SAVE
+    s.cmd("TAP %d %d" % fm6p_save_xy())
     s.expect(r'-> FM6P SAVE ERR locked status="NOT FM6"',
              "锁定页 TAP SAVE → ERR locked / NOT FM6（未下发 CMD_BANK_PUT）")
-    s.cmd("TAP 150 646")  # 底部三区右区（+）
+    s.cmd("TAP %d %d" % fm6p_adj_xy(False))      # 底部三区 − 区
+    s.expect(r'-> FM6P \S+ value=\d+ ERR locked status="NOT FM6"',
+             "锁定页 TAP 底部 − → 字段写被拒（写前真值）")
+    s.cmd("TAP %d %d" % fm6p_adj_xy(True))       # 底部三区 + 区
     s.expect(r'-> FM6P \S+ value=\d+ ERR locked status="NOT FM6"',
              "锁定页 TAP 底部 + → 字段写被拒（写前真值）")
+    s.cmd("TAP %d %d" % fm6p_adj_dead_xy())      # 中段 24px 死区
+    s.expect(rf"TAP miss {fm6p_adj_dead_xy()[0]},{fm6p_adj_dead_xy()[1]} page=13",
+             "锁定页 TAP 底部中段（死区）→ TAP miss")
     img = s.capture("params-fm6p-locked")
     s.probe(img, "组签选中（SYNTH）", *C_TAB_SYNTH, C_YELLOW)
     s.probe(img, "子签选中（FM6P）", *C_TAB_FM6P, C_YELLOW)
     s.probe(img, "子签未选中（SAMPLE）", *C_TAB_SAMPLE, C_PANEL_HI, 10)
-    s.probe_region(img, "锁定页状态行红字（NOT FM6）", (1004, 76, 1264, 108), C_ERROR, 16, 40)
+    s.probe_region(img, "锁定页状态行红字（NOT FM6）", FM6P_STATUS_BOX, C_ERROR, 16, 40)
 
     # ---------- SYNTH 组 Σ（三页全建：built=3 / sum_est 20,480） ----------
     mem_synth = param_mem(s)
@@ -7371,7 +7511,7 @@ def run_synth(s: Session) -> None:
     ④ UI：三页截屏 + 像素抽检（组签/子签/SAMPLE 槽行/DSYN 字段页/FM6P 锁定 `--`）、
        `UI MEM` SYNTH Σ 20,480 与逐页 delta ≤ est、TAP 回显与屏幕状态行同源
     ⑤ 池：SYNTH 三页全建 → STEP 首建 `pool_free ≥4,096`；SYNTH/PLAY/SONG/FILE 往返 ≤128B
-    ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 0/ANALOG、AUTO ON
+    ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 1/0 → ANALOG、AUTO ON
 
     **破坏性**（占用 USR1、SYN kit 0、银行槽 1、可能改写 autosave 工程），自带归一、可重复。
     注：DSYN 的 AUDITION 只断言命令/状态行——鼓引擎的 voices 不在 `ENG SNAP` 里
@@ -7413,8 +7553,9 @@ def run_synth(s: Session) -> None:
              "① PARAM 63 = 8（SET = USR1）")
     data = smp_upload_sine(s)
     info = smp_info_slot(s, SYNTH_SAMPLE_SLOT)
-    (s.ok if info is not None and info["name"] == "SINE" and info["zones"] == 1 else s.fail)(
-        f"① SMP INFO：USR1 {info}（期望 name=SINE zones=1）")
+    (s.ok if info is not None and info["name"] == "SINE" and info["zones"] == 1
+     and info["kb"] == 21 else s.fail)(
+        f"① SMP INFO：USR1 {info}（期望 name=SINE zones=1 kb=21 = 22,050B/1024）")
     synth_key(s, 0x42, True)
     vmax = eng_voices_max(s, 0, 0.6)
     (s.ok if vmax >= 1 else s.fail)(
@@ -7583,7 +7724,7 @@ def run_synth(s: Session) -> None:
     s.expect(r"PARAM track=0 id=63 value=8 applied=8", "④ SET = USR1")
     s.cmd("UI sample")
     s.expect(r"UI page=sample \(8\)", "④ UI sample")
-    s.cmd("TAP 116 %d" % SAMPLE_ROW_Y)   # 槽 U1（选中 → SET U1）
+    s.cmd("TAP %d %d" % sample_slot_xy(0))   # 槽 U1（选中 → SET U1）
     s.expect(r"-> SAMPLE slot=0 select", "④ TAP 槽 U1")
     s.cmd("TAP %d %d" % param_knob_xy(3))   # 焦点移到 LOOP：旋钮 0 的文本才是非焦点色
     s.expect(r"-> PARAM slot=3 focus", "④ TAP 旋钮 3（焦点移开 SET）")
@@ -7593,9 +7734,8 @@ def run_synth(s: Session) -> None:
     # SET=8 的指示弧会盖住 12 点方向：改探非焦点旋钮的名称/数值文本
     s.probe_region(img, "④ 旋钮 0 名称/数值文本", (100, 214, 232, 246), C_TEXT_DIM, 16, 30)
     s.probe_region(img, "④ 槽 U1 文本（USED name=SINE，选中色）",
-                   (16, SAMPLE_ROW_Y, 216, SAMPLE_ROW_Y + 44), C_YELLOW, 24, 30)
-    s.probe_region(img, "④ 状态行（SET U1 = 轨 1 绿）",
-                   (972, SAMPLE_ROW_Y, 1264, SAMPLE_ROW_Y + 44), C_GREEN, 24, 30)
+                   SAMPLE_SLOT_BOX, C_YELLOW, 24, 30)
+    s.probe_region(img, "④ 状态行（SET U1 = 轨 1 绿）", SAMPLE_STATUS_BOX, C_GREEN, 24, 30)
     mem = param_mem(s)
     st, est, delta = mem["pages"].get(8, ("?", 0, 0))
     (s.ok if st == "built" and 0 < delta <= est else s.fail)(
@@ -7614,14 +7754,14 @@ def run_synth(s: Session) -> None:
     img = s.capture("synth-dsyn")
     s.probe(img, "④ 组签选中（SYNTH）", *C_TAB_SYNTH, C_YELLOW)
     s.probe(img, "④ 子签选中（DSYN）", *C_TAB_DSYN, C_YELLOW)
-    s.probe(img, "④ kit chip SYN1（选中）", 48, 92, C_YELLOW)
-    s.probe(img, "④ 字段页 SND3（选中 chip 底）", 526 + 74 * 2 + 20, 92, C_YELLOW)
+    s.probe(img, "④ kit chip SYN1（选中）", *dsyn_kit_chip_probe(0), C_YELLOW)
+    s.probe(img, "④ 字段页 SND3（选中 chip 底）", *dsyn_page_chip_probe(2), C_YELLOW)
     # 非焦点旋钮的名称/数值文本（UI_TEXT_DIM）；环顶会被 FCUT=100 的指示弧盖住，不探
     s.probe_region(img, "④ 旋钮 0 名称/数值文本", (100, 214, 232, 246), C_TEXT_DIM, 16, 30)
-    s.cmd("TAP 144 646")   # 底部 +（焦点槽 FCUT +1）
+    s.cmd("TAP %d %d" % dsyn_adj_xy(True))   # 底部 +（焦点槽 FCUT +1）
     s.expect(r'-> DSYN field=FCUT value=101 status="EDIT OK( DIRTY)?"',
              "④ DSYN 底部 + → 写后回读 101 + EDIT OK")
-    s.cmd("TAP 56 646")    # 底部 −（回 100）
+    s.cmd("TAP %d %d" % dsyn_adj_xy(False))  # 底部 −（回 100）
     s.expect(r'-> DSYN field=FCUT value=100 status="EDIT OK( DIRTY)?"',
              "④ DSYN 底部 − → 写后回读 100")
     mem = param_mem(s)
@@ -7643,21 +7783,22 @@ def run_synth(s: Session) -> None:
     s.cmd(f"FM6P ALG {SYNTH_FM6_TRACK} 5")
     s.expect(r'FM6P ALG track=1 value=5 alg=4 macro=0 status="ok"',
              "④ FM6P ALG = 4（环顶探针前提 + 宏清零）")
-    s.cmd("TAP 166 230")   # 旋钮 0（ALG）设焦点
+    s.cmd("TAP %d %d" % param_knob_xy(0))   # 旋钮 0（ALG）设焦点
     s.expect(r"-> FM6P op=2 page=4 select", "④ TAP FM6P 旋钮 0（ALG）")
     img = s.capture("synth-fm6p")
     s.probe(img, "④ 组签选中（SYNTH）", *C_TAB_SYNTH, C_YELLOW)
     s.probe(img, "④ 子签选中（FM6P）", *C_TAB_FM6P, C_YELLOW)
-    s.probe(img, "④ OP3 chip（选中）", 16 + 60 * 2 + 20, 92, C_YELLOW)
-    s.probe(img, "④ VOICE chip（选中）", 380 + 68 * 4 + 20, 92, C_YELLOW)
+    s.probe(img, "④ OP3 chip（选中）", *fm6p_op_chip_probe(2), C_YELLOW)
+    s.probe(img, "④ VOICE chip（选中）", *fm6p_page_chip_probe(4), C_YELLOW)
     s.probe(img, "④ 旋钮 0 弧线底（环顶）", 166, 158, C_PANEL_HI, 10)
     # 空槽（VOICE 页 4..7）不建旋钮：行 1 的四列环顶是页面背景
     for col in range(4):
         s.probe(img, f"④ VOICE 空槽 {4 + col}（行 1 列 {col}）无旋钮",
-                166 + col * 316, 454, C_BG, 12)
-    s.cmd("TAP 150 646")   # 底部 +（焦点槽 ALG +1）
+                PARAM_GRID_X0 + col * PARAM_CELL_PITCH + PARAM_OBJ_DX + PARAM_OBJ_SIZE // 2,
+                PARAM_GRID_Y0 + PARAM_ROW_PITCH + 32, C_BG, 12)
+    s.cmd("TAP %d %d" % fm6p_adj_xy(True))   # 底部 +（焦点槽 ALG +1）
     s.expect(r'-> FM6P ALG value=\d+ status="[^"]*"', "④ FM6P 底部 + → 写后回读")
-    s.cmd("TAP 40 646")    # 底部 −（回原位）
+    s.cmd("TAP %d %d" % fm6p_adj_xy(False))  # 底部 −（回原位）
     s.expect(r'-> FM6P ALG value=\d+ status="[^"]*"', "④ FM6P 底部 −（回原位）")
     s.cmd("STATE SNAP")
     s.expect_int(r"fm6p_engine_ok=(\d+)", 1, "④ STATE SNAP fm6p_engine_ok=1")
@@ -7693,21 +7834,25 @@ def run_synth(s: Session) -> None:
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑤ 池往返起点 PLAY")
     # 预热**两轮**：跨组首次重建有一次文本/字形缓存（DSYN 的 KIT 名/状态行、SAMPLE 的
-    # 槽行文本），一轮后仍有 ~776B 的一次性落账（实测第一轮 −776B、之后 ±60B）
+    # 槽行文本），一轮后仍有 ~776B 的一次性落账（实测第一轮 −776B、之后 ±60B）。
+    # SYNTH 的代表页**每轮轮换**（DSYN→SAMPLE→FM6P）：只固定一个代表会让另两页的
+    # 重建泄漏永远不被测到。
+    synth_reps = ("dsyn", "sample", "fm6p")
     for _ in range(2):
-        for group in ("transport", "song", "projects", "dsyn"):
+        for group in ("transport", "song", "projects") + synth_reps:
             s.cmd(f"UI {group}")
         s.cmd("UI play")
     free0 = nav_pool_free(s)
     per_trip = []
     for trip in range(1, NAV_LEAK_TRIPS + 1):
-        for group in ("transport", "song", "projects", "dsyn"):
+        rep = synth_reps[(trip - 1) % len(synth_reps)]
+        for group in ("transport", "song", "projects", rep):
             s.cmd(f"UI {group}")
         s.cmd("UI play")
         per_trip.append(nav_pool_free(s))
     drop = free0 - per_trip[-1]
     s.ser.note(f"⑤ pool_free：起点 {free0} → 逐次 {per_trip}（{NAV_LEAK_TRIPS} 次 "
-               "transport/song/projects/dsyn 往返）")
+               "transport/song/projects + SYNTH 代表页 dsyn/sample/fm6p 轮换往返）")
     (s.ok if abs(drop) <= NAV_LEAK_NOISE else s.fail)(
         f"⑤ {NAV_LEAK_TRIPS} 次 SYNTH/FILE/SONG/SEQ 往返后 pool_free {free0} → {per_trip[-1]}"
         f"（Δ={-drop:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
@@ -7728,6 +7873,14 @@ def run_synth(s: Session) -> None:
     for slot in range(3):
         s.cmd(f"STORE BANK ERASE {slot}")
         s.expect(rf"^BANK {slot} ERASED\r?$", f"⑥ 擦银行槽 {slot}")
+    # 轨 1 复位：③/④ 把它留在 FM6（引擎 9）与编辑后的 live patch；只复位轨 0 会让
+    # AUTO ON 后的自动存档把「轨 1 = FM6」写进工作工程（评审发现的泄漏）。
+    # `ENG TRACK` 换引擎会按预置整份写 p[]（含 ALG 宏 P_E0 / PTCH P_E7），故一次即可。
+    select_track(s, SYNTH_FM6_TRACK)
+    s.cmd(f"ENG TRACK {SYNTH_FM6_TRACK} 0 0")
+    s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "⑥ 轨 1 → ANALOG（复位引擎/预置）")
+    s.cmd("PARAM 63 0")
+    s.expect(r"PARAM track=1 id=63 value=0 applied=0", "⑥ 轨 1 PARAM 63 = 0（ALG 宏/PAT）")
     select_track(s, 0)
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑥ 轨 0 → ANALOG")

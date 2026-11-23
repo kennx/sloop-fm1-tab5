@@ -1,5 +1,8 @@
 # P4-D Task 11 截屏抽检（PIL；无图像查看工具，人眼读图仍是外部门禁）
 
+几何结论：chip 探针取「左缘 +20 / 顶边 +4」底色（与组签同口径），TAP 用 chip 中心；
+SAMPLE 槽行 TAP 用行中心（SAMPLE_ROW_CY = 顶边 +22）。
+
 task-11-nav-07-tab-cycle.png: 1280x720 colors=95
   - 1280x720 且非空白: OK
   - PLAY 组签选中: OK
@@ -47,5 +50,6 @@ task-11-synth-fm6p.png: 1280x720 colors=100
   RESULT: PASS
 
 全部 6 张关键截屏: PASS
-其余截屏（nav 01-06、params 其余 7 张、synth 3 张中的非关键探针面）的像素探针结果见
-task-11-*-transcript.log 的 [PASS]/[FAIL] 行；本文件只对「新组/新页/锁定态」的关键画面做独立复核。
+其余截屏（nav 01-06、params 其余 7 张）的像素探针结果见 task-11-*-transcript.log 的
+[PASS]/[FAIL] 行；本文件只对「新组/新页/锁定态」的关键画面做独立复核。
+synth 复跑（task-11-synth-repeat-transcript.log）的三张截屏与主轮逐字节相同。

@@ -349,10 +349,10 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 组 est：EDIT `3×3,584 + 6,144 = 16,896`（FM6 的 bank 行不变）/ SYNTH
   `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
   DSYN/FM6P 按 spec §4.4 的计划上限落位）。
-- **实测（P4-D Task 11，`params` + `synth`，`UI MEM` 池增量 / `页面构建` 日志）**：
-  SAMPLE **4,360–4,508B**（est 6,144）、DSYN **6,168–6,476B**（est 7,168；Task 9 首测
-  6,436）、FM6P **6,892–7,124B**（est 7,168；Task 10 首测 6,892–7,124，本轮 7,004–7,068）；
-  SYNTH `sum_delta` **17,824–17,976B**（`sum_est` 20,480，两场景读数），`build_ms` 11–14ms（≤100ms）。
+- **实测（P4-D Task 11 评审修复轮归档的 `params` + `synth` ×2 transcript）**：
+  SAMPLE **4,392–4,496B**（est 6,144）、DSYN **6,432–6,440B**（est 7,168；Task 9 首测
+  6,436 在区间内）、FM6P **7,032–7,072B**（est 7,168；Task 10 首测 6,892–7,124）；
+  SYNTH `sum_delta` **17,796–17,856B**（`sum_est` 20,480，两场景读数），`build_ms` 13ms（≤100ms）。
   三页 `delta ≤ est` 全部成立；SAMPLE 的 est 是 spec §4.4 的**固定上限**（实测只用到
   71–73%，属预留，不参与最坏有序对的调节）。
 - 有序对（§5 的 base 11,624 + 对值 + 4,096 ≤ 63,120）：**SEQ→PRESETS 仍最坏 60,776
@@ -360,11 +360,11 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   **59,240**、余 3,880B；**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面 **55,656**、
   余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。
 - **实测过渡峰值**（`synth` ⑤：SYNTH 三页全建后直接 `UI step`，构建日志
-  `页面构建 page=STEP(2) 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms`）⇒
-  `pool_free=11,244B ≥ 4,096B`；过渡后稳态 `pool_free 28,800B`（`UI MEM` 实测）。
-  同批 `synth` ⑤ 的 10 轮 SYNTH/FILE/SONG/SEQ 往返 `pool_free 47,072 → 47,040`
-  （Δ−32B、单次最大下降 44B ≤128B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−44B
-  （单次 72B）。跨组池不泄漏口径不变。
+  `页面构建 page=STEP(2) 池增量=22,200B 预算=23,040B 池剩余=11,228B 耗时=31ms`，两次运行相同）⇒
+  `pool_free=11,228B ≥ 4,096B`；过渡后稳态 `pool_free 28,780B`（`UI MEM` 实测）。
+  同批 `synth` ⑤ 的 10 轮 SEQ/SONG/FILE/SYNTH 往返（SYNTH 代表页 dsyn/sample/fm6p
+  **轮换**）`47,064 → 47,020`（Δ−44B、单次最大下降 44B ≤128B），复跑 `→ 47,028`
+  （Δ−36B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−64B（单次 72B）。跨组池不泄漏口径不变。
 - 采样槽管理行（SAMPLE 页底部 `U1..U4` + `ERASE` + 状态行，y=552..596）与 FM6 bank 行
   同几何；状态行单一映射在 `theme.h`（选中槽 `SET U<n>` / `ERASE OK` / `NOT USR` /
   `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。`sloop_store_sample_info` 是
@@ -372,7 +372,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   key 稳定时 1s（单次最坏 4×80KiB CRC，绝不每 30ms 轮询）。
 - 设备证据（P4-D Task 11）：`UI TAB synth` / `UI SUB 0..2`、SYNTH 三页全建
   `built=3 sum_est=20,480`、离开组 `built=0`（三页 unbuilt）；`params` 的
-  `EDIT sum_est=16,896`、组作用域后 `pool_free 35,972B`（≥20KB）。
+  `EDIT sum_est=16,896`、组作用域后 `pool_free 35,836B`（≥20KB）。
 
 #### 6. 验证入口
 

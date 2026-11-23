@@ -1,25 +1,30 @@
-# P4-D Task 11 门禁结论（2026-11-23；设备 /dev/ttyACM0，构建自提交前工作区）
+# P4-D Task 11 门禁结论（2026-11-23 评审修复轮；设备 /dev/ttyACM0）
 
-构建（scripts/build.sh ×2）：rc=0，warning 0；第 1 遍重编 page_fm6p.c（注释修正），第 2 遍无重编、warning 0。
+构建（scripts/build.sh ×2）：rc=0，warning 0（本轮无固件源码改动，两遍均为 no-op 构建）。
 烧录（scripts/flash.sh）：3× "Hash of data verified"。
 host：host-test=0（ALL HOST TESTS PASSED）、state=0（30 passed）、synth=0（SYNTH HOST TEST PASSED）、
       seq=0（persist PASS 0 failures）、knob=0（7 passed）、soak-selftest=0（PASS）。
 
-设备注入（同一会话，脚本之间不重启）：
-  scripts/inject/nav.sh    exit=0  155 PASS / 0 FAIL
-  scripts/inject/params.sh exit=0  194 PASS / 0 FAIL
-  scripts/inject/synth.sh  exit=0  783 PASS / 0 FAIL（复跑一次同样 783/0，见 synth 报告 §自审）
+设备注入（同一会话，脚本之间不重启；stdout 原文见 task-11-*-stdout.txt）：
+  scripts/inject/nav.sh    exit=0  **156 PASS / 0 FAIL**（新增 ⑥ SYNTH built=3 断言）
+  scripts/inject/params.sh exit=0  **197 PASS / 0 FAIL**（新增锁定 BANK −、底部 −、底部死区 miss）
+  scripts/inject/synth.sh  exit=0  **788 PASS / 0 FAIL** ×2（复跑 transcript + stdout 归档；
+                                    三张截屏两次运行逐字节相同：5ccf7cf3/a066d73a/88976629）
 
-关键读数：
-  UI MEM GROUP SYNTH built=3 sum_est=20480 sum_delta=17824 build_ms=14
-    synth 场景：SAMPLE 4,360-4,508 / est 6,144；DSYN 6,168-6,452 / 7,168；FM6P 7,004-7,068 / 7,168
-    params 场景：SAMPLE 4,392；DSYN 6,476；FM6P 7,108（SYNTH sum_delta 17,976）
-  SYNTH 全建 -> STEP 首建：构建日志 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms
-  过渡后稳态 pool_free=28,800B；10 轮 SEQ/SONG/FILE/SYNTH 往返 47,072 -> 47,040（Δ-32B，单次 -44B）
-  nav 8：PLAY<->TRACKS x10 46,872 -> 46,828（Δ-44B，单次 -72B）
-  EDIT sum_est=16,896 build_ms=11；组作用域后 pool_free=35,972B
+关键读数（本轮归档的 transcript）：
+  UI MEM GROUP SYNTH：params sum_delta 17,856 / synth 17,796，sum_est 20,480，build_ms 13
+    SAMPLE delta 4,392（params）/ 4,496（synth ×2） / est 6,144
+    DSYN   6,432 / 6,440 / 7,168
+    FM6P   7,032 / 7,072 / 7,168
+  SYNTH 全建 -> STEP 首建：构建日志 池增量=22,200B 预算=23,040B 池剩余=11,228B 耗时=31ms（两轮相同）
+  过渡后稳态 pool_free=28,780B；10 轮 SEQ/SONG/FILE/SYNTH（代表页 dsyn/sample/fm6p 轮换）往返
+    47,064 -> 47,020（Δ-44B，单次 ≤44B）；复跑 47,064 -> 47,028（Δ-36B）
+  nav 8：PLAY<->TRACKS x10 46,872 -> 46,808（Δ-64B，单次 ≤72B）
+  EDIT sum_est=16,896 build_ms=10
+  ⑥ 收口：轨 1 ENG TRACK 1 0 0（引擎/预置/ALG 宏/PTCH 随之复位）+ 轨 0 → ANALOG，
+    P_MUTE 原值还原，银行槽 0..2 擦除，DSYN 工厂 808 + STORE dirty=0，AUTO ON
 
-soak 冒烟（reboot + 冷却后 --duration 120 --interval 30）：VERDICT PASS
+soak 冒烟（本轮修复前、同一固件；reboot + 冷却后 --duration 120 --interval 30）：VERDICT PASS
   5 次采样/121s，internal_free 89,191 -> 89,183B（internal_min 83,780 ≥60KB），xrun=0，
   duty_mean 最大 15.44% ≤18.88%，音频栈 3,004B，KEY 0->90，无 panic/WDT；
   跨组池 46,812 -> 46,836（Δ+24B，单次 -48B ≤128B）。
