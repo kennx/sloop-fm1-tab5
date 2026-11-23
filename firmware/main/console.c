@@ -128,8 +128,11 @@
  *  - FM6P：选中轨（或显式 track）的 155B live patch。INFO 打印 slot/engine_ok/名字/ALG
  *    与 P_E0 宏；GET 打印 155B hex；SET 走 CMD_FM6_SET（非 FM6 轨 → locked）；ALG
  *    <track> <0..32>：0 = PAT（只清 P_E0，patch ALG 不动），1..32 = patch ALG = value-1
- *    并在同一次引擎锁内清 P_E0（写完立即听得到）。STATE SNAP 行尾追加 dsyn_kit/
- *    dsyn_lane/dsyn_dirty 与 fm6p_slot/fm6p_engine_ok。
+ *    并在同一次引擎锁内清 P_E0（写完立即听得到）。`UI FM6P OP/PAGE` 是 FM6P 页的
+ *    两个页内选择器（算子 OP1..OP6 / 字段页 EG..LFO）；`TAP` 在该页回
+ *    `-> FM6P op=.. page=.. select` / `-> FM6P <field> value=<写后回读> status="…"` /
+ *    `-> FM6P BANK slot=k select` / `-> FM6P SAVE status="…"`（P4-D Task 10）。
+ *    STATE SNAP 行尾追加 dsyn_kit/dsyn_lane/dsyn_dirty 与 fm6p_slot/fm6p_engine_ok。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -1207,6 +1210,40 @@ static int ui_command(int argc, char **argv)
         printf("UI DSYN kit=%u lane=%u page=%u\n", (unsigned)kit, (unsigned)lane, (unsigned)page);
         return 0;
     }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "fm6p") == 0) {
+        /* UI FM6P OP <0..5> | PAGE <0..5>：FM6P 页的两个选择器（P4-D Task 10）。
+         * 都是页内 UI 局部态（不写引擎、不进状态层），30ms UI 定时器下一拍按新
+         * 算子/字段页重配 8 个旋钮；算子只影响 EG/LEVEL/PITCH 三页（PEG/VOICE/LFO
+         * 是全局块）。裸 `UI fm6p` 仍是**切页**（页名表优先，见本函数末尾的 argc==2
+         * 循环）。 */
+        uint8_t op = sloop_ui_fm6p_op_get();
+        uint8_t page = sloop_ui_fm6p_page_get();
+        if (argc == 3) {
+            printf("用法: UI FM6P <OP 0..5（OP1..OP6） | PAGE 0..5（EG/LEVEL/PITCH/PEG/"
+                   "VOICE/LFO）>（裸 `UI fm6p` 是切页）\n");
+            return 1;
+        }
+        uint32_t v = 0;
+        if (strcasecmp(argv[2], "op") == 0) {
+            if (!eng_uint(argv[3], SLOOP_UI_FM6P_OPS - 1u, &v)) {
+                printf("UI ERR fm6p\n");
+                return 1;
+            }
+            sloop_ui_fm6p_op_set((uint8_t)v);
+        } else if (strcasecmp(argv[2], "page") == 0) {
+            if (!eng_uint(argv[3], SLOOP_UI_FM6P_PAGES - 1u, &v)) {
+                printf("UI ERR fm6p\n");
+                return 1;
+            }
+            sloop_ui_fm6p_page_set((uint8_t)v);
+        } else {
+            printf("用法: UI FM6P [OP <0..5> | PAGE <0..5>]\n");
+            return 1;
+        }
+        printf("UI FM6P op=%u page=%u\n", (unsigned)sloop_ui_fm6p_op_get(),
+               (unsigned)sloop_ui_fm6p_page_get());
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
@@ -1365,6 +1402,7 @@ static int ui_command(int argc, char **argv)
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
+           "UI FM6P [OP <0..5> | PAGE <0..5>] | "
            "UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -1716,6 +1754,45 @@ static int tap_command(int argc, char **argv)
                    (int)r.v, text != NULL ? text : "");
         } else {
             printf("TAP %ld,%ld page=%u -> DSYN KIT src=%d\n", x, y, page, (int)r.v);
+        }
+        break;
+    }
+    case SLOOP_TAP_FM6P_SEL:
+        /* FM6P 页选择行：算子/字段页（页内 UI 局部态，不写引擎数据）；旋钮命中只设焦点，
+         * 也走这一形态。锁定页（选中轨不是 FM6）时 chip 拒绝、回显原选择。 */
+        printf("TAP %ld,%ld page=%u -> FM6P op=%u page=%u select\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b);
+        break;
+    case SLOOP_TAP_FM6P_FIELD: {
+        /* 单字段写（底部 ±；TAP 不能拖拽）：字段名由页面模块从 core 描述符取
+         * （`ALG`/`R1`/`PL1`…），value 是写后回读，status 与屏幕状态行同源。
+         * err=1 = 锁定页拒绝（未下发命令，v 为写前真值）；err=2 = 命令失败。 */
+        const char *name = sloop_ui_fm6p_field_name((uint8_t)r.a, (uint8_t)r.b);
+        const char *text = sloop_ui_fm6p_status_text();
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> FM6P %s value=%d ERR %s status=\"%s\"\n", x, y, page,
+                   name != NULL ? name : "?", (int)r.v, r.err == 1u ? "locked" : "error",
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> FM6P %s value=%d status=\"%s\"\n", x, y, page,
+                   name != NULL ? name : "?", (int)r.v, text != NULL ? text : "");
+        }
+        break;
+    }
+    case SLOOP_TAP_FM6P_BANK:
+        /* BANK 行槽号 ±：只改页内目标槽（不写存储/引擎），回显落地槽号 */
+        printf("TAP %ld,%ld page=%u -> FM6P BANK slot=%u select\n", x, y, page, (unsigned)r.a);
+        break;
+    case SLOOP_TAP_FM6P_SAVE: {
+        /* SAVE = CMD_BANK_PUT：结果文本与屏幕状态行同源（SAVE OK / STOP BEFORE SAVE /
+         * NO STORAGE / SAVE ERROR / NOT FM6）。v=1 = 锁定页拒绝（未下发命令）。 */
+        const char *text = sloop_ui_fm6p_status_text();
+        if (r.v != 0u) {
+            printf("TAP %ld,%ld page=%u -> FM6P SAVE ERR locked status=\"%s\"\n", x, y, page,
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> FM6P SAVE status=\"%s\"\n", x, y, page,
+                   text != NULL ? text : "");
         }
         break;
     }
@@ -3222,9 +3299,14 @@ static int dsyn_command(int argc, char **argv)
         edit_cmd_t cmd = {.type = CMD_DSYN_CRUSH, .a = kit, .v = (uint16_t)crush};
         uint8_t status = synth_apply(&cmd);
         if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
-        app_state_t st;
-        state_get_copy(&st);
-        printf("DSYN CRUSH k=%u crush=%u status=\"%s\"\n", (unsigned)kit, (unsigned)st.dsyn.crush,
+        /* 回读**目标 kit**（不是选中 kit 的投影）：`DSYN CRUSH 2 40` 后投影仍停在
+         * 原来的选择上，读 st.dsyn.crush 会回一个与该命令无关的值。 */
+        uint8_t applied = 0;
+        if (sloop_core_dsyn_read(kit, 0u, NULL, NULL, &applied, NULL) != ESP_OK) {
+            printf("DSYN ERR error\n");
+            return 1;
+        }
+        printf("DSYN CRUSH k=%u crush=%u status=\"%s\"\n", (unsigned)kit, (unsigned)applied,
                synth_status_name(status));
         return 0;
     }

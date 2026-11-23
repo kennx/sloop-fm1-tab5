@@ -231,6 +231,18 @@ typedef enum {
     SLOOP_TAP_DSYN_AUDITION, /* DSYN 页 AUDITION chip：a=kit b=lane v=velocity（固定 100） */
     SLOOP_TAP_DSYN_KIT,      /* KIT 页 KIT SRC 的 ±：a=kit b=**新的工厂 kit 序号**（0..31）
                               * v=写后回读的 src（CMD_DSYN_LOAD_KIT；套用即覆盖该 kit）。 */
+    SLOOP_TAP_FM6P_SEL,      /* FM6P 页选择（P4-D Task 10）：OP1..OP6 / 字段页 chip / 旋钮
+                              * （只设焦点）。a=op(0..5) b=字段页(0..5) v=1。
+                              * `UI FM6P OP/PAGE` 与这些 chip 共用同一页内状态。 */
+    SLOOP_TAP_FM6P_FIELD,    /* FM6P 单字段写（底部 ±；TAP 不能拖拽）：a=op(0..6，6=全局)
+                              * b=字段号 v=**写后回读** err=0 成功 / 1 = 锁定页拒绝（未下发
+                              * 命令，v 为写前真值）/ 2 = 命令失败（synth_status != OK）。
+                              * 字段名由 `sloop_ui_fm6p_field_name()` 给出。 */
+    SLOOP_TAP_FM6P_BANK,     /* BANK 行槽号 ±：a=新槽号(0..26) d=±1（只改页内目标槽）
+                              * 锁定页拒绝（不改槽，a 为原值）。 */
+    SLOOP_TAP_FM6P_SAVE,     /* SAVE chip：a=目标槽 v=0 已下发 CMD_BANK_PUT / 1 锁定页拒绝
+                              * （未下发命令）。结果文本由 `sloop_ui_fm6p_status_text()` 与
+                              * 屏幕同源给出。 */
     SLOOP_TAP_SONG_SECTION,  /* SONG 页 A–D 卡：a=页 id b=section(0..3)（UI 局部选中，不写引擎） */
     SLOOP_TAP_SONG_ENTRY,    /* SONG 页歌曲条目 **0 起**（0..15）：a=页 id b=entry（UI
                               * 局部选中；屏幕 `01`/`ENTRY 2` 是 1 起，刻意的两种口径） */
@@ -399,6 +411,32 @@ uint8_t sloop_ui_dsyn_page_get(void);
 void sloop_ui_dsyn_page_set(uint8_t page);   /* 0=SND1 1=SND2 2=SND3 3=KIT；越界忽略 */
 const char *sloop_ui_dsyn_status_text(void);
 const char *sloop_ui_dsyn_field_name(uint8_t code);
+
+/* FM6P 页（P4-D Task 10；SYNTH 组的 FM6 155B 深度 patch 编辑页）：
+ *  - 算子（OP1..OP6）与字段页（EG/LEVEL/PITCH/PEG/VOICE/LFO）都是**页内 UI 局部态**
+ *    （`sloop_ui_fm6p_op_get/set`、`..._page_get/set` 与页面 chip 共用；console
+ *    `UI FM6P OP/PAGE` 只写这两个静态量，30ms UI 定时器下一拍重配旋钮）。跨组页面
+ *    重建保留。算子只影响 EG/LEVEL/PITCH 三页（那三页编辑该算子的字段块），
+ *    PEG/VOICE/LFO 三页是全局块（op 6）。
+ *  - ←/→ 在 8 槽间移动焦点（跳过当前页的空槽、环绕），↑/↓ 调焦点槽 ±1（经
+ *    `CMD_FM6_SET`，控件由下一拍刷新）。锁定页（选中轨不是 FM6，含鼓轨）为空操作；
+ *    都不取 LVGL 锁（输入任务调用）。
+ *  - `sloop_ui_fm6p_status_text` 是 console `TAP … status="…"` 的文本源（与屏幕同源，
+ *    theme.h 的 ui_fm6p_status_text 单一映射）；页未建（控件已随组作用域销毁）或当前
+ *    页不是 FM6P 时返回 NULL（与 BANK/SAMPLE/DSYN 行同口径）。
+ *  - `sloop_ui_fm6p_field_name` 把 TAP 回显的 (op, field) 翻译成描述符 label
+ *    （如 `ALG` / `R1`），空槽/越界返回 NULL。 */
+#define SLOOP_UI_FM6P_OPS 6u
+#define SLOOP_UI_FM6P_PAGES 6u
+bool sloop_ui_fm6p_page_active(void);
+void sloop_ui_fm6p_focus_move(int8_t delta); /* ←/→：±1 槽（跳过空槽，环绕） */
+void sloop_ui_fm6p_adjust(int8_t delta);     /* ↑/↓：焦点槽 ±1 原始单位（锁定页忽略） */
+uint8_t sloop_ui_fm6p_op_get(void);
+void sloop_ui_fm6p_op_set(uint8_t op);       /* 0..5 = OP1..OP6；越界忽略 */
+uint8_t sloop_ui_fm6p_page_get(void);
+void sloop_ui_fm6p_page_set(uint8_t page);   /* 0=EG 1=LEVEL 2=PITCH 3=PEG 4=VOICE 5=LFO */
+const char *sloop_ui_fm6p_status_text(void);
+const char *sloop_ui_fm6p_field_name(uint8_t op, uint8_t field);
 
 /* SONG 页上下文（InputManager 路由，P4-C Task 11）：当前页是 SONG 时
  *  - ←/→ 在 1..count 个歌曲条目间移动选中项（环绕）；

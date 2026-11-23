@@ -496,7 +496,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 
 - 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
   行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
-  6,436B））；P4-B 起按组核算：P4-D Task 8 起
+  6,436B）、FM6P 7,168B（P4-D Task 10，实测 6,892–7,080B））；P4-B 起按组核算：P4-D Task 8 起
   SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
   全建后 `pool_free` 实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
@@ -604,6 +604,64 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - **验证入口**：host `scripts/synth-test.sh`（dsyn text 全字段）；设备 `UI DSYN KIT/LANE/
   PAGE` + TAP（选择器/字段 ±/CRUSH 写/STORE/AUDITION/KIT 中段 miss）+ `DSYN CRUSH` + 键盘 →/↑ +
   `UI MEM` + 四字段页截屏与像素抽检（Task 9 探针；任务 11 的 `synth` 场景固化）。
+
+### 8.8 FM6P 深度 patch 编辑页（P4-D Task 10）
+
+- **对象与几何**（页面区相对坐标，y 绝对 = +72；页面区 x 到 1,264）：页眉一行
+  y∈[4,36)——`OP1..OP6` 六算子 chip（x=16+60k，56×32）、字段页 chip
+  `EG/LEVEL/PITCH/PEG/VOICE/LFO`（x=380+68p，64×32）、BANK **三区对象**
+  `-  Bnn  +`（792..916，124×32；左右各 40px 是 ∓1 区、中段是槽号标签，点击靠指针
+  相对 x 判区）、`SAVE`（924，72×32）、状态行（1004..1264，16pt 右对齐）；8 旋钮沿用
+  参数页网格（cell 300×290，x=16+c·316、y=52+r·298，盒 160×160）；底部**一个三区
+  对象** `−        +`（16..184，168×44，y=552..596）作用于焦点槽 ±1（TAP 不能拖拽，
+  这是 TAP 能触发的唯一字段写入口；中段留白按 `TAP miss`）。24 个对象（8 旋钮 +
+  12 chip + BANK + SAVE + 状态行 + 细调）。
+- **字段页**（页内 UI 局部态，不新增 app page；算子 chip 也只影响前三页）：
+  EG = R1/R2/R3/R4/L1/L2/L3/L4（op 字段 0..7）；LEVEL = BP/LD/RD/LC/RC/RS/KVS/OL
+  （8..13,15,16；AMS=14 在 PITCH 页）；PITCH = MODE/FC/FF/DET/AMS（17..20,14）+ 3 空；
+  PEG = PR1..PR4/PL1..PL4（全局 0..7）；VOICE = ALG/FB/OKS/TRNSP（全局 8/9/10/18）+
+  4 空；LFO = LFS/LFD/LPMD/LAMD/LKS/LFW/LPMS（全局 11..17）+ 1 空。字段编号 = Task 3
+  冻结的编号（op 0..20 = `FP_R1..FP_DET`；全局 0..18 = `FP_PR1..FP_TRNSP`），label/
+  范围/枚举全部来自 `sloop_core_fm6_desc`（`fm6_max()` 同一张表），全局 19..28 是名称
+  字节（只读）不进任何页。8 个旋钮对象**常驻**，当前页没有字段的槽隐藏（池峰值按 8 个
+  算，隐藏 = 不绘制/不命中）。
+- **值/写路径**：读 `app_state_t.fm6p`（选中轨的 155B live patch 投影，纯解码
+  `sloop_fm6_field_from_patch`）；写 `CMD_FM6_SET`（a=track b=op n=field，op 6 = 全局
+  块）、`SAVE` = `CMD_BANK_PUT`（目标槽是页内 0..26，与 FM6 宏页的 bank 行同一套 27
+  槽）。数字文本走 `knob_format_value`（ONOFF / ALG "1".."32" / LFW / LPMS 枚举都由
+  desc 给出，无需 core 的索引→文本表）。
+- **ALG 宏覆盖**（spec §4.1）：ALG = 全局字段 **8**（`FP_ALG - FP_PR1` = 134−126；
+  VOICE 页首槽）。写 ALG 时适配层在同一次引擎锁内清 `trk[track].p[P_E0]`（宏 → PAT），
+  否则上游 `fm6_sync` 会用宏覆盖 patch 的算法、编辑听不到。`P_E0 != 0` 时状态行显示
+  `ALG MACRO n`（1..32）：**优先级 = 失败 > 提示 > 成功结果**——覆盖警告是持续事实、
+  `EDIT OK` 是瞬时的；编辑 ALG 成功后宏已被清，提示自然消失。其余宏（FB/MLVL/MRAT/
+  MEG/VMOD/DTUN）是叠加语义，写 patch 字段不动它们。
+- **锁定态**（`app_state_t.fm6p.engine_ok == 0`：选中轨不是 FM6，含鼓轨）：8 个旋钮一律
+  `--`（`knob_show_locked`），`OP/PAGE/BANK` chip、`SAVE`、底部 ± 全部**拒绝**（不下发
+  命令、不改选择），状态行 `NOT FM6`（红字，页内状态，不写 `synth_status`/`store_status`）；
+  解锁时清掉上一次动作结果。`UI FM6P OP/PAGE` 是 console 直写的页内量，不受锁定影响
+  （脚本据此在锁定态断言语义不变）。
+- **状态行**（单一映射 `theme.h` 的 `ui_fm6p_status_text`/`ui_fm6p_status_color`）：
+  act（SAVE 走 `ui_file_status_text` 的 act 0 文案 / FIELD 走 `synth_status`：
+  `EDIT OK`、`INVALID`、`FULL`、`BLOCKED`、`FROZEN`、`LOCKED`、`EDIT ERROR`、未就绪
+  `NO STORAGE`）× locked × `P_E0` 宏 → 文本；颜色 成功绿 / 锁定与失败红 / ALG 提示
+  强调黄 / 其余灰。换页/换算子/锁定态变化清掉上一次动作结果。
+- **TAP kind**：`SLOOP_TAP_FM6P_SEL`（a=op b=page v=1；chip 与旋钮焦点）、
+  `SLOOP_TAP_FM6P_FIELD`（a=op b=field、v=写后回读、err=0 成功/1 锁定页拒绝（未下发
+  命令）/2 命令失败）、`SLOOP_TAP_FM6P_BANK`（a=目标槽 d=±1）、`SLOOP_TAP_FM6P_SAVE`
+  （a=目标槽 v=0 已下发/1 锁定页拒绝）。回显 `-> FM6P op=n page=p select` /
+  `-> FM6P <field> value=<v> status="…"`（拒绝另带 `ERR locked|error`）/
+  `-> FM6P BANK slot=k select` / `-> FM6P SAVE status="…"`；字段名由
+  `sloop_ui_fm6p_field_name(op, field)`（描述符 label）。BANK 槽号中段与底部细调
+  中段按 `TAP miss`。
+- **键盘**：←/→ 焦点（跳过当前页空槽、环绕）、↑/↓ 调焦点槽 ±1（锁定页空操作）；输入
+  任务上下文只写状态层（`render=false`，控件由 30ms 定时器刷新）。chip 只经触摸/console。
+- **预算（est 7,168B 固定）**：24 个对象实测 **6,892–7,080B**（≤ est；区间取决于构建
+  时的池历史）。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），
+  ADR-005 §5 的组不变量不变。设备证据见任务 10 报告与 `docs/dev/verify/4-pd-2026-11-23/`。
+- **验证入口**：设备 `UI FM6P OP/PAGE` + `TAP`（六页 × 8 槽的字段名/写后回读、锁定页
+  `NOT FM6`、ALG 宏提示、BANK SAVE→`STORE BANK GET` 往返）+ 键盘 ←/→/↑ + `UI MEM` +
+  三张截屏与像素抽检（Task 10 探针；任务 11/12 的 `synth` 场景固化）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）
 

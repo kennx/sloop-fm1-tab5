@@ -25,8 +25,9 @@
  *   KIT  = CRUSH（0..255，kit 级）/ KIT SRC（工厂套用）
  *
  * 值路径（唯一）：读 `app_state_t.dsyn`（`sloop_dsyn_field_from_sound` 纯解码；kit 级
- * crush/src 直接取投影）→ 一条状态层命令（`CMD_DSYN_SET` / `CMD_DSYN_LOAD_KIT` /
- * `CMD_DSYN_AUDITION` / `CMD_DSYN_STORE`）→ 命令同拍刷新的投影 → 重绘本页。
+ * crush/src 直接取投影）→ 一条状态层命令（`CMD_DSYN_SET` / `CMD_DSYN_CRUSH` /
+ * `CMD_DSYN_LOAD_KIT` / `CMD_DSYN_AUDITION` / `CMD_DSYN_STORE`）→ 命令同拍刷新的
+ * 投影 → 重绘本页。
  * 数字文本只走 `sloop_core_dsyn_text`（DECAY/BTIME/NDEC → ms、FCUT/HPF → Hz、
  * LEVEL → 0.25dB、FLT_MODE 名、CHIP 音名），UI 不引入上游生成表；枚举/整数落回
  * `knob_format_value`。

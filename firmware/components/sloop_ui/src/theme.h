@@ -270,6 +270,74 @@ static inline uint32_t ui_dsyn_status_color(uint8_t act, uint8_t status, bool di
     }
 }
 
+/* FM6P 页状态行（P4-D Task 10；屏幕文本与 console `TAP` 回显都从这里出）。
+ * act = 本页最后一次动作（页内局部态，不写 app_state_t）：
+ *   SAVE  → 存储结果（复用 ui_file_status_text 的 act 0 文案：`SAVE OK` /
+ *           `STOP BEFORE SAVE` / `NO STORAGE` / `SAVE ERROR` / `DRUM TRACK: NO SOUND`）
+ *   FIELD → synth_status：`EDIT OK` / `INVALID` / `FULL` / `BLOCKED` / `FROZEN` /
+ *           `LOCKED` / `EDIT ERROR`（存储未就绪时 `NO STORAGE`）
+ *   其它（尚无动作）→ `ALG MACRO n`（P_E0 ≠ 0，宏在覆盖 patch 的算法）或空串
+ * **锁定优先**（选中轨不是 FM6，含鼓轨）：任何动作结果都不显示，固定 `NOT FM6`。
+ * **ALG 提示优先级**：失败 > `ALG MACRO n` > 成功结果——覆盖警告是持续事实，成功的
+ * `EDIT OK` 是瞬时的；编辑 ALG 成功后适配层清 P_E0，提示自然消失（spec §4.1）。
+ * macro = `P_E0` 的 1..32（0 = PAT，不提示）。 */
+typedef enum {
+    UI_FM6P_ACT_SAVE = 0,
+    UI_FM6P_ACT_FIELD = 1,
+} ui_fm6p_act_t;
+#define UI_FM6P_ACT_NONE 0xFFu
+
+static inline const char *ui_fm6p_status_text(char *buf, size_t n, uint8_t act,
+                                              uint8_t synth_status, uint8_t store_status,
+                                              bool ready, bool locked, uint8_t macro)
+{
+    if (locked) {
+        snprintf(buf, n, "NOT FM6");
+        return buf;
+    }
+    if (act == UI_FM6P_ACT_SAVE) return ui_file_status_text(buf, n, 0, store_status, ready);
+    if (act == UI_FM6P_ACT_FIELD) {
+        switch (synth_status) {
+        case APP_SYNTH_STATUS_OK:
+            if (macro != 0) snprintf(buf, n, "ALG MACRO %u", (unsigned)macro);
+            else snprintf(buf, n, "EDIT OK");
+            break;
+        case APP_SYNTH_STATUS_INVALID: snprintf(buf, n, "INVALID"); break;
+        case APP_SYNTH_STATUS_FULL: snprintf(buf, n, "FULL"); break;
+        case APP_SYNTH_STATUS_BLOCKED: snprintf(buf, n, "BLOCKED"); break;
+        case APP_SYNTH_STATUS_FROZEN: snprintf(buf, n, "FROZEN"); break;
+        case APP_SYNTH_STATUS_LOCKED: snprintf(buf, n, "LOCKED"); break;
+        case APP_SYNTH_STATUS_ERROR:
+            snprintf(buf, n, "%s", ready ? "EDIT ERROR" : "NO STORAGE");
+            break;
+        default:
+            /* 尚无成功/失败分类（IDLE）：同「无动作」分支，只显示宏提示 */
+            if (macro != 0) snprintf(buf, n, "ALG MACRO %u", (unsigned)macro);
+            else if (n > 0) buf[0] = '\0';
+            break;
+        }
+        return buf;
+    }
+    if (macro != 0) snprintf(buf, n, "ALG MACRO %u", (unsigned)macro);
+    else if (n > 0) buf[0] = '\0';
+    return buf;
+}
+
+/* 状态行颜色（同一映射的视觉侧）：锁定/失败红 / SAVE 与 FILE 页同色 /
+ * 成功绿 / ALG 提示强调黄 / 其余灰。 */
+static inline uint32_t ui_fm6p_status_color(uint8_t act, uint8_t synth_status,
+                                            uint8_t store_status, bool ready, bool locked,
+                                            uint8_t macro)
+{
+    if (locked) return UI_ERROR;
+    if (act == UI_FM6P_ACT_SAVE) return ui_file_status_color(0, store_status, ready);
+    if (act == UI_FM6P_ACT_FIELD) {
+        if (synth_status == APP_SYNTH_STATUS_OK) return macro != 0 ? UI_ACCENT : ui_track_color(1);
+        return UI_ERROR;
+    }
+    return macro != 0 ? UI_ACCENT : UI_TEXT_DIM;
+}
+
 /* 构建期分配检查：NULL 即中止本页构建（半成品容器由 ui.c 删除回收） */
 #define UI_BUILD_CHECK(obj) do { if ((obj) == NULL) return NULL; } while (0)
 

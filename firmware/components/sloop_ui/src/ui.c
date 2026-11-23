@@ -11,11 +11,11 @@
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
  * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
- * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/
- * FILE 组 PROJECTS|PRESETS（page_projects.c / page_presets.c，P4-B Task 12）都在
- * 组表 k_groups[] 里声明；组顺序 = 子签顺序 = `TAB` 扁平轮转顺序。P4-D Task 8 起
- * SAMPLE 随 SYNTH 组（SAMPLE/DSYN/FM6P）——DSYN 自 Task 9 起是实体页，FM6P 仍是
- * 占位页（Task 10 换成实体页面）。
+ * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
+ * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
+ * page_presets.c，P4-B Task 12）都在组表 k_groups[] 里声明；组顺序 = 子签顺序 =
+ * `TAB` 扁平轮转顺序。P4-D Task 8 起 SAMPLE 随 SYNTH 组（SAMPLE/DSYN/FM6P），
+ * Task 9/10 落两页实体页面。
  *
  * 懒建与失败可见性：构建前用 lv_mem_monitor 取池剩余，低于该页 est_bytes 即
  * 拒绝；构建中任一控件分配失败（build 返回 NULL）则删除半成品容器、记 ERROR，
@@ -61,6 +61,7 @@
 #include "freertos/task.h"
 #include "lvgl.h"
 #include "page_dsyn.h"
+#include "page_fm6p.h"
 #include "page_layout.h"
 #include "page_params.h"
 #include "sloop_core.h"
@@ -69,21 +70,6 @@
 #include "theme.h"
 
 static const char *TAG = "sloop_ui";
-
-/* 占位页（P4-D Task 8/10）：SYNTH 组的 FM6P 实体页面由 Task 10 落地，本任务只
- * 保证注册表/页签/`TAB`/`UI MEM` 的 14 页导航成立。build 只返回 ensure_page_built
- * 已建好的页面容器（无子控件 = 空白页），update 无操作。est 已按实体页的计划上限
- * 落位（见 k_builtin_pages），因此构建前预算门槛是真口径。DSYN 自 Task 9 起是实体页
- * （page_dsyn.c）。 */
-static lv_obj_t *page_placeholder_build(lv_obj_t *parent)
-{
-    return parent;
-}
-
-static void page_placeholder_update(const app_state_t *st)
-{
-    (void)st;
-}
 
 /* 内置页面注册表（ADR-008）：注册顺序 = 组内子签顺序。est_bytes 为构建前预算门槛
  * （池剩余低于该值拒绝构建），数值 = 实测池 free 减少量 + 10–26% 余量、512 对齐
@@ -114,12 +100,11 @@ static const ui_page_t k_builtin_pages[] = {
      * 6 配置 chip；实测 delta 见 ADR-008 §3 的 SONG 行）。est 是构建前门槛，
      * 不是精确账本；实测超限先改对象设计，不抬 est/不扩池。 */
     {APP_PAGE_SONG, "SONG", page_song_build, page_song_update, 12288},
-    /* SYNTH 组两页（P4-D Task 8 注册，Task 9 落 DSYN 实体页、Task 10 落 FM6P）：
+    /* SYNTH 组三页（P4-D Task 8 注册，Task 9 落 DSYN、Task 10 落 FM6P 实体页）：
      * est = spec §4.4 的计划上限 **7,168B/页**（8 旋钮 + 页内选择器 + 状态行，约
-     * 20–25 个对象）。DSYN 实测 delta 见 ADR-008 §3 与 Task 9 报告（≤ est）；FM6P
-     * 仍是占位页（est 按实体页口径，Task 10 以实测收口）。 */
+     * 20–25 个对象）。DSYN/FM6P 实测 delta 见 ADR-008 §3 与各任务报告（≤ est）。 */
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
-    {APP_PAGE_FM6P, "FM6P", page_placeholder_build, page_placeholder_update, 7168},
+    {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
@@ -345,6 +330,7 @@ static esp_err_t ensure_page_built(uint8_t page)
         int idx = page_layout_index(page);
         if (idx >= 0) page_params_forget((uint8_t)idx); /* 半成品控件已删：本页指针置空 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
+        if (page == APP_PAGE_FM6P) page_fm6p_forget();
         ESP_LOGE(TAG, "页面构建失败 page=%s(%u) 原因=%s 池剩余=%uB 预算=%uB 耗时=%ums"
                  "（UI ERR page_build %u）",
                  def->title, (unsigned)page, reason, (unsigned)mon_before.free_size,
@@ -394,6 +380,7 @@ static void destroy_group_pages(int g, uint8_t keep)
         int idx = page_layout_index(pid);
         if (idx >= 0) page_params_forget((uint8_t)idx);
         if (pid == APP_PAGE_DSYN) page_dsyn_forget();
+        if (pid == APP_PAGE_FM6P) page_fm6p_forget();
     }
 }
 
@@ -818,6 +805,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_PRESETS: return page_presets_tap(x, py, out);
     case APP_PAGE_SONG: return page_song_tap(x, py, out);
     case APP_PAGE_DSYN: return page_dsyn_tap(x, py, out);
+    case APP_PAGE_FM6P: return page_fm6p_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -1027,6 +1015,12 @@ const char *sloop_ui_dsyn_status_text(void)
     return page_dsyn_status_text();
 }
 
+const char *sloop_ui_fm6p_status_text(void)
+{
+    if (!s_started || s_page != APP_PAGE_FM6P) return NULL;
+    return page_fm6p_status_text();
+}
+
 const char *sloop_ui_song_status_text(void)
 {
     if (!s_started || s_page != APP_PAGE_SONG) return NULL;
@@ -1155,9 +1149,10 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on)
         s_page_state[page] = SLOOP_UI_PAGE_UNBUILT;
         s_page_delta[page] = 0;
         s_page_build_ms[page] = 0;
-        /* 控件已删：DSYN 的控件指针/状态文本置空（状态行访问器的「未建 → NULL」契约）。
+        /* 控件已删：DSYN/FM6P 的控件指针/状态文本置空（状态行访问器的「未建 → NULL」契约）。
          * 失败态重建由下面的 show_page 负责。 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
+        if (page == APP_PAGE_FM6P) page_fm6p_forget();
         if (s_page == page) (void)show_page(page);
     }
     bsp_display_unlock();
