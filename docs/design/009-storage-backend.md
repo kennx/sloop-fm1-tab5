@@ -258,7 +258,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 | payload 布局 | `persist_t` 88B（magic@0 / palette@4 / lowcut@8 / zoom@12 / panel@16 / **arrangement@48（36B）** / lights@84）+ `dsu_bank_t` 1,464B @88 |
 | canonical | 88 + 1,464 = **1,552B**，默认 MIDI 尾段省略；默认 80B side（theme 0 + `FAV1` + 16×0xFFFF + CRC） |
 | 合法 PER3 长度 | 84（2.2，无 lights）/ 88（无 DSU）/ 1,552 / 1,584 / 1,588 / 1,592（`2*ML_N+8=40` 的完整尾段，32/36 是 2.6 测试长度） |
-| 保存规则 | 无对象 → canonical；合法 PER3 → 只替换 48..83，其余（含 DSU/MIDI 尾段）逐字节保留，缺 DSU 的补默认；PER2（48B）/PER1（40B）→ 按 `persist_boot` 口径迁移字段后写 canonical |
+| 保存规则 | 无对象 → canonical；合法 PER3 → 替换 48..83，并把 88..1,551 写成**当前 RAM 的 DSU**（84/88B 因此升级到 1,552B；P4-D Task 5，见下一条）；84..87 与 MIDI 尾段逐字节保留；PER2（48B）/PER1（40B）→ 按 `persist_boot` 口径迁移字段后写 canonical |
 | 拒绝 | 未知 magic 或长度不是历史格式 ⇒ `ESP_ERR_INVALID_ARG`（`STORE ERR invalid`），原扇区一个字节不动，dirty 保留 |
 | side record | 侧区**有内容就原样**随新 A/B 副本提交（含自校验不过的 2.7 beta「只有 40B 主题」记录——本固件与 P4-E 之前没有主题状态，覆盖等于删用户主题）；全 0xFF（P4-B 及更早从未写过）⇒ 写默认 80B 记录 |
 | 延迟写 | `sloop_store_sections_tick`（1s 任务，esp_timer 毫秒）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s。`arrangement_save` 同义入口 `sloop_store_song_save()` 立即写（播放中 `playing`） |
@@ -266,8 +266,17 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 | SELFTEST | `arrangement` 是 `arranger.c` 的 static `.bss`，自检的 restore 会把它回滚到零 ⇒ 自检结束后 `sloop_store_song_reload()` 从 settings 重读（以 flash 为准、清 dirty；读不到/对象损坏 → `song_per_loaded` 落上游默认歌曲，字节不覆盖；读 flash 期间有新的 `song_set` 则由代次守卫保留 RAM） |
 | 不做 | `arrangement_enabled`（歌曲模式）、quick chain、SONG REC 临时态都不持久化（上游同）；sections A–D 的内容仍是 FUN6 工程对象（`st_save(OBJ_PROJECT0+s)`），其 dirty/落盘见 §6.2 |
 
+- **DSU（SYN kit 银行）随 PER3 持久化**（P4-D Task 5，spec §3.4）：`song_per_put_dsu()` 在每次保存
+  组装收尾把当前 `dsu` 写进 88..1,551（上游 `settings_write` 同法；RAM 银行坏了先
+  `dsu_defaults()`），`song_per_saved()` 在 flash 提交返回后只在「写成功且提交的字节就是当前
+  RAM」时清 `dsu_dirty`（擦写窗口里又来的 DSYN 编辑让 payload 过时 ⇒ 保留）。`sloop_store_dsu_`
+  `{reload,store,dirty}`：reload 在开机与 `ENG SELFTEST` 的 `song_reload` 之后（`dsu`/`dsu_dirty`
+  是 drum_synth.c 的 `.bss`，restore 会回滚；自检收尾同时逐槽 `sloop_store_sample_reload`），
+  store = 停止态存储锁内 `song_write_locked()`（与歌曲同一次 A/B 提交）。DSYN-only 修改不触发
+  1s 延迟写（上游同）。
 - **新建对象的默认值已固定**（本阶段不随设置变化）：palette/lowcut/zoom = 0、panel =
-  `panel.c` 的 `PANEL_DEFAULT` 字面量、lights = 0、DSU = `dsu_defaults()`、MIDI 尾段省略、
+  `panel.c` 的 `PANEL_DEFAULT` 字面量、lights = 0、DSU = 当前 RAM 的 `dsu`（首次启动即
+  `dsu_defaults()`；P4-D 起随每次保存写回）、MIDI 尾段省略、
   默认歌曲 = `arr_defaults()`（count=4，A/B/C/D 各 4 小节）。P4-E 接完整设置 UI 时必须
   把这些来源换成真实状态（并同步 `song_persist.h` 的 `SONG_PANEL_DEF`），在那之前它们是
   硬编码的「上游首次启动」快照。

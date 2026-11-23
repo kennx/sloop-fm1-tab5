@@ -556,8 +556,8 @@ esp_err_t sloop_store_init(void)
      * 钩子——否则 PTCH ≥ 8 播 init voice。 */
     fm6_bank_boot();
     /* 采样槽开机装载（P4-D Task 4，spec §4.2）：四槽 flash → PSRAM 镜像 + `smp_user_scan`。
-     * 在 READY 置位**之前**跑完（半装载的镜像不能被公共 API 看见；reload 只要求 HAL 与
-     * 镜像在位）。镜像已由 sloop_core_init 填 0xFF，读失败的槽保持空。 */
+     * 在公开 READY（`s_init_magic`）置位**之前**跑完（半装载的镜像不能被公共 API 看见；
+     * reload 只要求 HAL 与镜像在位）。镜像已由 sloop_core_init 填 0xFF，读失败的槽保持空。 */
     for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
     ESP_LOGI(TAG, "采样槽装载: %u 槽 flash→镜像", (unsigned)SLOOP_STORE_SAMPLES);
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
@@ -568,6 +568,12 @@ esp_err_t sloop_store_init(void)
     if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND)
         ESP_LOGW(TAG, "歌曲设置读取失败: %s（保持默认歌曲 count=%u loop=%u）", esp_err_to_name(song_ret),
                  (unsigned)arrangement.count, (unsigned)arrangement.loop);
+    /* SYN kit 银行同理（P4-D Task 5，spec §3.4，上游 dsu_boot）：settings 88..1,551 → dsu。
+     * 不走公共写门也能跑（只读 flash + 覆盖 RAM 银行），但要在 READY 之后——与歌曲同一
+     * 个「开机以 flash 为准」的时点。读不到就是工厂 SYN kit（sloop_core_init 已先 dsu_defaults）。 */
+    esp_err_t dsu_ret = sloop_store_dsu_reload();
+    if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "SYN kit 读取失败: %s（落工厂 SYN kit）", esp_err_to_name(dsu_ret));
     /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
      * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
      * 入口是 sloop_store_autosave_start()，由 sloop_core_init 在 resume 之后调用。 */
@@ -1448,9 +1454,12 @@ static esp_err_t song_write_locked(void)
     st_side_len = 0;
     store_note_write(xr0, us0);
     /* 与 song_pending_mark 同一把引擎锁：check(gen)+clear 必须原子，否则「gen 相符 → 清
-     * dirty」之间挤进来的 song_set 会被这次 clear 吞掉（修改丢了、也不再有重试）。 */
+     * dirty」之间挤进来的 song_set 会被这次 clear 吞掉（修改丢了、也不再有重试）。
+     * dsu_dirty 同一位置清：写成功且刚提交的 88..1,551 就是当前 RAM 的 DSU 才清
+     * （擦写窗口里又来的 DSYN 编辑让 payload 过时 → 保留 dirty，spec §3.4）。 */
     engine_lock();
     song_pending_done(&s_song, rc == 0, gen);
+    song_per_saved(rc == 0, proj_tmp.raw, len);
     engine_unlock();
     if (rc != 0) {
         ESP_LOGE(TAG, "歌曲保存失败 rc=%d（保留 dirty，下个窗口重试）", rc);
@@ -1609,6 +1618,69 @@ void sloop_store_song_dirty_mark(void)
     engine_lock(); /* 与 song_pending_mark 的其它调用点同一把锁（gen 记账原子） */
     song_pending_mark(&s_song);
     engine_unlock();
+}
+
+/* ---- SYN kit 银行（DSU）：settings 的 88..1,551（P4-D Task 5，spec §3.4）-----------
+ * `dsu`/`dsu_dirty` 是 drum_synth.c 的 static：鼓声部在引擎锁内读它，故所有写入都在引擎
+ * 锁内；flash 侧只有 OBJ_SETTINGS 一个对象（与歌曲/side 同一把存储锁、同一次 A/B 提交）。
+ * 上游对照：project.c 的 dsu_boot（读）与 settings_write（写，成功才清 dsu_dirty）。 */
+
+/* 开机与 `ENG SELFTEST` 之后：settings 88..1,551 → dsu。上游 dsu_boot 同序——先
+ * dsu_defaults，只有「长度够 + dsu_valid」才覆盖，每个 kit 过一遍 dsu_fix_kit（外部来源
+ * 的字节不可信）。没有对象/长度不足/银行非法都落工厂 SYN kit，回 NOT_FOUND。
+ * 锁序 store → engine（ADR-009 §3），与其它写入口一致；st_load 不擦写、只是读。 */
+esp_err_t sloop_store_dsu_reload(void)
+{
+    if (!sloop_store_ready()) {
+        engine_lock();
+        dsu_defaults();
+        dsu_dirty = 0;
+        engine_unlock();
+        ESP_LOGW(TAG, "SYN kit 不可读（存储未就绪）：落工厂 SYN kit");
+        return ESP_ERR_INVALID_STATE;
+    }
+    store_lock();
+    int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
+    uint32_t len = n > 0 ? (uint32_t)n : 0u;
+    engine_lock();
+    bool from_flash =
+        len >= SONG_PER_CANON && dsu_valid((const dsu_bank_t *)(proj_tmp.raw + SONG_DSU_OFF));
+    if (from_flash) {
+        memcpy(&dsu, proj_tmp.raw + SONG_DSU_OFF, sizeof dsu);
+        for (uint32_t k = 0; k < DSU_N; k++) dsu_fix_kit(&dsu.k[k]);
+    } else {
+        dsu_defaults();
+    }
+    dsu_dirty = 0; /* RAM 与 flash（或工厂默认）一致了 */
+    engine_unlock();
+    store_unlock();
+    ESP_LOGI(TAG, "SYN kit: %s（settings len=%u）", from_flash ? "settings 88..1551" : "工厂默认",
+             (unsigned)len);
+    return from_flash ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
+
+/* 显式 STORE（DSYN 页的 STORE chip / CMD_DSYN_STORE 经状态层）：停止态把**当前 RAM 的
+ * DSU**（与当前歌曲、side 一起）写进 settings——上游 settings_write 一次写整份 persist_t，
+ * 没有「只写 DSU」的对象。失败保留 dirty，由下一次显式 STORE 或歌曲/段落延迟写重试；
+ * 与 song_save 同：尝试过就推进延迟写的 gap 时间戳。
+ * `ENG SELFTEST`/`ENG FREEZE` 的诊断冻结回 INVALID_STATE（与 song_save 同口径）。 */
+esp_err_t sloop_store_dsu_store(void)
+{
+    if (!sloop_store_ready()) return ESP_ERR_INVALID_STATE;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    if (store_playing()) return ESP_ERR_INVALID_STATE;
+    store_lock();
+    esp_err_t err = song_write_locked();
+    store_unlock();
+    s_sections_tried_ms = store_esp_ms();
+    return err;
+}
+
+/* RAM 的 SYN kit 与最近一次成功写盘是否不一致（DSYN 编辑置位；任何成功的 settings 保存
+ * ——显式 DSU STORE、显式歌曲保存、sections/歌曲延迟写——在写成功且字节未过时清）。 */
+bool sloop_store_dsu_dirty(void)
+{
+    return dsu_dirty != 0;
 }
 
 /* ---- live sections A–D（P4-C Task 8）---------------------------------------- */

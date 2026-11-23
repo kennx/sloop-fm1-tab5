@@ -272,10 +272,11 @@ bool sloop_store_autosave_enable(bool on);
 /* ---- 歌曲顺序：OBJ_SETTINGS 的 PER3 子集（P4-C Task 7，ADR-009 §6 / ADR-010 §4）----
  * 上游把 16 项 A–D 歌曲顺序（count/loop/(scene,bars)×16）放在设置对象 `persist_t` 的
  * 偏移 48；A–D 的内容仍是 FUN6 工程对象（`sloop_store_project_*`）。写规则：
- *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 默认 DSU =
+ *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 当前 RAM 的 DSU =
  *     1,552B）+ 默认 80B side record（theme 0 + 空收藏 + CRC）；
  *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592B）：整个 payload 保留，只替换 48..83；
- *     尚无 DSU 的补默认 DSU（1,552B），已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
+ *     88..1,551 一律写成当前 RAM 的 DSU（84/88B 因此升级到 1,552B，P4-D Task 5）；
+ *     已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
  *     才写默认 80B side：自校验不过的 2.7 beta 主题记录也不覆盖）；
  *   - PER2/PER1：按上游 persist_boot 口径迁移（palette/lowcut/zoom/panel 保留，缺失的
  *     取默认），随后写成 canonical PER3；
@@ -328,6 +329,27 @@ bool sloop_store_song_dirty(void);
  * 门限落盘）。 */
 void sloop_store_song_dirty_mark(void);
 void sloop_store_sections_tick(uint32_t now_ms);
+
+/* ---- SYN kit 银行（DSU）：OBJ_SETTINGS 的 88..1,551（P4-D Task 5，spec §3.4）--------
+ * 上游把 4 个 SYN kit（`dsu_bank_t`，1,464B）放在设置对象 `persist_t` 之后；`dsu` 是
+ * drum_synth.c 的 static，鼓声部直接从 RAM 读它。两条路径：
+ *   reload()  —— 开机（`sloop_store_init`，工程 fetch 与歌曲之后）与 `ENG SELFTEST` 收尾：
+ *                settings 88..1,551 → `dsu`（`dsu_valid` 才覆盖，每个 kit 过 `dsu_fix_kit`；
+ *                没有对象/长度不足/银行非法 → 工厂 SYN kit）。`dsu` 与 `dsu_dirty` 都是
+ *                `.bss`，自检的 restore 会回滚它们，故必须重载。存储未就绪 →
+ *                ESP_ERR_INVALID_STATE（`dsu` 落工厂默认），无有效 DSU → ESP_ERR_NOT_FOUND。
+ *   store()   —— 显式 STORE（DSYN 页的 STORE chip）：停止态把**当前 RAM 的 DSU** 连同当前
+ *                歌曲与 side 一起写进 settings（上游 `settings_write` 一次写整份 persist_t，
+ *                没有只写 DSU 的对象）。走带中/诊断冻结/未就绪 → ESP_ERR_INVALID_STATE
+ *                （`STOP BEFORE SAVE` 口径）；settings 对象损坏（未知 magic/长度）→
+ *                ESP_ERR_INVALID_ARG 且不覆盖；擦写失败 → ESP_ERR_NOT_FINISHED。
+ * `dirty()` 表示「RAM 的 SYN kit 与最近一次**成功写盘**不一致」：DSYN 编辑置位；任何一次
+ * 成功的 settings 保存（显式 DSU STORE、显式歌曲保存、sections/歌曲延迟写）在写成功且
+ * 提交的字节就是当前 RAM 时清——**不区分**是谁顺带写的（spec §3.4）。DSYN-only 修改不会
+ * 自行触发 1s 延迟写（上游同：只在下一次 settings 写时落盘）。 */
+esp_err_t sloop_store_dsu_reload(void);
+esp_err_t sloop_store_dsu_store(void);
+bool sloop_store_dsu_dirty(void);
 
 /* ---- live sections A–D（P4-C Task 8）：捕获在 sloop_seq_section（引擎锁内，见
  * sloop_seq.h），这里只做 dirty 记账、停止态载入/擦除与延迟写。A–D 的内容仍是 FUN6
