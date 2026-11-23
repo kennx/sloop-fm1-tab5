@@ -187,8 +187,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 #### 1. 组与子页
 
-顶层 7 组（P4-C Task 11 起含 SONG、P4-D Task 8 起含 SYNTH；`SYS` 待 P4-E 有设置页时
-再加入）：
+顶层 8 组（P4-C Task 11 起含 SONG、P4-D Task 8 起含 SYNTH、P4-E Task 6 起含 SYS）：
 
 | 组 | 子页 |
 |---|---|
@@ -199,10 +198,11 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 | SEQ | STEP / TRANSPORT |
 | SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
 | FILE | PROJECTS / PRESETS |
+| SYS | SYSTEM（P4-E Task 6：独立组单页） |
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
-  `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`；`APP_STATE_PAGES`
-  9→11→12→**14**。SONG/SYNTH 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
+  `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`，P4-E Task 6 追加
+  `APP_PAGE_SYSTEM`；`APP_STATE_PAGES` 9→11→12→14→**15**。SONG/SYNTH/SYSTEM 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
   （SYNTH 在 EDIT 与 SEQ 之间）。console `UI` 页名表、`UI MEM` 的组字段、注册表顺序同源。
 - 页签 = 组签（上行）+ 组内子签（下行）；注册顺序 = 组顺序，组内顺序 = 子页顺序。
 
@@ -216,7 +216,8 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
   `TRACKS` 远小于页签宽）；P4-C Task 11 增至 6 组后取 `min(176, (1280 − 32 − 216 −
   5×8)/6) = 171.5 → **168px**（6×168+5×8=1,048，右端 1,064 = 1,280−**216** reserve）；
   P4-D Task 8 增至 7 组后取 **142px**（7×142+6×8=1,042，右端 16+1,042=**1,058** ≤
-  1,064，theme.h 有静态断言；SLOOP 标题起点 ~1,191 仍有 133px）。子行仍是 176px（5 个
+  1,064，theme.h 有静态断言；SLOOP 标题起点 ~1,191 仍有 133px）；P4-E Task 6 增至 8 组后取
+  **122px**（8×122+7×8=1,032，右端 16+1,032=**1,048** ≤1,064）。子行仍是 176px（5 个
   复用槽，右端 928），**不受组数影响**。**不再受 N=10 时 95px < `TRANSPORT` 101.6px 的
   宽度墙约束**。
 
@@ -240,9 +241,9 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 ```
 PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → DSYN → FM6P → STEP → TRANSPORT
-     → SONG → PROJECTS → PRESETS → PLAY
+     → SONG → PROJECTS → PRESETS → SYSTEM → PLAY
 ```
-（P4-D Task 8 起 14 页 / 7 组；SAMPLE 属 SYNTH 组，DSYN/FM6P 紧随其后。）
+（P4-E Task 6 起 15 页 / 8 组；SYSTEM 属最后的 SYS 单页组。）
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
   轮转到最后一个已注册页即回 PLAY。
@@ -377,6 +378,18 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 设备证据（P4-D Task 11）：`UI TAB synth` / `UI SUB 0..2`、SYNTH 三页全建
   `built=3 sum_est=20,480`、离开组 `built=0`（三页 unbuilt）；`params` 的
   `EDIT sum_est=16,896`、组作用域后 `pool_free 35,836B`（≥20KB）。
+
+#### 5.2 P4-E 15 页/8 组预算（Task 6）
+
+- 组顺序末尾追加 `SYS{SYSTEM}`；组签宽 142→**122px**（见 §2），`APP_PAGE_SYSTEM=14`、
+  `APP_STATE_PAGES=15`，TAB 在 PRESETS 与 PLAY 之间插入 SYSTEM。SYSTEM est **10,240B**，
+  首建设备实测 delta **5,468B**、build_ms **9–12ms**。
+- 新增有序对：**SEQ→SYS** `32,256+10,240=42,496B` ⇒ 账面 58,016（余 5,104B）；
+  **SYS→STEP** `10,240+23,040=33,280B` ⇒ 账面 49,000。最坏有序对仍是
+  SEQ→PRESETS 60,776（余 2,344B），EDIT/SYNTH/SEQ 的 est 均不变；`free ≥ est`、
+  构建后池剩余 ≥4,096B 与跨组往返 ≤128B 的门禁不变。设备实测（修复轮）SEQ→SYS
+  **15,392B**、SYS→STEP **23,164B**；主题重建保留 SYSTEM 最近一次动作状态，TAP 回显不会在
+  重建竞态中退化为空串。
 
 #### 6. 验证入口
 

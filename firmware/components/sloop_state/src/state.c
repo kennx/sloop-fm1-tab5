@@ -96,6 +96,7 @@ void state_refresh_settings_locked(void)
     s_state.settings.theme_valid = st->theme_valid ? 1u : 0u;
     s_state.settings.reso = (uint8_t)st->f.flt_reso;
     s_state.settings.dirty = st->dirty ? 1u : 0u;
+    memcpy(s_state.settings.theme_name, st->theme_name, sizeof s_state.settings.theme_name);
 }
 
 void state_refresh_sys_locked(void)

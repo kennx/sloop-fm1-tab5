@@ -3,7 +3,7 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE（y∈[4,36)，无已注册页的组不显示），下行当前
+ * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示），下行当前
  * 组的子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
@@ -13,7 +13,8 @@
  * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
- * page_presets.c，P4-B Task 12）都在组表 k_groups[] 里声明；组顺序 = 子签顺序 =
+ * page_presets.c，P4-B Task 12）/ SYSTEM（page_system.c，P4-E Task 6）都在组表
+ * k_groups[] 里声明；组顺序 = 子签顺序 =
  * `TAB` 扁平轮转顺序。P4-D Task 8 起 SAMPLE 随 SYNTH 组（SAMPLE/DSYN/FM6P），
  * Task 9/10 落两页实体页面。
  *
@@ -65,7 +66,9 @@
 #include "page_fm6p.h"
 #include "page_layout.h"
 #include "page_params.h"
+#include "page_system.h"
 #include "sloop_core.h"
+#include "sloop_hal.h"
 #include "sloop_state.h"
 #include "sloop_store.h"
 #include "theme.h"
@@ -106,13 +109,14 @@ static const ui_page_t k_builtin_pages[] = {
      * 20–25 个对象）。DSYN/FM6P 实测 delta 见 ADR-008 §3 与各任务报告（≤ est）。 */
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
+    {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
  * 组内顺序 = 下行子签顺序。没有已注册成员的组 group_size()==0：组签不显示、
  * `TAB` 也跳过（注册表是可发现性的唯一来源）。
  * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，theme.h 有断言）；
- * SYS 组待 P4-E 有设置页时再加入。 */
+ * SYS 是 P4-E Task 6 的单页设置组。 */
 typedef struct {
     const char *name;
     uint8_t count;
@@ -129,6 +133,7 @@ static const ui_group_t k_groups[] = {
     {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
     {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
     {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
+    {"SYS", 1, {APP_PAGE_SYSTEM}},
 };
 
 #define GROUP_COUNT ((uint8_t)(sizeof(k_groups) / sizeof(k_groups[0])))
@@ -149,6 +154,8 @@ static ui_theme_t s_theme;
 static uint8_t s_applied_palette = 0xFF;
 static uint8_t s_applied_theme_on;
 static uint8_t s_applied_theme_valid;
+static uint8_t s_applied_lights = 0xFF;
+static uint32_t s_applied_accent = 0xFFFFFFFFu;
 static lv_obj_t *s_group_tabs[GROUP_COUNT];  /* 上行组签（按组下标） */
 static lv_obj_t *s_group_labels[GROUP_COUNT];
 static lv_obj_t *s_sub_tabs[UI_GROUP_MAX];   /* 下行子签：固定槽复用，按组成员下标 */
@@ -252,6 +259,15 @@ static uint8_t group_member_at(uint8_t g, uint8_t idx)
 static uint8_t sub_tab_count(uint8_t g);
 static void update_layer_hint(uint8_t layer);
 
+static void apply_lights(const app_state_t *st)
+{
+    if (s_applied_lights == st->settings.lights && s_applied_accent == UI_ACCENT) return;
+    if (sloop_hal_keyboard_rgb(st->settings.lights, UI_ACCENT) == ESP_OK) {
+        s_applied_lights = st->settings.lights;
+        s_applied_accent = UI_ACCENT;
+    }
+}
+
 /* 上行组签 + 下行子签的选中态与可见性（组签宽度按已注册组数排布）。页签对象固定
  * 创建，切换只改位置/文本/颜色。子行只显示**多页组**的成员（单页组留空，ADR-005
  * §2）——可见子签数直接取 sub_tab_count()（与命中/`UI SUB` 的单一来源）。 */
@@ -348,6 +364,7 @@ static esp_err_t ensure_page_built(uint8_t page)
         if (idx >= 0) page_params_forget((uint8_t)idx); /* 半成品控件已删：本页指针置空 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
         if (page == APP_PAGE_FM6P) page_fm6p_forget();
+        if (page == APP_PAGE_SYSTEM) page_system_forget();
         ESP_LOGE(TAG, "页面构建失败 page=%s(%u) 原因=%s 池剩余=%uB 预算=%uB 耗时=%ums"
                  "（UI ERR page_build %u）",
                  def->title, (unsigned)page, reason, (unsigned)mon_before.free_size,
@@ -398,6 +415,7 @@ static void destroy_group_pages(int g, uint8_t keep)
         if (idx >= 0) page_params_forget((uint8_t)idx);
         if (pid == APP_PAGE_DSYN) page_dsyn_forget();
         if (pid == APP_PAGE_FM6P) page_fm6p_forget();
+        if (pid == APP_PAGE_SYSTEM) page_system_forget();
     }
 }
 
@@ -535,7 +553,7 @@ static void sub_clicked_cb(lv_event_t *e)
 }
 
 /* 页签用**单对象可点击 label**（P4-C Task 11）：`lv_button + 子 label` 每个签两个
- * 对象（7 组签 + 5 子签 = 12 个多余对象，实测基础占用 +900B 量级）；label 自己当
+ * 对象（8 组签 + 5 子签 = 13 个多余对象，实测基础占用 +900B 量级）；label 自己当
  * 按钮省掉子 label，仍用共享样式表达选中态（与 FILE/TRANSPORT/SONG 页同一纪律）。
  * 文本 16pt 单行：pad_top 把行高 (~20px) 压到签高中心。 */
 static lv_obj_t *make_tab_button(lv_obj_t *bar, int32_t w, int32_t h,
@@ -567,7 +585,7 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 GROUP_COUNT 槽（7 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（8 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
@@ -591,7 +609,7 @@ static bool create_tab_bar(void)
         s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（7 个组签右端 1,058；标题从 ~1,191 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（8 个组签右端 1,048；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
     s_title = title;
@@ -757,6 +775,7 @@ static void ui_timer_cb(lv_timer_t *timer)
     }
     app_state_t st;
     state_get_copy(&st);
+    apply_lights(&st);
     update_layer_hint(st.layer_held);
 
     bool flash = false;
@@ -923,6 +942,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_SONG: return page_song_tap(x, py, out);
     case APP_PAGE_DSYN: return page_dsyn_tap(x, py, out);
     case APP_PAGE_FM6P: return page_fm6p_tap(x, py, out);
+    case APP_PAGE_SYSTEM: return page_system_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -1144,6 +1164,28 @@ const char *sloop_ui_song_status_text(void)
     return page_song_status_text();
 }
 
+bool sloop_ui_system_page_active(void)
+{
+    return s_started && s_page == APP_PAGE_SYSTEM;
+}
+
+esp_err_t sloop_ui_system_key(uint32_t code)
+{
+    if (!sloop_ui_system_page_active()) return ESP_ERR_INVALID_STATE;
+    return page_system_key(code);
+}
+
+const char *sloop_ui_system_status_text(void)
+{
+    if (!sloop_ui_system_page_active()) return NULL;
+    return page_system_status_text();
+}
+
+void sloop_ui_system_clear_action(void)
+{
+    page_system_clear_action();
+}
+
 uint8_t sloop_ui_group_count(void)
 {
     return GROUP_COUNT;
@@ -1270,6 +1312,7 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on)
          * 失败态重建由下面的 show_page 负责。 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
         if (page == APP_PAGE_FM6P) page_fm6p_forget();
+        if (page == APP_PAGE_SYSTEM) page_system_forget();
         if (s_page == page) (void)show_page(page);
     }
     bsp_display_unlock();

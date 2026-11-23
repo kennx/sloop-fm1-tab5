@@ -35,17 +35,17 @@ const ui_theme_t *ui_theme(void);
 #define UI_ERROR     (ui_theme()->error)    /* 可见错误（仅失败路径出现） */
 
 /* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
- * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行 7 个组签
- * （PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE，P4-D Task 8），142px 宽
- * （7×142+6×8=1,042，右端 16+1,042=1,058 ≤ 1,280−216=1,064）；子行复用固定
+ * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行 8 个组签
+ * （PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE/SYS，P4-E Task 6），122px 宽
+ * （8×122+7×8=1,032，右端 16+1,032=1,048 ≤ 1,280−216=1,064）；子行复用固定
  * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 4 页是最大组，右端 744）。
  * 右侧 UI_TAB_RIGHT_RESERVE=216 给上行 SLOOP 标题与下行层键提示留位：组行右端
- * 1,058（≤1,064 = 1,280−216）；子行右端 928，提示盒从 936 起，宽度封顶 +
+ * 1,048（≤1,064 = 1,280−216）；子行右端 928，提示盒从 936 起，宽度封顶 +
  * 省略号截断，绝不压到子签。 */
 #define UI_TAB_X0  16
 #define UI_TAB_GAP 8
 #define UI_TAB_RIGHT_RESERVE 216
-#define UI_GROUP_W 142
+#define UI_GROUP_W 122
 #define UI_GROUP_H 32
 #define UI_GROUP_Y 4
 #define UI_SUB_W   176
@@ -58,7 +58,7 @@ _Static_assert(UI_TAB_X0 + UI_GROUP_MAX * (UI_SUB_W + UI_TAB_GAP) - UI_TAB_GAP <
                    UI_W - UI_TAB_RIGHT_RESERVE,
                "子签槽位超出行宽（与右侧层提示重叠）");
 /* 组签槽位：宽度按组数取（§2 的 min(176, …) 结果），右端不得越过 reserve 线
- * （SLOOP 标题从 ~1,191 起；7 组时右端 1,058）。 */
+ * （SLOOP 标题从 ~1,191 起；8 组时右端 1,048）。 */
 _Static_assert(UI_TAB_X0 + (SLOOP_UI_GROUPS * (UI_GROUP_W + UI_TAB_GAP)) - UI_TAB_GAP <=
                    UI_W - UI_TAB_RIGHT_RESERVE,
                "组签槽位超出行宽（与右侧 SLOOP 标题重叠）");
@@ -112,6 +112,43 @@ lv_obj_t *page_song_build(lv_obj_t *parent);
 void page_song_update(const app_state_t *st);
 bool page_song_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 const char *page_song_status_text(void); /* console TAP 回显（状态行文本，同源） */
+
+/* SYSTEM 页状态行（P4-E Task 6）：屏幕与 TAP 回显共用这一映射。 */
+typedef enum {
+    UI_SYS_ACT_EDIT = 0,
+    UI_SYS_ACT_SAVE,
+    UI_SYS_ACT_SELFTEST,
+    UI_SYS_ACT_NONE = 0xFF,
+} ui_sys_act_t;
+
+static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act, uint8_t status,
+                                             bool ready)
+{
+    if (act == UI_SYS_ACT_SELFTEST) {
+        snprintf(buf, n, "SELFTEST: N/A");
+        return buf;
+    }
+    if (act == UI_SYS_ACT_NONE) {
+        if (n > 0) buf[0] = '\0';
+        return buf;
+    }
+    switch (status) {
+    case APP_SETTINGS_OK: snprintf(buf, n, "%s", act == UI_SYS_ACT_SAVE ? "SAVED" : "OK"); break;
+    case APP_SETTINGS_INVALID: snprintf(buf, n, "N/A"); break;
+    case APP_SETTINGS_BLOCKED: snprintf(buf, n, "%s", ready ? "RESET FIRST" : "NO STORAGE"); break;
+    case APP_SETTINGS_ERROR: snprintf(buf, n, "%s", ready ? "SAVE ERROR" : "NO STORAGE"); break;
+    default: if (n > 0) buf[0] = '\0'; break;
+    }
+    return buf;
+}
+
+static inline uint32_t ui_sys_status_color(uint8_t act, uint8_t status)
+{
+    if (act == UI_SYS_ACT_SELFTEST) return UI_ACCENT;
+    if (act == UI_SYS_ACT_NONE || status == APP_SETTINGS_IDLE) return UI_TEXT_DIM;
+    if (status == APP_SETTINGS_OK) return ui_track_color(1);
+    return UI_ERROR;
+}
 
 /* FILE 页状态行的单一映射（屏幕文本与 console `TAP … status="…"` 回显都从这里出）：
  * act = 本页最后一次动作（0 SAVE / 1 LOAD / 2 ERASE / 其它 = 尚无动作）；

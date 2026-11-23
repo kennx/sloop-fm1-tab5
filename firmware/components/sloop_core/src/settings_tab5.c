@@ -106,6 +106,11 @@ bool sloop_store_settings_dirty(void)
 void sloop_store_settings_dirty_mark(void)
 {
     engine_lock(); /* 与 settings_written_locked 的 check+clear 同一把锁 */
+    /* CMD_REC_CONFIG 直接改上游 static；保存前把三项回填到生效副本，否则 dirty 只会
+     * 把旧的 0 再写一遍。 */
+    s_set.f.rec_tempo = rec_tempo != 0u;
+    s_set.f.rec_count = rec_count != 0u;
+    s_set.f.rec_quant_off = rec_quant_off != 0u;
     s_set.dirty = true;
     engine_unlock();
 }
@@ -137,6 +142,7 @@ esp_err_t sloop_store_settings_save(void)
     esp_err_t err = song_write_locked();
     store_unlock();
     s_sections_tried_ms = store_esp_ms(); /* 尝试过就推进 gap（失败也按 5s 窗口重试） */
+    if (err == ESP_OK) sloop_hal_settings_flush();
     return err;
 }
 

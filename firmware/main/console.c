@@ -1041,7 +1041,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -1057,7 +1057,7 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
     "projects", "presets", "song",
     /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
      * FM6P 由 Task 10 换成实体页） */
-    "dsyn", "fm6p",
+    "dsyn", "fm6p", "system",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1993,6 +1993,33 @@ static int tap_command(int argc, char **argv)
         }
         break;
     }
+    case SLOOP_TAP_SYSTEM: {
+        static const char *const rows[] = {
+            "COLOR", "ZOOM", "BRIGHT", "LIGHTS", "VOLUME", "OUTPUT", "LOWCUT", "RESO",
+            "SELFTEST",
+        };
+        const char *row = r.a < sizeof(rows) / sizeof(rows[0]) ? rows[r.a] : "?";
+        const char *text = sloop_ui_system_status_text();
+        if (r.a == 8u) {
+            printf("TAP %ld,%ld page=%u -> SYS SELFTEST status=\"%s\"\n", x, y, page,
+                   text != NULL ? text : "");
+        } else if (r.a == 1u || r.a == 6u) {
+            printf("TAP %ld,%ld page=%u -> SYS %s value=%s status=\"%s\"\n", x, y, page, row,
+                   r.v ? "ON" : "OFF", text != NULL ? text : "");
+        } else if (r.a == 0u) {
+            static const char *const palettes[] = {"GREEN", "AMBER", "CYAN", "RED", "MONO"};
+            app_state_t st;
+            state_get_copy(&st);
+            const char *value = r.v == 5 ? st.settings.theme_name
+                                         : (r.v >= 0 && r.v < 5 ? palettes[r.v] : "?");
+            printf("TAP %ld,%ld page=%u -> SYS COLOR value=%s status=\"%s\"\n", x, y, page, value,
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SYS %s value=%d status=\"%s\"\n", x, y, page, row,
+                   (int)r.v, text != NULL ? text : "");
+        }
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;
@@ -2477,7 +2504,7 @@ static int store_song(int argc, char **argv)
  *                            （field = palette|lowcut|zoom|lights|reso|theme_on；只改内存 +
  *                            应用，不写 flash；播放中也允许）
  *   STORE SETTINGS SAVE   -> "STORE SETTINGS SAVED len=<n> side=<0|1>"（停止态立即写，
- *                            与歌曲/DSU 同一次 A/B 提交；播放中回 "STORE ERR playing"）
+ *                            与歌曲/DSU 同一次 A/B 提交 + NVS flush；播放中回 "STORE ERR playing"）
  * 错误令牌沿用 STORE ERR <no_storage|playing|invalid|save>（字段名不认识 = invalid）。 */
 static const struct {
     const char *name;
@@ -3011,8 +3038,14 @@ static int seq_command(int argc, char **argv)
             uint32_t q, t, c;
             if (!eng_uint(argv[3], 1, &q) || !eng_uint(argv[4], 1, &t) || !eng_uint(argv[5], 1, &c))
                 return seq_err_print(ESP_ERR_INVALID_ARG);
-            esp_err_t ret = sloop_seq_rec_config((uint8_t)q, (uint8_t)t, (uint8_t)c);
-            if (ret != ESP_OK) return seq_err_print(ret);
+            const edit_cmd_t cmd = {.type = CMD_REC_CONFIG, .a = q, .b = t, .v = c};
+            state_apply(&cmd); /* 与 UI 同路径：成功后置 settings dirty（P4-E） */
+            app_state_t st;
+            state_get_copy(&st);
+            if (st.seq_status != SEQ_STATUS_OK) {
+                return seq_err_print(st.seq_status == SEQ_STATUS_FROZEN ? ESP_ERR_INVALID_STATE
+                                                                      : ESP_ERR_INVALID_ARG);
+            }
             seq_rec_print();
             return 0;
         }

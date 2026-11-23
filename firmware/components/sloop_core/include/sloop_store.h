@@ -403,7 +403,8 @@ typedef struct {
  *   set()    —— 停止/播放皆可：只改内存 + 应用上游 static（引擎锁内）+ 置 dirty，**不写
  *               flash**；冻结/未就绪 → ESP_ERR_INVALID_STATE。
  *   save()   —— 停止态立即写（上游 settings_save 同义；与歌曲/DSU 同一次 A/B 提交）；
- *               播放中 ESP_ERR_INVALID_STATE（`STOP BEFORE SAVE`）；成功才清 dirty。
+ *               播放中 ESP_ERR_INVALID_STATE（`STOP BEFORE SAVE`）；成功才清 dirty，并同拍
+ *               flush 平台设置的 NVS dirty。
  *   落盘还走 1s 任务的 `sections_tick`：settings dirty 与歌曲/段落同一门限（停止 + 无发声
  *   + 输入空闲 ≥1.5s + 间隔 ≥5s）、同一次写；任何一次成功的 settings 保存都**顺带清 dirty
  *   ——前提是刚提交的字节就是当前 RAM**（擦写窗口里又来的修改让 payload 过时，dirty 保留）。

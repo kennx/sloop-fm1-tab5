@@ -396,9 +396,9 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 14 页顺序：PLAY→TRACKS→
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 15 页顺序：PLAY→TRACKS→
          * GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→
-         * PRESETS→PLAY，跳过未注册页）。
+         * PRESETS→SYSTEM→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
         uint8_t next = sloop_ui_page_order_next(sloop_ui_current_page());
@@ -409,7 +409,9 @@ static void dispatch(const key_binding_t *b, bool down)
         /* FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；参数页：←/→ 在 8 槽间移动
          * 焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→ 移动工具焦点字段；
          * SONG 页：←/→ 移动歌曲条目 */
-        if (sloop_ui_file_page_active()) {
+        if (sloop_ui_system_page_active()) {
+            (void)sloop_ui_system_key(b->code);
+        } else if (sloop_ui_file_page_active()) {
             sloop_ui_file_slot_move(b->param);
         } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_focus_move(b->param);
@@ -429,7 +431,9 @@ static void dispatch(const key_binding_t *b, bool down)
         /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽；
          * TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；SONG 页 = LOAD 选中 section。
          * 其它页保持无动作。 */
-        if (sloop_ui_step_page_active()) {
+        if (sloop_ui_system_page_active()) {
+            (void)sloop_ui_system_key(b->code);
+        } else if (sloop_ui_step_page_active()) {
             sloop_ui_step_drum_toggle();
         } else if (sloop_ui_file_page_active()) {
             sloop_ui_file_load();
@@ -444,7 +448,9 @@ static void dispatch(const key_binding_t *b, bool down)
          * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位）；
          * TRANSPORT 页：↑/↓ 调焦点工具字段（与参数页同一「焦点 + 调值」模型）；
          * SONG 页：↑/↓ 在 A–D section 卡间移动 */
-        if (sloop_ui_param_page_active()) {
+        if (sloop_ui_system_page_active()) {
+            (void)sloop_ui_system_key(b->code);
+        } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_adjust((int8_t)-b->param);
         } else if (sloop_ui_dsyn_page_active()) {
             sloop_ui_dsyn_adjust((int8_t)-b->param);

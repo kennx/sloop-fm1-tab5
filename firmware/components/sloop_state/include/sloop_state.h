@@ -33,9 +33,9 @@
  * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
  * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）+ SONG 编排页（P4-C Task 11，
  * 独立顶层组）+ 2 SYNTH 页（DSYN/FM6P，P4-D Task 8 扩 id；SAMPLE 参数页随组表移入
- * SYNTH 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
+ * SYNTH 组）+ SYSTEM 设置页（P4-E Task 6，独立 SYS 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
  * 本宏与 console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 14u
+#define APP_STATE_PAGES 15u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -236,8 +236,8 @@ typedef enum {
  *                    sloop_store_settings_set（只改内存 + 应用上游 static + 置 settings
  *                    dirty；落盘由 1s 任务的静默窗口完成，store/HAL 内部再钳一次）。
  *                    字段越界 ⇒ 不调存储、settings_status = INVALID。成功同拍刷 settings
- *                    投影（palette/theme 由 UI 据此重着色；theme_name 不在投影里，页面
- *                    读 sloop_store_settings() 的只读例外）。
+ *                    投影（palette/theme 由 UI 据此重着色；theme_name 随同一投影刷新，
+ *                    供 SYSTEM 页的 COLOR 第 6 档显示）。
  *  CMD_SYS_BRIGHT / CMD_SYS_VOLUME / CMD_SYS_OUTPUT v=值：值域在状态层钳位（bright
  *                    10..100、vol 0..100、out 0 speaker|1 headphone）后下发 HAL——平台
  *                    副作用即时生效、NVS 延迟提交（1s tick 的同一静默窗口），不取引擎锁、
@@ -336,6 +336,7 @@ typedef struct {
      * 成功时同拍重取；UI 不直接读 store/HAL。 */
     struct {
         uint8_t palette, lowcut, zoom, lights, theme_on, theme_valid, reso, dirty;
+        char theme_name[9];
     } settings;
     struct {
         uint8_t bright, vol, out, nvs_dirty; /* bright 10..100 / vol 0..100 / out 0|1 */
@@ -361,8 +362,10 @@ typedef enum {
     /* SYNTH 组（P4-D Task 8：SAMPLE 参数页移入该组；DSYN/FM6P 是 P4-D 的合成编辑页，
      * Task 9/10 填实体，本任务先注册占位页） */
     APP_PAGE_DSYN, APP_PAGE_FM6P,
+    /* SYS 组（P4-E Task 6）：SYSTEM 设置页，id 追加在最后。 */
+    APP_PAGE_SYSTEM,
 } app_page_t;
-_Static_assert(APP_PAGE_FM6P + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_SYSTEM + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 _Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
                "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");
