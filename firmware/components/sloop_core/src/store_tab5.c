@@ -556,6 +556,11 @@ esp_err_t sloop_store_init(void)
      * 钩子——否则 PTCH ≥ 8 播 init voice。 */
     fm6_bank_boot();
     s_init_magic = STORE_INIT_MAGIC; /* 最后置位：半途失败的 init 不能被看见 */
+    /* 采样槽开机装载（P4-D Task 4，spec §4.2）：四槽 flash → PSRAM 镜像 + `smp_user_scan`。
+     * 必须在 READY 置位之后（reload 走公共门），引擎读路径自开机即看到用户采样；
+     * 镜像已由 sloop_core_init 填 0xFF，读失败的槽保持空。 */
+    for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
+    ESP_LOGI(TAG, "采样槽装载: %u 槽 flash→镜像", (unsigned)SLOOP_STORE_SAMPLES);
     /* 歌曲顺序从 settings 读回（上游 persist_boot 的 arrangement 段）：必须在 READY
      * 置位之后（reload 走公共门），且不影响 `ENG SELFTEST` 的工厂态基线（快照在 init
      * 之前拍完）。读不到/对象损坏时 reload 自己落回函数开头那个默认歌曲（不覆盖对象）。 */

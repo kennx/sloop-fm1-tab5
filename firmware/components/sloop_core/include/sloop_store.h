@@ -99,6 +99,54 @@ typedef struct {
 } sloop_store_fields_t;
 esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
 
+/* ---- 采样槽 USR1..USR4（P4-D Task 4，spec §3.1/§4.2）---------------------------
+ * 上游 4×80KiB 原始槽（flash 0xA0000/0xB4000/0xC8000/0xE7000，header 480B + data@512，
+ * IMA ADPCM 4bit）。**不做 A/B 对象**：flash 侧就是上游布局，PSRAM 镜像
+ * （`sloop_hal_user_samples()`，selftest.c 把 `SMP_USER_XIP` 指过去）是引擎唯一的读路径。
+ * 权威关系：flash 是持久副本；镜像在开机、上传收尾（END）、擦除与 `ENG SELFTEST`
+ * 收尾时同步。`info` 只读镜像（与引擎同源），flash 只在 init/END/ERASE 使用。
+ * 上传协议（console `SMP`，Task 7）：
+ *   begin(slot)            擦槽的 header 扇区并**同时使镜像失效**（header 0xFF、`usr_nz`/
+ *                          zone 清零、`smp_user_gen` 递增）——槽立即对引擎不可见；清掉
+ *                          上一次未完成的上传（同一时点只允许一个 open slot）；
+ *   hdr_append(p, n)       累积 480B header（console 一行上限 120B，故分 4 次）；
+ *   write(slot, off, ..)   off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256；跨 4KB 边界
+ *                          的扇区在首次写入前擦除；写成后同步镜像对应偏移（不动 header）；
+ *   end(slot)              校验 header（magic/version/nz/data_len/zone 合法）与 CRC（对
+ *                          **flash 回读**的数据算，`st_crc32`），最后写 header（提交点），
+ *                          整槽 flash→镜像并 `smp_user_scan`；
+ *   erase(slot)            擦 20 个扇区（80KiB/4KB）+ 镜像整槽 0xFF + 失效扫描；
+ *   reload(slot)           flash→镜像 + 扫描（开机装载与自检收尾；`void`，未就绪时静默）。
+ * **Tab5 安全差异（spec §3.5，明确接受）**：走带中 begin/hdr_append/write/end/erase 一律
+ * 拒绝（`ESP_ERR_INVALID_STATE`）——80KiB 擦写会关 cache、必然可闻，按 "STOP BEFORE SAVE"
+ * 纪律处理；上游允许播放中上传。读写期间持存储锁、**不持引擎锁**（`smp_user_scan` 与
+ * 镜像失效的那一小段在引擎锁内，设备上 `fm1_irq_off` 是空壳，引擎锁才是真保护）。
+ * 返回码：
+ *   ESP_OK                    成功（`info`：未使用/不可用也算成功，`out->used == 0`）
+ *   ESP_ERR_INVALID_ARG       槽号 ≥ 4、`out == NULL`；END 的 header 长度/魔数/版本/nz/
+ *                             data_len 或 zone 非法（console `SMP ERR header|zones`）
+ *   ESP_ERR_INVALID_SIZE      header 累积超过 480B；write 的 off/n 越界（`size`）
+ *   ESP_ERR_INVALID_CRC       END 的数据 CRC 不符（`crc`）
+ *   ESP_ERR_INVALID_STATE     存储未就绪、诊断冻结、走带中，或没有对应的 open slot
+ *   ESP_ERR_NOT_FINISHED      flash 擦/写/读失败（`flash`）
+ * END 失败时上传保持 open（可重发数据后重试），但 header 未提交 ⇒ 槽仍是空的。 */
+#define SLOOP_STORE_SAMPLES     4u
+#define SLOOP_STORE_SAMPLE_SIZE 0x14000u /* 80KiB / 槽（20 个 4KB 扇区） */
+#define SLOOP_STORE_SAMPLE_DATA 512u     /* header 480B + 32B padding，数据从这里起 */
+typedef struct {
+    uint8_t used;    /* header 合法（magic/version/nz/zone + 数据 CRC）且数据可用 */
+    uint8_t zones;   /* header 的 nz（1..16）；未使用为 0 */
+    char name[9];    /* header 的 8 字符名 + NUL（未使用为 ""） */
+    uint16_t data_kb; /* data_len / 1024（未使用为 0） */
+} sloop_store_sample_info_t;
+esp_err_t sloop_store_sample_info(uint32_t slot, sloop_store_sample_info_t *out);
+esp_err_t sloop_store_sample_begin(uint32_t slot);
+esp_err_t sloop_store_sample_hdr_append(const uint8_t *p, uint32_t n);
+esp_err_t sloop_store_sample_write(uint32_t slot, uint32_t off, const uint8_t *data, uint32_t n);
+esp_err_t sloop_store_sample_end(uint32_t slot);
+esp_err_t sloop_store_sample_erase(uint32_t slot);
+void sloop_store_sample_reload(uint32_t slot);
+
 /* RAW 上传通道（`STORE RAW BEGIN/<hex>/END`，spec §4.4）：把任意对象 payload 分块搬进
  * 4,096B 暂存，再以 `st_save` **原样**写入（CRC/提交头由 storage.c 生成）。用途：旧格式
  * 工程 fixture（3,816B 级）放不进 console 单行。语义：

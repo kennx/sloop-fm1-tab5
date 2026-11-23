@@ -1,14 +1,28 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * P4-D Task 2: Tab5 DSYN 24 字段适配的同源 host 门禁。
+ * P4-D Task 2/4: Tab5 DSYN 24 字段与采样槽适配的同源 host 门禁。
  * hostsim.c 提供真实上游引擎/音序/鼓；project.c(PROJ_HOST) 是 P4-B 起的同源格式层；
+ * storage.c 提供真实的 st_crc32（采样 header 的 CRC 与固件同一实现）；
  * sound_tab5.c 在末尾 include（与固件 selftest.c 的 TU 位置相同），所以上游 statics
  * （dsu/dsu_kit/dsu_from_factory/dsu_fix_sound/dsu_fix_kit/dsu_dirty/dsu_aud_*、
- * DS_KITS、DECAY_K/CUTOFF_HZ）都可见。
+ * DS_KITS、DECAY_K/CUTOFF_HZ、usr_nz/usr_zone/smp_user_scan）都可见。
  */
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+/* 采样槽镜像：与固件 selftest.c 同法把上游 SMP_USER_XIP 重定向到 4×80KiB RAM 镜像，
+ * 并让 HAL 的 sloop_hal_user_samples() 返回同一块（设备上那是 PSRAM）。
+ * `smp_user_scan` 把 zone 的 off 重定基到 SMP_DATA（32 位偏移空间），故镜像必须落在
+ * SMP_DATA 之上且在 4 GiB 内——与上游 tests/slice_test.c 的要求相同。 */
+#define H_SAMPLE_SLOTS 4u
+#define H_SAMPLE_SIZE  0x14000u
+static uint8_t h_samples[H_SAMPLE_SLOTS * H_SAMPLE_SIZE];
+uint8_t *sloop_hal_user_samples(void)
+{
+    return h_samples;
+}
+#define SMP_USER_XIP(k) ((const uint8_t *)h_samples + (uint32_t)(k) * H_SAMPLE_SIZE)
 
 #define main hostsim_main
 #include "../third_party/sloop-fm1/tests/hostsim.c"
@@ -25,11 +39,61 @@ static uint32_t trk_def_engine(uint32_t i)
 #include "../third_party/sloop-fm1/firmware/src/project.c"
 #undef PROJ_HOST
 
-/* 与固件同名的锁桩（host 单线程）：只计数，验证「一次动作一次引擎锁」。 */
+/* ---------------------------------------------------------------- 假 flash ---
+ * 设备的 HAL 存储后端（sloopstore 分区 + mmap）不在本可执行文件里：这里用一块覆盖
+ * 上游逻辑区间 [0x97000, 0xFF000) 的 RAM 镜像代替，语义与 storage_flash.c 相同
+ * （按扇区擦、NOR 只能把 1 写成 0）。采样槽 USR1..4 都落在这段区间内。 */
+#define H_FLASH_BASE 0x97000u
+#define H_FLASH_SPAN 0x68000u
+#define H_SECTOR 0x1000u
+static uint8_t h_flash[H_FLASH_SPAN];
+
+static int st_off(uint32_t off, uint32_t n)
+{
+    if (off < H_FLASH_BASE || n > H_FLASH_SPAN || off - H_FLASH_BASE > H_FLASH_SPAN - n) return -1;
+    return (int)(off - H_FLASH_BASE);
+}
+
+static int st_read(uint32_t off, void *dst, uint32_t n)
+{
+    int at = st_off(off, n);
+    if (at < 0 || (dst == NULL && n > 0)) return -1;
+    if (n > 0) memcpy(dst, h_flash + at, n);
+    return 0;
+}
+
+static int st_erase(uint32_t off)
+{
+    if (st_off(off, H_SECTOR) < 0 || (off & (H_SECTOR - 1u)) != 0u) return -1;
+    memset(h_flash + (off - H_FLASH_BASE), 0xFF, H_SECTOR);
+    return 0;
+}
+
+static int st_prog(uint32_t off, const void *src, uint32_t n)
+{
+    int at = st_off(off, n);
+    const uint8_t *b = src;
+    uint32_t i;
+    if (at < 0 || (b == NULL && n > 0)) return -1;
+    for (i = 0; i < n; i++) h_flash[(uint32_t)at + i] &= b[i];
+    return 0;
+}
+
+#include "scratch.h" /* main_scratch（storage.c 的 st_buf） */
+#include "../third_party/sloop-fm1/firmware/src/storage.c"
+
+/* 与固件同名的锁/门桩（host 单线程）：只计数，验证「一次动作一次引擎锁」。
+ * 设备侧这些是 store_tab5.c 的 static（同一 TU，单一来源，不复制锁）与公共 ready 门。 */
 static bool s_frozen;
+static bool h_store_ready = true;
 static uint32_t engine_lock_calls, engine_unlock_calls;
+static uint32_t store_lock_calls, store_unlock_calls;
 static void engine_lock(void) { engine_lock_calls++; }
 static void engine_unlock(void) { engine_unlock_calls++; }
+static void store_lock(void) { store_lock_calls++; }
+static void store_unlock(void) { store_unlock_calls++; }
+static bool store_playing(void) { return song.playing || transport_req; }
+bool sloop_store_ready(void) { return h_store_ready; }
 
 #include "../firmware/components/sloop_core/src/sound_tab5.c"
 
@@ -527,10 +591,259 @@ static void test_fm6_fields(void)
     trk[1].eng_req = save_req1;
 }
 
+/* ---------------------------------------------------------------- 采样槽（Task 4） --- */
+
+static void sample_env_reset(void)
+{
+    memset(h_flash, 0xFF, sizeof h_flash);
+    memset(h_samples, 0xFF, sizeof h_samples);
+    memset(usr_nz, 0, sizeof usr_nz);
+    memset(usr_zone, 0, sizeof usr_zone);
+    s_frozen = false;
+    h_store_ready = true;
+    song.playing = 0;
+    transport_req = 0;
+}
+
+/* 上游 smp_user_hdr_t：1 个合法 zone（off=0，n=2*data_len 采样 = len 字节 4bit ADPCM）。
+ * bad：1 = zone n=0，2 = zone off 越过 data_len，3 = magic 不对。 */
+static void sample_hdr(uint8_t hdr[480], const char *name, const uint8_t *data, uint32_t len,
+                       uint32_t crc_delta, int bad)
+{
+    smp_user_hdr_t h;
+    size_t nl = strlen(name);
+
+    memset(&h, 0, sizeof h);
+    h.magic = SMP_USER_MAGIC;
+    h.version = 1;
+    h.nz = 1;
+    if (nl > sizeof h.name) nl = sizeof h.name;
+    memcpy(h.name, name, nl);
+    h.data_len = len;
+    h.crc = st_crc32(data, len) + crc_delta;
+    h.zone[0].off = 0;
+    h.zone[0].n = len * 2u;
+    h.zone[0].ls = 0;
+    h.zone[0].le = h.zone[0].n - 1u;
+    h.zone[0].rate = 1u << 16;
+    h.zone[0].lo = 0;
+    h.zone[0].hi = 127;
+    if (bad == 1) h.zone[0].n = 0;
+    if (bad == 2) h.zone[0].off = len;
+    if (bad == 3) h.magic = 0x12345678u;
+    memcpy(hdr, &h, sizeof h);
+}
+
+/* 一次完整上传：BEGIN → 480B header（4×120，console 的行上限）→ 数据按 256B 块 →
+ * END。`send` 可给出与 CRC 不同的字节流（CRC 失败用例）。 */
+static esp_err_t sample_upload(uint32_t slot, const char *name, const uint8_t *data, uint32_t len,
+                               uint32_t crc_delta, int bad_hdr, const uint8_t *send, int do_end)
+{
+    uint8_t hdr[480];
+    const uint8_t *src = send != NULL ? send : data;
+    esp_err_t ret;
+    uint32_t at;
+
+    sample_hdr(hdr, name, data, len, crc_delta, bad_hdr);
+    ret = sloop_store_sample_begin(slot);
+    if (ret != ESP_OK) return ret;
+    for (at = 0; at < (uint32_t)sizeof hdr; at += 120) {
+        uint32_t n = (uint32_t)sizeof hdr - at < 120u ? (uint32_t)sizeof hdr - at : 120u;
+        ret = sloop_store_sample_hdr_append(hdr + at, n);
+        if (ret != ESP_OK) return ret;
+    }
+    for (at = 0; at < len; at += 256) {
+        uint32_t n = len - at < 256u ? len - at : 256u;
+        ret = sloop_store_sample_write(slot, 512u + at, src + at, n);
+        if (ret != ESP_OK) return ret;
+    }
+    return do_end ? sloop_store_sample_end(slot) : ESP_OK;
+}
+
+static int sample_mirror_is_flash(uint32_t slot)
+{
+    return memcmp(h_samples + slot * H_SAMPLE_SIZE, h_flash + (SMP_USER_OFF(slot) - H_FLASH_BASE),
+                  H_SAMPLE_SIZE) == 0;
+}
+
+static int sample_flash_hdr_ff(uint32_t slot)
+{
+    uint8_t hdr[480];
+    uint32_t i;
+    if (st_read(SMP_USER_OFF(slot), hdr, sizeof hdr) != 0) return 0;
+    for (i = 0; i < sizeof hdr; i++)
+        if (hdr[i] != 0xFF) return 0;
+    return 1;
+}
+
+static void test_sample_slot(void)
+{
+    static uint8_t data[1024], corrupt[1024], hdr[480];
+    sloop_store_sample_info_t info;
+    uint32_t base, i, l, u;
+    int ok;
+
+    sample_env_reset();
+    base = SMP_USER_OFF(0);
+
+    /* smp_user_scan 把 zone 的 off 重定基到 SMP_DATA（32 位偏移）：镜像必须在它之上且可达
+     * （上游 tests/slice_test.c 同口径），否则扫描出的 zone 指不到镜像。 */
+    check((uintptr_t)h_samples > (uintptr_t)SMP_DATA &&
+              (uintptr_t)h_samples - (uintptr_t)SMP_DATA <= 0xF0000000u,
+          "sample mirror addressable from SMP_DATA (32-bit zone rebase)");
+    check(sizeof(smp_user_hdr_t) == 480u && SLOOP_STORE_SAMPLE_DATA == 512u, "header is 480B, data at +512");
+
+    for (i = 0; i < sizeof data; i++) data[i] = (uint8_t)(i * 37u + 11u);
+    memcpy(corrupt, data, sizeof corrupt);
+    corrupt[300] ^= 0x40u;
+
+    /* 空槽 */
+    memset(&info, 0xAA, sizeof info);
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 0u && info.zones == 0u,
+          "info: an untouched slot is empty");
+
+    /* 没有 open slot 时：没有可写的目标（先于任何 begin） */
+    memset(hdr, 0xFF, sizeof hdr);
+    check(sloop_store_sample_hdr_append(hdr, 4) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_write(0, 512, data, 256) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_end(0) == ESP_ERR_INVALID_STATE,
+          "hdr_append/write/end without begin -> state");
+
+    /* BEGIN 不 END：镜像 header 0xFF（INFO 空）+ 槽失效，flash header 扇区被擦 */
+    check(sloop_store_sample_begin(0) == ESP_OK, "begin(0)");
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 0u && h_samples[0] == 0xFF &&
+              h_samples[479] == 0xFF && usr_nz[0] == 0u,
+          "begin without end: info empty, mirror header 0xFF, nz cleared");
+    check(sample_flash_hdr_ff(0), "begin erases the flash header sector");
+
+    /* 合法上传 */
+    check(sample_upload(0, "TONE", data, sizeof data, 0, 0, NULL, 1) == ESP_OK,
+          "upload: begin/hdr/write/end");
+    memset(&info, 0, sizeof info);
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u && info.zones == 1u &&
+              strcmp(info.name, "TONE") == 0 && info.data_kb == 1u,
+          "info: used/name/zones/KB after END");
+    check(usr_nz[0] == 1u && usr_zone[0][0].n == 2048u && usr_zone[0][0].off != 0u,
+          "end scans the slot (nz=1, n=2048, zone off rebased)");
+    check(sample_mirror_is_flash(0), "mirror == flash after END (whole 80KiB slot)");
+
+    /* reload = 开机装载路径：flash 是权威副本 */
+    memset(h_samples, 0x5A, H_SAMPLE_SIZE);
+    memset(usr_nz, 0, sizeof usr_nz);
+    sloop_store_sample_reload(0);
+    check(sample_mirror_is_flash(0) && usr_nz[0] == 1u, "reload: flash -> mirror + scan (boot path)");
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u, "reload keeps the slot visible");
+
+    /* 写边界：off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256、必须是 open slot */
+    check(sloop_store_sample_begin(1) == ESP_OK, "begin(1) for boundary cases");
+    check(sloop_store_sample_write(1, 0, data, 256) == ESP_ERR_INVALID_SIZE, "write: off < 512 -> size");
+    check(sloop_store_sample_write(1, 513, data, 256) == ESP_ERR_INVALID_SIZE,
+          "write: off not 256-aligned -> size");
+    check(sloop_store_sample_write(1, 0x13F80u, data, 256) == ESP_ERR_INVALID_SIZE,
+          "write: off + n past the slot end -> size");
+    check(sloop_store_sample_write(1, 512, data, 257) == ESP_ERR_INVALID_SIZE, "write: n > 256 -> size");
+    check(sloop_store_sample_write(2, 512, data, 256) == ESP_ERR_INVALID_STATE,
+          "write: another slot than the open one -> state");
+    check(sloop_store_sample_write(1, 0x13F00u, data, 256) == ESP_OK,
+          "write: the last 256B of the slot is accepted");
+    check(sloop_store_sample_hdr_append(hdr, 256) == ESP_OK &&
+              sloop_store_sample_hdr_append(hdr, 256) == ESP_ERR_INVALID_SIZE,
+          "hdr_append: past 480B -> size");
+    check(sloop_store_sample_end(1) == ESP_ERR_INVALID_ARG, "end: short header -> invalid arg");
+    check(sloop_store_sample_info(1, &info) == ESP_OK && info.used == 0u && sample_flash_hdr_ff(1),
+          "a refused end leaves slot 1 empty in the mirror and flash");
+
+    /* CRC 坏：header 的 CRC 与写进去的数据不一致 */
+    check(sample_upload(1, "BAD", data, sizeof data, 1, 0, NULL, 1) == ESP_ERR_INVALID_CRC,
+          "upload with a wrong CRC -> INVALID_CRC");
+    check(sloop_store_sample_info(1, &info) == ESP_OK && info.used == 0u && sample_flash_hdr_ff(1),
+          "CRC failure: slot stays empty, no header committed");
+
+    /* 非法 header：zone n=0 / zone 越过 data / magic */
+    check(sample_upload(2, "Z0", data, sizeof data, 0, 1, NULL, 1) == ESP_ERR_INVALID_ARG,
+          "zone n=0 -> invalid arg");
+    check(sloop_store_sample_info(2, &info) == ESP_OK && info.used == 0u && sample_flash_hdr_ff(2),
+          "zone n=0: slot stays empty");
+    check(sample_upload(2, "Z1", data, sizeof data, 0, 2, NULL, 1) == ESP_ERR_INVALID_ARG,
+          "zone off past data_len -> invalid arg");
+    check(sample_upload(2, "Z2", data, sizeof data, 0, 3, NULL, 1) == ESP_ERR_INVALID_ARG,
+          "wrong magic -> invalid arg");
+
+    /* 走带中拒绝（spec §3.5 的 Tab5 安全差异）；读仍可用 */
+    song.playing = 1;
+    check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE,
+          "begin/erase while playing -> state");
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u,
+          "info is readable while playing (and the slot survived)");
+    song.playing = 0;
+    transport_req = 1;
+    check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE, "begin with a transport request -> state");
+    transport_req = 0;
+
+    /* 诊断冻结：写/擦拒绝，读不受影响 */
+    s_frozen = true;
+    check(sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_erase(0) == ESP_ERR_INVALID_STATE,
+          "begin/erase while frozen -> state");
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 1u, "frozen does not block info");
+    s_frozen = false;
+
+    /* 存储未就绪 */
+    h_store_ready = false;
+    check(sloop_store_sample_info(0, &info) == ESP_ERR_INVALID_STATE &&
+              sloop_store_sample_begin(0) == ESP_ERR_INVALID_STATE,
+          "not ready -> state");
+    h_store_ready = true;
+
+    /* ERASE：镜像与 flash 整槽 0xFF，扫描后槽为空 */
+    check(sloop_store_sample_erase(0) == ESP_OK, "erase(0)");
+    memset(&info, 0, sizeof info);
+    check(sloop_store_sample_info(0, &info) == ESP_OK && info.used == 0u && usr_nz[0] == 0u,
+          "erase: info empty, nz cleared");
+    ok = 1;
+    for (i = 0; i < H_SAMPLE_SIZE; i++) {
+        if (h_samples[i] != 0xFF) ok = 0;
+        if (h_flash[base - H_FLASH_BASE + i] != 0xFF) ok = 0;
+    }
+    check(ok, "erase: mirror and flash slot both 0xFF");
+
+    /* 参数越界 */
+    check(sloop_store_sample_info(4, &info) == ESP_ERR_INVALID_ARG &&
+              sloop_store_sample_begin(4) == ESP_ERR_INVALID_ARG &&
+              sloop_store_sample_erase(4) == ESP_ERR_INVALID_ARG &&
+              sloop_store_sample_write(4, 512, data, 256) == ESP_ERR_INVALID_ARG &&
+              sloop_store_sample_info(0, NULL) == ESP_ERR_INVALID_ARG,
+          "slot >= 4 / NULL out -> invalid arg");
+
+    /* 一次动作一次引擎锁（smp_user_scan 的保护：设备上 fm1_irq_off 是空壳） */
+    l = engine_lock_calls;
+    u = engine_unlock_calls;
+    (void)sloop_store_sample_begin(0);
+    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "begin takes the engine lock once");
+    l = engine_lock_calls;
+    u = engine_unlock_calls;
+    (void)sloop_store_sample_erase(0);
+    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "erase takes the engine lock once");
+    l = engine_lock_calls;
+    u = engine_unlock_calls;
+    sloop_store_sample_reload(0);
+    check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "reload takes the engine lock once");
+
+    /* 每个写入口都经存储锁（设备上是 store_tab5.c 的同一把，host 只计数） */
+    l = store_lock_calls;
+    u = store_unlock_calls;
+    (void)sloop_store_sample_begin(0);
+    check(store_lock_calls == l + 1u && store_unlock_calls == u + 1u, "begin takes the store lock once");
+
+    sample_env_reset();
+}
+
 int main(void)
 {
     test_dsyn_fields();
     test_fm6_fields();
+    test_sample_slot();
     if (fails) {
         printf("SYNTH HOST TEST FAILED (%d failure%s)\n", fails, fails == 1 ? "" : "s");
         return 1;
