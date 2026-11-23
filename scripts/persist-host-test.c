@@ -746,6 +746,58 @@ int main(void)
         check(song_per_put_settings(payload, len, SONG_PER_CANON + SONG_MIDI_MAX - 1u, &f, tdef) == SONG_PER_CANON &&
                   payload[len] == 0xEEu,
               "settings_reso_appends_tail: cap 不足 ⇒ 不追加");
+        /* 历史 32/36B 短尾段：reso ≠ 0 ⇒ 就地扩到 40B（已有字节保留、缺的后缀取 tail_def），
+         * nibble 落在新长度的 byte38；reso = 0 ⇒ 不扩。 */
+        for (uint32_t tail = SONG_MIDI_32; tail <= SONG_MIDI_36; tail += 4u) {
+            char what[96];
+            uint32_t slen = SONG_PER_CANON + tail;
+            snprintf(what, sizeof what, "settings_reso_appends_tail: %uB 短尾段 reso=7 + tail_def ⇒ 扩到 1,592B",
+                     (unsigned)tail);
+            mk_per3(payload, slen, &arr);
+            memcpy(before, payload, slen);
+            memset(&f, 0, sizeof f);
+            memset(payload + slen, 0xEE, SONG_MIDI_MAX);
+            check(song_per_put_settings(payload, slen, sizeof payload, &f, tdef) == slen &&
+                      memcmp(payload + 16u, before + 16u, SONG_LIGHTS_OFF - 16u) == 0 &&
+                      memcmp(payload + SONG_PER_BASE, before + SONG_PER_BASE, slen - SONG_PER_BASE) == 0 &&
+                      payload[slen] == 0xEEu,
+                  "settings_reso_appends_tail: 短尾段 reso=0 ⇒ 不扩（长度不变）");
+            f.flt_reso = 7;
+            uint32_t nlen = song_per_put_settings(payload, slen, sizeof payload, &f, tdef);
+            check(nlen == SONG_PER_CANON + SONG_MIDI_MAX, what);
+            check(memcmp(payload + SONG_PER_CANON, before + SONG_PER_CANON, tail) == 0,
+                  "settings_reso_appends_tail: 短尾段已有字节逐字节保留");
+            uint8_t suffix[SONG_MIDI_MAX];
+            memcpy(suffix, tdef0 + tail, SONG_MIDI_MAX - tail);
+            suffix[38u - tail] = (uint8_t)((tdef0[38] & ~0x3Cu) | (7u << 2)); /* 后缀含 byte38：已 RMW */
+            check(memcmp(payload + slen, suffix, SONG_MIDI_MAX - tail) == 0,
+                  "settings_reso_appends_tail: 缺的后缀 = tail_def[short_len..40)（byte38 已打点）");
+            check((payload[nlen - 2u] & 0x3Cu) == (7u << 2) &&
+                      payload[nlen - 2u] == ((tdef0[38] & ~0x3Cu) | (7u << 2)),
+                  "settings_reso_appends_tail: nibble 落在 byte38，其余位保持");
+            memset(&g, 0, sizeof g);
+            check(song_per_get_settings(payload, nlen, &g) && g.flt_reso == 7u,
+                  "settings_reso_appends_tail: 扩展后读回 reso=7");
+        }
+        mk_per3(payload, SONG_PER_CANON + SONG_MIDI_32, &arr);
+        memcpy(before, payload, SONG_PER_CANON + SONG_MIDI_32);
+#define SHORT_TAIL_UNCHANGED() \
+    (memcmp(payload + 16u, before + 16u, SONG_LIGHTS_OFF - 16u) == 0 && \
+     memcmp(payload + SONG_PER_BASE, before + SONG_PER_BASE, SONG_PER_CANON + SONG_MIDI_32 - SONG_PER_BASE) == 0 && \
+     payload[SONG_PER_CANON + SONG_MIDI_32] == 0xEEu)
+        memset(payload + SONG_PER_CANON + SONG_MIDI_32, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, SONG_PER_CANON + SONG_MIDI_32, sizeof payload, &f, 0) ==
+                  SONG_PER_CANON + SONG_MIDI_32 && SHORT_TAIL_UNCHANGED(),
+              "settings_reso_appends_tail: 短尾段 tail_def=NULL ⇒ 不扩");
+        check(song_per_put_settings(payload, SONG_PER_CANON + SONG_MIDI_32, SONG_PER_CANON + SONG_MIDI_MAX - 1u, &f, tdef) ==
+                  SONG_PER_CANON + SONG_MIDI_32 && SHORT_TAIL_UNCHANGED(),
+              "settings_reso_appends_tail: 短尾段 cap 不足 ⇒ 不扩");
+#undef SHORT_TAIL_UNCHANGED
+        mk_per3(payload, SONG_PER_BASE, &arr); /* 88B：没有 DSU，尾段无处可放 ⇒ 不扩、不写尾 */
+        memset(payload + SONG_PER_BASE, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, SONG_PER_BASE, sizeof payload, &f, tdef) == SONG_PER_BASE &&
+                  payload[SONG_PER_BASE] == 0xEEu && payload[SONG_PER_BASE + SONG_MIDI_MAX - 2u] == 0xEEu,
+              "settings_reso_appends_tail: 88B（无 DSU）⇒ 不扩");
 
         /* (d) 往返：(a)(b)(c) 各读回，字段逐项相等 */
         memset(&g, 0xFF, sizeof g);
@@ -759,8 +811,9 @@ int main(void)
                   g.rec_quant_off == 0u && g.flt_reso == 0u,
               "settings_roundtrip: (b) owned 位已写、外部位不入投影");
         memset(&g, 0xFF, sizeof g);
-        check(song_per_get_settings(payload + 0, SONG_PER_CANON, &g) && g.palette == 4u && g.flt_reso == 0u,
-              "settings_roundtrip: (c) 无尾段 ⇒ reso 读回 0");
+        check(song_per_get_settings(a_pay, SONG_PER_CANON, &g) && g.palette == 2u && g.flt_reso == 0u &&
+                  g.lights_lvl == 3u,
+              "settings_roundtrip: (c) 无尾段 ⇒ reso 读回 0（其余字段照常）");
         memcpy(payload, a_pay, a_len);
         payload[a_len - 2u] = 0xFF; /* bits 2..5 = 15：上游读回钳到 10 */
         memset(&g, 0, sizeof g);
@@ -780,9 +833,17 @@ int main(void)
         put_word(payload + 8, 1u);
         put_word(payload + 12, 1u);
         memset(&g, 0xFF, sizeof g);
-        check(song_per_get_settings(payload, SONG_PER2_LEN, &g) && g.palette == 3u && g.lowcut == 0u && g.zoom == 0u &&
-                  g.lights_lvl == 0u && g.flt_reso == 0u,
-              "settings_roundtrip: PER2 只读 palette（其余 0）");
+        check(song_per_get_settings(payload, SONG_PER2_LEN, &g) && g.palette == 3u && g.lowcut == 1u && g.zoom == 1u &&
+                  g.lights_lvl == 0u && g.rec_tempo == 0u && g.theme_on == 0u && g.rec_quant_off == 0u && g.flt_reso == 0u,
+              "settings_roundtrip: PER2 读 palette/lowcut/zoom（没有 lights/尾段 ⇒ 0）");
+        memset(payload, 0, SONG_PER2_LEN);
+        put_word(payload, SONG_PER2_MAGIC);
+        put_word(payload + 4, 1u);
+        put_word(payload + 8, 1u);
+        put_word(payload + 12, 1u);
+        memset(&g, 0, sizeof g);
+        check(song_per_get_settings(payload, SONG_PER2_LEN, &g) && g.palette == 1u && g.lowcut == 1u && g.zoom == 1u,
+              "settings_roundtrip: PER2(48B) palette=1 lowcut=1 zoom=1 三个字段读回");
         memset(payload, 0, SONG_PER1_LEN);
         put_word(payload, SONG_PER1_MAGIC);
         put_word(payload + 4, 5u);

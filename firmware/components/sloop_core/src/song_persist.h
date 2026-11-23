@@ -354,15 +354,15 @@ static uint8_t song_reso_byte(uint8_t b, uint32_t reso)
 /* 在 song_per_build/put_dsu **之后**调用（payload 已是合法 PER3，len ≥ 88）。就地写
  * palette/lowcut/zoom 与 lights 的 owned 位；flt_reso 写进尾段 byte38：
  *   - 已有 40B 尾段（len ≥ 1,592）⇒ RMW（byte 在 payload 的倒数第二字节，不假定 1,592）；
- *   - 没有尾段（len == 1,552）且 reso ≠ 0 ⇒ 追加 tail_def（上游 midi_part_fill 的 40B 默认
- *     尾段，设备侧由调用方生成）再打点——与上游 settings_write「非默认才写尾段」同语义；
- *     tail_def == NULL 或 cap 不够 ⇒ 不追加，reso 丢弃（返回 len 不变）；
- *   - 32/36B 的历史尾段没有 byte38 ⇒ 不写、不追加。
+ *   - 尾段不足 40B（没有 / 2.6 的 32B、36B）且 reso ≠ 0 ⇒ 就地扩到 40B：已有的尾段字节
+ *     保留，缺的后缀取 tail_def（上游 midi_part_fill 的 40B 默认尾段，设备侧由调用方生成）
+ *     再打点——与上游 settings_write「非默认才写尾段」同语义；tail_def == NULL 或 cap
+ *     不够 ⇒ 不扩，reso 丢弃（返回 len 不变）；reso = 0 ⇒ 不扩。
  * 返回新 len。len < 88（不是 PER3）⇒ 什么都不写。 */
 static uint32_t song_per_put_settings(uint8_t *payload, uint32_t len, uint32_t cap,
                                       const song_settings_t *f, const uint8_t *tail_def)
 {
-    uint32_t w;
+    uint32_t w, tail;
     if (payload == 0 || f == 0 || len < SONG_PER_BASE) return len;
     song_per_put_word(payload + SONG_PAL_OFF, f->palette);
     song_per_put_word(payload + SONG_LOWCUT_OFF, f->lowcut);
@@ -371,21 +371,22 @@ static uint32_t song_per_put_settings(uint8_t *payload, uint32_t len, uint32_t c
         ((f->lights_lvl & 0xFu) | (f->rec_tempo & 1u) << 9 | (f->rec_count & 1u) << 10 |
          (f->theme_on & 1u) << 30 | (f->rec_quant_off & 1u) << 31);
     song_per_put_word(payload + SONG_LIGHTS_OFF, w);
-    if (len >= SONG_PER_CANON + SONG_MIDI_MAX) {
-        uint8_t *b = payload + len - SONG_MIDI_MAX + SONG_MIDI_RESO_OFF;
-        *b = song_reso_byte(*b, f->flt_reso);
-    } else if (len == SONG_PER_CANON && f->flt_reso != 0u && tail_def != 0 &&
-               cap >= len + SONG_MIDI_MAX) {
-        memcpy(payload + len, tail_def, SONG_MIDI_MAX);
-        payload[len + SONG_MIDI_RESO_OFF] = song_reso_byte(tail_def[SONG_MIDI_RESO_OFF], f->flt_reso);
-        len += SONG_MIDI_MAX;
+    if (len < SONG_PER_CANON) return len; /* 没有 DSU（song_per_build 之后不会到这）：尾段无处可放 */
+    tail = len - SONG_PER_CANON;
+    if (tail < SONG_MIDI_MAX) {
+        if (f->flt_reso == 0u || tail_def == 0 || cap < SONG_PER_CANON + SONG_MIDI_MAX) return len;
+        memcpy(payload + len, tail_def + tail, SONG_MIDI_MAX - tail); /* 已有短尾段原样，只补后缀 */
+        len = SONG_PER_CANON + SONG_MIDI_MAX;
     }
+    payload[len - SONG_MIDI_MAX + SONG_MIDI_RESO_OFF] =
+        song_reso_byte(payload[len - SONG_MIDI_MAX + SONG_MIDI_RESO_OFF], f->flt_reso);
     return len;
 }
 
 /* 读回 settings 字段（上游 persist_boot 口径）。false = 没有对象或对象损坏（未知 magic/
- * 长度），*out 不动。PER1/PER2 只取 palette（其余 0）；PER3 不足 88B（2.2）⇒ lights 读 0；
- * 只有 40B 尾段才有 flt_reso（bits 2..5，>10 钳到 10），32/36B 尾段与无尾段 ⇒ 0。 */
+ * 长度），*out 不动。PER1（40B）只有 palette；PER2（48B）有 palette/lowcut/zoom；两者都没有
+ * lights/尾段 ⇒ 0。PER3 不足 88B（2.2）⇒ lights 读 0；只有 40B 尾段才有 flt_reso
+ * （bits 2..5，>10 钳到 10），32/36B 尾段与无尾段 ⇒ 0。 */
 static bool song_per_get_settings(const uint8_t *payload, uint32_t len, song_settings_t *out)
 {
     song_per_kind_t kind;
@@ -402,7 +403,7 @@ static bool song_per_get_settings(const uint8_t *payload, uint32_t len, song_set
     out->theme_on = 0;
     out->rec_quant_off = 0;
     out->flt_reso = 0;
-    if (kind != SONG_PER3) return true;
+    if (kind == SONG_PER1) return true;
     out->lowcut = song_per_word(payload + SONG_LOWCUT_OFF);
     out->zoom = song_per_word(payload + SONG_ZOOM_OFF);
     if (len < SONG_PER_BASE) return true; /* 2.2 的 84B：没有 lights（上游当 0） */
@@ -428,7 +429,8 @@ static void song_rgb888(uint16_t v, uint8_t out[3])
 }
 
 /* side record 开头的 theme_t（40B）：magic "THM2" + CRC-32（0..35）都对才算有效主题
- * （上游 gfx.c theme_check 的前半；名字可打印/与背景的对比度由 UI 应用时再判）。
+ * （只做 magic + CRC：上游 gfx.c theme_check 另判的名字可打印/与背景对比度是呈现层
+ * 关切，由 UI 应用主题时处理）。
  * false ⇒ *out 不动。 */
 static bool song_per_side_theme(const uint8_t *side, song_theme_view_t *out)
 {
