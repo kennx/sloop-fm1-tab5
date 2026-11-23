@@ -313,6 +313,17 @@ static const char *const FM6_N_GLOBAL[SLOOP_FM6_GLOBAL_FIELDS] = {
     "NAME1", "NAME2", "NAME3", "NAME4", "NAME5",
     "NAME6", "NAME7", "NAME8", "NAME9", "NAME10",
 };
+/* ALG：补丁里的 `FP_ALG` 是 0..31 的算法索引（fm6_sync 用 `& 31` 查 FM6_ALG），
+ * 编辑器/面板从 1 起编号（ALG 宏 1..32，0 另作 PAT），故名字为 "1".."32"。 */
+static const char *const FM6_N_ALG[32] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
+};
+/* LFW：fm6_core.c 的 `fm6_lfo_sample` 的波形编号 0..5（triangle / saw down / saw up /
+ * square / sine / sample & hold）。 */
+static const char *const FM6_N_LFW[6] = {"TRI", "SAW DN", "SAW UP", "SQR", "SIN", "S&H"};
+/* LPMS：LFO 音高调制灵敏度，`FM6_PMS[]` 的索引 0..7（0 = 无调制）。 */
+static const char *const FM6_N_LPMS[8] = {"0", "1", "2", "3", "4", "5", "6", "7"};
 
 /* 字段 -> 155B 内的绝对偏移；越界返回 -1。 */
 static int32_t fm6_field_offset(uint32_t op, uint32_t field)
@@ -329,18 +340,44 @@ bool sloop_core_fm6_desc(uint32_t op, uint32_t field, sloop_desc_t *out)
     int32_t off = fm6_field_offset(op, field);
     if (out == NULL || off < 0)
         return false;
-    const char *label = op < SLOOP_FM6_GLOBAL_OP ? FM6_N_OP[field] : FM6_N_GLOBAL[field];
-    bool name = op == SLOOP_FM6_GLOBAL_OP && field >= FM6_GLOBAL_VOICE;
-    out->label = label;
+    bool global = op == SLOOP_FM6_GLOBAL_OP;
+    bool name = global && field >= FM6_GLOBAL_VOICE;
+    out->label = global ? FM6_N_GLOBAL[field] : FM6_N_OP[field];
     out->unit = NULL;
-    /* 名称字节是编辑器协议里的可打印 ASCII；其余范围 = fm6_max()（sanitize 表）。 */
-    out->fmt = (uint8_t)(off == FP_MODE || off == FP_OKS || off == FP_LKS ? SLOOP_DESC_FMT_ONOFF
-                                                                          : SLOOP_DESC_FMT_INT);
+    out->fmt = SLOOP_DESC_FMT_INT;
     out->min = (int16_t)(name ? 32 : 0);
     out->max = (int16_t)(name ? 126 : fm6_max((uint32_t)off));
     out->def = 0;
     out->enums = NULL;
     out->enum_count = 0;
+    if (!global && field == FP_MODE) {
+        /* MODE 是**每个**算子块里的同一个字段（off == FP_MODE 只覆盖 op 0），按 (op, field) 判 */
+        out->fmt = SLOOP_DESC_FMT_ONOFF;
+    } else if (global) {
+        switch (field) {
+        case FP_ALG - FP_PR1:
+            out->fmt = SLOOP_DESC_FMT_ENUM;
+            out->enums = FM6_N_ALG;
+            out->enum_count = 32;
+            break;
+        case FP_LFW - FP_PR1:
+            out->fmt = SLOOP_DESC_FMT_ENUM;
+            out->enums = FM6_N_LFW;
+            out->enum_count = 6;
+            break;
+        case FP_LPMS - FP_PR1:
+            out->fmt = SLOOP_DESC_FMT_ENUM;
+            out->enums = FM6_N_LPMS;
+            out->enum_count = 8;
+            break;
+        case FP_OKS - FP_PR1:
+        case FP_LKS - FP_PR1:
+            out->fmt = SLOOP_DESC_FMT_ONOFF;
+            break;
+        default:
+            break;
+        }
+    }
     return true;
 }
 
@@ -385,7 +422,7 @@ int16_t sloop_core_fm6_set(uint32_t track, uint32_t op, uint32_t field, int16_t 
     engine_lock();
     int16_t ret = SLOOP_FM6_INVALID;
     if (!s_frozen && trk[track].eng_req == ENGI_FM6) {
-        uint8_t patch[FP_SIZE + 1u];
+        uint8_t patch[FP_SIZE];
         memcpy(patch, fm6_patch[track], FP_SIZE);
         patch[off] = (uint8_t)clamp((int32_t)v, 0, (int32_t)fm6_max((uint32_t)off));
         fm6_set_patch(track, patch);

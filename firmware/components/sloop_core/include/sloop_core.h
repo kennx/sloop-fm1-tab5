@@ -248,7 +248,10 @@ bool sloop_core_dsyn_dirty(void);
  * `trk[track].p[P_E0]`（ALG 宏 → PAT），否则上游 `fm6_sync` 会用宏覆盖 patch 的算法、
  * 编辑听不到（spec §4.1「ALG 宏覆盖」）。写成功后 `fm6_slot[track] = p[P_E7]`
  * （上游 ED_FM6_PUT 同法），`fm6_poll` 因此不会在 PTCH 未变时用槽 patch 覆盖编辑。
- * 所有入口持引擎锁；诊断冻结时写回 `SLOOP_FM6_INVALID`、读/快照回 `ESP_ERR_INVALID_STATE`。
+ * 锁：`sloop_core_fm6_patch/field/set` 持引擎锁，非 FM6 轨的判定也在锁内（快照的
+ * `engine_ok` 与 patch/slot 同拍）；诊断冻结在锁外先拒（命中时不取锁）。`sloop_core_fm6_desc`
+ * 与 `sloop_fm6_field_from_patch` 是纯函数/纯解码——不取锁、无副作用、不受冻结影响。
+ * 冻结时写回 `SLOOP_FM6_INVALID`、读/快照回 `ESP_ERR_INVALID_STATE`。
  * 轨号越界（含鼓轨，上游 NPART 之外的轨没有 live patch）：`sloop_core_fm6_patch` 回
  * `ESP_ERR_INVALID_ARG`；合成轨但引擎不是 FM6：`sloop_core_fm6_patch` 回
  * `ESP_ERR_NOT_ALLOWED` 并把 `engine_ok` 置 0（patch/slot 仍原样给出，UI 可显示锁定）、
@@ -266,7 +269,9 @@ typedef struct {
     uint8_t slot;                        /* 当前 PTCH（P_E7），只读 */
     uint8_t engine_ok;                   /* 选中轨引擎 == FM6 */
 } sloop_fm6_patch_snapshot_t;
-/* 描述符：op 0..5 / op 6 = 全局；field 越界或 op 越界返回 false 且不改 `out`。 */
+/* 描述符：op 0..5 / op 6 = 全局；每个算子的 MODE 与全局 OKS/LKS 为 onoff，全局
+ * ALG（"1".."32"）/LFW（TRI..S&H）/LPMS（"0".."7"）带枚举表；op/field 越界返回 false
+ * 且不改 `out`。 */
 bool sloop_core_fm6_desc(uint32_t op, uint32_t field, sloop_desc_t *out);
 /* 拷出该轨的 155B live patch + slot + engine_ok（一次引擎锁）。 */
 esp_err_t sloop_core_fm6_patch(uint32_t track, sloop_fm6_patch_snapshot_t *out);

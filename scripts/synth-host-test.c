@@ -286,7 +286,10 @@ static void test_fm6_fields(void)
     };
     /* 上游 eng_fm6.c 里的字段编号（独立手抄，防止实现里 op/field 转置） */
     enum { T_R1 = 0, T_L4 = 7, T_LC = 11, T_OL = 16, T_MODE = 17, T_FC = 18, T_DET = 20 };
-    enum { G_PR1 = 0, G_PL4 = 7, G_ALG = 8, G_FB = 9, G_LKS = 15, G_LFW = 16, G_TRNSP = 18, G_NAME1 = 19 };
+    enum {
+        G_PR1 = 0, G_PL4 = 7, G_ALG = 8, G_FB = 9, G_LKS = 15, G_LFW = 16, G_LPMS = 17, G_TRNSP = 18,
+        G_NAME1 = 19, G_NAME10 = 28,
+    };
     uint8_t v[FP_SIZE + 1u], back[FP_SIZE + 1u], pk[128];
     sloop_fm6_patch_snapshot_t snap, locked;
     sloop_desc_t d;
@@ -334,6 +337,55 @@ static void test_fm6_fields(void)
     check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_NAME1, &d) && d.min == 32 && d.max == 126,
           "desc NAME1: printable 32..126 (read-only)");
 
+    /* MODE 是每个算子块里的同一字段：按 (op, field) 判，不能只看绝对偏移（只命中 op 0） */
+    ok = 1;
+    for (op = 0; op < 6u; op++) {
+        if (!sloop_core_fm6_desc(op, T_MODE, &d) || d.fmt != SLOOP_DESC_FMT_ONOFF || d.max != 1 ||
+            strcmp(d.label, "MODE") != 0)
+            ok = 0;
+    }
+    check(ok, "desc MODE onoff for all six operators");
+    check(sloop_core_fm6_desc(1, T_MODE, &d) && d.fmt == SLOOP_DESC_FMT_ONOFF &&
+              sloop_core_fm6_desc(5, T_MODE, &d) && d.fmt == SLOOP_DESC_FMT_ONOFF &&
+              sloop_core_fm6_desc(1, T_MODE - 1, &d) && d.fmt == SLOOP_DESC_FMT_INT,
+          "desc op 1 / op 5 MODE onoff (OL stays INT)");
+    /* 反向：全局 LFW（142）/LPMS（143）不能被误判成 MODE/onoff——LPMS % 21 == 17 的假阳性 */
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LPMS, &d) && d.fmt == SLOOP_DESC_FMT_ENUM &&
+              sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LFW, &d) && d.fmt == SLOOP_DESC_FMT_ENUM,
+          "desc global LFW/LPMS are enums, not MODE/onoff");
+
+    /* 枚举表（spec §4.1）：ALG 0..31 -> "1".."32"，LFW 0..5 -> 上游 fm6_lfo_sample 的波形，
+     * LPMS 0..7 -> 灵敏度级别 */
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_ALG, &d) && d.enums != NULL && d.enum_count == 32 &&
+              strcmp(d.enums[0], "1") == 0 && strcmp(d.enums[31], "32") == 0 && d.fmt == SLOOP_DESC_FMT_ENUM,
+          "desc ALG: 32 enum names, \"1\"..\"32\"");
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LFW, &d) && d.enums != NULL && d.enum_count == 6 &&
+              strcmp(d.enums[0], "TRI") == 0 && strcmp(d.enums[1], "SAW DN") == 0 &&
+              strcmp(d.enums[2], "SAW UP") == 0 && strcmp(d.enums[3], "SQR") == 0 &&
+              strcmp(d.enums[4], "SIN") == 0 && strcmp(d.enums[5], "S&H") == 0,
+          "desc LFW: 6 waves in fm6_lfo_sample order");
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LPMS, &d) && d.enums != NULL && d.enum_count == 8 &&
+              strcmp(d.enums[0], "0") == 0 && strcmp(d.enums[7], "7") == 0,
+          "desc LPMS: 8 sensitivity levels \"0\"..\"7\"");
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LKS, &d) && d.fmt == SLOOP_DESC_FMT_ONOFF &&
+              d.max == 1 && d.enums == NULL,
+          "desc LKS: onoff, no enum table");
+    check(sloop_core_fm6_desc(0, T_DET, &d) && d.enums == NULL && d.enum_count == 0,
+          "desc plain field: no enum table");
+
+    /* 描述符失败不得改 out（注入前 Sentinels 逐个字段） */
+    {
+        sloop_desc_t before;
+        memset(&before, 0x5A, sizeof before);
+        d = before;
+        (void)sloop_core_fm6_desc(7u, 0, &d);
+        check(memcmp(&d, &before, sizeof d) == 0, "failed desc leaves out untouched (op)");
+        (void)sloop_core_fm6_desc(0, SLOOP_FM6_OP_FIELDS, &d);
+        check(memcmp(&d, &before, sizeof d) == 0, "failed desc leaves out untouched (field)");
+        (void)sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_GLOBAL_FIELDS, &d);
+        check(memcmp(&d, &before, sizeof d) == 0, "failed desc leaves out untouched (global field)");
+    }
+
     /* 基线：轨 0 换成 FM6、PTCH = 2，patch = 上游 FM6_INIT（packed 128B -> 155B） */
     memcpy(save_patch, fm6_patch[0], sizeof save_patch);
     fm6_unpack(FM6_INIT, v);
@@ -378,11 +430,12 @@ static void test_fm6_fields(void)
     check(sloop_core_fm6_set(0, 0, T_R1, 99) == 99 && trk[0].p[P_E0] == 5,
           "a non-ALG field leaves P_E0 alone");
 
-    /* 名字 10 字节只读：写被拒、155B 逐字节不变 */
+    /* 名字 10 字节只读（首尾都测）：写被拒、155B 逐字节不变 */
     check(sloop_core_fm6_patch(0, &snap) == ESP_OK, "patch() before name write");
     check(sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_NAME1, 'A') == SLOOP_FM6_INVALID &&
+              sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_NAME10, 'A') == SLOOP_FM6_INVALID &&
               sloop_core_fm6_patch(0, &locked) == ESP_OK && memcmp(snap.patch, locked.patch, 155) == 0,
-          "set NAME1 is read-only (sentinel, patch unchanged)");
+          "set NAME1 / NAME10 are read-only (sentinel, patch unchanged)");
 
     /* 纯解码：算子/全局/名字的绝对偏移（名字可解码、不可写） */
     check(sloop_fm6_field_from_patch(fm6_patch[0], 3u, T_OL) == fm6_patch[0][3 * FP_OP + T_OL] &&
@@ -417,13 +470,24 @@ static void test_fm6_fields(void)
               sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_GLOBAL_FIELDS, 1) == SLOOP_FM6_INVALID,
           "rejects op 7 / field 21 / global field 29");
 
-    /* PTCH 语义：写成功后 fm6_slot[track] == p[P_E7]，fm6_poll 不会用槽 patch 覆盖编辑 */
-    trk[0].p[P_E7] = 7;
-    check(sloop_core_fm6_set(0, 0, T_R1, 50) == 50 && fm6_slot[0] == 7u,
+    /* PTCH 语义：写成功后 fm6_slot[track] == p[P_E7]，fm6_poll 不会用槽 patch 覆盖编辑。
+     * 反向控制（防空洞通过）：把 PTCH 换到空 bank 槽（8 = B1，host 无银行 ⇒ FM6_INIT，
+     * 其 R1 = 99），fm6_poll 必须真的换掉 patch；再在新槽下重做编辑，poll 又不再覆盖。 */
+    trk[0].p[P_E7] = 2;
+    check(sloop_core_fm6_set(0, 0, T_R1, 50) == 50 && fm6_slot[0] == 2u,
           "a write sets fm6_slot[track] = p[P_E7]");
     fm6_poll();
     check(sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[T_R1] == 50u,
-          "the edit survives fm6_poll (PTCH slot 7 not reloaded)");
+          "the edit survives fm6_poll (PTCH unchanged)");
+    trk[0].p[P_E7] = 8;
+    fm6_poll();
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[T_R1] == 99u && fm6_slot[0] == 8u,
+          "turning PTCH does reload the slot patch (control: R1 back to 99)");
+    check(sloop_core_fm6_set(0, 0, T_R1, 50) == 50 && fm6_slot[0] == 8u,
+          "re-edit after the PTCH turn re-syncs fm6_slot");
+    fm6_poll();
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[T_R1] == 50u,
+          "the edit survives fm6_poll in the new slot");
 
     /* 诊断冻结：读/写都回哨兵、不取锁 */
     {
