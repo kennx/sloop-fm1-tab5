@@ -109,6 +109,20 @@
  *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
  *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
+ *  - SMP：采样槽 USR1..USR4（P4-D Task 7，spec §4.5）。SMP INFO 打印槽状态
+ *    （"SMP k USED name=… zones=… kb=…" / "SMP k EMPTY"）；BEGIN/DATA/HDR/END 是
+ *    scripts/sample_upload.py 的上传对端（DATA 行 ≤120B、槽内绝对偏移 ≥512、逐行连续，
+ *    console 攒满 256B 才调 sloop_store_sample_write；END 校验 header/zone/CRC 后提交）；
+ *    ERASE 走状态层 CMD_SAMPLE_ERASE（与 SAMPLE 页同一路径）。错误令牌
+ *    "SMP ERR <no_storage|playing|frozen|size|header|crc|zones|flash|state>"。
+ *  - DSYN：SYN1..SYN4 鼓音色（24 虚拟字段）。INFO 打印当前选择（kit/lane/name/crush/src/
+ *    dirty）+ 24 个字段值；GET <kit> <lane> 打印该 lane 的 22B 原始字节；SET/KIT/STORE/
+ *    AUDITION 走状态层命令（CMD_DSYN_*，与 DSYN 页同一路径），SET 回显写后回读值。
+ *  - FM6P：选中轨（或显式 track）的 155B live patch。INFO 打印 slot/engine_ok/名字/ALG
+ *    与 P_E0 宏；GET 打印 155B hex；SET 走 CMD_FM6_SET（非 FM6 轨 → locked）；ALG
+ *    <track> <0..32>：0 = PAT（只清 P_E0，patch ALG 不动），1..32 = patch ALG = value-1
+ *    并在同一次引擎锁内清 P_E0（写完立即听得到）。STATE SNAP 行尾追加 dsyn_kit/
+ *    dsyn_lane/dsyn_dirty 与 fm6p_slot/fm6p_engine_ok。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -643,6 +657,7 @@ static int eng_command(int argc, char **argv)
 enum {
     CONSOLE_P_LEVEL = 0, CONSOLE_P_ATK = 1, CONSOLE_P_DEC = 2, CONSOLE_P_SUS = 3,
     CONSOLE_P_REL = 4, CONSOLE_P_SLEN = 29, CONSOLE_P_MUTE = 40,
+    CONSOLE_P_E0 = 63, /* = SLOOP_CORE_P_COUNT - 8（TP 表之后 8 个引擎槽的起点） */
     CONSOLE_G_BPM = 0, CONSOLE_G_SWING = 1,
 };
 
@@ -660,14 +675,16 @@ static int state_command(int argc, char **argv)
         state_get_copy(&st);
         static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
         const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
                (unsigned)st.window.window_start, (unsigned)st.window.window_len,
                (unsigned)st.seq_status, rec, (unsigned)st.rec.track,
                (unsigned)st.rec.quant_off, (unsigned)st.rec.tempo_mode,
-               (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars);
+               (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars,
+               (unsigned)st.dsyn.kit, (unsigned)st.dsyn.lane, (unsigned)st.dsyn.dirty,
+               (unsigned)st.fm6p.slot, (unsigned)st.fm6p.engine_ok);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -2685,6 +2702,527 @@ static int seq_command(int argc, char **argv)
     return 1;
 }
 
+/* ---------------------------------- P4-D Task 7: SMP / DSYN / FM6P ---
+ * console 是诊断执行器（与 STORE/SEQ 同口径）：采样槽的写入口是存储层
+ * `sloop_store_sample_*`（上传会话只存在于 console），DSYN/FM6P 的编辑与采样擦除走
+ * 状态层命令（CMD_DSYN_SET/LOAD_KIT/STORE/AUDITION、CMD_FM6_SET、CMD_SAMPLE_ERASE，
+ * 与 UI 页面同一条路径）；只读投影直查 core/store（STATE SNAP 与页面读同一投影）。
+ *
+ * SMP 上传（scripts/sample_upload.py 的对端）两个 console 侧细节：
+ *   - 存储 API 的 write 要求 off 256 对齐、n ≤ 256，而 console 一行只有 ≤120B ⇒ DATA
+ *     先攒进 256B 块，满块（以及 END 时的余量）才调 sloop_store_sample_write；
+ *   - END 的 ESP_ERR_INVALID_ARG 同时表示 header 与 zone 非法，console 只镜像 header 的
+ *     前 32 字节（magic/version/nz/data_len）把令牌分派成 header 或 zones——校验本身
+ *     仍只在 adapter（不在这里重复 zone 判据）。
+ * 错误令牌：SMP ERR <no_storage|playing|frozen|size|header|crc|zones|flash|state>；
+ * DSYN/FM6P ERR <invalid|locked|frozen|playing|error>（synth_status 的投影）。 */
+#define SMP_HDR_MAGIC   0x504D5346u /* 上游 eng_sample.c 的 SMP_USER_MAGIC（"FSMP"） */
+#define SMP_HDR_LEN     480u        /* smp_user_hdr_t（32 + 16×28） */
+#define SMP_HDR_FIXED   32u         /* magic/version/nz/name/data_len/crc 段 */
+#define SMP_LINE_MAX    240u        /* console 一行 hex 字符上限（= 120B） */
+#define SMP_LINE_BUF    (SMP_LINE_MAX / 2u)
+#define SMP_BLOCK       256u        /* sloop_store_sample_write 的 off 对齐粒度 */
+#define SMP_UNUSED      ((uint8_t)SLOOP_STORE_SAMPLES)
+
+static uint8_t s_smp_open_slot = SMP_UNUSED; /* console 侧会话标记（与 adapter 的 open slot 同值） */
+static uint8_t s_smp_fixed[SMP_HDR_FIXED];   /* header 前 32 字节镜像（只为分派错误令牌） */
+static uint32_t s_smp_hdr_seen;              /* 已交给 hdr_append 的字节数 */
+static uint8_t s_smp_blk[SMP_BLOCK];         /* 攒块（write 的 off 必须 256 对齐） */
+static uint32_t s_smp_blk_n;
+static uint32_t s_smp_blk_off;
+static uint32_t s_smp_expect;                /* 下一块的槽内绝对偏移（连续上传） */
+
+static void smp_session_reset(uint8_t slot)
+{
+    s_smp_open_slot = slot;
+    s_smp_hdr_seen = 0;
+    s_smp_blk_n = 0;
+    s_smp_blk_off = SLOOP_STORE_SAMPLE_DATA;
+    s_smp_expect = SLOOP_STORE_SAMPLE_DATA;
+}
+
+static bool store_playing_now(void)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap);
+    return snap.playing;
+}
+
+/* END 的 INVALID_ARG：header 长度不是恰好 480B、或固定段坏了 = header；固定段合法但
+ * adapter 仍拒绝 = zones（zone 判据只在 adapter，不在这里重复）。 */
+static const char *smp_end_token(void)
+{
+    uint32_t magic = 0, data_len = 0;
+    uint16_t version = 0;
+    if (s_smp_hdr_seen != SMP_HDR_LEN) return "header";
+    memcpy(&magic, s_smp_fixed, sizeof magic);
+    memcpy(&version, s_smp_fixed + 4, sizeof version);
+    memcpy(&data_len, s_smp_fixed + 16, sizeof data_len);
+    if (magic != SMP_HDR_MAGIC || version != 1u || s_smp_fixed[6] == 0u || s_smp_fixed[6] > 16u ||
+        data_len > SLOOP_STORE_SAMPLE_SIZE - SLOOP_STORE_SAMPLE_DATA)
+        return "header";
+    return "zones";
+}
+
+static int smp_err(esp_err_t err, bool end)
+{
+    const char *token;
+    switch (err) {
+    case ESP_ERR_INVALID_STATE:
+        if (!sloop_store_ready()) token = "no_storage";
+        else if (sloop_seq_frozen()) token = "frozen";
+        else if (store_playing_now()) token = "playing";
+        else token = "state"; /* 没有对应的 open slot（未 BEGIN / 槽号不符 / 偏移不连续） */
+        break;
+    case ESP_ERR_INVALID_SIZE: token = "size"; break;
+    case ESP_ERR_INVALID_CRC: token = "crc"; break;
+    case ESP_ERR_NOT_FINISHED: token = "flash"; break;
+    case ESP_ERR_INVALID_ARG: token = end ? smp_end_token() : "state"; break;
+    default: token = "state"; break;
+    }
+    printf("SMP ERR %s\n", token);
+    return 1;
+}
+
+static bool smp_uint32(const char *text, uint32_t *value)
+{
+    char *end = NULL;
+    unsigned long parsed = strtoul(text, &end, 0);
+    if (end == text || *end != '\0' || parsed > 0xFFFFFFFFul) return false;
+    *value = (uint32_t)parsed;
+    return true;
+}
+
+static bool smp_hex_decode(const char *hex, uint8_t *buf, uint32_t cap, uint32_t *n)
+{
+    size_t len = strlen(hex);
+    if (len == 0 || (len & 1u) != 0u || len / 2u > cap) return false;
+    for (size_t i = 0; i < len; i += 2u) {
+        int hi = store_hex_nibble(hex[i]), lo = store_hex_nibble(hex[i + 1u]);
+        if (hi < 0 || lo < 0) return false;
+        buf[i / 2u] = (uint8_t)((hi << 4) | lo);
+    }
+    *n = (uint32_t)(len / 2u);
+    return true;
+}
+
+/* 攒满 256B（或 END 的余量）才真正写 flash：API 要求 off 256 对齐。 */
+static esp_err_t smp_block_flush(uint8_t slot)
+{
+    if (s_smp_blk_n == 0) return ESP_OK;
+    esp_err_t err = sloop_store_sample_write(slot, s_smp_blk_off, s_smp_blk, s_smp_blk_n);
+    if (err == ESP_OK) s_smp_blk_n = 0;
+    return err;
+}
+
+static void smp_info_print(void)
+{
+    for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
+        sloop_store_sample_info_t info;
+        if (sloop_store_sample_info(k, &info) != ESP_OK) {
+            printf("SMP %u EMPTY\n", (unsigned)k);
+            continue;
+        }
+        if (!info.used)
+            printf("SMP %u EMPTY\n", (unsigned)k);
+        else
+            printf("SMP %u USED name=%s zones=%u kb=%u\n", (unsigned)k, info.name,
+                   (unsigned)info.zones, (unsigned)info.data_kb);
+    }
+}
+
+static int smp_command(int argc, char **argv)
+{
+    if (argc >= 2 && strcasecmp(argv[1], "INFO") == 0 && argc == 2) {
+        if (!sloop_store_ready()) return smp_err(ESP_ERR_INVALID_STATE, false);
+        smp_info_print();
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "BEGIN") == 0) {
+        uint32_t slot;
+        if (argc != 3 || !eng_uint(argv[2], SLOOP_STORE_SAMPLES - 1u, &slot)) {
+            printf("用法: SMP BEGIN <slot=0..%u>\n", (unsigned)(SLOOP_STORE_SAMPLES - 1u));
+            return 1;
+        }
+        esp_err_t err = sloop_store_sample_begin(slot);
+        /* 失败时 adapter 可能已把 open slot 清掉（BEGIN 的擦除步骤失败），本地也回 UNUSED：
+         * 保守地要求重新 BEGIN，而不是把后续 DATA 攒进一个没有 open slot 的会话。 */
+        smp_session_reset(err == ESP_OK ? (uint8_t)slot : SMP_UNUSED);
+        if (err != ESP_OK) return smp_err(err, false);
+        printf("SMP BEGIN slot=%u OK\n", (unsigned)slot);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "DATA") == 0) {
+        uint32_t slot, off, n;
+        uint8_t buf[SMP_LINE_BUF];
+        if (argc != 5 || !eng_uint(argv[2], SLOOP_STORE_SAMPLES - 1u, &slot) ||
+            !smp_uint32(argv[3], &off)) {
+            printf("用法: SMP DATA <slot=0..%u> <off≥%u> <hex≤%u>\n",
+                   (unsigned)(SLOOP_STORE_SAMPLES - 1u), (unsigned)SLOOP_STORE_SAMPLE_DATA,
+                   (unsigned)SMP_LINE_MAX);
+            return 1;
+        }
+        if (!smp_hex_decode(argv[4], buf, sizeof buf, &n)) return smp_err(ESP_ERR_INVALID_SIZE, false);
+        if (s_smp_open_slot != slot || off != s_smp_expect) return smp_err(ESP_ERR_INVALID_STATE, false);
+        for (uint32_t i = 0; i < n; i++) {
+            if (s_smp_blk_n == 0) s_smp_blk_off = s_smp_expect + i;
+            s_smp_blk[s_smp_blk_n++] = buf[i];
+            if (s_smp_blk_n == SMP_BLOCK) {
+                esp_err_t err = smp_block_flush((uint8_t)slot);
+                if (err != ESP_OK) return smp_err(err, false);
+            }
+        }
+        s_smp_expect += n;
+        printf("SMP DATA slot=%u off=%u n=%u OK\n", (unsigned)slot, (unsigned)off, (unsigned)n);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "HDR") == 0) {
+        uint32_t n;
+        uint8_t buf[SMP_LINE_BUF];
+        if (argc != 3) {
+            printf("用法: SMP HDR <hex≤%u>（4 行 × 120B = %uB header）\n", (unsigned)SMP_LINE_MAX,
+               (unsigned)SMP_HDR_LEN);
+            return 1;
+        }
+        if (!smp_hex_decode(argv[2], buf, sizeof buf, &n)) return smp_err(ESP_ERR_INVALID_SIZE, false);
+        esp_err_t err = sloop_store_sample_hdr_append(buf, n);
+        if (err != ESP_OK) return smp_err(err, false);
+        uint32_t take = s_smp_hdr_seen < SMP_HDR_FIXED ? SMP_HDR_FIXED - s_smp_hdr_seen : 0u;
+        if (take > n) take = n;
+        if (take) memcpy(s_smp_fixed + s_smp_hdr_seen, buf, take);
+        s_smp_hdr_seen += n;
+        printf("SMP HDR n=%u total=%u OK\n", (unsigned)n, (unsigned)s_smp_hdr_seen);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "END") == 0) {
+        uint32_t slot;
+        if (argc != 3 || !eng_uint(argv[2], SLOOP_STORE_SAMPLES - 1u, &slot)) {
+            printf("用法: SMP END <slot=0..%u>\n", (unsigned)(SLOOP_STORE_SAMPLES - 1u));
+            return 1;
+        }
+        if (s_smp_open_slot != slot) return smp_err(ESP_ERR_INVALID_STATE, false);
+        esp_err_t err = smp_block_flush((uint8_t)slot);
+        if (err != ESP_OK) return smp_err(err, false);
+        err = sloop_store_sample_end(slot);
+        smp_session_reset(SMP_UNUSED);
+        if (err != ESP_OK) return smp_err(err, true);
+        printf("SMP END slot=%u OK\n", (unsigned)slot);
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "ERASE") == 0) {
+        uint32_t slot;
+        app_state_t st;
+        if (argc != 3 || !eng_uint(argv[2], SLOOP_STORE_SAMPLES - 1u, &slot)) {
+            printf("用法: SMP ERASE <slot=0..%u>\n", (unsigned)(SLOOP_STORE_SAMPLES - 1u));
+            return 1;
+        }
+        /* 与 SAMPLE 页的 ERASE chip 同一条状态层命令（不是直接调存储层）。 */
+        edit_cmd_t cmd = {.type = CMD_SAMPLE_ERASE, .a = slot};
+        state_apply(&cmd);
+        state_get_copy(&st);
+        if (s_smp_open_slot == slot) smp_session_reset(SMP_UNUSED);
+        switch (st.synth_status) {
+        case APP_SYNTH_STATUS_OK:
+            printf("SMP ERASE slot=%u OK\n", (unsigned)slot);
+            return 0;
+        case APP_SYNTH_STATUS_BLOCKED: return smp_err(ESP_ERR_INVALID_STATE, false);
+        case APP_SYNTH_STATUS_FROZEN:
+            printf("SMP ERR frozen\n");
+            return 1;
+        case APP_SYNTH_STATUS_INVALID:
+            printf("SMP ERR state\n");
+            return 1;
+        default:
+            printf("SMP ERR %s\n", sloop_store_ready() ? "flash" : "no_storage");
+            return 1;
+        }
+    }
+    printf("用法: SMP INFO | BEGIN <slot=0..%u> | DATA <slot> <off≥%u> <hex≤%u> | "
+           "HDR <hex≤%u> | END <slot> | ERASE <slot>\n",
+           (unsigned)(SLOOP_STORE_SAMPLES - 1u), (unsigned)SLOOP_STORE_SAMPLE_DATA,
+           (unsigned)SMP_LINE_MAX, (unsigned)SMP_LINE_MAX);
+    return 1;
+}
+
+static const char *const SYNTH_STATUS_NAMES[] = {"idle", "ok", "invalid", "full",
+                                                 "blocked", "frozen", "locked", "error"};
+
+static const char *synth_status_name(uint8_t status)
+{
+    return status < sizeof(SYNTH_STATUS_NAMES) / sizeof(SYNTH_STATUS_NAMES[0])
+               ? SYNTH_STATUS_NAMES[status]
+               : "?";
+}
+
+/* 状态层 synth_status → spec §4.5 的错误令牌（FULL 本阶段无来源，归入 error）。
+ * who 是命令族（"DSYN"/"FM6P"），令牌按 spec 的 `DSYN/FM6P ERR <…>` 回显。 */
+static int synth_err(const char *who, uint8_t status)
+{
+    const char *token = "error";
+    switch (status) {
+    case APP_SYNTH_STATUS_INVALID: token = "invalid"; break;
+    case APP_SYNTH_STATUS_LOCKED: token = "locked"; break;
+    case APP_SYNTH_STATUS_FROZEN: token = "frozen"; break;
+    case APP_SYNTH_STATUS_BLOCKED: token = "playing"; break;
+    default: break;
+    }
+    printf("%s ERR %s\n", who, token);
+    return 1;
+}
+
+static void dsyn_fields_print(const uint8_t sound[22])
+{
+    printf("f=");
+    for (uint32_t i = 0; i < SLOOP_DSYN_FIELDS; i++)
+        printf("%s%d", i ? "," : "", (int)sloop_dsyn_field_from_sound(sound, i));
+}
+
+static int dsyn_info(void)
+{
+    app_state_t st;
+    state_get_copy(&st);
+    printf("DSYN INFO kit=%u lane=%u name=%s crush=%u src=%u dirty=%u ",
+           (unsigned)st.dsyn.kit, (unsigned)st.dsyn.lane, st.dsyn.name, (unsigned)st.dsyn.crush,
+           (unsigned)st.dsyn.src, (unsigned)st.dsyn.dirty);
+    dsyn_fields_print(st.dsyn.sound);
+    printf("\n");
+    return 0;
+}
+
+static int dsyn_get(uint32_t kit, uint32_t lane)
+{
+    sloop_dsyn_sound_t snd;
+    char name[SLOOP_DSYN_NAME + 1];
+    uint8_t crush = 0, src = 0;
+    esp_err_t err = sloop_core_dsyn_read(kit, lane, &snd, name, &crush, &src);
+    if (err != ESP_OK) {
+        if (err == ESP_ERR_INVALID_STATE) {
+            printf("DSYN ERR frozen\n");
+            return 1;
+        }
+        printf("DSYN ERR invalid\n");
+        return 1;
+    }
+    printf("DSYN GET k=%u l=%u name=%s crush=%u src=%u dirty=%u sound=", (unsigned)kit,
+           (unsigned)lane, name, (unsigned)crush, (unsigned)src,
+           sloop_store_dsu_dirty() ? 1u : 0u);
+    store_hex(snd.sound, sizeof snd.sound);
+    printf("\n");
+    return 0;
+}
+
+/* 一次状态层命令后回读 synth_status：DSYN/FM6P 的写入口共用。 */
+static uint8_t synth_apply(const edit_cmd_t *cmd)
+{
+    app_state_t st;
+    state_apply(cmd);
+    state_get_copy(&st);
+    return st.synth_status;
+}
+
+static int dsyn_command(int argc, char **argv)
+{
+    if (argc >= 2 && strcasecmp(argv[1], "INFO") == 0 && argc == 2) return dsyn_info();
+    if (argc >= 2 && strcasecmp(argv[1], "GET") == 0) {
+        uint32_t kit, lane;
+        if (argc != 4 || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
+            !eng_uint(argv[3], SLOOP_DSYN_LANES - 1u, &lane))
+            goto usage;
+        return dsyn_get(kit, lane);
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SET") == 0) {
+        uint32_t kit, lane, field;
+        int32_t value;
+        if (argc != 6 || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
+            !eng_uint(argv[3], SLOOP_DSYN_LANES - 1u, &lane) ||
+            !eng_uint(argv[4], SLOOP_DSYN_FIELDS - 1u, &field) ||
+            !seq_int(argv[5], -32768, 32767, &value))
+            goto usage;
+        edit_cmd_t cmd = {.type = CMD_DSYN_SET, .a = kit, .b = lane, .n = field, .v = (uint16_t)value};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
+        printf("DSYN SET k=%u l=%u f=%u value=%d status=\"%s\"\n", (unsigned)kit, (unsigned)lane,
+               (unsigned)field, (int)sloop_core_dsyn_field(kit, lane, field), synth_status_name(status));
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "KIT") == 0) {
+        uint32_t kit, src;
+        if (argc != 4 || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
+            !eng_uint(argv[3], 255, &src))
+            goto usage;
+        edit_cmd_t cmd = {.type = CMD_DSYN_LOAD_KIT, .a = kit, .b = src};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
+        printf("DSYN KIT k=%u src=%u status=\"%s\"\n", (unsigned)kit, (unsigned)src,
+               synth_status_name(status));
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "STORE") == 0 && argc == 2) {
+        edit_cmd_t cmd = {.type = CMD_DSYN_STORE};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
+        printf("DSYN STORE dirty=%u status=\"%s\"\n", sloop_store_dsu_dirty() ? 1u : 0u,
+               synth_status_name(status));
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "AUDITION") == 0) {
+        uint32_t kit, lane, vel = APP_STATE_VEL_DEFAULT;
+        if ((argc != 4 && argc != 5) || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
+            !eng_uint(argv[3], SLOOP_DSYN_LANES - 1u, &lane) ||
+            (argc == 5 && (!eng_uint(argv[4], 127, &vel) || vel == 0)))
+            goto usage;
+        edit_cmd_t cmd = {.type = CMD_DSYN_AUDITION, .a = kit, .b = lane, .v = (uint16_t)vel};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
+        printf("DSYN AUDITION k=%u l=%u vel=%u status=\"%s\"\n", (unsigned)kit, (unsigned)lane,
+               (unsigned)vel, synth_status_name(status));
+        return 0;
+    }
+usage:
+    printf("用法: DSYN INFO | GET <kit=0..3> <lane=0..15> | SET <kit> <lane> <field=0..23> <value> | "
+           "KIT <kit> <src> | STORE | AUDITION <kit> <lane> [vel=1..127]\n");
+    return 1;
+}
+
+/* FM6P：选中轨（或缺省参数）的 155B live patch。锁定的非 FM6 合成轨仍可读（engine_ok=0），
+ * 鼓轨/越界轨没有 live patch ⇒ invalid。ALG 的语义见 fm6p_alg()。 */
+static esp_err_t fm6p_snapshot(uint32_t track, sloop_fm6_patch_snapshot_t *out)
+{
+    return sloop_core_fm6_patch(track, out);
+}
+
+static int fm6p_err(esp_err_t ret)
+{
+    if (ret == ESP_ERR_INVALID_STATE) {
+        printf("FM6P ERR frozen\n");
+        return 1;
+    }
+    if (ret == ESP_ERR_NOT_ALLOWED) {
+        printf("FM6P ERR locked\n");
+        return 1;
+    }
+    printf("FM6P ERR invalid\n");
+    return 1;
+}
+
+static int fm6p_info(uint32_t track)
+{
+    sloop_fm6_patch_snapshot_t s;
+    esp_err_t ret = fm6p_snapshot(track, &s);
+    if (ret != ESP_OK && ret != ESP_ERR_NOT_ALLOWED) return fm6p_err(ret);
+    char name[SLOOP_FM6_NAME_FIELDS + 1];
+    for (uint32_t i = 0; i < SLOOP_FM6_NAME_FIELDS; i++) {
+        int c = s.patch[145 + i]; /* FP_NAME 的绝对偏移（145..154） */
+        name[i] = (c >= 0x20 && c < 0x7F) ? (char)c : '.';
+    }
+    name[SLOOP_FM6_NAME_FIELDS] = '\0';
+    for (int i = SLOOP_FM6_NAME_FIELDS - 1; i >= 0 && name[i] == ' '; i--) name[i] = '\0';
+    int16_t p[SLOOP_CORE_P_COUNT];
+    sloop_core_read_params(track, p, NULL);
+    printf("FM6P INFO track=%u slot=%u engine_ok=%u name=\"%s\" alg=%d macro=%u\n", (unsigned)track,
+           (unsigned)s.slot, (unsigned)s.engine_ok, name,
+           (int)sloop_fm6_field_from_patch(s.patch, SLOOP_FM6_GLOBAL_OP, 8),
+           (unsigned)p[CONSOLE_P_E0 /* ALG 宏，0 = PAT */]);
+    return 0;
+}
+
+static int fm6p_get(uint32_t track)
+{
+    sloop_fm6_patch_snapshot_t s;
+    esp_err_t ret = fm6p_snapshot(track, &s);
+    if (ret != ESP_OK && ret != ESP_ERR_NOT_ALLOWED) return fm6p_err(ret);
+    printf("FM6P GET track=%u slot=%u engine_ok=%u ", (unsigned)track, (unsigned)s.slot,
+           (unsigned)s.engine_ok);
+    store_hex(s.patch, sizeof s.patch);
+    printf("\n");
+    return 0;
+}
+
+/* FM6P ALG <track> <0..32>（spec §4.1「ALG 宏覆盖」）：
+ *   0      = PAT：只把 P_E0（ALG 宏）置 0，patch 的 FP_ALG 不动（音色回到深度页的值）；
+ *   1..32  = patch 的 ALG 写 value-1，并在同一次引擎锁内清 P_E0=0（ADD 的 CMD_FM6_SET
+ *            语义），写完立即听得到。 */
+static int fm6p_alg(uint32_t track, uint32_t value)
+{
+    sloop_fm6_patch_snapshot_t s;
+    esp_err_t ret = fm6p_snapshot(track, &s);
+    if (ret == ESP_ERR_NOT_ALLOWED || (ret == ESP_OK && !s.engine_ok)) {
+        printf("FM6P ERR locked\n");
+        return 1;
+    }
+    if (ret != ESP_OK) return fm6p_err(ret);
+    uint8_t status;
+    if (value == 0) {
+        /* PAT：CMD_SET_PARAM 不写 synth_status，故这里按「必然成功」置 OK（值 0 在 P_E0
+         * 的描述符范围内，写不进去只可能是冻结/越界——两者已由上面的 patch 快照排除）。 */
+        edit_cmd_t cmd = {.type = CMD_SET_PARAM, .a = track, .b = CONSOLE_P_E0, .v = 0};
+        state_apply(&cmd);
+        status = APP_SYNTH_STATUS_OK;
+    } else {
+        edit_cmd_t cmd = {.type = CMD_FM6_SET, .a = track, .b = SLOOP_FM6_GLOBAL_OP,
+                          .n = 8, .v = (uint16_t)(value - 1u)};
+        status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("FM6P", status);
+    }
+    int16_t p[SLOOP_CORE_P_COUNT];
+    sloop_core_read_params(track, p, NULL);
+    printf("FM6P ALG track=%u value=%u alg=%d macro=%u status=\"%s\"\n", (unsigned)track,
+           (unsigned)value, (int)sloop_core_fm6_field(track, SLOOP_FM6_GLOBAL_OP, 8),
+           (unsigned)p[CONSOLE_P_E0], synth_status_name(status));
+    return 0;
+}
+
+static int fm6p_command(int argc, char **argv)
+{
+    sloop_core_snapshot_t snap;
+    sloop_core_read(&snap);
+    uint32_t selected = snap.selected_track < APP_STATE_TRACKS ? snap.selected_track : 0u;
+    if (argc >= 2 && strcasecmp(argv[1], "INFO") == 0) {
+        uint32_t track = selected;
+        if (argc == 3 && !eng_uint(argv[2], APP_STATE_TRACKS - 1u, &track)) goto usage;
+        if (argc > 3) goto usage;
+        return fm6p_info(track);
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "GET") == 0) {
+        uint32_t track = selected;
+        if (argc == 3 && !eng_uint(argv[2], APP_STATE_TRACKS - 1u, &track)) goto usage;
+        if (argc > 3) goto usage;
+        return fm6p_get(track);
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "SET") == 0) {
+        uint32_t track, op, field;
+        int32_t value;
+        if (argc != 6 || !eng_uint(argv[2], APP_STATE_TRACKS - 1u, &track) ||
+            !eng_uint(argv[3], SLOOP_FM6_GLOBAL_OP, &op) ||
+            !eng_uint(argv[4], (op == SLOOP_FM6_GLOBAL_OP ? SLOOP_FM6_GLOBAL_FIELDS
+                                                          : SLOOP_FM6_OP_FIELDS) - 1u,
+                      &field) ||
+            !seq_int(argv[5], -32768, 32767, &value))
+            goto usage;
+        edit_cmd_t cmd = {.type = CMD_FM6_SET, .a = track, .b = op, .n = field,
+                          .v = (uint16_t)value};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("FM6P", status);
+        printf("FM6P SET track=%u op=%u field=%u value=%d status=\"%s\"\n", (unsigned)track,
+               (unsigned)op, (unsigned)field, (int)sloop_core_fm6_field(track, op, field),
+               synth_status_name(status));
+        return 0;
+    }
+    if (argc >= 2 && strcasecmp(argv[1], "ALG") == 0) {
+        uint32_t track, value;
+        if (argc != 4 || !eng_uint(argv[2], APP_STATE_TRACKS - 1u, &track) ||
+            !eng_uint(argv[3], 32, &value))
+            goto usage;
+        if (track >= APP_STATE_TRACKS - 1u) return fm6p_err(ESP_ERR_NOT_ALLOWED); /* 鼓轨无 patch */
+        return fm6p_alg(track, value);
+    }
+usage:
+    printf("用法: FM6P INFO [track=0..3] | GET [track] | SET <track> <op=0..6（6=全局）> "
+           "<field> <value> | ALG <track> <0..32>（0 = PAT：只清 P_E0；1..32 = patch ALG "
+           "= value-1 并清 P_E0）\n");
+    return 1;
+}
+
 esp_err_t app_console_init(void)
 {
     /* 存储后端在 sloop_core_init → sloop_store_init 里初始化（ADR-009 §5 启动顺序：
@@ -2828,6 +3366,47 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&seq_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 SEQ 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t smp_cmd = {
+        .command = "SMP",
+        .help = "采样槽上传/诊断（USR1..USR4）：SMP INFO 槽状态；BEGIN/DATA/HDR/END 分块上传"
+                "（scripts/sample_upload.py 对端）；ERASE 走状态层 CMD_SAMPLE_ERASE",
+        .hint = "INFO|BEGIN <0..3>|DATA <slot> <off≥512> <hex≤240>|HDR <hex≤240>|END <slot>|ERASE <slot>",
+        .func = &smp_command,
+    };
+    ret = esp_console_cmd_register(&smp_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 SMP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t dsyn_cmd = {
+        .command = "DSYN",
+        .help = "DSYN 鼓音色诊断（P4-D）：INFO/GET 只读投影；SET/KIT/STORE/AUDITION 走状态层"
+                "命令（与 DSYN 页同一路径）",
+        .hint = "INFO|GET <kit=0..3> <lane=0..15>|SET <kit> <lane> <field=0..23> <value>|"
+                "KIT <kit> <src>|STORE|AUDITION <kit> <lane> [vel=1..127]",
+        .func = &dsyn_command,
+    };
+    ret = esp_console_cmd_register(&dsyn_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 DSYN 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t fm6p_cmd = {
+        .command = "FM6P",
+        .help = "FM6 155B patch 诊断（P4-D）：INFO/GET 只读 live patch；SET 走 CMD_FM6_SET；"
+                "ALG 0 = PAT（只清 P_E0），1..32 = patch ALG = value-1 并清 P_E0",
+        .hint = "INFO [track=0..3]|GET [track]|SET <track> <op=0..6> <field> <value>|"
+                "ALG <track> <0..32>（0=PAT）",
+        .func = &fm6p_command,
+    };
+    ret = esp_console_cmd_register(&fm6p_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 FM6P 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
