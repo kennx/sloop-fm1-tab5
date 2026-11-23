@@ -207,6 +207,15 @@ typedef struct {
     uint8_t used;      /* 该 lane 有音色数据（上游 kit 总是 16 个，读成功即 1） */
     uint8_t sound[22]; /* 原始 dsnd_t 字节（与上游/编辑器逐字节一致） */
 } sloop_dsyn_sound_t;
+/* 状态层/UI 的 DSYN 投影（spec §4.1）：kit/lane 是**当前选择**（状态层保存的 UI 局部态，
+ * 不是引擎真值），其余字段由 sloop_core_dsyn_read 按该选择读出；dirty 取存储层对
+ * 「RAM 的 SYN kit 与最近一次成功写盘不一致」的记账（sloop_store_dsu_dirty）。 */
+typedef struct {
+    uint8_t kit, lane;
+    char name[SLOOP_DSYN_NAME + 1];
+    uint8_t crush, src, dirty;
+    uint8_t sound[22];
+} sloop_dsyn_snapshot_t;
 /* 24 字段描述符（自定义表，不来自 params.c）：label/fmt/min/max/enums/unit。
  * FLT_MODE 的 enums 有 8 项，索引 4（只有 DF_ALL 位、没有模式）读作 OFF——写 4 也被
  * 归一为 OFF，与上游「单独 4 是无效组合」一致。 */

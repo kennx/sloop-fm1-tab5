@@ -87,6 +87,10 @@ typedef enum {
     CMD_SECTION_STORE, CMD_SECTION_LOAD, CMD_SECTION_ERASE, CMD_SECTION_REQUEST,
     CMD_CHAIN_BEGIN, CMD_CHAIN_COMMIT, CMD_CHAIN_CANCEL,
     CMD_SONG_MODE, CMD_SONG_REC, CMD_SONG_SET,
+    /* P4-D DSYN / FM6 patch / 采样槽（Task 6）：单字段编辑、工厂 kit、DSU 落盘、
+     * 试听、采样擦除。返回码映射 app_state_t.synth_status。 */
+    CMD_DSYN_SET, CMD_DSYN_LOAD_KIT, CMD_DSYN_STORE, CMD_DSYN_AUDITION,
+    CMD_FM6_SET, CMD_SAMPLE_ERASE,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -190,6 +194,31 @@ typedef enum {
  *  ESP_ERR_INVALID_ARG ——而 sloop_store.h 的预置入口先判就绪，故「存储未就绪 + 鼓轨」
  *  回 INVALID_STATE（3 = playing）而非 drum；bank PUT 的鼓轨判定在状态层先做，未就绪
  *  时回 drum(5)。两者都是「先发生的检查说话」——调用方不应假设某个固定次序。
+ *
+ *  P4-D DSYN / FM6 patch / 采样槽（Task 6，spec §4.3）：
+ *  CMD_DSYN_SET      a=kit(0..3) b=lane(0..15) n=field(0..23) v=value：单字段写
+ *                    （adapter 按字段范围钳位）；越界**不调引擎**、synth_status=INVALID。
+ *                    成功同拍按当前选择重取 dsyn 投影（app_state_t.dsyn）——投影口径与
+ *                    state_sync_from_engine 相同，UI 正在编辑的选择才是屏幕显示的那个。
+ *  CMD_DSYN_LOAD_KIT a=kit(0..3) b=src(工厂 kit 索引)：套用工厂 kit（覆盖该 kit 的编辑，
+ *                    置 dsu_dirty）；kit 越界不调 core、src 越界由 core 回 INVALID_ARG。
+ *  CMD_DSYN_STORE    （无参）：sloop_store_dsu_store()（把当前 RAM 的 DSU 与歌曲/side 一起
+ *                    写进 settings）。走带中 → BLOCKED、诊断冻结 → FROZEN、存储未就绪 →
+ *                    ERROR；成功同拍重取 dsyn（dirty 归 0）。
+ *  CMD_DSYN_AUDITION a=kit(0..3) b=lane(0..15) v=velocity(1..127)：试听（写上游队列，
+ *                    **不改数据、不刷新投影**）；velocity 0/>127 与越界 kit/lane 不调 core。
+ *  CMD_FM6_SET       a=track(0..3) b=op(0..6，6=全局) n=field v=value：单字段写；
+ *                    非 FM6 轨（含鼓轨）→ LOCKED、越界 op/field → INVALID、冻结 → FROZEN；
+ *                    成功同拍重取 fm6p 投影（app_state_t.fm6p）。core 对全部拒绝只回
+ *                    SLOOP_FM6_INVALID，故命中哨兵时用一次 sloop_core_fm6_patch 复核
+ *                    （INVALID_STATE → FROZEN；INVALID_ARG/NOT_ALLOWED/engine_ok=0 →
+ *                    LOCKED；其余 → INVALID）。
+ *  CMD_SAMPLE_ERASE  a=slot(0..3)：sloop_store_sample_erase；槽号越界不调存储（INVALID）、
+ *                    走带中 → BLOCKED、冻结 → FROZEN、未就绪 → ERROR。
+ *  上述命令的返回码写 synth_status（app_synth_status_t）：越界/INVALID_ARG → INVALID、
+ *  NOT_ALLOWED → BLOCKED、INVALID_STATE 按 seq_frozen/存储就绪分成 FROZEN/BLOCKED/ERROR、
+ *  其它 → ERROR。存储 API 用 INVALID_STATE 同时表示走带/冻结/未就绪，故必须借
+ *  sloop_seq_frozen() 与 sloop_store_ready() 才能把三种状态行文案分开。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -228,6 +257,20 @@ typedef enum {
     SEQ_STATUS_ERROR = 7,      /* 其它失败 */
 } app_seq_status_t;
 
+/* 最近一次 DSYN / FM6 patch / 采样槽命令的结果（spec §4.3）。存储 API 的 INVALID_STATE
+ * 同时表示走带/冻结/未就绪三因，状态层借 sloop_seq_frozen() 与 sloop_store_ready()
+ * 拆成 BLOCKED / FROZEN / ERROR；LOCKED = 选中轨不是 FM6（含鼓轨），与「值非法」分开。 */
+typedef enum {
+    APP_SYNTH_STATUS_IDLE = 0,    /* 尚无合成编辑命令 */
+    APP_SYNTH_STATUS_OK = 1,      /* 成功（投影已同拍刷新） */
+    APP_SYNTH_STATUS_INVALID = 2, /* 越界 kit/lane/field/op/slot/velocity、格式非法 */
+    APP_SYNTH_STATUS_FULL = 3,    /* ESP_ERR_NO_MEM（本阶段无来源，保留口径） */
+    APP_SYNTH_STATUS_BLOCKED = 4, /* 走带中（ESP_ERR_NOT_ALLOWED / 存储层 INVALID_STATE） */
+    APP_SYNTH_STATUS_FROZEN = 5,  /* 诊断冻结（ENG FREEZE / SELFTEST） */
+    APP_SYNTH_STATUS_LOCKED = 6,  /* 选中轨不是 FM6（含鼓轨），没有可编辑的 live patch */
+    APP_SYNTH_STATUS_ERROR = 7,   /* 存储未就绪、擦写/校验失败等 */
+} app_synth_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -246,6 +289,9 @@ typedef struct {
     sloop_song_snapshot_t song; /* arranger 只读投影（enabled/running/index/bar/ready/live/
                                  * dirty/chain/srec + 16 项顺序）：SONG 页与 TRANSPORT 的
                                  * 状态行都读这里，不直接碰上游全局（Task 8） */
+    uint8_t synth_status;       /* 最近一次合成编辑命令的结果（app_synth_status_t） */
+    sloop_dsyn_snapshot_t dsyn; /* DSYN 投影（按 kit/lane 选择；dirty = DSU 记账） */
+    sloop_fm6_patch_snapshot_t fm6p; /* FM6 live patch 投影（选中轨；engine_ok=0 即锁定） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -295,6 +341,10 @@ void state_set_page(uint8_t page);
 /* 写焦点：track < 4；step 是**窗口列**，须 < window_len（窗口外的隐藏列被忽略，
  * 焦点不会落在不可见的列上）。窗口缩小后旧焦点由 CMD_SET_WINDOW 夹到窗口内。 */
 void state_set_focus(uint8_t track, uint8_t step);
+/* 写 DSYN 的 kit/lane 选择（UI 局部态；console `UI DSYN KIT/LANE` 与页面 chip 共用）：
+ * 越界钳到 0..3 / 0..15，并在同一把状态锁内按新选择重取 dsyn 投影（22B + name/crush/
+ * src/dirty）——TAP 之后的 STATE SNAP/旋钮立即看到新选择，不等下一拍 sync。 */
+void state_set_dsyn_select(uint8_t kit, uint8_t lane);
 void state_set_layer(uint8_t mask);
 
 #endif

@@ -1609,6 +1609,208 @@ static void case_song_section_chain(void)
     check_ll("sync 拷贝 rec.fill_arm", s.rec.fill_arm, 1);
 }
 
+/* ---- P4-D Task 6：DSYN / FM6 patch / 采样命令与投影 ------------------------------- */
+
+/* 双字段命令（field 走 n），与 apply() 的四参表单分开。 */
+static void apply4(edit_cmd_type_t type, uint32_t a, uint32_t b, uint32_t n, uint16_t v)
+{
+    edit_cmd_t cmd = { .type = type, .a = a, .b = b, .n = n, .v = v };
+    state_apply(&cmd);
+}
+
+static void case_dsyn_commands(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* 选择是 UI 局部态：越界钳位、同一把锁内重取投影 */
+    state_set_dsyn_select(5, 20);
+    state_get_copy(&s);
+    check_ll("选择 kit 钳到 3", s.dsyn.kit, 3);
+    check_ll("选择 lane 钳到 15", s.dsyn.lane, 15);
+    check_ll("选择后重取投影（init + select）", g_stub.dsyn_read_calls, 2);
+
+    state_set_dsyn_select(1, 2);
+    state_get_copy(&s);
+    check_ll("选择落地 kit", s.dsyn.kit, 1);
+    check_ll("选择落地 lane", s.dsyn.lane, 2);
+
+    uint32_t calls = g_stub.dsyn_set_calls;
+    apply4(CMD_DSYN_SET, SLOOP_DSYN_KITS, 0, SLOOP_DSYN_WAVE, 1);
+    state_get_copy(&s);
+    check_ll("kit 越界不调引擎", g_stub.dsyn_set_calls, calls);
+    check_ll("kit 越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+
+    apply4(CMD_DSYN_SET, 1, SLOOP_DSYN_LANES, SLOOP_DSYN_WAVE, 1);
+    apply4(CMD_DSYN_SET, 1, 2, SLOOP_DSYN_FIELDS, 1);
+    state_get_copy(&s);
+    check_ll("lane/field 越界不调引擎", g_stub.dsyn_set_calls, calls);
+    check_ll("lane/field 越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+
+    apply4(CMD_DSYN_SET, 1, 2, SLOOP_DSYN_WAVE, 3);
+    check_ll("合法写透传 kit", g_stub.last_dsyn_kit, 1);
+    check_ll("合法写透传 lane", g_stub.last_dsyn_lane, 2);
+    check_ll("合法写透传 field", g_stub.last_dsyn_field, SLOOP_DSYN_WAVE);
+    check_ll("合法写透传 value", g_stub.last_dsyn_value, 3);
+    state_get_copy(&s);
+    check_ll("写后 → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    check_ll("写后同拍回读 dsyn.sound", s.dsyn.sound[SLOOP_DSYN_WAVE], 3);
+    check_ll("写后 dirty 随存储记账", s.dsyn.dirty, 1);
+
+    /* 冻结：adapter 回哨兵 → frozen（越界已在状态层拒绝、不调 core） */
+    g_stub.seq_frozen = true;
+    apply4(CMD_DSYN_SET, 1, 2, SLOOP_DSYN_WAVE, 4);
+    state_get_copy(&s);
+    check_ll("冻结写 → frozen", s.synth_status, APP_SYNTH_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
+
+    /* 工厂 kit：套用后置 dirty 并同拍回读；kit 越界不调 core、src 越界由 core 拒 */
+    apply(CMD_DSYN_LOAD_KIT, 1, 0, 0);
+    check_ll("工厂 kit 透传 kit", g_stub.last_dsyn_kit, 1);
+    check_ll("工厂 kit 透传 src", g_stub.last_dsyn_src, 0);
+    state_get_copy(&s);
+    check_ll("工厂 kit → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    check_ll("工厂 kit 置 dirty", s.dsyn.dirty, 1);
+    check_ll("工厂 kit 声音同拍回读", s.dsyn.sound[0], 0xA0);
+    calls = g_stub.dsyn_load_calls;
+    apply(CMD_DSYN_LOAD_KIT, SLOOP_DSYN_KITS, 0, 0);
+    state_get_copy(&s);
+    check_ll("kit 越界不调 core", g_stub.dsyn_load_calls, calls);
+    check_ll("kit 越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+    apply(CMD_DSYN_LOAD_KIT, 1, g_stub.dsyn_factory_count, 0);
+    state_get_copy(&s);
+    check_ll("src 越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+
+    /* STORE：走带/冻结/未就绪三因分开；成功清 dirty */
+    g_stub.dsu_store_ret = ESP_ERR_INVALID_STATE;
+    apply(CMD_DSYN_STORE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("STORE 走带 → blocked", s.synth_status, APP_SYNTH_STATUS_BLOCKED);
+    check_ll("STORE 调存储入口", g_stub.dsu_store_calls, 1);
+    g_stub.seq_frozen = true;
+    apply(CMD_DSYN_STORE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("STORE 冻结 → frozen", s.synth_status, APP_SYNTH_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
+    g_stub.store_ready = false;
+    apply(CMD_DSYN_STORE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("STORE 未就绪 → error", s.synth_status, APP_SYNTH_STATUS_ERROR);
+    g_stub.store_ready = true;
+    g_stub.dsu_store_ret = ESP_OK;
+    apply(CMD_DSYN_STORE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("STORE 成功 → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    check_ll("STORE 成功清 dirty", s.dsyn.dirty, 0);
+
+    /* 试听：不改数据、不调写入口；velocity 0/>127 与越界 kit 是命令错误 */
+    uint8_t before[22];
+    memcpy(before, s.dsyn.sound, sizeof(before));
+    calls = g_stub.dsyn_set_calls;
+    apply(CMD_DSYN_AUDITION, 1, 2, 100);
+    check_ll("试听透传 kit", g_stub.last_dsyn_kit, 1);
+    check_ll("试听透传 lane", g_stub.last_dsyn_lane, 2);
+    check_ll("试听透传 velocity", g_stub.last_dsyn_vel, 100);
+    state_get_copy(&s);
+    check_ll("试听 → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    CHECK(memcmp(before, s.dsyn.sound, sizeof(before)) == 0);
+    check_ll("试听不调写入口", g_stub.dsyn_set_calls, calls);
+    calls = g_stub.dsyn_audition_calls;
+    apply(CMD_DSYN_AUDITION, 1, 2, 0);
+    apply(CMD_DSYN_AUDITION, 1, 2, 128);
+    apply(CMD_DSYN_AUDITION, SLOOP_DSYN_KITS, 2, 100);
+    state_get_copy(&s);
+    check_ll("非法试听不调 core", g_stub.dsyn_audition_calls, calls);
+    check_ll("非法试听 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+}
+
+static void case_fm6_and_sample(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    /* 选中轨引擎不是 FM6 ⇒ 哨兵 + 快照 engine_ok=0 → LOCKED */
+    apply4(CMD_FM6_SET, 0, 0, 0, 5);
+    state_get_copy(&s);
+    check_ll("非 FM6 轨 → locked", s.synth_status, APP_SYNTH_STATUS_LOCKED);
+    check_ll("非 FM6 轨 engine_ok=0", s.fm6p.engine_ok, 0);
+
+    g_stub.fm6_ok = true;
+    apply4(CMD_FM6_SET, 0, 0, 1, 33);
+    check_ll("FM6 写透传 track", g_stub.last_fm6_track, 0);
+    check_ll("FM6 写透传 op", g_stub.last_fm6_op, 0);
+    check_ll("FM6 写透传 field", g_stub.last_fm6_field, 1);
+    check_ll("FM6 写透传 value", g_stub.last_fm6_value, 33);
+    state_get_copy(&s);
+    check_ll("FM6 写后 → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    check_ll("FM6 写后同拍回读 patch", s.fm6p.patch[1], 33);
+    check_ll("FM6 写后 engine_ok", s.fm6p.engine_ok, 1);
+
+    /* 全局块：op 6 field 8（ALG）落在绝对偏移 126+8 */
+    apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP, 8, 20);
+    state_get_copy(&s);
+    check_ll("FM6 全局字段回读", s.fm6p.patch[126 + 8], 20);
+
+    /* 越界 op：patch 可读、set 回哨兵 → invalid；鼓轨 → locked */
+    apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP + 1, 0, 1);
+    state_get_copy(&s);
+    check_ll("FM6 越界 op → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+    apply4(CMD_FM6_SET, 3, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("FM6 鼓轨 → locked", s.synth_status, APP_SYNTH_STATUS_LOCKED);
+
+    g_stub.seq_frozen = true;
+    apply4(CMD_FM6_SET, 0, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("FM6 冻结 → frozen", s.synth_status, APP_SYNTH_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
+
+    /* 采样擦除：槽号越界不调存储；走带/冻结/未就绪分开 */
+    apply(CMD_SAMPLE_ERASE, 2, 0, 0);
+    check_ll("采样擦除透传槽号", g_stub.last_sample_slot, 2);
+    state_get_copy(&s);
+    check_ll("采样擦除 → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    uint32_t calls = g_stub.sample_erase_calls;
+    apply(CMD_SAMPLE_ERASE, SLOOP_STORE_SAMPLES, 0, 0);
+    state_get_copy(&s);
+    check_ll("槽号越界不调存储", g_stub.sample_erase_calls, calls);
+    check_ll("槽号越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+    g_stub.sample_erase_ret = ESP_ERR_INVALID_STATE;
+    apply(CMD_SAMPLE_ERASE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("采样擦除走带 → blocked", s.synth_status, APP_SYNTH_STATUS_BLOCKED);
+    g_stub.seq_frozen = true;
+    apply(CMD_SAMPLE_ERASE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("采样擦除冻结 → frozen", s.synth_status, APP_SYNTH_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
+    g_stub.store_ready = false;
+    apply(CMD_SAMPLE_ERASE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("采样擦除未就绪 → error", s.synth_status, APP_SYNTH_STATUS_ERROR);
+    g_stub.store_ready = true;
+    g_stub.sample_erase_ret = ESP_ERR_NOT_FINISHED;
+    apply(CMD_SAMPLE_ERASE, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("采样擦除擦写失败 → error", s.synth_status, APP_SYNTH_STATUS_ERROR);
+
+    /* 每拍 sync 取 dsyn（按当前选择）与 fm6p（选中轨）；鼓轨 engine_ok=0 且 patch 清零 */
+    g_stub.dsyn[0][0].sound[5] = 0x5A;
+    state_set_dsyn_select(0, 0);
+    g_stub.fm6_patch[0][2] = 0x21;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("sync 拷贝 dsyn.sound", s.dsyn.sound[5], 0x5A);
+    check_ll("sync 拷贝 fm6p.patch", s.fm6p.patch[2], 0x21);
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("鼓轨 sync fm6p.engine_ok=0", s.fm6p.engine_ok, 0);
+    check_ll("鼓轨 sync 清空 patch", s.fm6p.patch[2], 0);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -1639,6 +1841,8 @@ int main(void)
     run("外部选轨同步 focus_track", case_external_selection_focus);
     run("冻结 toggle/erase 与 micro/fill 超宽拒绝", case_seq_frozen_and_range);
     run("sections/chain/SONG 命令与歌曲投影", case_song_section_chain);
+    run("DSYN 命令：越界不调引擎/写后回读/STORE/试听", case_dsyn_commands);
+    run("FM6 patch 与采样擦除命令：锁定/回读/错误映射", case_fm6_and_sample);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

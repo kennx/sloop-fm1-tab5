@@ -446,6 +446,111 @@ static void cmd_drum_step(app_state_t *s, uint32_t step, const sloop_dstep_t *ds
     state_seq_result(s, sloop_seq_write_dstep(step, dstep));
 }
 
+/* --------------------------------- P4-D Task 6: DSYN / FM6 patch / 采样槽 ---
+ * 状态层只做公共边界（kit/lane/field/op/slot/velocity）与错误映射，值钳位/字节合成在
+ * adapter（sloop_core_dsyn_* / sloop_core_fm6_*）。存储 API 用 INVALID_STATE 同时表示
+ * 走带/冻结/未就绪，故借 sloop_seq_frozen() 与 sloop_store_ready() 分开三种文案
+ * （spec §4.3）。成功同拍刷新对应投影：DSYN 按当前选择、FM6 按选中轨。 */
+static void state_synth_result(app_state_t *s, esp_err_t ret)
+{
+    switch (ret) {
+    case ESP_OK: s->synth_status = APP_SYNTH_STATUS_OK; break;
+    case ESP_ERR_INVALID_ARG: s->synth_status = APP_SYNTH_STATUS_INVALID; break;
+    case ESP_ERR_NO_MEM: s->synth_status = APP_SYNTH_STATUS_FULL; break;
+    case ESP_ERR_NOT_ALLOWED: s->synth_status = APP_SYNTH_STATUS_BLOCKED; break;
+    case ESP_ERR_INVALID_STATE:
+        if (sloop_seq_frozen()) s->synth_status = APP_SYNTH_STATUS_FROZEN;
+        else if (!sloop_store_ready()) s->synth_status = APP_SYNTH_STATUS_ERROR;
+        else s->synth_status = APP_SYNTH_STATUS_BLOCKED; /* 走带中（store_playing） */
+        break;
+    default: s->synth_status = APP_SYNTH_STATUS_ERROR; break;
+    }
+}
+
+static void cmd_dsyn_set(app_state_t *s, uint32_t kit, uint32_t lane, uint32_t field, uint16_t value)
+{
+    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES || field >= SLOOP_DSYN_FIELDS) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID; /* 越界不调引擎 */
+        return;
+    }
+    /* 越界已拒；剩下的哨兵只可能是诊断冻结（adapter 在锁外/锁内各查一次）。 */
+    if (sloop_core_dsyn_set(kit, lane, field, (int16_t)value) == SLOOP_DSYN_INVALID) {
+        s->synth_status = APP_SYNTH_STATUS_FROZEN;
+        return;
+    }
+    s->synth_status = APP_SYNTH_STATUS_OK;
+    state_refresh_dsyn_locked();
+}
+
+static void cmd_dsyn_load_kit(app_state_t *s, uint32_t kit, uint32_t src)
+{
+    if (kit >= SLOOP_DSYN_KITS) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID;
+        return;
+    }
+    esp_err_t ret = sloop_core_dsyn_load_factory(kit, src);
+    switch (ret) {
+    case ESP_OK: s->synth_status = APP_SYNTH_STATUS_OK; break;
+    case ESP_ERR_INVALID_ARG: s->synth_status = APP_SYNTH_STATUS_INVALID; break;
+    case ESP_ERR_INVALID_STATE: s->synth_status = APP_SYNTH_STATUS_FROZEN; break;
+    default: s->synth_status = APP_SYNTH_STATUS_ERROR; break;
+    }
+    if (ret == ESP_OK) state_refresh_dsyn_locked();
+}
+
+static void cmd_dsyn_store(app_state_t *s)
+{
+    state_synth_result(s, sloop_store_dsu_store());
+    if (s->synth_status == APP_SYNTH_STATUS_OK) state_refresh_dsyn_locked(); /* dirty → 0 */
+}
+
+/* 试听不改数据（上游只写 dsu_aud_* 队列），因此不刷新投影；velocity 0 是「无声」、
+ * >127 越界，两者都是命令错误且不调 core（上游 ED_DSYN_PLAY 同口径）。 */
+static void cmd_dsyn_audition(app_state_t *s, uint32_t kit, uint32_t lane, uint32_t velocity)
+{
+    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES || velocity == 0u || velocity > 127u) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID;
+        return;
+    }
+    sloop_core_dsyn_audition(kit, lane, velocity);
+    s->synth_status = APP_SYNTH_STATUS_OK;
+}
+
+/* core 对「越界 op/field / 非 FM6 轨 / 鼓轨 / 冻结」统一回 SLOOP_FM6_INVALID，命中哨兵时
+ * 再读一次 patch 快照区分（INVALID_STATE → FROZEN；INVALID_ARG/NOT_ALLOWED/engine_ok=0
+ * → LOCKED；其余 → INVALID）。成功路径只有一次引擎锁。 */
+static void cmd_fm6_set(app_state_t *s, uint32_t track, uint32_t op, uint32_t field, uint16_t value)
+{
+    if (track >= APP_STATE_TRACKS) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID;
+        return;
+    }
+    if (sloop_core_fm6_set(track, op, field, (int16_t)value) != SLOOP_FM6_INVALID) {
+        s->synth_status = APP_SYNTH_STATUS_OK;
+        state_refresh_fm6_locked();
+        return;
+    }
+    sloop_fm6_patch_snapshot_t snap;
+    esp_err_t ret = sloop_core_fm6_patch(track, &snap);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        s->synth_status = APP_SYNTH_STATUS_FROZEN;
+    } else if (ret == ESP_ERR_INVALID_ARG || ret == ESP_ERR_NOT_ALLOWED ||
+               (ret == ESP_OK && !snap.engine_ok)) {
+        s->synth_status = APP_SYNTH_STATUS_LOCKED;
+    } else {
+        s->synth_status = APP_SYNTH_STATUS_INVALID;
+    }
+}
+
+static void cmd_sample_erase(app_state_t *s, uint32_t slot)
+{
+    if (slot >= SLOOP_STORE_SAMPLES) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID; /* 越界不调存储 */
+        return;
+    }
+    state_synth_result(s, sloop_store_sample_erase(slot));
+}
+
 /* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
  * （命令无效 ≠ 存储失败）。返回码按 app_store_status_t 映射；成功即整份刷新投影
  * （工程/预置载入会改引擎真值）。存储调用在状态锁内、flash 擦写由存储层在引擎锁外
@@ -576,6 +681,12 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SONG_MODE: cmd_song_mode(s, cmd->a); break;
     case CMD_SONG_REC: cmd_song_rec(s); break;
     case CMD_SONG_SET: cmd_song_set(s, cmd->p); break;
+    case CMD_DSYN_SET: cmd_dsyn_set(s, cmd->a, cmd->b, cmd->n, cmd->v); break;
+    case CMD_DSYN_LOAD_KIT: cmd_dsyn_load_kit(s, cmd->a, cmd->b); break;
+    case CMD_DSYN_STORE: cmd_dsyn_store(s); break;
+    case CMD_DSYN_AUDITION: cmd_dsyn_audition(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_FM6_SET: cmd_fm6_set(s, cmd->a, cmd->b, cmd->n, cmd->v); break;
+    case CMD_SAMPLE_ERASE: cmd_sample_erase(s, cmd->a); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

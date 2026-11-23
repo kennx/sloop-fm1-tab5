@@ -83,6 +83,26 @@ typedef struct {
     struct { uint32_t track; bool mute; } last_mute;
     uint8_t last_solo_mask;
     uint32_t last_select;
+    /* P4-D Task 6：DSYN / FM6 patch / 采样替身后端 */
+    sloop_dsyn_sound_t dsyn[4][16]; /* sloop_core_dsyn_read/set 后端（22B 原样） */
+    char dsyn_name[4][9];           /* kit 名（8 字符 + NUL） */
+    uint8_t dsyn_crush[4], dsyn_src[4];
+    uint32_t dsyn_factory_count;    /* src 上限（模拟 DS_NKITS） */
+    uint32_t dsyn_read_calls, dsyn_set_calls, dsyn_load_calls, dsyn_audition_calls;
+    uint32_t last_dsyn_kit, last_dsyn_lane, last_dsyn_field, last_dsyn_src, last_dsyn_vel;
+    int32_t last_dsyn_value;
+    bool dsu_dirty;                 /* sloop_store_dsu_dirty 的返回值 */
+    esp_err_t dsu_store_ret;
+    uint32_t dsu_store_calls;
+    bool store_ready;               /* sloop_store_ready 的返回值（默认 true） */
+    uint8_t fm6_patch[3][155];      /* 合成轨的 live patch 后端 */
+    uint8_t fm6_slot[3];
+    bool fm6_ok;                    /* 选中轨引擎是否 FM6（false → NOT_ALLOWED / 哨兵） */
+    uint32_t fm6_patch_calls, fm6_set_calls;
+    uint32_t last_fm6_track, last_fm6_op, last_fm6_field;
+    int32_t last_fm6_value;
+    esp_err_t sample_erase_ret;
+    uint32_t sample_erase_calls, last_sample_slot;
 } stub_engine_t;
 
 extern stub_engine_t g_stub;

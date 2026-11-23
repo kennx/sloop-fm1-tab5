@@ -45,6 +45,38 @@ app_state_t *state_locked(void)
     return &s_state;
 }
 
+/* ---- P4-D Task 6：DSYN / FM6 patch 投影（调用方持 state_lock） ------------------
+ * dsyn 按**当前选择**读：kit/lane 是 UI 局部态（与 step_window 同类），不是引擎真值；
+ * dirty 取存储层的 DSU 记账（DSYN 编辑置位、任何成功的 settings 写清）。读失败（诊断
+ * 冻结）时保留上一次的 22B/名字，dirty 仍如实刷新。
+ * fm6p 按选中轨读：鼓轨/越界轨回 INVALID_ARG、非 FM6 轨回 NOT_ALLOWED 且快照带
+ * engine_ok=0——两者都保留快照（UI 显示锁定）；冻结时 patch 清零（UI 已被 quiesce）。 */
+void state_refresh_dsyn_locked(void)
+{
+    sloop_dsyn_sound_t snd;
+    char name[SLOOP_DSYN_NAME + 1];
+    uint8_t crush = 0, src = 0;
+    if (sloop_core_dsyn_read(s_state.dsyn.kit, s_state.dsyn.lane, &snd, name, &crush, &src) ==
+        ESP_OK) {
+        memcpy(s_state.dsyn.sound, snd.sound, sizeof s_state.dsyn.sound);
+        memcpy(s_state.dsyn.name, name, sizeof s_state.dsyn.name);
+        s_state.dsyn.crush = crush;
+        s_state.dsyn.src = src;
+    }
+    s_state.dsyn.dirty = sloop_store_dsu_dirty() ? 1u : 0u;
+}
+
+void state_refresh_fm6_locked(void)
+{
+    sloop_fm6_patch_snapshot_t snap;
+    esp_err_t ret = sloop_core_fm6_patch(s_state.core.selected_track, &snap);
+    if (ret == ESP_OK || ret == ESP_ERR_NOT_ALLOWED) {
+        s_state.fm6p = snap;
+    } else {
+        memset(&s_state.fm6p, 0, sizeof s_state.fm6p);
+    }
+}
+
 void state_init(void)
 {
 #ifndef HOST_TEST
@@ -63,6 +95,9 @@ void state_init(void)
     sloop_seq_rec_read(&s_state.rec);
     /* arranger 只读投影（SONG 页/TRANSPORT 状态行） */
     sloop_seq_song_read(&s_state.song);
+    /* DSYN / FM6 patch 投影（选择从 0/0 开始；dirty 取存储层记账） */
+    state_refresh_dsyn_locked();
+    state_refresh_fm6_locked();
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -88,14 +123,17 @@ void step_window(step_window_t *out)
 
 void state_sync_from_engine(void)
 {
-    /* 步窗是 UI 局部态（state 所有）。sync 在状态锁外读引擎（避免把输入任务堵在
-     * 音频块的引擎锁后面），因此取快照与写回之间可能插入一次 CMD_SET_WINDOW：
-     * 写回前复核窗口，变了就按新窗口重取一次（最多两次）——否则会把旧基的投影
-     * 留在 AppState 一拍，而 EDIT 擦除读的是这份投影。 */
+    /* 步窗与 DSYN 选择都是 UI 局部态（state 所有）。sync 在状态锁外读引擎（避免把输入
+     * 任务堵在音频块的引擎锁后面），因此取快照与写回之间可能插入一次 CMD_SET_WINDOW /
+     * state_set_dsyn_select：写回前复核两者，变了就按新值重取一次（最多两次）——否则会把
+     * 旧基的投影留在 AppState 一拍，而 EDIT 擦除/DSYN 旋钮读的是这份投影。 */
     for (uint32_t attempt = 0; attempt < 2u; attempt++) {
         step_window_t win;
+        uint8_t dsyn_kit, dsyn_lane;
         state_lock();
         win = s_state.window;
+        dsyn_kit = s_state.dsyn.kit;
+        dsyn_lane = s_state.dsyn.lane;
         state_unlock();
 
         sloop_core_snapshot_t snap;
@@ -104,16 +142,27 @@ void state_sync_from_engine(void)
         sloop_core_read_window(win.window_start, &snap);
         /* 参数投影同拍取（第二次短锁）：p 的轨别取快照里的选中轨，与 core 一致；
          * 不逐项读 71+50 个参数。写回前与窗口一起复核。
-         * 注意这是**两个快照**（窗口 + 参数）而非一个原子快照：两次取锁之间若发生
-         * 选轨/参数写/外部改动，本次写回的 core 与 p[] 可能差一拍（≤1 个 sync 周期，
-         * 下一拍自愈）。与既有 core 快照语义一致；选中轨切换本身在 cmd_select_track
+         * 注意这是**多个快照**（窗口 + 参数 + DSYN + FM6 patch）而非一个原子快照：各次
+         * 取锁之间若发生选轨/参数写/外部改动，本次写回的字段可能差一拍（≤1 个 sync
+         * 周期，下一拍自愈）。与既有 core 快照语义一致；选中轨切换本身在 cmd_select_track
          * 里已即时刷新 p[]，不会出现「标题/参数跨轨」的帧。 */
         int16_t param_p[SLOOP_CORE_P_COUNT];
         int16_t param_g[SLOOP_CORE_G_COUNT];
         sloop_core_read_params(snap.selected_track, param_p, param_g);
 
+        /* DSYN 按选择读、FM6 patch 按选中轨读（spec §4.3：每拍各一次）。 */
+        sloop_dsyn_sound_t dsyn_snd;
+        char dsyn_name[SLOOP_DSYN_NAME + 1];
+        uint8_t dsyn_crush = 0, dsyn_src = 0;
+        bool dsyn_ok = sloop_core_dsyn_read(dsyn_kit, dsyn_lane, &dsyn_snd, dsyn_name,
+                                            &dsyn_crush, &dsyn_src) == ESP_OK;
+        bool dsu_dirty = sloop_store_dsu_dirty();
+        sloop_fm6_patch_snapshot_t fm6_snap;
+        esp_err_t fm6_ret = sloop_core_fm6_patch(snap.selected_track, &fm6_snap);
+
         state_lock();
-        if (s_state.window.window_start == win.window_start) {
+        if (s_state.window.window_start == win.window_start &&
+            s_state.dsyn.kit == dsyn_kit && s_state.dsyn.lane == dsyn_lane) {
             /* 全部字段取引擎真值：选轨/mute/solo 已由引擎写入口落地（sloop_core_select/
              * set_mute/set_solo），本层不再持有，也不做任何例外保持。窗口本身不被 sync
              * 改写；窗口基与快照基一致才写回（否则按新窗口重取）。 */
@@ -122,6 +171,18 @@ void state_sync_from_engine(void)
             s_state.core = snap;
             memcpy(s_state.p, param_p, sizeof(param_p));
             memcpy(s_state.g, param_g, sizeof(param_g));
+            if (dsyn_ok) {
+                memcpy(s_state.dsyn.sound, dsyn_snd.sound, sizeof s_state.dsyn.sound);
+                memcpy(s_state.dsyn.name, dsyn_name, sizeof s_state.dsyn.name);
+                s_state.dsyn.crush = dsyn_crush;
+                s_state.dsyn.src = dsyn_src;
+            }
+            s_state.dsyn.dirty = dsu_dirty ? 1u : 0u;
+            if (fm6_ret == ESP_OK || fm6_ret == ESP_ERR_NOT_ALLOWED) {
+                s_state.fm6p = fm6_snap;
+            } else {
+                memset(&s_state.fm6p, 0, sizeof s_state.fm6p);
+            }
             /* 录音快照只在写回成功的这一拍读一次：take 结果是一次性的（读即消费），
              * 重试循环里读会把结果丢在第一次 attempt 上。 */
             sloop_seq_rec_read(&s_state.rec);
@@ -131,7 +192,7 @@ void state_sync_from_engine(void)
         }
         state_unlock();
     }
-    /* 连续两次窗口变更（极端交错）：本次不写投影，下一拍按最新窗口重取并自愈 */
+    /* 连续两次窗口/选择变更（极端交错）：本次不写投影，下一拍按最新值重取并自愈 */
 }
 
 void state_set_page(uint8_t page)
@@ -161,6 +222,15 @@ void state_set_layer(uint8_t mask)
     state_unlock();
 }
 
+void state_set_dsyn_select(uint8_t kit, uint8_t lane)
+{
+    state_lock();
+    s_state.dsyn.kit = kit < SLOOP_DSYN_KITS ? kit : (uint8_t)(SLOOP_DSYN_KITS - 1u);
+    s_state.dsyn.lane = lane < SLOOP_DSYN_LANES ? lane : (uint8_t)(SLOOP_DSYN_LANES - 1u);
+    state_refresh_dsyn_locked();
+    state_unlock();
+}
+
 void state_refresh_locked(void)
 {
     /* 调用方持 state_lock：窗口在此期间不会被 CMD_SET_WINDOW 改，故不需要 sync 的
@@ -176,6 +246,8 @@ void state_refresh_locked(void)
     s_state.core = snap;
     memcpy(s_state.p, param_p, sizeof(param_p));
     memcpy(s_state.g, param_g, sizeof(param_g));
+    state_refresh_dsyn_locked();
+    state_refresh_fm6_locked();
     sloop_seq_rec_read(&s_state.rec);
     sloop_seq_song_read(&s_state.song);
 }
