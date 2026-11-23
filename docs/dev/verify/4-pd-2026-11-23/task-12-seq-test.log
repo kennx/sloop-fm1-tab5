@@ -1,0 +1,502 @@
+== sloop_core sequencer adapter host test
+seq-host: raw drum step accepts the last step                                    ok
+seq-host: all 16 drum lanes preserve on/lvl/rat packing                          ok
+seq-host: public raw drum write reaches the real upstream packed step            ok
+seq-host: raw drum read/write each use the engine lock                           ok
+seq-host: raw drum write rejects an invalid step or null input                   ok
+seq-host: invalid raw drum read returns a zeroed step                            ok
+seq-host: frozen raw drum write returns invalid state                            ok
+seq-host: frozen raw drum read returns a zeroed step                             ok
+seq-host: micro accepts -32                                                      ok
+seq-host: micro accepts 31                                                       ok
+seq-host: micro rejects -33/32 without changing the step                         ok
+seq-host: micro rejects invalid track/step                                       ok
+seq-host: fill accepts normal                                                    ok
+seq-host: fill accepts fill-only                                                 ok
+seq-host: fill accepts no-fill                                                   ok
+seq-host: fill preserves the upstream two-bit value 3                            ok
+seq-host: upstream treats stored fill value 3 as normal                          ok
+seq-host: fill rejects values above 3 and invalid track/step                     ok
+seq-host: frozen micro/fill writes return invalid state                          ok
+seq-host: different parameters coexist on one step                               ok
+seq-host: lock list returns both same-step locks and values                      ok
+seq-host: same-key lock overwrite succeeds                                       ok
+seq-host: same-key overwrite consumes no additional slot                         ok
+seq-host: lock list honors its output capacity                                   ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: the 25th lock returns no memory                                        ok
+seq-host: unlockable parameter and invalid track/step/param are invalid          ok
+seq-host: a full-table rejection leaves all 24 locks intact                      ok
+seq-host: single-key lock delete succeeds                                        ok
+seq-host: single-key delete leaves the other same-step lock                      ok
+seq-host: P_COUNT clears every lock on the step                                  ok
+seq-host: clear-step removes the remaining same-step lock                        ok
+seq-host: lock delete rejects invalid track/step/param                           ok
+seq-host: frozen lock writes return invalid state                                ok
+seq-host: frozen lock list is empty                                              ok
+seq-host: C1 spans C2/D2/E2 with CONT and a continuation-only note at step 8     ok
+seq-host: unsafe CONT move/copy return blocked without changing the track        ok
+seq-host: deleting C1 removes every CONT residue and preserves C2/D2/E2          ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: move fixture has a source lock                                         ok
+seq-host: note move carries its span, micro and fill and clears the source metadata ok
+seq-host: note move relocates its parameter lock                                 ok
+seq-host: copy fixture has a source lock                                         ok
+seq-host: note copy duplicates its span, micro and fill without clearing the source ok
+seq-host: note copy duplicates its parameter lock                                ok
+seq-host: full-table copy fixture reaches 24 locks                               ok
+seq-host: copy with a full lock table returns no memory                          ok
+seq-host: full-table copy rejection leaves the whole track unchanged             ok
+seq-host: insufficient-capacity copy fixture has two source locks and one free slot ok
+seq-host: copy preflight rejects two locks with one free slot                    ok
+seq-host: insufficient-capacity copy rejection preserves the whole track         ok
+seq-host: occupied-target fixture has a source lock                              ok
+seq-host: occupied move/copy targets return blocked without changing the track   ok
+seq-host: far move blocked midway returns blocked                                ok
+seq-host: far move blocked midway leaves the track unchanged（无半截移动） ok
+seq-host: blocked far move does not consume an undo mark                         ok
+seq-host: far copy blocked midway returns blocked                                ok
+seq-host: far copy blocked midway leaves the track unchanged（无半截拷贝） ok
+seq-host: blocked far copy does not consume an undo mark                         ok
+seq-host: step edit writes per-note lvl/rat and toggles slide                    ok
+seq-host: step field edits reject an absent note index and out-of-range values   ok
+seq-host: step clear fixture has a lock                                          ok
+seq-host: step clear removes notes, lock, micro and fill without changing LEN    ok
+seq-host: rotate fixture has anchored locks                                      ok
+seq-host: rotate wraps the last step to the first while micro/fill/locks stay anchored ok
+seq-host: rotate leaves lock steps and values unchanged                          ok
+seq-host: LEN 16 to 32 copies only step data and anchors micro/fill/locks        ok
+seq-host: LEN 3 to 1 uses upstream integer halving and does not move steps       ok
+seq-host: transpose saturates at 127 and scans step 63 beyond LEN                ok
+seq-host: transpose saturates at zero                                            ok
+seq-host: transpose rejects the drum track without changing it                   ok
+seq-host: clear/undo fixture has locks on both steps                             ok
+seq-host: pattern clear removes steps, locks, micro and fill without changing LEN ok
+seq-host: undo restores only steps, micro and LEN, not fill or locks             ok
+seq-host: redo swaps the same limited scope back to the cleared pattern          ok
+seq-host: null and negative operations are rejected without changing the track   ok
+seq-host: step edit takes and releases the engine lock exactly once              ok
+seq-host: pattern edit takes and releases the engine lock exactly once           ok
+seq-host: step/pattern entries recheck freeze after locking and leave data unchanged ok
+seq-host: pitch erase finds and deletes the note under one engine lock           ok
+seq-host: erasing an absent pitch returns not found and leaves the step unchanged ok
+seq-host: erasing from an empty step returns not found                           ok
+seq-host: pitch erase rejects the drum track, invalid steps and invalid pitches  ok
+seq-host: erasing the last pitch clears the step through the upstream delete     ok
+seq-host: frozen pitch erase returns invalid state without touching the step     ok
+seq-host: fresh transport reports REC off with note quant on and no take         ok
+seq-host: REC configuration accepts only 0/1 modes                               ok
+seq-host: REC configuration accepts quant off / tempo / count                    ok
+seq-host: REC configuration is projected in the snapshot (runtime only, not persisted) ok
+seq-host: frozen diagnostic mode rejects REC / fill / play button entries        ok
+seq-host: frozen REC snapshot is zeroed and consumes no one-shot                 ok
+seq-host: REC toggles on while stopped                                           ok
+seq-host: stopped REC arms and waits for a note                                  ok
+seq-host: the first note starts the loop and recording                           ok
+seq-host: the armed first note starts the transport instead of a free take       ok
+seq-host: the first note is recorded into step 0                                 ok
+seq-host: REC off stops recording but keeps the transport playing                ok
+seq-host: REC off projects the off state                                         ok
+seq-host: REC while playing starts recording at once                             ok
+seq-host: a second REC press ends the take                                       ok
+seq-host: selecting another track moves the REC bit                              ok
+seq-host: a disarmed song stays disarmed on a track change                       ok
+seq-host: count-in fixture is armed with START=COUNT                             ok
+seq-host: API PLAY while armed in COUNT mode runs the count-in first             ok
+seq-host: the four-beat count-in ends in the loop and the recording              ok
+seq-host: POLY fixture is armed                                                  ok
+seq-host: a POLY take records both notes of the chord in step 0                  ok
+seq-host: releasing one POLY key ends only its note; the other keeps its length  ok
+seq-host: free take fixture starts from an empty project                         ok
+seq-host: stopped REC arms an empty project                                      ok
+seq-host: the first note of an empty project opens a free take                   ok
+seq-host: REC closes the free take                                               ok
+seq-host: a valid free take closes into a one-bar loop and starts playing        ok
+seq-host: the free take is quantised into step 0                                 ok
+seq-host: the take result is a one-shot consumed by the snapshot                 ok
+seq-host: a second free take fixture is armed                                    ok
+seq-host: REC closes the short take                                              ok
+seq-host: a free take shorter than half a second is dropped and leaves the project empty ok
+seq-host: physical PLAY fixture is armed                                         ok
+seq-host: the free take is running before the PLAY press                         ok
+seq-host: the physical PLAY key is accepted                                      ok
+seq-host: the physical PLAY key drops the free take instead of closing it        ok
+seq-host: releasing the physical PLAY key clears its button bit                  ok
+seq-host: the dropped take leaves the project empty and reports the drop         ok
+seq-host: API PLAY fixture is armed                                              ok
+seq-host: API PLAY closes the free take into a loop (it does not drop it)        ok
+seq-host: physical PLAY starts the transport                                     ok
+seq-host: physical PLAY requests the transport when no take runs                 ok
+seq-host: physical PLAY with the transport running stops it                      ok
+seq-host: physical PLAY stops a running transport                                ok
+seq-host: drum hit accepts the last lane                                         ok
+seq-host: a live drum hit outside recording records nothing and never falls back to track 0 ok
+seq-host: drum hit rejects lane 16 and velocity 128; velocity 0 is a release     ok
+seq-host: a recorded drum hit on lane 15 succeeds                                ok
+seq-host: the recorded hit writes lane 15 at its velocity level                  ok
+seq-host: a second lane records separately at its own level                      ok
+seq-host: both recorded lanes share the step without touching the others         ok
+seq-host: frozen drum hits return invalid state                                  ok
+seq-host: FILL held sets only the held flag                                      ok
+seq-host: the next rendered block plays the fill                                 ok
+seq-host: a FILL NEXT pulse toggles only the arm and leaves a held fill untouched ok
+seq-host: FILL NEXT again cancels the arm without touching held                  ok
+seq-host: releasing FILL clears only the held flag                               ok
+seq-host: a held fill and a next-bar arm coexist before STOP                     ok
+seq-host: STOP ends a held or armed fill                                         ok
+seq-host: FILL NEXT with held off arms the next bar only                         ok
+seq-host: an armed next-bar fill does not hold the current block                 ok
+seq-host: FILL NEXT never latches the held flag (held only follows down/up)      ok
+seq-host: the next-bar fill plays for exactly one bar and then stops             ok
+seq-host: FC_FILL steps trigger and FC_NOFILL steps drop out exactly on the armed bar ok
+seq-host: the armed fill is consumed by its bar                                  ok
+seq-host: swallow fixture is armed                                               ok
+seq-host: REC closes the free take                                               ok
+seq-host: a valid take closes into a loop and marks ft_owns_press for 300 ms     ok
+seq-host: a REC press within 300 ms after the take closed is swallowed           ok
+seq-host: after the window REC records again (the transport kept playing)        ok
+seq-host: drop-swallow fixture is armed                                          ok
+seq-host: physical PLAY drops the take                                           ok
+seq-host: the drop also marks ft_owns_press (nothing was closed)                 ok
+seq-host: a REC press within 300 ms after the drop is swallowed too              ok
+seq-host: after the window REC arms again from the stopped transport             ok
+seq-host: PLAY press fixture starts the transport                                ok
+seq-host: PLAY release clears its button bit without the engine lock (also when frozen) ok
+seq-host: fresh snapshot: loop mode, no section, no chain, no SONG REC           ok
+seq-host: default song order is A/B/C/D, 4 bars each (upstream arr_defaults)     ok
+seq-host: a stopped song clamps index to the last valid entry                    ok
+seq-host: index is clamped to count-1 for consumers                              ok
+seq-host: ready is the A-D bitmap of valid project slots                         ok
+seq-host: SONG mode can be enabled                                               ok
+seq-host: snapshot projects the SONG mode flag                                   ok
+seq-host: SONG mode can be disabled                                              ok
+seq-host: SONG mode is refused while SONG REC runs                               ok
+seq-host: frozen snapshot is zeroed                                              ok
+seq-host: frozen arranger actions return invalid state                           ok
+seq-host: storage not ready: song_read does not touch proj_slot                  ok
+seq-host: storage not ready: song snapshot is zeroed                             ok
+seq-host: storage not ready: section STORE returns invalid state (no capture)    ok
+seq-host: storage not ready: section LOAD returns invalid state                  ok
+seq-host: storage not ready: section ERASE returns invalid state                 ok
+seq-host: storage not ready: section REQUEST returns invalid state               ok
+seq-host: storage not ready: CHAIN BEGIN returns invalid state                   ok
+seq-host: storage not ready: CHAIN COMMIT returns invalid state                  ok
+seq-host: storage not ready: SONG mode cannot be enabled (audio path would call arrangement_ready) ok
+seq-host: storage not ready: SONG mode can still be disabled                     ok
+seq-host: A2+B3 fixture is in SONG mode                                          ok
+seq-host: loop=0 SONG stops by itself after the last bar                         ok
+seq-host: entry B starts exactly after A's 2 bars                                ok
+seq-host: A2+B3 ends after 5 bars in total                                       ok
+seq-host: the working loop and its selected track come back after the song ends  ok
+seq-host: the loop's pattern is restored, not the last section's                 ok
+seq-host: snapshot after the natural end: loop mode flag kept, no song running   ok
+seq-host: loop=1 fixture is in SONG mode                                         ok
+seq-host: loop=1 wraps into entry B                                              ok
+seq-host: STOP ends loop=1 SONG                                                  ok
+seq-host: STOP gives the working loop and selected track back                    ok
+seq-host: missing-scene fixture is in SONG mode                                  ok
+seq-host: a missing later scene refuses the whole song (not even scene A starts) ok
+seq-host: the refused song leaves the working loop untouched                     ok
+seq-host: live STORE captures a section while playing                            ok
+seq-host: section capture takes the engine lock exactly once                     ok
+seq-host: the captured section is immediately the RAM slot's content             ok
+seq-host: STORE marks only the section dirty (flash happens later, outside the engine lock) ok
+seq-host: snapshot reports the live section and the pending flush                ok
+seq-host: section store rejects invalid slots and store+erase together           ok
+seq-host: frozen section store returns invalid state without capturing           ok
+seq-host: stopped LOAD applies the RAM section and makes it live                 ok
+seq-host: LOAD of an empty section is not found                                  ok
+seq-host: ERASE clears a stopped section                                         ok
+seq-host: ERASE clears the RAM slot, the live section and its dirty bit          ok
+seq-host: ERASE of an empty section is not found                                 ok
+seq-host: ERASE of an empty slot writes nothing                                  ok
+seq-host: ERASE drops the erased scene from the song order                       ok
+seq-host: the surviving song entry is kept and the song is marked dirty          ok
+seq-host: section LOAD is refused while the transport runs (scene changes go through live_req) ok
+seq-host: request fixture loads A                                                ok
+seq-host: a live request is queued for the next bar and cancels any chain        ok
+seq-host: the queued section starts on the next bar                              ok
+seq-host: requesting an empty section is not found                               ok
+seq-host: requesting slot 4 is invalid                                           ok
+seq-host: a stopped transport has no next bar to request for (LOAD instead)      ok
+seq-host: song fixture is playing                                                ok
+seq-host: a live section request is refused while the song plays                 ok
+seq-host: standalone COMMIT fixture loads A                                      ok
+seq-host: the fixture is playing A with no pending request                       ok
+seq-host: standalone COMMIT installs the chain with one engine lock              ok
+seq-host: COMMIT independently requests its first scene                          ok
+seq-host: the chain starts at entry 0 on the next bar                            ok
+seq-host: COMMIT does not re-request a first scene that is already playing       ok
+seq-host: a one-entry chain is accepted (a looping single section)               ok
+seq-host: chain fixture loads A                                                  ok
+seq-host: chain begin queues the first section right away (and cancels an older chain) ok
+seq-host: chain commit installs A/B atomically                                   ok
+seq-host: the chain state follows: A first, one bar                              ok
+seq-host: chain A/B/A keeps the order                                            ok
+seq-host: A plays its own bar count (B starts one bar in)                        ok
+seq-host: B plays two bars (its longest pattern) before A returns                ok
+seq-host: after the round the chain state follows: entry B, two bars             ok
+seq-host: STOP drops the chain                                                   ok
+seq-host: chain begin needs a playing live loop                                  ok
+seq-host: chain commit needs a playing live loop                                 ok
+seq-host: chain-limit fixture loads A                                            ok
+seq-host: chain fixture is playing A/B                                           ok
+seq-host: a nine-entry chain is refused and leaves the installed chain unchanged ok
+seq-host: a null scene list is invalid                                           ok
+seq-host: a chain naming an empty section is refused atomically                  ok
+seq-host: count 0 cancels the chain                                              ok
+seq-host: the cancelled chain can be rebuilt                                     ok
+seq-host: a single section tap cancels the chain and asks for A                  ok
+seq-host: the single tap keeps A playing (no chain comes back)                   ok
+seq-host: SONG REC fixture loads A                                               ok
+seq-host: SONG REC arms on the next bar and forces loop mode                     ok
+seq-host: the take starts at the next bar, with the live section                 ok
+seq-host: A's first bar is counted                                               ok
+seq-host: B is asked for at the next bar                                         ok
+seq-host: STOP finishes the take with two parts                                  ok
+seq-host: SONG REC writes A 2 bars + B 3 bars (the bar playing counts)           ok
+seq-host: the finished take is projected and marks the song dirty for the delayed writer ok
+seq-host: the dirty mark is reconciled from srec_done once per take              ok
+seq-host: later 30ms snapshots do not re-mark the same take                      ok
+seq-host: 64-bar fixture loads A                                                 ok
+seq-host: 64-bar take arms                                                       ok
+seq-host: the take is recording                                                  ok
+seq-host: 64 bars of one section split into a second entry (never more than 64 bars) ok
+seq-host: the split take finishes as a two-entry song                            ok
+seq-host: 16-item fixture loads A                                                ok
+seq-host: 16-item take arms                                                      ok
+seq-host: 16-item take is recording                                              ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: sixteen section changes fill the song                                  ok
+seq-host: a seventeenth change finishes the take with 16 entries (upstream srec_finish) ok
+seq-host: stopping an empty take is accepted                                     ok
+seq-host: an empty take reports NO SONG (0xFF), not a zero-part song             ok
+seq-host: an empty take leaves the song order untouched                          ok
+seq-host: NO SONG is projected and marks nothing dirty                           ok
+seq-host: cancelling an armed (not yet recording) take keeps the old result      ok
+seq-host: a new take can start with a stale result pending                       ok
+seq-host: the new take clears the visible result                                 ok
+seq-host: the stale take is reconciled (song dirty) before the reset; the new take shows none ok
+seq-host: NO SONG advances the reconciled value (no dirty)                       ok
+seq-host: a later take with the same part count is marked again after NO SONG    ok
+seq-host: FILL held goes down                                                    ok
+seq-host: REC snapshot projects the FILL hold level                              ok
+seq-host: FILL NEXT is a pulse                                                   ok
+seq-host: NEXT flips the arm without touching the hold level                     ok
+seq-host: FILL released                                                          ok
+seq-host: release clears only the hold level                                     ok
+SEQ HOST TEST PASSED (0 failures)
+== sloop_core PER3 song-settings host test
+persist-host: canonical: kind = NEW                                                      ok
+persist-host: canonical: 88B persist + 1,464B DSU = 1,552B                               ok
+persist-host: canonical: magic PER3                                                      ok
+persist-host: canonical: palette/lowcut/zoom = 0                                         ok
+persist-host: canonical: 默认 panel（PAN5）                                          ok
+persist-host: canonical: arrangement @48 = count/loop                                    ok
+persist-host: canonical: entries @52 = entry[0].scene/bars                               ok
+persist-host: canonical: lights = 0（2.2 迁移口径）                                ok
+persist-host: canonical: 默认 DSU 银行 @88（DSU1 / ver 1 / n 4）                   ok
+persist-host: canonical: 默认 side（theme 0 + FAV1 + CRC）                           ok
+persist-host: canonical: side CRC 自校验通过                                        ok
+persist-host: side: 全 0xFF = 空白侧区                                              ok
+persist-host: side: 空白侧区 → 默认记录                                        ok
+persist-host: side: 2.7 beta 主题记录确实自校验不过                           ok
+persist-host: side: 有内容的侧区原样保留（含自校验不过的主题记录） ok
+persist-host: canonical: 读回分类为 PER3                                            ok
+persist-host: canonical: arrangement 读回（36B 含 reserved）                        ok
+persist-host: canonical: entry[0] 偏移 52 语义                                       ok
+persist-host: PER3+MIDI(32B): 长度保持 1,584B                                        ok
+persist-host: PER3+MIDI: 0..47（palette/panel）逐字节不变                         ok
+persist-host: PER3+MIDI: lights @84 逐字节不变                                      ok
+persist-host: PER3+MIDI: 88..1,551 = 当前 dsu（P4-D：替换 flash 里的旧值）    ok
+persist-host: PER3+MIDI: MIDI 尾段（1,552..1,583）逐字节不变                    ok
+persist-host: PER3+MIDI: arrangement 已替换                                           ok
+persist-host: PER3+MIDI: side 原样随副本提交                                      ok
+persist-host: PER3+MIDI(40B): 长度保持 1,592B                                        ok
+persist-host: PER3+MIDI(40B): 尾段逐字节不变                                      ok
+persist-host: PER3(1,552B): 长度不变                                                 ok
+persist-host: PER3(1,552B): 已有 DSU 被当前 dsu 替换                              ok
+persist-host: PER3(88B): 下次保存补默认 DSU → 1,552B                            ok
+persist-host: PER3(88B): 头部与 lights 逐字节不变                                ok
+persist-host: PER3(88B): 追加的 DSU 有效                                            ok
+persist-host: PER3(84B, 2.2): 补 lights=0 + DSU → 1,552B                              ok
+persist-host: PER3(84B): 头部不变、lights 补 0                                     ok
+persist-host: PER2 → PER3 canonical（1,552B）                                        ok
+persist-host: PER2 迁移: magic 变 PER3                                                ok
+persist-host: PER2 迁移: palette/lowcut/zoom 保留                                    ok
+persist-host: PER2 迁移: panel 原样保留                                            ok
+persist-host: PER2 迁移: lights = 0                                                    ok
+persist-host: PER2 迁移: arrangement = 当前歌曲                                    ok
+persist-host: PER2 迁移: 追加默认 DSU                                              ok
+persist-host: PER2 迁移: side = 默认（旧格式没有 side）                       ok
+persist-host: PER2 迁移: 结果读回为 PER3                                          ok
+persist-host: PER2 迁移: 坏 panel → 默认 panel                                    ok
+persist-host: PER1 → PER3 canonical                                                    ok
+persist-host: PER1 迁移: palette 保留、lowcut/zoom = 0                              ok
+persist-host: PER1 迁移: panel 原样保留                                            ok
+persist-host: 未知 magic: 拒绝（长度不变）                                     ok
+persist-host: 未知 magic: payload 与 side 一个字节都没改                       ok
+persist-host: PER3 非法长度（200B）: 拒绝                                        ok
+persist-host: arrangement 校验: count = 0 拒绝                                       ok
+persist-host: arrangement 校验: count = 17 拒绝                                      ok
+persist-host: arrangement 校验: loop = 2 拒绝                                        ok
+persist-host: arrangement 校验: scene = 4 拒绝                                       ok
+persist-host: arrangement 校验: bars = 65 拒绝                                       ok
+persist-host: arrangement 校验: bars = 0 拒绝                                        ok
+persist-host: arrangement 校验: count 之外的 entry 不参与（上游口径）      ok
+persist-host: 读回: 合法 arrangement 原样                                          ok
+persist-host: 读回: 非法 arrangement → 默认歌曲（arr_defaults：4×4 bars）  ok
+persist-host: set: 非法 arrangement 不组装                                          ok
+persist-host: dirty: 初始干净                                                        ok
+persist-host: dirty: 标记 → dirty、gen 1                                            ok
+persist-host: dirty: 写失败保留（下个窗口重试）                             ok
+persist-host: dirty: 写成功且无新修改 → 清                                    ok
+persist-host: dirty: 写成功但期间有新修改 → 保留                           ok
+persist-host: loaded: 损坏对象 → false（拒绝覆盖）                           ok
+persist-host: loaded: 损坏对象 → 默认歌曲 count=4 loop=0                       ok
+persist-host: loaded: 默认歌曲 = A/B/C/D 各 4 小节（上游 arr_defaults）       ok
+persist-host: loaded: 默认歌曲结构合法（count 非零，可被 song_set/播放接受） ok
+persist-host: loaded: 空设置 → 默认歌曲（true，不是错误）                ok
+persist-host: loaded: 合法 PER3 → 读回值原样生效                              ok
+persist-host: flash: canonical 写入（st_save3）                                      ok
+persist-host: flash: 读回逐字节相同（1,552B）                                   ok
+persist-host: flash: side record 随副本提交（80B 逐字节）                      ok
+persist-host: flash: 读回 arrangement 与写入一致                                  ok
+persist-host: flash: 读回 side 作为下次提交的输入                             ok
+persist-host: flash: 第二次保存（改歌曲）                                      ok
+persist-host: flash: 第二次保存后 arrangement 是新的                            ok
+persist-host: flash: 第二次保存 side 仍逐字节相同                             ok
+persist-host: flash: A/B 交替（seq = 2，写回 copy 1）                             ok
+persist-host: flash: 写入未知 magic 对象                                           ok
+persist-host: flash: 未知 magic 对象 → 拒绝保存（invalid）                   ok
+persist-host: flash: 拒绝时不覆盖原扇区（两个 4KB 逐字节不变）         ok
+persist-host: flash: 原对象仍可读                                                  ok
+persist-host: torn: 先写一份完整 canonical                                         ok
+persist-host: torn: 旧副本与 side 可读                                             ok
+persist-host: torn: 写失败且故障命中一次                                       ok
+persist-host: torn: 写失败保留 dirty（下次窗口重试）                        ok
+persist-host: torn: 旧副本的 arrangement 仍可读（不是半截新值）           ok
+persist-host: torn: 旧副本的 side 仍可读                                          ok
+persist-host: dsu: canonical 的 88..1,551 逐字节 = 当前 dsu                        ok
+persist-host: dsu: put_dsu 把 pitch=42 写进 88..1,551（读回 42）                  ok
+persist-host: dsu: canonical 保存同样携带 pitch=42                                 ok
+persist-host: dsu: len < 1,552 时 put_dsu 一个字节都不写                         ok
+persist-host: dsu: RAM 银行坏了 → 先落默认再写                               ok
+persist-host: dsu: PER3(1,552B) 长度不变                                             ok
+persist-host: dsu: PER3 的 0..47 与 84..87 逐字节不变                             ok
+persist-host: dsu: PER3 的 48..83 已替换                                             ok
+persist-host: dsu: PER3 的 88..1,551 = 当前 dsu（替换 flash 里的旧值）        ok
+persist-host: dsu: 读回 pitch=99（替换而非保留旧字节）                      ok
+persist-host: dsu: PER3+32B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3+36B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3+40B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3(84B) → 1,552B 带当前 dsu                                    ok
+persist-host: dsu: PER3(88B) → 1,552B 带当前 dsu                                    ok
+persist-host: dsu: 未知 magic 仍拒绝（dirty 不被组装清掉）                  ok
+persist-host: dsu: 写失败保留 dirty                                                 ok
+persist-host: dsu: 写期间又被编辑 → 保留 dirty（payload 过时）            ok
+persist-host: dsu: 写成功且字节一致 → 清 dsu_dirty                            ok
+persist-host: dsu: 真实 st_save3 成功 → dsu_dirty = 0                              ok
+persist-host: dsu: flash 读回的 DSU 含保存时的编辑（pitch=77）               ok
+persist-host: dsu: flash 写入 88B 旧 PER3                                             ok
+persist-host: dsu: flash 88B 旧对象 → 1,552B（当前 dsu + 新 arrangement）      ok
+persist-host: PASS (0 failures)
+EXIT=0

@@ -21,6 +21,8 @@ void stub_engine_reset(void)
         for (uint32_t i = 0; i < STUB_ENGINE_STEPS; i++)
             g_stub.step[k][i].time = 2; /* ST_REST：上游空合成步 */
     }
+    g_stub.store_ready = true;      /* 存储就绪（INVALID_STATE 的 ERROR/BLOCKED 分流依据） */
+    g_stub.dsyn_factory_count = 4;  /* DS_NKITS 的替身口径 */
 }
 
 void stub_engine_set_param(uint32_t track, uint32_t id, int16_t value)
@@ -541,4 +543,143 @@ void sloop_store_bank_current(uint8_t *packed)
     if (packed == NULL) return;
     memset(packed, 0, SLOOP_STORE_BANK_PACKED);
     packed[0] = (uint8_t)(0xA0u | g_stub.snap.selected_track);
+}
+
+/* ---- P4-D Task 6：DSYN / FM6 patch / 采样替身 -------------------------------------
+ * 后端就是 g_stub.dsyn / dsyn_name / fm6_patch：读回与命令后投影走真实的 sloop_core_*
+ * 读取路径。诊断冻结用与 seq 替身同一个 g_stub.seq_frozen（设备上是同一个冻结标志）。
+ * 返回码口径照 sloop_core.h：DSYN 哨兵 = SLOOP_DSYN_INVALID（只剩冻结一因），FM6 哨兵 =
+ * SLOOP_FM6_INVALID（越界/非 FM6/冻结都回它，状态层靠 patch 复核区分）。 */
+
+esp_err_t sloop_core_dsyn_read(uint32_t kit, uint32_t lane, sloop_dsyn_sound_t *out,
+                               char name[9], uint8_t *crush, uint8_t *src)
+{
+    g_stub.dsyn_read_calls++;
+    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES) return ESP_ERR_INVALID_ARG;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    if (out != NULL) {
+        out->used = 1;
+        memcpy(out->sound, g_stub.dsyn[kit][lane].sound, sizeof out->sound);
+    }
+    if (name != NULL) memcpy(name, g_stub.dsyn_name[kit], 9);
+    if (crush != NULL) *crush = g_stub.dsyn_crush[kit];
+    if (src != NULL) *src = g_stub.dsyn_src[kit];
+    return ESP_OK;
+}
+
+int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t v)
+{
+    g_stub.dsyn_set_calls++;
+    g_stub.last_dsyn_kit = kit;
+    g_stub.last_dsyn_lane = lane;
+    g_stub.last_dsyn_field = field;
+    g_stub.last_dsyn_value = v;
+    if (kit >= SLOOP_DSYN_KITS || lane >= SLOOP_DSYN_LANES || field >= SLOOP_DSYN_FIELDS ||
+        g_stub.seq_frozen)
+        return SLOOP_DSYN_INVALID;
+    /* 字段 → 字节的映射只影响替身内部一致性；写后回读走 dsyn_read（与真设备同路径）。 */
+    g_stub.dsyn[kit][lane].sound[field < 22u ? field : 21u] = (uint8_t)v;
+    g_stub.dsu_dirty = true; /* 上游 dsyn 编辑置 dsu_dirty */
+    return v;
+}
+
+int16_t sloop_core_dsyn_set_crush(uint32_t kit, int16_t v)
+{
+    g_stub.dsyn_crush_calls++;
+    g_stub.last_dsyn_kit = kit;
+    g_stub.last_dsyn_crush = v;
+    if (kit >= SLOOP_DSYN_KITS || g_stub.seq_frozen) return SLOOP_DSYN_INVALID;
+    int16_t applied = v < 0 ? 0 : (v > 255 ? 255 : v); /* core 的钳位方向 */
+    g_stub.dsyn_crush[kit] = (uint8_t)applied;
+    g_stub.dsu_dirty = true;
+    return applied;
+}
+
+esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src)
+{
+    g_stub.dsyn_load_calls++;
+    g_stub.last_dsyn_kit = kit;
+    g_stub.last_dsyn_src = src;
+    if (kit >= SLOOP_DSYN_KITS || src >= g_stub.dsyn_factory_count) return ESP_ERR_INVALID_ARG;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    for (uint32_t lane = 0; lane < SLOOP_DSYN_LANES; lane++)
+        memset(g_stub.dsyn[kit][lane].sound, (int)(0xA0u + src), sizeof g_stub.dsyn[kit][lane].sound);
+    memcpy(g_stub.dsyn_name[kit], "FACT0000", 9);
+    g_stub.dsyn_name[kit][4] = (char)('0' + (src % 10u));
+    g_stub.dsu_dirty = true;
+    return ESP_OK;
+}
+
+void sloop_core_dsyn_audition(uint32_t kit, uint32_t lane, uint32_t velocity)
+{
+    g_stub.dsyn_audition_calls++;
+    g_stub.last_dsyn_kit = kit;
+    g_stub.last_dsyn_lane = lane;
+    g_stub.last_dsyn_vel = velocity;
+}
+
+/* FM6 字段 → 绝对偏移（替身口径与 sloop_core.h 的冻结编号一致）：op<6 → op*21+field，
+ * op 6 → 126+field。越界返回 -1。 */
+static int32_t stub_fm6_offset(uint32_t op, uint32_t field)
+{
+    if (op < SLOOP_FM6_GLOBAL_OP) return field < SLOOP_FM6_OP_FIELDS ? (int32_t)(op * SLOOP_FM6_OP_FIELDS + field) : -1;
+    if (op == SLOOP_FM6_GLOBAL_OP)
+        return field < SLOOP_FM6_GLOBAL_FIELDS ? (int32_t)(126u + field) : -1;
+    return -1;
+}
+
+esp_err_t sloop_core_fm6_patch(uint32_t track, sloop_fm6_patch_snapshot_t *out)
+{
+    g_stub.fm6_patch_calls++;
+    if (out == NULL || track >= STUB_ENGINE_TRACKS) return ESP_ERR_INVALID_ARG;
+    if (g_stub.seq_frozen) return ESP_ERR_INVALID_STATE;
+    memcpy(out->patch, g_stub.fm6_patch[track], sizeof out->patch);
+    out->slot = g_stub.fm6_slot[track];
+    out->engine_ok = g_stub.fm6_ok ? 1u : 0u;
+    return g_stub.fm6_ok ? ESP_OK : ESP_ERR_NOT_ALLOWED;
+}
+
+int16_t sloop_core_fm6_set(uint32_t track, uint32_t op, uint32_t field, int16_t v)
+{
+    g_stub.fm6_set_calls++;
+    g_stub.last_fm6_track = track;
+    g_stub.last_fm6_op = op;
+    g_stub.last_fm6_field = field;
+    g_stub.last_fm6_value = v;
+    int32_t off = stub_fm6_offset(op, field);
+    if (track >= STUB_ENGINE_TRACKS || off < 0 || g_stub.seq_frozen || !g_stub.fm6_ok)
+        return SLOOP_FM6_INVALID;
+    int16_t clamped = v < 0 ? 0 : (v > 127 ? 127 : v);
+    g_stub.fm6_patch[track][off] = (uint8_t)clamped;
+    /* 与 Task 3 的适配层同语义：写 ALG（op 6 field 8）在同一次引擎锁内清 ALG 宏
+     * （p[P_E0] → PAT），其余字段不动它。状态层据此在成功后同拍重取 p[]。 */
+    if (op == SLOOP_FM6_GLOBAL_OP && field == SLOOP_FM6_ALG_FIELD) {
+        g_stub.param[track][SLOOP_CORE_P_COUNT - 8u] = 0;
+    }
+    return clamped;
+}
+
+/* DSU 落盘 / 采样槽：状态层只做返回码映射与投影刷新。 */
+esp_err_t sloop_store_dsu_store(void)
+{
+    g_stub.dsu_store_calls++;
+    if (g_stub.dsu_store_ret == ESP_OK) g_stub.dsu_dirty = false;
+    return g_stub.dsu_store_ret;
+}
+
+bool sloop_store_dsu_dirty(void)
+{
+    return g_stub.dsu_dirty;
+}
+
+bool sloop_store_ready(void)
+{
+    return g_stub.store_ready;
+}
+
+esp_err_t sloop_store_sample_erase(uint32_t slot)
+{
+    g_stub.sample_erase_calls++;
+    g_stub.last_sample_slot = slot;
+    return g_stub.sample_erase_ret;
 }

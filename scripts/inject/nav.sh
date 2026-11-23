@@ -11,10 +11,11 @@
 #      跨组 build_ms 0 < x ≤100ms（ADR-005 §3/§5）
 #   ⑥ 手指导航（R32）：UI TAB/UI SUB 与物理组签/子签同一动作函数——点组进上次
 #      子页且记忆跨往返、跨组点组销毁源组并建目标首个子页；同拍 KEY tab 排队时
-#      UI TAB 胜出、待切页被丢弃（R30）；FILE 组（Task 12）与 SONG 单页组
-#      （P4-C Task 11）点组/子签切换、离开组后 built=0、单页组 UI SUB 0 越界
-#   ⑦ TAB 全 12 页轮转：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→
-#      SONG→PROJECTS→PRESETS→PLAY（异步切页用 STATE SNAP 轮询等落地，UI 会取消待切页）
+#      UI TAB 胜出、待切页被丢弃（R30）；FILE 组（Task 12）、SONG 单页组
+#      （P4-C Task 11）与 **SYNTH 组三页**（P4-D Task 8：SAMPLE/DSYN/FM6P）点组/
+#      子签切换、离开组后 built=0、`UI SUB 3` 越界
+#   ⑦ TAB 全 14 页轮转：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→
+#      TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（异步切页用 STATE SNAP 轮询等落地）
 #   ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 UI MEM pool_free 首末差 ≤ 128B 且
 #      无逐次下降（每页 styles_init 只跑一次；修复前每往返 ~300B）
 # 用法: bash scripts/inject/nav.sh [PORT]   （PORT 缺省自动探测 ttyACM*）

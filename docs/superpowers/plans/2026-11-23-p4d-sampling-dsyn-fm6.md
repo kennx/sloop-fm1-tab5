@@ -80,15 +80,15 @@ Commit `chore(dev/verify): 记录 P4-D 开工基线`；`git push -u origin feat/
 
 在 `scripts/host-test.sh` 的 `fm6_test` 之后按同 CFLAGS 加 `compile sample_pitch_test tests/sample_pitch_test.c -lm` 与 `run "SAMPLE pitch/loop" …`。Run `scripts/host-test.sh`；Expected 新测试可见且全过。
 
-- [ ] **Step 2: 写失败的 synth host 骨架**
+- [ ] **Step 2: 建立可运行的 synth host 骨架**
 
-`scripts/synth-host-test.c`：与 `seq-host-test.c` 同法 `#define main hostsim_main` + include `tests/hostsim.c`，随后 `#define PROJ_HOST 1` include `project.c`，再 include `../firmware/components/sloop_core/src/sound_tab5.c`（Task 2 创建）。首版 `main()` 只打印 `SYNTH HOST TEST PENDING` 并返回 1。
+`scripts/synth-host-test.c`：与 `seq-host-test.c` 同法 `#define main hostsim_main` + include `tests/hostsim.c`，随后 `#define PROJ_HOST 1` include `project.c`；本任务先不 include `sound_tab5.c`，`main()` 打印 `SYNTH HOST TEST PENDING` 并返回 0。
 `scripts/synth-test.sh`：复制 `seq-test.sh` 的 CFLAGS/include，编译到 `$PROJECT_DIR/build/synth-test/synth_host_test` 并运行。
 
-- [ ] **Step 3: 运行并确认失败**
+- [ ] **Step 3: 运行骨架并通过**
 
 Run: `scripts/synth-test.sh`
-Expected: 编译因 `sound_tab5.c` 不存在而失败（红）。
+Expected: `SYNTH HOST TEST PENDING`，exit 0（真正的失败测试在 Task 2 引入 `sound_tab5.c` 后写）。
 
 - [ ] **Step 4: 更新开工文档并提交**
 

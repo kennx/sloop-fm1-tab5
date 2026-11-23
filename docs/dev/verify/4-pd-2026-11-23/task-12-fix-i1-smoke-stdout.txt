@@ -1,0 +1,19 @@
+  [PASS] AUTO OFF
+  [PASS] AUDIO OFF
+  [PASS] slot 3 cleared
+  [PASS] RAW BEGIN
+  [PASS] append 120/688
+  [PASS] append 240/688
+  [PASS] append 360/688
+  [PASS] append 480/688
+  [PASS] append 600/688
+  [PASS] append 688/688
+  [PASS] selftest single PASS
+  [PASS] RAW END after selftest saved
+  [PASS] slot 3 imports as valid project
+  [PASS] FIELDS 3 matches FUN1 expected
+  [PASS] slot 3 cleaned
+  [PASS] I1 smoke summary
+  [PASS] AUDIO ON
+  [PASS] AUTO ON
+FAILS= 0

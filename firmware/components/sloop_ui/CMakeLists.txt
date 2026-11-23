@@ -11,6 +11,7 @@ idf_component_register(
     SRCS "src/ui.c" "src/input.c" "src/page_play.c" "src/page_tracks.c" "src/page_step.c"
          "src/page_transport.c" "src/knob.c" "src/knob_math.c" "src/page_layout.c"
          "src/page_params.c" "src/page_projects.c" "src/page_presets.c" "src/page_song.c"
+         "src/page_dsyn.c" "src/page_fm6p.c"
     INCLUDE_DIRS "include"
     PRIV_REQUIRES espressif__m5stack_tab5 esp_lvgl_port sloop_state sloop_core tab5_keyboard
                   freertos

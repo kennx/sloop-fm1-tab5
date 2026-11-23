@@ -187,21 +187,23 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 #### 1. 组与子页
 
-顶层 6 组（P4-C Task 11 起含 SONG；`SYS` 待 P4-E 有设置页时再加入）：
+顶层 7 组（P4-C Task 11 起含 SONG、P4-D Task 8 起含 SYNTH；`SYS` 待 P4-E 有设置页时
+再加入）：
 
 | 组 | 子页 |
 |---|---|
 | PLAY | PLAY |
 | TRACKS | TRACKS |
-| EDIT | GLOBAL / FX / ANALOG / FM6 / SAMPLE（后续引擎页） |
+| EDIT | GLOBAL / FX / ANALOG / FM6 |
+| SYNTH | SAMPLE / DSYN / FM6P（P4-D Task 8：SAMPLE 从 EDIT 移入；DSYN 实体页在 Task 9、FM6P 在 Task 10） |
 | SEQ | STEP / TRANSPORT |
 | SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
 | FILE | PROJECTS / PRESETS |
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
-  `APP_PAGE_SONG`；`APP_STATE_PAGES` 9→11→**12**。SONG 的 id 排在最后（既有页 id
-  不变），页签顺序由组表决定（在 SEQ 与 FILE 之间）。console `UI` 页名表、`UI MEM` 的
-  组字段、注册表顺序同源。
+  `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`；`APP_STATE_PAGES`
+  9→11→12→**14**。SONG/SYNTH 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
+  （SYNTH 在 EDIT 与 SEQ 之间）。console `UI` 页名表、`UI MEM` 的组字段、注册表顺序同源。
 - 页签 = 组签（上行）+ 组内子签（下行）；注册顺序 = 组顺序，组内顺序 = 子页顺序。
 
 #### 2. 两行页签复用现有 72px
@@ -212,9 +214,11 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 - 右侧 reserve 继续留给 `SLOOP` 标题（上行）与层键提示（下行）；子行只有 1 页的组留空。
 - 组行 P4-B 时 5 个页签：`min(176, (1280 − 32 − 220 − 4×8)/5) = 176px`（最长标签
   `TRACKS` 远小于页签宽）；P4-C Task 11 增至 6 组后取 `min(176, (1280 − 32 − 216 −
-  5×8)/6) = 171.5 → **168px**（6×168+5×8=1,048，右端 1,064 = 1,280−**216** reserve；
-  SLOOP 标题起点 ~1,191，仍有 127px）。子行仍是 176px（5 个复用槽，右端 928），**不受组数影响**。
-  **不再受 N=10 时 95px < `TRANSPORT` 101.6px 的宽度墙约束**。
+  5×8)/6) = 171.5 → **168px**（6×168+5×8=1,048，右端 1,064 = 1,280−**216** reserve）；
+  P4-D Task 8 增至 7 组后取 **142px**（7×142+6×8=1,042，右端 16+1,042=**1,058** ≤
+  1,064，theme.h 有静态断言；SLOOP 标题起点 ~1,191 仍有 133px）。子行仍是 176px（5 个
+  复用槽，右端 928），**不受组数影响**。**不再受 N=10 时 95px < `TRANSPORT` 101.6px 的
+  宽度墙约束**。
 
 #### 3. 组作用域页面生命周期
 
@@ -235,8 +239,10 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 `TAB` = 按组顺序的扁平轮转，组内最后一页的下一张 = 下一组第一页：
 
 ```
-PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → PLAY
+PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → DSYN → FM6P → STEP → TRANSPORT
+     → SONG → PROJECTS → PRESETS → PLAY
 ```
+（P4-D Task 8 起 14 页 / 7 组；SAMPLE 属 SYNTH 组，DSYN/FM6P 紧随其后。）
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
   轮转到最后一个已注册页即回 PLAY。
@@ -260,7 +266,8 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   「UI 就绪」那一拍的瞬时值比稳态高 0.3KB 量级，保守上界取 **11,936B**（11,624 +
   312）。本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会
   漏计 TLSF 块头，是低估，已作废。
-- 组 est：PLAY 3,072 / TRACKS 7,168 / EDIT `3×3,584 + 6,144 + 3,072 = 19,968`
+- 组 est（P4-C 12 页口径；P4-D Task 8 起 SAMPLE 移入 SYNTH，新表见 §5.1）：PLAY 3,072 /
+  TRACKS 7,168 / EDIT `3×3,584 + 6,144 + 3,072 = 19,968`
   （FM6 自 P4-B Task 13 起含 bank 存取行，est 3,584 → 6,144，实测 delta 4,956–5,100B）/ SEQ
   `STEP 23,040 + TRANSPORT 9,216 = 32,256`（TRANSPORT 自 P4-C Task 10 起含录音/fill/
   聚焦步字段/pattern 工具；实测 delta 8,248–8,716B，见 ADR-008 §3 注）/ SONG `12,288`
@@ -332,6 +339,44 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 构建延迟（`build_ms`）：跨组进入 SEQ（STEP 首建）最终 nav 证据 **33ms**（早期会话
   29–35ms）、EDIT 首建 GLOBAL 7–11ms、PLAY/TRACKS 首入 ≤10ms；同组首建
   FX/ANALOG/FM6/SAMPLE/TRANSPORT 4–9ms——全部 `0 < x ≤100ms`。
+
+#### 5.1 P4-D 14 页/7 组预算（2026-11-23 Task 8 落位；Task 11 实测收口）
+
+- 组顺序 `PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE`（7 组）；SAMPLE 参数页从 EDIT 移入新的
+  SYNTH 组（SAMPLE/DSYN/FM6P），EDIT 缩为 4 页。组签宽 168→**142px**（见 §2），子行
+  仍 176×5。`APP_STATE_PAGES` 12→**14**（`APP_PAGE_DSYN=12`、`APP_PAGE_FM6P=13`，既有
+  页 id 不变），`TAB` 变 14 页扁平轮转；`UI TAB synth` / `UI SUB 0..2` 与物理组签同路径。
+- 组 est：EDIT `3×3,584 + 6,144 = 16,896`（FM6 的 bank 行不变）/ SYNTH
+  `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
+  DSYN/FM6P 按 spec §4.4 的计划上限落位）。
+- **实测（P4-D Task 9–12 归档：设备首建/重建 transcript + soak 预热；每页取跨快照 min–max）**：
+  SAMPLE **4,360–4,508B**（`UI MEM` delta；`页面构建` 池增量 4,148–4,508）、DSYN
+  **6,344–6,452B**（构建日志 6,100–6,452）、FM6P **6,980–7,124B**（构建日志 6,832–7,124）；
+  范围 = Task 9–12 的设备首建/重建 + soak 预热（含 Task 10 fix 的 FM6P 7,124B；
+  `UI MEM` delta 与 `页面构建` 是两种口径，逐页都不能超过 est）。
+  三页 est 6,144/7,168/7,168 均 ≥ 对应上沿。SYNTH `sum_delta` 单独取 `built=3` 那一拍：
+  **17,696–17,936B**（`sum_est` 20,480），`build_ms` 12–13ms（≤100ms）。**三页 delta 来自
+  不同快照，区间不相加**（逐页门禁才是 `delta ≤ est`，合计口径只有同一拍的 `sum_delta`）。
+  三页 `delta ≤ est` 全部成立；SAMPLE 的 est 是 spec §4.4 的**固定上限**（实测只用到
+  71–73%，属预留，不参与最坏有序对的调节）。
+- 有序对（§5 的 base 11,624 + 对值 + 4,096 ≤ 63,120）：**SEQ→PRESETS 仍最坏 60,776
+  （余 2,344B，不变）**；新增 **SYNTH→STEP** `20,480 + 23,040 = 43,520` ⇒ 账面
+  **59,240**、余 3,880B；**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面 **55,656**、
+  余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。
+- **实测过渡峰值**（`synth` ⑤：SYNTH 三页全建后直接 `UI step`，构建日志
+  `页面构建 page=STEP(2) 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms`（复跑 27ms，耗时不同、余量相同）⇒
+  `pool_free=11,244B ≥ 4,096B`；过渡后稳态 `pool_free 28,800B`（`UI MEM` 实测）。Task 12 最终矩阵同口径的最低跨组余量是 `song` ⑩ 的 FILE→STEP `pool_free 8,924B`（池历史漂移，仍 ≥4,096B）。
+  同批 `synth` ⑤ 的 10 轮 SEQ/SONG/FILE/SYNTH 往返（SYNTH 代表页 dsyn/sample/fm6p
+  **轮换**）`47,092 → 47,008`（Δ−84B、单次最大下降 92B ≤128B），复跑 `→ 47,044`
+  （Δ−48B、单次 80B），Task 12 最终矩阵 `→ 47,028`（Δ−64B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−64B（单次 72B）。跨组池不泄漏口径不变。
+- 采样槽管理行（SAMPLE 页底部 `U1..U4` + `ERASE` + 状态行，y=552..596）与 FM6 bank 行
+  同几何；状态行单一映射在 `theme.h`（选中槽 `SET U<n>` / `ERASE OK` / `NOT USR` /
+  `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。`sloop_store_sample_info` 是
+  文档化只读例外：建页/动作/键变化时立即读，30ms 拍的非强制路径**最短 250ms**、
+  key 稳定时 1s（单次最坏 4×80KiB CRC，绝不每 30ms 轮询）。
+- 设备证据（P4-D Task 11）：`UI TAB synth` / `UI SUB 0..2`、SYNTH 三页全建
+  `built=3 sum_est=20,480`、离开组 `built=0`（三页 unbuilt）；`params` 的
+  `EDIT sum_est=16,896`、组作用域后 `pool_free 35,836B`（≥20KB）。
 
 #### 6. 验证入口
 

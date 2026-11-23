@@ -179,6 +179,128 @@ typedef struct {
 } sloop_desc_t;
 bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out);
 
+/* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
+ * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。
+ * 编辑面把它拆成 **24 个虚拟字段**（顺序固定，编号即协议）：`flt` 拆成 FLT_MODE
+ * （低 3 位）与 FLT_RES（bit3..7），`src` 的 bit4（CLAP）单独一项。写一个字段不得改动
+ * 其它位/字节。范围取自 `dsnd_t` 的字节宽度与 `dsu_fix_sound` 的钳位方向；注意
+ * `dsu_fix_sound` **不钳** hold/nhold/t2/level/flt/fenv，所以这些字段的范围在这里
+ * 无条件钳位（见下）。
+ * 所有写入口持引擎锁；诊断冻结时写回 `SLOOP_DSYN_INVALID`、读回 ESP_ERR_INVALID_STATE。
+ * 与上游 editor_dsyn.c 同语义：成功的单字段写与工厂 kit 套用都置 `dsu_dirty`。 */
+#define SLOOP_DSYN_KITS   4u
+#define SLOOP_DSYN_LANES  16u
+#define SLOOP_DSYN_FACTORY_KITS 32u /* 工厂 kit 数（上游生成的 DS_NKITS）；`load_factory` 的 src 上限 */
+#define SLOOP_DSYN_FIELDS 24u /* 22 字节 + FLT 拆 MODE/RES 两虚拟字段 */
+#define SLOOP_DSYN_NAME   8u
+/* 无效字段/越界 kit·lane/诊断冻结的返回值。落在此范围外（最小字段范围是 FENV 的
+ * -128..127），所以不会与合法值混淆。 */
+#define SLOOP_DSYN_INVALID ((int16_t)INT16_MIN)
+typedef enum {
+    SLOOP_DSYN_WAVE = 0, SLOOP_DSYN_SRC, SLOOP_DSYN_CLAP, SLOOP_DSYN_PITCH,
+    SLOOP_DSYN_FINE, SLOOP_DSYN_BEND, SLOOP_DSYN_BTIME, SLOOP_DSYN_HOLD,
+    SLOOP_DSYN_DECAY, SLOOP_DSYN_TLEV, SLOOP_DSYN_T2, SLOOP_DSYN_T2LEV,
+    SLOOP_DSYN_CLICK, SLOOP_DSYN_NLEV, SLOOP_DSYN_NHOLD, SLOOP_DSYN_NDEC,
+    SLOOP_DSYN_FLT_MODE, SLOOP_DSYN_FLT_RES, SLOOP_DSYN_FCUT, SLOOP_DSYN_FENV,
+    SLOOP_DSYN_HPF, SLOOP_DSYN_CHIP, SLOOP_DSYN_DRIVE, SLOOP_DSYN_LEVEL,
+} sloop_dsyn_field_t;
+typedef struct {
+    uint8_t used;      /* 该 lane 有音色数据（上游 kit 总是 16 个，读成功即 1） */
+    uint8_t sound[22]; /* 原始 dsnd_t 字节（与上游/编辑器逐字节一致） */
+} sloop_dsyn_sound_t;
+/* 状态层/UI 的 DSYN 投影（spec §4.1）：kit/lane 是**当前选择**（状态层保存的 UI 局部态，
+ * 不是引擎真值），其余字段由 sloop_core_dsyn_read 按该选择读出；dirty 取存储层对
+ * 「RAM 的 SYN kit 与最近一次成功写盘不一致」的记账（sloop_store_dsu_dirty）。 */
+typedef struct {
+    uint8_t kit, lane;
+    char name[SLOOP_DSYN_NAME + 1];
+    uint8_t crush, src, dirty;
+    uint8_t sound[22];
+} sloop_dsyn_snapshot_t;
+/* 24 字段描述符（自定义表，不来自 params.c）：label/fmt/min/max/enums/unit。
+ * FLT_MODE 的 enums 有 8 项，索引 4（只有 DF_ALL 位、没有模式）读作 OFF——写 4 也被
+ * 归一为 OFF，与上游「单独 4 是无效组合」一致。 */
+bool sloop_core_dsyn_desc(uint32_t field, sloop_desc_t *out);
+/* 读一个 lane 的 22B 与 kit 级 name/crush/src（后三者可为 NULL）。越界回
+ * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。`name` 至少 9 字节、NUL 结尾。 */
+esp_err_t sloop_core_dsyn_read(uint32_t kit, uint32_t lane, sloop_dsyn_sound_t *out,
+                               char name[9], uint8_t *crush, uint8_t *src);
+/* 读/写单个虚拟字段（引擎锁内一次）。set 返回写后回读的值（钳位后的真值）；
+ * 越界/冻结返回 SLOOP_DSYN_INVALID 且不写。 */
+int16_t sloop_core_dsyn_field(uint32_t kit, uint32_t lane, uint32_t field);
+int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t v);
+/* 写 **kit 级** CRUSH（0..255；低 nibble 丢位数、高 nibble 是 S&H−1，见上游 dkit_t）：
+ * 引擎锁内钳位 0..255 → 写 `dsu.k[kit].crush` → `dsu_fix_kit`（名称/src/16 lane 原样，
+ * crush 本身不在它的钳位范围）→ `dsu_dirty = 1`；返回写后回读值。kit 越界或诊断冻结
+ * 返回 SLOOP_DSYN_INVALID（与 24 个声音字段同一个哨兵）。一次动作一次引擎锁。 */
+int16_t sloop_core_dsyn_set_crush(uint32_t kit, int16_t v);
+/* 纯解码（UI 投影用，不取锁、无副作用）：field 越界返回 SLOOP_DSYN_INVALID。 */
+int16_t sloop_dsyn_field_from_sound(const uint8_t sound[22], uint32_t field);
+/* 索引字段的显示文本（DECAY 类 → ms，由 DECAY_K 反解；FCUT/HPF → Hz；LEVEL → dB；
+ * FLT_MODE → 名字；CHIP → 音名）。返回写入的字符数；0 = 本函数不覆盖该字段
+ * （调用方走通用整数/枚举格式化）。 */
+int16_t sloop_core_dsyn_text(uint32_t field, int16_t v, char *out, uint32_t n);
+/* 套用工厂 kit（覆盖该 kit 的编辑，置 dsu_dirty）。kit 越界或
+ * src >= SLOOP_DSYN_FACTORY_KITS（= 上游 DS_NKITS，编译期静态断言）回
+ * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。 */
+esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src);
+/* 试听一段该 kit/lane（写上游 dsu_aud_* 队列，由音频路径消费；不改数据）。
+ * 越界 kit/lane 与 velocity 0（「无声」）或 > 127 一律拒绝（上游 ED_DSYN_PLAY 同口径）。 */
+void sloop_core_dsyn_audition(uint32_t kit, uint32_t lane, uint32_t velocity);
+bool sloop_core_dsyn_dirty(void);
+
+/* ---- FM6：155B voice 的深度 patch 编辑（P4-D Task 3，spec §4.1） --------------------
+ * 上游 `fm6_patch[NPART][FP_SIZE+1]` 是每轨的 live patch（155 字节 + NUL）：6 个算子 ×
+ * 21B（`FP_R1..FP_DET`，op 0 = 机器第 6 算子，与 `k * FP_OP` 同序）+ 19B voice
+ * （`FP_PR1..FP_TRNSP`，绝对偏移 126..144）+ 10B 名称（`FP_NAME..+9`，145..154）。
+ * 编辑面的编号（冻结，后续只能追加）：
+ *   op 0..5 → 该算子块的 21 个字段，field 0..20 = `FP_R1..FP_DET`；
+ *   op 6（`SLOOP_FM6_GLOBAL_OP`）→ 全局 29 项：0..18 = `FP_PR1..FP_TRNSP`（126..144），
+ *              19..28 = 名称的 10 个字节（`FP_NAME + 0..9`，**只读**：屏幕不改名，但
+ *              保留这 10 项让 `6×21 + 29` 覆盖 packed 记录里的全部名字字节；
+ *              `sloop_core_fm6_set` 对它们返回 `SLOOP_FM6_INVALID`）。
+ * 范围取上游 `fm6_max()`（`fm6_sanitize` 的同一张表）：写值先按描述符钳位、再经
+ * `fm6_set_patch` 的 sanitize 落 patch。`ALG`（op 6, field 8）在一次引擎锁内额外清
+ * `trk[track].p[P_E0]`（ALG 宏 → PAT），否则上游 `fm6_sync` 会用宏覆盖 patch 的算法、
+ * 编辑听不到（spec §4.1「ALG 宏覆盖」）。写成功后 `fm6_slot[track] = p[P_E7]`
+ * （上游 ED_FM6_PUT 同法），`fm6_poll` 因此不会在 PTCH 未变时用槽 patch 覆盖编辑。
+ * 锁：`sloop_core_fm6_patch/field/set` 持引擎锁，非 FM6 轨的判定也在锁内（快照的
+ * `engine_ok` 与 patch/slot 同拍）；诊断冻结在锁外先拒（命中时不取锁）。`sloop_core_fm6_desc`
+ * 与 `sloop_fm6_field_from_patch` 是纯函数/纯解码——不取锁、无副作用、不受冻结影响。
+ * 冻结时写回 `SLOOP_FM6_INVALID`、读/快照回 `ESP_ERR_INVALID_STATE`。
+ * 轨号越界（含鼓轨，上游 NPART 之外的轨没有 live patch）：`sloop_core_fm6_patch` 回
+ * `ESP_ERR_INVALID_ARG`；合成轨但引擎不是 FM6：`sloop_core_fm6_patch` 回
+ * `ESP_ERR_NOT_ALLOWED` 并把 `engine_ok` 置 0（patch/slot 仍原样给出，UI 可显示锁定）、
+ * 写/读字段回 `SLOOP_FM6_INVALID`。
+ * `sloop_core_fm6_set` 返回写后回读值（钳位后的真值）；任何拒绝都返回哨兵
+ * `SLOOP_FM6_INVALID`（= -1，落在所有字段范围之外），状态层据此映射错误码。 */
+#define SLOOP_FM6_PATCH_SIZE   155u
+#define SLOOP_FM6_OP_FIELDS     21u
+#define SLOOP_FM6_GLOBAL_FIELDS 29u
+#define SLOOP_FM6_GLOBAL_OP      6u /* op 取值：全局字段块 */
+#define SLOOP_FM6_NAME_FIELDS   10u /* 全局字段 19..28 = 名称字节（只读） */
+#define SLOOP_FM6_ALG_FIELD      8u /* 全局块里的 ALG（`FP_ALG - FP_PR1` = 134−126）：
+                                     * 写它时适配层在同一次引擎锁内清 `p[P_E0]`（ALG 宏
+                                     * → PAT），状态层因此要在成功后同拍重取 p[]，否则
+                                     * UI 的 `ALG MACRO n` 提示会多留一拍 */
+#define SLOOP_FM6_INVALID ((int16_t)-1)
+typedef struct {
+    uint8_t patch[SLOOP_FM6_PATCH_SIZE]; /* FM6 155B voice，未 pack */
+    uint8_t slot;                        /* 当前 PTCH（P_E7），只读 */
+    uint8_t engine_ok;                   /* 选中轨引擎 == FM6 */
+} sloop_fm6_patch_snapshot_t;
+/* 描述符：op 0..5 / op 6 = 全局；每个算子的 MODE 与全局 OKS/LKS 为 onoff，全局
+ * ALG（"1".."32"）/LFW（TRI..S&H）/LPMS（"0".."7"）带枚举表；op/field 越界返回 false
+ * 且不改 `out`。 */
+bool sloop_core_fm6_desc(uint32_t op, uint32_t field, sloop_desc_t *out);
+/* 拷出该轨的 155B live patch + slot + engine_ok（一次引擎锁）。 */
+esp_err_t sloop_core_fm6_patch(uint32_t track, sloop_fm6_patch_snapshot_t *out);
+/* 读/写单个字段（引擎锁内一次）。见上：非 FM6/越界/冻结/名字字段都回哨兵。 */
+int16_t sloop_core_fm6_field(uint32_t track, uint32_t op, uint32_t field);
+int16_t sloop_core_fm6_set(uint32_t track, uint32_t op, uint32_t field, int16_t v);
+/* 纯解码（UI 投影用，不取锁、无副作用）：越界或 patch == NULL 回 `SLOOP_FM6_INVALID`。 */
+int16_t sloop_fm6_field_from_patch(const uint8_t patch[SLOOP_FM6_PATCH_SIZE], uint32_t op, uint32_t field);
+
 /* 选轨 / 静音 / 独奏写（SEL/GLO 层的可听路径）：分别写 song.sel、trk[k].p[P_MUTE]
  * （0/1，上游 N_ONOFF）与 song.solo（低 4 位独奏掩码）。走引擎锁，越界
  * （k>=NTRK）与冻结态直接丢弃。听感口径是上游 trk_silent()：P_MUTE 置位，或

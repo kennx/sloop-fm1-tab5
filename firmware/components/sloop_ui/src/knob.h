@@ -40,6 +40,11 @@
 typedef struct knob knob_t;
 typedef void (*knob_change_cb_t)(knob_t *k, int16_t value);
 typedef void (*knob_focus_cb_t)(knob_t *k);
+/* 自定义数值文本（可为 NULL）：DSYN/FM6P 的虚拟字段用 `sloop_core_dsyn_text` 一类
+ * 的 core 纯函数给出 ms/Hz/dB/音名，UI 不引入上游表。返回 >0 = 已写入 buf（取用），
+ * 0 / 负数 = 落回 knob_format_value（枚举/整数）。回调在 LVGL 绘制上下文调用：
+ * 不得取锁、不得分配。 */
+typedef int16_t (*knob_text_cb_t)(const knob_t *k, int16_t value, char *buf, uint32_t n);
 
 struct knob {
     lv_obj_t *obj;
@@ -47,6 +52,7 @@ struct knob {
     void *user;        /* 页面上下文（page_params 的页/槽；由调用方传入，knob 不改写） */
     knob_change_cb_t on_change;
     knob_focus_cb_t on_focus;
+    knob_text_cb_t text_cb; /* 可选：数值文本的页面提供者（见上） */
     int16_t value;     /* 最近绘制/下发的值 */
     bool shown;        /* 当前 label/arc 是否已有值（false = 尚未绘制） */
     bool locked;       /* 当前以 -- 显示（不可编辑） */

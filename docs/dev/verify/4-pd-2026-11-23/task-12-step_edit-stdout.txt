@@ -1,0 +1,231 @@
+  [fw] SCR
+  [fw] I (158212) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (176482) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (194182) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (212572) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (229542) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (250582) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (269232) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (290122) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+== inject step_edit @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431.log
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 归一图案参数：轨 0 id=29=16
+  [PASS] 归一图案参数：轨 0 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] 归一图案参数：轨 1 id=29=16
+  [PASS] 归一图案参数：轨 1 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] 归一图案参数：轨 2 id=29=16
+  [PASS] 归一图案参数：轨 2 id=30=2
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ② VOICE 归一轨 0 = POLY（CONT 用例前提）
+  [PASS] UI step
+  [PASS] TAP 点灭 track=0 step=2
+  [PASS] ENG STEP 0 2 n = 0
+  [PASS] TAP track=0 step=2
+  [PASS] ENG STEP 0 2 n = 1
+  [PASS] ENG STEP 0 2 time（NOTE） = 0
+  [PASS] TAP track=1 step=5
+  [PASS] ENG STEP 1 5 n = 1
+  [PASS] ENG STEP 1 5 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track = 1
+  [PASS] STATE SNAP focus_step = 5
+  [PASS] TAP 表外 miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-two-on.png  (1280x720 rgb565)
+  [PASS] 轨 0 步 2 亮格: (267,208) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [PASS] 轨 1 步 5 亮格: (486,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] 轨 0 步 3 空位: (340,208) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] 焦点框（轨 1 步 5 左描边）: (454,332) 实测 (240,244,248) ≈ 期望 (240,244,248)（容差 10）
+  [PASS] 页签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  [PASS] TAP bank1 列 0（绝对步 16）
+  [PASS] ENG STEP 0 16 n（窗口列 0 写绝对步） = 1
+  [PASS] ENG STEP 0 16 time（NOTE） = 0
+  [PASS] STATE SNAP focus_track（bank1） = 0
+  [PASS] STATE SNAP focus_step（窗口列） = 0
+  [PASS] STATE SNAP window_start（bank1） = 16
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-bank1.png  (1280x720 rgb565)
+  [PASS] bank1 轨 0 列 0 亮格（绝对步 16，DIM）: (121,208) 实测 (24,52,96) ≈ 期望 (25,54,97)（容差 16）
+  [PASS] bank1 轨 0 列 1 空位（DIM）: (194,208) 实测 (16,16,16) ≈ 期望 (14,18,21)（容差 10）
+  [PASS] UI WINDOW 0 8
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 8
+  [PASS] TAP 隐藏列 8 miss
+  [PASS] TAP 可见列 7（绝对步 7）
+  [PASS] ENG STEP 1 7 n（窗口列 7 写绝对步） = 1
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-len8.png  (1280x720 rgb565)
+  [PASS] len=8 列 7 亮格: (632,332) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] len=8 列 8 隐藏（页面背景）: (705,208) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] TAP 点灭可见列 7（清理）
+  [PASS] ENG STEP 1 7 n（清理） = 0
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  [PASS] TAP 点灭 bank1 列 0（清理）
+  [PASS] ENG STEP 0 16 n（清理） = 0
+  [PASS] UI transport
+  [PASS] TAP PLAY（播放头证据）
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-bank0-playhead.png  (1280x720 rgb565)
+  [PASS] bank0 行 0 播放头列 [4]
+  [PASS] bank0 行 1 播放头列 [4]
+  [PASS] bank0 行 2 播放头列 [0, 4]
+  [PASS] bank0 行 3 播放头列 [4]
+  [PASS] UI WINDOW 16 16
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 16
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-bank1-no-playhead.png  (1280x720 rgb565)
+  [PASS] bank1 窗口外播放头不显示（无强调色描边）
+  [PASS] TAP STOP（复位）
+  [PASS] STATE SNAP playing（复位） = 0
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] ②e 基线清步 0/2
+  [PASS] ②e 基线清步 0/3
+  [PASS] ②e 基线清步 0/4
+  [PASS] ②e 基线清步 0/5
+  [PASS] ②e 基线清步 0/6
+  [PASS] ②e TAP 格 2（开）
+  [PASS] ②e SPAN 3（格 3 长成 TIE）
+  [PASS] ②e 格 3 = TIE（time=1 n=0，期望 time=1 n=0）
+  [PASS] ②e SLIDE on
+  [PASS] ②e fill-only
+  [PASS] ②e micro +5
+  [PASS] ②e rat index0 = 1（x2）
+  [PASS] ②e lvl index0 = 3（HARD）
+  [PASS] ②e 格 2 time=0（期望 0，NOTE）
+  [PASS] ②e 格 2 flags=2（期望 2，SLIDE）
+  [PASS] ②e 格 2 fill=1（期望 1，fill-only）
+  [PASS] ②e 格 2 micro=5（期望 5，micro +5）
+  [PASS] ②e 格 2 lvl=3（期望 3，lvl HARD）
+  [PASS] ②e 格 2 rat=1（期望 1，rat x2）
+  [PASS] ②e 焦点列移到 10（避开描边） = 10
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-deep.png  (1280x720 rgb565)
+  [PASS] ②e 格 2 NOTE 实心: (267,208) 实测 (56,120,216) ≈ 期望 (56,120,216)（容差 16）
+  [PASS] ②e 格 3 TIE 空心（中心为面板底）: (340,208) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ②e 格 3 TIE 内框（轨色，区别于空格）: 区域 (309, 158, 372, 186) 内 (56, 120, 216)±16 像素 196（阈值 ≥40）
+  [PASS] ②e 格 2 SLIDE 标记 S: 区域 (254, 160, 266, 174) 内 (240, 244, 248)±16 像素 15（阈值 ≥3）
+  [PASS] ②e 格 2 FILL 标记 F: 区域 (270, 160, 282, 174) 内 (224, 176, 40)±16 像素 19（阈值 ≥3）
+  [PASS] ②e 格 2 micro 文本 m+5: 区域 (236, 240, 274, 256) 内 (144, 148, 160)±16 像素 38（阈值 ≥5）
+  [PASS] ②e 格 2 rat 文本 x2: 区域 (274, 240, 297, 256) 内 (240, 244, 248)±16 像素 23（阈值 ≥3）
+  [PASS] ②e 格 2 HARD 音符名（黄）: 区域 (244, 178, 297, 198) 内 (224, 176, 40)±16 像素 30（阈值 ≥5）
+  [PASS] ②e TAP 格 6（D4）
+  [PASS] ②e SPAN 5（C4 长到格 6 的 D4 上）
+  [PASS] ②e 格 6 = NOTE(D4)+CONT(C4)（n=2 flags=0x10 note=62,60，期望 n=2 flags=0x10 note=62,60）
+  [PASS] ②e 焦点列移到 10（避开描边） = 10
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-cont.png  (1280x720 rgb565)
+  [PASS] ②e 格 6 CONT 下划线在 k=1 名字下方（x+38）: 区域 (564, 193, 576, 195) 内 (240, 244, 248)±16 像素 24（阈值 ≥5）
+  [PASS] ②e 格 6 k=0（无 CONT）名字下方无下划线（白像素 0，期望 0）
+  [PASS] ②e 格 6 k=0 名字左缘无旧实现竖条（白像素 0，期望 0）
+  [PASS] ②e SPAN 1（收回 TIE/CONT）
+  [PASS] ②e 清理格 0/2
+  [PASS] ②e 清理后格 0/2 为空（n=0 time=2）
+  [PASS] ②e 清理格 0/6
+  [PASS] ②e 清理后格 0/6 为空（n=0 time=2）
+  [PASS] UI step
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] ②f 鼓步 5 清空
+  [PASS] ②f 鼓步 5 基线位图 = 0
+  [PASS] ②f UI LANE 读回
+  [PASS] ②f UI LANE 归零
+  [PASS] ②f UI LANE 越界回 UI ERR lane
+  [PASS] ②f UI LANE 99 回 UI ERR lane
+  [PASS] ②f UI LANE 非数字回 UI ERR lane
+  [PASS] ②f 越界不改选中 lane
+  [PASS] ②f TAP lane dot（选中并置位）
+  [PASS] ②f 鼓步 5 位图 = 0x0004（期望 0x0004）
+  [PASS] ②f TAP 后焦点轨 = 鼓轨 = 3
+  [PASS] ②f 再点同一 dot（清除）
+  [PASS] ②f 鼓步 5 位图回 0
+  [PASS] ②f TAP 格内空白（切换选中 lane）
+  [PASS] ②f 选中 lane 不变
+  [PASS] ②f 位图 = 0x0004（选中 lane 置位）
+  [PASS] ②f KEY ENTER
+  [PASS] ②f ENTER 清除选中 lane 位
+  [PASS] ②f ↑ 选 lane 1
+  [PASS] ②f ↓ 回 lane 2
+  [PASS] ②f ENTER 置位 lane 2
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-step_edit-20261123-123431-step-drum-lane.png  (1280x720 rgb565)
+  [PASS] ②f lane 2 dot 已点亮（鼓轨色）: (493,562) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 12）
+  [PASS] ②f 选中 lane 2 ring（白框）: 区域 (487, 556, 499, 568) 内 (240, 244, 248)±16 像素 60（阈值 ≥8）
+  [PASS] ②f lane 3 dot 未点亮（暗网格）: (507,562) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 10）
+  [PASS] ②f 归一到 lane 15
+  [PASS] ②f lane 15 ↓ → 焦点轨回 T1 = 0
+  [PASS] ②f T1 ↑ → 回到鼓轨 = 3
+  [PASS] ②f 从 T1 进入落在 lane 15
+  [PASS] ②f lane 0 ↑ → 焦点轨 T3 = 2
+  [PASS] ②f 冻结前鼓步 5 位图 = 0x0004
+  [PASS] ②f ENG FREEZE on
+  [PASS] ②f 冻结时 TAP 回 ERR frozen 且 mask 为写前真值
+  [PASS] ②f ENG FREEZE off
+  [PASS] ②f 冻结期间位图未变（0x0004）
+  [PASS] UI WINDOW 0 8
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 8
+  [PASS] ②f 隐藏鼓列 8 TAP miss
+  [PASS] ②f 隐藏列不写鼓位图
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] ②f 焦点归一 T1（ENTER no-op 前提） = 0
+  [PASS] ②f ENTER 在合成轨不改 seq_status = 6
+  [PASS] ②f ENTER 在合成轨不写鼓步
+  [PASS] ②f ENTER 在合成轨不改引擎快照
+  [PASS] ②f 收口清鼓步 5
+  [PASS] ②f 收口 lane 归零
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+[PASS] step_edit: 全部断言与像素抽检通过
+EXIT=0

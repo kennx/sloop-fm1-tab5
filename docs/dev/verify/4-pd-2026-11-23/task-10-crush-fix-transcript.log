@@ -1,0 +1,34 @@
+
+sloop>  DSYN GET 2 0
+DSYN GET k=2 l=0 name=TRAP crush=0 src=5 dirty=0 sound=01002000122405587C00001E00002C007F0000002488
+sloop>  UI dsyn
+I (49203) sloop_ui: 页面构建 page=DSYN(12) 池增量=6436B 预算=7168B 池剩余=42544B 耗时=8ms
+I (49203) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=11ms
+UI page=dsyn (12)
+sloop>  UI DSYN KIT 0
+UI DSYN kit=0 lane=0 page=0
+sloop>  DSYN CRUSH 2 7
+DSYN CRUSH k=2 crush=7 status="ok"
+sloop>  DSYN CRUSH 2 0
+DSYN CRUSH k=2 crush=0 status="ok"
+sloop>  DSYN INFO
+DSYN INFO kit=0 lane=0 name=808 crush=0 src=0 dirty=1 f=1,0,0,31,6,18,36,4,97,124,0,0,15,0,0,44,0,0,127,0,0,0,36,134
+sloop>  
+sloop>  DSYN STORE
+I (55213) sloop_store: 歌曲已保存 len=1552 来源=1
+DSYN STORE dirty=0 status="ok"
+sloop>  DSYN INFO
+DSYN INFO kit=0 lane=0 name=808 crush=0 src=0 dirty=0 f=1,0,0,31,6,18,36,4,97,124,0,0,15,0,0,44,0,0,127,0,0,0,36,134
+sloop>  UI play
+I (55383) sloop_ui: 页面构建 page=PLAY(0) 池增量=2484B 预算=3072B 池剩余=42628B 耗时=5ms
+I (55383) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  

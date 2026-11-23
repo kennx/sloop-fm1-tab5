@@ -91,9 +91,10 @@ P4-C 后续设置任务在 ADR-009 的 `OBJ_SETTINGS` 上实现最小 PER3 读�
 
 - `arr_config_t` 为 36B、16 项、4 scene；主 payload 偏移 48，entries 从 52 开始。A–D
   内容仍使用 FUN6 工程对象。quick chain、SONG REC 临时态和 `arrangement_enabled` 不持久化。
-- 无 settings 时，首次歌曲保存构造上游 canonical PER3：88B `persist_t` + 1,464B 默认
-  DSU bank = 1,552B，并生成 80B 默认 side record；合法但尚无 DSU 的 PER3 只补默认 DSU，
-  已有尾段不重写。
+- 无 settings 时，首次歌曲保存构造上游 canonical PER3：88B `persist_t` + 1,464B
+  DSU bank = 1,552B，并生成 80B 默认 side record；合法但尚无 DSU 的 PER3 补 DSU，
+  已有尾段不重写。**P4-D Task 5 起**任何 settings 保存都把**当前 RAM 的 DSU**写进
+  88..1,551（「补」与「替换」同一条规则，含 DSYN 的显式 STORE），见 ADR-009 §6.1。
 - 合法 PER3（含历史长度与 MIDI 尾段）保留整个 payload，只替换 arrangement 36B；side
   record 随新 A/B 副本原样提交。PER1/PER2 按上游 `persist_boot` 口径迁移；未知 magic
   或损坏对象拒绝保存，不当作空设置覆盖。

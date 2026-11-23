@@ -52,20 +52,21 @@ typedef struct {
 esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id 唯一 */
 ```
 
-- **注册顺序 = 组内子签顺序**（P4-B Task 11 起：页签是**两行**——上行 6 个组签
-  `PLAY/TRACKS/EDIT/SEQ/SONG/FILE`，下行当前组子签；组模型在 `ui.c` 的 `k_groups[]`，页签
-  文本/数量由「组 + 组内已注册页」派生，不再由平铺注册表派生。组签宽度按 6 组算
-  （`min(176, (1280−32−216−5×8)/6) = 171.5 → 168px`；右端 1,064 = 1,280−216 reserve，
-  SLOOP 标题起点 ~1,191），子签复用下行 5 个槽（176px，右端 928）；右侧 216px 留给
-  SLOOP 标题/层提示，见 §8.1 与 ADR-005 §2/§3）。**注册表只增不删**：外部组件可在
+- **注册顺序 = 组内子签顺序**（P4-B Task 11 起：页签是**两行**——上行组签
+  （P4-D Task 8 起 7 个：`PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE`），下行当前组子签；组模型
+  在 `ui.c` 的 `k_groups[]`，页签文本/数量由「组 + 组内已注册页」派生，不再由平铺注册表
+  派生。组签宽度按 7 组算（**142px**：7×142+6×8=1,042，右端 16+1,042=**1,058** ≤
+  1,280−216 reserve；P4-C 的 6 组口径是 168px/右端 1,064），子签复用下行 5 个槽
+  （176px，右端 928）；右侧 216px 留给 SLOOP 标题/层提示，见 §8.1 与 ADR-005 §2/§5.1）。
+  **注册表只增不删**：外部组件可在
   `sloop_ui_start()` 之前调 `ui_page_register()` 预注册页面，内置页注册幂等
   （`static done` 标志 + 按 id 去重）；无已注册页的组不显示。输入层的 `TAB` 轮转
   用 `sloop_ui_page_order_next()`（组顺序的**扁平**轮转：组内子页→下一组第一页），
   不按 `sloop_ui_page_count()`，也不按 `APP_STATE_PAGES`。
-- **7 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
-  SONG + FILE 组 PROJECTS/PRESETS）；参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE）由
-  `page_layout_register()` 注册进同一注册表——交付态共 **12 页 / 6 组**（ADR-005「导航
-  决策」）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
+- **9 页内置**在 `sloop_ui_start()` 内注册（`k_builtin_pages`：PLAY/TRACKS/STEP/TRANSPORT +
+  SONG + FILE 组 PROJECTS/PRESETS + P4-D Task 8 的 SYNTH 占位页 DSYN/FM6P）；参数页
+  （GLOBAL/FX/ANALOG/FM6/SAMPLE）由 `page_layout_register()` 注册进同一注册表——交付态
+  共 **14 页 / 7 组**（ADR-005 §5.1）。`ui_page_register()` 供后续页加入。`id` 受 `APP_STATE_PAGES` 约束（状态层
   `state_set_page`、input 的组/子签、console 页名表同源）；加页时一起扩 `APP_STATE_PAGES`。
 
 ### 2. 懒建策略
@@ -103,7 +104,8 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | FX | 2,856 B | 3,584 B | +25% | 同上（Task 10；实测 2,816–2,876 随池历史漂移） |
 | ANALOG | 2,868 B | 3,584 B | +25% | 同上（Task 10；实测 2,848–2,868） |
 | FM6 | 2,864 B（Task 11）→ **4,956–5,100 B**（Task 13，含 bank 行） | 3,584 B → **6,144 B** | +25% → **+20.5%**（对 5,100；区间 4,956 处 +24.0%，见 §3 注） | 8 旋钮（ALG/FB/MLVL/MRAT/MEG/VMOD/DTUN/PTCH）+ 底部 bank 存取行（BANK 标签/±/槽号/SAVE/ERASE/状态行 = 7 个单对象 label，Task 13） |
-| SAMPLE | 2,432 B | 3,072 B | +26% | 6 旋钮（空槽 edit[5]/edit[7] 不建，Task 11） |
+| SAMPLE | 2,432 B（P4-D Task 8 前）→ **4,360–4,508 B**（Task 11，含槽管理行） | 3,072 B → **6,144 B**（Task 8，spec §4.4 固定上限） | **+36.3%–40.9%**（**高于 +23% 规则上沿**：est 是 spec 锁定值，见下条 SYNTH 表注） | 6 旋钮（空槽 edit[5]/edit[7] 不建）+ 槽管理行（`U1..U4` / `ERASE` / 状态行 = 6 个单对象 label，P4-D Task 8） |
+| DSYN | **6,436 B**（P4-D Task 9 设备实测；初版 26 对象 7,724B 超 est 556B → 压缩到 22 对象） | **7,168 B**（spec §4.4 固定上限） | **+11.4%** | 22 对象：8 旋钮（常驻、当前字段页空槽隐藏）+ 4 kit chip + LANE 三区对象（标签/数值/± 合一）+ 4 字段页 chip + AUDITION/STORE + 底部 ± 两 chip + 状态行（§8.7） |
 | **合计** | **48,048 B**（Task 11 时点；Task 13 后 FM6 +2,268B） | **55,296 B**（Task 11；现 57,856B） | — | 九页全建后 `UI MEM` 同次输出（Task 11）：pool_used 55,064 / pool_free **2,816** / pool_total 57,880。**reserve（total − sum_est）不是可用余量**（见 §5 invariant 1）；P4-A 终审轮 STEP est 再下调到 23,040 后，九页全建 `pool_free` 实测 2.2–2.7KB 量级（终审轮 2,628–2,644B）。各行 delta 是同一次 `UI MEM` 的快照（每页最后一次成功构建的池增量），不是跨次拼表 |
 
 > **STEP 的 est 在 9 页口径两次下调：24,576 → 24,064（Task 11）→ 23,040（P4-A 终审
@@ -125,6 +127,21 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | PRESETS | 12,008–12,276 B（多次运行；Task 10 归档读数 12,008/12,044/12,276，见 `inject-nav-20261122-234244.log` 与 `task-10fix-transport-green.log`） | 12,800 B | +4.4% | 32 格（单对象可点击 label，两行文本）+ 3 按钮 + 状态行 = 36 对象 |
 | **FILE 组 Σ** | **19.8–20.0 KB** | **20,992 B** | — | 两页同时已建（组内切页只改显隐）；过渡峰值见 ADR-005 §5（free 7,308–7,840B） |
 | SONG | 11,136–11,564 B（P4-C Task 11，`song` 场景多次首建；`UI MEM` 读数 11,136/11,228/11,384/11,548/11,564） | 12,288 B | +6.3%–10.3% | 35 个单对象可点击 label（状态 1 + A–D 卡 4 + 动作 chip 8（CANCEL 常建、按态隐藏）+ 16 条目 + 配置 chip 6）+ 页容器；组预算下 FILE→STEP 不受影响，est 保持 spec 的计划上限 |
+
+**SYNTH 组三页（P4-D Task 8 落位、Task 9/10 单页实测、Task 11 组口径收口）**：
+
+| 页 | 实测 delta（首次构建，`UI MEM`） | est_bytes | 余量 | 说明 |
+|---|---|---|---|---|
+| SAMPLE | **4,360–4,508 B**（`UI MEM` delta，跨快照 min–max；`页面构建` 池增量 4,148–4,508） | 6,144 B | +36.3%–40.9% | 6 旋钮 + 槽管理行（`U1..U4`+`ERASE`+状态行）。**est 是 spec §4.4 的固定上限**：实测只用到 71–73%，预留不回收（收 est 会改 SYNTH Σ 与有序对，spec 锁定） |
+| DSYN | **6,344–6,452 B**（`UI MEM` delta，跨快照 min–max；构建日志 6,100–6,452，最小值为 soak 预热；Task 9 首测 6,436 在区间内） | 7,168 B | +11.1%–13.0% | 22 对象（§8.7）；初版 26 对象 7,724B 超 est 556B → 压缩 |
+| FM6P | **6,980–7,124 B**（`UI MEM` delta；构建日志 6,832–7,124；Task 10 fix 的 7,124B 为最大值） | 7,168 B | +0.6%–2.7% | 24 对象（§8.8）；余量最薄 **44B**（7,168−7,124），**刻意保留为 tripwire**：加控件前先减对象 |
+| **SYNTH 组 Σ** | **17,696–17,936 B**（`UI MEM sum_delta` 的 `built=3` 读数；与逐页区间不同源，不相加） | **20,480 B** | — | 组内三页共驻留（同组切页只改显隐）；`build_ms` 12–13ms；跨组峰值见 ADR-005 §5.1（SYNTH→STEP 实测 `pool_free 11,244B`） |
+
+- **SAMPLE 槽 ERASE 的 UI 停顿**（P4-D 评审 M5）：`ERASE` chip 在 LVGL 回调里同步擦
+  20 个 4KB 扇区（整槽 80KiB），最坏阻塞一次整槽擦写。**未单独测时**；量级同 spec
+  §4.3 的 ≤150ms 级 UI 停顿。`STORE STATS` 的 `last_save_ms` 不覆盖采样擦除
+  （`sloop_store_sample_erase` 不走 `store_note_write`）。走带中由存储层拒绝，故不会
+  在播放中触发。
 
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
@@ -493,8 +510,10 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 #### 8.5 预算与验证
 
 - 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
-  行）、SAMPLE 3,072B）；P4-B 起按组核算（EDIT 组 Σ 19,968B，全建后 `pool_free`
-  实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
+  行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
+  6,344–6,452B）、FM6P 7,168B（Task 10 首测 → Task 11/12 归档 6,980–7,124B））；P4-B 起按组核算：P4-D Task 8 起
+  SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
+  全建后 `pool_free` 实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
   `STATE SNAP` 断言；**`UI KNOB` press/drag 证明触摸回调接线与相对拖拽**——按下不改值、
   +90° 改 +67（BPM range 200）、拖回锚点回原值、中心/环带外被忽略；FM6/SAMPLE 页
@@ -542,6 +561,127 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   （高过 +23% 上沿 1 pp）只是池历史让 delta 偏小的读数，不是余量不足——见 §3 注）；
   EDIT 组 Σ est `17,408 → 19,968`。组不变量见 §3（最坏对 FILE→STEP 不变；
   EDIT→STEP 成单独次坏，账面 60,904、余 2,216B）。
+
+### 8.7 DSYN 鼓合成编辑页（P4-D Task 9）
+
+- **对象与几何**（页面区相对坐标，y 绝对 = +72）：页眉一行 y∈[4,36)——
+  `SYN1..SYN4` 四 kit chip（x=16+70k，64×32）、LANE **三区对象**
+  `-   LANE nn   +`（298..478，180×32；左右各 42px 是 ∓1 区、中段是标签，点击靠指针
+  相对 x 判区）、字段页 chip `SND1/SND2/SND3/KIT`（x=526+74i，68×32）、
+  `AUDITION`（828，116×32）、`STORE`（952，88×32）、状态行（1048..1264，16pt 右对齐）；
+  8 旋钮沿用参数页网格（cell 300×290，x=16+c·316、y=52+r·298，盒 160×160）；
+  底部 `−`/`+`（16/104，80×44，y=552..596）作用于焦点槽 ±1（TAP 不能拖拽，这是
+  TAP 能触发的唯一字段写入口）。
+- **字段页**（页内 UI 局部态，不新增 app page）：SND1 = WAVE/SRC/CLAP/PITCH/FINE/BEND/
+  BTIME/HOLD；SND2 = DECAY/TLEV/T2/T2LEV/CLICK/NLEV/NHOLD/NDEC；SND3 = FLT_MODE/
+  FLT_RES/FCUT/FENV/HPF/CHIP/DRIVE/LEVEL；KIT = CRUSH/KIT SRC。8 个旋钮对象**常驻**，
+  当前页没有字段的槽隐藏（隐藏 = 不绘制/不命中，池峰值按 8 个算，组内切页不重新分配）。
+- **值/写路径**：读 `app_state_t.dsyn`（`sloop_dsyn_field_from_sound` 纯解码；kit 级
+  crush/src 直取投影）；写 `CMD_DSYN_SET`（a=kit b=lane n=field）、KIT SRC =
+  `CMD_DSYN_LOAD_KIT`、KIT 页 `CRUSH` = `CMD_DSYN_CRUSH`（a=kit，v=0..255；状态层校验、
+  core 钳位 + `dsu_fix_kit` + `dsu_dirty`）、`AUDITION` = `CMD_DSYN_AUDITION`（力度固定
+  100）、`STORE` = `CMD_DSYN_STORE`（走带中 → `STOP BEFORE STORE`）。命令成功后投影同拍刷新，本页
+  立即重绘（不做本地值推测）。kit/lane 选择走 `state_set_dsyn_select`（与
+  `UI DSYN KIT/LANE` 共用，`STATE SNAP` 立即反映）；DSYN 与选中轨无关，**无锁定态**。
+- **数字文本**：`knob_t` 增加可选 `text_cb`（默认 NULL → `knob_format_value`）；DSYN
+  的 24 个字段由 `sloop_core_dsyn_text` 给出 ms（`DECAY_K` 反解）/Hz（`CUTOFF_HZ`）/
+  0.25dB/FLT 名/音名，UI 不引入上游生成表。LEVEL 文本按上游注释 `128 + 4 × dB` 精确到
+  百分之一 dB（`0.0dB` / `+6.0dB` / `+0.25dB` / `+31.75dB` / `-32.0dB`，正数带 `+`）。
+  ms 是**显示近似**：`10254/(65536-DECAY_K[i])` 一阶反解钳 5..4000ms（长衰减端与真实
+  −60dB 时间差十几%），只影响文本、不参与声音。
+- **KIT 页**：`CRUSH` 0..255 可编辑（P4-D Task 9 fix 补 `sloop_core_dsyn_set_crush` +
+  `CMD_DSYN_CRUSH`）：与 24 个声音字段**同一条** `dsyn_write` 路径（拖拽/↑↓/± 都写值、
+  写后从投影回读），不另写动作函数。`KIT SRC` 值变化（拖拽/↑↓/±）
+  **立即** `CMD_DSYN_LOAD_KIT`（上游 DSYN_PUT part 17 同义：套用即覆盖该 kit 的 16 lane
+  与 name/crush/src）；点击旋钮只设焦点（TAP 不能拖拽，避免误触清空编辑）。名称用状态行
+  显示（无动作结果时 `KIT <name>`），来源数值就是 KIT SRC 旋钮读数。
+- **状态行**（单一映射 `theme.h` 的 `ui_dsyn_status_text`）：act（SET/STORE/KIT/
+  AUDITION/NONE）× `synth_status` × `dsyn.dirty` × `sloop_store_ready()` →
+  `EDIT OK` / `STORE OK` / `KIT LOADED` / `AUDITION` / `INVALID` / `STOP BEFORE STORE` /
+  `FROZEN` / `NO STORAGE` / `STORE ERROR`，**所有**非空文本后按 dirty 追加 ` DIRTY`
+  （失败分支也不静默吞脏位）。换 kit/lane/字段页清掉「上一次动作」的结果（新上下文不显示
+  旧 lane 的 EDIT OK）。
+- **TAP kind**：`SLOOP_TAP_DSYN_SEL`（a=kit b=lane d=page v=1；chip 与旋钮焦点）、
+  `SLOOP_TAP_DSYN_FIELD`（a=字段码、v=写后回读、err=0 成功/2 命令失败；CRUSH 也走这条）、
+  `SLOOP_TAP_DSYN_STORE`、`SLOOP_TAP_DSYN_AUDITION`（a=kit b=lane）、
+  `SLOOP_TAP_DSYN_KIT`（a=kit b=新 src、v=写后回读）。回显
+  `-> DSYN kit=.. lane=.. page=.. select` / `-> DSYN field=<name> value=<v> status="…"` /
+  `-> DSYN STORE status="…"` / `-> DSYN AUDITION lane=n` / `-> DSYN KIT src=n`；LANE 中段
+  （标签）按 `TAP miss`。字段名由 `sloop_ui_dsyn_field_name()`（0x80/0x81 = CRUSH/KIT SRC）。
+- **键盘**：←/→ 焦点（跳过当前页空槽、环绕）、↑/↓ 调焦点槽 ±1；输入任务上下文只写状态层
+  （`render=false`，控件由 30ms 定时器刷新，与参数页 `sloop_ui_param_adjust` 同纪律）。
+  kit/lane/字段页 chip 只经触摸/console。
+- **预算（est 7,168B 固定）**：初版 26 个对象实测 **7,724B**（超 est 556B）→ 压缩：
+  `LANE` 标签/数值/± 合成一个三区对象（−2）、KIT 名称改由状态行承载（−1）、± 保留在
+  底部；22 个对象、实测 **6,436B**（+11.4%，512 对齐下一条是 6,656/7,168，符合 +10–23%
+  规则）。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），组不变量
+  不变。设备证据：`UI MEM page id=12 est=7168 delta=6436`（Task 9 报告）。
+- **验证入口**：host `scripts/synth-test.sh`（dsyn text 全字段）；设备 `UI DSYN KIT/LANE/
+  PAGE` + TAP（选择器/字段 ±/CRUSH 写/STORE/AUDITION/KIT 中段 miss）+ `DSYN CRUSH` + 键盘 →/↑ +
+  `UI MEM` + 四字段页截屏与像素抽检（Task 9 探针；任务 11 的 `synth` 场景固化）。
+
+### 8.8 FM6P 深度 patch 编辑页（P4-D Task 10）
+
+- **对象与几何**（页面区相对坐标，y 绝对 = +72；页面区 x 到 1,264）：页眉一行
+  y∈[4,36)——`OP1..OP6` 六算子 chip（x=16+60k，56×32）、字段页 chip
+  `EG/LEVEL/PITCH/PEG/VOICE/LFO`（x=380+68p，64×32）、BANK **三区对象**
+  `-  Bnn  +`（792..916，124×32；左右各 40px 是 ∓1 区、中段是槽号标签，点击靠指针
+  相对 x 判区）、`SAVE`（924，72×32）、状态行（1004..1264，16pt 右对齐）；8 旋钮沿用
+  参数页网格（cell 300×290，x=16+c·316、y=52+r·298，盒 160×160）；底部**一个三区
+  对象** `−        +`（16..184，168×44，y=552..596）作用于焦点槽 ±1（TAP 不能拖拽，
+  这是 TAP 能触发的唯一字段写入口）。左右各 **72px** 是 ± 区、中段 **24px（72..96）是
+  死区**（`TAP miss`；把 zone 设成半个宽度会让整条都能写值，中点误触即改音色）。
+  24 个对象（8 旋钮 + 12 chip + BANK + SAVE + 状态行 + 细调）。
+- **字段页**（页内 UI 局部态，不新增 app page；算子 chip 也只影响前三页）：
+  EG = R1/R2/R3/R4/L1/L2/L3/L4（op 字段 0..7）；LEVEL = BP/LD/RD/LC/RC/RS/KVS/OL
+  （8..13,15,16；AMS=14 在 PITCH 页）；PITCH = MODE/FC/FF/DET/AMS（17..20,14）+ 3 空；
+  PEG = PR1..PR4/PL1..PL4（全局 0..7）；VOICE = ALG/FB/OKS/TRNSP（全局 8/9/10/18）+
+  4 空；LFO = LFS/LFD/LPMD/LAMD/LKS/LFW/LPMS（全局 11..17）+ 1 空。字段编号 = Task 3
+  冻结的编号（op 0..20 = `FP_R1..FP_DET`；全局 0..18 = `FP_PR1..FP_TRNSP`），label/
+  范围/枚举全部来自 `sloop_core_fm6_desc`（`fm6_max()` 同一张表），全局 19..28 是名称
+  字节（只读）不进任何页。8 个旋钮对象**常驻**，当前页没有字段的槽隐藏（池峰值按 8 个
+  算，隐藏 = 不绘制/不命中）。
+- **值/写路径**：读 `app_state_t.fm6p`（选中轨的 155B live patch 投影，纯解码
+  `sloop_fm6_field_from_patch`）；写 `CMD_FM6_SET`（a=track b=op n=field，op 6 = 全局
+  块）、`SAVE` = `CMD_BANK_PUT`（目标槽是页内 0..26，与 FM6 宏页的 bank 行同一套 27
+  槽）。数字文本走 `knob_format_value`（ONOFF / ALG "1".."32" / LFW / LPMS 枚举都由
+  desc 给出，无需 core 的索引→文本表）。
+- **ALG 宏覆盖**（spec §4.1）：ALG = 全局字段 **8**（`SLOOP_FM6_ALG_FIELD` =
+  `FP_ALG - FP_PR1` = 134−126；VOICE 页首槽；state/console/page 共用这一公共常量）。
+  写 ALG 时适配层在同一次引擎锁内清 `trk[track].p[P_E0]`（宏 → PAT），否则上游
+  `fm6_sync` 会用宏覆盖 patch 的算法、编辑听不到；状态层 `cmd_fm6_set` 因此在 ALG
+  分支**同拍重取 `p[]`**（否则 UI 的 `ALG MACRO n` 提示与 TAP 回显会多留一拍）。
+  `P_E0 != 0` 时状态行显示 `ALG MACRO n`（1..32）：**优先级 = 失败 > 提示 > 成功结果**
+  ——覆盖警告是持续事实、`EDIT OK` 是瞬时的；编辑 ALG 成功后宏已被清，提示自然消失。
+  其余宏（FB/MLVL/MRAT/MEG/VMOD/DTUN）是叠加语义，写 patch 字段不动它们。
+- **锁定态**（`app_state_t.fm6p.engine_ok == 0`：选中轨不是 FM6，含鼓轨）：8 个旋钮一律
+  `--`（`knob_show_locked`），`OP/PAGE/BANK` chip、`SAVE`、底部 ± 全部**拒绝**（不下发
+  命令、不改选择），状态行 `NOT FM6`（红字，页内状态，不写 `synth_status`/`store_status`）；
+  解锁时清掉上一次动作结果。`UI FM6P OP/PAGE` 是 console 直写的页内量，不受锁定影响
+  （脚本据此在锁定态断言语义不变）。
+- **状态行**（单一映射 `theme.h` 的 `ui_fm6p_status_text`/`ui_fm6p_status_color`）：
+  act（SAVE 走 `ui_file_status_text` 的 act 0 文案 / FIELD 走 `synth_status`：
+  `EDIT OK`、`INVALID`、`FULL`、`BLOCKED`、`FROZEN`、`LOCKED`、`EDIT ERROR`、未就绪
+  `NO STORAGE`）× locked × `P_E0` 宏 → 文本；颜色 成功绿 / 锁定与失败红 / ALG 提示
+  强调黄 / 其余灰。换页/换算子/锁定态变化清掉上一次动作结果。
+- **TAP kind**：`SLOOP_TAP_FM6P_SEL`（a=op b=page v=1；chip 与旋钮焦点）、
+  `SLOOP_TAP_FM6P_FIELD`（a=op b=field、v=写后回读、err=0 成功/1 锁定页拒绝（未下发
+  命令）/2 命令失败）、`SLOOP_TAP_FM6P_BANK`（a=目标槽 d=±1）、`SLOOP_TAP_FM6P_SAVE`
+  （a=目标槽 v=0 已下发/1 锁定页拒绝）。回显 `-> FM6P op=n page=p select` /
+  `-> FM6P <field> value=<v> status="…"`（拒绝另带 `ERR locked|error`）/
+  `-> FM6P BANK slot=k select` / `-> FM6P SAVE status="…"`；字段名由
+  `sloop_ui_fm6p_field_name(op, field)`（描述符 label）。BANK 槽号中段与底部细调
+  中段按 `TAP miss`。
+- **键盘**：←/→ 焦点（跳过当前页空槽、环绕）、↑/↓ 调焦点槽 ±1（锁定页空操作）；输入
+  任务上下文只写状态层（`render=false`，控件由 30ms 定时器刷新）。chip 只经触摸/console。
+- **预算（est 7,168B 固定）**：24 个对象实测 **6,980–7,124B**（Task 10 fix 7,124B 为最大；≤ est；区间取决于
+  构建时的池历史）。**最薄余量 44B 是刻意保留的 tripwire**：不改 est（改到 7,680 会让
+  SYNTH Σ 21,088、SYNTH→STEP 账面 59,752B，仍在 60,776B 最坏有序对之内，但没有必要），
+  任何新增控件都必须先减对象或走一次预算评审。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），
+  ADR-005 §5 的组不变量不变。设备证据见任务 10 报告与 `docs/dev/verify/4-pd-2026-11-23/`。
+- **验证入口**：设备 `UI FM6P OP/PAGE` + `TAP`（六页 × 8 槽的字段名/写后回读、锁定页
+  `NOT FM6`、ALG 宏提示、BANK SAVE→`STORE BANK GET` 往返）+ 键盘 ←/→/↑ + `UI MEM` +
+  三张截屏与像素抽检（Task 10 探针；任务 11/12 的 `synth` 场景固化）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）
 

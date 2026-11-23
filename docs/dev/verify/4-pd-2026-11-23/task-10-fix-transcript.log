@@ -1,0 +1,470 @@
+
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  I (4188) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4188) sloop_tab5: keyboard: OK (0x6D)
+W (4188) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+W (4198) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4208) I2S_IF: Paired data: 0x4ff2af44, current mode: playback, paired in_enable: 0, paired out_enable: 0
+I (4208) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4208) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4218) ES8388: Start on mode:2
+I (4218) Adev_Codec: Open codec device OK
+I (4218) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4238) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x401a0000 handle=1341389236 base=0x97000 span=0x68000
+I (4268) sloop_store: 采样槽装载: 4 槽 flash→镜像
+I (4268) sloop_store: 歌曲设置: 来源=1 count=3 loop=0
+I (4268) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (4268) sloop_store: ready: slots=0x48344f7c(15264B) stage=0x48348b80 v3=0x48344538(2584B) auto=0x48349b84(3816B) base=0x97000 span=0x68000
+I (4278) sloop_store: autosave 恢复：hash=D3A02F00 sel=3 bpm=120
+I (4278) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4278) sloop_audio_stream: stream started, half=256 frames
+I (4278) sloop_tab5: UI 启动前内部堆剩余 94307 字节
+I (4298) sloop_ui: 页面构建 page=PLAY(0) 池增量=2500B 预算=3072B 池剩余=48644B 耗时=3ms
+I (4298) sloop_ui: 切页 page=PLAY(0) 组=PLAY 组内首建耗时=5ms
+I (4298) sloop_ui: UI 就绪: 14 页注册/1 已建 @1280x720, LVGL 池已用 14324/62928 字节, 内部堆剩余 94307 字节
+I (4308) sloop_input: InputManager 就绪：60 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4478) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+
+sloop>  STORE AUTO OFF
+STORE AUTO off
+sloop>  UI tracks
+I (6908) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=42916B 耗时=8ms
+I (6908) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  UI fm6p
+I (7518) sloop_ui: 页面构建 page=FM6P(13) 池增量=7124B 预算=7168B 池剩余=38232B 耗时=9ms
+I (7518) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=12ms
+UI page=fm6p (13)
+sloop>  UI MEM
+UI MEM pool_used=18164 pool_free=44072 pool_total=62236 registered=14 built=1 failed=0 sum_est=113152 reserve=-50916 group=SYNTH
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=5
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=7124 build_ms=12
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=built est=7168 delta=7124 build_ms=9
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  TAP 84 646
+TAP 84,646 page=13 -> FM6P R1 value=94 status="EDIT OK"
+sloop>  TAP 96 646
+TAP miss 96,646 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P R1 value=93 status="EDIT OK"
+sloop>  TAP 684 92
+TAP 684,92 page=13 -> FM6P op=0 page=4 select
+sloop>  PARAM 63 5
+PARAM track=1 id=63 value=5 applied=5 min=0 max=32
+sloop>  PARAM 63
+PARAM track=1 id=63 value=5 min=0 max=32
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P ALG value=5 status="EDIT OK"
+sloop>  PARAM 63
+PARAM track=1 id=63 value=0 min=0 max=32
+sloop>  FM6P INFO 1
+FM6P INFO track=1 slot=0 engine_ok=1 name="TINE EP" alg=5 macro=0
+sloop>  ENG TRACK 1 0 0
+ENG TRACK k=1 engine=0 preset=0 OK
+sloop>  TAP 896 92
+TAP 896,92 page=13 -> FM6P BANK slot=0 select
+sloop>  TAP 812 92
+TAP 812,92 page=13 -> FM6P BANK slot=0 select
+sloop>  TAP 960 92
+TAP 960,92 page=13 -> FM6P SAVE ERR locked status="NOT FM6"
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P ALG value=5 ERR locked status="NOT FM6"
+sloop>  
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  UI fm6p
+UI page=fm6p (13)
+sloop>  UI FM6P PAGE 0
+UI FM6P op=0 page=0
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P R1 value=96 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P R1 value=95 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P R2 value=41 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P R2 value=40 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P R3 value=31 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P R3 value=30 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P R4 value=61 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P R4 value=60 status="EDIT OK"
+sloop>  TAP 166 528
+TAP 166,528 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P L1 value=99 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P L1 value=98 status="EDIT OK"
+sloop>  TAP 482 528
+TAP 482,528 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P L2 value=81 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P L2 value=80 status="EDIT OK"
+sloop>  TAP 798 528
+TAP 798,528 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P L3 value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P L3 value=0 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP 1114,528 page=13 -> FM6P op=0 page=0 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P L4 value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P L4 value=0 status="EDIT OK"
+sloop>  UI FM6P PAGE 1
+UI FM6P op=0 page=1
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P BP value=40 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P BP value=39 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LD value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LD value=0 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P RD value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P RD value=0 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LC value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LC value=0 status="EDIT OK"
+sloop>  TAP 166 528
+TAP 166,528 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P RC value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P RC value=0 status="EDIT OK"
+sloop>  TAP 482 528
+TAP 482,528 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P RS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P RS value=0 status="EDIT OK"
+sloop>  TAP 798 528
+TAP 798,528 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P KVS value=4 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P KVS value=3 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP 1114,528 page=13 -> FM6P op=0 page=1 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P OL value=53 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P OL value=52 status="EDIT OK"
+sloop>  UI FM6P PAGE 2
+UI FM6P op=0 page=2
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=2 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P MODE value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P MODE value=0 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=2 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P FC value=2 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P FC value=1 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=2 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P FF value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P FF value=0 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=2 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P DET value=8 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P DET value=7 status="EDIT OK"
+sloop>  TAP 166 528
+TAP 166,528 page=13 -> FM6P op=0 page=2 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P AMS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P AMS value=0 status="EDIT OK"
+sloop>  TAP 482 528
+TAP miss 482,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P AMS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P AMS value=0 status="EDIT OK"
+sloop>  TAP 798 528
+TAP miss 798,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P AMS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P AMS value=0 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP miss 1114,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P AMS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P AMS value=0 status="EDIT OK"
+sloop>  UI FM6P PAGE 3
+UI FM6P op=0 page=3
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PR1 value=99 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PR1 value=98 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PR2 value=99 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PR2 value=98 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PR3 value=99 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PR3 value=98 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PR4 value=99 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PR4 value=98 status="EDIT OK"
+sloop>  TAP 166 528
+TAP 166,528 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PL1 value=51 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PL1 value=50 status="EDIT OK"
+sloop>  TAP 482 528
+TAP 482,528 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PL2 value=51 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PL2 value=50 status="EDIT OK"
+sloop>  TAP 798 528
+TAP 798,528 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PL3 value=51 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PL3 value=50 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP 1114,528 page=13 -> FM6P op=0 page=3 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P PL4 value=51 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P PL4 value=50 status="EDIT OK"
+sloop>  UI FM6P PAGE 4
+UI FM6P op=0 page=4
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=4 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P ALG value=5 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P ALG value=4 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=4 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P FB value=4 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P FB value=3 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=4 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P OKS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P OKS value=0 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=4 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P TRNSP value=25 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P TRNSP value=24 status="EDIT OK"
+sloop>  TAP 166 528
+TAP miss 166,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P TRNSP value=25 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P TRNSP value=24 status="EDIT OK"
+sloop>  TAP 482 528
+TAP miss 482,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P TRNSP value=25 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P TRNSP value=24 status="EDIT OK"
+sloop>  TAP 798 528
+TAP miss 798,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P TRNSP value=25 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P TRNSP value=24 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP miss 1114,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P TRNSP value=25 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P TRNSP value=24 status="EDIT OK"
+sloop>  UI FM6P PAGE 5
+UI FM6P op=0 page=5
+sloop>  TAP 166 230
+TAP 166,230 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LFS value=35 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LFS value=34 status="EDIT OK"
+sloop>  TAP 482 230
+TAP 482,230 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LFD value=34 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LFD value=33 status="EDIT OK"
+sloop>  TAP 798 230
+TAP 798,230 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LPMD value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LPMD value=0 status="EDIT OK"
+sloop>  TAP 1114 230
+TAP 1114,230 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LAMD value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LAMD value=0 status="EDIT OK"
+sloop>  TAP 166 528
+TAP 166,528 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LKS value=1 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LKS value=0 status="EDIT OK"
+sloop>  TAP 482 528
+TAP 482,528 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LFW value=5 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LFW value=4 status="EDIT OK"
+sloop>  TAP 798 528
+TAP 798,528 page=13 -> FM6P op=0 page=5 select
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LPMS value=3 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LPMS value=2 status="EDIT OK"
+sloop>  TAP 1114 528
+TAP miss 1114,528 page=13
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 142 646
+TAP 142,646 page=13 -> FM6P LPMS value=3 status="EDIT OK"
+sloop>  TAP 58 646
+TAP 58,646 page=13 -> FM6P LPMS value=2 status="EDIT OK"
+sloop>  ENG TRACK 1 9 1
+ENG TRACK k=1 engine=9 preset=1 OK
+sloop>  ENG TRACK 1 9 0
+ENG TRACK k=1 engine=9 preset=0 OK
+sloop>  ENG TRACK 1 0 0
+ENG TRACK k=1 engine=0 preset=0 OK
+sloop>  UI tracks
+I (40408) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5732B 预算=7168B 池剩余=38324B 耗时=8ms
+I (40418) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 1108 347
+TAP 1108,347 page=1 -> TRACKS select track=3 CMD_SELECT_TRACK
+sloop>  UI play
+I (40708) sloop_ui: 页面构建 page=PLAY(0) 池增量=2420B 预算=3072B 池剩余=42688B 耗时=5ms
+I (40708) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  STORE AUTO ON
+STORE AUTO on
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  

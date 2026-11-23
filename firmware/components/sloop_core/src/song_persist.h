@@ -22,9 +22,9 @@
  * 与同一个 CRC 实现。
  *
  * 写规则（ADR-009 §6，逐条对应上游 persist_boot/settings_write/dsu_boot）：
- *   - 没有对象：canonical PER3（默认 panel、lights=0、当前歌曲）+ 默认 DSU + 默认 side；
- *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592）：整段保留，只替换 48..83；尚无 DSU 的
- *     补默认 DSU；已有尾段绝不重写；
+ *   - 没有对象：canonical PER3（默认 panel、lights=0、当前歌曲）+ 当前 RAM 的 DSU + 默认 side；
+ *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592）：整段保留，只替换 48..83；88..1,551 一律
+ *     写成当前 RAM 的 DSU（84/88 因此升级到 1,552B，P4-D Task 5）；已有尾段绝不重写；
  *   - PER2（48B）/PER1（40B）：按 persist_boot 口径迁移字段，别的取默认，不用空白覆盖；
  *   - 未知 magic 或长度不是任何历史格式：SONG_PER_BAD——调用方**不得写 flash**。
  *
@@ -197,11 +197,27 @@ static bool song_side_blank(const uint8_t *side)
     return true;
 }
 
-/* 默认 DSU 银行：上游 settings_write 先 `if (!dsu_valid(&dsu)) dsu_defaults();` 再写 &dsu */
-static void song_dsu_default(uint8_t *dst)
+/* 把**当前 RAM 的 DSU**（drum_synth.c 的 `dsu`，1,464B）写进 payload 的 88..1,551
+ * （P4-D Task 5，spec §3.4）：**任何** settings 保存都携带它——显式 `STORE SONG SAVE`、
+ * sections/歌曲延迟写、`DSYN STORE`（三者在 store_tab5.c 里走同一个 `song_write_locked`）。
+ * 上游 settings_write 同法：`if (!dsu_valid(&dsu)) dsu_defaults();` 再写 &dsu——坏掉的
+ * RAM 银行不落盘。`len < SONG_PER_CANON` 时什么都不做（canonical 是任何保存的下限，
+ * 调用方在最终长度确定后调用）。 */
+static void song_per_put_dsu(uint8_t *payload, uint32_t len)
 {
+    if (payload == 0 || len < SONG_PER_CANON) return;
     if (!dsu_valid(&dsu)) dsu_defaults();
-    memcpy(dst, &dsu, SONG_DSU_LEN);
+    memcpy(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN);
+}
+
+/* flash 提交返回后调用（与 song_pending_done 同一位置，store_tab5.c 的 song_write_locked）：
+ * 只有「写成功」且「刚提交的字节里就是当前 RAM 的 DSU」才清 dsu_dirty。擦写窗口里又来的
+ * DSYN 编辑让 payload 过时——此刻 RAM 与盘上不一致，dirty 必须保留（下一次显式 STORE 才
+ * 落盘）。`dirty == 0` 因此精确表示「RAM 与最近一次成功写盘一致」（spec §3.4）。 */
+static void song_per_saved(bool ok, const uint8_t *payload, uint32_t len)
+{
+    if (!ok || payload == 0 || len < SONG_PER_CANON) return;
+    if (memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0) dsu_dirty = 0;
 }
 
 /* 组装一次保存（就地改 payload；*len 入 = 现有长度（0 = 无对象）、出 = 新长度）。
@@ -225,7 +241,6 @@ static song_per_kind_t song_per_build(uint8_t *payload, uint32_t *len, uint32_t 
         song_per_put_word(payload, SONG_PER_MAGIC);
         memcpy(payload + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN);
         memcpy(payload + SONG_ARR_OFF, arr, SONG_ARR_LEN);
-        song_dsu_default(payload + SONG_DSU_OFF);
         n = SONG_PER_CANON;
         break;
     case SONG_PER3:
@@ -234,10 +249,7 @@ static song_per_kind_t song_per_build(uint8_t *payload, uint32_t *len, uint32_t 
             song_per_put_word(payload + SONG_LIGHTS_OFF, 0);
             n = SONG_PER_BASE;
         }
-        if (n == SONG_PER_BASE) { /* 没有 DSU：补默认银行（已有尾段的对象不走这里） */
-            song_dsu_default(payload + SONG_DSU_OFF);
-            n = SONG_PER_CANON;
-        }
+        if (n == SONG_PER_BASE) n = SONG_PER_CANON; /* 没有 DSU：下面统一补当前 RAM 的 */
         break;
     case SONG_PER2: {
         uint8_t keep[SONG_PER2_LEN];
@@ -250,7 +262,6 @@ static song_per_kind_t song_per_build(uint8_t *payload, uint32_t *len, uint32_t 
         else
             memcpy(payload + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN); /* panel_init 会重置 */
         memcpy(payload + SONG_ARR_OFF, arr, SONG_ARR_LEN);
-        song_dsu_default(payload + SONG_DSU_OFF);
         n = SONG_PER_CANON;
         break;
     }
@@ -265,7 +276,6 @@ static song_per_kind_t song_per_build(uint8_t *payload, uint32_t *len, uint32_t 
         else
             memcpy(payload + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN);
         memcpy(payload + SONG_ARR_OFF, arr, SONG_ARR_LEN);
-        song_dsu_default(payload + SONG_DSU_OFF);
         n = SONG_PER_CANON;
         break;
     }
@@ -273,6 +283,10 @@ static song_per_kind_t song_per_build(uint8_t *payload, uint32_t *len, uint32_t 
     default:
         return SONG_PER_BAD;
     }
+    /* 88..1,551 统一写当前 RAM 的 DSU（P4-D Task 5）：canonical/84/88B 的「补 DSU」与
+     * 已有 DSU 的 PER3「替换 DSU」是同一条规则——写盘后 settings 里的 SYN kit 就是此刻
+     * 正在发声的那一份。已有 MIDI 尾段（1,552 之后）不在这段里，逐字节保留。 */
+    song_per_put_dsu(payload, n);
     if (!side_present) song_side_default(side); /* 否则原样提交（见 song_side_blank） */
     *len = n;
     return kind;

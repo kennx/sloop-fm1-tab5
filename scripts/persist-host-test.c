@@ -217,8 +217,11 @@ int main(void)
     kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
     check(kind == SONG_PER3 && len == SONG_PER_CANON + 32u, "PER3+MIDI(32B): 长度保持 1,584B");
     check(memcmp(payload, before, SONG_ARR_OFF) == 0, "PER3+MIDI: 0..47（palette/panel）逐字节不变");
-    check(memcmp(payload + 84, before + 84, 4u + SONG_DSU_LEN + 32u) == 0,
-          "PER3+MIDI: 84..1,583（lights/DSU/尾段）逐字节不变");
+    check(memcmp(payload + 84, before + 84, 4u) == 0, "PER3+MIDI: lights @84 逐字节不变");
+    check(memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+          "PER3+MIDI: 88..1,551 = 当前 dsu（P4-D：替换 flash 里的旧值）");
+    check(memcmp(payload + SONG_PER_CANON, before + SONG_PER_CANON, 32u) == 0,
+          "PER3+MIDI: MIDI 尾段（1,552..1,583）逐字节不变");
     check(memcmp(payload + SONG_ARR_OFF, &next, SONG_ARR_LEN) == 0, "PER3+MIDI: arrangement 已替换");
     check(memcmp(side, side_before, sizeof side) == 0, "PER3+MIDI: side 原样随副本提交");
 
@@ -227,14 +230,15 @@ int main(void)
     memcpy(before, payload, len);
     kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
     check(kind == SONG_PER3 && len == SONG_PER_CANON + 40u, "PER3+MIDI(40B): 长度保持 1,592B");
-    check(memcmp(payload + 84, before + 84, 4u + SONG_DSU_LEN + 40u) == 0, "PER3+MIDI(40B): 尾段逐字节不变");
+    check(memcmp(payload + SONG_PER_CANON, before + SONG_PER_CANON, 40u) == 0,
+          "PER3+MIDI(40B): 尾段逐字节不变");
 
-    len = SONG_PER_CANON; /* 无尾段：已有 DSU 不得被默认值重写 */
+    len = SONG_PER_CANON; /* 无尾段：已有 DSU 被当前 RAM 的 dsu 替换（P4-D Task 5） */
     mk_per3(payload, len, &arr);
-    memcpy(before, payload, len);
     kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
     check(kind == SONG_PER3 && len == SONG_PER_CANON, "PER3(1,552B): 长度不变");
-    check(memcmp(payload + 84, before + 84, 4u + SONG_DSU_LEN) == 0, "PER3(1,552B): 已有 DSU 不被默认值覆盖");
+    check(memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+          "PER3(1,552B): 已有 DSU 被当前 dsu 替换");
 
     /* ---------- 3. 合法但尚未带 DSU 的 PER3 → 补默认 DSU ---------- */
     len = SONG_PER_BASE; /* 88B */
@@ -496,6 +500,163 @@ int main(void)
           "torn: 旧副本的 arrangement 仍可读（不是半截新值）");
     check(st_side_load(OBJ_SETTINGS, side_got, SONG_SIDE_LEN) == 0 && memcmp(side_got, side, SONG_SIDE_LEN) == 0,
           "torn: 旧副本的 side 仍可读");
+
+    /* ---------- 9. DSU 随 PER3 持久化（P4-D Task 5，spec §3.4） ---------- */
+    /* `dsu`/`dsu_dirty` 是 drum_synth.c 的 static：本 TU 经 hostsim → drums.c 编入，与固件
+     * 是同一份。每次都从工厂银行起（前面的用例只碰 arrangement/side，但显式归一更稳）。 */
+    dsu_defaults();
+    dsu_dirty = 0;
+    arr = arr_make(4, 0);
+    next = arr_make(5, 1);
+
+    /* 9a. canonical（没有对象）：88..1,551 逐字节 = 当前 dsu */
+    len = 0;
+    kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+    check(kind == SONG_PER_NEW && len == SONG_PER_CANON &&
+              memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+          "dsu: canonical 的 88..1,551 逐字节 = 当前 dsu");
+
+    /* 9b. song_per_put_dsu：改一个 lane → 直接写回 88..1,551 → 读回 42 */
+    dsu.k[0].s[0].pitch = 42u;
+    static dsu_bank_t got_dsu;
+    song_per_put_dsu(payload, len);
+    memcpy(&got_dsu, payload + SONG_DSU_OFF, sizeof got_dsu);
+    check(dsu_valid(&got_dsu) && got_dsu.k[0].s[0].pitch == 42u,
+          "dsu: put_dsu 把 pitch=42 写进 88..1,551（读回 42）");
+    len = 0;
+    kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+    memcpy(&got_dsu, payload + SONG_DSU_OFF, sizeof got_dsu);
+    check(kind == SONG_PER_NEW && len == SONG_PER_CANON && got_dsu.k[0].s[0].pitch == 42u,
+          "dsu: canonical 保存同样携带 pitch=42");
+    {
+        uint8_t short_buf[SONG_PER_BASE], short0[SONG_PER_BASE];
+        fill(short_buf, sizeof short_buf, 0xA5);
+        memcpy(short0, short_buf, sizeof short_buf);
+        song_per_put_dsu(short_buf, sizeof short_buf);
+        check(memcmp(short_buf, short0, sizeof short_buf) == 0,
+              "dsu: len < 1,552 时 put_dsu 一个字节都不写");
+    }
+    /* RAM 里的银行坏了（magic 不对）：put_dsu 先 dsu_defaults（上游 settings_write 同法），
+     * 坏字节不落盘。 */
+    dsu.magic = 0;
+    song_per_put_dsu(payload, len);
+    memcpy(&got_dsu, payload + SONG_DSU_OFF, sizeof got_dsu);
+    check(dsu_valid(&dsu) && dsu_valid(&got_dsu), "dsu: RAM 银行坏了 → 先落默认再写");
+
+    /* 9c. 已有 DSU 的 PER3：88..1,551 换成当前 RAM，48..83 替换，其余不动 */
+    dsu_defaults();
+    dsu.k[1].s[3].pitch = 99u; /* flash 里那份「旧 DSU」是 mk_per3 的 0x11 填充 */
+    len = SONG_PER_CANON;
+    mk_per3(payload, len, &arr);
+    memcpy(before, payload, len);
+    kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
+    check(kind == SONG_PER3 && len == SONG_PER_CANON, "dsu: PER3(1,552B) 长度不变");
+    check(memcmp(payload, before, SONG_ARR_OFF) == 0 &&
+              memcmp(payload + SONG_LIGHTS_OFF, before + SONG_LIGHTS_OFF, 4u) == 0,
+          "dsu: PER3 的 0..47 与 84..87 逐字节不变");
+    check(memcmp(payload + SONG_ARR_OFF, &next, SONG_ARR_LEN) == 0, "dsu: PER3 的 48..83 已替换");
+    check(memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+          "dsu: PER3 的 88..1,551 = 当前 dsu（替换 flash 里的旧值）");
+    memcpy(&got_dsu, payload + SONG_DSU_OFF, sizeof got_dsu);
+    check(got_dsu.k[1].s[3].pitch == 99u, "dsu: 读回 pitch=99（替换而非保留旧字节）");
+
+    /* 9d. 更长的 PER3：只换 48..83 与 88..1,551，MIDI 尾段逐字节保留 */
+    for (uint32_t tail = SONG_MIDI_32; tail <= SONG_MIDI_MAX; tail += 4u) {
+        char what[96];
+        len = SONG_PER_CANON + tail;
+        mk_per3(payload, len, &arr);
+        memcpy(before, payload, len);
+        dsu.k[2].s[5].pitch = (uint8_t)(100u + tail); /* 每次一个可区分的值 */
+        kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
+        snprintf(what, sizeof what, "dsu: PER3+%uB 尾段逐字节保留、DSU 已替换", (unsigned)tail);
+        check(kind == SONG_PER3 && len == SONG_PER_CANON + tail &&
+                  memcmp(payload + SONG_PER_CANON, before + SONG_PER_CANON, tail) == 0 &&
+                  memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+              what);
+    }
+
+    /* 9e. 无 DSU 的 84/88B 旧对象：升级为 1,552B 并带**当前** dsu */
+    dsu.k[0].s[0].pitch = 55u;
+    for (uint32_t old = SONG_PER_V22; old <= SONG_PER_BASE; old += 4u) { /* 84, 88 */
+        char what[96];
+        len = old;
+        mk_per3(payload, len, &arr);
+        memcpy(before, payload, len);
+        kind = song_per_build(payload, &len, sizeof payload, &next, side, true);
+        snprintf(what, sizeof what, "dsu: PER3(%uB) → 1,552B 带当前 dsu", (unsigned)old);
+        check(kind == SONG_PER3 && len == SONG_PER_CANON &&
+                  memcmp(payload, before, SONG_ARR_OFF) == 0 &&
+                  memcmp(payload + SONG_ARR_OFF, &next, SONG_ARR_LEN) == 0 &&
+                  memcmp(payload + SONG_DSU_OFF, &dsu, SONG_DSU_LEN) == 0,
+              what);
+    }
+
+    /* 9f. 未知 magic：照旧拒绝，且组装不动 dsu_dirty */
+    len = SONG_PER_BASE;
+    fill(payload, len, 0x21);
+    put_word(payload, 0xDEADBEEFu);
+    dsu_dirty = 1;
+    kind = song_per_build(payload, &len, sizeof payload, &next, side, false);
+    check(kind == SONG_PER_BAD && dsu_dirty, "dsu: 未知 magic 仍拒绝（dirty 不被组装清掉）");
+
+    /* 9g. dsu_dirty：只有「写成功 + 提交的就是当前 RAM」才清 */
+    dsu_defaults();
+    dsu.k[0].s[0].pitch = 7u;
+    dsu_dirty = 1;
+    len = 0;
+    kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+    song_per_saved(false, payload, len); /* 写失败 */
+    check(kind == SONG_PER_NEW && dsu_dirty, "dsu: 写失败保留 dirty");
+    dsu.k[0].s[1].pitch = 8u; /* 擦写窗口里又编辑 → 刚组装的 payload 已过时 */
+    song_per_saved(true, payload, len);
+    check(dsu_dirty, "dsu: 写期间又被编辑 → 保留 dirty（payload 过时）");
+    len = 0;
+    kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+    song_per_saved(true, payload, len);
+    check(kind == SONG_PER_NEW && !dsu_dirty, "dsu: 写成功且字节一致 → 清 dsu_dirty");
+
+    /* 9h. 真实 A/B 提交：写成功清 dirty，flash 读回的 DSU 含保存时的编辑 */
+    flash_reset();
+    dsu_defaults();
+    dsu.k[2].s[5].pitch = 77u;
+    dsu_dirty = 1;
+    len = 0;
+    kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+    st_side = side;
+    st_side_len = sizeof side;
+    rc = st_save3(OBJ_SETTINGS, payload, len, 0, 0, 0, 0);
+    st_side = 0;
+    st_side_len = 0;
+    song_per_saved(rc == 0, payload, len);
+    check(rc == 0 && !dsu_dirty, "dsu: 真实 st_save3 成功 → dsu_dirty = 0");
+    n = st_load(OBJ_SETTINGS, got, sizeof got);
+    memcpy(&got_dsu, got + SONG_DSU_OFF, sizeof got_dsu);
+    check(n == (int)SONG_PER_CANON && dsu_valid(&got_dsu) && got_dsu.k[2].s[5].pitch == 77u,
+          "dsu: flash 读回的 DSU 含保存时的编辑（pitch=77）");
+
+    /* 9i. flash 上的 88B 旧对象 → 保存升级为 1,552B（dsu_boot 口径：len ≥ 1,552 + DSU 有效） */
+    flash_reset();
+    dsu_defaults();
+    dsu.k[3].s[9].pitch = 66u;
+    dsu_dirty = 0;
+    len = SONG_PER_BASE;
+    mk_per3(payload, len, &arr);
+    check(st_save(OBJ_SETTINGS, payload, len) == 0, "dsu: flash 写入 88B 旧 PER3");
+    n = st_load(OBJ_SETTINGS, got, sizeof got);
+    uint32_t glen = n > 0 ? (uint32_t)n : 0u;
+    kind = song_per_build(got, &glen, sizeof got, &next, side, false);
+    st_side = side;
+    st_side_len = SONG_SIDE_LEN;
+    rc = st_save3(OBJ_SETTINGS, got, glen, 0, 0, 0, 0);
+    st_side = 0;
+    st_side_len = 0;
+    song_per_saved(rc == 0, got, glen);
+    n = st_load(OBJ_SETTINGS, got, sizeof got);
+    memcpy(&got_dsu, got + SONG_DSU_OFF, sizeof got_dsu);
+    check(kind == SONG_PER3 && rc == 0 && n == (int)SONG_PER_CANON && !dsu_dirty &&
+              got_dsu.k[3].s[9].pitch == 66u &&
+              memcmp(got + SONG_ARR_OFF, &next, SONG_ARR_LEN) == 0,
+          "dsu: flash 88B 旧对象 → 1,552B（当前 dsu + 新 arrangement）");
 
     printf("persist-host: %s (%d failure%s)\n", fails == 0 ? "PASS" : "FAIL", fails, fails == 1 ? "" : "s");
     return fails;

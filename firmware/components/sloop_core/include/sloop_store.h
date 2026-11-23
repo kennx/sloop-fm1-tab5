@@ -99,6 +99,63 @@ typedef struct {
 } sloop_store_fields_t;
 esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
 
+/* ---- 采样槽 USR1..USR4（P4-D Task 4，spec §3.1/§4.2）---------------------------
+ * 上游 4×80KiB 原始槽（flash 0xA0000/0xB4000/0xC8000/0xE7000，header 480B + data@512，
+ * IMA ADPCM 4bit）。**不做 A/B 对象**：flash 侧就是上游布局，PSRAM 镜像
+ * （`sloop_hal_user_samples()`，selftest.c 把 `SMP_USER_XIP` 指过去）是引擎唯一的读路径。
+ * 权威关系：flash 是持久副本；镜像在开机、上传收尾（END）、擦除与 `ENG SELFTEST`
+ * 收尾时同步。`info` 只读镜像（与引擎同源），flash 只在 init/END/ERASE 使用。
+ * 上传协议（console `SMP`，Task 7）：
+ *   begin(slot)            擦槽的 header 扇区并**同时使镜像失效**（header 0xFF、`usr_nz`/
+ *                          zone 清零、`smp_user_gen` 递增）——槽立即对引擎不可见；清掉
+ *                          上一次未完成的上传（同一时点只允许一个 open slot）；
+ *   hdr_append(p, n)       累积 480B header（console 一行上限 120B，故分 4 次）；挂起中
+ *                          没有 open slot、走带中、冻结或存储未就绪都拒绝；
+ *   write(slot, off, ..)   off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256；跨 4KB 边界
+ *                          的扇区在首次写入前擦除；写成后同步镜像对应偏移（不动 header）；
+ *   end(slot)              校验 header（magic/version/nz/data_len/zone 合法）与 CRC（对
+ *                          **flash 回读**的数据算，`st_crc32`），最后写 header（提交点）。
+ *                          **写 header 成功即提交**：上传随即结束；随后的 512B header 回读
+ *                          若失败，用刚落盘的 header 字节补齐镜像（闪存里已是完整采样），
+ *                          仍回 ESP_OK，槽立即可用，不需要额外 reload；
+ *   erase(slot)            先失效（header 0xFF + 扫描递增 gen，正在发声的 voice 在下一次
+ *                          取 zone 时结束——上游 `ed_smp_erase` 同序），再清镜像数据区、
+ *                          擦 20 个扇区（80KiB/4KB）；
+ *   reload(slot)           flash→镜像 + 扫描（开机装载与自检收尾；`void`）。只要求 HAL 与
+ *                          镜像在位——开机装载在 READY 置位之前完成，故不能走
+ *                          `sloop_store_ready()` 门。
+ * **Tab5 安全差异（spec §3.5，明确接受）**：走带中 begin/hdr_append/write/end/erase 一律
+ * 拒绝（`ESP_ERR_INVALID_STATE`）——80KiB 擦写会关 cache、必然可闻，按 "STOP BEFORE SAVE"
+ * 纪律处理；上游允许播放中上传。写入期间持存储锁、**不持引擎锁**（`smp_user_scan` 与
+ * 镜像失效的那一小段在引擎锁内，设备上 `fm1_irq_off` 是空壳，引擎锁才是真保护）。
+ * `info` 在存储锁内拷贝 header 并校验数据 CRC（最坏等一个 flash 写窗口），SAMPLE 页不会
+ * 读到 END/ERASE 中途的撕裂 header。
+ * 返回码：
+ *   ESP_OK                    成功（`info`：未使用/不可用也算成功，`out->used == 0`）
+ *   ESP_ERR_INVALID_ARG       槽号 ≥ 4、`out == NULL`；END 的 header 长度/魔数/版本/nz/
+ *                             data_len 或 zone 非法（console `SMP ERR header|zones`）
+ *   ESP_ERR_INVALID_SIZE      header 累积超过 480B；write 的 off/n 越界（`size`）
+ *   ESP_ERR_INVALID_CRC       END 的数据 CRC 不符（`crc`）
+ *   ESP_ERR_INVALID_STATE     存储未就绪、诊断冻结、走带中，或没有对应的 open slot
+ *   ESP_ERR_NOT_FINISHED      flash 擦/写/读失败（`flash`）；END 的 header 写失败也在内
+ * END 失败（header 未写入）时上传保持 open（可重发数据后重试），槽仍是空的。 */
+#define SLOOP_STORE_SAMPLES     4u
+#define SLOOP_STORE_SAMPLE_SIZE 0x14000u /* 80KiB / 槽（20 个 4KB 扇区） */
+#define SLOOP_STORE_SAMPLE_DATA 512u     /* header 480B + 32B padding，数据从这里起 */
+typedef struct {
+    uint8_t used;    /* header 合法（magic/version/nz/zone + 数据 CRC）且数据可用 */
+    uint8_t zones;   /* header 的 nz（1..16）；未使用为 0 */
+    char name[9];    /* header 的 8 字符名 + NUL（未使用为 ""） */
+    uint16_t data_kb; /* data_len / 1024（未使用为 0） */
+} sloop_store_sample_info_t;
+esp_err_t sloop_store_sample_info(uint32_t slot, sloop_store_sample_info_t *out);
+esp_err_t sloop_store_sample_begin(uint32_t slot);
+esp_err_t sloop_store_sample_hdr_append(const uint8_t *p, uint32_t n);
+esp_err_t sloop_store_sample_write(uint32_t slot, uint32_t off, const uint8_t *data, uint32_t n);
+esp_err_t sloop_store_sample_end(uint32_t slot);
+esp_err_t sloop_store_sample_erase(uint32_t slot);
+void sloop_store_sample_reload(uint32_t slot);
+
 /* RAW 上传通道（`STORE RAW BEGIN/<hex>/END`，spec §4.4）：把任意对象 payload 分块搬进
  * 4,096B 暂存，再以 `st_save` **原样**写入（CRC/提交头由 storage.c 生成）。用途：旧格式
  * 工程 fixture（3,816B 级）放不进 console 单行。语义：
@@ -115,11 +172,12 @@ esp_err_t sloop_store_project_fields(uint32_t slot, sloop_store_fields_t *out);
  *                  invalid）；**只写请求的那一个对象**；走带中拒绝 =
  *                  ESP_ERR_INVALID_STATE（与其它写 API 同序）；
  *   abort()     —— 丢弃暂存状态（幂等）。
- * 暂存是与 `up_stage()`/`proj_tmp` **共用**的 4,096B（PSRAM）：任何其它存储操作都可能
- * 借用同一块暂存，所以**每一条其它 `STORE` 子命令在入口都先 abort 未完成的上传**
- * （console 的 R27 纪律；C API 的调用方同样必须这么做——未 abort 就穿插别的存储操作，
- * 上传内容会被静默覆盖，END 写进 flash 的是别人的字节）。`end` 持存储锁、只写请求的
- * 那一个对象、擦写期间不持引擎锁；`received` 供 console 回显。 */
+ * 暂存是 **RAW 专用的 4,096B PSRAM**（`s_raw_stage`；P4-D 评审 I1，不与 `up_stage()`
+ * /`proj_tmp` 共用）：settings/DSU/song 的 `st_load` 与 1s tick 都不会覆盖它，因此
+ * `BEGIN → （song tick / ENG SELFTEST） → END` 提交的仍是上传的原始字节。console 仍
+ * 在其它 `STORE` 子命令入口 abort 未完成的上传（R27 的会话确定性约定），但这条已不再
+ * 是缓冲安全的必要条件。`end` 持存储锁、只写请求的那一个对象、擦写期间不持引擎锁；
+ * `received` 供 console 回显。 */
 #define SLOOP_STORE_RAW_MAX 3840u /* = storage.c 的 ST_PAYLOAD_MAX（4KB 扇区 − 256B 头/侧区） */
 esp_err_t sloop_store_raw_begin(uint32_t len);
 esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);
@@ -215,10 +273,11 @@ bool sloop_store_autosave_enable(bool on);
 /* ---- 歌曲顺序：OBJ_SETTINGS 的 PER3 子集（P4-C Task 7，ADR-009 §6 / ADR-010 §4）----
  * 上游把 16 项 A–D 歌曲顺序（count/loop/(scene,bars)×16）放在设置对象 `persist_t` 的
  * 偏移 48；A–D 的内容仍是 FUN6 工程对象（`sloop_store_project_*`）。写规则：
- *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 默认 DSU =
+ *   - 没有设置对象：首次保存构造 canonical PER3（88B persist + 1,464B 当前 RAM 的 DSU =
  *     1,552B）+ 默认 80B side record（theme 0 + 空收藏 + CRC）；
  *   - 合法 PER3（84/88/1,552/1,584/1,588/1,592B）：整个 payload 保留，只替换 48..83；
- *     尚无 DSU 的补默认 DSU（1,552B），已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
+ *     88..1,551 一律写成当前 RAM 的 DSU（84/88B 因此升级到 1,552B，P4-D Task 5）；
+ *     已有 MIDI 尾段与 side 逐字节保留（侧区全 0xFF
  *     才写默认 80B side：自校验不过的 2.7 beta 主题记录也不覆盖）；
  *   - PER2/PER1：按上游 persist_boot 口径迁移（palette/lowcut/zoom/panel 保留，缺失的
  *     取默认），随后写成 canonical PER3；
@@ -271,6 +330,27 @@ bool sloop_store_song_dirty(void);
  * 门限落盘）。 */
 void sloop_store_song_dirty_mark(void);
 void sloop_store_sections_tick(uint32_t now_ms);
+
+/* ---- SYN kit 银行（DSU）：OBJ_SETTINGS 的 88..1,551（P4-D Task 5，spec §3.4）--------
+ * 上游把 4 个 SYN kit（`dsu_bank_t`，1,464B）放在设置对象 `persist_t` 之后；`dsu` 是
+ * drum_synth.c 的 static，鼓声部直接从 RAM 读它。两条路径：
+ *   reload()  —— 开机（`sloop_store_init`，工程 fetch 与歌曲之后）与 `ENG SELFTEST` 收尾：
+ *                settings 88..1,551 → `dsu`（`dsu_valid` 才覆盖，每个 kit 过 `dsu_fix_kit`；
+ *                没有对象/长度不足/银行非法 → 工厂 SYN kit）。`dsu` 与 `dsu_dirty` 都是
+ *                `.bss`，自检的 restore 会回滚它们，故必须重载。存储未就绪 →
+ *                ESP_ERR_INVALID_STATE（`dsu` 落工厂默认），无有效 DSU → ESP_ERR_NOT_FOUND。
+ *   store()   —— 显式 STORE（DSYN 页的 STORE chip）：停止态把**当前 RAM 的 DSU** 连同当前
+ *                歌曲与 side 一起写进 settings（上游 `settings_write` 一次写整份 persist_t，
+ *                没有只写 DSU 的对象）。走带中/诊断冻结/未就绪 → ESP_ERR_INVALID_STATE
+ *                （`STOP BEFORE SAVE` 口径）；settings 对象损坏（未知 magic/长度）→
+ *                ESP_ERR_INVALID_ARG 且不覆盖；擦写失败 → ESP_ERR_NOT_FINISHED。
+ * `dirty()` 表示「RAM 的 SYN kit 与最近一次**成功写盘**不一致」：DSYN 编辑置位；任何一次
+ * 成功的 settings 保存（显式 DSU STORE、显式歌曲保存、sections/歌曲延迟写）在写成功且
+ * 提交的字节就是当前 RAM 时清——**不区分**是谁顺带写的（spec §3.4）。DSYN-only 修改不会
+ * 自行触发 1s 延迟写（上游同：只在下一次 settings 写时落盘）。 */
+esp_err_t sloop_store_dsu_reload(void);
+esp_err_t sloop_store_dsu_store(void);
+bool sloop_store_dsu_dirty(void);
 
 /* ---- live sections A–D（P4-C Task 8）：捕获在 sloop_seq_section（引擎锁内，见
  * sloop_seq.h），这里只做 dirty 记账、停止态载入/擦除与延迟写。A–D 的内容仍是 FUN6

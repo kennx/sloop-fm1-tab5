@@ -911,6 +911,16 @@ int sloop_core_selftest(const char *case_name)
     esp_err_t song_ret = sloop_store_song_reload();
     if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND && song_ret != ESP_ERR_INVALID_STATE)
         ESP_LOGW("sloop_core", "自检后歌曲重载失败: %s", esp_err_to_name(song_ret));
+    /* SYN kit 银行同理（P4-D Task 5，spec §3.4）：`dsu`/`dsu_dirty` 也是 drum_synth.c 的
+     * static `.bss`，上面的 restore 把它们回滚成 init 快照（= RAM 里没有用户的 SYN kit）。
+     * 从 settings 88..1,551 重读；读不到落工厂默认（上游 dsu_boot 的第一步）。 */
+    esp_err_t dsu_ret = sloop_store_dsu_reload();
+    if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND && dsu_ret != ESP_ERR_INVALID_STATE)
+        ESP_LOGW("sloop_core", "自检后 SYN kit 重载失败: %s", esp_err_to_name(dsu_ret));
+    /* 采样槽镜像同理（P4-D Task 4 的收尾，Task 5 接线）：PSRAM 镜像本身不随 restore 回滚，
+     * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
+     * `smp_user_scan`），槽内容因此与 flash 一致。 */
+    for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
     return pass ? 0 : 1;
 }
 
@@ -918,3 +928,5 @@ int sloop_core_selftest(const char *case_name)
  * 本 TU 里编入（宏重定向 proj_slot/proj_v3_tmp/proj_tmp 到 PSRAM、shim 见文件头）。 */
 #include "store_tab5.c"
 #include "seq_tab5.c"
+/* P4-D Task 2：DSYN（SYN1..SYN4）适配，依赖上游 drum_synth.c 的 statics，必须在同一 TU 末尾。 */
+#include "sound_tab5.c"

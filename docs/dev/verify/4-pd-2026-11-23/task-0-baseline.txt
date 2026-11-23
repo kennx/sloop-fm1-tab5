@@ -1,0 +1,19 @@
+# P4-D Task 0 基线（feat/phase4d @ 91cdd46）
+# 日期: 2026-11-23T07:42:45+08:00
+# dev/分支基线: 91cdd466ae2d8d2785f7dea4ae072e4a413adfda
+
+基线命令: scripts/build.sh && scripts/build.sh && scripts/host-test.sh && scripts/state-test.sh && scripts/seq-test.sh && python3 scripts/screenshot.py --selftest && (cd third_party && sha256sum -c MANIFEST.sha256)
+整体结果: 全部 exit=0，无红灯进入 P4-D。
+
+build #1 (scripts/build.sh): exit=0；kconfig 重新生成后的首个 configure pass 出现 AGENTS.md §5.5 已知豁免的一对 CMake 提示（build.cmake:631 + Missing kconfig option）。
+build #2 (scripts/build.sh): exit=0, warnings=0, errors=0；Project build complete。
+build #2 app 尺寸: sloop_fm1_tab5.bin 0x192c20 bytes（0x800000 分区，80% free）；bootloader 0x5a30 bytes（6% free）。
+host-test (scripts/host-test.sh): exit=0；ALL HOST TESTS PASSED (subset)。
+host regression: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (9 notes), 0 crashes。
+host-test 备注: "CPU OVER BUDGET cpu/DIGITAL/12_FM_BASS: 1525 over the idle mix (time), baseline 1107 (+38 %, limit +35 %) -- timed: a note, not a failure"——上游回归自带的定时注记，不计数、不判失败（exit=0）。
+state-test (scripts/state-test.sh): exit=0；28 passed, 0 failed；STATE TEST PASSED。
+seq-test (scripts/seq-test.sh): exit=0；SEQ HOST TEST PASSED (0 failures)。
+screenshot selftest (python3 scripts/screenshot.py --selftest): exit=0；selftest OK。
+manifest ((cd third_party && sha256sum -c MANIFEST.sha256)): exit=0；233/233 OK，0 failed。
+
+结论: 基线全绿，可作为 P4-D 各任务的对比基线。
