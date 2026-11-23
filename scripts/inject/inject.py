@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-九条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
-song.sh / sequence.sh / synth.sh）是本文的薄封装。每个场景：
+十条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
+song.sh / sequence.sh / synth.sh / sys.sh）是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -18,7 +18,7 @@ song.sh / sequence.sh / synth.sh）是本文的薄封装。每个场景：
 esptool 硬复位 → 等 console 提示符 → 重开串口 → 场景从头重跑（复位把页面/走带
 状态清回基线，重跑才能让断言与截图同源），默认最多 3 次。
 
-用法（一般经五条脚本调用）：
+用法（一般经各场景脚本调用）：
     python3 scripts/inject/inject.py --scenario transport --port /dev/ttyACM0 [--retry 3]
 产物（默认 $SLOOP_TAB5_PROJECT/build/verify/，可用 --out-dir 覆盖）：
     inject-<scenario>-<时间戳>.log        串口原始回显 + 工具注记
@@ -7900,6 +7900,97 @@ def run_synth(s: Session) -> None:
         s.expect(rf"^ENG SNAP trk k={k} engine=0 ", f"⑥ ENG SNAP 轨 {k} engine=0（无 FM6 泄漏）")
 
 
+# ---- sys 场景（P4-E 设置页）：生效副本 / 延迟写 / 自检后重载 --------------------------
+# 后续任务（状态层命令、SYSTEM 页、RAW settings 注入、SELFTEST chip）在同一条 run_sys 里
+# 按 ②③… 追加段落；本任务只有 ①。
+SETTINGS_INFO_RE = (
+    r"^STORE SETTINGS INFO kind=(\w+) len=(\d+) side=([01]) "
+    r"palette=(\d+) lowcut=(\d+) zoom=(\d+) lights=(\d+) theme_on=(\d+) reso=(\d+) "
+    r"rec_tempo=(\d+) rec_count=(\d+) rec_quant=(\d+) dirty=([01]) "
+    r"theme=(\S+) theme_valid=([01])\r?$"
+)
+
+
+def settings_info(s: Session) -> dict:
+    """`STORE SETTINGS INFO` → dict：flash 对象的 kind/len/side + 九个生效字段 + dirty +
+    theme 名/有效位。INFO 读的是 flash 的事实与 RAM 生效副本，不写任何东西。"""
+    s.cmd("STORE SETTINGS INFO")
+    m = store_expect(s, SETTINGS_INFO_RE, "STORE SETTINGS INFO")
+    keys = ("kind", "len", "side", "palette", "lowcut", "zoom", "lights", "theme_on", "reso",
+            "rec_tempo", "rec_count", "rec_quant", "dirty", "theme", "theme_valid")
+    info = {k: m.group(i + 1) for i, k in enumerate(keys)}
+    for k in keys:
+        if k not in ("kind", "theme"):
+            info[k] = int(info[k])
+    return info
+
+
+def settings_set(s: Session, field: str, value: int, dirty: int = 1, label: str = "") -> None:
+    """`STORE SETTINGS SET <field> <v>`：回显写后值（钳位后）与 dirty。"""
+    s.cmd(f"STORE SETTINGS SET {field} {value}")
+    s.expect(rf"^STORE SETTINGS SET {field}={value} dirty={dirty}\r?$",
+             label or f"STORE SETTINGS SET {field} {value}")
+
+
+def settings_save(s: Session, label: str) -> int:
+    """`STORE SETTINGS SAVE`：回显提交的 payload 长度与 side 有效性，返回 len。"""
+    s.cmd("STORE SETTINGS SAVE")
+    m = store_expect(s, r"^STORE SETTINGS SAVED len=(\d+) side=([01])\r?$",
+                     label or "STORE SETTINGS SAVE")
+    return int(m.group(1))
+
+
+def settings_expect(s: Session, want: dict, label: str) -> None:
+    """逐字段比对 `STORE SETTINGS INFO`（want 里没有的键不断言）。"""
+    info = settings_info(s)
+    for key, value in want.items():
+        (s.ok if info[key] == value else s.fail)(
+            f"{label} {key}={info[key]}（期望 {value}）")
+
+
+def run_sys(s: Session) -> None:
+    """sys 场景（P4-E）：设置页的存储层 → 状态层 → SYSTEM 页的端到端矩阵。
+
+    ① settings 生效副本：`STORE SETTINGS INFO` 解析 → `SET palette 2` ⇒ `dirty=1` →
+       `SAVE` ⇒ `STORE SETTINGS SAVED len=<n> side=<0|1>`、`dirty=0` → esptool 硬复位 →
+       INFO 仍 `palette=2`（开机 reload 以 flash 为准）→ 收口（palette 回起点值、SAVE、AUTO ON）
+
+    **破坏性**（改写 OBJ_SETTINGS 的 palette），自带归一、可重复；`STORE AUTO OFF` 防止
+    autosave 把中途状态写进工作工程（不跨复位，复位后重新下发）。
+    """
+    s.ser.note("sys 场景开始：① 归一（AUTO OFF / 停走带 / ENG AUDIO ON）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① STORE AUTO OFF")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
+    ensure_stopped(s)
+    base = settings_info(s)
+    (s.ok if base["kind"] == "per3" and base["dirty"] == 0 else s.fail)(
+        f"① 起点 kind={base['kind']} dirty={base['dirty']}（期望 per3 / 0）")
+
+    s.ser.note("① settings 生效副本：SET → dirty → SAVE → 硬复位 → INFO")
+    settings_set(s, "palette", 2, label="① SET palette 2")
+    settings_expect(s, {"palette": 2, "dirty": 1}, "① SET 后 INFO")
+    before = settings_info(s)
+    len_saved = settings_save(s, "① SAVE")
+    settings_expect(s, {"palette": 2, "dirty": 0, "len": len_saved}, "① SAVE 后 INFO")
+    (s.ok if len_saved >= 1552 else s.fail)(
+        f"① SAVE 的 len={len_saved}（canonical PER3 ≥ 1,552）")
+    (s.ok if before["len"] in (0, len_saved) or len_saved >= before["len"] else s.fail)(
+        f"① SAVE 不缩短对象：{before['len']} → {len_saved}")
+
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① 复位后 STORE AUTO OFF")
+    settings_expect(s, {"palette": 2, "dirty": 0, "kind": "per3", "len": len_saved},
+                    "① 硬复位后 INFO")
+
+    s.ser.note("① 收口：palette 回起点值 + SAVE + AUTO ON")
+    settings_set(s, "palette", base["palette"], label="① 收口 SET palette")
+    settings_save(s, "① 收口 SAVE")
+    settings_expect(s, {"palette": base["palette"], "dirty": 0}, "① 收口后 INFO")
+    s.cmd("STORE AUTO ON")
+    s.expect(r"^STORE AUTO on", "① STORE AUTO ON（恢复默认）")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
@@ -7910,13 +8001,14 @@ SCENARIOS = {
     "song": run_song,
     "sequence": run_sequence,
     "synth": run_synth,
+    "sys": run_sys,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（九条 .sh 各对应一个）")
+                    help="注入场景（十条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
