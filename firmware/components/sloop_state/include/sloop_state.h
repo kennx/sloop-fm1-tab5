@@ -94,6 +94,9 @@ typedef enum {
     CMD_FM6_SET, CMD_SAMPLE_ERASE,
     /* P4-D Task 9 fix：kit 级 CRUSH（KIT 页可编辑；追加在末尾以保住既有命令编号） */
     CMD_DSYN_CRUSH,
+    /* P4-E Task 4：settings 单字段写与平台设置（spec §7；同样追加在末尾）。返回码映射
+     * app_state_t.settings_status。 */
+    CMD_SETTINGS_SET, CMD_SYS_BRIGHT, CMD_SYS_VOLUME, CMD_SYS_OUTPUT,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -146,8 +149,9 @@ typedef enum {
  *                    seq_status；仅 ESP_OK 时同拍重取详细窗口投影。
  *  CMD_REC_TOGGLE    （无参）：分发 sloop_seq_rec_toggle；成功后同拍重取录音快照
  *                    （armed/recording/off 立即可断言，不等下一拍 sync）。
- *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置，
- *                    不写 settings；越界不调引擎，seq_status = invalid。
+ *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置；
+ *                    越界不调引擎，seq_status = invalid。**成功后置 settings dirty**
+ *                    （P4-E：REC 三项随 settings 落盘，上游语义；见下方 P4-E 段）。
  *  CMD_FILL_CONTROL  a=held(0/1) b=next_bar(0/1)：b=0 只写 FILL 保持电平（`-` 的
  *                    down/up）；b=1 是 NEXT BAR 的**脉冲**，只翻转 `fill_arm`、不读
  *                    不写 held（按住 FILL 时点 NEXT 不会清保持）。越界不调引擎。
@@ -225,6 +229,23 @@ typedef enum {
  *  NOT_ALLOWED → BLOCKED、INVALID_STATE 按 seq_frozen/存储就绪分成 FROZEN/BLOCKED/ERROR、
  *  其它 → ERROR。存储 API 用 INVALID_STATE 同时表示走带/冻结/未就绪，故必须借
  *  sloop_seq_frozen() 与 sloop_store_ready() 才能把三种状态行文案分开。
+ *
+ *  P4-E Task 4：设置与平台（spec §7）：
+ *  CMD_SETTINGS_SET  a=sloop_set_field_t v=值：值域**在状态层**钳位（palette 0..4、
+ *                    lowcut/zoom/theme_on 0|1、lights 0..3、reso 0..10）后下发
+ *                    sloop_store_settings_set（只改内存 + 应用上游 static + 置 settings
+ *                    dirty；落盘由 1s 任务的静默窗口完成，store/HAL 内部再钳一次）。
+ *                    字段越界 ⇒ 不调存储、settings_status = INVALID。成功同拍刷 settings
+ *                    投影（palette/theme 由 UI 据此重着色；theme_name 不在投影里，页面
+ *                    读 sloop_store_settings() 的只读例外）。
+ *  CMD_SYS_BRIGHT / CMD_SYS_VOLUME / CMD_SYS_OUTPUT v=值：值域在状态层钳位（bright
+ *                    10..100、vol 0..100、out 0 speaker|1 headphone）后下发 HAL——平台
+ *                    副作用即时生效、NVS 延迟提交（1s tick 的同一静默窗口），不取引擎锁、
+ *                    不受走带限制（播放中也可改）。out > 1 ⇒ INVALID 且不入 HAL。
+ *                    成功同拍刷 sys 投影（nvs_dirty 取 HAL）。
+ *  上述命令的返回码写 settings_status（app_settings_status_t）：ESP_OK → OK、
+ *  INVALID_ARG / NOT_SUPPORTED（headphone，本板 speaker-only）→ INVALID、
+ *  INVALID_STATE（诊断冻结 / 存储未就绪）→ BLOCKED、其它 → ERROR；失败不改投影。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -277,6 +298,18 @@ typedef enum {
     APP_SYNTH_STATUS_ERROR = 7,   /* 存储未就绪、擦写/校验失败等 */
 } app_synth_status_t;
 
+/* 最近一次设置 / 平台命令的结果（app_state_t.settings_status；P4-E spec §7）。
+ * INVALID 兼表「值非法」「字段越界」与 headphone 的 NOT_SUPPORTED（本板输出路由
+ * speaker-only，R19 不另设枚举值）；BLOCKED = 诊断冻结或存储未就绪（存储 API 的
+ * INVALID_STATE 两义，本阶段不拆 FROZEN）。 */
+typedef enum {
+    APP_SETTINGS_IDLE = 0,    /* 尚无设置/平台命令 */
+    APP_SETTINGS_OK = 1,      /* 成功（投影已同拍刷新） */
+    APP_SETTINGS_INVALID = 2, /* 字段/值越界、输出路由不支持（NOT_SUPPORTED） */
+    APP_SETTINGS_BLOCKED = 3, /* 诊断冻结或存储未就绪（ESP_ERR_INVALID_STATE） */
+    APP_SETTINGS_ERROR = 4,   /* 其它失败（平台调用失败等） */
+} app_settings_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -298,6 +331,16 @@ typedef struct {
     uint8_t synth_status;       /* 最近一次合成编辑命令的结果（app_synth_status_t） */
     sloop_dsyn_snapshot_t dsyn; /* DSYN 投影（按 kit/lane 选择；dirty = DSU 记账） */
     sloop_fm6_patch_snapshot_t fm6p; /* FM6 live patch 投影（选中轨；engine_ok=0 即锁定） */
+    /* P4-E Task 4：settings 生效副本投影（sloop_store_settings()；dirty = 待落盘）与平台
+     * 设置投影（HAL 的 RAM 三值 + nvs_dirty）。init / sync / 整份刷新各读一次，对应命令
+     * 成功时同拍重取；UI 不直接读 store/HAL。 */
+    struct {
+        uint8_t palette, lowcut, zoom, lights, theme_on, theme_valid, reso, dirty;
+    } settings;
+    struct {
+        uint8_t bright, vol, out, nvs_dirty; /* bright 10..100 / vol 0..100 / out 0|1 */
+    } sys;
+    app_settings_status_t settings_status;   /* 最近一次设置/平台命令的结果 */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */

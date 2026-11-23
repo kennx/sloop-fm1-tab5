@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "sloop_store.h" /* sloop_store_note_activity（自动存档的活动计时） */
+#include "sloop_hal.h"  /* 平台设置（亮度/音量/输出路由；副作用即时、NVS 延迟） */
 
 #ifdef HOST_TEST
 #define state_warn(...) ((void)0) /* host 单测无日志后端（告警路径由设备证据覆盖） */
@@ -26,6 +27,14 @@ static const char *TAG = "sloop_state";
 #define STATE_WINDOW_START_MAX (STATE_STEPS_MAX - STATE_WINDOW_STEP) /* 48 */
 #define STATE_SYNTH_TRACKS 3u /* 兼容 toggle/erase 命令只覆盖合成轨 */
 #define STATE_NOTE_MAX 127u
+/* P4-E 设置/平台值域（store/HAL 内部再钳一次，纵深防御）：lights word bits0..3 的档位、
+ * MIDI 尾段 byte38 bits2..5 的 flt_reso、HAL 的亮度/音量范围（sloop_hal.h）。palette 用
+ * sloop_store.h 的 SLOOP_SETTINGS_PALETTES。 */
+#define STATE_SET_LIGHTS_MAX 3u
+#define STATE_SET_RESO_MAX 10u
+#define STATE_SYS_BRIGHT_MIN 10u
+#define STATE_SYS_BRIGHT_MAX 100u
+#define STATE_SYS_VOL_MAX 100u
 
 static void cmd_note(app_state_t *s, uint32_t track, uint16_t note, bool on)
 {
@@ -301,7 +310,11 @@ static void cmd_rec_config(app_state_t *s, uint32_t quant_off, uint32_t tempo_mo
     esp_err_t ret = sloop_seq_rec_config((uint8_t)quant_off, (uint8_t)tempo_mode,
                                          (uint8_t)count_mode);
     state_seq_result(s, ret);
-    if (ret == ESP_OK) state_refresh_rec(s);
+    if (ret == ESP_OK) {
+        state_refresh_rec(s);
+        /* REC 三项（bits9/10/31）随 settings 落盘（上游语义）：只置 dirty，落盘由 1s 任务 */
+        sloop_store_settings_dirty_mark();
+    }
 }
 
 static void cmd_fill_control(app_state_t *s, uint32_t held, uint32_t next_bar)
@@ -573,6 +586,79 @@ static void cmd_sample_erase(app_state_t *s, uint32_t slot)
     state_synth_result(s, sloop_store_sample_erase(slot));
 }
 
+/* ------------------------------------ P4-E Task 4: settings / 平台设置 ---------------
+ * 状态层只做值域钳位与返回码映射：生效（上游 static）与 dirty 记账在 store，平台副作用
+ * （LEDC / codec）与 nvs_dirty 在 HAL。两者都不受走带限制（播放中也可改）：HAL 调用
+ * 不取引擎锁，store 内部只短持引擎锁改上游 static。
+ * 成功同拍重取对应投影；失败投影不动（store/HAL 保证失败时状态不变）。 */
+static void state_settings_result(app_state_t *s, esp_err_t ret)
+{
+    switch (ret) {
+    case ESP_OK: s->settings_status = APP_SETTINGS_OK; break;
+    case ESP_ERR_INVALID_ARG:
+    /* headphone：本板输出路由 speaker-only（R16/R19，不另设枚举值） */
+    case ESP_ERR_NOT_SUPPORTED: s->settings_status = APP_SETTINGS_INVALID; break;
+    case ESP_ERR_INVALID_STATE: s->settings_status = APP_SETTINGS_BLOCKED; break; /* 冻结/未就绪 */
+    default: s->settings_status = APP_SETTINGS_ERROR; break;
+    }
+}
+
+static void cmd_settings_set(app_state_t *s, uint32_t field, uint16_t value)
+{
+    if (field >= SLOOP_SET_FIELD_COUNT) {
+        s->settings_status = APP_SETTINGS_INVALID; /* 越界不调存储 */
+        return;
+    }
+    uint32_t v = value;
+    switch (field) {
+    case SLOOP_SET_PALETTE:
+        if (v >= SLOOP_SETTINGS_PALETTES) v = SLOOP_SETTINGS_PALETTES - 1u;
+        break;
+    case SLOOP_SET_LIGHTS:
+        if (v > STATE_SET_LIGHTS_MAX) v = STATE_SET_LIGHTS_MAX;
+        break;
+    case SLOOP_SET_RESO:
+        if (v > STATE_SET_RESO_MAX) v = STATE_SET_RESO_MAX;
+        break;
+    case SLOOP_SET_LOWCUT:
+    case SLOOP_SET_ZOOM:
+    case SLOOP_SET_THEME_ON:
+        if (v > 1u) v = 1u;
+        break;
+    default: return;
+    }
+    esp_err_t ret = sloop_store_settings_set((sloop_set_field_t)field, v);
+    state_settings_result(s, ret);
+    if (ret == ESP_OK) state_refresh_settings_locked();
+}
+
+static void cmd_sys(app_state_t *s, edit_cmd_type_t type, uint16_t value)
+{
+    uint32_t v = value;
+    esp_err_t ret;
+    switch (type) {
+    case CMD_SYS_BRIGHT:
+        if (v < STATE_SYS_BRIGHT_MIN) v = STATE_SYS_BRIGHT_MIN;
+        if (v > STATE_SYS_BRIGHT_MAX) v = STATE_SYS_BRIGHT_MAX;
+        ret = sloop_hal_settings_set_bright((uint8_t)v);
+        break;
+    case CMD_SYS_VOLUME:
+        if (v > STATE_SYS_VOL_MAX) v = STATE_SYS_VOL_MAX;
+        ret = sloop_hal_settings_set_volume((uint8_t)v);
+        break;
+    case CMD_SYS_OUTPUT:
+        if (v > 1u) {
+            s->settings_status = APP_SETTINGS_INVALID; /* 非 speaker|headphone：不入 HAL */
+            return;
+        }
+        ret = sloop_hal_settings_set_output((uint8_t)v);
+        break;
+    default: return;
+    }
+    state_settings_result(s, ret);
+    if (ret == ESP_OK) state_refresh_sys_locked();
+}
+
 /* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
  * （命令无效 ≠ 存储失败）。返回码按 app_store_status_t 映射；成功即整份刷新投影
  * （工程/预置载入会改引擎真值）。存储调用在状态锁内、flash 擦写由存储层在引擎锁外
@@ -710,6 +796,10 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_DSYN_CRUSH: cmd_dsyn_crush(s, cmd->a, cmd->v); break;
     case CMD_FM6_SET: cmd_fm6_set(s, cmd->a, cmd->b, cmd->n, cmd->v); break;
     case CMD_SAMPLE_ERASE: cmd_sample_erase(s, cmd->a); break;
+    case CMD_SETTINGS_SET: cmd_settings_set(s, cmd->a, cmd->v); break;
+    case CMD_SYS_BRIGHT:
+    case CMD_SYS_VOLUME:
+    case CMD_SYS_OUTPUT: cmd_sys(s, cmd->type, cmd->v); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

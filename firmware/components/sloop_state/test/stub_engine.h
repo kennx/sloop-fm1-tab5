@@ -104,6 +104,19 @@ typedef struct {
     int32_t last_fm6_value;
     esp_err_t sample_erase_ret;
     uint32_t sample_erase_calls, last_sample_slot;
+    /* P4-E Task 4：settings 生效副本与平台设置（HAL）替身。settings 是
+     * sloop_store_settings() 的返回（set 写后端，投影读回走同一路径）；hal_* 是 HAL 的
+     * RAM 三值 + nvs_dirty（reset = 开机默认 100/70/speaker），set 失败时后端不变。 */
+    sloop_settings_t settings;
+    uint32_t settings_read_calls, settings_set_calls, settings_dirty_mark_calls;
+    uint32_t settings_last_field, settings_last_value;
+    esp_err_t settings_ret;         /* sloop_store_settings_set 的返回（冻结/未就绪 = INVALID_STATE） */
+    uint8_t hal_bright, hal_vol, hal_out;
+    bool hal_dirty;
+    uint32_t hal_get_calls;         /* 四个 getter 的调用总数（一次投影刷新 = 4） */
+    uint32_t hal_bright_calls, hal_vol_calls, hal_out_calls;
+    uint8_t hal_last_value;
+    esp_err_t hal_ret;              /* set_bright/set_volume/set_output(speaker) 的返回 */
 } stub_engine_t;
 
 extern stub_engine_t g_stub;

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "sloop_store.h" /* sloop_store_note_activity（自动存档的活动计时） */
+#include "sloop_hal.h"  /* 平台设置投影（sloop_hal_settings_* 的 getter） */
 
 #ifdef HOST_TEST
 /* host 单测单线程：互斥为空实现；设备上用 FreeRTOS mutex（见下）。 */
@@ -79,6 +80,32 @@ void state_refresh_fm6_locked(void)
     }
 }
 
+/* ---- P4-E Task 4：settings 生效副本 / 平台设置投影（调用方持 state_lock）-------------
+ * 两个来源都是无锁的 RAM 读（store 的 s_set 不取锁、HAL 的 getter 读字节），不引入新的
+ * 锁序。在状态锁内读：与 state_apply 内的 CMD_SETTINGS_SET / CMD_SYS_* 串行化，sync 不会
+ * 把这些命令之前的旧值写回投影；console 直调（STORE SETTINGS SET / DISP BRIGHT）不经过
+ * 状态锁，差的一拍由下一拍 sync 自愈。 */
+void state_refresh_settings_locked(void)
+{
+    const sloop_settings_t *st = sloop_store_settings();
+    s_state.settings.palette = (uint8_t)st->f.palette;
+    s_state.settings.lowcut = (uint8_t)st->f.lowcut;
+    s_state.settings.zoom = (uint8_t)st->f.zoom;
+    s_state.settings.lights = (uint8_t)st->f.lights_lvl;
+    s_state.settings.theme_on = (uint8_t)st->f.theme_on;
+    s_state.settings.theme_valid = st->theme_valid ? 1u : 0u;
+    s_state.settings.reso = (uint8_t)st->f.flt_reso;
+    s_state.settings.dirty = st->dirty ? 1u : 0u;
+}
+
+void state_refresh_sys_locked(void)
+{
+    s_state.sys.bright = sloop_hal_settings_bright();
+    s_state.sys.vol = sloop_hal_settings_volume();
+    s_state.sys.out = sloop_hal_settings_output();
+    s_state.sys.nvs_dirty = sloop_hal_settings_nvs_dirty() ? 1u : 0u;
+}
+
 void state_init(void)
 {
 #ifndef HOST_TEST
@@ -100,6 +127,9 @@ void state_init(void)
     /* DSYN / FM6 patch 投影（选择从 0/0 开始；dirty 取存储层记账） */
     state_refresh_dsyn_locked();
     state_refresh_fm6_locked();
+    /* settings 生效副本 / 平台设置投影（开机默认或上一次落盘的值） */
+    state_refresh_settings_locked();
+    state_refresh_sys_locked();
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -189,6 +219,10 @@ void state_sync_from_engine(void)
              * 重试循环里读会把结果丢在第一次 attempt 上。 */
             sloop_seq_rec_read(&s_state.rec);
             sloop_seq_song_read(&s_state.song);
+            /* settings dirty 由 1s 任务清、NVS 由同一静默窗口提交：每拍重取才能把
+             * 「已落盘」（set_dirty / set_nvs 归 0）反映给 UI/console。 */
+            state_refresh_settings_locked();
+            state_refresh_sys_locked();
             state_unlock();
             return;
         }
@@ -252,4 +286,6 @@ void state_refresh_locked(void)
     state_refresh_fm6_locked();
     sloop_seq_rec_read(&s_state.rec);
     sloop_seq_song_read(&s_state.song);
+    state_refresh_settings_locked();
+    state_refresh_sys_locked();
 }
