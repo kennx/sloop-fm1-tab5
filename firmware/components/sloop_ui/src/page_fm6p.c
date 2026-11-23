@@ -502,7 +502,8 @@ lv_obj_t *page_fm6p_build(lv_obj_t *parent)
     s_act = 0xFF;
     status_store("");
 
-    /* 8 个旋钮常驻（当前字段页的 desc/user/显隐由 update 的 apply_page 落地） */
+    /* 8 个旋钮常驻（当前字段页的 desc/显隐由 update 的 apply_page 落地；
+     * FM6P 的回调按控件指针找槽位，不用 knob_t.user 编码） */
     for (uint8_t slot = 0; slot < FM6P_SLOTS; slot++) {
         int16_t cx = (int16_t)(FM6P_GRID_X0 + (slot % 4u) * FM6P_CELL_PITCH);
         int16_t cy = (int16_t)(FM6P_GRID_Y0 + (slot / 4u) * FM6P_ROW_PITCH);
@@ -570,7 +571,7 @@ lv_obj_t *page_fm6p_build(lv_obj_t *parent)
 }
 
 /* ---------------------------------------------------------------- 刷新 --- */
-/* 字段页/算子变化：重配 8 个旋钮的 desc/user/显隐，并把焦点夹到当前页存在的槽。 */
+/* 字段页/算子变化：重配 8 个旋钮的 desc/显隐，并把焦点夹到当前页存在的槽。 */
 static void apply_page(uint8_t page, uint8_t op)
 {
     for (uint8_t slot = 0; slot < FM6P_SLOTS; slot++) {

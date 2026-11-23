@@ -340,7 +340,7 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   29–35ms）、EDIT 首建 GLOBAL 7–11ms、PLAY/TRACKS 首入 ≤10ms；同组首建
   FX/ANALOG/FM6/SAMPLE/TRANSPORT 4–9ms——全部 `0 < x ≤100ms`。
 
-#### 5.1 P4-D 14 页/7 组预算（2026-11-23 Task 8 落位；实测在 Task 11 收口）
+#### 5.1 P4-D 14 页/7 组预算（2026-11-23 Task 8 落位；Task 11 实测收口）
 
 - 组顺序 `PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE`（7 组）；SAMPLE 参数页从 EDIT 移入新的
   SYNTH 组（SAMPLE/DSYN/FM6P），EDIT 缩为 4 页。组签宽 168→**142px**（见 §2），子行
@@ -348,17 +348,31 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   页 id 不变），`TAB` 变 14 页扁平轮转；`UI TAB synth` / `UI SUB 0..2` 与物理组签同路径。
 - 组 est：EDIT `3×3,584 + 6,144 = 16,896`（FM6 的 bank 行不变）/ SYNTH
   `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
-  DSYN/FM6P 按 spec §4.4 的计划上限落位，**Task 9/10 以实测 delta 收口**）。
+  DSYN/FM6P 按 spec §4.4 的计划上限落位）。
+- **实测（P4-D Task 11，`params` + `synth`，`UI MEM` 池增量 / `页面构建` 日志）**：
+  SAMPLE **4,360–4,508B**（est 6,144）、DSYN **6,168–6,452B**（est 7,168；Task 9 首测
+  6,436）、FM6P **6,892–7,124B**（est 7,168；Task 10 首测 6,892–7,124，本轮 7,004–7,068）；
+  SYNTH `sum_delta` **17,824B**（`sum_est` 20,480），`build_ms` 11–14ms（≤100ms）。
+  三页 `delta ≤ est` 全部成立；SAMPLE 的 est 是 spec §4.4 的**固定上限**（实测只用到
+  71–73%，属预留，不参与最坏有序对的调节）。
 - 有序对（§5 的 base 11,624 + 对值 + 4,096 ≤ 63,120）：**SEQ→PRESETS 仍最坏 60,776
   （余 2,344B，不变）**；新增 **SYNTH→STEP** `20,480 + 23,040 = 43,520` ⇒ 账面
   **59,240**、余 3,880B；**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面 **55,656**、
-  余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。以上是账面数：**实测峰值、SYNTH 各页
-  delta 与跨组 `pool_free ≥4,096B` 门禁在 Task 11 测量**（同 §5 口径）。
+  余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。
+- **实测过渡峰值**（`synth` ⑤：SYNTH 三页全建后直接 `UI step`，构建日志
+  `页面构建 page=STEP(2) 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms`）⇒
+  `pool_free=11,244B ≥ 4,096B`；过渡后稳态 `pool_free 28,800B`（`UI MEM` 实测）。
+  同批 `synth` ⑤ 的 10 轮 SYNTH/FILE/SONG/SEQ 往返 `pool_free 47,072 → 47,040`
+  （Δ−32B、单次最大下降 44B ≤128B）；`nav` ⑧ 的 PLAY↔TRACKS ×10 为 Δ−44B
+  （单次 72B）。跨组池不泄漏口径不变。
 - 采样槽管理行（SAMPLE 页底部 `U1..U4` + `ERASE` + 状态行，y=552..596）与 FM6 bank 行
   同几何；状态行单一映射在 `theme.h`（选中槽 `SET U<n>` / `ERASE OK` / `NOT USR` /
   `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。`sloop_store_sample_info` 是
   文档化只读例外：建页/动作/键变化时立即读，30ms 拍的非强制路径**最短 250ms**、
   key 稳定时 1s（单次最坏 4×80KiB CRC，绝不每 30ms 轮询）。
+- 设备证据（P4-D Task 11）：`UI TAB synth` / `UI SUB 0..2`、SYNTH 三页全建
+  `built=3 sum_est=20,480`、离开组 `built=0`（三页 unbuilt）；`params` 的
+  `EDIT sum_est=16,896`、组作用域后 `pool_free 35,972B`（≥20KB）。
 
 #### 6. 验证入口
 

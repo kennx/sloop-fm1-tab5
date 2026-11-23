@@ -320,6 +320,25 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   仍按开机四槽 fetch：RAM 槽最终以 flash 为准，播放中 capture 若在 5s 落盘窗口内掉电
   会丢（与 Task 7 的「开机 fetch」口径一致，不是新增缺陷）。
 
+#### 6.3 用户采样槽 USR1–4（P4-D Task 4）
+
+- **上游原始槽，无 A/B**：每槽 80KiB（header 480B @+0、数据 @+512、20×4KB 扇区），
+  偏移见 §1 的对照表（USR4 不从 `0xA0000+k*0x14000` 推——它在 `0xE7000`）。
+- **提交点 = header**：`sloop_store_sample_begin` 擦 header 扇区并同时失效镜像
+  （`usr_nz`/`usr_zone` 清零 + `smp_user_scan` 递增 gen）；`hdr_append` 累积 480B；
+  `write` 只接受 off ≥ 512、256 对齐、off+n ≤ 0x14000、n ≤ 256，每扇区首写前擦除并
+  同步镜像；`end` 校验 magic/version/nz/zone 与 **flash 回读数据的 CRC**，最后写 header
+  ——失败时槽仍空、上传保持 open 可重试；成功即整槽 flash→PSRAM 镜像 + 重新扫描。
+- **镜像 = 引擎唯一读路径**（`sloop_hal_user_samples()`，`SMP_USER_XIP` 重定向）；
+  开机在公开 READY 置位**之前**逐槽 `reload`（4×80KiB）。`erase` 先失效（header 0xFF）
+  再清镜像/擦 flash（上游 `ed_smp_erase` 同序）。
+- **Tab5 差异**：走带中**所有**上传入口（含 `hdr_append`）一律拒绝（spec §3.5；上游允许
+  播放中上传）；擦写期间持存储锁、**不持引擎锁**，扫描/失效那一小段才进引擎锁。
+- 设备证据（Task 11 的 `synth` 场景）：上传 2s 正弦 → `SMP INFO USED name=SINE zones=1
+  kb=21` → 按住键 `voices≥1`；`SMP ERASE`/BEGIN-不-END/CRC 坏数据后 `voices` 恒 0 且
+  `SMP INFO EMPTY`；CRC 坏数据 `SMP END` 回 `SMP ERR crc`（header 未提交）；走带中
+  `SMP BEGIN`/`ERASE` 回 `SMP ERR playing`；硬复位后槽仍 USED（开机 reload）。
+
 ### 7. 内存：PSRAM 宏重定向与内部 SRAM 边界
 
 上游 `project.c` 的 `proj_slot[4]` 与 `proj_v3_tmp` 定义在 `#ifndef PROJ_HOST` **之上**，

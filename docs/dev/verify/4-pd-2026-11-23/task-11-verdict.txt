@@ -1,0 +1,27 @@
+# P4-D Task 11 门禁结论（2026-11-23；设备 /dev/ttyACM0，构建自提交前工作区）
+
+构建（scripts/build.sh ×2）：rc=0，warning 0；第 1 遍重编 page_fm6p.c（注释修正），第 2 遍无重编、warning 0。
+烧录（scripts/flash.sh）：3× "Hash of data verified"。
+host：host-test=0（ALL HOST TESTS PASSED）、state=0（30 passed）、synth=0（SYNTH HOST TEST PASSED）、
+      seq=0（persist PASS 0 failures）、knob=0（7 passed）、soak-selftest=0（PASS）。
+
+设备注入（同一会话，脚本之间不重启）：
+  scripts/inject/nav.sh    exit=0  155 PASS / 0 FAIL
+  scripts/inject/params.sh exit=0  194 PASS / 0 FAIL
+  scripts/inject/synth.sh  exit=0  783 PASS / 0 FAIL（复跑一次同样 783/0，见 synth 报告 §自审）
+
+关键读数：
+  UI MEM GROUP SYNTH built=3 sum_est=20480 sum_delta=17824 build_ms=14
+    SAMPLE delta 4,360-4,508 / est 6,144；DSYN 6,168-6,452 / 7,168；FM6P 7,004-7,068 / 7,168
+  SYNTH 全建 -> STEP 首建：构建日志 池增量=22,188B 预算=23,040B 池剩余=11,244B 耗时=31ms
+  过渡后稳态 pool_free=28,800B；10 轮 SEQ/SONG/FILE/SYNTH 往返 47,072 -> 47,040（Δ-32B，单次 -44B）
+  nav 8：PLAY<->TRACKS x10 46,872 -> 46,828（Δ-44B，单次 -72B）
+  EDIT sum_est=16,896 build_ms=11；组作用域后 pool_free=35,972B
+
+soak 冒烟（reboot + 冷却后 --duration 120 --interval 30）：VERDICT PASS
+  5 次采样/121s，internal_free 89,191 -> 89,183B（internal_min 83,780 ≥60KB），xrun=0，
+  duty_mean 最大 15.44% ≤18.88%，音频栈 3,004B，KEY 0->90，无 panic/WDT；
+  跨组池 46,812 -> 46,836（Δ+24B，单次 -48B ≤128B）。
+
+未做/外部门禁：30min 阶段收口 soak（任务外）；人眼读图（无图像工具，已做像素/结构抽检，见
+task-11-visual-check.txt）；人耳听感（DSYN AUDITION / 采样出声的「可听」一面）。

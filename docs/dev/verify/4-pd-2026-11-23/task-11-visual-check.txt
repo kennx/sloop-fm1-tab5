@@ -1,0 +1,51 @@
+# P4-D Task 11 截屏抽检（PIL；无图像查看工具，人眼读图仍是外部门禁）
+
+task-11-nav-07-tab-cycle.png: 1280x720 colors=95
+  - 1280x720 且非空白: OK
+  - PLAY 组签选中: OK
+  - TRACKS 组签未选中: OK
+  - SEQ 组签未选中: OK
+  RESULT: PASS
+task-11-params-sample.png: 1280x720 colors=132
+  - 1280x720 且非空白: OK
+  - SYNTH 组签选中: OK
+  - SAMPLE 子签选中: OK
+  - DSYN 子签未选中: OK
+  - 槽 U1 文本（选中色，≥30px）: OK
+  - 状态行 SET U1（绿，≥30px）: OK
+  RESULT: PASS
+task-11-params-fm6p-locked.png: 1280x720 colors=92
+  - 1280x720 且非空白: OK
+  - SYNTH 组签选中: OK
+  - FM6P 子签选中: OK
+  - SAMPLE 子签未选中: OK
+  - 状态行红字 NOT FM6（≥40px）: OK
+  RESULT: PASS
+task-11-synth-sample.png: 1280x720 colors=125
+  - 1280x720 且非空白: OK
+  - SYNTH 组签选中: OK
+  - SAMPLE 子签选中: OK
+  - 槽 U1 文本（选中色，≥30px）: OK
+  - 状态行 SET U1（绿，≥30px）: OK
+  RESULT: PASS
+task-11-synth-dsyn.png: 1280x720 colors=98
+  - 1280x720 且非空白: OK
+  - SYNTH 组签选中: OK
+  - DSYN 子签选中: OK
+  - SAMPLE 子签未选中: OK
+  - SYN1 chip 选中: OK
+  - SND3 chip 选中: OK
+  - 旋钮 0 文本（≥30px）: OK
+  RESULT: PASS
+task-11-synth-fm6p.png: 1280x720 colors=100
+  - 1280x720 且非空白: OK
+  - SYNTH 组签选中: OK
+  - FM6P 子签选中: OK
+  - OP3 chip 选中: OK
+  - VOICE chip 选中: OK
+  - VOICE 空槽 4..7（行 1 无旋钮像素）: OK
+  RESULT: PASS
+
+全部 6 张关键截屏: PASS
+其余截屏（nav 01-06、params 其余 7 张、synth 3 张中的非关键探针面）的像素探针结果见
+task-11-*-transcript.log 的 [PASS]/[FAIL] 行；本文件只对「新组/新页/锁定态」的关键画面做独立复核。

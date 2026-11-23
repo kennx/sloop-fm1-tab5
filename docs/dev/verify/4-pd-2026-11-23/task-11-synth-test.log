@@ -1,0 +1,204 @@
+== sloop_core DSYN / FM6 / sample-slot host test
+synth-host: SLOOP_DSYN_FIELDS == 24                                            ok
+synth-host: desc: 24 labels in protocol order                                  ok
+synth-host: desc rejects field 24 and NULL                                     ok
+synth-host: desc FLT_MODE: enum 0..7, LP+ALL at 5                              ok
+synth-host: desc LEVEL: 0..255 dB                                              ok
+synth-host: desc FENV: -128..127                                               ok
+synth-host: dsu_dirty starts clear                                             ok
+synth-host: load_factory(0, 0)                                                 ok
+synth-host: load_factory marks dsu_dirty                                       ok
+synth-host: factory kit: sound/name/crush/src = DS_KITS[0]                     ok
+synth-host: field  0 WAVE     writes raw[0] = 2                                ok
+synth-host: field  1 SRC      writes raw[1] = 3                                ok
+synth-host: field  2 CLAP     writes raw[1] = 1                                ok
+synth-host: field  3 PITCH    writes raw[2] = 61                               ok
+synth-host: field  4 FINE     writes raw[3] = 13                               ok
+synth-host: field  5 BEND     writes raw[4] = 37                               ok
+synth-host: field  6 BTIME    writes raw[5] = 71                               ok
+synth-host: field  7 HOLD     writes raw[6] = 77                               ok
+synth-host: field  8 DECAY    writes raw[7] = 41                               ok
+synth-host: field  9 TLEV     writes raw[8] = 99                               ok
+synth-host: field 10 T2       writes raw[9] = 17                               ok
+synth-host: field 11 T2LEV    writes raw[10] = 83                              ok
+synth-host: field 12 CLICK    writes raw[11] = 55                              ok
+synth-host: field 13 NLEV     writes raw[12] = 91                              ok
+synth-host: field 14 NHOLD    writes raw[13] = 23                              ok
+synth-host: field 15 NDEC     writes raw[14] = 67                              ok
+synth-host: field 16 FLT_MODE writes raw[15] = 6                               ok
+synth-host: field 17 FLT_RES  writes raw[15] = 21                              ok
+synth-host: field 18 FCUT     writes raw[16] = 88                              ok
+synth-host: field 19 FENV     writes raw[17] = -60                             ok
+synth-host: field 20 HPF      writes raw[18] = 44                              ok
+synth-host: field 21 CHIP     writes raw[19] = 72                              ok
+synth-host: field 22 DRIVE    writes raw[20] = 29                              ok
+synth-host: field 23 LEVEL    writes raw[21] = 200                             ok
+synth-host: WAVE=1 -> raw[0]                                                   ok
+synth-host: PITCH=60 -> raw[2]                                                 ok
+synth-host: FINE=15 -> raw[3]                                                  ok
+synth-host: BEND=96 -> raw[4]                                                  ok
+synth-host: T2=31 -> raw[9]                                                    ok
+synth-host: LEVEL=255 -> raw[21]                                               ok
+synth-host: FLT_MODE=LP(1)                                                     ok
+synth-host: FLT_RES=31                                                         ok
+synth-host: FLT_RES keeps MODE; raw flt == (31 << 3) | 1                       ok
+synth-host: FLT_MODE=LP+ALL keeps RES                                          ok
+synth-host: FLT_MODE=4 (ALL alone) normalises to OFF, keeps RES                ok
+synth-host: FLT_MODE back to LP                                                ok
+synth-host: SRC=2 -> raw[1] low nibble                                         ok
+synth-host: CLAP=1 sets src bit4, SRC unchanged                                ok
+synth-host: SRC keeps the CLAP bit                                             ok
+synth-host: CLAP=0 clears src bit4                                             ok
+synth-host: HOLD=200 clamps to 127                                             ok
+synth-host: BEND=200 clamps to 96                                              ok
+synth-host: FINE=-5 clamps to 0                                                ok
+synth-host: T2=60 clamps to 31                                                 ok
+synth-host: LEVEL=300 clamps to 255                                            ok
+synth-host: FENV=-128 round-trips as a signed byte                             ok
+synth-host: FENV=200 clamps to 127                                             ok
+synth-host: field_from_sound decodes bytes (and rejects field 24)              ok
+synth-host: dsu_dirty can be cleared (test hook)                               ok
+synth-host: a single set marks dsu_dirty                                       ok
+synth-host: audition queues kit/lane/velocity                                  ok
+synth-host: audition rejects velocity 0                                        ok
+synth-host: audition rejects velocity > 127                                    ok
+synth-host: audition rejects kit 4                                             ok
+synth-host: load_factory(1, 5)                                                 ok
+synth-host: factory kit 1 = DS_KITS[5]                                         ok
+synth-host: crush: load_factory(2, 3)                                          ok
+synth-host: crush 0 round-trips and marks dsu_dirty                            ok
+synth-host: crush 255 round-trips                                              ok
+synth-host: crush 256 clamps to 255                                            ok
+synth-host: crush 300 clamps to 255                                            ok
+synth-host: crush -5 clamps to 0                                               ok
+synth-host: crush 0x5A: dsu_fix_kit keeps 16 lanes/name/src                    ok
+synth-host: crush rejects kit 4                                                ok
+synth-host: crush frozen -> SLOOP_DSYN_INVALID                                 ok
+synth-host: crush takes the engine lock once                                   ok
+synth-host: read rejects kit 4                                                 ok
+synth-host: read rejects lane 16                                               ok
+synth-host: load_factory rejects src 32                                        ok
+synth-host: set rejects field 24                                               ok
+synth-host: invalid field leaves the sound unchanged                           ok
+synth-host: frozen: set/read refused                                           ok
+synth-host: set takes the engine lock once                                     ok
+synth-host: text DECAY ms strictly increases with the DECAY_K index            ok
+synth-host: text DECAY/BTIME/NDEC = 10254/(65536-DECAY_K) ms at 0/32/64/96/127 ok
+synth-host: text FLT_MODE 5 = LP+ALL                                           ok
+synth-host: text FLT_MODE 4 = OFF                                              ok
+synth-host: text FLT_MODE 0..7 = OFF/LP/BP/HP/OFF/LP+ALL/BP+ALL/HP+ALL         ok
+synth-host: FLT_MODE 4 (ALL alone) normalises to OFF on write                  ok
+synth-host: text LEVEL 128 = 0.0dB                                             ok
+synth-host: text LEVEL 152 = +6.0dB                                            ok
+synth-host: text LEVEL 0 = -32.0dB                                             ok
+synth-host: text LEVEL 255 = +31.75dB (quarter dB steps)                       ok
+synth-host: text LEVEL 129 = +0.25dB                                           ok
+synth-host: text FCUT 0 = 30Hz                                                 ok
+synth-host: text FCUT 127 = CUTOFF_HZ[127] = 16.0kHz                           ok
+synth-host: text HPF 0 = CUTOFF_HZ[0] = 30Hz                                   ok
+synth-host: text: CLAP (onoff) defers to the knobs' generic ON/OFF             ok
+synth-host: text DECAY 0 = 5ms                                                 ok
+synth-host: text CHIP 60 = C4                                                  ok
+synth-host: text: enum field defers to knobs' generic formatting               ok
+synth-host: FM6 sizes: 155B, 6 x 21 op fields, 29 global fields                ok
+synth-host: desc: 6 x 21 operator fields in FP_R1..FP_DET order                ok
+synth-host: desc: 29 global fields (19 voice + 10 read-only name bytes)        ok
+synth-host: desc rejects op 7 / field 21 / global field 29 / NULL              ok
+synth-host: desc op: DET 14 / FC 31 / LC 3 / MODE onoff                        ok
+synth-host: desc global: ALG 31 / FB 7 / LFW 5 / TRNSP 48 / PR1 99             ok
+synth-host: desc NAME1: printable 32..126 (read-only)                          ok
+synth-host: desc MODE onoff for all six operators                              ok
+synth-host: desc op 1 / op 5 MODE onoff (OL stays INT)                         ok
+synth-host: desc global LFW/LPMS are enums, not MODE/onoff                     ok
+synth-host: desc ALG: 32 enum names, "1".."32"                                 ok
+synth-host: desc LFW: 6 waves in fm6_lfo_sample order                          ok
+synth-host: desc LPMS: 8 sensitivity levels "0".."7"                           ok
+synth-host: desc LKS: onoff, no enum table                                     ok
+synth-host: desc plain field: no enum table                                    ok
+synth-host: failed desc leaves out untouched (op)                              ok
+synth-host: failed desc leaves out untouched (field)                           ok
+synth-host: failed desc leaves out untouched (global field)                    ok
+synth-host: set op1 R1/L4/OL/DET/FC accepted                                   ok
+synth-host: patch(): op1 bytes at k*FP_OP + field, engine_ok/slot              ok
+synth-host: set op6 writes patch[5*FP_OP + R1] only                            ok
+synth-host: OL=200 clamps to 99                                                ok
+synth-host: DET=99 clamps to 14                                                ok
+synth-host: MODE=5 clamps to 1                                                 ok
+synth-host: R1=-3 clamps to 0                                                  ok
+synth-host: set global PL4 -> patch[133], TRNSP=99 -> 48                       ok
+synth-host: set global ALG=31 -> patch[FP_ALG], clears P_E0 (PAT)              ok
+synth-host: a non-ALG field leaves P_E0 alone                                  ok
+synth-host: patch() before name write                                          ok
+synth-host: set NAME1 / NAME10 are read-only (sentinel, patch unchanged)       ok
+synth-host: field_from_patch decodes offsets, rejects op 7 / field 21 / NULL   ok
+synth-host: field() reads the live patch (name bytes readable)                 ok
+synth-host: patch() on an ANALOG track: ESP_ERR_NOT_ALLOWED, engine_ok=0       ok
+synth-host: set/field on an ANALOG track: sentinel, patch unchanged            ok
+synth-host: rejects track NPART and NULL out                                   ok
+synth-host: rejects op 7 / field 21 / global field 29                          ok
+synth-host: a write sets fm6_slot[track] = p[P_E7]                             ok
+synth-host: the edit survives fm6_poll (PTCH unchanged)                        ok
+synth-host: turning PTCH does reload the slot patch (control: R1 back to 99)   ok
+synth-host: re-edit after the PTCH turn re-syncs fm6_slot                      ok
+synth-host: the edit survives fm6_poll in the new slot                         ok
+synth-host: frozen: set/field/patch refused                                    ok
+synth-host: frozen paths take no engine lock                                   ok
+synth-host: set takes the engine lock once                                     ok
+synth-host: patch takes the engine lock once                                   ok
+synth-host: patch() before pack round-trip                                     ok
+synth-host: fm6_pack/unpack round-trips the edited patch                       ok
+synth-host: sample mirror addressable from SMP_DATA (32-bit zone rebase)       ok
+synth-host: header is 480B, data at +512                                       ok
+synth-host: info: an untouched slot is empty                                   ok
+synth-host: hdr_append/write/end without begin -> state                        ok
+synth-host: upload: begin/hdr/write/end                                        ok
+synth-host: info: used/name/zones/KB after END                                 ok
+synth-host: end scans the slot (nz=1, n=2048, zone off rebased)                ok
+synth-host: mirror == flash after END (whole 80KiB slot)                       ok
+synth-host: reload: flash -> mirror + scan (boot path)                         ok
+synth-host: reload keeps the slot visible                                      ok
+synth-host: begin(0) again on a filled slot                                    ok
+synth-host: re-begin without end: info empty, mirror header 0xFF, nz cleared   ok
+synth-host: re-begin erases the header sector of a filled slot                 ok
+synth-host: recovery upload after an interrupted begin                         ok
+synth-host: recovered: new header, nz rescanned, mirror == flash               ok
+synth-host: begin(1) for boundary cases                                        ok
+synth-host: write: off < 512 -> size                                           ok
+synth-host: write: off not 256-aligned -> size                                 ok
+synth-host: write: off + n past the slot end -> size                           ok
+synth-host: write: n > 256 -> size                                             ok
+synth-host: write: another slot than the open one -> state                     ok
+synth-host: write: the last 256B of the slot is accepted                       ok
+synth-host: hdr_append: past 480B -> size                                      ok
+synth-host: end: short header -> invalid arg                                   ok
+synth-host: a refused end leaves slot 1 empty in the mirror and flash          ok
+synth-host: upload with a wrong CRC -> INVALID_CRC                             ok
+synth-host: CRC failure: slot stays empty, no header committed                 ok
+synth-host: zone n=0 -> invalid arg                                            ok
+synth-host: zone n=0: slot stays empty                                         ok
+synth-host: zone off past data_len -> invalid arg                              ok
+synth-host: wrong magic -> invalid arg                                         ok
+synth-host: begin(1) before the playing cases                                  ok
+synth-host: begin/erase/hdr_append/write while playing -> state                ok
+synth-host: info is readable while playing (and the slot survived)             ok
+synth-host: hdr_append works again after STOP (control: the gate was the transport) ok
+synth-host: begin/hdr_append with a transport request -> state                 ok
+synth-host: begin/erase/hdr_append while frozen -> state                       ok
+synth-host: frozen does not block info                                         ok
+synth-host: not ready -> state                                                 ok
+synth-host: erase(0)                                                           ok
+synth-host: erase: info empty, nz cleared                                      ok
+synth-host: erase: mirror and flash slot both 0xFF                             ok
+synth-host: upload to slot 3 (USR4 @ 0xE7000)                                  ok
+synth-host: slot 3: info, scan and mirror == flash                             ok
+synth-host: erase(3)                                                           ok
+synth-host: slot >= 4 / NULL out -> invalid arg                                ok
+synth-host: begin: one store + one engine lock                                 ok
+synth-host: hdr_append: one store lock, no engine lock                         ok
+synth-host: info: one store lock (no torn header), no engine lock              ok
+synth-host: write: one store lock, no engine lock                              ok
+synth-host: erase: one store + one engine lock                                 ok
+synth-host: reload: one store + one engine lock                                ok
+synth-host: mini upload to slot 2 for the end lock count                       ok
+synth-host: end: one store + one engine lock (commit)                          ok
+SYNTH HOST TEST PASSED

@@ -1,0 +1,26 @@
+== soak-selftest（无设备）
+  [PASS] save_window 源码顺序 stop(956) < wait_dirty_clear(1013) < 基线(1090)
+   save 窗口前 dirty=0（0.0s）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] 默认：STOP(3) < dirty 轮询(5) < SAVE(8)
+  [PASS] 默认：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] --section-capture：STOP(6) < dirty 轮询(8) < SAVE(13)
+  [PASS] --section-capture：播放中 STORE section A(1) 在 STOP(6) 之前
+  [PASS] --section-capture：停止后轮询 2 次把 dirty 排空（期望 ≥2）
+  [PASS] --section-capture：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+  [PASS] dirty 1→0：返回 True
+  [PASS] dirty 1→0：无 fail
+     [fake FAIL] wait_dirty_clear：期望先观察到 dirty=1，实际一直为 0（排空是空转）
+  [PASS] expect_dirty 但恒 0：返回 False
+  [PASS] expect_dirty 但恒 0：记 1 次 fail
+     [fake FAIL] dirty 回显异常（SEQ SECTION）：'SEQ ERR invalid\nsloop>'
+  [PASS] dirty 回显畸形：返回 False
+  [PASS] dirty 回显畸形：记 fail
+     [fake FAIL] 停止后 0s 内 section/song dirty 未清（section=1 song=0）
+  [PASS] 恒 dirty=1：超时返回 False
+  [PASS] 恒 dirty=1：记 1 次 fail
+
+结果: PASS
