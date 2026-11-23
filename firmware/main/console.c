@@ -105,9 +105,17 @@
  *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
  *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
  *    对象存在但任何格式都不匹配（截断/损坏）回 invalid。
+ *    STORE SETTINGS [INFO|SET <field> <v>|SAVE] 是 settings 生效副本的诊断面（P4-E Task 2）：
+ *    INFO 一行报 flash 对象的 kind/len/side + 九个生效字段（palette/lowcut/zoom/lights/
+ *    theme_on/reso/rec_tempo/rec_count/rec_quant）+ dirty + theme 名/有效位；SET 直调
+ *    sloop_store_settings_set（只改内存 + 应用上游 static + 置 dirty，回显钳位后的写后值）；
+ *    SAVE 停止态立即写（与歌曲/DSU 同一次 A/B 提交，播放中回 "STORE ERR playing"）。
+ *    落盘的另一条路是 1s 任务的延迟写（settings dirty 与歌曲/段落同一门限）。
  *    STORE RAW BEGIN <len≤3840> | <hex> | END <project> <slot> | ABORT 是分块上传通道
  *    （旧格式 fixture 的唯一入设备通道；一行 ≤240 hex = 120B，受 USJ 驱动 RX 环 256B
- *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
+ *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）；
+ *    `END settings 0` 写 OBJ_SETTINGS（现有 side 随新副本保留，随后 settings_reload 生效，
+ *    P4-E spec §8.3）。
  *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
  *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
@@ -2316,6 +2324,89 @@ static int store_song(int argc, char **argv)
     return store_song_usage();
 }
 
+/* settings 生效副本（P4-E Task 2，spec §5 D4/D5/D7、§9）。console 是诊断执行器：直调
+ * sloop_store_settings_*（与 STORE SONG SET 同模式），只是能把 RAM 副本/flash 事实变成
+ * 脚本可断言的回显。
+ *   STORE SETTINGS [INFO] -> 一行：flash 对象的 kind/len/side（与 STORE SONG INFO 同源）+
+ *                            九个生效字段 + dirty + theme 名/有效位
+ *   STORE SETTINGS SET <field> <v> -> "STORE SETTINGS SET <field>=<钳位后的写后值> dirty=1"
+ *                            （field = palette|lowcut|zoom|lights|reso|theme_on；只改内存 +
+ *                            应用，不写 flash；播放中也允许）
+ *   STORE SETTINGS SAVE   -> "STORE SETTINGS SAVED len=<n> side=<0|1>"（停止态立即写，
+ *                            与歌曲/DSU 同一次 A/B 提交；播放中回 "STORE ERR playing"）
+ * 错误令牌沿用 STORE ERR <no_storage|playing|invalid|save>（字段名不认识 = invalid）。 */
+static const struct {
+    const char *name;
+    sloop_set_field_t field;
+} STORE_SET_FIELDS[SLOOP_SET_FIELD_COUNT] = {
+    {"palette", SLOOP_SET_PALETTE}, {"lowcut", SLOOP_SET_LOWCUT}, {"zoom", SLOOP_SET_ZOOM},
+    {"lights", SLOOP_SET_LIGHTS},   {"reso", SLOOP_SET_RESO},     {"theme_on", SLOOP_SET_THEME_ON},
+};
+
+static uint32_t store_set_value(const sloop_settings_t *st, sloop_set_field_t field)
+{
+    switch (field) {
+    case SLOOP_SET_PALETTE: return st->f.palette;
+    case SLOOP_SET_LOWCUT: return st->f.lowcut;
+    case SLOOP_SET_ZOOM: return st->f.zoom;
+    case SLOOP_SET_LIGHTS: return st->f.lights_lvl;
+    case SLOOP_SET_RESO: return st->f.flt_reso;
+    case SLOOP_SET_THEME_ON: return st->f.theme_on;
+    default: return 0;
+    }
+}
+
+static int store_settings_usage(void)
+{
+    printf("用法: STORE SETTINGS [INFO] | SET <palette|lowcut|zoom|lights|reso|theme_on> <v> | SAVE\n");
+    return 1;
+}
+
+static int store_settings_info(void)
+{
+    sloop_store_song_info_t info;
+    esp_err_t err = sloop_store_song_info(&info);
+    if (err != ESP_OK) return store_err_print(err);
+    const sloop_settings_t *st = sloop_store_settings();
+    printf("STORE SETTINGS INFO kind=%s len=%u side=%u palette=%u lowcut=%u zoom=%u lights=%u "
+           "theme_on=%u reso=%u rec_tempo=%u rec_count=%u rec_quant=%u dirty=%u theme=%s theme_valid=%u\n",
+           STORE_SONG_KINDS[info.kind < 5u ? info.kind : 4u], (unsigned)info.len, (unsigned)info.side,
+           (unsigned)st->f.palette, (unsigned)st->f.lowcut, (unsigned)st->f.zoom,
+           (unsigned)st->f.lights_lvl, (unsigned)st->f.theme_on, (unsigned)st->f.flt_reso,
+           (unsigned)st->f.rec_tempo, (unsigned)st->f.rec_count, (unsigned)st->f.rec_quant_off,
+           sloop_store_settings_dirty() ? 1u : 0u, st->theme_valid ? st->theme_name : "none",
+           st->theme_valid ? 1u : 0u);
+    return 0;
+}
+
+static int store_settings(int argc, char **argv)
+{
+    esp_err_t err;
+    if (argc == 2 || (argc == 3 && strcasecmp(argv[2], "info") == 0)) return store_settings_info();
+    if (argc == 3 && strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_settings_save()) != ESP_OK) return store_err_print(err);
+        sloop_store_song_info_t info;
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
+        printf("STORE SETTINGS SAVED len=%u side=%u\n", (unsigned)info.len, (unsigned)info.side);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[2], "set") == 0) {
+        sloop_set_field_t field = SLOOP_SET_FIELD_COUNT;
+        uint32_t v;
+        for (uint32_t i = 0; i < SLOOP_SET_FIELD_COUNT; i++) {
+            if (strcasecmp(argv[3], STORE_SET_FIELDS[i].name) == 0) field = STORE_SET_FIELDS[i].field;
+        }
+        if (field == SLOOP_SET_FIELD_COUNT || !eng_uint(argv[4], 0xFFFFu, &v))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        if ((err = sloop_store_settings_set(field, v)) != ESP_OK) return store_err_print(err);
+        printf("STORE SETTINGS SET %s=%u dirty=%u\n", argv[3],
+               (unsigned)store_set_value(sloop_store_settings(), field),
+               sloop_store_settings_dirty() ? 1u : 0u);
+        return 0;
+    }
+    return store_settings_usage();
+}
+
 /* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后快照/恢复
  * **两个完整 4KB 副本扇区**并逐字节校验——settings 的 side record（扇区 64..255）与
  * payload 48..83 的歌曲顺序、DSU/MIDI 尾段都不丢；P4-C Task 7 起替换 payload-only 快照）。
@@ -2340,7 +2431,10 @@ static int store_test_cmd(void)
  *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX = 3,840 =
  *                        一个 flash 对象的 payload 上限；超限当场回 size，不等到 END 的 save）
  *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
- *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
+ *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj = project
+ *                        <slot=0..3>，或 settings 0：原样写 OBJ_SETTINGS、现有 side 随新
+ *                        副本保留（没有则写默认 80B），随后 settings_reload 立即生效；
+ *                        其它槽号回 invalid）
  *   ABORT              → "STORE RAW ABORTED"
  * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27 的会话互斥；RAW 已有独立
  * 暂存（P4-D 评审 I1），这条不再为缓冲安全所必需，保留为诊断面的确定性约定）。
@@ -2362,7 +2456,7 @@ static int store_hex_nibble(char c)
 static int store_raw_usage(void)
 {
     printf("用法: STORE RAW BEGIN <len=1..%u> | STORE RAW <hex≤%u> | "
-           "STORE RAW END <project> <slot=0..%u> | STORE RAW ABORT\n",
+           "STORE RAW END <project> <slot=0..%u> | STORE RAW END settings 0 | STORE RAW ABORT\n",
            (unsigned)SLOOP_STORE_RAW_MAX, (unsigned)STORE_RAW_HEX_MAX,
            (unsigned)(SLOOP_STORE_PROJECTS - 1u));
     return 1;
@@ -2435,6 +2529,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "song") == 0) return store_song(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "settings") == 0) return store_settings(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -2452,6 +2547,7 @@ static int store_command(int argc, char **argv)
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
            "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | "
+           "STORE SETTINGS [INFO|SET <field> <v>|SAVE] | "
            "STORE LIVEHASH | "
            "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
            "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 "
@@ -3671,8 +3767,10 @@ esp_err_t app_console_init(void)
                 "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，快照/恢复两个完整 4KB "
                 "副本扇区并逐字节校验，arrangement/DSU/尾段/side 都不丢；需停走带）；"
                 "STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] PER3 歌曲顺序（SET 只改内存、按门限落盘）；"
+                "STORE SETTINGS [INFO|SET <palette|lowcut|zoom|lights|reso|theme_on> <v>|SAVE] "
+                "settings 生效副本（SET 只改内存并应用、按门限落盘；INFO 报 flash 对象与九个字段）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|SETTINGS [INFO|SET <field> <v>|SAVE]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);
