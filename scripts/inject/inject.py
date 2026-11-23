@@ -30,6 +30,7 @@ import argparse
 import importlib.util
 import os
 import re
+import struct
 import sys
 import time
 from datetime import datetime
@@ -7948,15 +7949,47 @@ def settings_expect(s: Session, want: dict, label: str) -> None:
             f"{label} {key}={info[key]}（期望 {value}）")
 
 
+# 上游 arr_defaults（arranger.c:23）填 count 之外条目的方式：scene = i % 4、bars = 4。
+SYS_DEFAULT_BARS = 4
+# 上游 panel.c PANEL_DEFAULT = song_persist.h 的 SONG_PANEL_DEF（"PAN5" + 14 按钮 + 7 编码器 + 7 方向）
+SYS_PANEL_DEF = bytes([
+    0x35, 0x4E, 0x41, 0x50,
+    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1,
+    0, 1, 6, 2, 3, 4, 5,
+    1, 1, 1, 1, 1, 1, 1,
+])
+
+
+def sys_per3_88(palette: int, song: dict) -> bytes:
+    """88B 的合法 PER3（上游 persist_t：magic "PER3" / palette@4 / lowcut@8 / zoom@12 /
+    panel@16 / arrangement@48 / lights@84；没有 DSU 与 MIDI 尾段，kind=per3、len=88）。
+    48..83 是 arr_config_t（count / loop / reserved[2] / 16×(scene, bars)）：`song` 给出
+    count/loop 与 count 内的条目，count 之外按上游 arr_defaults 填。下一次保存会由固件补成
+    canonical 1,552B（当前 RAM 的 DSU）。"""
+    arr = bytearray(36)
+    arr[0], arr[1] = song["count"], song["loop"]
+    for i in range(16):
+        scene, bars = song["entry"].get(i, (i % 4, SYS_DEFAULT_BARS))
+        arr[4 + 2 * i], arr[5 + 2 * i] = scene, bars
+    lights = struct.pack("<I", 0)  # 84：上游默认 lights word（本固件拥有的位全 0）
+    return struct.pack("<IIII", 0x50455233, palette, 0, 0) + SYS_PANEL_DEF + bytes(arr) + lights
+
+
 def run_sys(s: Session) -> None:
     """sys 场景（P4-E）：设置页的存储层 → 状态层 → SYSTEM 页的端到端矩阵。
 
     ① settings 生效副本：`STORE SETTINGS INFO` 解析 → `SET palette 2` ⇒ `dirty=1` →
        `SAVE` ⇒ `STORE SETTINGS SAVED len=<n> side=<0|1>`、`dirty=0` → esptool 硬复位 →
-       INFO 仍 `palette=2`（开机 reload 以 flash 为准）→ 收口（palette 回起点值、SAVE、AUTO ON）
+       INFO 仍 `palette=2`（开机 reload 以 flash 为准）
+    ①b `STORE RAW END settings 0` 往返：上传 88B PER3（palette=1、歌曲 count=2 loop=1）⇒
+       INFO/SONG INFO 报上传的字节；RAM 的 `STORE SONG` 也是上传的歌（R15：歌曲/DSU/生效
+       副本按新对象重载）且随后一次 `STORE SONG SAVE` 不把它写回旧值；**工程槽 A 的 RAM
+       缓存逐位不变**（`STORE PROJ HASH 0` 前后相同——settings 与 project 的 slot 都是 0）
+    收口：palette/歌曲顺序回起点值 + SAVE、槽 A 回起点状态、AUTO ON
 
-    **破坏性**（改写 OBJ_SETTINGS 的 palette），自带归一、可重复；`STORE AUTO OFF` 防止
-    autosave 把中途状态写进工作工程（不跨复位，复位后重新下发）。
+    **破坏性**（整份替换 OBJ_SETTINGS：上传的 88B 没有 SYN kit 银行 ⇒ 之后落工厂 SYN kit；
+    palette/歌曲顺序由收口恢复），自带归一、可重复；`STORE AUTO OFF` 防止 autosave 把
+    中途状态写进工作工程（不跨复位，复位后重新下发）。
     """
     s.ser.note("sys 场景开始：① 归一（AUTO OFF / 停走带 / ENG AUDIO ON）")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① STORE AUTO OFF")
@@ -7964,8 +7997,8 @@ def run_sys(s: Session) -> None:
     s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
     ensure_stopped(s)
     base = settings_info(s)
-    (s.ok if base["kind"] == "per3" and base["dirty"] == 0 else s.fail)(
-        f"① 起点 kind={base['kind']} dirty={base['dirty']}（期望 per3 / 0）")
+    (s.ok if base["kind"] in ("per3", "empty") and base["dirty"] == 0 else s.fail)(
+        f"① 起点 kind={base['kind']} dirty={base['dirty']}（期望 per3|empty / 0）")
 
     s.ser.note("① settings 生效副本：SET → dirty → SAVE → 硬复位 → INFO")
     settings_set(s, "palette", 2, label="① SET palette 2")
@@ -7983,12 +8016,68 @@ def run_sys(s: Session) -> None:
     settings_expect(s, {"palette": 2, "dirty": 0, "kind": "per3", "len": len_saved},
                     "① 硬复位后 INFO")
 
-    s.ser.note("① 收口：palette 回起点值 + SAVE + AUTO ON")
-    settings_set(s, "palette", base["palette"], label="① 收口 SET palette")
-    settings_save(s, "① 收口 SAVE")
-    settings_expect(s, {"palette": base["palette"], "dirty": 0}, "① 收口后 INFO")
+    # ---------- ①b STORE RAW END settings 0：原样落盘 + RAM 重载 + 不碰工程槽 A ----------
+    s.ser.note("①b RAW settings 往返：88B PER3 → 落盘 + 重载；工程槽 A 的 RAM 缓存不受影响")
+    ensure_stopped(s)
+    song0 = song_cfg(s)
+    side0 = settings_info(s)["side"]
+    s.cmd("STORE PROJ HASH 0")
+    created_slot0 = False
+    if re.search(r"^STORE ERR empty\r?$", s.last, re.MULTILINE):
+        created_slot0 = True
+        store_cmd(s, "STORE PROJ SAVE 0", r"^PROJ 0 SAVED hash=[0-9A-F]{8}\r?$",
+                  "①b 槽 A 为空：先 SAVE 0 造一个非空槽（HASH 往返的判别前提）")
+    else:
+        s.expect(r"^PROJ 0 HASH=[0-9A-F]{8}\r?$", "①b RAW 前 STORE PROJ HASH 0（槽 A 已在用）")
+    hash0 = store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=([0-9A-F]{8})\r?$", "①b RAW 前 HASH 0")
+    # 上传的歌：固定值；起点恰好就是它（上一轮在上传之后异常终止）时换一首，保证
+    # 「RAM 歌曲被重载」的断言有判别力。
+    up_song = {"count": 2, "loop": 1, "entry": {0: (1, 2), 1: (0, 3)}}
+    if (song0["count"], song0["loop"], song0["entry"]) == (up_song["count"], up_song["loop"], up_song["entry"]):
+        up_song = {"count": 3, "loop": 0, "entry": {0: (2, 1), 1: (3, 2), 2: (0, 1)}}
+    up_want = (up_song["count"], up_song["loop"])
+    s.ser.note(f"①b 上传歌曲 count={up_want[0]} loop={up_want[1]}（起点 count={song0['count']} loop={song0['loop']}）")
+    store_raw.upload_raw(s.cmd, sys_per3_88(1, up_song), "settings", 0)
+    s.ok("①b STORE RAW END settings 0 saved len=88（88B PER3，palette=1）")
+    settings_expect(s, {"kind": "per3", "len": 88, "palette": 1, "dirty": 0, "side": side0},
+                    "①b RAW 后 INFO（上传的字节 + 现有 side 随新副本）")
+    s.cmd("STORE SONG INFO")
+    s.expect(rf"^STORE SONG INFO kind=per3 len=88 side=\d count={up_want[0]} loop={up_want[1]}\r?$",
+             f"①b RAW 后 STORE SONG INFO = 上传的歌曲 count={up_want[0]} loop={up_want[1]}")
+    s.cmd("STORE SONG")
+    s.expect(rf"^STORE SONG count={up_want[0]} loop={up_want[1]} dirty=0\r?$",
+             "①b RAW 后 RAM 歌曲已重载（R15）：count/loop")
+    for i, (sc, bars) in sorted(up_song["entry"].items()):
+        s.expect(rf"^SONG {i} scene={sc} bars={bars}\r?$", f"①b RAW 后 RAM 歌曲条目 {i}（R15）")
+    hash1 = store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=([0-9A-F]{8})\r?$", "①b RAW 后 HASH 0")
+    (s.ok if hash1 == hash0 else s.fail)(
+        f"①b 工程槽 A 的 RAM 缓存不受 RAW settings 影响：HASH 0 {hash1:08X}（期望 {hash0:08X}）")
+    s.cmd("STORE SONG SAVE")
+    m = store_expect(s, r"^STORE SONG SAVED len=(\d+) side=([01])\r?$", "①b RAW 之后 STORE SONG SAVE")
+    (s.ok if int(m.group(1)) >= 1552 else s.fail)(
+        f"①b 保存把 88B 补成 canonical：len={m.group(1)}（≥ 1,552）")
+    s.cmd("STORE SONG INFO")
+    s.expect(rf"^STORE SONG INFO kind=per3 len=\d+ side=\d count={up_want[0]} loop={up_want[1]}\r?$",
+             "①b 随后的保存写的是已重载的歌（不是上传前的旧 RAM）")
+
+    s.ser.note("收口：palette/歌曲顺序回起点值 + SAVE；槽 A 回起点状态；AUTO ON")
+    song_restore = " ".join(f"{song0['entry'][i][0]}:{song0['entry'][i][1]}" for i in range(song0["count"]))
+    store_cmd(s, f"STORE SONG SET {song0['count']} {song0['loop']} {song_restore}",
+              rf"^STORE SONG SET count={song0['count']} loop={song0['loop']} ", "收口 恢复起点歌曲顺序")
+    settings_set(s, "palette", base["palette"], label="收口 SET palette")
+    len_restored = settings_save(s, "收口 SAVE（歌曲 + settings 同一次提交）")
+    settings_expect(s, {"palette": base["palette"], "dirty": 0, "len": len_restored}, "收口后 INFO")
+    (s.ok if len_restored >= 1552 else s.fail)(f"收口后对象 len={len_restored}（≥ 1,552）")
+    s.cmd("STORE SONG")
+    s.expect(rf"^STORE SONG count={song0['count']} loop={song0['loop']} dirty=0\r?$",
+             "收口后 STORE SONG（dirty=0）")
+    for i in range(song0["count"]):
+        scene, bars = song0["entry"][i]
+        s.expect(rf"^SONG {i} scene={scene} bars={bars}\r?$", f"收口后 SONG {i}")
+    if created_slot0:
+        proj_erase(s, 0, "收口 擦回起点为空的槽 A")
     s.cmd("STORE AUTO ON")
-    s.expect(r"^STORE AUTO on", "① STORE AUTO ON（恢复默认）")
+    s.expect(r"^STORE AUTO on", "STORE AUTO ON（恢复默认）")
 
 
 SCENARIOS = {

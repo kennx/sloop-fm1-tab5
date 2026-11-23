@@ -104,8 +104,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="经 STORE RAW 分块上传一个对象 payload")
     ap.add_argument("port", help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("file", help="payload 文件（如 gen_project_fixtures.py 的 fun5.bin）")
-    ap.add_argument("--obj", default="project", help="对象名（当前只支持 project）")
-    ap.add_argument("--slot", type=int, default=3, help="对象槽（project: 0..3；默认诊断槽 3）")
+    ap.add_argument("--obj", default="project", help="对象名（project | settings）")
+    ap.add_argument("--slot", type=int, default=3, help="对象槽（project: 0..3，默认诊断槽 3；settings: 只能 0）")
     ap.add_argument("--timeout", type=float, default=5.0, help="单行回显超时秒数（默认 5）")
     args = ap.parse_args()
 
