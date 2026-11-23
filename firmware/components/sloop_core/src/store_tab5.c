@@ -187,6 +187,12 @@ _Static_assert(sizeof(proj_tmp) >= sizeof(up_bank_t), "暂存装得下用户预�
  * scripts/persist-host-test.c 用同一顺序编译，故固件与 host 测试看到同一份默认 DSU/CRC。 */
 #include "song_persist.h"
 
+/* settings 生效副本与尾段默认布局（P4-E Task 2）：实体在 settings_tab5.c（本文件之后
+ * include），song_write_locked 在引擎锁内读它们，故先给出前向的 tentative 定义。 */
+static sloop_settings_t s_set;
+static uint8_t s_midi_def[SONG_MIDI_MAX];
+static void settings_written_locked(bool ok, const song_settings_t *written);
+
 _Static_assert(SLOOP_STORE_BANK_SLOTS == FM6_BANK_N, "公共 API 的银行槽数与上游 fm6_bank.c 一致");
 _Static_assert(SLOOP_STORE_BANK_PACKED == FM6_PACKED, "公共 API 的 packed 记录长度与上游一致");
 
@@ -585,6 +591,10 @@ esp_err_t sloop_store_init(void)
     esp_err_t dsu_ret = sloop_store_dsu_reload();
     if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND)
         ESP_LOGW(TAG, "SYN kit 读取失败: %s（落工厂 SYN kit）", esp_err_to_name(dsu_ret));
+    /* settings 生效副本（P4-E Task 2，spec §8.2）：palette/lowcut/zoom/lights/尾段 reso +
+     * side theme → RAM 副本，lowcut/reso/REC 三项应用到上游 static；没有对象 = 默认。
+     * 同样在 READY 之后（公共门）。 */
+    sloop_store_settings_reload();
     /* 1s 周期任务**不在这里创建**：它必须在 sloop_store_autosave_resume 之后才起跑，
      * 否则「resume 之前的那一拍」可能把工厂态写进 autosave（覆盖随后要恢复的工程）。
      * 入口是 sloop_store_autosave_start()，由 sloop_core_init 在 resume 之后调用。 */
@@ -972,11 +982,28 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     s_raw_on = false;
     s_raw_len = 0;
     s_raw_got = 0;
-    if (strcmp(obj, "project") != 0 || slot >= SLOOP_STORE_PROJECTS) return ESP_ERR_INVALID_ARG;
+    bool is_settings = strcmp(obj, "settings") == 0;
+    if (is_settings ? slot != 0u : (strcmp(obj, "project") != 0 || slot >= SLOOP_STORE_PROJECTS))
+        return ESP_ERR_INVALID_ARG;
     uint32_t xr0 = sloop_hal_audio_xruns();
     int64_t us0 = esp_timer_get_time();
     store_lock();
-    int rc = st_save(OBJ_PROJECT0 + slot, s_raw_stage, len);
+    int rc;
+    if (is_settings) {
+        /* P4-E（spec §8.3）：payload 原样提交、**现有 side 原样随新副本**（没有/全 0xFF ⇒
+         * 默认 80B）；没有 magic 防线（RAW 的语义就是任意字节，坏对象的后果与上游一致：
+         * reload 落默认、INFO 报 invalid）。写后立即按新对象重载生效副本。 */
+        uint8_t side[SONG_SIDE_LEN];
+        if (!(st_side_load(OBJ_SETTINGS, side, SONG_SIDE_LEN) == 0 && !song_side_blank(side)))
+            song_side_default(side);
+        st_side = side;
+        st_side_len = SONG_SIDE_LEN;
+        rc = st_save3(OBJ_SETTINGS, s_raw_stage, len, 0, 0, 0, 0);
+        st_side = 0;
+        st_side_len = 0;
+    } else {
+        rc = st_save(OBJ_PROJECT0 + slot, s_raw_stage, len);
+    }
     if (rc == 0) {
         /* RAW 对象绕过了 proj_capture：按开机 fetch 的语义把槽的 RAM 缓存对齐到 flash
          * （导入失败 = 槽无效，之后的 LOAD 会走 flash 回落并回 invalid）。 */
@@ -985,9 +1012,10 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     store_unlock();
     store_note_write(xr0, us0);
     if (rc != 0) {
-        ESP_LOGE(TAG, "RAW END project %u 失败 rc=%d", (unsigned)slot, rc);
+        ESP_LOGE(TAG, "RAW END %s %u 失败 rc=%d", obj, (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
     }
+    if (is_settings) return sloop_store_settings_reload();
     return ESP_OK;
 }
 
@@ -1444,10 +1472,17 @@ static esp_err_t song_write_locked(void)
     uint32_t len = n > 0 ? (uint32_t)n : 0u;
     uint32_t gen;
     song_per_kind_t kind;
+    song_settings_t set_written;
 
     engine_lock();
     gen = song_pending_gen(&s_song);
     kind = song_per_build(proj_tmp.raw, &len, sizeof proj_tmp.raw, &arrangement, side, side_present);
+    /* settings 字段（P4-E Task 2，spec §8.2/D5）：palette/lowcut/zoom 直写、lights 的 owned
+     * 位 RMW、reso 进尾段 byte38——与 song_per_build 同一次引擎锁，读的是同一份 RAM。 */
+    if (kind != SONG_PER_BAD) {
+        set_written = s_set.f;
+        len = song_per_put_settings(proj_tmp.raw, len, sizeof proj_tmp.raw, &set_written, s_midi_def);
+    }
     engine_unlock();
     if (kind == SONG_PER_BAD) {
         if (!s_song_refused)
@@ -1471,6 +1506,7 @@ static esp_err_t song_write_locked(void)
     engine_lock();
     song_pending_done(&s_song, rc == 0, gen);
     song_per_saved(rc == 0, proj_tmp.raw, len);
+    settings_written_locked(rc == 0, &set_written);
     engine_unlock();
     if (rc != 0) {
         ESP_LOGE(TAG, "歌曲保存失败 rc=%d（保留 dirty，下个窗口重试）", rc);
@@ -1778,11 +1814,13 @@ esp_err_t sloop_store_section_erase(uint32_t slot)
 /* 延迟写（1s 任务）：停止 + 无发声 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s 才落盘。
  * dirty 段与歌曲同一拍、同一门限（ADR-009 §6.1）：段先写（上游 sections_write 顺序），
  * 再走 PER3 歌曲。段的快照在引擎锁内拷进暂存，擦写期间不持引擎锁；拿不到存储锁就
- * 跳过本拍（不与写者排队，也不阻塞 1s 任务）。 */
+ * 跳过本拍（不与写者排队，也不阻塞 1s 任务）。
+ * settings dirty（P4-E Task 2，spec §5 D4）也搭这一次写：字段随 song_write_locked 落进
+ * 同一个对象，写成功后由 settings_written_locked 清。 */
 void sloop_store_sections_tick(uint32_t now_ms)
 {
     if (!sloop_store_ready() || !flash_ok || s_frozen || s_busy) return;
-    if (!s_song.dirty && !s_sec_dirty) return;
+    if (!s_song.dirty && !s_sec_dirty && !s_set.dirty) return;
     if (now_ms - s_sections_tried_ms < SECTIONS_GAP) return;
     if (now_ms - s_input_ms < SECTIONS_IDLE) return;
     if (!store_trylock()) return;
@@ -1810,7 +1848,7 @@ void sloop_store_sections_tick(uint32_t now_ms)
                 ESP_LOGE(TAG, "SECTION %u 延迟写失败 rc=%d（保留 dirty，下个窗口重试）", (unsigned)i, rc);
             }
         }
-        if (s_song.dirty) {
+        if (s_song.dirty || s_set.dirty) {
             esp_err_t err = song_write_locked(); /* 门限已在上面判过 */
             if (err != ESP_OK) ESP_LOGE(TAG, "歌曲延迟写失败: %s", esp_err_to_name(err));
         }

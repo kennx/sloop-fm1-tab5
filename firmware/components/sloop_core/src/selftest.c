@@ -833,6 +833,12 @@ int sloop_core_selftest(const char *case_name)
     sloop_core_diag_freeze(true);
     engine_lock();
     selftest_restore();
+    /* golden 基线口径（P4-E Task 2，spec §5 D7）：LOWCUT / FILTER RESO 是用户设置，
+     * 进了上游 `fx_lowcut`/`flt_reso` 就改变每个用例的输出；golden 是在两者为 0 时采的，
+     * 故每次自检开头强制归零，收尾由 settings_reload 按 flash 重放。restore 的快照拍在
+     * sloop_store_init 之前，值本来是 0，这里显式写出来是不依赖那个先后关系。 */
+    fx_lowcut = 0;
+    flt_reso = 0;
     engine_unlock();
     ctl.selector = case_name;
     ctl.fork_count = 0;
@@ -917,6 +923,14 @@ int sloop_core_selftest(const char *case_name)
     esp_err_t dsu_ret = sloop_store_dsu_reload();
     if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND && dsu_ret != ESP_ERR_INVALID_STATE)
         ESP_LOGW("sloop_core", "自检后 SYN kit 重载失败: %s", esp_err_to_name(dsu_ret));
+    /* settings 生效副本（P4-E Task 2，spec §5 D7）才是 D7 承重的一半：`s_set` 与
+     * `fx_lowcut`/`flt_reso`/`rec_tempo`/`rec_count`/`rec_quant_off` 都被 restore 回滚成 0
+     * （设备实测：去掉这一句，自检后 INFO 报 lowcut=0 reso=0，而 flash 里仍是用户的值）
+     * ——不重载，自检之后用户的 LOWCUT / FILTER RESO / REC 设置就悄悄变回 0。以 flash 为准
+     * （未落盘的修改随回滚丢弃）。 */
+    esp_err_t set_ret = sloop_store_settings_reload();
+    if (set_ret != ESP_OK && set_ret != ESP_ERR_INVALID_STATE)
+        ESP_LOGW("sloop_core", "自检后 settings 重载失败: %s", esp_err_to_name(set_ret));
     /* 采样槽镜像同理（P4-D Task 4 的收尾，Task 5 接线）：PSRAM 镜像本身不随 restore 回滚，
      * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
      * `smp_user_scan`），槽内容因此与 flash 一致。 */
@@ -930,3 +944,6 @@ int sloop_core_selftest(const char *case_name)
 #include "seq_tab5.c"
 /* P4-D Task 2：DSYN（SYN1..SYN4）适配，依赖上游 drum_synth.c 的 statics，必须在同一 TU 末尾。 */
 #include "sound_tab5.c"
+/* P4-E Task 2：settings 生效副本，依赖 store_tab5.c 的 st_load/song_write_locked（后者前向引用
+ * 这里的 s_set）与上游 fx.c/seq.c 的 statics，必须在 sound_tab5.c 之后。 */
+#include "settings_tab5.c"

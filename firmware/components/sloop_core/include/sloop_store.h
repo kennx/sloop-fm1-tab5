@@ -393,4 +393,46 @@ typedef struct {
     char name[9];      /* 上游 name[8] 补 NUL */
 } song_theme_view_t;
 
+/* ---- settings 生效副本（P4-E Task 2，spec §5 D4/D5/D7、§8.2）-------------------------
+ * 上游 panel.c 的 `settings`/`lights_*` 与 fx.c/seq.c 的 `fx_lowcut`/`flt_reso`/`rec_tempo`/
+ * `rec_count`/`rec_quant_off` 在本固件里由一份 RAM 副本 `s_set` 统一承载：
+ *   reload() —— 开机（`sloop_store_init`，歌曲/DSU 之后）与 `ENG SELFTEST` 收尾：从 flash
+ *               **以 flash 为准**重读（palette/lowcut/zoom/lights 五位/尾段 reso + side
+ *               theme）并应用；没有对象/对象损坏/存储未就绪 → 全零 + 默认 palette（上游
+ *               settings_init：MONO）。
+ *   set()    —— 停止/播放皆可：只改内存 + 应用上游 static（引擎锁内）+ 置 dirty，**不写
+ *               flash**；冻结/未就绪 → ESP_ERR_INVALID_STATE。
+ *   save()   —— 停止态立即写（上游 settings_save 同义；与歌曲/DSU 同一次 A/B 提交）；
+ *               播放中 ESP_ERR_INVALID_STATE（`STOP BEFORE SAVE`）；成功才清 dirty。
+ *   落盘还走 1s 任务的 `sections_tick`：settings dirty 与歌曲/段落同一门限（停止 + 无发声
+ *   + 输入空闲 ≥1.5s + 间隔 ≥5s）、同一次写；任何一次成功的 settings 保存都顺带清 dirty。
+ * 应用范围：core 只把 lowcut/reso/REC 三项写进上游 static；`lights_lvl` 只在 RAM 副本里
+ * （键盘 RGB 是 UI 侧按投影驱动，spec R4）；palette/zoom/theme 同理由 UI 消费副本。
+ * 自检：`sloop_core_selftest` 跑用例前把 `fx_lowcut`/`flt_reso` 归零（golden 基线口径），
+ * 收尾 reload 按 flash 重放。 */
+#define SLOOP_SETTINGS_PALETTES 5u
+typedef enum {
+    SLOOP_SET_PALETTE,
+    SLOOP_SET_LOWCUT,
+    SLOOP_SET_ZOOM,
+    SLOOP_SET_LIGHTS,
+    SLOOP_SET_RESO,
+    SLOOP_SET_THEME_ON,
+    SLOOP_SET_FIELD_COUNT
+} sloop_set_field_t;
+typedef struct {
+    song_settings_t f;
+    bool theme_valid;
+    char theme_name[9];
+    bool dirty;
+} sloop_settings_t;
+const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未就绪 ⇒ 全零 + theme_valid=false） */
+/* 改内存 + apply + dirty；冻结回 INVALID_STATE；palette 钳 0..4、reso 钳 0..10、
+ * lights 钳 0..3、bool 钳 0/1；字段越界回 INVALID_ARG（不写）。 */
+esp_err_t sloop_store_settings_set(sloop_set_field_t field, uint32_t v);
+esp_err_t sloop_store_settings_save(void);   /* 停止态立即写；播放中 INVALID_STATE；成功清 dirty */
+esp_err_t sloop_store_settings_reload(void); /* 以 flash 为准重读 + apply；boot/自检收尾调用 */
+bool sloop_store_settings_dirty(void);
+void sloop_store_settings_dirty_mark(void);  /* REC 配置变更用（只置 dirty，不改值） */
+
 #endif
