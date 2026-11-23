@@ -8180,6 +8180,7 @@ def run_sys(s: Session) -> None:
     s.ser.note("③ SYSTEM 行编辑：COLOR/ZOOM/BRIGHT/LIGHTS/VOLUME/OUTPUT/LOWCUT/RESO + 键盘")
     ensure_stopped(s)
     settings_set(s, "palette", 4, label="③ 归一 palette=MONO")
+    settings_set(s, "theme_on", 1, label="③ 归一到 THEME 档（下一档才是 GREEN）")
     settings_set(s, "zoom", 0, label="③ 归一 ZOOM OFF")
     settings_set(s, "lights", 0, label="③ 归一 LIGHTS OFF")
     settings_set(s, "lowcut", 0, label="③ 归一 LOWCUT OFF")
@@ -8437,12 +8438,19 @@ def run_sys(s: Session) -> None:
             f"⑧ 工作工程恢复：LIVEHASH {hash_after:08X} == 自检前 {hash_before:08X}")
         s.cmd("ENG AUDIO")
         s.expect_int(r"streaming=(\d+)", 1, "⑧ worker 恢复流式")
-        img = s.capture("selftest-pass")
-        s.probe_region(img, "⑧ SELFTEST PASS 状态行（accent）", (24, 672, 700, 712),
-                       C_YELLOW, 16, 40)
     else:
         s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"",
                  "⑧ 本 boot 已有自检：SCR 重试不重复跑（R8，复用前一轮结果）")
+    # 离开/重返不得再次清 R8 标记；PASS 或此前的 PASS 缓存都在重建后显示。
+    s.cmd("UI play")
+    s.expect(r"^UI page=play \(0\)\r?$", "⑧ 自检后离开 SYSTEM")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ 自检后重返 SYSTEM")
+    img = s.capture("selftest-pass")
+    (s.ok if img.size == (1280, 720) and img.mode == "RGB" else s.fail)(
+        f"⑧ SELFTEST PASS PNG 解码 size={img.size} mode={img.mode}（期望 1280×720 RGB）")
+    s.probe_region(img, "⑧ SELFTEST PASS 状态行（accent）", (24, 672, 700, 712),
+                   C_YELLOW, 16, 40)
     sys_tap(s, 8)
     s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"", "⑧ 第二次 chip → RESET FIRST")
 
