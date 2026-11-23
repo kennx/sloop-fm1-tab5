@@ -154,16 +154,19 @@ static inline uint32_t ui_file_status_color(uint8_t act, uint8_t status, bool re
 /* SAMPLE 页槽管理行的状态行（P4-D Task 8；单一口径——屏幕文本与 console `TAP`
  * 回显都从这里出）。状态是**页面本地**结果，不写 app_state_t（与 FM6 bank 行的
  * NOT FM6 同口径）：
- *   SELECT_OK  槽选中已把 SET 宏（P_E0 = 8 + k）写入选中轨 → `SAVE OK`
+ *   SET        槽选中已把 SET 宏（P_E0 = base + k）写入选中轨 → `SET U<n>`（slot = 0..3）
  *   ERASE_OK   CMD_SAMPLE_ERASE 成功 → `ERASE OK`
- *   NOT_USR    当前 SET 不在 USR1..USR4（8..11）→ `NOT USR`（**未下发命令**）
+ *   NOT_USR    页面拒绝：当前 SET 不在 USR1..USR4，或选中轨引擎 ≠ SAMPLE → `NOT USR`
+ *              （**未下发命令**）
  *   PLAYING    走带中（synth_status = BLOCKED）→ `STOP BEFORE ERASE`
  *   NO_STORAGE 存储未就绪 → `NO STORAGE`
  *   ERROR      其它失败（含诊断冻结）→ `ERASE ERROR`
- *   NONE       尚无动作 → 空串（不显示过期结果） */
+ *   NONE       尚无动作 → 空串（不显示过期结果）
+ * 「槽选中」与「擦除」是两种动作，故文案分开（`SET U<n>` 不是存储写成功；
+ * `ERASE OK` 与 FILE/BANK 行对 ERASE 动作的文案一致）。 */
 typedef enum {
     UI_SAMPLE_STATUS_NONE = 0,
-    UI_SAMPLE_STATUS_SELECT_OK,
+    UI_SAMPLE_STATUS_SET,
     UI_SAMPLE_STATUS_ERASE_OK,
     UI_SAMPLE_STATUS_NOT_USR,
     UI_SAMPLE_STATUS_PLAYING,
@@ -171,10 +174,14 @@ typedef enum {
     UI_SAMPLE_STATUS_ERROR,
 } ui_sample_status_t;
 
-static inline const char *ui_sample_status_text(char *buf, size_t n, uint8_t status)
+/* slot 只对 `SET U<n>` 有意义（0..3；越界防御性显示 `SET U-`）。 */
+static inline const char *ui_sample_status_text(char *buf, size_t n, uint8_t status, uint8_t slot)
 {
     switch (status) {
-    case UI_SAMPLE_STATUS_SELECT_OK: snprintf(buf, n, "SAVE OK"); break;
+    case UI_SAMPLE_STATUS_SET:
+        if (slot < 4u) snprintf(buf, n, "SET U%u", (unsigned)(slot + 1u));
+        else snprintf(buf, n, "SET U-");
+        break;
     case UI_SAMPLE_STATUS_ERASE_OK: snprintf(buf, n, "ERASE OK"); break;
     case UI_SAMPLE_STATUS_NOT_USR: snprintf(buf, n, "NOT USR"); break;
     case UI_SAMPLE_STATUS_PLAYING: snprintf(buf, n, "STOP BEFORE ERASE"); break;
@@ -185,11 +192,12 @@ static inline const char *ui_sample_status_text(char *buf, size_t n, uint8_t sta
     return buf;
 }
 
-/* 状态行颜色（同一映射的视觉侧）：OK 绿 / NOT USR 强调黄 / 走带与失败红 / 其余灰。 */
+/* 状态行颜色（同一映射的视觉侧）：SET/ERASE OK 绿 / NOT USR 强调黄 / 走带与失败红 /
+ * 其余灰。 */
 static inline uint32_t ui_sample_status_color(uint8_t status)
 {
     switch (status) {
-    case UI_SAMPLE_STATUS_SELECT_OK:
+    case UI_SAMPLE_STATUS_SET:
     case UI_SAMPLE_STATUS_ERASE_OK: return ui_track_color(1);
     case UI_SAMPLE_STATUS_NOT_USR: return UI_ACCENT;
     case UI_SAMPLE_STATUS_PLAYING:

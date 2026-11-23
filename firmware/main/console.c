@@ -1593,10 +1593,18 @@ static int tap_command(int argc, char **argv)
                text != NULL ? text : "?");
         break;
     }
-    case SLOOP_TAP_SAMPLE_SLOT:
-        /* SAMPLE 页槽管理行：选中槽 = 把 SET 宏写到 8 + 槽号（锁定页不下发） */
-        printf("TAP %ld,%ld page=%u -> SAMPLE slot=%u select\n", x, y, page, (unsigned)r.b);
+    case SLOOP_TAP_SAMPLE_SLOT: {
+        /* SAMPLE 页槽管理行：选中槽 = 把 SET 宏写到 base + 槽号。v=0 = 页面拒绝
+         * （锁定页/描述符不可用，未下发命令），回显走 `status="…"` 形式（BANK 行同形）。 */
+        const char *text = sloop_ui_sample_status_text();
+        if (r.v == 0) {
+            printf("TAP %ld,%ld page=%u -> SAMPLE slot=- select status=\"%s\"\n", x, y, page,
+                   text != NULL ? text : "?");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SAMPLE slot=%u select\n", x, y, page, (unsigned)r.b);
+        }
         break;
+    }
     case SLOOP_TAP_SAMPLE_ACTION: {
         /* ERASE chip：与 BANK 行同一回显形态（动作 + 状态行文本同源：
          * sloop_ui_sample_status_text）。`NOT USR`（当前 SET 不在 USR1..USR4）、

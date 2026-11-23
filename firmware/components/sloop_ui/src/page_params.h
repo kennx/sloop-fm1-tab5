@@ -39,8 +39,9 @@ const char *page_params_bank_status_text(uint8_t index);
 
 /* SAMPLE 页槽管理行的状态行文本（console `TAP` 回显与屏幕同源，P4-D Task 8）：
  * 该页没有槽管理行（不是 SAMPLE）或行尚未构建（页未建/已随源组销毁）时返回 NULL；
- * 当前 SET 不在 USR1..USR4 的本地拒绝返回 "NOT USR"；其余映射复用 theme.h 的
- * ui_sample_status_text。不取 LVGL 锁（读 UI 局部态 + 状态层快照）。 */
+ * 页面本地拒绝（SET 不在 USR1..USR4，或选中轨引擎 ≠ SAMPLE）返回 "NOT USR"；其余映射
+ * 复用 theme.h 的 ui_sample_status_text（`SET U<n>` / `ERASE OK` / `STOP BEFORE ERASE` /
+ * `NO STORAGE` / `ERASE ERROR`）。不取 LVGL 锁（读 UI 局部态 + 状态层快照）。 */
 const char *page_params_sample_status_text(uint8_t index);
 
 /* 调试注入（console `UI KNOB`）：向**当前**参数页第 slot 槽旋钮派发合成

@@ -212,8 +212,10 @@ typedef enum {
                               * 动作结果由状态行/console 回显体现） */
     SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
     SLOOP_TAP_SAMPLE_SLOT,   /* SAMPLE 页槽管理行 U1..U4（P4-D Task 8）：a=页 id b=槽号(0..3)。
-                              * 命中即把该槽写成 SET 宏（P_E0 = 8 + b）经 CMD_SET_PARAM 下发；
-                              * 锁定页（选中轨引擎 ≠ SAMPLE）不下发（与旋钮同口径）。 */
+                              * 命中即把该槽写成 SET 宏（P_E0 = base + b，base 由 SAMPLE 的
+                              * SET 描述符派生）经 CMD_SET_PARAM 下发；锁定页（选中轨引擎
+                              * ≠ SAMPLE）不下发：此时 b=0xFF、v=0，console 回
+                              * `slot=- select status="…"`（v=1 = 已下发）。 */
     SLOOP_TAP_SAMPLE_ACTION, /* SAMPLE 页 ERASE chip：a=页 id b=槽号(0..3) v=2（CMD_SAMPLE_ERASE；
                               * 当前 SET 不在 USR1..USR4 时页面本地拒绝、不下发命令）。
                               * 动作结果文本由 `sloop_ui_sample_status_text()` 与屏幕同源给出。 */
@@ -355,11 +357,11 @@ const char *sloop_ui_transport_status_text(void);
 const char *sloop_ui_bank_status_text(void);
 
 /* SAMPLE 页槽管理行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-D Task 8）：
- * 当前页不是 SAMPLE、或槽管理行尚未构建（页未建/已随源组销毁）时返回 NULL。本地拒绝
- * （当前 SET 不在 USR1..USR4）返回 `NOT USR`；其余映射由 theme.h 的
- * ui_sample_status_text 单一给出（`SAVE OK` 槽选中已写入 SET / `ERASE OK` /
- * `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。不取 LVGL 锁（只读 UI 局部态 +
- * 状态层快照），可在 console/任意任务调用。 */
+ * 当前页不是 SAMPLE、或槽管理行尚未构建（页未建/已随源组销毁）时返回 NULL。页面本地
+ * 拒绝（SET 不在 USR1..USR4，或选中轨引擎 ≠ SAMPLE）返回 `NOT USR`；其余映射由
+ * theme.h 的 ui_sample_status_text 单一给出（`SET U<n>` 槽选中已写入 SET /
+ * `ERASE OK` / `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。不取 LVGL 锁
+ * （只读 UI 局部态 + 状态层快照），可在 console/任意任务调用。 */
 const char *sloop_ui_sample_status_text(void);
 
 /* SONG 页上下文（InputManager 路由，P4-C Task 11）：当前页是 SONG 时

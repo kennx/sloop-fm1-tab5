@@ -239,8 +239,10 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 `TAB` = 按组顺序的扁平轮转，组内最后一页的下一张 = 下一组第一页：
 
 ```
-PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → PLAY
+PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → DSYN → FM6P → STEP → TRANSPORT
+     → SONG → PROJECTS → PRESETS → PLAY
 ```
+（P4-D Task 8 起 14 页 / 7 组；SAMPLE 属 SYNTH 组，DSYN/FM6P 紧随其后。）
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
   轮转到最后一个已注册页即回 PLAY。
@@ -353,8 +355,10 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   余 7,464B（SAMPLE 移出后 EDIT 不再接近上限）。以上是账面数：**实测峰值、SYNTH 各页
   delta 与跨组 `pool_free ≥4,096B` 门禁在 Task 11 测量**（同 §5 口径）。
 - 采样槽管理行（SAMPLE 页底部 `U1..U4` + `ERASE` + 状态行，y=552..596）与 FM6 bank 行
-  同几何；`sloop_store_sample_info` 是文档化只读例外，建页/动作后/每 ~1s 至多读一次
-  （单次最坏 4×80KiB CRC，绝不每 30ms 轮询）。
+  同几何；状态行单一映射在 `theme.h`（选中槽 `SET U<n>` / `ERASE OK` / `NOT USR` /
+  `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。`sloop_store_sample_info` 是
+  文档化只读例外：建页/动作/键变化时立即读，30ms 拍的非强制路径**最短 250ms**、
+  key 稳定时 1s（单次最坏 4×80KiB CRC，绝不每 30ms 轮询）。
 
 #### 6. 验证入口
 

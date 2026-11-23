@@ -250,3 +250,15 @@
 | **触发条件** | 用户报告「刚捕获的段在重启后丢失」；或 P4-E/P4-F 要求与上游 warm reset 语义一致；或引入关机/重启 UI 时。 |
 | **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_init` 的槽 fetch、`sloop_store_sections_tick`）、`.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/task-8-report.md` §8.5、ADR-009 §6.1 |
 | **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 8 报告 §8.5 遗留） |
+
+## DI-34: 注入场景脚本仍按 12 页 / 6 组 / EDIT Σ 19,968 断言（P4-D Task 8 后的导航口径）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-D Task 8 把 `APP_STATE_PAGES` 扩到 14、组表改为 7 组（SAMPLE 从 EDIT 移入 SYNTH），组签宽 168→142px、SAMPLE est 3,072→6,144。固件与 host 门禁已对齐，但 `scripts/inject/nav.sh`（⑦ 全 12 页轮转、组签/子签列表）、`scripts/inject/params.sh`（EDIT 组 Σest 19,968、SAMPLE 页在 EDIT 子行的导航与 `UI SUB` 下标）与 `scripts/soak.py`（页访问表「全部 12 页 / 六个组签」）仍是旧口径；`AGENTS.md` §5.5 已就地注明「场景脚本在 Task 11 对齐」。 |
+| **影响面** | 仅设备注入门禁：Task 11 之前对**本固件**跑 `nav`/`params`/`soak` 会出现假红（页序/组 Σ/`UI SUB` 下标不符），固件本身无缺陷；`store`/`song`/`sequence`/`transport`/`step_edit`/`tracks` 不受页数影响（未断言 12 页/6 组）。host 门禁（build/state/synth/seq/knob）不受影响。 |
+| **为何可延迟** | Task 8 的任务口径是「host 构建 + 组表/占位页落位」，设备注入矩阵按计划在 Task 11 统一跑并更新；同一提交里改脚本会让本任务无法用现有脚本自证（脚本与固件同时改，失败无法归因）。 |
+| **解决方向** | Task 11 同批更新：`nav.sh` ⑦ 改 14 页轮转（…SAMPLE→DSYN→FM6P→STEP…）与 `UI TAB synth`/`UI SUB 0..2`；`params.sh` 的 EDIT Σ 改 16,896、SAMPLE 页改经 SYNTH 组进入并新增 SYNTH 组 Σ 20,480 的 `UI MEM` 断言；`soak.py` 页表加 DSYN/FM6P 与 SYNTH 组。完成后按 §5.5 跑九条场景并删除本条目。 |
+| **触发条件** | Task 11 首次设备注入矩阵之前（若 Task 11 延期，任何对 P4-D 固件重跑设备导航门禁之前）。 |
+| **参考** | `firmware/components/sloop_ui/src/ui.c`（`k_groups[]`）、`docs/design/005-ui-architecture.md` §5.1、`.superpowers/sdd/2026-11-23-p4d-sampling-dsyn-fm6/task-8-report.md` §4 |
+| **登记** | 2026-11-23（Task 8 评审：脚本与固件口径分叉） |

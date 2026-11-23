@@ -34,14 +34,15 @@
  *
  * 槽管理行（仅 SAMPLE 页，P4-D Task 8）：同一底部行几何（页面区相对 y=552..596）——
  * `U1..U4` 四个单对象 label（`USED name z<n> <KB>K` / `EMPTY`）+ `ERASE` chip + 状态行。
- * 点槽 = 把 SET 宏（P_E0）切到 `SMP_NSETS + k`（**8..11**，不是工厂槽号 32）经
- * `CMD_SET_PARAM` 下发；`ERASE` 只在当前 SET 落在 USR1..USR4 时发 `CMD_SAMPLE_ERASE`
- * （槽号 = SET − 8），否则状态行 `NOT USR` 且**不下发命令**。状态行是页面本地结果
- * （theme.h 的 ui_sample_status_text 单一映射：`SAVE OK`/`ERASE OK`/`STOP BEFORE ERASE`/
- * `NO STORAGE`/`ERASE ERROR`）。
+ * 点槽 = 把 SET 宏（P_E0）切到 USR 段的起点 + k（起点由 SAMPLE 的 SET 描述符派生，
+ * 本版本 = 8..11，不是工厂槽号 32）经 `CMD_SET_PARAM` 下发；`ERASE` 只在当前 SET 落在
+ * USR1..USR4 且页面未锁定时发 `CMD_SAMPLE_ERASE`（槽号 = SET − 起点），否则状态行
+ * `NOT USR` 且**不下发命令**。状态行是页面本地结果（theme.h 的 ui_sample_status_text
+ * 单一映射：`SET U<n>`/`ERASE OK`/`NOT USR`/`STOP BEFORE ERASE`/`NO STORAGE`/
+ * `ERASE ERROR`）。
  * 槽信息读取是**文档化的只读例外**（与 FILE 页同口径）：`sloop_store_sample_info` 会
- * 对每个已用槽算 ≤80KiB 的数据 CRC，因此只在建页、槽动作之后与 update 里至多 ~1s
- * 一次（或 synth_status/SET 变化时）读取——绝不每 30ms 轮询（P4-D Task 4 评审的
+ * 对每个已用槽算 ≤80KiB 的数据 CRC，因此只在建页、槽动作与键变化时立即读；30ms 拍的
+ * 非强制路径**最短 250ms**、key 稳定时 1s——绝不每 30ms 轮询（P4-D Task 4 评审的
  * UI 停顿风险）。
  */
 #include "page_params.h"
@@ -93,7 +94,8 @@
 
 /* SAMPLE 槽管理行（仅 SAMPLE 页，P4-D Task 8）：与 BANK 行同一底部带（y=552、高 44），
  * 4 个槽 label（200px，2 行 16pt：`U1 USED` / `PIANO z1 12K`）+ ERASE chip + 状态行。
- * 16+4×208=848 右端（末槽 640..840）、ERASE 856..956、状态行 972..1264。 */
+ * 槽位 x = 16 + k×208（k=0..3 ⇒ 16/224/432/640，各宽 200 ⇒ 末槽右端 **840**）、
+ * ERASE 856..956、状态行 972..1264。 */
 #define SAMPLE_ROW_Y      552
 #define SAMPLE_ROW_H      44
 #define SAMPLE_SLOT_X0    16
@@ -103,12 +105,9 @@
 #define SAMPLE_STATUS_X   972
 #define SAMPLE_STATUS_W   292
 
-/* 上游 eng_sample.c 的 SMP_NSETS（生成头 felucca_samples.h 的 8 个工厂 SET 名）；
- * USR1..USR4 的 SET 宏值 = SMP_NSETS + k = 8..11。写成字面量免于在 UI 层包含上游
- * 生成头（它与 console 的 SMP 诊断面同源，改上游版本时由 host 门禁暴露）。 */
-#define SAMPLE_USR_SET_BASE 8u
-
-/* 页声明引擎号 9 = FM6（布局表 L_ENG_FM6，上游 ENGINES[] 的 FM6）；bank 行只在这一页。 */
+/* 页声明引擎号（布局表 L_ENG_SAMPLE/L_ENG_FM6，上游 ENGINES[] 的 SAMPLE/FM6）：
+ * bank 行只在 FM6 页、槽管理行只在 SAMPLE 页。 */
+#define PARAM_ENGINE_SAMPLE 4u
 #define PARAM_ENGINE_FM6 9u
 
 /* 引擎槽在 trk[].p[] 里的绝对 id 起点（上游 P_E0 = P_COUNT - 8） */
@@ -161,7 +160,8 @@ static sloop_store_sample_info_t s_sample_info[SLOOP_STORE_SAMPLES];
 static uint16_t s_sample_info_key;
 static uint32_t s_sample_info_ms;
 static bool s_sample_info_valid;
-static uint8_t s_sample_act = 0xFF; /* 0 = 槽选中（SAVE 语义）/ 2 = ERASE / 其它 = 尚无动作 */
+static uint8_t s_sample_act = 0xFF; /* 0 = 槽选中 / 2 = ERASE / 其它 = 尚无动作 */
+static uint8_t s_sample_sel_slot;   /* 最近一次选中的 USR 槽（0..3；`SET U<n>` 文本用） */
 static ui_sample_status_t s_sample_status = UI_SAMPLE_STATUS_NONE;
 static uint32_t s_sample_row_sig = 0xFFFFFFFFu; /* 整行渲染脏检查键 */
 static char s_sample_echo[32];                  /* console TAP 回显专用 */
@@ -461,15 +461,33 @@ static void bank_cb(lv_event_t *e)
 }
 
 /* ---------------------------------------------------------------- 槽管理行 --- */
-/* 选中轨的 SET 宏（P_E0）→ USR 槽号；不在 USR1..USR4（SET 8..11）返回 0xFF。 */
+/* USR1..USR4 的 SET 宏起点 = 上游 SMP_NSETS（本版本 8）。不写字面量：从 SAMPLE 引擎的
+ * SET 描述符派生——SET 是 F_ENUM 0..(SMP_NSETS+USR−1)，故 base = max + 1 − USR 数。
+ * 描述符取不到、或值域里放不下 4 个 USR 时返回 0，调用方一律当作「没有 USR 槽」
+ * （只读展示、绝不下发命令）——失败方向是安全的，不依赖注释里的 magic number。 */
+static uint8_t sample_usr_set_base(void)
+{
+    static int16_t cached = -1;
+    if (cached < 0) {
+        sloop_desc_t d;
+        int16_t base = 0;
+        if (sloop_core_desc(SLOOP_DESC_ENGINE, PARAM_ENGINE_SAMPLE, 0u, &d) &&
+            (int16_t)(d.max + 1 - d.min) > (int16_t)SLOOP_STORE_SAMPLES) {
+            base = (int16_t)(d.max + 1 - (int16_t)SLOOP_STORE_SAMPLES);
+        }
+        cached = base;
+    }
+    return (uint8_t)cached;
+}
+
+/* 选中轨的 SET 宏（P_E0）→ USR 槽号；不在 USR1..USR4 返回 0xFF。 */
 static uint8_t sample_selected_slot(const app_state_t *st)
 {
+    uint8_t base = sample_usr_set_base();
+    if (base == 0) return 0xFF;
     int16_t set = st->p[PARAM_ENGINE_BASE];
-    if (set < (int16_t)SAMPLE_USR_SET_BASE ||
-        set >= (int16_t)(SAMPLE_USR_SET_BASE + SLOOP_STORE_SAMPLES)) {
-        return 0xFF;
-    }
-    return (uint8_t)(set - SAMPLE_USR_SET_BASE);
+    if (set < (int16_t)base || set >= (int16_t)(base + SLOOP_STORE_SAMPLES)) return 0xFF;
+    return (uint8_t)(set - base);
 }
 
 /* 槽信息（文档化只读例外）：force 或 synth_status/SET 变化、或距上次 ≥1s 才重读。
@@ -479,8 +497,11 @@ static void sample_info_poll(const app_state_t *st, bool force)
     uint16_t key = (uint16_t)(((uint16_t)st->synth_status << 8) |
                               (uint8_t)st->p[PARAM_ENGINE_BASE]);
     uint32_t now = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
-    if (!force && s_sample_info_valid && key == s_sample_info_key &&
-        (uint32_t)(now - s_sample_info_ms) < 1000u) {
+    uint32_t since = (uint32_t)(now - s_sample_info_ms);
+    /* 非强制路径的最小间隔 250ms：拖 SET 旋钮时 key 每拍都变，不能让 4 槽 CRC 扫描
+     * 每帧跑一遍；key 稳定时仍限 1s（info 的 CRC 成本见文件头）。 */
+    if (!force && s_sample_info_valid &&
+        (since < 250u || (key == s_sample_info_key && since < 1000u))) {
         return;
     }
     for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
@@ -503,10 +524,12 @@ static uint32_t sig_mix(uint32_t h, uint32_t v)
     return h;
 }
 
-/* 整行渲染脏检查键：选择槽 + 动作/状态 + ready + 四个槽的 (used/zones/KB/name)。 */
+/* 整行渲染脏检查键：锁定态 + 选择槽 + 动作/状态 + ready + 四个槽的 (used/zones/KB/name)。 */
 static uint32_t sample_row_sig(const app_state_t *st)
 {
     uint32_t h = 2166136261u;
+    uint8_t pidx = (uint8_t)(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL);
+    h = sig_mix(h, page_locked(page_layout_get(pidx), st) ? 1u : 0u);
     h = sig_mix(h, sample_selected_slot(st));
     h = sig_mix(h, s_sample_act);
     h = sig_mix(h, (uint32_t)s_sample_status);
@@ -521,11 +544,13 @@ static uint32_t sample_row_sig(const app_state_t *st)
     return h;
 }
 
-/* 渲染整行（4 槽文本/颜色 + 状态行）。选中槽（SET 指向的 USR）用强调色。 */
+/* 渲染整行（4 槽文本/颜色 + 状态行）。选中槽（SET 指向的 USR）用强调色；锁定页
+ * （选中轨引擎 ≠ SAMPLE）**不**高亮：那个 SET 值不是该轨的采样选择，高亮会误导。 */
 static void sample_render(uint8_t index, const app_state_t *st)
 {
     page_ui_t *ui = &s_ui[index];
-    uint8_t sel = sample_selected_slot(st);
+    const param_page_t *pg = page_layout_get(index);
+    uint8_t sel = page_locked(pg, st) ? 0xFFu : sample_selected_slot(st);
     for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
         const sloop_store_sample_info_t *in = &s_sample_info[k];
         char text[48];
@@ -541,7 +566,7 @@ static void sample_render(uint8_t index, const app_state_t *st)
             lv_color_hex(k == sel ? UI_ACCENT : (in->used ? UI_TEXT : UI_TEXT_DIM)), 0);
     }
     char text[32];
-    ui_sample_status_text(text, sizeof(text), (uint8_t)s_sample_status);
+    ui_sample_status_text(text, sizeof(text), (uint8_t)s_sample_status, s_sample_sel_slot);
     lv_label_set_text(ui->sample_status, text);
     lv_obj_set_style_text_color(ui->sample_status,
                                 lv_color_hex(ui_sample_status_color((uint8_t)s_sample_status)), 0);
@@ -552,10 +577,19 @@ static void sample_render(uint8_t index, const app_state_t *st)
  * （与旋钮页同一口径；槽列表仍只读显示）。 */
 static bool sample_select(uint8_t index, uint8_t slot)
 {
-    if (slot >= SLOOP_STORE_SAMPLES) return false;
-    if (!slot_write(index, 0, (int16_t)(SAMPLE_USR_SET_BASE + slot), NULL)) return false;
+    uint8_t base = sample_usr_set_base();
+    if (slot >= SLOOP_STORE_SAMPLES || base == 0) return false;
+    if (!slot_write(index, 0, (int16_t)(base + slot), NULL)) {
+        /* 锁定页（选中轨引擎 ≠ SAMPLE）：不下发，状态行明确拒绝（`NOT USR`），
+         * console 的 TAP 回显因此走 `status="…"` 形式。 */
+        s_sample_act = 0u;
+        s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        refresh(index);
+        return false;
+    }
     s_sample_act = 0u;
-    s_sample_status = UI_SAMPLE_STATUS_SELECT_OK;
+    s_sample_sel_slot = slot;
+    s_sample_status = UI_SAMPLE_STATUS_SET;
     app_state_t st;
     state_get_copy(&st);
     sample_info_poll(&st, true);
@@ -829,6 +863,7 @@ static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
 {
     page_ui_t *ui = &s_ui[index];
     s_sample_act = 0xFF;
+    s_sample_sel_slot = 0;
     s_sample_status = UI_SAMPLE_STATUS_NONE;
     s_sample_row_sig = 0xFFFFFFFFu;
     app_state_t st;
@@ -1053,11 +1088,14 @@ static void bank_tap_action(uint8_t index, uint8_t act, sloop_tap_result_t *out)
 
 static void sample_tap_slot(uint8_t index, uint8_t slot, sloop_tap_result_t *out)
 {
-    (void)sample_select(index, slot); /* 锁定页不下发；回显仍表达「选中该槽」的意图 */
+    bool ok = sample_select(index, slot);
     if (out != NULL) {
         out->kind = SLOOP_TAP_SAMPLE_SLOT;
         out->a = APP_PAGE_SAMPLE;
-        out->b = slot;
+        /* 页面拒绝（锁定页/描述符不可用）不伪造槽号：b=0xFF、v=0，console 回
+         * `slot=- select status="…"`（与 BANK 行的 status 回显同形）。 */
+        out->b = ok ? slot : 0xFFu;
+        out->v = ok ? 1 : 0;
     }
 }
 
@@ -1174,5 +1212,6 @@ const char *page_params_sample_status_text(uint8_t index)
     if (index >= PARAM_PAGE_COUNT || !sample_row_present(page_layout_get(index))) return NULL;
     /* 行未建（页未构建/已随源组销毁）时没有可回显的页面状态 */
     if (s_ui[index].sample_label[0] == NULL) return NULL;
-    return ui_sample_status_text(s_sample_echo, sizeof(s_sample_echo), (uint8_t)s_sample_status);
+    return ui_sample_status_text(s_sample_echo, sizeof(s_sample_echo), (uint8_t)s_sample_status,
+                                 s_sample_sel_slot);
 }
