@@ -14,7 +14,6 @@
  * selftest.c 的静态断言（两个头都可见的 TU）兜底，避免此处再复制一份数字。 */
 #define AUDIO_RATE SLOOP_HAL_AUDIO_RATE
 #define AUDIO_HALF_FRAMES SLOOP_HAL_AUDIO_FRAMES
-#define AUDIO_OUT_VOL 70
 #define AUDIO_TASK_STACK 4096u
 #define AUDIO_TASK_PRIORITY 5u
 /* 协作停流等待上限：正常一次写块 ≤ 数十 ms（DMA 节流），1s 只有任务卡死在
@@ -77,8 +76,10 @@ esp_err_t sloop_hal_audio_init(void)
     };
     /* 任何一步失败都关掉句柄再返回：否则句柄残留会让下次 init 在顶部守卫直接
      * ESP_OK，start 在未打开的 codec 上跑渲染任务（TRIG 报 OK 而 xrun 攀升）。 */
+    /* 输出音量取平台设置（NVS 存值，默认 70）；四路输出音量先全开，扬声器所在通路
+     * （LOUT1，见 sys_settings.c 文件头）即此态。 */
     if (esp_codec_dev_open(dev, &format) != 0) goto fail;
-    if (esp_codec_dev_set_out_vol(dev, AUDIO_OUT_VOL) != 0) goto fail;
+    if (esp_codec_dev_set_out_vol(dev, sloop_hal_settings_volume()) != 0) goto fail;
     if (sloop_hal_audio_max_all() != ESP_OK) goto fail;
     codec = dev;
     ESP_LOGI(TAG, "codec 44100Hz/2ch/16bit ready");
