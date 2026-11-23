@@ -23,7 +23,9 @@
  *    手动复验诊断期静默；MEM 打印页面注册表/懒建的 LVGL 池水位（每页 est 预算 vs
  *    实测 delta）；WINDOW [<start> <len>] 写步窗（start 16 对齐 0..48、len 1..16，
  *    无参打印当前窗口）；LANE [<0..15>] 读/写 STEP 页选中的鼓 lane（UI 局部态，
- *    P4-C Task 9；无参打印当前值）；TOOL [<0..7>] 读/写 TRANSPORT 页的键盘工具焦点
+ *    P4-C Task 9；无参打印当前值）；DSYN [KIT <0..3>|LANE <0..15>|PAGE <0..3>] 读/写
+ *    DSYN 页的 kit/lane（状态层 UI 局部态，与页面 chip 共用）与字段页（页面静态量，
+ *    P4-D Task 9）；TOOL [<0..7>] 读/写 TRANSPORT 页的键盘工具焦点
  *    （P4-C Task 10；0 lvl/1 rat/2 mic/3 span/4 slide/5 rot/6 len/7 trans）；FORCEFAIL
  *    <page> [on|off] 强制构建失败（验证失败可见性，
  *    ADR-008）：对已建当前页删除控件并立即重建到失败态（注入当场消费，回显
@@ -118,6 +120,10 @@
  *  - DSYN：SYN1..SYN4 鼓音色（24 虚拟字段）。INFO 打印当前选择（kit/lane/name/crush/src/
  *    dirty）+ 24 个字段值；GET <kit> <lane> 打印该 lane 的 22B 原始字节；SET/KIT/STORE/
  *    AUDITION 走状态层命令（CMD_DSYN_*，与 DSYN 页同一路径），SET 回显写后回读值。
+ *    `UI DSYN KIT/LANE/PAGE` 与 DSYN 页的 chip 共用同一状态（kit/lane 进状态层，page
+ *    是页面静态量）；`TAP` 在该页回 `-> DSYN kit=.. lane=.. page=.. select` /
+ *    `-> DSYN field=<name> value=<写后回读> status="…"` / `-> DSYN STORE status="…"` /
+ *    `-> DSYN AUDITION lane=n` / `-> DSYN KIT src=n`（P4-D Task 9）。
  *  - FM6P：选中轨（或显式 track）的 155B live patch。INFO 打印 slot/engine_ok/名字/ALG
  *    与 P_E0 宏；GET 打印 155B hex；SET 走 CMD_FM6_SET（非 FM6 轨 → locked）；ALG
  *    <track> <0..32>：0 = PAT（只清 P_E0，patch ALG 不动），1..32 = patch ALG = value-1
@@ -893,8 +899,8 @@ static int param_command(int argc, char **argv)
 static const char *const k_page_names[APP_STATE_PAGES] = {
     "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
     "projects", "presets", "song",
-    /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN/FM6P 是 Task 9/10 的实体页，
-     * 本任务先注册占位页） */
+    /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
+     * FM6P 由 Task 10 换成实体页） */
     "dsyn", "fm6p",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
@@ -1153,6 +1159,53 @@ static int ui_command(int argc, char **argv)
                k_tool_names[field < SLOOP_UI_TRANSPORT_FIELDS ? field : 0]);
         return 0;
     }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "dsyn") == 0) {
+        /* UI DSYN KIT <0..3> | LANE <0..15> | PAGE <0..3>：DSYN 页的三个选择器
+         * （P4-D Task 9）。kit/lane 走状态层的 UI 局部态（与页面 chip 同一入口，
+         * 回显即可读、`STATE SNAP` 的 dsyn_kit/dsyn_lane 是同一真值）；PAGE 只是
+         * 页面静态量（SND1/SND2/SND3/KIT），30ms UI 定时器下一拍重配旋钮。
+         * 裸 `UI dsyn` 仍是**切页**（页名表优先，见本函数末尾的 argc==2 循环）。 */
+        app_state_t st;
+        state_get_copy(&st);
+        uint8_t kit = st.dsyn.kit, lane = st.dsyn.lane;
+        uint8_t page = sloop_ui_dsyn_page_get();
+        if (argc == 3) {
+            printf("用法: UI DSYN <KIT 0..3 | LANE 0..15 | PAGE 0..3>"
+                   "（kit/lane 与页面 chip 共用状态层；裸 `UI dsyn` 是切页）\n");
+            return 1;
+        }
+        if (argc == 4) {
+            uint32_t v = 0;
+            if (strcasecmp(argv[2], "kit") == 0) {
+                if (!eng_uint(argv[3], SLOOP_DSYN_KITS - 1u, &v)) {
+                    printf("UI ERR dsyn\n");
+                    return 1;
+                }
+                state_set_dsyn_select((uint8_t)v, lane);
+            } else if (strcasecmp(argv[2], "lane") == 0) {
+                if (!eng_uint(argv[3], SLOOP_DSYN_LANES - 1u, &v)) {
+                    printf("UI ERR dsyn\n");
+                    return 1;
+                }
+                state_set_dsyn_select(kit, (uint8_t)v);
+            } else if (strcasecmp(argv[2], "page") == 0) {
+                if (!eng_uint(argv[3], SLOOP_UI_DSYN_PAGES - 1u, &v)) {
+                    printf("UI ERR dsyn\n");
+                    return 1;
+                }
+                sloop_ui_dsyn_page_set((uint8_t)v);
+            } else {
+                printf("用法: UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>]\n");
+                return 1;
+            }
+            state_get_copy(&st);
+            kit = st.dsyn.kit;
+            lane = st.dsyn.lane;
+            page = sloop_ui_dsyn_page_get();
+        }
+        printf("UI DSYN kit=%u lane=%u page=%u\n", (unsigned)kit, (unsigned)lane, (unsigned)page);
+        return 0;
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
@@ -1310,7 +1363,8 @@ static int ui_command(int argc, char **argv)
         return 1;
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
-           "UI LANE [<lane=0..15>] | UI TOOL [<field=0..7>] | "
+           "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
+           "UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
            "WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口\n"
@@ -1617,6 +1671,50 @@ static int tap_command(int argc, char **argv)
         } else {
             printf("TAP %ld,%ld page=%u -> SAMPLE slot=- action=erase status=\"%s\"\n", x, y,
                    page, text != NULL ? text : "?");
+        }
+        break;
+    }
+    case SLOOP_TAP_DSYN_SEL:
+        /* DSYN 页选择行：kit/lane/字段页（UI 局部态，不写引擎数据）。`d` = 字段页 0..3
+         * （SND1/SND2/SND3/KIT）；旋钮命中只设焦点，也走这一形态。 */
+        printf("TAP %ld,%ld page=%u -> DSYN kit=%u lane=%u page=%u select\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b, (unsigned)(uint8_t)r.d);
+        break;
+    case SLOOP_TAP_DSYN_FIELD: {
+        /* DSYN 单字段写（± chip；TAP 不能拖拽）：字段名来自页面模块（0x80/0x81 是 KIT
+         * 页的 CRUSH / KIT SRC 伪字段），value 是写后回读，status 与屏幕状态行同源。
+         * err=1 = 页面本地只读拒绝（CRUSH：没有写命令），2 = 命令失败。 */
+        const char *name = sloop_ui_dsyn_field_name(r.a);
+        const char *text = sloop_ui_dsyn_status_text();
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> DSYN field=%s value=%d ERR %s status=\"%s\"\n", x, y,
+                   page, name != NULL ? name : "?", (int)r.v,
+                   r.err == 1u ? "read_only" : "error", text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> DSYN field=%s value=%d status=\"%s\"\n", x, y, page,
+                   name != NULL ? name : "?", (int)r.v, text != NULL ? text : "");
+        }
+        break;
+    }
+    case SLOOP_TAP_DSYN_STORE: {
+        /* STORE = CMD_DSYN_STORE：结果文本与屏幕状态行同源（STORE OK / STOP BEFORE STORE /
+         * NO STORAGE / STORE ERROR / FROZEN） */
+        const char *text = sloop_ui_dsyn_status_text();
+        printf("TAP %ld,%ld page=%u -> DSYN STORE status=\"%s\"\n", x, y, page,
+               text != NULL ? text : "?");
+        break;
+    }
+    case SLOOP_TAP_DSYN_AUDITION:
+        printf("TAP %ld,%ld page=%u -> DSYN AUDITION lane=%u\n", x, y, page, (unsigned)r.b);
+        break;
+    case SLOOP_TAP_DSYN_KIT: {
+        /* KIT 页 KIT SRC 的 ±：一次工厂套用（CMD_DSYN_LOAD_KIT，覆盖该 kit 的编辑） */
+        const char *text = sloop_ui_dsyn_status_text();
+        if (r.err != 0u) {
+            printf("TAP %ld,%ld page=%u -> DSYN KIT src=%d ERR error status=\"%s\"\n", x, y, page,
+                   (int)r.v, text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> DSYN KIT src=%d\n", x, y, page, (int)r.v);
         }
         break;
     }

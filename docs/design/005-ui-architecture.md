@@ -195,7 +195,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 | PLAY | PLAY |
 | TRACKS | TRACKS |
 | EDIT | GLOBAL / FX / ANALOG / FM6 |
-| SYNTH | SAMPLE / DSYN / FM6P（P4-D Task 8：SAMPLE 从 EDIT 移入；DSYN/FM6P 的实体页在 Task 9/10） |
+| SYNTH | SAMPLE / DSYN / FM6P（P4-D Task 8：SAMPLE 从 EDIT 移入；DSYN 实体页在 Task 9、FM6P 在 Task 10） |
 | SEQ | STEP / TRANSPORT |
 | SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
 | FILE | PROJECTS / PRESETS |

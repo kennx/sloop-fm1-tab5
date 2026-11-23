@@ -262,3 +262,15 @@
 | **触发条件** | Task 11 首次设备注入矩阵之前（若 Task 11 延期，任何对 P4-D 固件重跑设备导航门禁之前）。 |
 | **参考** | `firmware/components/sloop_ui/src/ui.c`（`k_groups[]`）、`docs/design/005-ui-architecture.md` §5.1、`.superpowers/sdd/2026-11-23-p4d-sampling-dsyn-fm6/task-8-report.md` §4 |
 | **登记** | 2026-11-23（Task 8 评审：脚本与固件口径分叉） |
+
+## DI-35: DSYN 的 kit 级 CRUSH 没有写入口（KIT 页只读）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | spec §4.1 把 `CRUSH`（0..255，低 nibble 丢位数、高 nibble S&H−1）归 DSYN 的 KIT 页，并要求「写后同样过 `dsu_fix_kit`」；但 P4-D Task 2 的 core 只实现了 24 个**声音字段**的 `sloop_core_dsyn_set`（`dsnd_t` 22B），Task 6 的状态层也只有 `CMD_DSYN_SET/LOAD_KIT/STORE/AUDITION` 四条命令——没有任何 kit 级 crush 的读写路径（`sloop_core_dsyn_read` 只读出到 `crush` 指针）。Task 9 的页面因此把 CRUSH 作为只读显示（旋钮值 + 拖拽/± 回 `CRUSH READ ONLY`、不下发命令），KIT SRC 仍可套用工厂 kit（`CMD_DSYN_LOAD_KIT`）。 |
+| **影响面** | 只有 KIT 页的 CRUSH 编辑：用户无法在 Tab5 上改 bit-crush / S&H 深度；`DSYN GET/INFO` 仍能读、上游编辑器/备份可写。DSYN 的 24 个声音字段、试听、STORE、DSU 持久化都不受影响。 |
+| **为何可延迟** | 补写入口要扩三处接口：core（`sloop_core_dsyn_{set,get}_crush`，引擎锁 + `dsu_fix_kit` + `dsu_dirty`）、状态层（新命令 + `synth_status` 映射 + state-test/synth-test 用例）、console（`DSYN CRUSH` 诊断面）与页面（可编辑旋钮）；属于接口扩张而不是 UI 任务，且 P4-D 的任务边界（Task 9 brief 的 Consumes 清单）只列了既有四条 `CMD_DSYN_*`。 |
+| **解决方向** | (a) core 增加 `int16_t sloop_core_dsyn_field_crush(uint32_t kit, int16_t v)`（钳 0..255、`dsu_fix_kit`、`dsu_dirty`）；(b) 状态层加 `CMD_DSYN_CRUSH{a=kit,v=value}`（复用 `CMD_DSYN_SET` 的 a/b/n/v 编码更省：`n=0xFF` 表示 kit 级字段，但需先冻结协议，勿混进 field 编号）；(c) KIT 页把 CRUSH 槽标为可编辑（写后回读 + dirty），删掉 `CRUSH READ ONLY` 令牌；(d) synth-test 覆盖写后 name/crush/src 与 16×22B 的逐字节变化（crush 不影响声音字节）与越界钳位。 |
+| **触发条件** | 用户报告「调不了 crush」；或 P4-E 要补齐上游编辑器 DSYN_PUT part 16（name + crush + src）的全部字段；或 FM-1 联动要双向同步 crush。 |
+| **参考** | `firmware/components/sloop_core/src/sound_tab5.c`（`dsyn_get/dsyn_put`、`sloop_core_dsyn_read`）、`firmware/components/sloop_ui/src/page_dsyn.c`（KIT 页、`UI_DSYN_ACT_READONLY`）、`third_party/sloop-fm1/firmware/src/editor_dsyn.c`（DSYN_PUT part 16/17）、`docs/superpowers/specs/2026-11-23-p4d-sampling-dsyn-fm6-design.md` §4.1、ADR-008 §8.7 |
+| **登记** | 2026-11-23（P4-D Task 9：KIT 页只读 CRUSH） |

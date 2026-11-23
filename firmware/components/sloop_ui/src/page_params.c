@@ -162,6 +162,7 @@ static uint32_t s_sample_info_ms;
 static bool s_sample_info_valid;
 static uint8_t s_sample_act = 0xFF; /* 0 = 槽选中 / 2 = ERASE / 其它 = 尚无动作 */
 static uint8_t s_sample_sel_slot;   /* 最近一次选中的 USR 槽（0..3；`SET U<n>` 文本用） */
+static uint8_t s_sample_lock_refused; /* 上一次拒绝是「选中轨引擎 ≠ SAMPLE」：解锁时复位状态行 */
 static ui_sample_status_t s_sample_status = UI_SAMPLE_STATUS_NONE;
 static uint32_t s_sample_row_sig = 0xFFFFFFFFu; /* 整行渲染脏检查键 */
 static char s_sample_echo[32];                  /* console TAP 回显专用 */
@@ -490,8 +491,9 @@ static uint8_t sample_selected_slot(const app_state_t *st)
     return (uint8_t)(set - base);
 }
 
-/* 槽信息（文档化只读例外）：force 或 synth_status/SET 变化、或距上次 ≥1s 才重读。
- * info 会对每个已用槽算 ≤80KiB 数据 CRC，是全页最贵的调用，绝不能每拍跑。 */
+/* 槽信息（文档化只读例外）：force 时立即重读；否则 250ms 内一律跳过，之后 key
+ * （synth_status/SET）变过即重读，key 未变则最多 1s 一次。info 会对每个已用槽算
+ * ≤80KiB 数据 CRC，是全页最贵的调用，绝不能每拍跑（拖 SET 旋钮时 key 每拍都变）。 */
 static void sample_info_poll(const app_state_t *st, bool force)
 {
     uint16_t key = (uint16_t)(((uint16_t)st->synth_status << 8) |
@@ -573,25 +575,29 @@ static void sample_render(uint8_t index, const app_state_t *st)
 }
 
 /* 槽选中（控件回调与 TAP 的共同路径）：把 SET 宏切到 SMP_NSETS + k（8..11）经
- * CMD_SET_PARAM 下发。锁定页（选中轨引擎 ≠ SAMPLE，含鼓轨）不下发、不改状态行
- * （与旋钮页同一口径；槽列表仍只读显示）。 */
+ * CMD_SET_PARAM 下发。锁定页（选中轨引擎 ≠ SAMPLE，含鼓轨）不下发命令，状态行显示
+ * `NOT USR`（页内本地结果，与 `sample_erase` 同一令牌）；描述符取不到（USR 段起点
+ * 无法派生）同样落到 `NOT USR` 而不是留下上一次的过期结果。 */
 static bool sample_select(uint8_t index, uint8_t slot)
 {
+    const param_page_t *pg = page_layout_get(index);
     uint8_t base = sample_usr_set_base();
-    if (slot >= SLOOP_STORE_SAMPLES || base == 0) return false;
-    if (!slot_write(index, 0, (int16_t)(base + slot), NULL)) {
-        /* 锁定页（选中轨引擎 ≠ SAMPLE）：不下发，状态行明确拒绝（`NOT USR`），
-         * console 的 TAP 回显因此走 `status="…"` 形式。 */
+    if (slot >= SLOOP_STORE_SAMPLES) return false;
+    app_state_t st;
+    state_get_copy(&st);
+    bool locked = page_locked(pg, &st);
+    if (base == 0 || locked || !slot_write(index, 0, (int16_t)(base + slot), NULL)) {
         s_sample_act = 0u;
         s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        /* 只有「锁定页」的拒绝随解锁复位；描述符缺失（base==0）是环境问题，留着可见 */
+        s_sample_lock_refused = locked ? 1u : 0u;
         refresh(index);
         return false;
     }
     s_sample_act = 0u;
+    s_sample_lock_refused = 0;
     s_sample_sel_slot = slot;
     s_sample_status = UI_SAMPLE_STATUS_SET;
-    app_state_t st;
-    state_get_copy(&st);
     sample_info_poll(&st, true);
     refresh(index);
     return true;
@@ -610,12 +616,14 @@ static void sample_erase(uint8_t index)
     s_sample_act = 2u;
     if (page_locked(pg, &st)) {
         s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        s_sample_lock_refused = 1;
         refresh(index);
         return;
     }
     uint8_t slot = sample_selected_slot(&st);
     if (slot == 0xFFu) {
         s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
+        s_sample_lock_refused = 0;
         refresh(index);
         return;
     }
@@ -623,6 +631,7 @@ static void sample_erase(uint8_t index)
     cmd.type = CMD_SAMPLE_ERASE;
     cmd.a = slot;
     state_apply(&cmd);
+    s_sample_lock_refused = 0;
     state_get_copy(&st);
     switch (st.synth_status) {
     case APP_SYNTH_STATUS_OK: s_sample_status = UI_SAMPLE_STATUS_ERASE_OK; break;
@@ -864,6 +873,7 @@ static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
     page_ui_t *ui = &s_ui[index];
     s_sample_act = 0xFF;
     s_sample_sel_slot = 0;
+    s_sample_lock_refused = 0;
     s_sample_status = UI_SAMPLE_STATUS_NONE;
     s_sample_row_sig = 0xFFFFFFFFu;
     app_state_t st;
@@ -956,6 +966,13 @@ void page_params_update(uint8_t index, const app_state_t *st)
     /* 解锁（换轨/换引擎/工程载入）后清掉上次的 NOT FM6：拒绝是「上一次动作」的结果，
      * 不能在本页未再动作时跨上下文残留。 */
     if (!locked && s_bank_refused) s_bank_refused = 0;
+    /* 槽管理行同一**口径**：锁定页（选中轨引擎 ≠ SAMPLE）的 `NOT USR` 拒绝随解锁复位；
+     * 描述符缺失导致的 `NOT USR` 不是上下文问题，保留到下一次动作。 */
+    if (!locked && s_sample_lock_refused) {
+        s_sample_lock_refused = 0;
+        s_sample_status = UI_SAMPLE_STATUS_NONE;
+        s_sample_act = 0xFF;
+    }
     uint8_t engine = page_engine(pg);
     bool esync = st->p[PARAM_TP_ESYNC] != 0;
     if (!ui->ctx_valid || ui->shown_track != track || ui->shown_engine != engine ||
@@ -1190,6 +1207,7 @@ void page_params_forget(uint8_t index)
     memset(&s_ui[index], 0, sizeof s_ui[index]);
     s_bank_refused = 0;
     s_sample_act = 0xFF;
+    s_sample_lock_refused = 0;
     s_sample_status = UI_SAMPLE_STATUS_NONE;
     s_sample_info_valid = false;
     s_sample_row_sig = 0xFFFFFFFFu;

@@ -219,6 +219,18 @@ typedef enum {
     SLOOP_TAP_SAMPLE_ACTION, /* SAMPLE 页 ERASE chip：a=页 id b=槽号(0..3) v=2（CMD_SAMPLE_ERASE；
                               * 当前 SET 不在 USR1..USR4 时页面本地拒绝、不下发命令）。
                               * 动作结果文本由 `sloop_ui_sample_status_text()` 与屏幕同源给出。 */
+    SLOOP_TAP_DSYN_SEL,      /* DSYN 页选择（P4-D Task 9）：SYN1..4 / LANE ± / 字段页 chip /
+                              * 旋钮（只设焦点）。a=kit(0..3) b=lane(0..15) d=字段页(0..3)
+                              * v=1。`UI DSYN KIT/LANE/PAGE` 与这些 chip 共用同一状态。 */
+    SLOOP_TAP_DSYN_FIELD,    /* DSYN 页单字段写（± chip；TAP 不能拖拽）：a=字段码（0..23 =
+                              * sloop_dsyn_field_t，0x80 CRUSH，0x81 KIT SRC）v=**写后回读**
+                              * err=0 成功 / 1 = 页面本地只读拒绝（CRUSH，未下发命令）/
+                              * 2 = 命令失败。字段名由 `sloop_ui_dsyn_field_name()` 给出。 */
+    SLOOP_TAP_DSYN_STORE,    /* DSYN 页 STORE chip：CMD_DSYN_STORE；结果文本由
+                              * `sloop_ui_dsyn_status_text()` 与屏幕同源给出。 */
+    SLOOP_TAP_DSYN_AUDITION, /* DSYN 页 AUDITION chip：a=kit b=lane v=velocity（固定 100） */
+    SLOOP_TAP_DSYN_KIT,      /* KIT 页 KIT SRC 的 ±：a=kit b=**新的工厂 kit 序号**（0..31）
+                              * v=写后回读的 src（CMD_DSYN_LOAD_KIT；套用即覆盖该 kit）。 */
     SLOOP_TAP_SONG_SECTION,  /* SONG 页 A–D 卡：a=页 id b=section(0..3)（UI 局部选中，不写引擎） */
     SLOOP_TAP_SONG_ENTRY,    /* SONG 页歌曲条目 **0 起**（0..15）：a=页 id b=entry（UI
                               * 局部选中；屏幕 `01`/`ENTRY 2` 是 1 起，刻意的两种口径） */
@@ -363,6 +375,28 @@ const char *sloop_ui_bank_status_text(void);
  * `ERASE OK` / `STOP BEFORE ERASE` / `NO STORAGE` / `ERASE ERROR`）。不取 LVGL 锁
  * （只读 UI 局部态 + 状态层快照），可在 console/任意任务调用。 */
 const char *sloop_ui_sample_status_text(void);
+
+/* DSYN 页（P4-D Task 9；SYNTH 组的鼓合成编辑页）：
+ *  - kit/lane 选择是状态层保存的 UI 局部态（`state_set_dsyn_select`）：页面 chip 与
+ *    console `UI DSYN KIT/LANE` 共用，TAP 之后 `STATE SNAP` 的 dsyn_kit/dsyn_lane 即
+ *    刻反映屏幕；DSYN 与选中轨无关，本页没有锁定态。
+ *  - 字段页（SND1/SND2/SND3/KIT）是**页内 UI 局部态**（`sloop_ui_dsyn_page_get/set`
+ *    与页面 chip 共用；console `UI DSYN PAGE` 只写这一静态量，30ms UI 定时器下一拍
+ *    重配旋钮）。跨组页面重建保留（与 step_window 同类）。
+ *  - ←/→ 在 8 槽间移动焦点（跳过当前页的空槽、环绕），↑/↓ 调焦点槽 ±1（经状态层
+ *    命令，控件由下一拍刷新）。非 DSYN 页为空操作；都不取 LVGL 锁（输入任务调用）。
+ *  - `sloop_ui_dsyn_status_text` 是 console `TAP … status="…"` 的文本源（与屏幕同源，
+ *    theme.h 的 ui_dsyn_status_text 单一映射）；页未建/当前页不是 DSYN 返回 NULL。
+ *  - `sloop_ui_dsyn_field_name` 把 TAP 回显的字段码翻译成显示名（0x80/0x81 = KIT 页的
+ *    CRUSH / KIT SRC 伪字段），未知码返回 NULL。 */
+#define SLOOP_UI_DSYN_PAGES 4u
+bool sloop_ui_dsyn_page_active(void);
+void sloop_ui_dsyn_focus_move(int8_t delta); /* ←/→：±1 槽（跳过空槽，环绕） */
+void sloop_ui_dsyn_adjust(int8_t delta);     /* ↑/↓：焦点槽 ±1 原始单位 */
+uint8_t sloop_ui_dsyn_page_get(void);
+void sloop_ui_dsyn_page_set(uint8_t page);   /* 0=SND1 1=SND2 2=SND3 3=KIT；越界忽略 */
+const char *sloop_ui_dsyn_status_text(void);
+const char *sloop_ui_dsyn_field_name(uint8_t code);
 
 /* SONG 页上下文（InputManager 路由，P4-C Task 11）：当前页是 SONG 时
  *  - ←/→ 在 1..count 个歌曲条目间移动选中项（环绕）；

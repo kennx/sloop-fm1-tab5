@@ -413,6 +413,8 @@ static void dispatch(const key_binding_t *b, bool down)
             sloop_ui_file_slot_move(b->param);
         } else if (sloop_ui_param_page_active()) {
             sloop_ui_param_focus_move(b->param);
+        } else if (sloop_ui_dsyn_page_active()) {
+            sloop_ui_dsyn_focus_move(b->param);
         } else if (sloop_ui_transport_page_active()) {
             sloop_ui_transport_focus_move(b->param);
         } else if (sloop_ui_song_page_active()) {
@@ -442,6 +444,8 @@ static void dispatch(const key_binding_t *b, bool down)
          * SONG 页：↑/↓ 在 A–D section 卡间移动 */
         if (sloop_ui_param_page_active()) {
             sloop_ui_param_adjust((int8_t)-b->param);
+        } else if (sloop_ui_dsyn_page_active()) {
+            sloop_ui_dsyn_adjust((int8_t)-b->param);
         } else if (sloop_ui_transport_page_active()) {
             sloop_ui_transport_adjust((int8_t)-b->param);
         } else if (sloop_ui_step_page_active()) {

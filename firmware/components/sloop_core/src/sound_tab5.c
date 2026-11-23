@@ -237,10 +237,18 @@ int16_t sloop_core_dsyn_text(uint32_t field, int16_t v, char *out, uint32_t n)
         return text_len(out, n);
     }
     case SLOOP_DSYN_LEVEL: {
-        /* level = 128 + 4 × dB（0.25 dB 一步）；显示到 0.1 dB，负值截断到零方向 */
-        int32_t tenths = ((int32_t)v - 128) * 5 / 2;
-        int32_t mag = tenths < 0 ? -tenths : tenths;
-        snprintf(out, n, "%s%d.%ddB", tenths < 0 ? "-" : "", (int)(mag / 10), (int)(mag % 10));
+        /* 上游 dsnd_t 注释：level = 128 + 4 × dB（0.25 dB 一步，-32 .. +31.75）。
+         * 用百分之一 dB 的整数表示，避免二进制定点在 .75 上的截断：v=255 →
+         * +31.75dB；整 0.1 dB 的值只显示一位小数（128 → 0.0dB，152 → +6.0dB），
+         * 其余显示两位（129 → +0.25dB）。正数带 `+`（与 F_BIPCT/F_SEMI 同口径）。 */
+        int32_t hundredths = ((int32_t)v - 128) * 25;
+        int32_t mag = hundredths < 0 ? -hundredths : hundredths;
+        const char *sign = hundredths > 0 ? "+" : hundredths < 0 ? "-" : "";
+        if (mag % 10 == 0) {
+            snprintf(out, n, "%s%d.%ddB", sign, (int)(mag / 100), (int)((mag % 100) / 10));
+        } else {
+            snprintf(out, n, "%s%d.%02ddB", sign, (int)(mag / 100), (int)(mag % 100));
+        }
         return text_len(out, n);
     }
     case SLOOP_DSYN_FLT_MODE: {

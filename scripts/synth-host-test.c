@@ -310,23 +310,67 @@ static void test_dsyn_fields(void)
         check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "set takes the engine lock once");
     }
 
-    /* 文本：索引→ms/Hz、LEVEL dB、FLT_MODE 名；未覆盖的字段留给通用格式化 */
+    /* 文本：索引→ms/Hz、LEVEL dB、FLT_MODE 名；未覆盖的字段留给通用格式化。
+     * Task 9 补齐全部索引字段：DECAY 类用 DECAY_K 反解（下表是**测试侧**独立实现，
+     * 与 sound_tab5.c 的 decay_ms 同公式 `10254/(65536-k)`、钳 5..4000ms），
+     * LEVEL 按上游注释「128 + 4 × dB」精确到 0.25 dB（v=255 → +31.75dB）。 */
     {
         char t[16];
+        uint32_t want_ms[5] = {0};
+        static const uint32_t idx[5] = {0, 32, 64, 96, 127};
+        int mono = 1, same = 1;
+        for (i = 0; i < 5u; i++) {
+            uint32_t d = 65536u - DECAY_K[idx[i] & 127u];
+            uint32_t ms = 10254u / (d == 0u ? 1u : d);
+            if (ms < 5u) ms = 5u;
+            if (ms > 4000u) ms = 4000u;
+            want_ms[i] = ms;
+            if (i > 0u && want_ms[i] <= want_ms[i - 1u]) mono = 0;
+        }
+        check(mono, "text DECAY ms strictly increases with the DECAY_K index");
+        for (i = 0; i < 5u; i++) {
+            char want[16];
+            if (want_ms[i] < 1000u) snprintf(want, sizeof want, "%ums", (unsigned)want_ms[i]);
+            else
+                snprintf(want, sizeof want, "%u.%us", (unsigned)(want_ms[i] / 1000u),
+                         (unsigned)((want_ms[i] % 1000u) / 100u));
+            if (sloop_core_dsyn_text(SLOOP_DSYN_DECAY, (int16_t)idx[i], t, sizeof t) <= 0 ||
+                strcmp(t, want) != 0)
+                same = 0;
+            /* BTIME/NDEC 是同一张表（上游都是 DECAY_K index），文本必须相同 */
+            if (sloop_core_dsyn_text(SLOOP_DSYN_BTIME, (int16_t)idx[i], t, sizeof t) <= 0 ||
+                strcmp(t, want) != 0)
+                same = 0;
+            if (sloop_core_dsyn_text(SLOOP_DSYN_NDEC, (int16_t)idx[i], t, sizeof t) <= 0 ||
+                strcmp(t, want) != 0)
+                same = 0;
+        }
+        check(same, "text DECAY/BTIME/NDEC = 10254/(65536-DECAY_K) ms at 0/32/64/96/127");
         check(sloop_core_dsyn_text(SLOOP_DSYN_FLT_MODE, 5, t, sizeof t) > 0 && strcmp(t, "LP+ALL") == 0,
               "text FLT_MODE 5 = LP+ALL");
         check(sloop_core_dsyn_text(SLOOP_DSYN_FLT_MODE, 4, t, sizeof t) > 0 && strcmp(t, "OFF") == 0,
               "text FLT_MODE 4 = OFF");
         check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 128, t, sizeof t) > 0 && strcmp(t, "0.0dB") == 0,
               "text LEVEL 128 = 0.0dB");
-        check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 152, t, sizeof t) > 0 && strcmp(t, "6.0dB") == 0,
-              "text LEVEL 152 = 6.0dB");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 152, t, sizeof t) > 0 && strcmp(t, "+6.0dB") == 0,
+              "text LEVEL 152 = +6.0dB");
         check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 0, t, sizeof t) > 0 && strcmp(t, "-32.0dB") == 0,
               "text LEVEL 0 = -32.0dB");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 255, t, sizeof t) > 0 &&
+                  strcmp(t, "+31.75dB") == 0,
+              "text LEVEL 255 = +31.75dB (quarter dB steps)");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 129, t, sizeof t) > 0 &&
+                  strcmp(t, "+0.25dB") == 0,
+              "text LEVEL 129 = +0.25dB");
         check(sloop_core_dsyn_text(SLOOP_DSYN_FCUT, 0, t, sizeof t) > 0 && strcmp(t, "30Hz") == 0,
               "text FCUT 0 = 30Hz");
-        check(sloop_core_dsyn_text(SLOOP_DSYN_FCUT, 127, t, sizeof t) > 0 && strcmp(t, "16.0kHz") == 0,
-              "text FCUT 127 = 16.0kHz");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_FCUT, 127, t, sizeof t) > 0 &&
+                  strcmp(t, "16.0kHz") == 0 && CUTOFF_HZ[127] == 16000u,
+              "text FCUT 127 = CUTOFF_HZ[127] = 16.0kHz");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_HPF, 0, t, sizeof t) > 0 && strcmp(t, "30Hz") == 0,
+              "text HPF 0 = CUTOFF_HZ[0] = 30Hz");
+        check(sloop_core_dsyn_text(SLOOP_DSYN_CLAP, 1, t, sizeof t) == 0,
+              "text: CLAP (onoff) defers to the knobs' generic ON/OFF");
         check(sloop_core_dsyn_text(SLOOP_DSYN_DECAY, 0, t, sizeof t) > 0 && strcmp(t, "5ms") == 0,
               "text DECAY 0 = 5ms");
         check(sloop_core_dsyn_text(SLOOP_DSYN_CHIP, 60, t, sizeof t) > 0 && strcmp(t, "C4") == 0,

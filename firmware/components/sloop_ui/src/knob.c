@@ -85,7 +85,11 @@ static void knob_draw(knob_t *k, lv_layer_t *layer)
                    lv_color_hex(k->active ? UI_ACCENT : UI_TEXT_DIM),
                    k->desc.label != NULL ? k->desc.label : "?", false);
     char val[24] = "--";
-    if (!k->locked) knob_format_value(&k->desc, k->value, val, sizeof(val));
+    if (!k->locked) {
+        if (k->text_cb == NULL || k->text_cb(k, k->value, val, sizeof(val)) <= 0) {
+            knob_format_value(&k->desc, k->value, val, sizeof(val));
+        }
+    }
     draw_text_line(layer, &c, KNOB_VAL_Y1, KNOB_VAL_Y2, &lv_font_montserrat_20, text_color, val,
                    true);
 }
