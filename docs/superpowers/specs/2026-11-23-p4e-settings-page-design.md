@@ -169,7 +169,7 @@ LVGL 锁 quiesce，会死锁）：置请求标志，由独立一次性任务（�
 autosave resume 路径恢复工作工程（比脚本口径更强，见 DI-20）→ `AUTO ON`。第二次进入回
 `RESET FIRST`（DI-26 排雷）。**console `ENG SELFTEST` 行为完全不变**（脚本管理、无自动恢复
 ——`device-selftest.py`/`store`/`sequence`/`soak` 的既有门禁与 DI-20 口径不受影响）。
-结果行显示 `SELFTEST 182/182 PASS`（或 FAIL 例名）。
+结果行显示 `SELFTEST <ran-failed>/<ran> PASS|FAIL`（计数来自 core 运行器，不写死全量 182）。
 **D7 golden 确定性 = 运行期归零 + 结束重载**（取）。自检 setup 强制 `fx_lowcut=0/flt_reso=0`
 （golden 基线口径），收尾 reload 按 settings 重放（与 song/DSU 同批）。这是今天不可达、
 P4-E 起可达的正确性修复，不修则 lowcut ON 后 182 例必红。

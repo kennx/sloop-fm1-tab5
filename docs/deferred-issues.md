@@ -114,7 +114,7 @@
 |---|---|
 | **背景** | 机制（代码推导，非现场观测）：`ENG SELFTEST` 跑完会调 `selftest_restore()`，把本 TU 的 `.data/.bss`（`linker.lf` 的 `SURROUND(sloop_selftest_bss)` 窗口）与 DSP 状态**回滚到 init 快照**——自检本义就是「从工厂态重跑 golden」。于是自检结束时：①引擎的实时状态（`trk[].p[]/step[]`、`song.g[]`）= 工厂态；②自动存档的「上次写过的 hash」`s_auto_hash` 在 `.noinit`（ADR-009 §8，正是为了不被 restore 清零），仍是自检前那个用户工程的 hash。两者不同 ⇒ 自检结束后的第一个满足门限的窗口（idle 2.5s + gap 20s + 无发声）会把工厂态 `st_save` 进 `OBJ_AUTOSAVE`，覆盖用户上次的工作工程；下次上电 `autosave_resume` 恢复的就是工厂态。**同一回滚也清掉 FM6 银行的读取钩子**（Task 7 评审 R25）：`eng_fm6.c` 的 `fm6_bank_read` 指针与 `fm6_bank.c` 的 `fm6_bank_cur/used` 都在同一快照窗口内，只有 `fm6_bank_boot()` 会重新安装它们——而它只由 `sloop_store_init`（上电）与 bank 公共入口（`STORE BANK …` / `sloop_store_bank_*`，ADR-009 §8 的入口重扫）调用。故**自检之后、下一次 bank API 调用或重启之前**，PTCH ≥ 8 的轨载入的是 `FM6_INIT`（钩子为 NULL 时的兜底）而不是银行槽里的 patch；bank 对象本身与 flash 字节不受影响，入口重扫后即恢复（`store` 场景 ⑫d 已覆盖）。 |
 | **影响面** | 只有诊断入口 `ENG SELFTEST`（`device-selftest.py` 门禁也会跑它）。正常使用（上电/编辑/播放/切页）不触发。后果有两级：①「跑一次自检 = 用户工作工程被工厂态覆盖」，掉电重启后回到工厂态；②「跑一次自检 = 引用银行槽的音色改为播 init voice」，直到下一次 `STORE BANK …`（或任何 `sloop_store_bank_*` 调用）或重启。**门禁侧已防护**（Task 14 终审）：`device-selftest.py` 在自检前下发 `STORE AUTO OFF` 且**不恢复**，门禁会话的工作工程 autosave 不再被工厂态覆盖（bank 段断言本来就走 bank 入口）；用户手动跑 `ENG SELFTEST` 仍会踩到①的两级静默变化。 |
-| **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」），`device-selftest.py` 也已按 (b) 的变体在自检前关 AUTO 且不恢复。产品侧（用户手动自检）的语义仍待 P4-E 决策。修法牵涉一个产品判断（自检算不算一次会话语义上的「新状态」），与 P4-E 的设置/会话层同批做更合适；现在改会把「诊断命令」与「存储语义」两件事耦在一起。 |
+| **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」），`device-selftest.py` 也已按 (b) 的变体在自检前关 AUTO 且不恢复。P4-E Task 7 的 SYSTEM chip 已走独立 worker（自检后 autosave resume + AUTO ON），产品入口已恢复工作工程；本条目仅剩 **console `ENG SELFTEST`** 的既有诊断语义（按控制器裁决保持不变）。修法仍需区分诊断命令与存储语义，不宜顺带改变脚本门禁口径。 |
 | **解决方向** | 三选一（P4-E 决策时记入 ADR）：(a) `selftest_restore()` 尾部用 restore 后的引擎状态 `proj_capture` 并刷新 `s_auto_hash`（= 自检结果不进 autosave，最省事）；(b) 自检结束时把 `s_auto_on` 置 0 且**不**恢复（用户须显式 `STORE AUTO ON`）；(c) 自检前把 autosave 对象备份到暂存、结束时写回（成本高，不推荐）。优先 (a)，并在 `store.sh` 的 ⑨f' 之后加一条「自检后 `autosave_hash` 不变」的断言；②的修法同批：`selftest_restore()` 之后补一次 `fm6_bank_boot()`（重新安装 `fm6_bank_read` 并扫 used 位），或在 `sloop_core_selftest` 收尾处调 bank 入口的重扫钩子。 |
 | **触发条件** | 用户在设备上跑过 `ENG SELFTEST`（含 `device-selftest.py` 门禁）之后继续使用并掉电重启；或 P4-E 处理「自检/会话」语义时一并解决。 |
 | **参考** | ADR-009 §5（自动存档阈值与启动顺序）、ADR-009 §8（`.bss` 快照窗口与 bank 入口重扫、R24 裁决）、`docs/dev/verify/4-pb-2026-11-21/task-7-mutation-probe.txt`（变异探针：删掉入口重扫后 selftest 之后的写丢同银行其它槽）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
@@ -215,18 +215,6 @@
 | **触发条件** | 用户报告「清不掉某个 TIE 步」；或 Task 12 的 `sequence` 场景在中断复跑时需要稳定的 CLEAR 归一；或任何改动 CLEAR 语义的任务。 |
 | **参考** | `firmware/components/sloop_core/src/seq_tab5.c`（`SEQ_STEP_CLEAR` 分支）、`third_party/sloop-fm1/firmware/src/ui.c`（`step_clear`）、`scripts/inject/inject.py` 的 `run_transport_tools`（归一注释） |
 | **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义）；2026-11-23 Task 12/13：`sequence` 的 ⓪ 归一与 DI-31 用例改用「开一步再清」，最终矩阵绿——CLEAR 语义本身仍未改，条目保留 |
-
-## DI-32: `STORE RAW` 只能写 project 对象，设置对象（PER1/2/3/side）无法从设备注入
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `STORE RAW END <obj> <slot>` 的对象名解析只接受 `project`（`store_tab5.c` 的 raw 上传入口与 `scripts/store_raw.py --obj`）；`OBJ_SETTINGS`（PER1/PER2/PER3 + side）没有注入通道，故 P4-C 的 settings 迁移/损坏路径只有 host 覆盖（`scripts/persist-host-test.c`），设备侧无法上传旧设置 fixture、也无法用损坏设置验证「加载拒绝且原对象不覆盖」。 |
-| **影响面** | 仅门禁覆盖：PER1/2 迁移的设备侧证据缺失；产品路径（`song_set` → 延迟 `st_save3`）不受影响，`STORE SONG`/`STORE TEST` 已覆盖设备写入与 A/B+CRC。 |
-| **为何可延迟** | 迁移逻辑是纯字节函数（`src/song_persist.h`），host 侧真实 `storage.c` + 8KB 假 flash 已逐字节回归；设备侧缺的是「同一函数在真 flash 上跑」的冗余证明。Task 13 收口矩阵不依赖它。 |
-| **解决方向** | 给 `STORE RAW END` 增加 `settings` 对象名（映射 `OBJ_SETTINGS`，走 `st_save3` 的 A/B+CRC 路径），写后按 `song_reload` 语义重载；`scripts/store_raw.py --obj settings`；在 `store` 或 `sequence` 场景加一条「上传 PER2 → `STORE SONG INFO kind=per2` → `SAVE` → `INFO kind=per3`」与一条「上传截断 settings → `SAVE` 回 `invalid` 且 `INFO` 不变」。 |
-| **触发条件** | 需要设备级证明 settings 迁移/损坏路径时；或 P4-E 改动 `OBJ_SETTINGS` 布局（theme/lights/MIDI 尾段）后重跑 song 持久化门禁时。 |
-| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_raw_*`）、`scripts/store_raw.py`、`scripts/persist-host-test.c`、`docs/design/009-storage-backend.md` §6.1 |
-| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 7 报告 §6.2 遗留） |
 
 ## DI-33: warm reset 后 live section 不保留（上游保留 live section 及其 dirty 延迟写语义）
 
