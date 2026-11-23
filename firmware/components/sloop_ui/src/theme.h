@@ -118,21 +118,44 @@ typedef enum {
     UI_SYS_ACT_EDIT = 0,
     UI_SYS_ACT_SAVE,
     UI_SYS_ACT_SELFTEST,
+    UI_SYS_ACT_STOP_FIRST,
+    UI_SYS_ACT_RESET_FIRST,
+    UI_SYS_ACT_NO_STORAGE,
     UI_SYS_ACT_NONE = 0xFF,
 } ui_sys_act_t;
 
-static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act, uint8_t status,
-                                             bool ready)
+static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act,
+                                             const app_state_t *st, bool ready)
 {
+    if (act == UI_SYS_ACT_STOP_FIRST) {
+        snprintf(buf, n, "STOP FIRST");
+        return buf;
+    }
+    if (act == UI_SYS_ACT_RESET_FIRST) {
+        snprintf(buf, n, "RESET FIRST");
+        return buf;
+    }
+    if (act == UI_SYS_ACT_NO_STORAGE) {
+        snprintf(buf, n, "NO STORAGE");
+        return buf;
+    }
     if (act == UI_SYS_ACT_SELFTEST) {
-        snprintf(buf, n, "SELFTEST: N/A");
+        if (!st->selftest_done) {
+            snprintf(buf, n, "SELFTEST RUNNING");
+        } else {
+            uint32_t passed = st->selftest_ran >= st->selftest_failed
+                                  ? st->selftest_ran - st->selftest_failed : 0;
+            snprintf(buf, n, "SELFTEST %u/%u %s", (unsigned)passed,
+                     (unsigned)st->selftest_ran,
+                     st->selftest_ran > 0 && st->selftest_failed == 0 ? "PASS" : "FAIL");
+        }
         return buf;
     }
     if (act == UI_SYS_ACT_NONE) {
         if (n > 0) buf[0] = '\0';
         return buf;
     }
-    switch (status) {
+    switch (st->settings_status) {
     case APP_SETTINGS_OK: snprintf(buf, n, "%s", act == UI_SYS_ACT_SAVE ? "SAVED" : "OK"); break;
     case APP_SETTINGS_INVALID: snprintf(buf, n, "N/A"); break;
     case APP_SETTINGS_BLOCKED: snprintf(buf, n, "%s", ready ? "RESET FIRST" : "NO STORAGE"); break;
@@ -142,11 +165,16 @@ static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act, u
     return buf;
 }
 
-static inline uint32_t ui_sys_status_color(uint8_t act, uint8_t status)
+static inline uint32_t ui_sys_status_color(uint8_t act, const app_state_t *st)
 {
-    if (act == UI_SYS_ACT_SELFTEST) return UI_ACCENT;
-    if (act == UI_SYS_ACT_NONE || status == APP_SETTINGS_IDLE) return UI_TEXT_DIM;
-    if (status == APP_SETTINGS_OK) return ui_track_color(1);
+    if (act == UI_SYS_ACT_SELFTEST) {
+        return st->selftest_done && (st->selftest_ran == 0 || st->selftest_failed != 0)
+                   ? UI_ERROR : UI_ACCENT;
+    }
+    if (act == UI_SYS_ACT_STOP_FIRST || act == UI_SYS_ACT_RESET_FIRST ||
+        act == UI_SYS_ACT_NO_STORAGE) return UI_ERROR;
+    if (act == UI_SYS_ACT_NONE || st->settings_status == APP_SETTINGS_IDLE) return UI_TEXT_DIM;
+    if (st->settings_status == APP_SETTINGS_OK) return ui_track_color(1);
     return UI_ERROR;
 }
 

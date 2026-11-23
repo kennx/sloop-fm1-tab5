@@ -3,7 +3,7 @@
  *
  * 页面区相对坐标：节标题 SCREEN(16) / LIGHTS(150) / AUDIO(230) / SYSTEM(430)；
  * 三区行 (24,y) 420×44，左右 42px 是 -/+；ZOOM/LOWCUT 是 140px chip。
- * SYSTEM 节显示 APP/SLOOP 两行版本与 SELFTEST 占位 chip；状态行 (24,600) 20pt。
+ * SYSTEM 节显示 APP/SLOOP 两行版本与 SELFTEST chip；状态行 (24,600) 20pt。
  *
  * 所有编辑都经 system_action() 发状态层命令，控件回调、TAP 与键盘共用；值一律
  * 从命令后的 AppState 投影回读。COLOR 在 side theme 有效时增加第 6 档：进入 theme
@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "esp_app_desc.h"
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "sloop_store.h"
 #include "theme.h"
@@ -36,6 +37,7 @@
 #define SYS_STATUS_H    40
 #define SYS_VERSION_Y   454
 #define SYS_SELFTEST_Y  510
+#define SYS_SELFTEST_MAGIC 0x534C5458u
 
 #define SYS_COLOR_Y     32
 #define SYS_ZOOM_Y      76
@@ -78,6 +80,8 @@ static lv_style_t s_st_version;
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_focus;
 static uint8_t s_act = UI_SYS_ACT_NONE;
+static uint8_t s_selftest_ran __attribute__((section(".noinit")));
+static uint32_t s_selftest_magic __attribute__((section(".noinit")));
 static char s_status_text[40];
 static char s_status_echo[40];
 static char s_row_cache[SYS_SELFTEST][64];
@@ -161,8 +165,8 @@ static bool chip_row(uint8_t row)
 static void status_record(const app_state_t *st)
 {
     char text[40];
-    ui_sys_status_text(text, sizeof(text), s_act, st->settings_status, sloop_store_ready());
-    uint32_t color = ui_sys_status_color(s_act, st->settings_status);
+    ui_sys_status_text(text, sizeof(text), s_act, st, sloop_store_ready());
+    uint32_t color = ui_sys_status_color(s_act, st);
     portENTER_CRITICAL(&s_mux);
     snprintf(s_status_text, sizeof(s_status_text), "%s", text);
     s_status_color = color;
@@ -223,7 +227,20 @@ static int16_t system_action(uint8_t row, int8_t delta)
     state_get_copy(&st);
 
     if (row == SYS_SELFTEST) {
-        s_act = UI_SYS_ACT_SELFTEST;
+        if (st.core.playing || st.rec.state != SEQ_REC_OFF || st.song.srec != 0) {
+            s_act = UI_SYS_ACT_STOP_FIRST;
+        } else if (s_selftest_magic == SYS_SELFTEST_MAGIC && s_selftest_ran) {
+            s_act = UI_SYS_ACT_RESET_FIRST;
+        } else if (!sloop_store_ready()) {
+            s_act = UI_SYS_ACT_NO_STORAGE;
+        } else {
+            const edit_cmd_t cmd = {.type = CMD_SELFTEST_RUN};
+            state_apply(&cmd);
+            s_selftest_ran = 1;
+            s_selftest_magic = SYS_SELFTEST_MAGIC;
+            s_act = UI_SYS_ACT_SELFTEST;
+            state_get_copy(&st);
+        }
         status_record(&st);
         return 0;
     }
@@ -342,6 +359,13 @@ static lv_obj_t *make_row(lv_obj_t *parent, uint8_t row)
 
 lv_obj_t *page_system_build(lv_obj_t *parent)
 {
+    esp_reset_reason_t reset = esp_reset_reason();
+    if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
+        s_selftest_ran = 0;
+        s_selftest_magic = 0;
+    } else if (s_selftest_magic != SYS_SELFTEST_MAGIC) {
+        s_selftest_ran = 0; /* warm reset 后随机 noinit 字节不能冒充「已跑过」 */
+    }
     styles_init();
     memset(s_rows, 0, sizeof(s_rows));
     memset(s_row_cache, 0, sizeof(s_row_cache));
