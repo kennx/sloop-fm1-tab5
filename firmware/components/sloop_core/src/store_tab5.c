@@ -1643,8 +1643,11 @@ esp_err_t sloop_store_dsu_reload(void)
     int n = st_load(OBJ_SETTINGS, &proj_tmp.raw, sizeof proj_tmp.raw);
     uint32_t len = n > 0 ? (uint32_t)n : 0u;
     engine_lock();
-    bool from_flash =
-        len >= SONG_PER_CANON && dsu_valid((const dsu_bank_t *)(proj_tmp.raw + SONG_DSU_OFF));
+    /* 只接受**真正带 DSU 的**合法 PER3 长度：song_per3_len 还包含 84/88B 的历史对象，
+     * 那两种长度没有 88..1,551 的字节（memcpy 会读到暂存里的残留），故另要求
+     * len ≥ canonical。字节布局与 magic 的判定同源 song_persist.h。 */
+    bool from_flash = len >= SONG_PER_CANON && song_per3_len(len) &&
+                      dsu_valid((const dsu_bank_t *)(proj_tmp.raw + SONG_DSU_OFF));
     if (from_flash) {
         memcpy(&dsu, proj_tmp.raw + SONG_DSU_OFF, sizeof dsu);
         for (uint32_t k = 0; k < DSU_N; k++) dsu_fix_kit(&dsu.k[k]);
