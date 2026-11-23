@@ -287,3 +287,39 @@
 | **触发条件** | SYSTEM 页需要可用的 HEADPHONE 选项时；或人测报告扬声器底噪偏大 / 单声道不可接受时。(c) 在硬件旁做听音时顺手完成，完成后从本条删除。 |
 | **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定）。已封存的证据包（如 `docs/dev/verify/4-pc-2026-11-22/`、`1-bringup-2026-11-19/`）里的 `DI-6` 是历史编号（R18：证据包不可变），即指本条 |
 | **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |
+
+## DI-40: 全量 `ENG SELFTEST` 之后音频重启进入持续超预算态（每块 xrun，复位才恢复）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-E Task 8 阶段收口时在最终固件 `8963fc8` 上重复观察到（5 次：矩阵 3 次 + 探针 2 次）：全量 182 例自检（console 路径）结束后 `ENG AUDIO ON`，console 被饿死 5.6–35s，随后 `ENG PERF` 显示 `xrun == render_blocks`、`render_mean_us ≈ 12.6–13ms`（块预算 5.8ms）、`duty_mean ≈ 220%`，同时 `playing=0`、四轨 `voices=0`；task_wdt 每 5s 报一次 IDLE（CPU 上跑的是 `sloop_audio`）。停流再起流不恢复，数分钟内不自愈，esptool 硬复位后恢复（xrun 0、duty ≈9.5%）。单例自检（`ENG SELFTEST preset/ANALOG/00_808_BOOM`）不触发。P4-D 的同类日志（`4-pd-2026-11-23/task-12-selftest.log`）自检后 ON 为 `xrun=0`。根因未定位。 |
+| **影响面** | SYSTEM 页 SELFTEST chip 的 worker 收尾会停流→自检→起流，用户点完 chip 后音频即处于该态（每块超预算 = 持续欠载），只能靠复位恢复；`device-selftest.py` / `sys` ⑤ 之后脚本都会复位，所以既有门禁没有覆盖到「自检后继续出声」。全量自检另有 DI-26 的 ~40KB 内部堆泄漏（本次实测 69KB → 33KB，已低于 soak 的 60KB 门限），两者是否同源未知。 |
+| **为何可延迟** | 只影响「全量自检之后不复位就继续用」的路径；诊断自检不是产品日常操作，所有脚本在自检后都复位。soak（复位后 1801s）xrun 0。 |
+| **解决方向** | 在自检收尾二分：跑完全量但跳过 restore / 逐个跳过 song/DSU/采样/settings 重载，看哪一步之后 `ENG PERF` 变差；对照 P4-D 固件同一流程确认是否 P4-E 引入（P4-E 新增的是 settings_reload 与 D7 的 lowcut/reso 归零/重放）；同时查 DI-26（内部堆 33KB 是否让某条渲染路径退化）。修复后 `sys` ⑧ 断言补「worker 结束后 `ENG PERF xrun` 增量」。 |
+| **触发条件** | 合并 `feat/phase4e` 到 dev 之前（SYSTEM chip 是本阶段交付面）；或任何人测报告「自检后声音异常」。 |
+| **参考** | `docs/dev/verify/4-pe-2026-11-23/readme.md` §4(2)、`task-8-diag-probe{1,3,4}.py` 与 transcript、`task-8-device-selftest.log`（xrun=680）、`task-8-inject-sys{,-2}.log` ⑤（xrun 415/416）。 |
+| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |
+
+## DI-41: SELFTEST chip 的「每 boot 一次」标记跨 esptool 硬复位存活，`sys` ⑧ 的 worker 全路径没有归档证据
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `page_system.c` 的 `.noinit` ran+magic 只在 `esp_reset_reason()` 为 POWERON/BROWNOUT 时清零；esptool `hard_reset` 之后该标记仍在。实测（`task-8-diag-probe1-transcript.log`）：硬复位后第一次点 chip 即 `RESET FIRST`。`inject.py` 的 `run_sys` ⑧ 只在 SCR 重试时才应当走这个分支，但它不校验 `s.resets`，所以无重试的运行同样以「本 boot 已有自检：SCR 重试不重复跑」PASS，PASS 截图显示的是 `.noinit` 缓存的上一次结果。 |
+| **影响面** | 最终矩阵的两次 `sys`（各 312 PASS）与 Task 7 的归档运行都没有执行 chip worker 的 `RUNNING → 182/182 → AUTO 回 on → LIVEHASH 恢复 → 流恢复` 断言；只有 `task-7-sys-red-120s.log` 证明 chip 能进入 RUNNING。同一供电周期内（USB 不拔）任何脚本都无法让 chip 再跑一次。 |
+| **为何可延迟** | worker 本身与 console 自检共用 `sloop_core_selftest()`；缺口在证据而非已知的功能缺陷。但 DI-40 说明「起流恢复」实际并不健康，两者应一起处理。 |
+| **解决方向** | (a) 取证：物理断电重上电后重跑 `bash scripts/inject/sys.sh`，确认 ⑧ 走 `chip_ran` 分支并保留 stdout；(b) 脚本：`else` 分支要求 `s.resets > 0`，否则 FAIL；(c) 可选：console 增加清标记的诊断命令，免物理断电。 |
+| **触发条件** | 处理 DI-40 时一并做（DI-40 的修复验证需要 chip 真正跑一遍）。 |
+| **参考** | `firmware/components/sloop_ui/src/page_system.c`（`page_system_build` 的冷启动清零、`system_action` 的 `RESET FIRST`）、`scripts/inject/inject.py`（`run_sys` ⑧）。 |
+| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |
+
+## DI-42: settings 为空/损坏/未就绪时默认 palette 疑为 0（GREEN）而非 R13 的 4（MONO）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 代码阅读发现（未在设备复现，开发机始终有 settings 对象）：`settings_tab5.c` 的 `sloop_store_settings_reload()` 在 `!from_flash` 时把 `song_settings_t` 清零，随后只对越界值钳到 4——没有把 palette 置 4 的分支；函数注释与裁决 R13 都写的是「MONO=4」。上游 `settings_init()`（`panel.c:149`）默认是 4。 |
+| **影响面** | 全新/擦除过 `sloopstore` 的设备、settings 对象损坏或存储未就绪时，首次开机 UI 是 GREEN 而不是 Tab5 默认视觉 MONO；用户可在 SYSTEM 页 COLOR 行改。 |
+| **为何可延迟** | 只影响首启配色；P4-E 之前的固件本来就写 palette=0（ADR-009 §6.4「历史 palette 不迁移」）。 |
+| **解决方向** | `if (!from_flash) { memset(&f, 0, sizeof f); f.palette = SLOOP_SETTINGS_PALETTES - 1u; }`，并在 host 测试补「无对象 → palette 4」。 |
+| **触发条件** | 处理 DI-40/DI-41 的固件修复轮顺带修；或工厂/恢复出厂流程落地前。 |
+| **参考** | `firmware/components/sloop_core/src/settings_tab5.c:150-172`、`.superpowers/sdd/2026-11-23-p4e-settings-page/progress.md` Ruling R13。 |
+| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |

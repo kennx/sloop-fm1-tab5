@@ -388,8 +388,18 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   **SYS→STEP** `10,240+23,040=33,280B` ⇒ 账面 49,000。最坏有序对仍是
   SEQ→PRESETS 60,776（余 2,344B），EDIT/SYNTH/SEQ 的 est 均不变；`free ≥ est`、
   构建后池剩余 ≥4,096B 与跨组往返 ≤128B 的门禁不变。设备实测（修复轮）SEQ→SYS
-  **15,392B**、SYS→STEP **23,164B**；主题重建保留 SYSTEM 最近一次动作状态，TAP 回显不会在
-  重建竞态中退化为空串。
+  **15,392B**、SYS→STEP **23,164B**，出处为 Task 6 有序对日志
+  `docs/dev/verify/4-pe-2026-11-23/task-6-sys-transcript.log` 与断言摘要
+  `task-6-sys-stdout.log`；主题重建保留 SYSTEM 最近一次动作状态，TAP 回显不会在重建竞态中
+  退化为空串。阶段收口矩阵（2026-11-24，固件 `8963fc8`，同目录 `task-8-*.log`）：SYSTEM
+  `UI MEM delta` **5,464B** / GROUP build_ms **10ms**，全部场景 transcript 的页面构建增量
+  **5,212–5,504B**、耗时 **7–10ms**；SEQ→SYS **15,396B**、SYS→STEP **23,140B**；最低跨组
+  余量仍是 transport 的 SEQ→PRESETS **8,024B**（song 的 FILE→STEP 8,736B、synth 的
+  SYNTH→STEP 28,428B），均 ≥4,096B。8 个组签各 **122px**（`sys` ② 对
+  第 8 个组签 SYS 的区域 (926,4)–(1048,36) 做高亮色像素抽检）。
+- **ZOOM 大读数条**（Task 5，ui.c 全局单对象、首次使用时懒建）不计页 est，按上限 **768B**
+  计入 zoom ON 的瞬时占用；最坏对账面 `60,776+768=61,544B`，余 **1,576B ≥0**。默认 zoom OFF
+  无此开销，FM6P 的 44B tripwire 与各页 est 不变。
 
 #### 6. 验证入口
 
