@@ -1831,11 +1831,14 @@ esp_err_t sloop_store_section_erase(uint32_t slot)
  * 再走 PER3 歌曲。段的快照在引擎锁内拷进暂存，擦写期间不持引擎锁；拿不到存储锁就
  * 跳过本拍（不与写者排队，也不阻塞 1s 任务）。
  * settings dirty（P4-E Task 2，spec §5 D4）也搭这一次写：字段随 song_write_locked 落进
- * 同一个对象，写成功后由 settings_written_locked 清。 */
+ * 同一个对象，写成功后由 settings_written_locked 清。
+ * 平台设置的 NVS 提交（sloop_hal_settings_flush，P4-E Task 3）搭同一道静默窗口：
+ * 只有 NVS dirty 时也算一次待写，窗口成立后在**不持任何锁**的位置提交（spec §5 D2）。 */
 void sloop_store_sections_tick(uint32_t now_ms)
 {
     if (!sloop_store_ready() || !flash_ok || s_frozen || s_busy) return;
-    if (!s_song.dirty && !s_sec_dirty && !s_set.dirty) return;
+    bool dirty = s_song.dirty || s_sec_dirty || s_set.dirty;
+    if (!dirty && !sloop_hal_settings_nvs_dirty()) return;
     if (now_ms - s_sections_tried_ms < SECTIONS_GAP) return;
     if (now_ms - s_input_ms < SECTIONS_IDLE) return;
     if (!store_trylock()) return;
@@ -1843,7 +1846,8 @@ void sloop_store_sections_tick(uint32_t now_ms)
     bool blocked = song.playing || transport_req || !audio_quiet();
     engine_unlock();
     if (!blocked) {
-        for (uint32_t i = 0; i < SLOOP_STORE_PROJECTS; i++) {
+        /* 只有 NVS dirty 时 dirty=false：下面的段/歌曲写全部跳过，窗口末尾只提交 NVS */
+        for (uint32_t i = 0; dirty && i < SLOOP_STORE_PROJECTS; i++) {
             uint8_t bit = (uint8_t)(1u << i);
             if (!(s_sec_dirty & bit)) continue;
             /* 先清位再快照：捕获若在快照期间发生会重新置位（下一窗口再写新值），
@@ -1863,13 +1867,14 @@ void sloop_store_sections_tick(uint32_t now_ms)
                 ESP_LOGE(TAG, "SECTION %u 延迟写失败 rc=%d（保留 dirty，下个窗口重试）", (unsigned)i, rc);
             }
         }
-        if (s_song.dirty || s_set.dirty) {
+        if (dirty && (s_song.dirty || s_set.dirty)) {
             esp_err_t err = song_write_locked(); /* 门限已在上面判过 */
             if (err != ESP_OK) ESP_LOGE(TAG, "歌曲延迟写失败: %s", esp_err_to_name(err));
         }
         s_sections_tried_ms = now_ms; /* 上游同：尝试过就推进 gap（失败按 5s 窗口重试） */
     }
     store_unlock();
+    if (!blocked) sloop_hal_settings_flush();
 }
 
 /* ------------------------------------------------ 设备 torn-write 套件（P4-B Task 8） --- */

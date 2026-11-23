@@ -5,7 +5,11 @@
  *  - SCR：截屏命令。PC 发 "SCR\n" → 固件回 "SCR 1280 720 rgb565 1843200\n" → 1843200 字节
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
- *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
+ *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端；AUD VOL [0..100] 与
+ *    AUD OUT [speaker|headphone] 是平台设置的音量/输出路由，经 HAL，P4-E Task 3）。
+ *  - DISP：DISP BRIGHT [0..100] 背光亮度（经 HAL：钳位 + 立即生效 + NVS 延迟提交）。
+ *  - KBD：KBD RGB [off|low|mid|high] 键盘 RGB 档位（白色，经 HAL → tab5_keyboard）。
+ *  - SYS：SYS NVS ERASE 删除平台设置三键（诊断；下一次 boot 落默认）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
  *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
@@ -153,6 +157,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <strings.h>
 
@@ -296,10 +301,104 @@ static int kb_command(int argc, char **argv)
     return 0;
 }
 
+/* 平台设置诊断（P4-E Task 3，spec §9）：读写一律经 HAL（钳位 + 副作用立即 + NVS 延迟
+ * 提交），回显 applied= 为钳位后的 RAM 值。数值令牌接受任意整数（越界由 HAL 钳位，
+ * 口径同 PARAM），非整数令牌回 ERR invalid；HAL 调用失败回 ERR error。 */
+static bool parse_u8_clamped(const char *text, uint8_t *value)
+{
+    char *end = NULL;
+    long v = strtol(text, &end, 10);
+    if (end == text || *end != '\0') return false;
+    if (v < 0) v = 0;
+    if (v > UINT8_MAX) v = UINT8_MAX;
+    *value = (uint8_t)v;
+    return true;
+}
+
+static int disp_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "bright") == 0) {
+        printf("DISP BRIGHT applied=%u\n", (unsigned)sloop_hal_settings_bright());
+        return 0;
+    }
+    uint8_t v;
+    if (argc == 3 && strcasecmp(argv[1], "bright") == 0 && parse_u8_clamped(argv[2], &v)) {
+        if (sloop_hal_settings_set_bright(v) == ESP_OK) {
+            printf("DISP BRIGHT applied=%u\n", (unsigned)sloop_hal_settings_bright());
+            return 0;
+        }
+        printf("DISP BRIGHT ERR error\n");
+        return 1;
+    }
+    printf("DISP BRIGHT ERR invalid\n用法: DISP BRIGHT [0..100]\n");
+    return 1;
+}
+
+/* AUD OUT [speaker|headphone]：applied= 以裸 I2C 读回的输出音量寄存器为准——扬声器所在
+ * 通路（LOUT1/ROUT1，见 sys_settings.c）等于开机电平才回 applied，否则报 mismatch。 */
+static int aud_out(int argc, char **argv)
+{
+    if (argc == 3) {
+        esp_err_t ret;
+        if (strcasecmp(argv[2], "speaker") == 0) {
+            ret = sloop_hal_settings_set_output(0);
+        } else if (strcasecmp(argv[2], "headphone") == 0) {
+            ret = sloop_hal_settings_set_output(1);
+        } else {
+            printf("AUD OUT ERR invalid\n");
+            return 1;
+        }
+        if (ret == ESP_ERR_NOT_SUPPORTED) {
+            printf("AUD OUT ERR not_supported\n");
+            return 1;
+        }
+        if (ret != ESP_OK) {
+            printf("AUD OUT ERR error\n");
+            return 1;
+        }
+    } else if (argc != 2) {
+        printf("AUD OUT ERR invalid\n用法: AUD OUT [speaker|headphone]\n");
+        return 1;
+    }
+    uint8_t regs[4];
+    if (sloop_hal_settings_output_regs(regs) != ESP_OK) {
+        printf("AUD OUT ERR readback\n");
+        return 1;
+    }
+    if (regs[0] != SLOOP_HAL_ES8388_OUT_ON || regs[1] != SLOOP_HAL_ES8388_OUT_ON) {
+        printf("AUD OUT ERR mismatch l1=0x%02X r1=0x%02X l2=0x%02X r2=0x%02X\n", regs[0],
+               regs[1], regs[2], regs[3]);
+        return 1;
+    }
+    printf("AUD OUT applied=%s\n", sloop_hal_settings_output() == 0 ? "speaker" : "headphone");
+    return 0;
+}
+
+static int aud_vol(int argc, char **argv)
+{
+    if (argc == 2) {
+        printf("AUD VOL applied=%u\n", (unsigned)sloop_hal_settings_volume());
+        return 0;
+    }
+    uint8_t v;
+    if (argc == 3 && parse_u8_clamped(argv[2], &v)) {
+        if (sloop_hal_settings_set_volume(v) == ESP_OK) {
+            printf("AUD VOL applied=%u\n", (unsigned)sloop_hal_settings_volume());
+            return 0;
+        }
+        printf("AUD VOL ERR error\n");
+        return 1;
+    }
+    printf("AUD VOL ERR invalid\n用法: AUD VOL [0..100]\n");
+    return 1;
+}
+
 /* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 域 20..12000，ms 域 1..60000）；
- * AUD REG dump ES8388 寄存器（排障） */
+ * AUD REG dump ES8388 寄存器（排障）；AUD VOL / AUD OUT 平台设置的音量与输出路由 */
 static int aud_command(int argc, char **argv)
 {
+    if (argc >= 2 && strcasecmp(argv[1], "vol") == 0) return aud_vol(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "out") == 0) return aud_out(argc, argv);
     if (argc == 2 && strcasecmp(argv[1], "reg") == 0) {
         audio_tone_dump_regs();
         return 0;
@@ -349,6 +448,42 @@ static int aud_command(int argc, char **argv)
     }
     printf("AUD TONE 完成\n");
     return 0;
+}
+
+static const char *const k_kbd_rgb_names[4] = {"off", "low", "mid", "high"};
+
+/* KBD RGB [off|low|mid|high]：键盘 RGB 档位（白色 0xFFFFFF；UI 侧传主题 accent） */
+static int kbd_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "rgb") == 0) {
+        printf("KBD RGB applied=%s\n", k_kbd_rgb_names[sloop_hal_keyboard_rgb_level()]);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "rgb") == 0) {
+        for (int level = 0; level < 4; level++) {
+            if (strcasecmp(argv[2], k_kbd_rgb_names[level]) != 0) continue;
+            if (sloop_hal_keyboard_rgb((uint8_t)level, 0xFFFFFFu) != ESP_OK) {
+                printf("KBD RGB ERR error\n");
+                return 1;
+            }
+            printf("KBD RGB applied=%s\n", k_kbd_rgb_names[sloop_hal_keyboard_rgb_level()]);
+            return 0;
+        }
+    }
+    printf("KBD RGB ERR invalid\n用法: KBD RGB [off|low|mid|high]\n");
+    return 1;
+}
+
+/* SYS NVS ERASE：删除平台设置三键（诊断；RAM 值与硬件不变，下一次 boot 落默认） */
+static int sys_command(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[1], "nvs") == 0 && strcasecmp(argv[2], "erase") == 0) {
+        sloop_hal_settings_erase();
+        printf("SYS NVS ERASED\n");
+        return 0;
+    }
+    printf("用法: SYS NVS ERASE\n");
+    return 1;
 }
 
 #define ENG_SMOKE_FRAMES 256u
@@ -3620,16 +3755,53 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* AUD（音频自检） */
+    /* AUD（音频自检；VOL/OUT = 平台设置） */
     const esp_console_cmd_t aud_cmd = {
         .command = "AUD",
-        .help = "音频自检；AUD TONE <20..12000> [ms=1..60000] 播放正弦纯音",
-        .hint = "TONE <hz> [ms]",
+        .help = "音频自检；AUD TONE <20..12000> [ms=1..60000] 播放正弦纯音；AUD VOL [0..100] 音量、"
+                "AUD OUT [speaker|headphone] 输出路由（经 HAL，NVS 延迟提交）",
+        .hint = "TONE <hz> [ms] | VOL [0..100] | OUT [speaker|headphone]",
         .func = &aud_command,
     };
     ret = esp_console_cmd_register(&aud_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 AUD 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t disp_cmd = {
+        .command = "DISP",
+        .help = "背光亮度读写：DISP BRIGHT [0..100]（钳位 10..100，经 HAL，NVS 延迟提交）",
+        .hint = "BRIGHT [0..100]",
+        .func = &disp_command,
+    };
+    ret = esp_console_cmd_register(&disp_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 DISP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t kbd_cmd = {
+        .command = "KBD",
+        .help = "键盘 RGB 档位：KBD RGB [off|low|mid|high]（白色，经 HAL → tab5_keyboard）",
+        .hint = "RGB [off|low|mid|high]",
+        .func = &kbd_command,
+    };
+    ret = esp_console_cmd_register(&kbd_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 KBD 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t sys_cmd = {
+        .command = "SYS",
+        .help = "平台诊断：SYS NVS ERASE 删除平台设置三键（亮度/音量/路由，下一次 boot 落默认）",
+        .hint = "NVS ERASE",
+        .func = &sys_command,
+    };
+    ret = esp_console_cmd_register(&sys_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 SYS 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

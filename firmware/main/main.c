@@ -55,7 +55,14 @@ void app_main(void)
     ESP_LOGI(TAG, "sloop-fm1-tab5 bootstrap (IDF %s)", esp_get_idf_version());
     log_hardware_summary();
 
-    esp_err_t ret = app_display_init();
+    /* 平台设置（NVS：亮度/音量/路由）先于显示与音频初始化——两者在各自 init 里取存值
+     * 应用；失败不阻断启动（RAM 默认值照常生效，只是不持久化）。 */
+    esp_err_t ret = sloop_hal_settings_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "平台设置初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    ret = app_display_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "显示初始化失败: %s", esp_err_to_name(ret));
     }
