@@ -268,9 +268,205 @@ static void test_dsyn_fields(void)
     }
 }
 
+/* P4-D Task 3：FM6 155B patch 的字段描述符与写入口。
+ * 布局 oracle 独立于实现表：算子 21 字段就是 `FP_R1..FP_DET` 在 k*FP_OP 块内的偏移，
+ * 全局 29 项 = `FP_PR1..FP_TRNSP`（126..144，19 项）+ 名字 10 字节（145..154，只读）。
+ * 范围 oracle 用上游 `fm6_max()` 的同一张表（`fm6_sanitize` 的唯一闸门）。 */
+static void test_fm6_fields(void)
+{
+    static const char *const want_op[SLOOP_FM6_OP_FIELDS] = {
+        "R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4", "BP", "LD", "RD",
+        "LC", "RC", "RS", "AMS", "KVS", "OL", "MODE", "FC", "FF", "DET",
+    };
+    static const char *const want_global[SLOOP_FM6_GLOBAL_FIELDS] = {
+        "PR1", "PR2", "PR3", "PR4", "PL1", "PL2", "PL3", "PL4", "ALG", "FB",
+        "OKS", "LFS", "LFD", "LPMD", "LAMD", "LKS", "LFW", "LPMS", "TRNSP",
+        "NAME1", "NAME2", "NAME3", "NAME4", "NAME5",
+        "NAME6", "NAME7", "NAME8", "NAME9", "NAME10",
+    };
+    /* 上游 eng_fm6.c 里的字段编号（独立手抄，防止实现里 op/field 转置） */
+    enum { T_R1 = 0, T_L4 = 7, T_LC = 11, T_OL = 16, T_MODE = 17, T_FC = 18, T_DET = 20 };
+    enum { G_PR1 = 0, G_PL4 = 7, G_ALG = 8, G_FB = 9, G_LKS = 15, G_LFW = 16, G_TRNSP = 18, G_NAME1 = 19 };
+    uint8_t v[FP_SIZE + 1u], back[FP_SIZE + 1u], pk[128];
+    sloop_fm6_patch_snapshot_t snap, locked;
+    sloop_desc_t d;
+    uint32_t op, i;
+    int ok;
+    uint8_t save_req0 = trk[0].eng_req, save_req1 = trk[1].eng_req;
+    int16_t save_e0 = trk[0].p[P_E0], save_e7 = trk[0].p[P_E7];
+    uint8_t save_patch[FP_SIZE + 1u], save_slot = fm6_slot[0];
+
+    check(SLOOP_FM6_PATCH_SIZE == 155u && SLOOP_FM6_OP_FIELDS == 21u && SLOOP_FM6_GLOBAL_FIELDS == 29u,
+          "FM6 sizes: 155B, 6 x 21 op fields, 29 global fields");
+
+    /* 描述符：6 x 21 个算子字段 + 29 个全局字段，顺序即协议 */
+    ok = 1;
+    for (op = 0; op < 6u; op++) {
+        for (i = 0; i < SLOOP_FM6_OP_FIELDS; i++) {
+            if (!sloop_core_fm6_desc(op, i, &d) || strcmp(d.label, want_op[i]) != 0)
+                ok = 0;
+        }
+    }
+    check(ok, "desc: 6 x 21 operator fields in FP_R1..FP_DET order");
+    ok = 1;
+    for (i = 0; i < SLOOP_FM6_GLOBAL_FIELDS; i++) {
+        if (!sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, i, &d) || strcmp(d.label, want_global[i]) != 0)
+            ok = 0;
+    }
+    check(ok, "desc: 29 global fields (19 voice + 10 read-only name bytes)");
+    check(!sloop_core_fm6_desc(7u, 0, &d) && !sloop_core_fm6_desc(0, SLOOP_FM6_OP_FIELDS, &d) &&
+              !sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_GLOBAL_FIELDS, &d) &&
+              !sloop_core_fm6_desc(0, 0, NULL),
+          "desc rejects op 7 / field 21 / global field 29 / NULL");
+
+    /* 范围 = 上游 fm6_max()：LC/RC 3、RS 7、MODE 1、FC 31、DET 14；全局 ALG 31、FB 7、LFW 5、LPMS 7、TRNSP 48 */
+    check(sloop_core_fm6_desc(0, T_DET, &d) && d.min == 0 && d.max == 14 && d.fmt == SLOOP_DESC_FMT_INT &&
+              sloop_core_fm6_desc(0, T_FC, &d) && d.max == 31 &&
+              sloop_core_fm6_desc(0, T_LC, &d) && d.max == 3 &&
+              sloop_core_fm6_desc(0, T_MODE, &d) && d.max == 1 && d.fmt == SLOOP_DESC_FMT_ONOFF,
+          "desc op: DET 14 / FC 31 / LC 3 / MODE onoff");
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_ALG, &d) && d.min == 0 && d.max == 31 &&
+              sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_FB, &d) && d.max == 7 &&
+              sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_LFW, &d) && d.max == 5 &&
+              sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_TRNSP, &d) && d.max == 48 &&
+              sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_PR1, &d) && d.max == 99,
+          "desc global: ALG 31 / FB 7 / LFW 5 / TRNSP 48 / PR1 99");
+    check(sloop_core_fm6_desc(SLOOP_FM6_GLOBAL_OP, G_NAME1, &d) && d.min == 32 && d.max == 126,
+          "desc NAME1: printable 32..126 (read-only)");
+
+    /* 基线：轨 0 换成 FM6、PTCH = 2，patch = 上游 FM6_INIT（packed 128B -> 155B） */
+    memcpy(save_patch, fm6_patch[0], sizeof save_patch);
+    fm6_unpack(FM6_INIT, v);
+    fm6_set_patch(0, v);
+    fm6_slot[0] = 2u;
+    trk[0].eng_req = (uint8_t)ENGI_FM6;
+    trk[0].p[P_E0] = 5;      /* ALG 宏非 PAT：深度写 ALG 必须把它清回 PAT */
+    trk[0].p[P_E7] = 2;
+
+    /* 单字段写 -> 155B 的对应字节（算子块 k*21 + field） */
+    check(sloop_core_fm6_set(0, 0, T_R1, 99) == 99 && sloop_core_fm6_set(0, 0, T_L4, 99) == 99 &&
+              sloop_core_fm6_set(0, 0, T_OL, 99) == 99 && sloop_core_fm6_set(0, 0, T_DET, 14) == 14 &&
+              sloop_core_fm6_set(0, 0, T_FC, 31) == 31,
+          "set op1 R1/L4/OL/DET/FC accepted");
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.engine_ok == 1u && snap.slot == 2u &&
+              snap.patch[0 * FP_OP + T_R1] == 99u && snap.patch[0 * FP_OP + T_L4] == 99u &&
+              snap.patch[0 * FP_OP + T_OL] == 99u && snap.patch[0 * FP_OP + T_DET] == 14u &&
+              snap.patch[0 * FP_OP + T_FC] == 31u && memcmp(snap.patch, fm6_patch[0], 155) == 0,
+          "patch(): op1 bytes at k*FP_OP + field, engine_ok/slot");
+    /* 第 6 个算子（op 5）走同一张表 */
+    check(sloop_core_fm6_set(0, 5, T_R1, 42) == 42 &&
+              sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[5 * FP_OP + T_R1] == 42u &&
+              snap.patch[4 * FP_OP + T_R1] != 42u,
+          "set op6 writes patch[5*FP_OP + R1] only");
+
+    /* 钳位：描述符/fm6_sanitize 同一张 fm6_max() 表 */
+    check(sloop_core_fm6_set(0, 0, T_OL, 200) == 99, "OL=200 clamps to 99");
+    check(sloop_core_fm6_set(0, 0, T_DET, 99) == 14, "DET=99 clamps to 14");
+    check(sloop_core_fm6_set(0, 0, T_MODE, 5) == 1, "MODE=5 clamps to 1");
+    check(sloop_core_fm6_set(0, 0, T_R1, -3) == 0, "R1=-3 clamps to 0");
+
+    /* 全局字段：PL4 在 133、TRNSP 在 144、ALG 在 134 且同时清 ALG 宏 */
+    check(sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_PL4, 99) == 99 &&
+              sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_TRNSP, 99) == 48 &&
+              sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[FP_PL1 + 3] == 99u &&
+              snap.patch[FP_TRNSP] == 48u,
+          "set global PL4 -> patch[133], TRNSP=99 -> 48");
+    check(sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_ALG, 31) == 31 &&
+              sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[FP_ALG] == 31u && trk[0].p[P_E0] == 0,
+          "set global ALG=31 -> patch[FP_ALG], clears P_E0 (PAT)");
+    trk[0].p[P_E0] = 5;   /* 模拟用户把 ALG 宏调回 1..32 */
+    check(sloop_core_fm6_set(0, 0, T_R1, 99) == 99 && trk[0].p[P_E0] == 5,
+          "a non-ALG field leaves P_E0 alone");
+
+    /* 名字 10 字节只读：写被拒、155B 逐字节不变 */
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK, "patch() before name write");
+    check(sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, G_NAME1, 'A') == SLOOP_FM6_INVALID &&
+              sloop_core_fm6_patch(0, &locked) == ESP_OK && memcmp(snap.patch, locked.patch, 155) == 0,
+          "set NAME1 is read-only (sentinel, patch unchanged)");
+
+    /* 纯解码：算子/全局/名字的绝对偏移（名字可解码、不可写） */
+    check(sloop_fm6_field_from_patch(fm6_patch[0], 3u, T_OL) == fm6_patch[0][3 * FP_OP + T_OL] &&
+              sloop_fm6_field_from_patch(fm6_patch[0], SLOOP_FM6_GLOBAL_OP, G_TRNSP) == fm6_patch[0][FP_TRNSP] &&
+              sloop_fm6_field_from_patch(fm6_patch[0], SLOOP_FM6_GLOBAL_OP, G_NAME1) == fm6_patch[0][FP_NAME] &&
+              sloop_fm6_field_from_patch(fm6_patch[0], 7u, 0) == SLOOP_FM6_INVALID &&
+              sloop_fm6_field_from_patch(fm6_patch[0], 0, SLOOP_FM6_OP_FIELDS) == SLOOP_FM6_INVALID &&
+              sloop_fm6_field_from_patch(NULL, 0, 0) == SLOOP_FM6_INVALID,
+          "field_from_patch decodes offsets, rejects op 7 / field 21 / NULL");
+    check(sloop_core_fm6_field(0, 0, T_DET) == 14 && sloop_core_fm6_field(0, SLOOP_FM6_GLOBAL_OP, G_ALG) == 31 &&
+              sloop_core_fm6_field(0, SLOOP_FM6_GLOBAL_OP, G_NAME1) == (int16_t)fm6_patch[0][FP_NAME],
+          "field() reads the live patch (name bytes readable)");
+
+    /* 非 FM6 轨：patch() 报 NOT_ALLOWED、engine_ok=0，写/读都回哨兵且不改 patch */
+    {
+        uint8_t before = fm6_patch[1][T_R1];
+        trk[1].eng_req = 0u;   /* ANALOG */
+        memset(&locked, 0xA5, sizeof locked);
+        check(sloop_core_fm6_patch(1, &locked) == ESP_ERR_NOT_ALLOWED && locked.engine_ok == 0u,
+              "patch() on an ANALOG track: ESP_ERR_NOT_ALLOWED, engine_ok=0");
+        check(sloop_core_fm6_set(1, 0, T_R1, (int16_t)(before == 99u ? 98u : 99u)) == SLOOP_FM6_INVALID &&
+                  sloop_core_fm6_field(1, 0, T_R1) == SLOOP_FM6_INVALID && fm6_patch[1][T_R1] == before,
+              "set/field on an ANALOG track: sentinel, patch unchanged");
+    }
+
+    /* 越界轨（鼓轨在 host 里就是 track >= NPART）与非法 op/field */
+    check(sloop_core_fm6_patch(NPART, &snap) == ESP_ERR_INVALID_ARG && sloop_core_fm6_set(NPART, 0, 0, 1) ==
+              SLOOP_FM6_INVALID && sloop_core_fm6_patch(0, NULL) == ESP_ERR_INVALID_ARG,
+          "rejects track NPART and NULL out");
+    check(sloop_core_fm6_set(0, 7u, 0, 1) == SLOOP_FM6_INVALID &&
+              sloop_core_fm6_set(0, 0, SLOOP_FM6_OP_FIELDS, 1) == SLOOP_FM6_INVALID &&
+              sloop_core_fm6_set(0, SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_GLOBAL_FIELDS, 1) == SLOOP_FM6_INVALID,
+          "rejects op 7 / field 21 / global field 29");
+
+    /* PTCH 语义：写成功后 fm6_slot[track] == p[P_E7]，fm6_poll 不会用槽 patch 覆盖编辑 */
+    trk[0].p[P_E7] = 7;
+    check(sloop_core_fm6_set(0, 0, T_R1, 50) == 50 && fm6_slot[0] == 7u,
+          "a write sets fm6_slot[track] = p[P_E7]");
+    fm6_poll();
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK && snap.patch[T_R1] == 50u,
+          "the edit survives fm6_poll (PTCH slot 7 not reloaded)");
+
+    /* 诊断冻结：读/写都回哨兵、不取锁 */
+    {
+        uint32_t l = engine_lock_calls, u = engine_unlock_calls;
+        s_frozen = true;
+        check(sloop_core_fm6_set(0, 0, T_R1, 3) == SLOOP_FM6_INVALID &&
+                  sloop_core_fm6_field(0, 0, T_R1) == SLOOP_FM6_INVALID &&
+                  sloop_core_fm6_patch(0, &snap) == ESP_ERR_INVALID_STATE,
+              "frozen: set/field/patch refused");
+        s_frozen = false;
+        check(engine_lock_calls == l && engine_unlock_calls == u, "frozen paths take no engine lock");
+    }
+
+    /* 一次动作一次引擎锁 */
+    {
+        uint32_t l = engine_lock_calls, u = engine_unlock_calls;
+        (void)sloop_core_fm6_set(0, 0, T_R1, 60);
+        check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "set takes the engine lock once");
+        l = engine_lock_calls;
+        u = engine_unlock_calls;
+        (void)sloop_core_fm6_patch(0, &snap);
+        check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u, "patch takes the engine lock once");
+    }
+
+    /* 128B packed 往返：fm6_pack -> fm6_unpack 与 patch() 逐字节一致 */
+    check(sloop_core_fm6_patch(0, &snap) == ESP_OK, "patch() before pack round-trip");
+    fm6_pack(snap.patch, pk);
+    fm6_unpack(pk, back);
+    check(memcmp(back, snap.patch, 155) == 0, "fm6_pack/unpack round-trips the edited patch");
+
+    /* 还原现场（其余用例共享同一进程状态） */
+    memcpy(fm6_patch[0], save_patch, sizeof save_patch);
+    fm6_slot[0] = save_slot;
+    trk[0].eng_req = save_req0;
+    trk[0].p[P_E0] = save_e0;
+    trk[0].p[P_E7] = save_e7;
+    trk[1].eng_req = save_req1;
+}
+
 int main(void)
 {
     test_dsyn_fields();
+    test_fm6_fields();
     if (fails) {
         printf("SYNTH HOST TEST FAILED (%d failure%s)\n", fails, fails == 1 ? "" : "s");
         return 1;

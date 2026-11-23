@@ -291,3 +291,120 @@ bool sloop_core_dsyn_dirty(void)
 {
     return dsu_dirty != 0;
 }
+
+/* ---------------------------------------------------------------- FM6 patch ---
+ * P4-D Task 3：上游 `fm6_patch[t]` 的 155B voice 单字段编辑。字段编号与偏移见
+ * sloop_core.h 的 FM6 段；范围取 `fm6_max()`（`fm6_sanitize` 的同一张表），写路径
+ * 与上游 `ED_FM6_PUT` 同序：钳位 → `fm6_set_patch`（sanitize + `fm6_pgen`）→
+ * `fm6_slot = p[P_E7]`，ALG 额外清 ALG 宏（`fm6_sync` 会用它覆盖 patch 的算法）。 */
+_Static_assert(FP_SIZE == 155 && FP_OP == 21 && FP_PR1 == 126 && FP_TRNSP == 144 && FP_NAME == 145,
+               "FM6 patch layout 与公开的 155/21/29 字段编号不一致");
+
+/* 全局块里可编辑的 voice 字段数（`FP_PR1..FP_TRNSP`）；其后的 10 项是名称字节。 */
+#define FM6_GLOBAL_VOICE (SLOOP_FM6_GLOBAL_FIELDS - SLOOP_FM6_NAME_FIELDS)
+
+static const char *const FM6_N_OP[SLOOP_FM6_OP_FIELDS] = {
+    "R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4", "BP", "LD", "RD",
+    "LC", "RC", "RS", "AMS", "KVS", "OL", "MODE", "FC", "FF", "DET",
+};
+static const char *const FM6_N_GLOBAL[SLOOP_FM6_GLOBAL_FIELDS] = {
+    "PR1", "PR2", "PR3", "PR4", "PL1", "PL2", "PL3", "PL4", "ALG", "FB",
+    "OKS", "LFS", "LFD", "LPMD", "LAMD", "LKS", "LFW", "LPMS", "TRNSP",
+    "NAME1", "NAME2", "NAME3", "NAME4", "NAME5",
+    "NAME6", "NAME7", "NAME8", "NAME9", "NAME10",
+};
+
+/* 字段 -> 155B 内的绝对偏移；越界返回 -1。 */
+static int32_t fm6_field_offset(uint32_t op, uint32_t field)
+{
+    if (op < SLOOP_FM6_GLOBAL_OP)
+        return field < SLOOP_FM6_OP_FIELDS ? (int32_t)(op * FP_OP + field) : -1;
+    if (op != SLOOP_FM6_GLOBAL_OP || field >= SLOOP_FM6_GLOBAL_FIELDS)
+        return -1;
+    return field < FM6_GLOBAL_VOICE ? (int32_t)(FP_PR1 + field) : (int32_t)(FP_NAME + field - FM6_GLOBAL_VOICE);
+}
+
+bool sloop_core_fm6_desc(uint32_t op, uint32_t field, sloop_desc_t *out)
+{
+    int32_t off = fm6_field_offset(op, field);
+    if (out == NULL || off < 0)
+        return false;
+    const char *label = op < SLOOP_FM6_GLOBAL_OP ? FM6_N_OP[field] : FM6_N_GLOBAL[field];
+    bool name = op == SLOOP_FM6_GLOBAL_OP && field >= FM6_GLOBAL_VOICE;
+    out->label = label;
+    out->unit = NULL;
+    /* 名称字节是编辑器协议里的可打印 ASCII；其余范围 = fm6_max()（sanitize 表）。 */
+    out->fmt = (uint8_t)(off == FP_MODE || off == FP_OKS || off == FP_LKS ? SLOOP_DESC_FMT_ONOFF
+                                                                          : SLOOP_DESC_FMT_INT);
+    out->min = (int16_t)(name ? 32 : 0);
+    out->max = (int16_t)(name ? 126 : fm6_max((uint32_t)off));
+    out->def = 0;
+    out->enums = NULL;
+    out->enum_count = 0;
+    return true;
+}
+
+esp_err_t sloop_core_fm6_patch(uint32_t track, sloop_fm6_patch_snapshot_t *out)
+{
+    if (track >= NPART || out == NULL)
+        return ESP_ERR_INVALID_ARG;
+    if (s_frozen)
+        return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    memcpy(out->patch, fm6_patch[track], SLOOP_FM6_PATCH_SIZE);
+    out->slot = (uint8_t)trk[track].p[P_E7];
+    out->engine_ok = (uint8_t)(trk[track].eng_req == ENGI_FM6);
+    esp_err_t ret = out->engine_ok ? ESP_OK : ESP_ERR_NOT_ALLOWED;
+    engine_unlock();
+    return ret;
+}
+
+int16_t sloop_core_fm6_field(uint32_t track, uint32_t op, uint32_t field)
+{
+    int32_t off = fm6_field_offset(op, field);
+    if (track >= NPART || off < 0 || s_frozen)
+        return SLOOP_FM6_INVALID;
+    engine_lock();
+    int16_t ret = SLOOP_FM6_INVALID;
+    if (!s_frozen && trk[track].eng_req == ENGI_FM6)
+        ret = (int16_t)fm6_patch[track][off];
+    engine_unlock();
+    return ret;
+}
+
+int16_t sloop_core_fm6_set(uint32_t track, uint32_t op, uint32_t field, int16_t v)
+{
+    int32_t off = fm6_field_offset(op, field);
+    /* 名称字节只读（屏幕不改名，spec §1 非目标） */
+    if (track >= NPART || off < 0 || s_frozen || (op == SLOOP_FM6_GLOBAL_OP && field >= FM6_GLOBAL_VOICE))
+        return SLOOP_FM6_INVALID;
+    engine_lock();
+    int16_t ret = SLOOP_FM6_INVALID;
+    if (!s_frozen && trk[track].eng_req == ENGI_FM6) {
+        uint8_t patch[FP_SIZE + 1u];
+        memcpy(patch, fm6_patch[track], FP_SIZE);
+        patch[off] = (uint8_t)clamp((int32_t)v, 0, (int32_t)fm6_max((uint32_t)off));
+        fm6_set_patch(track, patch);
+        /* 上游 ED_FM6_PUT：这个 patch 现在就是该轨自己的，PTCH 不变则 fm6_poll 不再覆盖 */
+        fm6_slot[track] = (uint8_t)trk[track].p[P_E7];
+        /* ALG 宏（P_E0）≠ PAT 时 fm6_sync 用它覆盖 patch 的算法：写 ALG 同锁清回 PAT */
+        if (off == FP_ALG)
+            trk[track].p[P_E0] = 0;
+        ret = (int16_t)fm6_patch[track][off];
+    }
+    engine_unlock();
+    return ret;
+}
+
+int16_t sloop_fm6_field_from_patch(const uint8_t patch[SLOOP_FM6_PATCH_SIZE], uint32_t op, uint32_t field)
+{
+    int32_t off = fm6_field_offset(op, field);
+    if (patch == NULL || off < 0)
+        return SLOOP_FM6_INVALID;
+    return (int16_t)patch[off];
+}
+
