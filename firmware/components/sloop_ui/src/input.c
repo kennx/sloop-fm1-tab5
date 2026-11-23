@@ -406,9 +406,9 @@ static void dispatch(const key_binding_t *b, bool down)
         break;
     }
     case ACT_FOCUS_STEP:
-        /* FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；参数页：←/→ 在 8 槽间移动
-         * 焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→ 移动工具焦点字段；
-         * SONG 页：←/→ 移动歌曲条目 */
+        /* SYSTEM 页：←/→ 调焦点行的值；FILE 页：←/→ 选槽（PROJECTS 卡 / PRESETS 格）；
+         * 参数页：←/→ 在 8 槽间移动焦点（不再驱动 STEP 焦点列）；TRANSPORT 页：←/→
+         * 移动工具焦点字段；SONG 页：←/→ 移动歌曲条目 */
         if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_file_page_active()) {
@@ -428,9 +428,9 @@ static void dispatch(const key_binding_t *b, bool down)
         }
         break;
     case ACT_FILE_LOAD:
-        /* enter：STEP 页 = 切换聚焦步的选中 drum lane 位；FILE 页 = LOAD 选中槽；
-         * TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；SONG 页 = LOAD 选中 section。
-         * 其它页保持无动作。 */
+        /* enter：SYSTEM 页 = 焦点行 +1/切换；STEP 页 = 切换聚焦步的选中 drum lane 位；
+         * FILE 页 = LOAD 选中槽；TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；
+         * SONG 页 = LOAD 选中 section。其它页保持无动作。 */
         if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_step_page_active()) {
@@ -444,10 +444,11 @@ static void dispatch(const key_binding_t *b, bool down)
         }
         break;
     case ACT_FOCUS_TRACK:
-        /* 参数页：↑/↓ 调整焦点槽的值（up=+1；输入层只写状态层，控件由 UI 定时器刷新）；
-         * STEP 页：焦点环 T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位）；
-         * TRANSPORT 页：↑/↓ 调焦点工具字段（与参数页同一「焦点 + 调值」模型）；
-         * SONG 页：↑/↓ 在 A–D section 卡间移动 */
+        /* SYSTEM 页：↑/↓ 在八个设置行间移动焦点；参数页：↑/↓ 调整焦点槽的值
+         * （up=+1；输入层只写状态层，控件由 UI 定时器刷新）；STEP 页：焦点环
+         * T1,T2,T3,DRM L1..L16（鼓轨上逐 lane，ENTER 切位）；TRANSPORT 页：↑/↓
+         * 调焦点工具字段（与参数页同一「焦点 + 调值」模型）；SONG 页：↑/↓ 在
+         * A–D section 卡间移动 */
         if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_param_page_active()) {

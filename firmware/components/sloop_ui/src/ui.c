@@ -1177,7 +1177,6 @@ esp_err_t sloop_ui_system_key(uint32_t code)
 
 const char *sloop_ui_system_status_text(void)
 {
-    if (!sloop_ui_system_page_active()) return NULL;
     return page_system_status_text();
 }
 

@@ -66,8 +66,6 @@ typedef enum {
 } sys_row_t;
 
 static lv_obj_t *s_rows[SYS_SELFTEST];
-static lv_obj_t *s_caption_zoom;
-static lv_obj_t *s_caption_lowcut;
 static lv_obj_t *s_selftest;
 static lv_obj_t *s_status;
 
@@ -305,10 +303,29 @@ static lv_obj_t *make_label(lv_obj_t *parent, int x, int y, int w, int h,
     return obj;
 }
 
+/* 同一个区域计算供物理点击与 TAP 使用：rel = 指针相对该单对象左缘的 x。 */
+static int8_t row_zone_delta(uint8_t row, int32_t rel)
+{
+    int32_t width = chip_row(row) || row == SYS_SELFTEST ? SYS_CHIP_W : SYS_ROW_W;
+    if (rel < 0 || rel >= width) return 0;
+    if (row == SYS_SELFTEST || chip_row(row)) return 1;
+    if (rel < SYS_ZONE_W) return -1;
+    if (rel >= SYS_ROW_W - SYS_ZONE_W) return 1;
+    return 0; /* 中段是标签 */
+}
+
 static void row_clicked_cb(lv_event_t *e)
 {
+    lv_indev_t *indev = lv_indev_active();
+    if (indev == NULL) return;
+    lv_point_t p;
+    lv_indev_get_point(indev, &p);
+    lv_area_t c;
+    lv_obj_get_coords(lv_event_get_target(e), &c);
     uint8_t row = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
-    (void)system_action(row, 1);
+    int8_t delta = row_zone_delta(row, p.x - c.x1);
+    if (delta == 0) return;
+    (void)system_action(row, delta);
     refresh();
 }
 
@@ -328,8 +345,6 @@ lv_obj_t *page_system_build(lv_obj_t *parent)
     styles_init();
     memset(s_rows, 0, sizeof(s_rows));
     memset(s_row_cache, 0, sizeof(s_row_cache));
-    s_caption_zoom = NULL;
-    s_caption_lowcut = NULL;
     s_selftest = NULL;
     s_status = NULL;
     s_focus_shown = 0xFF;
@@ -350,8 +365,6 @@ lv_obj_t *page_system_build(lv_obj_t *parent)
                                            SYS_CHIP_H, &s_st_row,
                                            row == SYS_ZOOM ? "ZOOM" : "SPK LOWCUT");
             UI_BUILD_CHECK(caption);
-            if (row == SYS_ZOOM) s_caption_zoom = caption;
-            else s_caption_lowcut = caption;
         }
         s_rows[row] = make_row(parent, row);
         UI_BUILD_CHECK(s_rows[row]);
@@ -422,8 +435,6 @@ void page_system_update(const app_state_t *st)
 void page_system_forget(void)
 {
     memset(s_rows, 0, sizeof(s_rows));
-    s_caption_zoom = NULL;
-    s_caption_lowcut = NULL;
     s_selftest = NULL;
     s_status = NULL;
 }
@@ -432,16 +443,8 @@ bool page_system_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     for (uint8_t row = 0; row < SYS_ROW_COUNT; row++) {
         if (y < row_y(row) || y >= row_y(row) + row_h(row)) continue;
-        int8_t delta = 0;
-        if (row == SYS_SELFTEST) {
-            if (x >= SYS_ROW_X && x < SYS_ROW_X + SYS_CHIP_W) delta = 1;
-        } else if (chip_row(row)) {
-            if (x >= SYS_CHIP_X && x < SYS_CHIP_X + SYS_CHIP_W) delta = 1;
-        } else if (x >= SYS_ROW_X && x < SYS_ROW_X + SYS_ZONE_W) {
-            delta = -1;
-        } else if (x >= SYS_ROW_X + SYS_ROW_W - SYS_ZONE_W && x < SYS_ROW_X + SYS_ROW_W) {
-            delta = 1;
-        }
+        int32_t left = row == SYS_SELFTEST ? SYS_ROW_X : chip_row(row) ? SYS_CHIP_X : SYS_ROW_X;
+        int8_t delta = row_zone_delta(row, x - left);
         if (delta == 0) return false;
         int16_t value = system_action(row, delta);
         refresh();
@@ -475,7 +478,6 @@ esp_err_t page_system_key(uint32_t code)
 
 const char *page_system_status_text(void)
 {
-    if (s_status == NULL) return NULL;
     portENTER_CRITICAL(&s_mux);
     snprintf(s_status_echo, sizeof(s_status_echo), "%s", s_status_text);
     portEXIT_CRITICAL(&s_mux);
