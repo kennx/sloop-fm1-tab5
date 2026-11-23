@@ -169,6 +169,7 @@ esp_err_t sloop_store_settings_reload(void)
     s_set.f = f;
     s_set.theme_valid = theme_ok;
     memcpy(s_set.theme_name, theme.name, sizeof s_set.theme_name);
+    s_set.theme = theme;
     s_set.dirty = false;
     settings_apply_locked();
     settings_tail_fill(s_midi_def);

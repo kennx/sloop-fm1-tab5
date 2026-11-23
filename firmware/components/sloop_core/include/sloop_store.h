@@ -425,6 +425,7 @@ typedef struct {
     song_settings_t f;
     bool theme_valid;
     char theme_name[9];
+    song_theme_view_t theme; /* P4-E Task 5 R21：side theme 的 RGB888 生效副本 */
     bool dirty;
 } sloop_settings_t;
 const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未就绪 ⇒ 字段全零、palette=4、theme_valid=false） */
