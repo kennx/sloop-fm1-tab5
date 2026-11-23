@@ -97,6 +97,8 @@ typedef enum {
     /* P4-E Task 4：settings 单字段写与平台设置（spec §7；同样追加在末尾）。返回码映射
      * app_state_t.settings_status。 */
     CMD_SETTINGS_SET, CMD_SYS_BRIGHT, CMD_SYS_VOLUME, CMD_SYS_OUTPUT,
+    /* P4-E Task 7：SYSTEM 页自检请求（只排队，绝不在调用上下文跑自检） */
+    CMD_SELFTEST_RUN,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -342,6 +344,12 @@ typedef struct {
         uint8_t bright, vol, out, nvs_dirty; /* bright 10..100 / vol 0..100 / out 0|1 */
     } sys;
     app_settings_status_t settings_status;   /* 最近一次设置/平台命令的结果 */
+    /* P4-E Task 7：SELFTEST chip 的请求与最近一次结果。req 是深度 1 的邮箱，由
+     * CMD_SELFTEST_RUN 置位、main 的一次性 worker 用 state_take_selftest_request()
+     * 消费；done=0 表示尚无结果或正在运行。ran/failed 是 core 运行器的实际计数，
+     * 不假定全量用例数；ran=0 表示没有可用结果。 */
+    uint8_t selftest_req, selftest_done;
+    uint32_t selftest_ran, selftest_failed;
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -401,5 +409,9 @@ void state_set_focus(uint8_t track, uint8_t step);
  * src/dirty）——TAP 之后的 STATE SNAP/旋钮立即看到新选择，不等下一拍 sync。 */
 void state_set_dsyn_select(uint8_t kit, uint8_t lane);
 void state_set_layer(uint8_t mask);
+
+/* 取走一次 SELFTEST 请求（1 = 有请求，取后清零）；worker 完成后写回实际计数并置 done。 */
+bool state_take_selftest_request(void);
+void state_set_selftest_result(uint32_t ran, uint32_t failed);
 
 #endif

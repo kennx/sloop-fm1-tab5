@@ -2077,6 +2077,42 @@ static void case_rec_config_marks_settings_dirty(void)
     check_ll("再次成功 → dirty_mark +1", g_stub.settings_dirty_mark_calls, 2);
 }
 
+static void case_selftest_run_sets_request(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_get_copy(&s);
+    check_ll("初始无自检请求", s.selftest_req, 0);
+    check_ll("初始无自检结果", s.selftest_done, 0);
+    check_ll("初始 ran=0", s.selftest_ran, 0);
+    check_ll("初始 failed=0", s.selftest_failed, 0);
+
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("CMD_SELFTEST_RUN 置请求", s.selftest_req, 1);
+    check_ll("请求后清上次结果", s.selftest_done, 0);
+    check_ll("请求是状态层动作", s.settings_status, APP_SETTINGS_OK);
+    check_ll("take 取走请求", state_take_selftest_request(), 1);
+    check_ll("请求深度 1：取走后为空", state_take_selftest_request(), 0);
+    state_get_copy(&s);
+    check_ll("take 清投影请求", s.selftest_req, 0);
+
+    state_set_selftest_result(182, 0);
+    state_get_copy(&s);
+    check_ll("结果 done", s.selftest_done, 1);
+    check_ll("结果 ran", s.selftest_ran, 182);
+    check_ll("结果 failed", s.selftest_failed, 0);
+    check_ll("结果状态 OK", s.settings_status, APP_SETTINGS_OK);
+
+    state_set_selftest_result(181, 1);
+    state_get_copy(&s);
+    check_ll("失败结果 ran", s.selftest_ran, 181);
+    check_ll("失败结果 failed", s.selftest_failed, 1);
+    check_ll("失败结果仍 done", s.selftest_done, 1);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -2114,6 +2150,7 @@ int main(void)
     run("SETTINGS_SET 拒绝映射：blocked/invalid/error", case_settings_set_blocked_frozen);
     run("SYS 亮度/音量/输出：钳位/HAL 失败/headphone/投影", case_sys_bright_volume_output);
     run("REC CONFIG 成功置 settings dirty", case_rec_config_marks_settings_dirty);
+    run("SELFTEST_RUN 请求深度 1 与结果投影", case_selftest_run_sets_request);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

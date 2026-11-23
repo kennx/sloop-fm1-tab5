@@ -268,6 +268,25 @@ void state_set_dsyn_select(uint8_t kit, uint8_t lane)
     state_unlock();
 }
 
+bool state_take_selftest_request(void)
+{
+    state_lock();
+    bool pending = s_state.selftest_req != 0;
+    s_state.selftest_req = 0;
+    state_unlock();
+    return pending;
+}
+
+void state_set_selftest_result(uint32_t ran, uint32_t failed)
+{
+    state_lock();
+    s_state.selftest_ran = ran;
+    s_state.selftest_failed = failed;
+    s_state.selftest_done = 1;
+    s_state.settings_status = APP_SETTINGS_OK;
+    state_unlock();
+}
+
 void state_refresh_locked(void)
 {
     /* 调用方持 state_lock：窗口在此期间不会被 CMD_SET_WINDOW 改，故不需要 sync 的

@@ -800,6 +800,13 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SYS_BRIGHT:
     case CMD_SYS_VOLUME:
     case CMD_SYS_OUTPUT: cmd_sys(s, cmd->type, cmd->v); break;
+    case CMD_SELFTEST_RUN:
+        s->selftest_req = 1;
+        s->selftest_done = 0;
+        s->selftest_ran = 0;
+        s->selftest_failed = 0;
+        s->settings_status = APP_SETTINGS_OK;
+        break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，
