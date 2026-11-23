@@ -1,0 +1,809 @@
+  [fw] SCR
+  [fw] I (5993) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (23923) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] SCR
+  [fw] I (42033) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+== inject synth @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-125737.log
+  [PASS] ⓪ STORE AUTO OFF
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⓪ 轨 0 → ANALOG 预置 0
+  [PASS] ⓪ 归一 P_MUTE=0（① 的发声前提）
+  [PASS] ⓪ 擦 USR1
+  [PASS] ⓪ SMP INFO：USR1 空
+  [PASS] ⓪ DSYN kit 0 = 工厂 808
+  [PASS] ⓪ 擦银行槽 0
+  [PASS] ⓪ 擦银行槽 1
+  [PASS] ⓪ 擦银行槽 2
+  [PASS] ① ENG TRACK 轨 0 → SAMPLE
+  [PASS] ① PARAM 63 = 8（SET = USR1）
+  [PASS] 上传 SINE：SMP BEGIN 0
+  [PASS] 上传 SINE：SMP DATA off=512
+  [PASS] 上传 SINE：SMP DATA off=624
+  [PASS] 上传 SINE：SMP DATA off=736
+  [PASS] 上传 SINE：SMP DATA off=848
+  [PASS] 上传 SINE：SMP DATA off=960
+  [PASS] 上传 SINE：SMP DATA off=1072
+  [PASS] 上传 SINE：SMP DATA off=1183
+  [PASS] 上传 SINE：SMP DATA off=1294
+  [PASS] 上传 SINE：SMP DATA off=1405
+  [PASS] 上传 SINE：SMP DATA off=1516
+  [PASS] 上传 SINE：SMP DATA off=1627
+  [PASS] 上传 SINE：SMP DATA off=1738
+  [PASS] 上传 SINE：SMP DATA off=1849
+  [PASS] 上传 SINE：SMP DATA off=1960
+  [PASS] 上传 SINE：SMP DATA off=2071
+  [PASS] 上传 SINE：SMP DATA off=2182
+  [PASS] 上传 SINE：SMP DATA off=2293
+  [PASS] 上传 SINE：SMP DATA off=2404
+  [PASS] 上传 SINE：SMP DATA off=2515
+  [PASS] 上传 SINE：SMP DATA off=2626
+  [PASS] 上传 SINE：SMP DATA off=2737
+  [PASS] 上传 SINE：SMP DATA off=2848
+  [PASS] 上传 SINE：SMP DATA off=2959
+  [PASS] 上传 SINE：SMP DATA off=3070
+  [PASS] 上传 SINE：SMP DATA off=3181
+  [PASS] 上传 SINE：SMP DATA off=3292
+  [PASS] 上传 SINE：SMP DATA off=3403
+  [PASS] 上传 SINE：SMP DATA off=3514
+  [PASS] 上传 SINE：SMP DATA off=3625
+  [PASS] 上传 SINE：SMP DATA off=3736
+  [PASS] 上传 SINE：SMP DATA off=3847
+  [PASS] 上传 SINE：SMP DATA off=3958
+  [PASS] 上传 SINE：SMP DATA off=4069
+  [PASS] 上传 SINE：SMP DATA off=4180
+  [PASS] 上传 SINE：SMP DATA off=4291
+  [PASS] 上传 SINE：SMP DATA off=4402
+  [PASS] 上传 SINE：SMP DATA off=4513
+  [PASS] 上传 SINE：SMP DATA off=4624
+  [PASS] 上传 SINE：SMP DATA off=4735
+  [PASS] 上传 SINE：SMP DATA off=4846
+  [PASS] 上传 SINE：SMP DATA off=4957
+  [PASS] 上传 SINE：SMP DATA off=5068
+  [PASS] 上传 SINE：SMP DATA off=5179
+  [PASS] 上传 SINE：SMP DATA off=5290
+  [PASS] 上传 SINE：SMP DATA off=5401
+  [PASS] 上传 SINE：SMP DATA off=5512
+  [PASS] 上传 SINE：SMP DATA off=5623
+  [PASS] 上传 SINE：SMP DATA off=5734
+  [PASS] 上传 SINE：SMP DATA off=5845
+  [PASS] 上传 SINE：SMP DATA off=5956
+  [PASS] 上传 SINE：SMP DATA off=6067
+  [PASS] 上传 SINE：SMP DATA off=6178
+  [PASS] 上传 SINE：SMP DATA off=6289
+  [PASS] 上传 SINE：SMP DATA off=6400
+  [PASS] 上传 SINE：SMP DATA off=6511
+  [PASS] 上传 SINE：SMP DATA off=6622
+  [PASS] 上传 SINE：SMP DATA off=6733
+  [PASS] 上传 SINE：SMP DATA off=6844
+  [PASS] 上传 SINE：SMP DATA off=6955
+  [PASS] 上传 SINE：SMP DATA off=7066
+  [PASS] 上传 SINE：SMP DATA off=7177
+  [PASS] 上传 SINE：SMP DATA off=7288
+  [PASS] 上传 SINE：SMP DATA off=7399
+  [PASS] 上传 SINE：SMP DATA off=7510
+  [PASS] 上传 SINE：SMP DATA off=7621
+  [PASS] 上传 SINE：SMP DATA off=7732
+  [PASS] 上传 SINE：SMP DATA off=7843
+  [PASS] 上传 SINE：SMP DATA off=7954
+  [PASS] 上传 SINE：SMP DATA off=8065
+  [PASS] 上传 SINE：SMP DATA off=8176
+  [PASS] 上传 SINE：SMP DATA off=8287
+  [PASS] 上传 SINE：SMP DATA off=8398
+  [PASS] 上传 SINE：SMP DATA off=8509
+  [PASS] 上传 SINE：SMP DATA off=8620
+  [PASS] 上传 SINE：SMP DATA off=8731
+  [PASS] 上传 SINE：SMP DATA off=8842
+  [PASS] 上传 SINE：SMP DATA off=8953
+  [PASS] 上传 SINE：SMP DATA off=9064
+  [PASS] 上传 SINE：SMP DATA off=9175
+  [PASS] 上传 SINE：SMP DATA off=9286
+  [PASS] 上传 SINE：SMP DATA off=9397
+  [PASS] 上传 SINE：SMP DATA off=9508
+  [PASS] 上传 SINE：SMP DATA off=9619
+  [PASS] 上传 SINE：SMP DATA off=9730
+  [PASS] 上传 SINE：SMP DATA off=9841
+  [PASS] 上传 SINE：SMP DATA off=9952
+  [PASS] 上传 SINE：SMP DATA off=10063
+  [PASS] 上传 SINE：SMP DATA off=10174
+  [PASS] 上传 SINE：SMP DATA off=10285
+  [PASS] 上传 SINE：SMP DATA off=10396
+  [PASS] 上传 SINE：SMP DATA off=10507
+  [PASS] 上传 SINE：SMP DATA off=10618
+  [PASS] 上传 SINE：SMP DATA off=10729
+  [PASS] 上传 SINE：SMP DATA off=10840
+  [PASS] 上传 SINE：SMP DATA off=10951
+  [PASS] 上传 SINE：SMP DATA off=11062
+  [PASS] 上传 SINE：SMP DATA off=11173
+  [PASS] 上传 SINE：SMP DATA off=11284
+  [PASS] 上传 SINE：SMP DATA off=11395
+  [PASS] 上传 SINE：SMP DATA off=11506
+  [PASS] 上传 SINE：SMP DATA off=11617
+  [PASS] 上传 SINE：SMP DATA off=11728
+  [PASS] 上传 SINE：SMP DATA off=11839
+  [PASS] 上传 SINE：SMP DATA off=11950
+  [PASS] 上传 SINE：SMP DATA off=12061
+  [PASS] 上传 SINE：SMP DATA off=12172
+  [PASS] 上传 SINE：SMP DATA off=12283
+  [PASS] 上传 SINE：SMP DATA off=12394
+  [PASS] 上传 SINE：SMP DATA off=12505
+  [PASS] 上传 SINE：SMP DATA off=12616
+  [PASS] 上传 SINE：SMP DATA off=12727
+  [PASS] 上传 SINE：SMP DATA off=12838
+  [PASS] 上传 SINE：SMP DATA off=12949
+  [PASS] 上传 SINE：SMP DATA off=13060
+  [PASS] 上传 SINE：SMP DATA off=13171
+  [PASS] 上传 SINE：SMP DATA off=13282
+  [PASS] 上传 SINE：SMP DATA off=13393
+  [PASS] 上传 SINE：SMP DATA off=13504
+  [PASS] 上传 SINE：SMP DATA off=13615
+  [PASS] 上传 SINE：SMP DATA off=13726
+  [PASS] 上传 SINE：SMP DATA off=13837
+  [PASS] 上传 SINE：SMP DATA off=13948
+  [PASS] 上传 SINE：SMP DATA off=14059
+  [PASS] 上传 SINE：SMP DATA off=14170
+  [PASS] 上传 SINE：SMP DATA off=14281
+  [PASS] 上传 SINE：SMP DATA off=14392
+  [PASS] 上传 SINE：SMP DATA off=14503
+  [PASS] 上传 SINE：SMP DATA off=14614
+  [PASS] 上传 SINE：SMP DATA off=14725
+  [PASS] 上传 SINE：SMP DATA off=14836
+  [PASS] 上传 SINE：SMP DATA off=14947
+  [PASS] 上传 SINE：SMP DATA off=15058
+  [PASS] 上传 SINE：SMP DATA off=15169
+  [PASS] 上传 SINE：SMP DATA off=15280
+  [PASS] 上传 SINE：SMP DATA off=15391
+  [PASS] 上传 SINE：SMP DATA off=15502
+  [PASS] 上传 SINE：SMP DATA off=15613
+  [PASS] 上传 SINE：SMP DATA off=15724
+  [PASS] 上传 SINE：SMP DATA off=15835
+  [PASS] 上传 SINE：SMP DATA off=15946
+  [PASS] 上传 SINE：SMP DATA off=16057
+  [PASS] 上传 SINE：SMP DATA off=16168
+  [PASS] 上传 SINE：SMP DATA off=16279
+  [PASS] 上传 SINE：SMP DATA off=16390
+  [PASS] 上传 SINE：SMP DATA off=16501
+  [PASS] 上传 SINE：SMP DATA off=16612
+  [PASS] 上传 SINE：SMP DATA off=16723
+  [PASS] 上传 SINE：SMP DATA off=16834
+  [PASS] 上传 SINE：SMP DATA off=16945
+  [PASS] 上传 SINE：SMP DATA off=17056
+  [PASS] 上传 SINE：SMP DATA off=17167
+  [PASS] 上传 SINE：SMP DATA off=17278
+  [PASS] 上传 SINE：SMP DATA off=17389
+  [PASS] 上传 SINE：SMP DATA off=17500
+  [PASS] 上传 SINE：SMP DATA off=17611
+  [PASS] 上传 SINE：SMP DATA off=17722
+  [PASS] 上传 SINE：SMP DATA off=17833
+  [PASS] 上传 SINE：SMP DATA off=17944
+  [PASS] 上传 SINE：SMP DATA off=18055
+  [PASS] 上传 SINE：SMP DATA off=18166
+  [PASS] 上传 SINE：SMP DATA off=18277
+  [PASS] 上传 SINE：SMP DATA off=18388
+  [PASS] 上传 SINE：SMP DATA off=18499
+  [PASS] 上传 SINE：SMP DATA off=18610
+  [PASS] 上传 SINE：SMP DATA off=18721
+  [PASS] 上传 SINE：SMP DATA off=18832
+  [PASS] 上传 SINE：SMP DATA off=18943
+  [PASS] 上传 SINE：SMP DATA off=19054
+  [PASS] 上传 SINE：SMP DATA off=19165
+  [PASS] 上传 SINE：SMP DATA off=19276
+  [PASS] 上传 SINE：SMP DATA off=19387
+  [PASS] 上传 SINE：SMP DATA off=19498
+  [PASS] 上传 SINE：SMP DATA off=19609
+  [PASS] 上传 SINE：SMP DATA off=19720
+  [PASS] 上传 SINE：SMP DATA off=19831
+  [PASS] 上传 SINE：SMP DATA off=19942
+  [PASS] 上传 SINE：SMP DATA off=20053
+  [PASS] 上传 SINE：SMP DATA off=20164
+  [PASS] 上传 SINE：SMP DATA off=20275
+  [PASS] 上传 SINE：SMP DATA off=20386
+  [PASS] 上传 SINE：SMP DATA off=20497
+  [PASS] 上传 SINE：SMP DATA off=20608
+  [PASS] 上传 SINE：SMP DATA off=20719
+  [PASS] 上传 SINE：SMP DATA off=20830
+  [PASS] 上传 SINE：SMP DATA off=20941
+  [PASS] 上传 SINE：SMP DATA off=21052
+  [PASS] 上传 SINE：SMP DATA off=21163
+  [PASS] 上传 SINE：SMP DATA off=21274
+  [PASS] 上传 SINE：SMP DATA off=21385
+  [PASS] 上传 SINE：SMP DATA off=21496
+  [PASS] 上传 SINE：SMP DATA off=21607
+  [PASS] 上传 SINE：SMP DATA off=21718
+  [PASS] 上传 SINE：SMP DATA off=21829
+  [PASS] 上传 SINE：SMP DATA off=21940
+  [PASS] 上传 SINE：SMP DATA off=22051
+  [PASS] 上传 SINE：SMP DATA off=22162
+  [PASS] 上传 SINE：SMP DATA off=22273
+  [PASS] 上传 SINE：SMP DATA off=22384
+  [PASS] 上传 SINE：SMP DATA off=22495
+  [PASS] 上传 SINE：SMP HDR 0
+  [PASS] 上传 SINE：SMP HDR 1
+  [PASS] 上传 SINE：SMP HDR 2
+  [PASS] 上传 SINE：SMP HDR 3
+  [PASS] 上传 SINE：SMP END 0 → ^SMP END slot=0 OK\r?$
+  [PASS] ① SMP INFO：USR1 {'name': 'SINE', 'zones': 1, 'kb': 21}（期望 name=SINE zones=1 kb=21 = 22,050B/1024）
+  [PASS] KEY 0x42 down
+  [PASS] ① 按住 C：轨 0 voices 峰值 1（期望 ≥1 = 采样出声）
+  [PASS] KEY 0x42 up
+  [PASS] ① 松键后轨 0 voices 回 0
+  [PASS] ① SMP ERASE USR1
+  [PASS] ① 擦除后 SMP INFO：USR1 EMPTY
+  [PASS] KEY 0x42 down
+  [PASS] ① 空槽按住 C：轨 0 voices 峰值 0（期望 0 = 静音）
+  [PASS] KEY 0x42 up
+  [PASS] ① SMP BEGIN（不 END）
+  [PASS] ① BEGIN 未 END 后 SMP INFO：USR1 EMPTY（镜像已失效）
+  [PASS] KEY 0x42 down
+  [PASS] ① BEGIN 中断后按住 C：轨 0 voices 峰值 0（期望 0）
+  [PASS] KEY 0x42 up
+  [PASS] ① CRC 负例：SMP BEGIN 0
+  [PASS] ① CRC 负例：SMP DATA off=512
+  [PASS] ① CRC 负例：SMP DATA off=624
+  [PASS] ① CRC 负例：SMP DATA off=736
+  [PASS] ① CRC 负例：SMP DATA off=848
+  [PASS] ① CRC 负例：SMP DATA off=960
+  [PASS] ① CRC 负例：SMP DATA off=1072
+  [PASS] ① CRC 负例：SMP DATA off=1183
+  [PASS] ① CRC 负例：SMP DATA off=1294
+  [PASS] ① CRC 负例：SMP DATA off=1405
+  [PASS] ① CRC 负例：SMP DATA off=1516
+  [PASS] ① CRC 负例：SMP DATA off=1627
+  [PASS] ① CRC 负例：SMP DATA off=1738
+  [PASS] ① CRC 负例：SMP DATA off=1849
+  [PASS] ① CRC 负例：SMP DATA off=1960
+  [PASS] ① CRC 负例：SMP DATA off=2071
+  [PASS] ① CRC 负例：SMP DATA off=2182
+  [PASS] ① CRC 负例：SMP DATA off=2293
+  [PASS] ① CRC 负例：SMP DATA off=2404
+  [PASS] ① CRC 负例：SMP DATA off=2515
+  [PASS] ① CRC 负例：SMP DATA off=2626
+  [PASS] ① CRC 负例：SMP DATA off=2737
+  [PASS] ① CRC 负例：SMP DATA off=2848
+  [PASS] ① CRC 负例：SMP DATA off=2959
+  [PASS] ① CRC 负例：SMP DATA off=3070
+  [PASS] ① CRC 负例：SMP DATA off=3181
+  [PASS] ① CRC 负例：SMP DATA off=3292
+  [PASS] ① CRC 负例：SMP DATA off=3403
+  [PASS] ① CRC 负例：SMP DATA off=3514
+  [PASS] ① CRC 负例：SMP DATA off=3625
+  [PASS] ① CRC 负例：SMP DATA off=3736
+  [PASS] ① CRC 负例：SMP DATA off=3847
+  [PASS] ① CRC 负例：SMP DATA off=3958
+  [PASS] ① CRC 负例：SMP DATA off=4069
+  [PASS] ① CRC 负例：SMP DATA off=4180
+  [PASS] ① CRC 负例：SMP DATA off=4291
+  [PASS] ① CRC 负例：SMP DATA off=4402
+  [PASS] ① CRC 负例：SMP DATA off=4513
+  [PASS] ① CRC 负例：SMP DATA off=4624
+  [PASS] ① CRC 负例：SMP DATA off=4735
+  [PASS] ① CRC 负例：SMP DATA off=4846
+  [PASS] ① CRC 负例：SMP DATA off=4957
+  [PASS] ① CRC 负例：SMP DATA off=5068
+  [PASS] ① CRC 负例：SMP DATA off=5179
+  [PASS] ① CRC 负例：SMP DATA off=5290
+  [PASS] ① CRC 负例：SMP DATA off=5401
+  [PASS] ① CRC 负例：SMP DATA off=5512
+  [PASS] ① CRC 负例：SMP DATA off=5623
+  [PASS] ① CRC 负例：SMP DATA off=5734
+  [PASS] ① CRC 负例：SMP DATA off=5845
+  [PASS] ① CRC 负例：SMP DATA off=5956
+  [PASS] ① CRC 负例：SMP DATA off=6067
+  [PASS] ① CRC 负例：SMP DATA off=6178
+  [PASS] ① CRC 负例：SMP DATA off=6289
+  [PASS] ① CRC 负例：SMP DATA off=6400
+  [PASS] ① CRC 负例：SMP DATA off=6511
+  [PASS] ① CRC 负例：SMP DATA off=6622
+  [PASS] ① CRC 负例：SMP DATA off=6733
+  [PASS] ① CRC 负例：SMP DATA off=6844
+  [PASS] ① CRC 负例：SMP DATA off=6955
+  [PASS] ① CRC 负例：SMP DATA off=7066
+  [PASS] ① CRC 负例：SMP DATA off=7177
+  [PASS] ① CRC 负例：SMP DATA off=7288
+  [PASS] ① CRC 负例：SMP DATA off=7399
+  [PASS] ① CRC 负例：SMP DATA off=7510
+  [PASS] ① CRC 负例：SMP DATA off=7621
+  [PASS] ① CRC 负例：SMP DATA off=7732
+  [PASS] ① CRC 负例：SMP DATA off=7843
+  [PASS] ① CRC 负例：SMP DATA off=7954
+  [PASS] ① CRC 负例：SMP DATA off=8065
+  [PASS] ① CRC 负例：SMP DATA off=8176
+  [PASS] ① CRC 负例：SMP DATA off=8287
+  [PASS] ① CRC 负例：SMP DATA off=8398
+  [PASS] ① CRC 负例：SMP DATA off=8509
+  [PASS] ① CRC 负例：SMP DATA off=8620
+  [PASS] ① CRC 负例：SMP DATA off=8731
+  [PASS] ① CRC 负例：SMP DATA off=8842
+  [PASS] ① CRC 负例：SMP DATA off=8953
+  [PASS] ① CRC 负例：SMP DATA off=9064
+  [PASS] ① CRC 负例：SMP DATA off=9175
+  [PASS] ① CRC 负例：SMP DATA off=9286
+  [PASS] ① CRC 负例：SMP DATA off=9397
+  [PASS] ① CRC 负例：SMP DATA off=9508
+  [PASS] ① CRC 负例：SMP DATA off=9619
+  [PASS] ① CRC 负例：SMP DATA off=9730
+  [PASS] ① CRC 负例：SMP DATA off=9841
+  [PASS] ① CRC 负例：SMP DATA off=9952
+  [PASS] ① CRC 负例：SMP DATA off=10063
+  [PASS] ① CRC 负例：SMP DATA off=10174
+  [PASS] ① CRC 负例：SMP DATA off=10285
+  [PASS] ① CRC 负例：SMP DATA off=10396
+  [PASS] ① CRC 负例：SMP DATA off=10507
+  [PASS] ① CRC 负例：SMP DATA off=10618
+  [PASS] ① CRC 负例：SMP DATA off=10729
+  [PASS] ① CRC 负例：SMP DATA off=10840
+  [PASS] ① CRC 负例：SMP DATA off=10951
+  [PASS] ① CRC 负例：SMP DATA off=11062
+  [PASS] ① CRC 负例：SMP DATA off=11173
+  [PASS] ① CRC 负例：SMP DATA off=11284
+  [PASS] ① CRC 负例：SMP DATA off=11395
+  [PASS] ① CRC 负例：SMP DATA off=11506
+  [PASS] ① CRC 负例：SMP DATA off=11617
+  [PASS] ① CRC 负例：SMP DATA off=11728
+  [PASS] ① CRC 负例：SMP DATA off=11839
+  [PASS] ① CRC 负例：SMP DATA off=11950
+  [PASS] ① CRC 负例：SMP DATA off=12061
+  [PASS] ① CRC 负例：SMP DATA off=12172
+  [PASS] ① CRC 负例：SMP DATA off=12283
+  [PASS] ① CRC 负例：SMP DATA off=12394
+  [PASS] ① CRC 负例：SMP DATA off=12505
+  [PASS] ① CRC 负例：SMP DATA off=12616
+  [PASS] ① CRC 负例：SMP DATA off=12727
+  [PASS] ① CRC 负例：SMP DATA off=12838
+  [PASS] ① CRC 负例：SMP DATA off=12949
+  [PASS] ① CRC 负例：SMP DATA off=13060
+  [PASS] ① CRC 负例：SMP DATA off=13171
+  [PASS] ① CRC 负例：SMP DATA off=13282
+  [PASS] ① CRC 负例：SMP DATA off=13393
+  [PASS] ① CRC 负例：SMP DATA off=13504
+  [PASS] ① CRC 负例：SMP DATA off=13615
+  [PASS] ① CRC 负例：SMP DATA off=13726
+  [PASS] ① CRC 负例：SMP DATA off=13837
+  [PASS] ① CRC 负例：SMP DATA off=13948
+  [PASS] ① CRC 负例：SMP DATA off=14059
+  [PASS] ① CRC 负例：SMP DATA off=14170
+  [PASS] ① CRC 负例：SMP DATA off=14281
+  [PASS] ① CRC 负例：SMP DATA off=14392
+  [PASS] ① CRC 负例：SMP DATA off=14503
+  [PASS] ① CRC 负例：SMP DATA off=14614
+  [PASS] ① CRC 负例：SMP DATA off=14725
+  [PASS] ① CRC 负例：SMP DATA off=14836
+  [PASS] ① CRC 负例：SMP DATA off=14947
+  [PASS] ① CRC 负例：SMP DATA off=15058
+  [PASS] ① CRC 负例：SMP DATA off=15169
+  [PASS] ① CRC 负例：SMP DATA off=15280
+  [PASS] ① CRC 负例：SMP DATA off=15391
+  [PASS] ① CRC 负例：SMP DATA off=15502
+  [PASS] ① CRC 负例：SMP DATA off=15613
+  [PASS] ① CRC 负例：SMP DATA off=15724
+  [PASS] ① CRC 负例：SMP DATA off=15835
+  [PASS] ① CRC 负例：SMP DATA off=15946
+  [PASS] ① CRC 负例：SMP DATA off=16057
+  [PASS] ① CRC 负例：SMP DATA off=16168
+  [PASS] ① CRC 负例：SMP DATA off=16279
+  [PASS] ① CRC 负例：SMP DATA off=16390
+  [PASS] ① CRC 负例：SMP DATA off=16501
+  [PASS] ① CRC 负例：SMP DATA off=16612
+  [PASS] ① CRC 负例：SMP DATA off=16723
+  [PASS] ① CRC 负例：SMP DATA off=16834
+  [PASS] ① CRC 负例：SMP DATA off=16945
+  [PASS] ① CRC 负例：SMP DATA off=17056
+  [PASS] ① CRC 负例：SMP DATA off=17167
+  [PASS] ① CRC 负例：SMP DATA off=17278
+  [PASS] ① CRC 负例：SMP DATA off=17389
+  [PASS] ① CRC 负例：SMP DATA off=17500
+  [PASS] ① CRC 负例：SMP DATA off=17611
+  [PASS] ① CRC 负例：SMP DATA off=17722
+  [PASS] ① CRC 负例：SMP DATA off=17833
+  [PASS] ① CRC 负例：SMP DATA off=17944
+  [PASS] ① CRC 负例：SMP DATA off=18055
+  [PASS] ① CRC 负例：SMP DATA off=18166
+  [PASS] ① CRC 负例：SMP DATA off=18277
+  [PASS] ① CRC 负例：SMP DATA off=18388
+  [PASS] ① CRC 负例：SMP DATA off=18499
+  [PASS] ① CRC 负例：SMP DATA off=18610
+  [PASS] ① CRC 负例：SMP DATA off=18721
+  [PASS] ① CRC 负例：SMP DATA off=18832
+  [PASS] ① CRC 负例：SMP DATA off=18943
+  [PASS] ① CRC 负例：SMP DATA off=19054
+  [PASS] ① CRC 负例：SMP DATA off=19165
+  [PASS] ① CRC 负例：SMP DATA off=19276
+  [PASS] ① CRC 负例：SMP DATA off=19387
+  [PASS] ① CRC 负例：SMP DATA off=19498
+  [PASS] ① CRC 负例：SMP DATA off=19609
+  [PASS] ① CRC 负例：SMP DATA off=19720
+  [PASS] ① CRC 负例：SMP DATA off=19831
+  [PASS] ① CRC 负例：SMP DATA off=19942
+  [PASS] ① CRC 负例：SMP DATA off=20053
+  [PASS] ① CRC 负例：SMP DATA off=20164
+  [PASS] ① CRC 负例：SMP DATA off=20275
+  [PASS] ① CRC 负例：SMP DATA off=20386
+  [PASS] ① CRC 负例：SMP DATA off=20497
+  [PASS] ① CRC 负例：SMP DATA off=20608
+  [PASS] ① CRC 负例：SMP DATA off=20719
+  [PASS] ① CRC 负例：SMP DATA off=20830
+  [PASS] ① CRC 负例：SMP DATA off=20941
+  [PASS] ① CRC 负例：SMP DATA off=21052
+  [PASS] ① CRC 负例：SMP DATA off=21163
+  [PASS] ① CRC 负例：SMP DATA off=21274
+  [PASS] ① CRC 负例：SMP DATA off=21385
+  [PASS] ① CRC 负例：SMP DATA off=21496
+  [PASS] ① CRC 负例：SMP DATA off=21607
+  [PASS] ① CRC 负例：SMP DATA off=21718
+  [PASS] ① CRC 负例：SMP DATA off=21829
+  [PASS] ① CRC 负例：SMP DATA off=21940
+  [PASS] ① CRC 负例：SMP DATA off=22051
+  [PASS] ① CRC 负例：SMP DATA off=22162
+  [PASS] ① CRC 负例：SMP DATA off=22273
+  [PASS] ① CRC 负例：SMP DATA off=22384
+  [PASS] ① CRC 负例：SMP DATA off=22495
+  [PASS] ① CRC 负例：SMP HDR 0
+  [PASS] ① CRC 负例：SMP HDR 1
+  [PASS] ① CRC 负例：SMP HDR 2
+  [PASS] ① CRC 负例：SMP HDR 3
+  [PASS] ① CRC 负例：SMP END 0 → ^SMP ERR crc\r?$
+  [PASS] ① CRC 拒绝后 SMP INFO：USR1 EMPTY（header 未提交）
+  [PASS] ① 走带 UI transport
+  [PASS] ① 走带 TAP PLAY
+  [PASS] ① 走带 playing=1（渲染循环消费走带请求）
+  [PASS] ① 播放中 SMP BEGIN → SMP ERR playing
+  [PASS] ① 播放中 SMP ERASE → SMP ERR playing
+  [PASS] ① 停走带 UI transport
+  [PASS] ① 停走带 TAP STOP
+  [PASS] ① 停走带 playing=0
+  [PASS] 上传 SINE：SMP BEGIN 0
+  [PASS] 上传 SINE：SMP DATA off=512
+  [PASS] 上传 SINE：SMP DATA off=624
+  [PASS] 上传 SINE：SMP DATA off=736
+  [PASS] 上传 SINE：SMP DATA off=848
+  [PASS] 上传 SINE：SMP DATA off=960
+  [PASS] 上传 SINE：SMP DATA off=1072
+  [PASS] 上传 SINE：SMP DATA off=1183
+  [PASS] 上传 SINE：SMP DATA off=1294
+  [PASS] 上传 SINE：SMP DATA off=1405
+  [PASS] 上传 SINE：SMP DATA off=1516
+  [PASS] 上传 SINE：SMP DATA off=1627
+  [PASS] 上传 SINE：SMP DATA off=1738
+  [PASS] 上传 SINE：SMP DATA off=1849
+  [PASS] 上传 SINE：SMP DATA off=1960
+  [PASS] 上传 SINE：SMP DATA off=2071
+  [PASS] 上传 SINE：SMP DATA off=2182
+  [PASS] 上传 SINE：SMP DATA off=2293
+  [PASS] 上传 SINE：SMP DATA off=2404
+  [PASS] 上传 SINE：SMP DATA off=2515
+  [PASS] 上传 SINE：SMP DATA off=2626
+  [PASS] 上传 SINE：SMP DATA off=2737
+  [PASS] 上传 SINE：SMP DATA off=2848
+  [PASS] 上传 SINE：SMP DATA off=2959
+  [PASS] 上传 SINE：SMP DATA off=3070
+  [PASS] 上传 SINE：SMP DATA off=3181
+  [PASS] 上传 SINE：SMP DATA off=3292
+  [PASS] 上传 SINE：SMP DATA off=3403
+  [PASS] 上传 SINE：SMP DATA off=3514
+  [PASS] 上传 SINE：SMP DATA off=3625
+  [PASS] 上传 SINE：SMP DATA off=3736
+  [PASS] 上传 SINE：SMP DATA off=3847
+  [PASS] 上传 SINE：SMP DATA off=3958
+  [PASS] 上传 SINE：SMP DATA off=4069
+  [PASS] 上传 SINE：SMP DATA off=4180
+  [PASS] 上传 SINE：SMP DATA off=4291
+  [PASS] 上传 SINE：SMP DATA off=4402
+  [PASS] 上传 SINE：SMP DATA off=4513
+  [PASS] 上传 SINE：SMP DATA off=4624
+  [PASS] 上传 SINE：SMP DATA off=4735
+  [PASS] 上传 SINE：SMP DATA off=4846
+  [PASS] 上传 SINE：SMP DATA off=4957
+  [PASS] 上传 SINE：SMP DATA off=5068
+  [PASS] 上传 SINE：SMP DATA off=5179
+  [PASS] 上传 SINE：SMP DATA off=5290
+  [PASS] 上传 SINE：SMP DATA off=5401
+  [PASS] 上传 SINE：SMP DATA off=5512
+  [PASS] 上传 SINE：SMP DATA off=5623
+  [PASS] 上传 SINE：SMP DATA off=5734
+  [PASS] 上传 SINE：SMP DATA off=5845
+  [PASS] 上传 SINE：SMP DATA off=5956
+  [PASS] 上传 SINE：SMP DATA off=6067
+  [PASS] 上传 SINE：SMP DATA off=6178
+  [PASS] 上传 SINE：SMP DATA off=6289
+  [PASS] 上传 SINE：SMP DATA off=6400
+  [PASS] 上传 SINE：SMP DATA off=6511
+  [PASS] 上传 SINE：SMP DATA off=6622
+  [PASS] 上传 SINE：SMP DATA off=6733
+  [PASS] 上传 SINE：SMP DATA off=6844
+  [PASS] 上传 SINE：SMP DATA off=6955
+  [PASS] 上传 SINE：SMP DATA off=7066
+  [PASS] 上传 SINE：SMP DATA off=7177
+  [PASS] 上传 SINE：SMP DATA off=7288
+  [PASS] 上传 SINE：SMP DATA off=7399
+  [PASS] 上传 SINE：SMP DATA off=7510
+  [PASS] 上传 SINE：SMP DATA off=7621
+  [PASS] 上传 SINE：SMP DATA off=7732
+  [PASS] 上传 SINE：SMP DATA off=7843
+  [PASS] 上传 SINE：SMP DATA off=7954
+  [PASS] 上传 SINE：SMP DATA off=8065
+  [PASS] 上传 SINE：SMP DATA off=8176
+  [PASS] 上传 SINE：SMP DATA off=8287
+  [PASS] 上传 SINE：SMP DATA off=8398
+  [PASS] 上传 SINE：SMP DATA off=8509
+  [PASS] 上传 SINE：SMP DATA off=8620
+  [PASS] 上传 SINE：SMP DATA off=8731
+  [PASS] 上传 SINE：SMP DATA off=8842
+  [PASS] 上传 SINE：SMP DATA off=8953
+  [PASS] 上传 SINE：SMP DATA off=9064
+  [PASS] 上传 SINE：SMP DATA off=9175
+  [PASS] 上传 SINE：SMP DATA off=9286
+  [PASS] 上传 SINE：SMP DATA off=9397
+  [PASS] 上传 SINE：SMP DATA off=9508
+  [PASS] 上传 SINE：SMP DATA off=9619
+  [PASS] 上传 SINE：SMP DATA off=9730
+  [PASS] 上传 SINE：SMP DATA off=9841
+  [PASS] 上传 SINE：SMP DATA off=9952
+  [PASS] 上传 SINE：SMP DATA off=10063
+  [PASS] 上传 SINE：SMP DATA off=10174
+  [PASS] 上传 SINE：SMP DATA off=10285
+  [PASS] 上传 SINE：SMP DATA off=10396
+  [PASS] 上传 SINE：SMP DATA off=10507
+  [PASS] 上传 SINE：SMP DATA off=10618
+  [PASS] 上传 SINE：SMP DATA off=10729
+  [PASS] 上传 SINE：SMP DATA off=10840
+  [PASS] 上传 SINE：SMP DATA off=10951
+  [PASS] 上传 SINE：SMP DATA off=11062
+  [PASS] 上传 SINE：SMP DATA off=11173
+  [PASS] 上传 SINE：SMP DATA off=11284
+  [PASS] 上传 SINE：SMP DATA off=11395
+  [PASS] 上传 SINE：SMP DATA off=11506
+  [PASS] 上传 SINE：SMP DATA off=11617
+  [PASS] 上传 SINE：SMP DATA off=11728
+  [PASS] 上传 SINE：SMP DATA off=11839
+  [PASS] 上传 SINE：SMP DATA off=11950
+  [PASS] 上传 SINE：SMP DATA off=12061
+  [PASS] 上传 SINE：SMP DATA off=12172
+  [PASS] 上传 SINE：SMP DATA off=12283
+  [PASS] 上传 SINE：SMP DATA off=12394
+  [PASS] 上传 SINE：SMP DATA off=12505
+  [PASS] 上传 SINE：SMP DATA off=12616
+  [PASS] 上传 SINE：SMP DATA off=12727
+  [PASS] 上传 SINE：SMP DATA off=12838
+  [PASS] 上传 SINE：SMP DATA off=12949
+  [PASS] 上传 SINE：SMP DATA off=13060
+  [PASS] 上传 SINE：SMP DATA off=13171
+  [PASS] 上传 SINE：SMP DATA off=13282
+  [PASS] 上传 SINE：SMP DATA off=13393
+  [PASS] 上传 SINE：SMP DATA off=13504
+  [PASS] 上传 SINE：SMP DATA off=13615
+  [PASS] 上传 SINE：SMP DATA off=13726
+  [PASS] 上传 SINE：SMP DATA off=13837
+  [PASS] 上传 SINE：SMP DATA off=13948
+  [PASS] 上传 SINE：SMP DATA off=14059
+  [PASS] 上传 SINE：SMP DATA off=14170
+  [PASS] 上传 SINE：SMP DATA off=14281
+  [PASS] 上传 SINE：SMP DATA off=14392
+  [PASS] 上传 SINE：SMP DATA off=14503
+  [PASS] 上传 SINE：SMP DATA off=14614
+  [PASS] 上传 SINE：SMP DATA off=14725
+  [PASS] 上传 SINE：SMP DATA off=14836
+  [PASS] 上传 SINE：SMP DATA off=14947
+  [PASS] 上传 SINE：SMP DATA off=15058
+  [PASS] 上传 SINE：SMP DATA off=15169
+  [PASS] 上传 SINE：SMP DATA off=15280
+  [PASS] 上传 SINE：SMP DATA off=15391
+  [PASS] 上传 SINE：SMP DATA off=15502
+  [PASS] 上传 SINE：SMP DATA off=15613
+  [PASS] 上传 SINE：SMP DATA off=15724
+  [PASS] 上传 SINE：SMP DATA off=15835
+  [PASS] 上传 SINE：SMP DATA off=15946
+  [PASS] 上传 SINE：SMP DATA off=16057
+  [PASS] 上传 SINE：SMP DATA off=16168
+  [PASS] 上传 SINE：SMP DATA off=16279
+  [PASS] 上传 SINE：SMP DATA off=16390
+  [PASS] 上传 SINE：SMP DATA off=16501
+  [PASS] 上传 SINE：SMP DATA off=16612
+  [PASS] 上传 SINE：SMP DATA off=16723
+  [PASS] 上传 SINE：SMP DATA off=16834
+  [PASS] 上传 SINE：SMP DATA off=16945
+  [PASS] 上传 SINE：SMP DATA off=17056
+  [PASS] 上传 SINE：SMP DATA off=17167
+  [PASS] 上传 SINE：SMP DATA off=17278
+  [PASS] 上传 SINE：SMP DATA off=17389
+  [PASS] 上传 SINE：SMP DATA off=17500
+  [PASS] 上传 SINE：SMP DATA off=17611
+  [PASS] 上传 SINE：SMP DATA off=17722
+  [PASS] 上传 SINE：SMP DATA off=17833
+  [PASS] 上传 SINE：SMP DATA off=17944
+  [PASS] 上传 SINE：SMP DATA off=18055
+  [PASS] 上传 SINE：SMP DATA off=18166
+  [PASS] 上传 SINE：SMP DATA off=18277
+  [PASS] 上传 SINE：SMP DATA off=18388
+  [PASS] 上传 SINE：SMP DATA off=18499
+  [PASS] 上传 SINE：SMP DATA off=18610
+  [PASS] 上传 SINE：SMP DATA off=18721
+  [PASS] 上传 SINE：SMP DATA off=18832
+  [PASS] 上传 SINE：SMP DATA off=18943
+  [PASS] 上传 SINE：SMP DATA off=19054
+  [PASS] 上传 SINE：SMP DATA off=19165
+  [PASS] 上传 SINE：SMP DATA off=19276
+  [PASS] 上传 SINE：SMP DATA off=19387
+  [PASS] 上传 SINE：SMP DATA off=19498
+  [PASS] 上传 SINE：SMP DATA off=19609
+  [PASS] 上传 SINE：SMP DATA off=19720
+  [PASS] 上传 SINE：SMP DATA off=19831
+  [PASS] 上传 SINE：SMP DATA off=19942
+  [PASS] 上传 SINE：SMP DATA off=20053
+  [PASS] 上传 SINE：SMP DATA off=20164
+  [PASS] 上传 SINE：SMP DATA off=20275
+  [PASS] 上传 SINE：SMP DATA off=20386
+  [PASS] 上传 SINE：SMP DATA off=20497
+  [PASS] 上传 SINE：SMP DATA off=20608
+  [PASS] 上传 SINE：SMP DATA off=20719
+  [PASS] 上传 SINE：SMP DATA off=20830
+  [PASS] 上传 SINE：SMP DATA off=20941
+  [PASS] 上传 SINE：SMP DATA off=21052
+  [PASS] 上传 SINE：SMP DATA off=21163
+  [PASS] 上传 SINE：SMP DATA off=21274
+  [PASS] 上传 SINE：SMP DATA off=21385
+  [PASS] 上传 SINE：SMP DATA off=21496
+  [PASS] 上传 SINE：SMP DATA off=21607
+  [PASS] 上传 SINE：SMP DATA off=21718
+  [PASS] 上传 SINE：SMP DATA off=21829
+  [PASS] 上传 SINE：SMP DATA off=21940
+  [PASS] 上传 SINE：SMP DATA off=22051
+  [PASS] 上传 SINE：SMP DATA off=22162
+  [PASS] 上传 SINE：SMP DATA off=22273
+  [PASS] 上传 SINE：SMP DATA off=22384
+  [PASS] 上传 SINE：SMP DATA off=22495
+  [PASS] 上传 SINE：SMP HDR 0
+  [PASS] 上传 SINE：SMP HDR 1
+  [PASS] 上传 SINE：SMP HDR 2
+  [PASS] 上传 SINE：SMP HDR 3
+  [PASS] 上传 SINE：SMP END 0 → ^SMP END slot=0 OK\r?$
+  [PASS] ② WAVE = 2 (TRI)
+  [PASS] ② PITCH = 12
+  [PASS] ② DECAY = 20
+  [PASS] ② LEVEL = 180
+  [PASS] ② DSYN CRUSH 0 = 40
+  [PASS] ② UI DSYN KIT 0
+  [PASS] ② UI DSYN LANE 0
+  [PASS] ② DSYN INFO 字段回读 {'WAVE': 2, 'PITCH': 12, 'DECAY': 20, 'LEVEL': 180}（期望 WAVE=2 PITCH=12 DECAY=20 LEVEL=180）
+  [PASS] ② DSYN INFO crush=40 dirty=1（期望 40 / 1=待落盘）
+  [PASS] ② DSYN AUDITION（试听队列）
+  [PASS] ② DSYN STORE（DSU 写回 PER3）
+  [PASS] ② 编辑后 22B 与工厂 808 不同（判别的前提）
+  [PASS] ② STORE 后 dirty=0（期望 0）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+  [PASS] ② 复位后 STORE AUTO OFF
+  [PASS] ② 硬复位后 DSYN GET 逐字节一致：02000C06122404147C00000F00002C007F00000024B4（期望 02000C06122404147C00000F00002C007F00000024B4）
+  [PASS] ② 硬复位后 crush=40 dirty=0（期望 40 / 0）
+  [PASS] ② 硬复位后 USR1 仍 USED（采样槽从 flash 装载）
+  [PASS] ② ENG AUDIO OFF（自检前置）
+  [PASS] ② 单例 SELFTEST 同源
+  [PASS] ② 单例 SELFTEST PASS
+  [PASS] ② ENG AUDIO ON（恢复流式）
+  [PASS] ② SELFTEST 后 DSYN GET 仍一致（DSU reload）：02000C06122404147C00000F00002C007F00000024B4
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ③ 轨 1 → FM6 预置 0
+  [PASS] ③ FM6P INFO engine_ok=1（期望 1）
+  [PASS] ③ FM6P GET 155B（engine_ok=1）
+  [PASS] ③ SET ALG = 12
+  [PASS] ③ SET OP1 R1 = 20
+  [PASS] ③ SET OP1 OL = 70
+  [PASS] ③ 155B 偏移回读 ALG@134=12 R1@0=20 OL@16=70（期望 12/20/70）
+  [PASS] ③ FM6P INFO alg=12 macro=0（期望 12 / 0）
+  [PASS] ③ PARAM 63 = 5（ALG 宏）
+  [PASS] ③ FM6P ALG 0 = PAT：宏清零、patch 的 ALG 保持 12
+  [PASS] ③ PARAM 63（宏已被清）: PARAM 63 → 0（期望 0）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ③ 非 FM6 轨 FM6P SET → FM6P ERR locked
+  [PASS] ③ 锁定页 SET 被拒后 patch 155B 逐字节不变
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ③ STORE BANK PUT 1
+  [PASS] STORE BANK GET 1: 256 hex 字符（128 字节 packed 记录）
+  [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ③ BANK GET 1 == BANK LIVE（128B packed 逐字节）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.1s）
+  [PASS] ③ 复位后 STORE AUTO OFF
+  [PASS] STORE BANK GET 1: 256 hex 字符（128 字节 packed 记录）
+  [PASS] ③ 硬复位后 BANK GET 1 逐字节保持（14281E3C63500000…）
+  [PASS] ③ 复位后 B1 USED
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ④ 轨 0 → SAMPLE
+  [PASS] ④ SET = USR1
+  [PASS] ④ UI sample
+  [PASS] ④ TAP 槽 U1
+  [PASS] ④ TAP 旋钮 3（焦点移开 SET）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-125737-synth-sample.png  (1280x720 rgb565)
+  [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 子签选中（SAMPLE）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 旋钮 0 名称/数值文本: 区域 (100, 214, 232, 246) 内 (144, 148, 160)±16 像素 359（阈值 ≥30）
+  [PASS] ④ 槽 U1 文本（USED name=SINE，选中色）: 区域 (16, 624, 216, 668) 内 (224, 176, 40)±24 像素 346（阈值 ≥30）
+  [PASS] ④ 状态行（SET U1 = 轨 1 绿）: 区域 (972, 624, 1264, 668) 内 (56, 160, 72)±24 像素 204（阈值 ≥30）
+  [PASS] ④ UI MEM SAMPLE state=built delta=4508 est=6144（0<delta≤est）
+  [PASS] ④ UI dsyn
+  [PASS] ④ UI DSYN PAGE 2（SND3）
+  [PASS] ④ DSYN SET FCUT = 100
+  [PASS] ④ TAP DSYN 旋钮 2（FCUT）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-125737-synth-dsyn.png  (1280x720 rgb565)
+  [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 子签选中（DSYN）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ kit chip SYN1（选中）: (36,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 字段页 SND3（选中 chip 底）: (694,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 旋钮 0 名称/数值文本: 区域 (100, 214, 232, 246) 内 (144, 148, 160)±16 像素 134（阈值 ≥30）
+  [PASS] ④ DSYN 底部 + → 写后回读 101 + EDIT OK
+  [PASS] ④ DSYN 底部 − → 写后回读 100
+  [PASS] ④ UI MEM DSYN state=built delta=6452 est=7168（0<delta≤est）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ④ 轨 1 → FM6（解锁 FM6P 页）
+  [PASS] ④ UI fm6p
+  [PASS] ④ UI FM6P OP 2（OP3）
+  [PASS] ④ UI FM6P PAGE 4（VOICE）
+  [PASS] ④ FM6P ALG = 4（环顶探针前提 + 宏清零）
+  [PASS] ④ TAP FM6P 旋钮 0（ALG）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-125737-synth-fm6p.png  (1280x720 rgb565)
+  [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 子签选中（FM6P）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ OP3 chip（选中）: (156,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ VOICE chip（选中）: (672,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ④ VOICE 空槽 4（行 1 列 0）无旋钮: (166,454) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 12）
+  [PASS] ④ VOICE 空槽 5（行 1 列 1）无旋钮: (482,454) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 12）
+  [PASS] ④ VOICE 空槽 6（行 1 列 2）无旋钮: (798,454) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 12）
+  [PASS] ④ VOICE 空槽 7（行 1 列 3）无旋钮: (1114,454) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 12）
+  [PASS] ④ FM6P 底部 + → 写后回读
+  [PASS] ④ FM6P 底部 −（回原位）
+  [PASS] ④ STATE SNAP fm6p_engine_ok=1 = 1
+  [PASS] ④ 回 SAMPLE（同组重建兄弟页）
+  [PASS] ④ 回 DSYN（SYNTH 三页全建）
+  [PASS] ④ UI MEM FM6P state=built delta=7068 est=7168（0<delta≤est）
+  [PASS] ④ UI MEM SYNTH built=3 sum_est=20480（期望 3 / 20,480）
+  [PASS] ④ UI MEM SYNTH sum_delta=17824（0 < Σdelta ≤ Σest）
+  [PASS] ④ UI MEM SYNTH build_ms=11ms（0 < x ≤100）
+  [PASS] ⑤ SYNTH → STEP（跨组销毁 SYNTH）
+  [PASS] ⑤ SYNTH 全建 → STEP 首建后 pool_free=28800B（期望 ≥4,096B）
+  [PASS] ⑤ 离开 SYNTH 后 built=0（期望 0）
+  [PASS] ⑤ 池往返起点 PLAY
+  [PASS] ⑤ 10 次 SYNTH/FILE/SONG/SEQ 往返后 pool_free 47092 → 47028（Δ=-64B，允许 |Δ| ≤ 128B）
+  [PASS] ⑤ 单次往返最大池下降 92B ≤ 128B（无逐次增长）
+  [PASS] ⑥ 擦 USR1
+  [PASS] ⑥ DSYN kit 0 回工厂 808
+  [PASS] ⑥ DSYN STORE（dirty=0）
+  [PASS] ⑥ 擦银行槽 0
+  [PASS] ⑥ 擦银行槽 1
+  [PASS] ⑥ 擦银行槽 2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑥ 轨 1 → ANALOG（复位引擎/预置）
+  [PASS] ⑥ 轨 1 PARAM 63 = 0（ALG 宏/PAT）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑥ 轨 0 → ANALOG
+  [PASS] ⑥ P_MUTE 还原 0
+  [PASS] ⑥ PARAM 63 = 0
+  [PASS] ⑥ 回 PLAY
+  [PASS] ⑥ STORE AUTO ON（恢复默认）
+  [PASS] ⑥ ENG SNAP 轨 0 engine=0（无 FM6 泄漏）
+  [PASS] ⑥ ENG SNAP 轨 1 engine=0（无 FM6 泄漏）
+[PASS] synth: 全部断言与像素抽检通过
+EXIT=0
