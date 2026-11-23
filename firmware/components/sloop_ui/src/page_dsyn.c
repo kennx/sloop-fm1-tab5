@@ -251,6 +251,13 @@ uint8_t sloop_ui_dsyn_page_get(void)
     return page_get();
 }
 
+void sloop_ui_dsyn_clear_action(void)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_act = 0xFF;
+    portEXIT_CRITICAL(&s_mux);
+}
+
 void sloop_ui_dsyn_page_set(uint8_t page)
 {
     if (page >= DSYN_PAGES) return;

@@ -7,9 +7,11 @@
  * chip 共用），不新增 app page；kit/lane 是状态层保存的 UI 局部态
  * （`state_set_dsyn_select`），芯片/`UI DSYN KIT/LANE` 共用。
  *
- * 值路径：读 `app_state_t.dsyn`（22B 的纯解码 `sloop_dsyn_field_from_sound` 或
- * kit 级 crush/src），写一条状态层命令（`CMD_DSYN_SET` / `CMD_DSYN_LOAD_KIT` /
- * `CMD_DSYN_AUDITION` / `CMD_DSYN_STORE`），成功即用命令同拍刷新的投影重绘本页。
+ * 值路径：读 `app_state_t.dsyn`（22B 的纯解码 `sloop_dsyn_field_from_sound`；kit 级
+ * crush/src 直取投影），写一条状态层命令：24 个声音字段 = `CMD_DSYN_SET`；KIT 页
+ * `CRUSH`（kit 级 0..255）= `CMD_DSYN_CRUSH`；KIT SRC 的值变化 = `CMD_DSYN_LOAD_KIT`
+ * （套用工厂 kit、覆盖该 kit）；另有 `CMD_DSYN_AUDITION` / `CMD_DSYN_STORE`。成功即用
+ * 命令同拍刷新的投影重绘本页。
  * 格式化只走 `sloop_core_dsyn_text`（ms/Hz/dB/音名），UI 不引入上游表。
  *
  * 线程：build/update/tap/forget 由 ui.c 在 LVGL 锁内调用；`sloop_ui_dsyn_*` 键盘

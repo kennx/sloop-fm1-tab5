@@ -1186,12 +1186,14 @@ static int ui_command(int argc, char **argv)
                     return 1;
                 }
                 state_set_dsyn_select((uint8_t)v, lane);
+                sloop_ui_dsyn_clear_action(); /* 与页面 chip 同语义（P4-D 评审 M6） */
             } else if (strcasecmp(argv[2], "lane") == 0) {
                 if (!eng_uint(argv[3], SLOOP_DSYN_LANES - 1u, &v)) {
                     printf("UI ERR dsyn\n");
                     return 1;
                 }
                 state_set_dsyn_select(kit, (uint8_t)v);
+                sloop_ui_dsyn_clear_action(); /* 与页面 chip 同语义（P4-D 评审 M6） */
             } else if (strcasecmp(argv[2], "page") == 0) {
                 if (!eng_uint(argv[3], SLOOP_UI_DSYN_PAGES - 1u, &v)) {
                     printf("UI ERR dsyn\n");

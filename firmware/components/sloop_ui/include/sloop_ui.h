@@ -409,6 +409,9 @@ void sloop_ui_dsyn_focus_move(int8_t delta); /* ←/→：±1 槽（跳过空槽
 void sloop_ui_dsyn_adjust(int8_t delta);     /* ↑/↓：焦点槽 ±1 原始单位 */
 uint8_t sloop_ui_dsyn_page_get(void);
 void sloop_ui_dsyn_page_set(uint8_t page);   /* 0=SND1 1=SND2 2=SND3 3=KIT；越界忽略 */
+/* 清掉「最近一次动作」的结果（状态行下一拍回到 DIRTY/空）。console `UI DSYN KIT/LANE`
+ * 与页面 chip 同语义：换 kit/lane 是上下文切换，不继续显示旧 lane 的 EDIT OK。 */
+void sloop_ui_dsyn_clear_action(void);
 const char *sloop_ui_dsyn_status_text(void);
 const char *sloop_ui_dsyn_field_name(uint8_t code);
 
