@@ -133,8 +133,8 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | 页 | 实测 delta（首次构建，`UI MEM`） | est_bytes | 余量 | 说明 |
 |---|---|---|---|---|
 | SAMPLE | **4,360–4,508 B**（`UI MEM` delta，跨快照 min–max；`页面构建` 池增量 4,148–4,508） | 6,144 B | +36.3%–40.9% | 6 旋钮 + 槽管理行（`U1..U4`+`ERASE`+状态行）。**est 是 spec §4.4 的固定上限**：实测只用到 71–73%，预留不回收（收 est 会改 SYNTH Σ 与有序对，spec 锁定） |
-| DSYN | **6,344–6,452 B**（`UI MEM` delta，跨快照 min–max；构建日志 6,172–6,452；Task 9 首测 6,436 在区间内） | 7,168 B | +11.1%–13.0% | 22 对象（§8.7）；初版 26 对象 7,724B 超 est 556B → 压缩 |
-| FM6P | **6,980–7,092 B**（`UI MEM` delta；构建日志 6,832–7,092；Task 10 首测 6,892–7,124） | 7,168 B | +1.1%–2.7% | 24 对象（§8.8）；余量薄（≤188B），加控件前先减对象 |
+| DSYN | **6,344–6,452 B**（`UI MEM` delta，跨快照 min–max；构建日志 6,100–6,452，最小值为 soak 预热；Task 9 首测 6,436 在区间内） | 7,168 B | +11.1%–13.0% | 22 对象（§8.7）；初版 26 对象 7,724B 超 est 556B → 压缩 |
+| FM6P | **6,980–7,124 B**（`UI MEM` delta；构建日志 6,832–7,124；Task 10 fix 的 7,124B 为最大值） | 7,168 B | +0.6%–2.7% | 24 对象（§8.8）；余量最薄 **44B**（7,168−7,124），**刻意保留为 tripwire**：加控件前先减对象 |
 | **SYNTH 组 Σ** | **17,696–17,936 B**（`UI MEM sum_delta` 的 `built=3` 读数；与逐页区间不同源，不相加） | **20,480 B** | — | 组内三页共驻留（同组切页只改显隐）；`build_ms` 12–13ms；跨组峰值见 ADR-005 §5.1（SYNTH→STEP 实测 `pool_free 11,244B`） |
 
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
@@ -505,7 +505,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 
 - 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
   行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
-  6,344–6,452B）、FM6P 7,168B（Task 10 首测 6,892–7,124B，P4-D 最终矩阵 6,980–7,092B））；P4-B 起按组核算：P4-D Task 8 起
+  6,344–6,452B）、FM6P 7,168B（Task 10 首测 → Task 11/12 归档 6,980–7,124B））；P4-B 起按组核算：P4-D Task 8 起
   SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
   全建后 `pool_free` 实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
@@ -668,8 +668,10 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   中段按 `TAP miss`。
 - **键盘**：←/→ 焦点（跳过当前页空槽、环绕）、↑/↓ 调焦点槽 ±1（锁定页空操作）；输入
   任务上下文只写状态层（`render=false`，控件由 30ms 定时器刷新）。chip 只经触摸/console。
-- **预算（est 7,168B 固定）**：24 个对象实测 **6,980–7,092B**（Task 10 首测 6,892–7,124B；≤ est；区间取决于构建
-  时的池历史）。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），
+- **预算（est 7,168B 固定）**：24 个对象实测 **6,980–7,124B**（Task 10 fix 7,124B 为最大；≤ est；区间取决于
+  构建时的池历史）。**最薄余量 44B 是刻意保留的 tripwire**：不改 est（改到 7,680 会让
+  SYNTH Σ 21,088、SYNTH→STEP 账面 59,752B，仍在 60,776B 最坏有序对之内，但没有必要），
+  任何新增控件都必须先减对象或走一次预算评审。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），
   ADR-005 §5 的组不变量不变。设备证据见任务 10 报告与 `docs/dev/verify/4-pd-2026-11-23/`。
 - **验证入口**：设备 `UI FM6P OP/PAGE` + `TAP`（六页 × 8 槽的字段名/写后回读、锁定页
   `NOT FM6`、ALG 宏提示、BANK SAVE→`STORE BANK GET` 往返）+ 键盘 ←/→/↑ + `UI MEM` +

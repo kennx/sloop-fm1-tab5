@@ -349,9 +349,11 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - 组 est：EDIT `3×3,584 + 6,144 = 16,896`（FM6 的 bank 行不变）/ SYNTH
   `SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**`（SAMPLE 因槽管理行 3,072→6,144；
   DSYN/FM6P 按 spec §4.4 的计划上限落位）。
-- **实测（P4-D Task 11/12 归档的九条场景 transcript，nav/params/song/sequence/synth 覆盖三页；每页取跨快照 min–max）**：
+- **实测（P4-D Task 9–12 归档：设备首建/重建 transcript + soak 预热；每页取跨快照 min–max）**：
   SAMPLE **4,360–4,508B**（`UI MEM` delta；`页面构建` 池增量 4,148–4,508）、DSYN
-  **6,344–6,452B**（构建日志 6,172–6,452）、FM6P **6,980–7,092B**（构建日志 6,832–7,092）；
+  **6,344–6,452B**（构建日志 6,100–6,452）、FM6P **6,980–7,124B**（构建日志 6,832–7,124）；
+  范围 = Task 9–12 的设备首建/重建 + soak 预热（含 Task 10 fix 的 FM6P 7,124B；
+  `UI MEM` delta 与 `页面构建` 是两种口径，逐页都不能超过 est）。
   三页 est 6,144/7,168/7,168 均 ≥ 对应上沿。SYNTH `sum_delta` 单独取 `built=3` 那一拍：
   **17,696–17,936B**（`sum_est` 20,480），`build_ms` 12–13ms（≤100ms）。**三页 delta 来自
   不同快照，区间不相加**（逐页门禁才是 `delta ≤ est`，合计口径只有同一拍的 `sum_delta`）。

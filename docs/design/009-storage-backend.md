@@ -292,8 +292,11 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
 - 新增 `.noinit` 状态：`s_song`（5B）、`s_sections_tried_ms`、`s_input_ms`、`s_song_refused`、
   `s_sec_dirty`（4 位 section 待写）
   ——本 TU 的 `.bss` 在 `ENG SELFTEST` 的快照窗口里，dirty/时间戳留在 `.bss` 会被一次自检
-  清掉。PER3 的 payload 组装复用 `proj_tmp`（4,096B PSRAM，与 preset/import/RAW 同一块，
-  全程持存储锁），不新增常驻缓冲。
+  清掉。PER3 的 payload 组装复用 `proj_tmp`（4,096B PSRAM，与 preset/import 同一块，
+  全程持存储锁），不新增常驻缓冲。**RAW 上传自 P4-D 评审 I1 起改用独立 4,096B
+  PSRAM（`s_raw_stage`）**：settings/DSU/song 的 `st_load` 与 1s tick 不再能覆盖上传
+  暂存，`BEGIN → 自检/歌曲 tick → END` 提交的是原始字节；console 的「其它 STORE
+  子命令先 abort」保留为会话约定。
 
 #### 6.2 live sections A–D 的延迟写（P4-C Task 8）
 

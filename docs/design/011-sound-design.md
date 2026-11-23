@@ -78,7 +78,7 @@ FLT_MODE FLT_RES FCUT FENV HPF CHIP DRIVE LEVEL
 - **任何** settings 保存都写回：显式 `STORE SONG SAVE`、sections/歌曲的 1s 延迟写、
   `DSYN STORE`。因此 `dirty=0` 的含义是「RAM 与最近一次成功写盘一致」，不区分是谁触发。
 - **DSYN-only 修改不触发 1s 延迟写**（上游也不；`DSYN` 页的 `STORE` 是主路径，歌曲/段落
-  保存是顺带路径）。这条已写入 deferred（DI-35）作为产品语义待定项。
+  保存是顺带路径）。这条已写入 deferred（DI-38）作为产品语义待定项。
 - `song_per_saved(ok,payload,len)` 只在写成功**且**刚提交的字节就是当前 RAM（擦写窗口内
   无新编辑）时清 `dsu_dirty`；失败保留 dirty、下次重试。
 - 开机 `sloop_store_init` 在工程 fetch/歌曲之后、`READY` 置位之前
@@ -144,14 +144,14 @@ SAVE」纪律处理，并只测停止态上传。为减小停止态的干扰，�
 
 ### 8. 实测容量（P4-D Task 11/12 归档证据）
 
-LVGL 池 64KB（`CONFIG_LV_MEM_SIZE=65536`）、可用 63,120B。任务结束时实测（每页取跨快照
+LVGL 池 64KB（`CONFIG_LV_MEM_SIZE=65536`）、可用 63,120B。任务结束时实测（Task 9–12 归档 + soak 预热；每页取跨快照
 min–max，**不同快照的 delta 不相加**）：
 
 | 项 | 实测 | est | 结论 |
 |---|---|---|---|
 | SAMPLE `UI MEM` delta | 4,360–4,508B | 6,144 | 用到 71–73%；est 是 spec §4.4 固定上限（预留不回收） |
-| DSYN `UI MEM` delta | 6,344–6,452B | 7,168 | 余 716–824B |
-| FM6P `UI MEM` delta | 6,980–7,092B | 7,168 | 余 76–188B（最薄，加控件前先减对象） |
+| DSYN `UI MEM` delta | 6,344–6,452B（构建 6,100–6,452，最小值来自 soak 预热） | 7,168 | 余 716–824B |
+| FM6P `UI MEM` delta | 6,980–7,124B（构建 6,832–7,124） | 7,168 | 余 44–188B（最薄 44B 是刻意 tripwire，加控件前先减对象） |
 | SYNTH `sum_delta`（`built=3` 同拍） | 17,696–17,936B | 20,480 | 同组三页共驻留 |
 | SYNTH→STEP 过渡 `pool_free` | **11,244B**（`synth` ⑤；STEP 池增量 22,188B、耗时 31ms，复跑 27ms） | ≥4,096 | 过渡后稳态 28,800B |
 | FILE→STEP 过渡 `pool_free` | **8,924B**（`song` ⑩；STEP 池增量 21,640B） | ≥4,096 | 最终矩阵的最低跨组余量（`nav` 的 FM6P→STEP 为 10,400B） |
@@ -167,7 +167,7 @@ ADR-005 §5.1、ADR-008 §3 的表一致；后续改页面必须重跑同一门�
   槽）可与 Tab5 互通的方向保留。
 - 走带中拒绝上传是唯一的显式行为差异，已记录并可被 `SMP ERR playing` 断言。
 - 遗留（见 `docs/deferred-issues.md`）：SAMPLE 名称/DSYN kit 名/FM6 patch 名的屏上文本
-  输入（DI-37）、采样 WAV/SD 导入 UI（DI-34）、DSYN-only 修改的延迟写策略（DI-35）、
+  输入（DI-37）、采样 WAV/SD 导入 UI（DI-34）、DSYN-only 修改的延迟写策略（DI-38）、
   FM6 live patch 掉电语义（DI-36）、自检堆泄漏（DI-26，P4-F 前处理）。
 - 人耳听感（DSYN 试听、采样出声、FM6 patch 音色）与物理触摸手感仍是外部门禁，不由机器
   证据冒充。
