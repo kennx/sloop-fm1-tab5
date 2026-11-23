@@ -1,21 +1,22 @@
   [fw] SCR
-  [fw] I (30539) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (30359) sloop_store: 歌曲已保存 len=1552 来源=1
+  [fw] I (30379) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (48079) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (47379) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (68379) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (67789) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (86259) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (85699) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (110579) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (109639) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (129399) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (127959) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (146959) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (145539) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (164699) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (163189) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
 == inject store @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942.log
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
   设备已重启，console 就绪（4.2s）
   [PASS] ⓪ ENG AUDIO streaming=1（归一：走带请求靠渲染循环消费）
@@ -91,19 +92,19 @@
   [PASS] ② BPM=100
   [PASS] ② STATE SNAP bpm=100
   [PASS] ② LIVEHASH h0
-  [PASS] ② h0=E32764FC 非零（捕获有效）
+  [PASS] ② h0=174DAF93 非零（捕获有效）
   [PASS] ② SAVE 0
   [PASS] ② 上次 SAVE 的 xrun 增量 0 ≤16
-  [PASS] ② 上次 SAVE 耗时 64ms ∈ (0,150]（spec §5）
+  [PASS] ② 上次 SAVE 耗时 68ms ∈ (0,150]（spec §5）
   [PASS] ② HASH 0（RAM 槽）
-  [PASS] ② HASH 0 == h0=E32764FC
+  [PASS] ② HASH 0 == h0=174DAF93
   [PASS] ③ BPM=120
   [PASS] ③ STATE SNAP bpm=120
   [PASS] ③ LIVEHASH h1
-  [PASS] ③ h1=94494E00 != h0=E32764FC
+  [PASS] ③ h1=38DF221F != h0=174DAF93
   [PASS] ④ LOAD 0
   [PASS] ④ LIVEHASH==h0
-  [PASS] ④ LIVEHASH 回到 h0=E32764FC
+  [PASS] ④ LIVEHASH 回到 h0=174DAF93
   [PASS] ④ STATE SNAP bpm=100（保存时的值）
   [PASS] ⑤ ERASE 0
   [PASS] ⑤ LIST PROJ 0 EMPTY
@@ -113,23 +114,23 @@
   [PASS] ⑤ LIVEHASH 不变
   [PASS] ⑤ LIVEHASH 仍为 h0（擦除不动引擎）
   [PASS] ⑥ SAVE 0
-  [PASS] ⑥ 再保存 hash h2=E32764FC == h0=E32764FC
+  [PASS] ⑥ 再保存 hash h2=174DAF93 == h0=174DAF93
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
   [PASS] ⑦ init 之前发 STORE PROJ LOAD 0 → STORE ERR no_storage（第 1 次，窗口内）
   [PASS] ⑦ 复位后 STORE STATS ready=1
   [PASS] ⑦ 复位后 STORE AUTO OFF
   [PASS] ⑦ LIST PROJ 0 USED
   [PASS] ⑦ HASH 0（RAM 槽开机 fetch）
-  [PASS] ⑦ HASH 0 == h2=E32764FC
+  [PASS] ⑦ HASH 0 == h2=174DAF93
   [PASS] ⑦ LOAD 0
   [PASS] ⑦ LIVEHASH==h2
-  [PASS] ⑦ LIVEHASH 恢复 h2=E32764FC
+  [PASS] ⑦ LIVEHASH 恢复 h2=174DAF93
   [PASS] ⑦ STATE SNAP bpm=100（工程内的值）
   [PASS] ⑧ ENG AUDIO OFF
   [PASS] ⑧ 单例 selftest PASS
   [PASS] ⑧ ENG AUDIO ON
   [PASS] ⑧ selftest 后 HASH 0（RAM 槽）
-  [PASS] ⑧ HASH 0 == h2=E32764FC（自检 restore 未回滚存储指针与 RAM 槽）
+  [PASS] ⑧ HASH 0 == h2=174DAF93（自检 restore 未回滚存储指针与 RAM 槽）
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 0
   [PASS] STATE SNAP selected_track=0 = 0
@@ -289,7 +290,7 @@
   [PASS] ⑪a 空闲后写一次（含 boot 的 20s gap：autosave_ms 从 0 起）：11.5s 后 autosave_writes=1
   [PASS] ⑪a 首次写不早于 idle 2.5s（实测 11.5s；本次距 boot 不足 20s，上游从 0 起算的 boot gap 也参与——⑪e 单独量纯 idle）
   [PASS] ⑪a LIVEHASH
-  [PASS] ⑪a autosave_hash=4F964866 == LIVEHASH=4F964866
+  [PASS] ⑪a autosave_hash=50FF0B56 == LIVEHASH=50FF0B56
   [PASS] BPM 100 → 110
   [PASS] STATE SNAP bpm=110（改值生效）
   [PASS] ⑪c 改值后 4s 不写（若忽略 gap，idle 一到 2.5s+一拍就会写）（4.0s 后 autosave_writes=1，期望仍 1）
@@ -318,7 +319,7 @@
   [PASS] BPM 110 → 120
   [PASS] STATE SNAP bpm=120（改值生效）
   [PASS] ⑪d 播放中的 LIVEHASH
-  [PASS] ⑪d 前提：autosave_hash=269465FC != 当前 LIVEHASH=9610F6C7（hash 门不成立 ⇒ 只剩 playing 门）
+  [PASS] ⑪d 前提：autosave_hash=3945318C != 当前 LIVEHASH=7B1E65BB（hash 门不成立 ⇒ 只剩 playing 门）
   [PASS] ⑪d 播放中改 BPM 后 10s 不写（hash 已不同、idle/gap 满足，只有 playing 能拦）（10.0s 后 autosave_writes=2，期望仍 2）
   [PASS] ⑪d 窗口前前提：播放中无发声 voices=[0, 0, 0, 0]（0 ⇒ audio_quiet 恒成立，只有 song.playing 能拦）
   [PASS] ⑪d 播放中再 3s 不写（3.0s 后 autosave_writes=2，期望仍 2）
@@ -358,7 +359,7 @@
   [PASS] ⑪f AUTO ON 后立即写一次（开关在拦，不是 gap）：1.3s 后 autosave_writes=4
   [PASS] ⑪f 开闸即写（实测 1.3s ≤ 5s：idle/gap 早已满足，写的是 OFF 期间改的现状）
   [PASS] ⑪f 写入后的 LIVEHASH
-  [PASS] ⑪f autosave_hash=CBED18AE == LIVEHASH=CBED18AE（写的就是现状 bpm=140）
+  [PASS] ⑪f autosave_hash=C31AED8E == LIVEHASH=C31AED8E（写的就是现状 bpm=140）
   [PASS] 轨 0 绝对步 5 有音（n=1 note=60,0,0,0）
   [PASS] ⑪ 步表未被本段改动（(1, '60,0,0,0', 100, 0) == (1, '60,0,0,0', 100, 0)）
   [PASS] ⑪g 复位前 bpm=140 == 140
@@ -366,13 +367,13 @@
   设备已重启，console 就绪（4.2s）
   [PASS] ⑪g 复位后 STORE STATS ready=1
   [PASS] ⑪g 本次开机 autosave_writes=0（0 = 还没写）
-  [PASS] ⑪g resume 记住的 autosave_hash=CBED18AE == 复位前的 CBED18AE
+  [PASS] ⑪g resume 记住的 autosave_hash=C31AED8E == 复位前的 C31AED8E
   [PASS] ⑪g 复位后 LIVEHASH
-  [PASS] ⑪g 复位后 LIVEHASH=CBED18AE == CBED18AE（工作工程回来了）
+  [PASS] ⑪g 复位后 LIVEHASH=C31AED8E == C31AED8E（工作工程回来了）
   [PASS] ⑪g STATE SNAP bpm=140（工程内的值）
   [PASS] ⑪g ENG STEP 0 5 复位后 (1, '60,0,0,0', 100, 0) == 复位前 (1, '60,0,0,0', 100, 0)
   [PASS] ⑪h boot gap 过后 autosave_writes=0（0 = resume 的 hash 让第一拍跳过）
-  [PASS] ⑪h autosave_hash 仍为 CBED18AE
+  [PASS] ⑪h autosave_hash 仍为 C31AED8E
   [PASS] ⑫ STORE AUTO OFF（本段免自动存档干扰）
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 1
@@ -487,10 +488,10 @@
   [PASS] ⑬d STATE SNAP playing=0 = 0
   [PASS] ⑬d 停止后 STORE TEST PASS 6/6（播放中的拒绝早于取锁/快照，套件仍可跑）
   [PASS] ⑬d 收口 LIST 槽 3 EMPTY
-  [NOTE] ⑭ fixtures → /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/fixtures-20261124-012205（62 项/格式）
+  [NOTE] ⑭ fixtures → /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/fixtures-20261124-044942（62 项/格式）
   [PASS] ⑭ STORE AUTO OFF（本段不写 autosave）
   [PASS] ⑭ 归一 ERASE 3（空槽：上游 EMPTY SECTION，未写 flash）
-  [PASS] ⑭ PROJ LIST 列出 4 槽（{0: 'USED hash=E32764FC', 1: 'EMPTY', 2: 'EMPTY', 3: 'EMPTY'}）
+  [PASS] ⑭ PROJ LIST 列出 4 槽（{0: 'USED hash=174DAF93', 1: 'EMPTY', 2: 'EMPTY', 3: 'EMPTY'}）
   [PASS] ⑭a BEGIN 4097（> 3,840）→ STORE ERR size
   [PASS] ⑭a BEGIN 3841（= ST_PAYLOAD_MAX + 1）→ 当场 size，不等到 END 的 save
   [PASS] ⑭a BEGIN 3840（= ST_PAYLOAD_MAX）接受
@@ -734,7 +735,7 @@
   [PASS] ⑭c FIELDS 3 也回 STORE ERR invalid（st_load 成功但 proj_import 拒绝）
   [PASS] ⑭c 槽号越界 LOAD 9 → invalid
   [PASS] ⑭d 收口 ERASE 3（空槽：上游 EMPTY SECTION，未写 flash）
-  [PASS] ⑭d 槽 0–2 未被触碰（{0: 'USED hash=E32764FC', 1: 'EMPTY', 2: 'EMPTY'} vs {0: 'USED hash=E32764FC', 1: 'EMPTY', 2: 'EMPTY'}）
+  [PASS] ⑭d 槽 0–2 未被触碰（{0: 'USED hash=174DAF93', 1: 'EMPTY', 2: 'EMPTY'} vs {0: 'USED hash=174DAF93', 1: 'EMPTY', 2: 'EMPTY'}）
   [PASS] ⑭d 槽 3 收口 EMPTY（EMPTY）
   [PASS] ⓯ STORE AUTO OFF（本段不写 autosave）
   [PASS] UI tracks（选轨）
@@ -751,10 +752,10 @@
   [PASS] ⓯ UI projects（FILE 组页面已注册）
   [PASS] ⓯ UI MEM group=FILE（期望 FILE）
   [PASS] ⓯ FILE built=1 sum_est=20992（期望 1 / 两页 est 之和 > 0）
-  [PASS] ⓯ PROJECTS state=built delta=7780 ≤ est=8192
-  [PASS] ⓯ FILE build_ms=14ms（0 < x ≤100）
+  [PASS] ⓯ PROJECTS state=built delta=7796 ≤ est=8192
+  [PASS] ⓯ FILE build_ms=15ms（0 < x ≤100）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-12-projects-empty.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-12-projects-empty.png  (1280x720 rgb565)
   [PASS] ⓯ 卡 0 未选中底（初始无选中槽）: (64,372) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
   [PASS] ⓯ 卡 1 未选中底: (376,372) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
   [PASS] ⓯ 卡 0 未选中描边（3px）: (124,169) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
@@ -775,7 +776,7 @@
   [PASS] ⓯ HASH 2（RAM 槽）
   [PASS] ⓯ HASH 2 == LIVEHASH
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-12-projects-used.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-12-projects-used.png  (1280x720 rgb565)
   [PASS] ⓯ 卡 2 选中底（SAVE 后）: (688,372) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
   [PASS] ⓯ 卡 0 未选中底（SAVE 后）: (64,372) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
   [PASS] ⓯ 卡 2 选中描边（SAVE 后）: (748,169) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
@@ -813,20 +814,20 @@
   [PASS] ⓯ 播放中被拒后 PROJ LIST 逐槽不变（{0: 'EMPTY', 1: 'EMPTY', 2: 'EMPTY', 3: 'USED hash=5D286894'} vs {0: 'EMPTY', 1: 'EMPTY', 2: 'EMPTY', 3: 'USED hash=5D286894'}）
   [PASS] ⓯ 播放中被拒的 SAVE 没有改写槽 3（仍 USED）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-12-save-playing.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-12-save-playing.png  (1280x720 rgb565)
   [PASS] ⓯ 状态行 STOP BEFORE SAVE（UI_ERROR 红字）: 区域 (24, 90, 720, 134) 内 (224, 84, 40)±24 像素 1378（阈值 ≥20）
   [PASS] ⓯ 再按 space → playing=0（收口） = 0
   [PASS] ⓯ 收口 TAP ERASE（卡 3）
   [PASS] ⓯ UI presets（同组切页）
   [PASS] ⓯ 同组切页不重建兄弟页：FILE built=2 PROJECTS=built（期望 2 / built）
-  [PASS] ⓯ 两页 delta ≤ est：PROJECTS 7664/8192、PRESETS 12244/12800
-  [PASS] ⓯ FILE sum_delta=19908 ≤ sum_est=20992
+  [PASS] ⓯ 两页 delta ≤ est：PROJECTS 7560/8192、PRESETS 12212/12800
+  [PASS] ⓯ FILE sum_delta=19772 ≤ sum_est=20992
   [PASS] ⓯ TAP PRESETS 槽 3 设选中槽
   [PASS] ⓯ TAP SAVE（PRESETS）→ SAVE OK
   [PASS] ⓯ TAP SAVE 后 LIST PRESET 3 USED ANALOG ANALOG 04（实得 ('ANALOG', 'ANALOG 04')）
   [PASS] ⓯ PRESET COUNT used=1（实得 (1, 32)）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-12-presets.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-12-presets.png  (1280x720 rgb565)
   [PASS] ⓯ 槽 3 选中底: (558,196) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
   [PASS] ⓯ 槽 0 未选中底: (102,196) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
   [PASS] ⓯ LOAD 按钮底: (36,552) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
@@ -859,7 +860,7 @@
   [PASS] ⓯ 播放中被拒后 PRESET LIST 不变
   [PASS] ⓯ PRESETS：再按 space → playing=0（收口） = 0
   [PASS] ⓯ 跨组 FILE→SEQ 首建 STEP
-  [PASS] ⓯ 过渡峰值 free=8944B ≥4096B（STEP 首建增量 22092B / est 23040B；销毁 FILE 之前）
+  [PASS] ⓯ 过渡峰值 free=9020B ≥4096B（STEP 首建增量 22100B / est 23040B；销毁 FILE 之前）
   [PASS] ⓯ 离开 FILE 后 built=0 sum_delta=0（期望 0 / 0）
   [PASS] ⓯ 离开 FILE 后 PROJECTS=unbuilt PRESETS=unbuilt（期望 unbuilt / unbuilt）
   [PASS] ⓯ 复位 PLAY
@@ -881,7 +882,7 @@
   [PASS] ⓰ 锁定页 TAP BANK ERASE → status="NOT FM6"
   [PASS] ⓰ 锁定页拒绝后 BANK LIST 逐槽不变（没有写入/擦除）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-13-fm6-bank-locked.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-13-fm6-bank-locked.png  (1280x720 rgb565)
   [PASS] ⓰ 锁定页状态行 NOT FM6（UI_ERROR 红字）: 区域 (600, 624, 1000, 668) 内 (224, 84, 40)±24 像素 296（阈值 ≥20）
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 3
@@ -898,10 +899,10 @@
   [PASS] STORE BANK LIVE: 256 hex 字符（128 字节 packed 记录）
   [PASS] ⓰ LIVE 是真实的 FM6 工厂 patch（非全 0/全 F，5F281E3C63500000…）
   [PASS] ⓰ UI fm6（轨 1 是 FM6 ⇒ 页面解锁）
-  [PASS] ⓰ FM6 state=built delta=4956 est=6144（bank 行建入，0<delta≤est）
+  [PASS] ⓰ FM6 state=built delta=5012 est=6144（bank 行建入，0<delta≤est）
   [PASS] ⓰ EDIT built=1（期望 1：只有 FM6）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-13-fm6-bank.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-13-fm6-bank.png  (1280x720 rgb565)
   [PASS] ⓰ BANK 行 SAVE 按钮底（绿）: (380,646) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
   [PASS] ⓰ BANK 行 ERASE 按钮底（橙）: (496,646) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 16）
   [PASS] ⓰ BANK 行目标槽文本（B1，UI_ACCENT）: 区域 (184, 624, 280, 668) 内 (224, 176, 40)±16 像素 84（阈值 ≥8）
@@ -922,7 +923,7 @@
   [PASS] ⓰ SAVE 不动 live patch（LIVE 不变）
   [PASS] ⓰ LIST → B3 USED、COUNT used=1（实得 [3] count=(1, 27)）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-13-fm6-bank-saved.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-13-fm6-bank-saved.png  (1280x720 rgb565)
   [PASS] ⓰ 状态行文本（SAVE OK 绿字）: 区域 (600, 624, 1000, 668) 内 (56, 160, 72)±24 像素 288（阈值 ≥20）
   [PASS] ⓰ 目标槽文本（B4）: 区域 (184, 624, 280, 668) 内 (224, 176, 40)±16 像素 97（阈值 ≥8）
   [PASS] ⓰ TAP BANK ERASE → ERASE OK
@@ -933,7 +934,7 @@
   [PASS] ⓰ 播放中被拒的 SAVE 没写槽 3（GET 3 → empty）
   [PASS] ⓰ 播放中被拒后 BANK 仍全 EMPTY（实得 count=(0, 27)）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-012205-task-13-fm6-bank-playing.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-store-20261124-044942-task-13-fm6-bank-playing.png  (1280x720 rgb565)
   [PASS] ⓰ 状态行 STOP BEFORE SAVE（UI_ERROR 红字）: 区域 (600, 624, 1000, 668) 内 (224, 84, 40)±24 像素 636（阈值 ≥20）
   [PASS] ⓰ 再按 space → playing=0（收口） = 0
   [PASS] ⓰ 收口后 BANK 全 EMPTY（count=(0, 27)）
