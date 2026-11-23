@@ -20,7 +20,8 @@ SLOT 0..3 = USR1..USR4（与 `SMP BEGIN <0..3>` 同一编号）。每个文件�
     SMP END <slot>                 校验 magic/version/nz/zone/CRC 后提交 header
 
 一行 hex 的上限受 USB-Serial-JTAG 驱动 RX 环 256B 约束（整行必须一次装进环里），
-故每行按 240 字节总长动态收缩（120B hex 只在偏移位数少时成立）。
+故每行按 240 字节总长动态收缩：`SMP DATA <slot> <off> ` 前缀占 15B（3 位偏移）时
+每块 112B，偏移到 5 位数时 111B；120B 只是单行 hex 上限，实际上不会达到。
 """
 import argparse
 import glob
@@ -184,7 +185,7 @@ def _selftest_upload():
         off_txt, hex_txt = ln.split(" ", 3)[3].split(" ", 1)
         _assert(int(off_txt) == off, f"DATA 偏移不连续: {off_txt} != {off}")
         chunk = bytes.fromhex(hex_txt)
-        _assert(len(chunk) <= 120, "DATA 块超过 120B")
+        _assert(len(chunk) <= 112, "DATA 块超过 112B（240B 行预算的实际上限）")
         off += len(chunk)
         blob.extend(chunk)
     _assert(bytes(blob) == data, "DATA 拼回的字节与 ADPCM 不一致")
@@ -308,8 +309,8 @@ def slot_lines(resp: str):
 def chunk_lines(slot: int, data: bytes):
     """按 console 行预算切块：整行（含 "SMP DATA slot off " 与 '\\n'）≤ LINE_BUDGET 字节。
 
-    120B 只在小偏移时成立；偏移到 5 位数时要缩到 111B，否则整行超过 USJ 驱动 RX 环
-    256B（设备忙时环溢出、字符被静默丢弃）。"""
+    240B 预算下实际是 112B/块（前缀 15B + 224 hex），偏移到 5 位数时 111B；120 只是
+    上界。超过行预算的整行会撞 USJ 驱动 RX 环 256B（设备忙时环溢出、字符被静默丢弃）。"""
     off, pos = SMP_DATA_OFF, 0
     while pos < len(data):
         head = f"SMP DATA {slot} {off} "

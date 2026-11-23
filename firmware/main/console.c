@@ -2710,7 +2710,8 @@ static int seq_command(int argc, char **argv)
  *
  * SMP 上传（scripts/sample_upload.py 的对端）两个 console 侧细节：
  *   - 存储 API 的 write 要求 off 256 对齐、n ≤ 256，而 console 一行只有 ≤120B ⇒ DATA
- *     先攒进 256B 块，满块（以及 END 时的余量）才调 sloop_store_sample_write；
+ *     先攒进 256B 块，满块（以及 END 时的余量）才调 sloop_store_sample_write；任何一次
+ *     flush 失败都结束会话（清块与偏移，重试必须重新 BEGIN——否则偏移不再 256 对齐）；
  *   - END 的 ESP_ERR_INVALID_ARG 同时表示 header 与 zone 非法，console 只镜像 header 的
  *     前 32 字节（magic/version/nz/data_len）把令牌分派成 header 或 zones——校验本身
  *     仍只在 adapter（不在这里重复 zone 判据）。
@@ -2723,6 +2724,8 @@ static int seq_command(int argc, char **argv)
 #define SMP_LINE_BUF    (SMP_LINE_MAX / 2u)
 #define SMP_BLOCK       256u        /* sloop_store_sample_write 的 off 对齐粒度 */
 #define SMP_UNUSED      ((uint8_t)SLOOP_STORE_SAMPLES)
+/* op 6（全局块）末尾 SLOOP_FM6_NAME_FIELDS 项 = 名字的 10 个字节：29 - 10 = 19。 */
+#define FM6P_NAME_FIELD0 (SLOOP_FM6_GLOBAL_FIELDS - SLOOP_FM6_NAME_FIELDS)
 
 static uint8_t s_smp_open_slot = SMP_UNUSED; /* console 侧会话标记（与 adapter 的 open slot 同值） */
 static uint8_t s_smp_fixed[SMP_HDR_FIXED];   /* header 前 32 字节镜像（只为分派错误令牌） */
@@ -2815,28 +2818,28 @@ static esp_err_t smp_block_flush(uint8_t slot)
     return err;
 }
 
-static void smp_info_print(void)
+/* 每槽一行；`sloop_store_sample_info` 真失败（未就绪/状态异常）与「未使用」分开回显——
+ * 前者是 SMP ERR <no_storage|state>，后者才是 EMPTY（读不出槽信息不等于空槽）。 */
+static int smp_info_print(void)
 {
     for (uint32_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
         sloop_store_sample_info_t info;
-        if (sloop_store_sample_info(k, &info) != ESP_OK) {
-            printf("SMP %u EMPTY\n", (unsigned)k);
-            continue;
-        }
+        esp_err_t err = sloop_store_sample_info(k, &info);
+        if (err != ESP_OK) return smp_err(err, false);
         if (!info.used)
             printf("SMP %u EMPTY\n", (unsigned)k);
         else
             printf("SMP %u USED name=%s zones=%u kb=%u\n", (unsigned)k, info.name,
                    (unsigned)info.zones, (unsigned)info.data_kb);
     }
+    return 0;
 }
 
 static int smp_command(int argc, char **argv)
 {
     if (argc >= 2 && strcasecmp(argv[1], "INFO") == 0 && argc == 2) {
         if (!sloop_store_ready()) return smp_err(ESP_ERR_INVALID_STATE, false);
-        smp_info_print();
-        return 0;
+        return smp_info_print();
     }
     if (argc >= 2 && strcasecmp(argv[1], "BEGIN") == 0) {
         uint32_t slot;
@@ -2863,13 +2866,23 @@ static int smp_command(int argc, char **argv)
             return 1;
         }
         if (!smp_hex_decode(argv[4], buf, sizeof buf, &n)) return smp_err(ESP_ERR_INVALID_SIZE, false);
+        /* off < 512（或与上一行不连续）按设计回 state：size 只表示长度/块越界的语法错误，
+         * 槽内偏移错位是会话错误（重新 BEGIN 才能对齐）。 */
         if (s_smp_open_slot != slot || off != s_smp_expect) return smp_err(ESP_ERR_INVALID_STATE, false);
+        /* 护栏：块只可能因 flush 失败停在 256（那条路径已结束会话），这里再拒一次，
+         * 保证 `s_smp_blk[s_smp_blk_n++]` 永远不会写到 256+。 */
+        if (s_smp_blk_n >= SMP_BLOCK) return smp_err(ESP_ERR_INVALID_STATE, false);
         for (uint32_t i = 0; i < n; i++) {
             if (s_smp_blk_n == 0) s_smp_blk_off = s_smp_expect + i;
             s_smp_blk[s_smp_blk_n++] = buf[i];
             if (s_smp_blk_n == SMP_BLOCK) {
                 esp_err_t err = smp_block_flush((uint8_t)slot);
-                if (err != ESP_OK) return smp_err(err, false);
+                if (err != ESP_OK) {
+                    /* flush 失败时块里仍是最多 256B 未落盘的数据：结束会话（block 清空、
+                     * expect 回 512），重试必须重新 BEGIN——否则下一次写入会从 256+ 越界。 */
+                    smp_session_reset(SMP_UNUSED);
+                    return smp_err(err, false);
+                }
             }
         }
         s_smp_expect += n;
@@ -2902,7 +2915,10 @@ static int smp_command(int argc, char **argv)
         }
         if (s_smp_open_slot != slot) return smp_err(ESP_ERR_INVALID_STATE, false);
         esp_err_t err = smp_block_flush((uint8_t)slot);
-        if (err != ESP_OK) return smp_err(err, false);
+        if (err != ESP_OK) {
+            smp_session_reset(SMP_UNUSED); /* 同上：余量没落盘，会话结束，重试重新 BEGIN */
+            return smp_err(err, false);
+        }
         err = sloop_store_sample_end(slot);
         smp_session_reset(SMP_UNUSED);
         if (err != ESP_OK) return smp_err(err, true);
@@ -2920,9 +2936,11 @@ static int smp_command(int argc, char **argv)
         edit_cmd_t cmd = {.type = CMD_SAMPLE_ERASE, .a = slot};
         state_apply(&cmd);
         state_get_copy(&st);
-        if (s_smp_open_slot == slot) smp_session_reset(SMP_UNUSED);
         switch (st.synth_status) {
         case APP_SYNTH_STATUS_OK:
+            /* 只有擦除真的落地才结束本槽的上传会话：被拒（走带中/冻结）时 adapter 的
+             * open slot 仍可重试（END 的 CRC 失败重发路径），console 侧不得抢先清掉。 */
+            if (s_smp_open_slot == slot) smp_session_reset(SMP_UNUSED);
             printf("SMP ERASE slot=%u OK\n", (unsigned)slot);
             return 0;
         case APP_SYNTH_STATUS_BLOCKED: return smp_err(ESP_ERR_INVALID_STATE, false);
@@ -3048,7 +3066,7 @@ static int dsyn_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "KIT") == 0) {
         uint32_t kit, src;
         if (argc != 4 || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
-            !eng_uint(argv[3], 255, &src))
+            !eng_uint(argv[3], SLOOP_DSYN_FACTORY_KITS - 1u, &src))
             goto usage;
         edit_cmd_t cmd = {.type = CMD_DSYN_LOAD_KIT, .a = kit, .b = src};
         uint8_t status = synth_apply(&cmd);
@@ -3112,7 +3130,8 @@ static int fm6p_info(uint32_t track)
     if (ret != ESP_OK && ret != ESP_ERR_NOT_ALLOWED) return fm6p_err(ret);
     char name[SLOOP_FM6_NAME_FIELDS + 1];
     for (uint32_t i = 0; i < SLOOP_FM6_NAME_FIELDS; i++) {
-        int c = s.patch[145 + i]; /* FP_NAME 的绝对偏移（145..154） */
+        /* 走公开的纯解码入口（op 6 的 19..28 = 名字字节），不硬编码 FP_NAME 的绝对偏移 */
+        int c = sloop_fm6_field_from_patch(s.patch, SLOOP_FM6_GLOBAL_OP, FM6P_NAME_FIELD0 + i);
         name[i] = (c >= 0x20 && c < 0x7F) ? (char)c : '.';
     }
     name[SLOOP_FM6_NAME_FIELDS] = '\0';
@@ -3151,24 +3170,28 @@ static int fm6p_alg(uint32_t track, uint32_t value)
         return 1;
     }
     if (ret != ESP_OK) return fm6p_err(ret);
-    uint8_t status;
     if (value == 0) {
-        /* PAT：CMD_SET_PARAM 不写 synth_status，故这里按「必然成功」置 OK（值 0 在 P_E0
-         * 的描述符范围内，写不进去只可能是冻结/越界——两者已由上面的 patch 快照排除）。 */
+        /* PAT：CMD_SET_PARAM 不写 synth_status，故按写后回读的 P_E0 派生结果。冻结时
+         * read_params 返回全零（看起来「写成功」），所以前后各查一次冻结。 */
+        if (sloop_seq_frozen()) return fm6p_err(ESP_ERR_INVALID_STATE);
         edit_cmd_t cmd = {.type = CMD_SET_PARAM, .a = track, .b = CONSOLE_P_E0, .v = 0};
         state_apply(&cmd);
-        status = APP_SYNTH_STATUS_OK;
     } else {
         edit_cmd_t cmd = {.type = CMD_FM6_SET, .a = track, .b = SLOOP_FM6_GLOBAL_OP,
                           .n = 8, .v = (uint16_t)(value - 1u)};
-        status = synth_apply(&cmd);
+        uint8_t status = synth_apply(&cmd);
         if (status != APP_SYNTH_STATUS_OK) return synth_err("FM6P", status);
     }
     int16_t p[SLOOP_CORE_P_COUNT];
     sloop_core_read_params(track, p, NULL);
+    if (sloop_seq_frozen()) return fm6p_err(ESP_ERR_INVALID_STATE);
+    if (p[CONSOLE_P_E0] != 0) {
+        printf("FM6P ERR error\n"); /* P_E0 没被清掉：写被丢弃（不应发生） */
+        return 1;
+    }
     printf("FM6P ALG track=%u value=%u alg=%d macro=%u status=\"%s\"\n", (unsigned)track,
            (unsigned)value, (int)sloop_core_fm6_field(track, SLOOP_FM6_GLOBAL_OP, 8),
-           (unsigned)p[CONSOLE_P_E0], synth_status_name(status));
+           (unsigned)p[CONSOLE_P_E0], synth_status_name(APP_SYNTH_STATUS_OK));
     return 0;
 }
 

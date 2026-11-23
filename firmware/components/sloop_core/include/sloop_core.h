@@ -190,6 +190,7 @@ bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, slo
  * 与上游 editor_dsyn.c 同语义：成功的单字段写与工厂 kit 套用都置 `dsu_dirty`。 */
 #define SLOOP_DSYN_KITS   4u
 #define SLOOP_DSYN_LANES  16u
+#define SLOOP_DSYN_FACTORY_KITS 32u /* 工厂 kit 数（上游生成的 DS_NKITS）；`load_factory` 的 src 上限 */
 #define SLOOP_DSYN_FIELDS 24u /* 22 字节 + FLT 拆 MODE/RES 两虚拟字段 */
 #define SLOOP_DSYN_NAME   8u
 /* 无效字段/越界 kit·lane/诊断冻结的返回值。落在此范围外（最小字段范围是 FENV 的
@@ -234,7 +235,8 @@ int16_t sloop_dsyn_field_from_sound(const uint8_t sound[22], uint32_t field);
  * FLT_MODE → 名字；CHIP → 音名）。返回写入的字符数；0 = 本函数不覆盖该字段
  * （调用方走通用整数/枚举格式化）。 */
 int16_t sloop_core_dsyn_text(uint32_t field, int16_t v, char *out, uint32_t n);
-/* 套用工厂 kit（覆盖该 kit 的编辑，置 dsu_dirty）。kit 越界或 src >= DS_NKITS 回
+/* 套用工厂 kit（覆盖该 kit 的编辑，置 dsu_dirty）。kit 越界或
+ * src >= SLOOP_DSYN_FACTORY_KITS（= 上游 DS_NKITS，编译期静态断言）回
  * ESP_ERR_INVALID_ARG，冻结回 ESP_ERR_INVALID_STATE。 */
 esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src);
 /* 试听一段该 kit/lane（写上游 dsu_aud_* 队列，由音频路径消费；不改数据）。

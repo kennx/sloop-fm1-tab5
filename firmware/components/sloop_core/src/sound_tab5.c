@@ -13,6 +13,8 @@
 #include <string.h>
 
 _Static_assert(sizeof(dsnd_t) == 22u, "dsnd_t 与公开的 sound[22] 不同尺寸");
+_Static_assert(SLOOP_DSYN_FACTORY_KITS == DS_NKITS,
+               "SLOOP_DSYN_FACTORY_KITS 与上游生成的 DS_NKITS 不一致");
 
 /* 虚拟字段的读取种类：整字节（无符号/有符号）、src 低 4 位 / bit4（CLAP）、
  * flt 的低 3 位 / 高 5 位。 */
