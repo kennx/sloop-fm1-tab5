@@ -263,18 +263,6 @@
 | **参考** | `firmware/components/sloop_core/src/sound_tab5.c`（采样槽实现）、`scripts/sample_upload.py`、`third_party/sloop-fm1/tools/sampleio.py`、ADR-011 §4、P4-D spec §1 非目标 |
 | **登记** | 2026-11-23（P4-D Task 12 收口审计） |
 
-## DI-35: DSYN-only 修改不触发 1s 延迟写（需显式 STORE 或用歌曲保存顺带落盘）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | P4-D 的 DSU 持久化跟随 settings 对象：任何 settings 保存（显式 `STORE SONG SAVE`、sections/歌曲 1s 延迟写、`DSYN STORE`）都会把当前 RAM `dsu` 写进 PER3 88..1,551；但**只改 DSYN 不会自己触发** 1s 延迟写（上游也不；`dsu_dirty` 只影响下一次 settings 写的 payload，不参与 `autosave`——autosave 是 `project_t`，不含 DSU）。用户在 DSYN 页调完音色后若直接掉电，未 `STORE` 的修改丢失。 |
-| **影响面** | 仅 DSYN 音色的掉电保留语义；显式 `STORE`（页面/chip/console）路径完整，`synth` 场景已覆盖 dirty=0 与硬复位/自检后逐字节一致。不会丢歌曲/工程（各自 A/B 对象）。 |
-| **为何可延迟** | 上游同语义（DSYN 保存是显式动作）；把 DSYN 纳入 1s 延迟写需要新门限（`dsu_dirty` 与演奏/停止状态的关系）并会与「任何 settings 保存都写当前 dsu」的规则叠加，属产品语义决策，不宜在收口任务里改。 |
-| **解决方向** | (a) 保持显式 STORE，但在 DSYN 页把 `DIRTY` 做成醒目提示（当前状态行已有 ` DIRTY` 后缀，可强化）；(b) 或让 `sloop_store_sections_tick` 在 `dsu_dirty` 且停止/无发声/idle 时也走一次 settings 写（与歌曲共用 gap 时间戳），代价是 DSYN 编辑会周期性擦写 flash；(c) 或退出 DSYN 页时提示/自动 STORE。优先 (a) 并评估 (b)。 |
-| **触发条件** | 用户报告「调好的鼓音色重启后没了」；或 P4-E 统一「会话/持久化」语义时。 |
-| **参考** | `firmware/components/sloop_core/src/song_persist.h`（`song_per_put_dsu`/`song_per_saved`）、`store_tab5.c` 的 `sloop_store_dsu_store`/`sloop_store_sections_tick`、ADR-011 §3、P4-D spec §3.4 |
-| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
-
 ## DI-36: FM6 live patch 掉电不保留（会话状态，必须显式存 bank）
 
 | 项 | 内容 |
@@ -297,4 +285,16 @@
 | **解决方向** | (a) 复用 Tab5 Keyboard 的字符键做一个小型文本输入模态（8/10 字符 + 退格/确认），页面上把名字区域变成可点击入口；(b) 写路径分别落到 `smp_user_hdr_t.name`（须重算 header CRC 并走 `sloop_store_sample_*` 的提交路径）、`dsu.k[k].name`（置 `dsu_dirty`）、`fm6_patch[FP_NAME]`（`fm6_set_patch` 不 sanitize 名字，需保留哨兵语义）；(c) console 加 `SMP NAME`/`DSYN NAME`/`FM6P NAME` 诊断面并用 host/设备用例覆盖。优先 (a)+(c)。 |
 | **触发条件** | 用户要求给采样/音色命名；或 P4-F 全页面验收把「命名」列进功能对齐清单。 |
 | **参考** | `firmware/components/sloop_core/include/sloop_core.h`（`SLOOP_DSYN_NAME`/`SLOOP_FM6_PATCH_SIZE`）、`sound_tab5.c` 的 FM6 名字只读哨兵与采样 header、`third_party/sloop-fm1/firmware/src/eng_sample.c`、ADR-011 §2/§6、P4-D spec §1 非目标 |
+| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-38: DSYN-only 修改不触发 1s 延迟写（需显式 STORE 或用歌曲保存顺带落盘）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-D 的 DSU 持久化跟随 settings 对象：任何 settings 保存（显式 `STORE SONG SAVE`、sections/歌曲 1s 延迟写、`DSYN STORE`）都会把当前 RAM `dsu` 写进 PER3 88..1,551；但**只改 DSYN 不会自己触发** 1s 延迟写（上游也不；`dsu_dirty` 只影响下一次 settings 写的 payload，不参与 `autosave`——autosave 是 `project_t`，不含 DSU）。用户在 DSYN 页调完音色后若直接掉电，未 `STORE` 的修改丢失。 |
+| **影响面** | 仅 DSYN 音色的掉电保留语义；显式 `STORE`（页面/chip/console）路径完整，`synth` 场景已覆盖 dirty=0 与硬复位/自检后逐字节一致。不会丢歌曲/工程（各自 A/B 对象）。 |
+| **为何可延迟** | 上游同语义（DSYN 保存是显式动作）；把 DSYN 纳入 1s 延迟写需要新门限（`dsu_dirty` 与演奏/停止状态的关系）并会与「任何 settings 保存都写当前 dsu」的规则叠加，属产品语义决策，不宜在收口任务里改。 |
+| **解决方向** | (a) 保持显式 STORE，但在 DSYN 页把 `DIRTY` 做成醒目提示（当前状态行已有 ` DIRTY` 后缀，可强化）；(b) 或让 `sloop_store_sections_tick` 在 `dsu_dirty` 且停止/无发声/idle 时也走一次 settings 写（与歌曲共用 gap 时间戳），代价是 DSYN 编辑会周期性擦写 flash；(c) 或退出 DSYN 页时提示/自动 STORE。优先 (a) 并评估 (b)。 |
+| **触发条件** | 用户报告「调好的鼓音色重启后没了」；或 P4-E 统一「会话/持久化」语义时。 |
+| **参考** | `firmware/components/sloop_core/src/song_persist.h`（`song_per_put_dsu`/`song_per_saved`）、`store_tab5.c` 的 `sloop_store_dsu_store`/`sloop_store_sections_tick`、ADR-011 §3、P4-D spec §3.4 |
 | **登记** | 2026-11-23（P4-D Task 12 收口审计） |
