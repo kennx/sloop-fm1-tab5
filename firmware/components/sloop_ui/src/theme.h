@@ -124,6 +124,19 @@ typedef enum {
     UI_SYS_ACT_NONE = 0xFF,
 } ui_sys_act_t;
 
+static inline const char *ui_sys_selftest_text(char *buf, size_t n, uint8_t done,
+                                               uint32_t ran, uint32_t failed)
+{
+    if (!done) {
+        snprintf(buf, n, "SELFTEST RUNNING");
+    } else {
+        uint32_t passed = ran >= failed ? ran - failed : 0;
+        snprintf(buf, n, "SELFTEST %u/%u %s", (unsigned)passed, (unsigned)ran,
+                 ran > 0 && failed == 0 ? "PASS" : "FAIL");
+    }
+    return buf;
+}
+
 static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act,
                                              const app_state_t *st, bool ready)
 {
@@ -140,16 +153,8 @@ static inline const char *ui_sys_status_text(char *buf, size_t n, uint8_t act,
         return buf;
     }
     if (act == UI_SYS_ACT_SELFTEST) {
-        if (!st->selftest_done) {
-            snprintf(buf, n, "SELFTEST RUNNING");
-        } else {
-            uint32_t passed = st->selftest_ran >= st->selftest_failed
-                                  ? st->selftest_ran - st->selftest_failed : 0;
-            snprintf(buf, n, "SELFTEST %u/%u %s", (unsigned)passed,
-                     (unsigned)st->selftest_ran,
-                     st->selftest_ran > 0 && st->selftest_failed == 0 ? "PASS" : "FAIL");
-        }
-        return buf;
+        return ui_sys_selftest_text(buf, n, st->selftest_done,
+                                    st->selftest_ran, st->selftest_failed);
     }
     if (act == UI_SYS_ACT_NONE) {
         if (n > 0) buf[0] = '\0';

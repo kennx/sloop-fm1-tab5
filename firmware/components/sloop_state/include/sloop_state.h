@@ -349,6 +349,7 @@ typedef struct {
      * 消费；done=0 表示尚无结果或正在运行。ran/failed 是 core 运行器的实际计数，
      * 不假定全量用例数；ran=0 表示没有可用结果。 */
     uint8_t selftest_req, selftest_done;
+    uint8_t selftest_unavailable; /* main 的 worker 创建失败：请求立即 FAIL，不排队 */
     uint32_t selftest_ran, selftest_failed;
 } app_state_t;
 
@@ -413,5 +414,7 @@ void state_set_layer(uint8_t mask);
 /* 取走一次 SELFTEST 请求（1 = 有请求，取后清零）；worker 完成后写回实际计数并置 done。 */
 bool state_take_selftest_request(void);
 void state_set_selftest_result(uint32_t ran, uint32_t failed);
+/* main 在 worker 创建后上报可用性；false 时 CMD_SELFTEST_RUN 立即写 0/0 FAIL。 */
+void state_set_selftest_available(bool available);
 
 #endif

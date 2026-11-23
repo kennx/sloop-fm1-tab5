@@ -2113,6 +2113,28 @@ static void case_selftest_run_sets_request(void)
     check_ll("失败结果仍 done", s.selftest_done, 1);
 }
 
+static void case_selftest_worker_unavailable_fails_fast(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_set_selftest_available(false);
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("worker 不可用时请求不入队", s.selftest_req, 0);
+    check_ll("worker 不可用立即 done", s.selftest_done, 1);
+    check_ll("worker 不可用 ran=0", s.selftest_ran, 0);
+    check_ll("worker 不可用 failed>0", s.selftest_failed, 1);
+    check_ll("worker 不可用 settings_status=ERROR", s.settings_status, APP_SETTINGS_ERROR);
+
+    state_set_selftest_available(true);
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("worker 恢复后可重新入队", s.selftest_req, 1);
+    check_ll("恢复后清不可用失败结果", s.selftest_done, 0);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -2151,6 +2173,7 @@ int main(void)
     run("SYS 亮度/音量/输出：钳位/HAL 失败/headphone/投影", case_sys_bright_volume_output);
     run("REC CONFIG 成功置 settings dirty", case_rec_config_marks_settings_dirty);
     run("SELFTEST_RUN 请求深度 1 与结果投影", case_selftest_run_sets_request);
+    run("SELFTEST worker 不可用立即 FAIL", case_selftest_worker_unavailable_fails_fast);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

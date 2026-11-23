@@ -287,6 +287,13 @@ void state_set_selftest_result(uint32_t ran, uint32_t failed)
     state_unlock();
 }
 
+void state_set_selftest_available(bool available)
+{
+    state_lock();
+    s_state.selftest_unavailable = available ? 0 : 1;
+    state_unlock();
+}
+
 void state_refresh_locked(void)
 {
     /* 调用方持 state_lock：窗口在此期间不会被 CMD_SET_WINDOW 改，故不需要 sync 的

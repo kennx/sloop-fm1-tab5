@@ -37,7 +37,7 @@
 #define SYS_STATUS_H    40
 #define SYS_VERSION_Y   454
 #define SYS_SELFTEST_Y  510
-#define SYS_SELFTEST_MAGIC 0x534C5458u
+#define SYS_SELFTEST_MAGIC 0x534C5459u
 
 #define SYS_COLOR_Y     32
 #define SYS_ZOOM_Y      76
@@ -80,8 +80,13 @@ static lv_style_t s_st_version;
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_focus;
 static uint8_t s_act = UI_SYS_ACT_NONE;
+static bool s_reset_checked;
 static uint8_t s_selftest_ran __attribute__((section(".noinit")));
 static uint32_t s_selftest_magic __attribute__((section(".noinit")));
+static uint8_t s_selftest_last_done __attribute__((section(".noinit")));
+static uint32_t s_selftest_last_ran __attribute__((section(".noinit")));
+static uint32_t s_selftest_last_failed __attribute__((section(".noinit")));
+static uint32_t s_selftest_last_magic __attribute__((section(".noinit")));
 static char s_status_text[40];
 static char s_status_echo[40];
 static char s_row_cache[SYS_SELFTEST][64];
@@ -165,8 +170,22 @@ static bool chip_row(uint8_t row)
 static void status_record(const app_state_t *st)
 {
     char text[40];
-    ui_sys_status_text(text, sizeof(text), s_act, st, sloop_store_ready());
-    uint32_t color = ui_sys_status_color(s_act, st);
+    uint32_t color;
+    if (st->selftest_done) {
+        s_selftest_last_done = 1;
+        s_selftest_last_ran = st->selftest_ran;
+        s_selftest_last_failed = st->selftest_failed;
+        s_selftest_last_magic = SYS_SELFTEST_MAGIC;
+    }
+    if (s_act == UI_SYS_ACT_SELFTEST && !st->selftest_done &&
+        s_selftest_last_magic == SYS_SELFTEST_MAGIC && s_selftest_last_done) {
+        ui_sys_selftest_text(text, sizeof(text), s_selftest_last_done,
+                             s_selftest_last_ran, s_selftest_last_failed);
+        color = s_selftest_last_ran == 0 || s_selftest_last_failed != 0 ? UI_ERROR : UI_ACCENT;
+    } else {
+        ui_sys_status_text(text, sizeof(text), s_act, st, sloop_store_ready());
+        color = ui_sys_status_color(s_act, st);
+    }
     portENTER_CRITICAL(&s_mux);
     snprintf(s_status_text, sizeof(s_status_text), "%s", text);
     s_status_color = color;
@@ -359,13 +378,24 @@ static lv_obj_t *make_row(lv_obj_t *parent, uint8_t row)
 
 lv_obj_t *page_system_build(lv_obj_t *parent)
 {
-    esp_reset_reason_t reset = esp_reset_reason();
-    if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
-        s_selftest_ran = 0;
-        s_selftest_magic = 0;
-    } else if (s_selftest_magic != SYS_SELFTEST_MAGIC) {
-        s_selftest_ran = 0; /* warm reset 后随机 noinit 字节不能冒充「已跑过」 */
+    if (!s_reset_checked) {
+        s_reset_checked = true;
+        esp_reset_reason_t reset = esp_reset_reason();
+        if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT) {
+            s_selftest_ran = 0;
+            s_selftest_magic = 0;
+            s_selftest_last_magic = 0;
+        } else if (s_selftest_magic != SYS_SELFTEST_MAGIC) {
+            s_selftest_ran = 0; /* warm reset 后随机 noinit 字节不能冒充「已跑过」 */
+        }
     }
+    app_state_t st;
+    state_get_copy(&st);
+    if (!st.selftest_done &&
+        (s_act == UI_SYS_ACT_NONE || s_act == UI_SYS_ACT_RESET_FIRST) &&
+        s_selftest_magic == SYS_SELFTEST_MAGIC &&
+        s_selftest_last_magic == SYS_SELFTEST_MAGIC && s_selftest_last_done)
+        s_act = UI_SYS_ACT_SELFTEST;
     styles_init();
     memset(s_rows, 0, sizeof(s_rows));
     memset(s_row_cache, 0, sizeof(s_row_cache));

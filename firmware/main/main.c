@@ -129,6 +129,7 @@ void app_main(void)
     /* SELFTEST chip 的唯一执行者：等状态层请求、跑完自删；在 UI 启动后创建，确保
      * sloop_core_selftest 的 quiesce 钩子已注册。 */
     ret = sys_selftest_start();
+    state_set_selftest_available(ret == ESP_OK);
     if (ret != ESP_OK) ESP_LOGE(TAG, "SELFTEST 任务创建失败: %s", esp_err_to_name(ret));
 
     while (1) {

@@ -801,6 +801,14 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_SYS_VOLUME:
     case CMD_SYS_OUTPUT: cmd_sys(s, cmd->type, cmd->v); break;
     case CMD_SELFTEST_RUN:
+        if (s->selftest_unavailable) {
+            s->selftest_req = 0;
+            s->selftest_done = 1;
+            s->selftest_ran = 0;
+            s->selftest_failed = 1;
+            s->settings_status = APP_SETTINGS_ERROR;
+            break;
+        }
         s->selftest_req = 1;
         s->selftest_done = 0;
         s->selftest_ran = 0;
