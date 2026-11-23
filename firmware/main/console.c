@@ -2340,7 +2340,8 @@ static int store_test_cmd(void)
  *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
  *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
  *   ABORT              → "STORE RAW ABORTED"
- * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27：暂存与 proj_tmp 共用）。
+ * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27 的会话互斥；RAW 已有独立
+ * 暂存（P4-D 评审 I1），这条不再为缓冲安全所必需，保留为诊断面的确定性约定）。
  * 一行 ≤240 hex = 120B：真正的上限不是 console 行缓冲（256），而是 USB-Serial-JTAG
  * **驱动 RX 环 256B**——整行要在一次突发里装进环里，否则设备忙（LVGL/音频）时环溢出、
  * 字符被静默丢掉（实测 490 字符的行被截到 256 字符）。240 hex + "STORE RAW " + '\n'
@@ -2416,9 +2417,10 @@ static int store_raw(int argc, char **argv)
 
 static int store_command(int argc, char **argv)
 {
-    /* R27：RAW 暂存就是 proj_tmp/up_stage 那块共用缓冲——任何其它存储子命令都可能
-     * 借用它，故非 RAW 子命令一进来就丢弃未完成的上传（否则 END 会把别人的字节原样
-     * 写进 flash）。RAW 自己的 BEGIN/hex/END/ABORT 不走这里的分支。 */
+    /* R27：RAW 上传与其它存储诊断互斥——非 RAW 子命令一进来就丢弃未完成的上传。
+     * P4-D 评审 I1 之后 RAW 有独立暂存（不再与 proj_tmp 共用），这条保留为会话
+     * 确定性约定（避免半截上传跨过无关命令后仍可 END）。RAW 自己的
+     * BEGIN/hex/END/ABORT 不走这里的分支。 */
     if (argc >= 2 && strcasecmp(argv[1], "raw") == 0) return store_raw(argc, argv);
     sloop_store_raw_abort();
 

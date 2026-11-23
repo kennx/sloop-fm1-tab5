@@ -172,11 +172,12 @@ void sloop_store_sample_reload(uint32_t slot);
  *                  invalid）；**只写请求的那一个对象**；走带中拒绝 =
  *                  ESP_ERR_INVALID_STATE（与其它写 API 同序）；
  *   abort()     —— 丢弃暂存状态（幂等）。
- * 暂存是与 `up_stage()`/`proj_tmp` **共用**的 4,096B（PSRAM）：任何其它存储操作都可能
- * 借用同一块暂存，所以**每一条其它 `STORE` 子命令在入口都先 abort 未完成的上传**
- * （console 的 R27 纪律；C API 的调用方同样必须这么做——未 abort 就穿插别的存储操作，
- * 上传内容会被静默覆盖，END 写进 flash 的是别人的字节）。`end` 持存储锁、只写请求的
- * 那一个对象、擦写期间不持引擎锁；`received` 供 console 回显。 */
+ * 暂存是 **RAW 专用的 4,096B PSRAM**（`s_raw_stage`；P4-D 评审 I1，不与 `up_stage()`
+ * /`proj_tmp` 共用）：settings/DSU/song 的 `st_load` 与 1s tick 都不会覆盖它，因此
+ * `BEGIN → （song tick / ENG SELFTEST） → END` 提交的仍是上传的原始字节。console 仍
+ * 在其它 `STORE` 子命令入口 abort 未完成的上传（R27 的会话确定性约定），但这条已不再
+ * 是缓冲安全的必要条件。`end` 持存储锁、只写请求的那一个对象、擦写期间不持引擎锁；
+ * `received` 供 console 回显。 */
 #define SLOOP_STORE_RAW_MAX 3840u /* = storage.c 的 ST_PAYLOAD_MAX（4KB 扇区 − 256B 头/侧区） */
 esp_err_t sloop_store_raw_begin(uint32_t len);
 esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);

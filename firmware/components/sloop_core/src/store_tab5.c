@@ -146,6 +146,15 @@ static void *up_stage(void)
     return &proj_tmp; /* upreset.c：待写入的用户预置银行（sloop-lab） */
 }
 
+/* RAW 上传专用暂存（4,096B PSRAM，P4-D 评审 I1）：**不能**与 proj_tmp 共用——
+ * dsu_reload/song_reload/sections_tick/song_write_locked 都会把 settings 读进
+ * proj_tmp，若共用，`STORE RAW BEGIN … → 自检/歌曲 tick → END` 会把被覆盖的字节当成
+ * 上传内容写进 flash（CRC 合法但内容是错的）。独立缓冲让 RAW 的半截上传跨过这些
+ * 读操作与 `ENG SELFTEST`（状态在 .noinit，指针也跨自检存活）。失败时 ready=false。 */
+#define STORE_RAW_STAGE_SIZE 4096u
+static uint8_t *s_raw_stage __attribute__((section(".noinit")));
+_Static_assert(STORE_RAW_STAGE_SIZE >= SLOOP_STORE_RAW_MAX, "RAW 暂存装得下一个 flash 对象");
+
 _Static_assert(sizeof(proj_tmp) >= sizeof(project_t), "暂存装得下一个工程（storage.c ST_PAYLOAD_MAX = 3,840）");
 _Static_assert(sizeof(proj_tmp) >= sizeof(project_v5_t), "暂存装得下格式 5");
 
@@ -486,8 +495,8 @@ static bool store_playing(void)
 bool sloop_store_ready(void)
 {
     return s_init_magic == STORE_INIT_MAGIC && s_ready && sloop_hal_storage_ready() &&
-           s_slot_ps != NULL && s_stage != NULL && s_v3_ps != NULL && s_auto != NULL &&
-           s_song_keep_ps != NULL;
+           s_slot_ps != NULL && s_stage != NULL && s_raw_stage != NULL && s_v3_ps != NULL &&
+           s_auto != NULL && s_song_keep_ps != NULL;
 }
 
 esp_err_t sloop_store_init(void)
@@ -525,12 +534,14 @@ esp_err_t sloop_store_init(void)
     s_v3_ps = heap_caps_malloc(sizeof *s_v3_ps, MALLOC_CAP_SPIRAM);
     s_slot_ps = heap_caps_malloc(SLOOP_STORE_PROJECTS * sizeof(project_t), MALLOC_CAP_SPIRAM);
     s_stage = heap_caps_malloc(sizeof *s_stage, MALLOC_CAP_SPIRAM);
+    s_raw_stage = heap_caps_malloc(STORE_RAW_STAGE_SIZE, MALLOC_CAP_SPIRAM);
     s_auto = heap_caps_malloc(sizeof *s_auto, MALLOC_CAP_SPIRAM);
     s_song_keep_ps = heap_caps_malloc(sizeof *s_song_keep_ps, MALLOC_CAP_SPIRAM);
-    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL || s_auto == NULL ||
-        s_song_keep_ps == NULL) {
-        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p auto=%p song_keep=%p", (void *)s_v3_ps,
-                 (void *)s_slot_ps, (void *)s_stage, (void *)s_auto, (void *)s_song_keep_ps);
+    if (s_v3_ps == NULL || s_slot_ps == NULL || s_stage == NULL || s_raw_stage == NULL ||
+        s_auto == NULL || s_song_keep_ps == NULL) {
+        ESP_LOGE(TAG, "PSRAM 分配失败: v3=%p slots=%p stage=%p raw=%p auto=%p song_keep=%p",
+                 (void *)s_v3_ps, (void *)s_slot_ps, (void *)s_stage, (void *)s_raw_stage,
+                 (void *)s_auto, (void *)s_song_keep_ps);
         return ESP_ERR_NO_MEM;
     }
     memset(s_slot_ps, 0, SLOOP_STORE_PROJECTS * sizeof(project_t));
@@ -939,7 +950,7 @@ esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n)
      * 后面的 memcpy 就越过暂存写坏内存（R27）。 */
     if (s_raw_got > s_raw_len || n > s_raw_len - s_raw_got)
         return ESP_ERR_INVALID_SIZE; /* 状态保持：调用方可 ABORT */
-    memcpy(s_stage->raw + s_raw_got, data, n);
+    memcpy(s_raw_stage + s_raw_got, data, n);
     s_raw_got += n;
     return ESP_OK;
 }
@@ -965,11 +976,11 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     uint32_t xr0 = sloop_hal_audio_xruns();
     int64_t us0 = esp_timer_get_time();
     store_lock();
-    int rc = st_save(OBJ_PROJECT0 + slot, s_stage->raw, len);
+    int rc = st_save(OBJ_PROJECT0 + slot, s_raw_stage, len);
     if (rc == 0) {
         /* RAW 对象绕过了 proj_capture：按开机 fetch 的语义把槽的 RAM 缓存对齐到 flash
          * （导入失败 = 槽无效，之后的 LOAD 会走 flash 回落并回 invalid）。 */
-        if (!proj_import(&proj_slot[slot], &s_stage->raw, (int)len)) memset(&proj_slot[slot], 0, sizeof(project_t));
+        if (!proj_import(&proj_slot[slot], s_raw_stage, (int)len)) memset(&proj_slot[slot], 0, sizeof(project_t));
     }
     store_unlock();
     store_note_write(xr0, us0);
