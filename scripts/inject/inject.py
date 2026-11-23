@@ -41,6 +41,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 import screenshot as shot  # noqa: E402
 import gen_project_fixtures as fixtures  # noqa: E402
+import gen_settings_fixture as settings_fixtures  # noqa: E402
 import store_raw  # noqa: E402
 
 BAUD = 115200
@@ -117,18 +118,11 @@ class LoggedSerial:
 # 提示符打印后仍可能紧跟一行日志；这种尾随日志不改变「命令已执行完、提示符已出现」，
 # 若按「尾部必须恰以 sloop> 结束」判定会把正常启动误报成超时（store 首个
 # `ENG AUDIO ON` 的现场：响应与提示符都已到达，只差尾部多一行 sloop_display 日志）。
-_ASYNC_LOG = re.compile(r"^[IWE] \(\d+\) \S")
-
 
 def _prompt_at(buf: bytearray) -> bool:
-    """console 提示符检测：缓冲区尾部是 "sloop>"（其后只允许空格），或 "sloop>" 后只
-    跟完整的固件异步日志行。（esp_console 实际输出为 "sloop>  "——尾部可能多一个
-    空格，不能按固定长度比较。）"""
-    i = buf.rfind(b"sloop>")
-    if i < 0:
-        return False
-    tail = buf[i + len(b"sloop>") :].decode(errors="replace")
-    return all(_ASYNC_LOG.match(line) for line in tail.strip().splitlines())
+    """提示符本身表示上一条命令已完成；其后可能立即跟任意异步输出（SELFTEST
+    的逐例哈希并不都是 ESP_LOG 格式），不能再要求尾部只含空白/日志行。"""
+    return buf.rfind(b"sloop>") >= 0
 
 
 def read_response(ser, timeout: float) -> str:
@@ -7988,7 +7982,7 @@ def sys_tap(s: Session, row: int, delta: int = 1) -> None:
     else:
         x = 24 + (21 if delta < 0 else 420 - 21)
         y = SYS_ROW_Y[row] + 22
-    s.cmd(f"TAP {x} {y + 72}")
+    s.cmd(f"TAP {x} {y + 72}", timeout=10.0 if row == 8 else None)
 
 
 def sys_key(s: Session, code: int) -> None:
@@ -8018,6 +8012,21 @@ def sys_wait_settings_dirty(s: Session, want: int, label: str, timeout: float = 
     s.fail(f"{label} 超时（dirty 未到 {want}）")
 
 
+def sys_wait_selftest(s: Session, timeout: float = 180.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"selftest_done=(\d+)") == 1:
+            ran = s.snap_int(r"selftest_ran=(\d+)")
+            failed = s.snap_int(r"selftest_failed=(\d+)")
+            (s.ok if ran == 182 and failed == 0 else s.fail)(
+                f"⑧ SYSTEM 状态行数据 SELFTEST {ran - failed}/{ran} "
+                f"{'PASS' if ran > 0 and failed == 0 else 'FAIL'}")
+            return
+        time.sleep(0.5)
+    s.fail("⑧ SELFTEST chip 超时（180s 内无结果；既有全量实测约 157–165s）")
+
+
 def sys_device_selftest(s: Session) -> None:
     """释放串口后运行真实 182 例设备 golden 门禁，再恢复原 Session。"""
     s.ser.note("⑤ device-selftest.py（本 Session 暂时关闭串口；完整 182 例 golden 比对）")
@@ -8030,7 +8039,8 @@ def sys_device_selftest(s: Session) -> None:
             print(cp.stderr, end="", file=sys.stderr)
     finally:
         s.ser = s._open()
-        s.wait_ready(timeout=20.0)
+    # 不在旧音频恢复路径上等提示符：DI-26 后 console 可能已卡住，直接复位再继续。
+    s.reboot()
     (s.ok if cp.returncode == 0 else s.fail)(f"⑤ device-selftest.py exit={cp.returncode}（期望 0）")
 
 
@@ -8047,7 +8057,8 @@ def run_sys(s: Session) -> None:
     ② SYSTEM/SYS 注册、10,240B 预算、单页组导航与第 8 组签像素；
     ③ 全部设置行 + THEME 第 6 档 + 键盘 + 播放中 20 次平台写（xrun 不增）；
     ④ settings/NVS/REC 三项的延迟写与硬复位保持；⑤ lowcut=1/reso=6 下 182 例 golden；
-    ⑥ SEQ↔SYS 有序对过渡峰值；⑦ 归一 SAVE + AUTO ON。
+    ⑥ SEQ↔SYS 有序对过渡峰值；⑦ 归一 SAVE + AUTO ON；⑧ SELFTEST chip 的一次性 worker、
+    STOP/RESET 守卫与工作工程恢复；⑨ RAW settings + SIDE theme 往返、硬复位与 STORE TEST。
     ①b 收口先恢复槽 A 的空/非空状态，再恢复歌曲，避免 `arr_drop_scene` 截断待恢复歌曲。
 
     **破坏性**（整份替换 OBJ_SETTINGS：上传的 88B 没有 SYN kit 银行 ⇒ 之后落工厂 SYN kit；
@@ -8181,9 +8192,6 @@ def run_sys(s: Session) -> None:
     s.expect(r"^AUD OUT applied=speaker\r?$", "③ 归一 OUTPUT speaker")
     s.cmd("UI system")
     s.expect(r"^UI page=system \(14\)\r?$", "③ UI system")
-
-    sys_tap(s, 8)
-    s.expect(r"-> SYS SELFTEST status=\"SELFTEST: N/A\"", "③ SELFTEST chip 占位")
 
     palette_rgb = ((120, 255, 148), (255, 164, 40), (140, 220, 255),
                    (255, 108, 92), C_YELLOW)
@@ -8327,6 +8335,7 @@ def run_sys(s: Session) -> None:
     settings_save(s, "⑤ 自检前 SAVE")
     sys_device_selftest(s)
     settings_expect(s, {"lowcut": 1, "reso": 6}, "⑤ 自检后 settings 保持")
+    # DI-26：sys_device_selftest 已硬复位，后续池与 chip 门禁不继承自检堆泄漏。
 
     # ---------- ⑥ SEQ↔SYS 有序对过渡峰值 ----------
     s.ser.note("⑥ 有序对：SEQ 两页全建→SYS、SYS→STEP，构建后池剩余 ≥4,096")
@@ -8375,6 +8384,110 @@ def run_sys(s: Session) -> None:
     s.expect_int(r"set_nvs=(\d+)", 0, "⑦ NVS dirty 已清")
     s.cmd("STORE AUTO ON")
     s.expect(r"^STORE AUTO on", "⑦ STORE AUTO ON（恢复默认）")
+
+    # ---------- ⑧ SELFTEST chip：每 boot 一次，独立 worker 停流/恢复 ----------
+    # ⑤ 已跑过一次全量 console 自检；先复位避开 DI-26 的既有堆泄漏，再测产品 chip。
+    s.ser.note("⑧ SELFTEST chip：播放守卫 → 一次性 worker → 工作工程/流/AUTO 恢复 → RESET FIRST")
+    s.reboot()
+    ensure_stopped(s)
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ UI system")
+    auto = autosave_fields(s)
+    if auto["on"] == 0:
+        store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑧ 准备 autosave：AUTO ON")
+        auto = autosave_fields(s)
+    autosave_bump_bpm(s, 120)
+    autosave_wait_writes(s, auto["writes"] + 1, 25.0,
+                         "⑧ 先落一份当前工作工程（worker 的 resume 来源）")
+    hash_before = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                             "⑧ 自检前 LIVEHASH")
+
+    seq_play(s, "⑧ 走带中守卫前提")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ 回 SYSTEM")
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"STOP FIRST\"", "⑧ 播放中 chip 预热（建立状态文本路径）")
+    s.cmd("ENG MEM")
+    mem_before = s.snap_int(r"internal_free=(\d+)")
+    mem_min_before = s.snap_int(r"internal_min=(\d+)")
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"STOP FIRST\"", "⑧ 播放中 chip → STOP FIRST")
+    s.cmd("ENG MEM")
+    mem_after = s.snap_int(r"internal_free=(\d+)")
+    mem_min_after = s.snap_int(r"internal_min=(\d+)")
+    (s.ok if abs(mem_after - mem_before) <= 64 and mem_min_after == mem_min_before else s.fail)(
+        f"⑧ STOP FIRST 未启动自检（free {mem_before}→{mem_after}，噪声 ≤64B；"
+        f"min {mem_min_before}→{mem_min_after} 不变）")
+    s.cmd("ENG AUDIO")
+    s.expect_int(r"streaming=(\d+)", 1, "⑧ STOP FIRST 后音频仍 ON")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selftest_req=(\d+)", 0, "⑧ STOP FIRST 未发 CMD_SELFTEST_RUN")
+    ensure_stopped(s)
+    s.cmd("UI system")
+    sys_tap(s, 8)
+    chip_ran = "RESET FIRST" not in s.last
+    if chip_ran:
+        s.expect(r"-> SYS SELFTEST status=\"SELFTEST RUNNING\"", "⑧ 停止后 chip 只入队")
+        sys_wait_selftest(s)
+        s.cmd("STORE STATS")
+        s.expect(r"^STORE STATS .*autosave=1 ", "⑧ worker 结束后 STORE AUTO 回 on")
+        hash_after = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                                "⑧ 自检后 LIVEHASH")
+        (s.ok if hash_after == hash_before else s.fail)(
+            f"⑧ 工作工程恢复：LIVEHASH {hash_after:08X} == 自检前 {hash_before:08X}")
+        s.cmd("ENG AUDIO")
+        s.expect_int(r"streaming=(\d+)", 1, "⑧ worker 恢复流式")
+        img = s.capture("selftest-pass")
+        s.probe_region(img, "⑧ SELFTEST PASS 状态行（accent）", (24, 672, 700, 712),
+                       C_YELLOW, 16, 40)
+    else:
+        s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"",
+                 "⑧ 本 boot 已有自检：SCR 重试不重复跑（R8，复用前一轮结果）")
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"", "⑧ 第二次 chip → RESET FIRST")
+
+    # ---------- ⑨ RAW settings + SIDE theme：写后/复位/STORE TEST ----------
+    s.ser.note("⑨ RAW settings + SIDE：palette=3、THM2 theme、COLOR THEME、复位与 STORE TEST")
+    ensure_stopped(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 0, "⑨ RAW settings 上传前走带已停")
+    if chip_ran:
+        s.expect_int(r"selftest_done=(\d+)", 1, "⑨ RAW settings 上传前 SELFTEST 已收尾")
+    theme_name = "P4E7"
+    per3 = settings_fixtures.build_per3()
+    side = settings_fixtures.build_side(theme_name)
+    settings_fixtures.validate(per3, side, theme_name)
+    store_raw.upload_raw(s.cmd, per3, "settings", 0)
+    s.ok("⑨ STORE RAW END settings 0 saved len=88")
+    store_cmd(s, "STORE RAW SIDE 00", r"^STORE ERR invalid\r?$", "⑨ SIDE 短记录 → invalid")
+    store_cmd(s, "STORE RAW SIDE " + "G" * 160, r"^STORE ERR invalid\r?$",
+              "⑨ SIDE 非 hex → invalid")
+    store_raw.upload_side(s.cmd, side)
+    s.ok("⑨ STORE RAW SIDE saved len=80")
+    settings_expect(s, {"kind": "per3", "len": 88, "palette": 3, "theme": theme_name,
+                        "theme_valid": 1, "theme_on": 0, "side": 1}, "⑨ RAW settings+SIDE 后 INFO")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑨ UI system（COLOR 有第 6 档）")
+    sys_tap(s, 0, 1)
+    s.expect(r"-> SYS COLOR value=MONO status=\"OK\"", "⑨ COLOR RED→MONO")
+    sys_tap(s, 0, 1)
+    s.expect(rf"-> SYS COLOR value={theme_name} status=\"OK\"", "⑨ COLOR MONO→THEME")
+    settings_expect(s, {"palette": 4, "theme": theme_name, "theme_valid": 1, "theme_on": 1},
+                    "⑨ 选中 THEME 后 INFO")
+    img = s.capture("raw-theme")
+    s.probe(img, "⑨ THEME accent == side.hi RGB565(0xF81F)", *C_TAB_SYS, (255, 0, 255))
+    s.reboot()
+    ensure_stopped(s)
+    settings_expect(s, {"palette": 4, "theme": theme_name, "theme_valid": 1, "theme_on": 1,
+                        "side": 1}, "⑨ 硬复位后 theme/palette 保持")
+    s.cmd("UI system")
+    img = s.capture("raw-theme-reset")
+    s.probe(img, "⑨ 复位后 THEME accent 仍 == side.hi", *C_TAB_SYS, (255, 0, 255))
+    store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$", "⑨ STORE TEST PASS 6/6")
+    settings_set(s, "theme_on", 0, label="⑨ 收口 THEME_ON=0")
+    settings_set(s, "palette", 4, label="⑨ 收口 palette=MONO")
+    settings_save(s, "⑨ 收口 SAVE（保留有效 side，回内置 MONO）")
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ 收口 AUTO ON")
 
 
 SCENARIOS = {
