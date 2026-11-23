@@ -142,6 +142,9 @@ static lv_obj_t *s_root;
 static lv_obj_t *s_tab_bar;
 static lv_obj_t *s_title;
 static lv_obj_t *s_zoom;
+static const knob_t *s_zoom_knob;
+static char s_zoom_text[64];
+static bool s_zoom_visible;
 static ui_theme_t s_theme;
 static uint8_t s_applied_palette = 0xFF;
 static uint8_t s_applied_theme_on;
@@ -410,6 +413,7 @@ static esp_err_t show_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES || page_def(page) == NULL) return ESP_ERR_INVALID_ARG;
     sloop_ui_zoom_knob(NULL);
+    s_zoom_knob = NULL;
     /* 任何切页（含组签/子签回调）都作废同一 30ms 拍内排队的异步切页请求：tab 刚记下
      * 目标页、紧接着的手指点击必须赢（R30）。定时器路径上邮箱在调用前已被取走，
      * 这里是 no-op；同步 console 切页另有入口处的同一次清空（幂等）。 */
@@ -701,14 +705,19 @@ void sloop_ui_zoom_knob(const knob_t *k)
     const sloop_settings_t *settings = sloop_store_settings();
     bool knob_page = page_layout_index(s_page) >= 0 || s_page == APP_PAGE_DSYN ||
                      s_page == APP_PAGE_FM6P;
-    if (k == NULL || !settings->f.zoom || !knob_page || !k->active ||
-        k->obj == NULL || lv_obj_get_parent(k->obj) != s_page_obj[s_page]) {
-        if (s_zoom != NULL) lv_obj_set_hidden(s_zoom, true);
+    /* 同组兄弟页也会在 30ms 拍更新：非当前页的 knob 不得覆盖/隐藏当前页读数。 */
+    if (k != NULL && k->obj != NULL && lv_obj_get_parent(k->obj) != s_page_obj[s_page]) return;
+    if (k == NULL || !settings->f.zoom || !knob_page || !k->active || k->obj == NULL) {
+        if (s_zoom != NULL && s_zoom_visible) {
+            lv_obj_set_hidden(s_zoom, true);
+            s_zoom_visible = false;
+        }
         return;
     }
     if (s_zoom == NULL) {
         s_zoom = lv_label_create(lv_screen_active());
         if (s_zoom == NULL) return;
+        s_zoom_visible = false;
         lv_obj_set_pos(s_zoom, 0, UI_TAB_BAR_H);
         lv_obj_set_size(s_zoom, UI_W, 40);
         lv_obj_set_style_text_font(s_zoom, &lv_font_montserrat_28, 0);
@@ -720,11 +729,20 @@ void sloop_ui_zoom_knob(const knob_t *k)
     if (k->text_cb == NULL || k->text_cb(k, k->value, value, sizeof(value)) <= 0) {
         knob_format_value(&k->desc, k->value, value, sizeof(value));
     }
-    lv_label_set_text_fmt(s_zoom, "%s  %s", k->desc.label != NULL ? k->desc.label : "?", value);
-    lv_obj_set_style_text_color(s_zoom, lv_color_hex(UI_TEXT), 0);
-    lv_obj_set_style_bg_color(s_zoom, lv_color_hex(UI_PANEL), 0);
-    lv_obj_set_hidden(s_zoom, false);
-    lv_obj_move_foreground(s_zoom);
+    char text[64];
+    snprintf(text, sizeof(text), "%s  %s", k->desc.label != NULL ? k->desc.label : "?", value);
+    if (s_zoom_knob != k || strcmp(text, s_zoom_text) != 0) {
+        lv_label_set_text(s_zoom, text);
+        snprintf(s_zoom_text, sizeof(s_zoom_text), "%s", text);
+        s_zoom_knob = k;
+        lv_obj_set_style_text_color(s_zoom, lv_color_hex(UI_TEXT), 0);
+        lv_obj_set_style_bg_color(s_zoom, lv_color_hex(UI_PANEL), 0);
+    }
+    if (!s_zoom_visible) {
+        lv_obj_set_hidden(s_zoom, false);
+        lv_obj_move_foreground(s_zoom);
+        s_zoom_visible = true;
+    }
 }
 
 /* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
@@ -800,6 +818,8 @@ esp_err_t sloop_ui_start(void)
     s_tab_bar = NULL;
     s_title = NULL;
     s_zoom = NULL;
+    s_zoom_knob = NULL;
+    s_zoom_visible = false;
     sloop_ui_theme_apply(sloop_store_settings());
 
     lv_obj_t *scr = lv_screen_active();

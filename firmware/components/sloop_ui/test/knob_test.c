@@ -349,6 +349,13 @@ static void case_theme_custom_overrides(void)
     check_ll("THEME bg", t.bg, 0x010203);
     check_ll("THEME accent", t.accent, 0xF0E6DC);
     check_ll("THEME text 由 hi 派生", t.text, 0xF0E6DC);
+    /* D3 中性灰染色：base + (c-mono)/2（C 整数除法向零截断）；panel_sel 的
+     * 输入是 c[1]/c[2] 的半点 = (50,60,70)，对应 MONO 的 (105,105,105)。 */
+    check_ll("THEME panel 由 c0 派生", t.panel, 0x111B26);
+    check_ll("THEME panel_hi 由 c1 派生", t.panel_hi, 0x101C29);
+    check_ll("THEME panel_sel 由 c1/c2 派生", t.panel_sel, 0x111F2F);
+    check_ll("THEME text_dim 由 c2 派生", t.text_dim, 0x677685);
+    check_ll("THEME error 固定", t.error, 0xE0542A);
     for (int i = 0; i < 4; i++) {
         check_ll("THEME track", t.track[i],
                  ((uint32_t)th.trk[i][0] << 16) | ((uint32_t)th.trk[i][1] << 8) | th.trk[i][2]);
