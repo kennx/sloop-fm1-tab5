@@ -496,7 +496,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 
 - 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
   行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
-  6,436B）、FM6P 7,168B（P4-D Task 10，实测 6,892–7,080B））；P4-B 起按组核算：P4-D Task 8 起
+  6,436B）、FM6P 7,168B（P4-D Task 10，实测 6,892–7,124B））；P4-B 起按组核算：P4-D Task 8 起
   SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
   全建后 `pool_free` 实测 26–34KB；九页平铺时点的 2,816B 仅作历史对照）。
 - 验证入口：`scripts/inject/params.sh`（五页：TAP ± 与键盘编辑经 `PARAM`/`PARAM GLOBAL`/
@@ -614,8 +614,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   相对 x 判区）、`SAVE`（924，72×32）、状态行（1004..1264，16pt 右对齐）；8 旋钮沿用
   参数页网格（cell 300×290，x=16+c·316、y=52+r·298，盒 160×160）；底部**一个三区
   对象** `−        +`（16..184，168×44，y=552..596）作用于焦点槽 ±1（TAP 不能拖拽，
-  这是 TAP 能触发的唯一字段写入口；中段留白按 `TAP miss`）。24 个对象（8 旋钮 +
-  12 chip + BANK + SAVE + 状态行 + 细调）。
+  这是 TAP 能触发的唯一字段写入口）。左右各 **72px** 是 ± 区、中段 **24px（72..96）是
+  死区**（`TAP miss`；把 zone 设成半个宽度会让整条都能写值，中点误触即改音色）。
+  24 个对象（8 旋钮 + 12 chip + BANK + SAVE + 状态行 + 细调）。
 - **字段页**（页内 UI 局部态，不新增 app page；算子 chip 也只影响前三页）：
   EG = R1/R2/R3/R4/L1/L2/L3/L4（op 字段 0..7）；LEVEL = BP/LD/RD/LC/RC/RS/KVS/OL
   （8..13,15,16；AMS=14 在 PITCH 页）；PITCH = MODE/FC/FF/DET/AMS（17..20,14）+ 3 空；
@@ -630,12 +631,14 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   块）、`SAVE` = `CMD_BANK_PUT`（目标槽是页内 0..26，与 FM6 宏页的 bank 行同一套 27
   槽）。数字文本走 `knob_format_value`（ONOFF / ALG "1".."32" / LFW / LPMS 枚举都由
   desc 给出，无需 core 的索引→文本表）。
-- **ALG 宏覆盖**（spec §4.1）：ALG = 全局字段 **8**（`FP_ALG - FP_PR1` = 134−126；
-  VOICE 页首槽）。写 ALG 时适配层在同一次引擎锁内清 `trk[track].p[P_E0]`（宏 → PAT），
-  否则上游 `fm6_sync` 会用宏覆盖 patch 的算法、编辑听不到。`P_E0 != 0` 时状态行显示
-  `ALG MACRO n`（1..32）：**优先级 = 失败 > 提示 > 成功结果**——覆盖警告是持续事实、
-  `EDIT OK` 是瞬时的；编辑 ALG 成功后宏已被清，提示自然消失。其余宏（FB/MLVL/MRAT/
-  MEG/VMOD/DTUN）是叠加语义，写 patch 字段不动它们。
+- **ALG 宏覆盖**（spec §4.1）：ALG = 全局字段 **8**（`SLOOP_FM6_ALG_FIELD` =
+  `FP_ALG - FP_PR1` = 134−126；VOICE 页首槽；state/console/page 共用这一公共常量）。
+  写 ALG 时适配层在同一次引擎锁内清 `trk[track].p[P_E0]`（宏 → PAT），否则上游
+  `fm6_sync` 会用宏覆盖 patch 的算法、编辑听不到；状态层 `cmd_fm6_set` 因此在 ALG
+  分支**同拍重取 `p[]`**（否则 UI 的 `ALG MACRO n` 提示与 TAP 回显会多留一拍）。
+  `P_E0 != 0` 时状态行显示 `ALG MACRO n`（1..32）：**优先级 = 失败 > 提示 > 成功结果**
+  ——覆盖警告是持续事实、`EDIT OK` 是瞬时的；编辑 ALG 成功后宏已被清，提示自然消失。
+  其余宏（FB/MLVL/MRAT/MEG/VMOD/DTUN）是叠加语义，写 patch 字段不动它们。
 - **锁定态**（`app_state_t.fm6p.engine_ok == 0`：选中轨不是 FM6，含鼓轨）：8 个旋钮一律
   `--`（`knob_show_locked`），`OP/PAGE/BANK` chip、`SAVE`、底部 ± 全部**拒绝**（不下发
   命令、不改选择），状态行 `NOT FM6`（红字，页内状态，不写 `synth_status`/`store_status`）；
@@ -656,7 +659,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   中段按 `TAP miss`。
 - **键盘**：←/→ 焦点（跳过当前页空槽、环绕）、↑/↓ 调焦点槽 ±1（锁定页空操作）；输入
   任务上下文只写状态层（`render=false`，控件由 30ms 定时器刷新）。chip 只经触摸/console。
-- **预算（est 7,168B 固定）**：24 个对象实测 **6,892–7,080B**（≤ est；区间取决于构建
+- **预算（est 7,168B 固定）**：24 个对象实测 **6,892–7,124B**（≤ est；区间取决于构建
   时的池历史）。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），
   ADR-005 §5 的组不变量不变。设备证据见任务 10 报告与 `docs/dev/verify/4-pd-2026-11-23/`。
 - **验证入口**：设备 `UI FM6P OP/PAGE` + `TAP`（六页 × 8 槽的字段名/写后回读、锁定页

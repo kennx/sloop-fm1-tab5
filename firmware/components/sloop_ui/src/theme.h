@@ -272,8 +272,9 @@ static inline uint32_t ui_dsyn_status_color(uint8_t act, uint8_t status, bool di
 
 /* FM6P 页状态行（P4-D Task 10；屏幕文本与 console `TAP` 回显都从这里出）。
  * act = 本页最后一次动作（页内局部态，不写 app_state_t）：
- *   SAVE  → 存储结果（复用 ui_file_status_text 的 act 0 文案：`SAVE OK` /
- *           `STOP BEFORE SAVE` / `NO STORAGE` / `SAVE ERROR` / `DRUM TRACK: NO SOUND`）
+ *   SAVE  → 存储结果（复用 ui_file_status_text 的 act 0 文案；本页**可达**的只有
+ *           `SAVE OK` / `STOP BEFORE SAVE` / `NO STORAGE` / `SAVE ERROR`——
+ *           `DRUM TRACK: NO SOUND` 走不到，鼓轨恒被锁定分支先拦成 `NOT FM6`）
  *   FIELD → synth_status：`EDIT OK` / `INVALID` / `FULL` / `BLOCKED` / `FROZEN` /
  *           `LOCKED` / `EDIT ERROR`（存储未就绪时 `NO STORAGE`）
  *   其它（尚无动作）→ `ALG MACRO n`（P_E0 ≠ 0，宏在覆盖 patch 的算法）或空串

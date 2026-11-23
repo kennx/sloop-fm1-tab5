@@ -544,6 +544,12 @@ static void cmd_fm6_set(app_state_t *s, uint32_t track, uint32_t op, uint32_t fi
     if (sloop_core_fm6_set(track, op, field, (int16_t)value) != SLOOP_FM6_INVALID) {
         s->synth_status = APP_SYNTH_STATUS_OK;
         state_refresh_fm6_locked();
+        /* ALG（op 6 field 8）的适配层在同一次引擎锁内清 `p[P_E0]`（ALG 宏 → PAT）：
+         * p[] 投影必须同拍跟上，否则页面的 `ALG MACRO n` 提示与 TAP 回显会多留一拍。
+         * 其余字段不动宏，不重读（省一次引擎快照）。 */
+        if (op == SLOOP_FM6_GLOBAL_OP && field == SLOOP_FM6_ALG_FIELD) {
+            sloop_core_read_params(track, s->p, NULL);
+        }
         return;
     }
     sloop_fm6_patch_snapshot_t snap;

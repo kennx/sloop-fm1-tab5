@@ -279,6 +279,10 @@ bool sloop_core_dsyn_dirty(void);
 #define SLOOP_FM6_GLOBAL_FIELDS 29u
 #define SLOOP_FM6_GLOBAL_OP      6u /* op 取值：全局字段块 */
 #define SLOOP_FM6_NAME_FIELDS   10u /* 全局字段 19..28 = 名称字节（只读） */
+#define SLOOP_FM6_ALG_FIELD      8u /* 全局块里的 ALG（`FP_ALG - FP_PR1` = 134−126）：
+                                     * 写它时适配层在同一次引擎锁内清 `p[P_E0]`（ALG 宏
+                                     * → PAT），状态层因此要在成功后同拍重取 p[]，否则
+                                     * UI 的 `ALG MACRO n` 提示会多留一拍 */
 #define SLOOP_FM6_INVALID ((int16_t)-1)
 typedef struct {
     uint8_t patch[SLOOP_FM6_PATCH_SIZE]; /* FM6 155B voice，未 pack */

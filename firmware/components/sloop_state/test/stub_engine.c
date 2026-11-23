@@ -651,6 +651,11 @@ int16_t sloop_core_fm6_set(uint32_t track, uint32_t op, uint32_t field, int16_t 
         return SLOOP_FM6_INVALID;
     int16_t clamped = v < 0 ? 0 : (v > 127 ? 127 : v);
     g_stub.fm6_patch[track][off] = (uint8_t)clamped;
+    /* 与 Task 3 的适配层同语义：写 ALG（op 6 field 8）在同一次引擎锁内清 ALG 宏
+     * （p[P_E0] → PAT），其余字段不动它。状态层据此在成功后同拍重取 p[]。 */
+    if (op == SLOOP_FM6_GLOBAL_OP && field == SLOOP_FM6_ALG_FIELD) {
+        g_stub.param[track][SLOOP_CORE_P_COUNT - 8u] = 0;
+    }
     return clamped;
 }
 

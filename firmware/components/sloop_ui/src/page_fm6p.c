@@ -12,9 +12,9 @@
  *   对象**常驻**，当前字段页没有字段的槽 `lv_obj_set_hidden(true)`（视觉/命中/TAP
  *   都与「未建」等价——池峰值按 8 个建）。
  * - 底部细调：**一个三区对象** `−        +`（16..184，高 44，页面区 y=552..596；
- *   旋钮盒底边 536 之下）。左右各 84px 是 −/+（焦点槽 ±1 个原始单位），中段是
- *   留白（TAP 命中按 miss）。DSYN 页用两个独立对象；这里合成一个以守住 est
- *   7,168B（24 个对象，见 ADR-008 §3 的 FM6P 行）。
+ *   旋钮盒底边 536 之下）。左右各 72px 是 −/+（焦点槽 ±1 个原始单位），**中段
+ *   24px（72..96）是死区**（TAP 命中按 miss，避免误触单步写）。DSYN 页用两个独立
+ *   对象；这里合成一个以守住 est 7,168B（24 个对象，见 ADR-008 §3 的 FM6P 行）。
  *
  * 字段页（**页内 UI 局部态**，`UI FM6P PAGE` 与页面 chip 共用；不新增 app page）。
  * 算子在 EG/LEVEL/PITCH 三页决定编辑哪个算子块（op 0..5），PEG/VOICE/LFO 三页是
@@ -34,7 +34,7 @@
  * → 命令同拍刷新的投影 → 重绘本页。数字文本走 knob_format_value（枚举/ONOFF 由
  * desc 决定，无需 core 的索引→文本表）。
  *
- * ALG 宏覆盖（spec §4.1）：ALG = 全局字段 8（`FP_ALG - FP_PR1`，= `FM6P_ALG_FIELD`），
+ * ALG 宏覆盖（spec §4.1）：ALG = 全局字段 8（`SLOOP_FM6_ALG_FIELD` = `FP_ALG - FP_PR1`），
  * 写 ALG 时适配层在同一次引擎锁内清 `P_E0`（ALG 宏 → PAT），否则上游 `fm6_sync`
  * 会用宏覆盖 patch 的算法、编辑听不到。`st->p[P_E0] != 0` 时状态行显示
  * `ALG MACRO n`：宏在覆盖算法，深度页的 ALG 编辑要「实测」才听得到。提示的优先级
@@ -94,19 +94,18 @@
 #define FM6P_CELL_PITCH 316
 #define FM6P_ROW_PITCH  298
 
-/* 底部细调：一个三区对象（左 −/中留白/右 +） */
+/* 底部细调：一个三区对象（左 −/中死区/右 +）。作用区 72px、对象宽 168 ⇒ 中间
+ * 72..96 是 24px 死区（`rel >= ZONE && rel < W - ZONE` 成立）；把 ZONE 设成半个
+ * 宽度会让整条都变成 −/+，中点误触即写值。 */
 #define FM6P_ADJ_Y      552
 #define FM6P_ADJ_X      16
 #define FM6P_ADJ_W      168
 #define FM6P_ADJ_H      44
-#define FM6P_ADJ_ZONE   84
+#define FM6P_ADJ_ZONE   72
 
 /* ALG 宏在 p[] 里的绝对 id（上游 P_E0 = P_COUNT − 8，与 page_params 的引擎槽起点
  * 同一常量；`CMD_FM6_SET` 写 ALG 时由适配层清它）。 */
 #define FM6P_ALG_MACRO ((uint8_t)(SLOOP_CORE_P_COUNT - 8u))
-/* 全局块里 ALG 的字段号（`FP_ALG - FP_PR1` = 134 − 126 = 8，Task 3 冻结的编号）。 */
-#define FM6P_ALG_FIELD 8u
-
 #define FM6P_NONE 0xFFu
 
 /* 单元格 = (全局块?, 字段号)。global=0 时 op 取当前选中的算子（OP1..OP6），
@@ -127,7 +126,7 @@ static const fm6p_cell_t k_cells[FM6P_PAGES][FM6P_SLOTS] = {
     /* PEG：PR1..PR4 / PL1..PL4（全局 0..7） */
     {{1, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}, {1, 7}},
     /* VOICE：ALG/FB/OKS/TRNSP + 4 空槽（全局 8/9/10/18） */
-    {{1, FM6P_ALG_FIELD}, {1, 9}, {1, 10}, {1, 18},
+    {{1, SLOOP_FM6_ALG_FIELD}, {1, 9}, {1, 10}, {1, 18},
      {1, FM6P_NONE}, {1, FM6P_NONE}, {1, FM6P_NONE}, {1, FM6P_NONE}},
     /* LFO：LFS/LFD/LPMD/LAMD/LKS/LFW/LPMS + 1 空槽（全局 11..17） */
     {{1, 11}, {1, 12}, {1, 13}, {1, 14}, {1, 15}, {1, 16}, {1, 17},
@@ -591,9 +590,7 @@ static void apply_page(uint8_t page, uint8_t op)
             continue;
         }
         k->desc = d;
-        /* user 编码 ((op << 8) | field) + 1：+1 让「op 0 字段 0」不是 NULL */
-        k->user = (void *)(uintptr_t)((((uintptr_t)cop << 8) | c->field) + 1u);
-        k->text_cb = NULL;
+        k->text_cb = NULL; /* 枚举/ONOFF/整数都由 desc 决定，不需要页面文本回调 */
         k->shown = false; /* 新描述符：强制重绘名称/数值 */
         if (s_hidden[slot]) {
             lv_obj_set_hidden(k->obj, false);
@@ -801,7 +798,7 @@ bool page_fm6p_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
     }
     if (rect_hit(x, y, FM6P_ADJ_X, FM6P_ADJ_Y, FM6P_ADJ_W, FM6P_ADJ_H)) {
         int32_t rel = x - FM6P_ADJ_X;
-        if (rel >= FM6P_ADJ_ZONE && rel < FM6P_ADJ_W - FM6P_ADJ_ZONE) return false; /* 中段留白 */
+        if (rel >= FM6P_ADJ_ZONE && rel < FM6P_ADJ_W - FM6P_ADJ_ZONE) return false; /* 死区 */
         uint8_t slot = focus_get();
         if (slot >= FM6P_SLOTS || !s_present[slot]) return false; /* 空槽：焦点不落空槽，防御 */
         uint8_t cop = s_slot_op[slot];

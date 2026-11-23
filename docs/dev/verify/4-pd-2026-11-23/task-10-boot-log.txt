@@ -1,47 +1,47 @@
-I (102) esp_image: segment 2: paddr=000a11b8 vaddr=4ff00000 sizeI (257) esp_image: segment 4: paddr=001a0dac vaddr=4ff0ee60 size=07b18h ( 31512) load
-I (264) esp_image: segment 5: paddr=001a88cc vaddr=4ff16980 size=0481ch ( 18460) load
-I (268) esp_image: segment 6: paddr=001ad0f0 vaddr=50108080 size=00020h (    32) load
+I (102) esp_image: segment 2: paddr=000a11a8 vaddr=4ff00000 sizeI (257) esp_image: segment 4: paddr=001a0dc8 vaddr=4ff0ee70 size=07b08h ( 31496) load
+I (263) esp_image: segment 5: paddr=001a88d8 vaddr=4ff16980 size=0481ch ( 18460) load
+I (268) esp_image: segment 6: paddr=001ad0fc vaddr=50108080 size=00020h (    32) load
 I (274) boot: Loaded app from partition at offset 0x10000
-I (275) boot: Disabling RNG early entropy source...
+I (274) boot: Disabling RNG early entropy source...
 I (280) hex_psram: vendor id    : 0x0d (AP)
 I (280) hex_psram: Latency      : 0x01 (Fixed)
-I (281) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (280) hex_psram: DriveStr.    : 0x00 (25 Ohm)
 I (281) hex_psram: dev id       : 0x03 (generation 4)
 I (281) hex_psram: density      : 0x07 (256 Mbit)
-I (282) hex_psram: good-die     : 0x06 (Pass)
+I (281) hex_psram: good-die     : 0x06 (Pass)
 I (282) hex_psram: SRF          : 0x02 (Slow Refresh)
 I (282) hex_psram: BurstType    : 0x00 ( Wrap)
-I (283) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (282) hex_psram: BurstLen     : 0x03 (2048 Byte)
 I (283) hex_psram: BitMode      : 0x01 (X16 Mode)
-I (284) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (283) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
 I (284) hex_psram: DriveStrength: 0x00 (1/1)
 I (284) MSPI Timing: Enter psram timing tuning
-I (458) esp_psram: Found 32MB PSRAM device
+I (457) esp_psram: Found 32MB PSRAM device
 I (458) esp_psram: Speed: 200MHz
 I (459) hex_psram: psram CS IO is dedicated
 I (459) cpu_start: Multicore app
 I (1409) esp_psram: SPI SRAM memory test OK
-I (1426) cpu_start: Pro cpu start user code
-I (1426) cpu_start: cpu freq: 360000000 Hz
+I (1425) cpu_start: Pro cpu start user code
+I (1425) cpu_start: cpu freq: 360000000 Hz
 I (1426) app_init: Application information:
 I (1426) app_init: Project name:     sloop_fm1_tab5
-I (1426) app_init: App version:      8e27fd3-dirty
-I (1427) app_init: Compile time:     Nov 23 2026 10:27:17
-I (1427) app_init: ELF file SHA256:  355ef1797...
+I (1426) app_init: App version:      d301f46-dirty
+I (1426) app_init: Compile time:     Nov 23 2026 10:43:38
+I (1426) app_init: ELF file SHA256:  b33c56da4...
 I (1427) app_init: ESP-IDF:          v5.5.5
 I (1427) efuse_init: Min chip rev:     v1.0
 I (1427) efuse_init: Max chip rev:     v1.99 
-I (1428) efuse_init: Chip rev:         v1.3
+I (1427) efuse_init: Chip rev:         v1.3
 I (1428) heap_init: Initializing. RAM available for dynamic allocation:
 I (1428) heap_init: At 4FF23200 len 00017DC0 (95 KiB): RETENT_RAM
-I (1429) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
-I (1429) heap_init: At 4FF9CB80 len 00003480 (13 KiB): RAM
+I (1428) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1428) heap_init: At 4FF9CB80 len 00003480 (13 KiB): RAM
 I (1429) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
 I (1429) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
-I (1430) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
+I (1429) esp_psram: Adding pool of 32290K of PSRAM memory to heap allocator
 I (1431) spi_flash: detected chip: generic
 I (1431) spi_flash: flash io: dio
-I (1432) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1431) sleep_gpio: Configure to isolate all GPIO pins in sleep state
 I (1432) sleep_gpio: Enable automatic switching of GPIO sleep configuration
 I (1433) main_task: Started on CPU0
 I (1433) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations

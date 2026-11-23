@@ -1215,9 +1215,7 @@ static int ui_command(int argc, char **argv)
          * 都是页内 UI 局部态（不写引擎、不进状态层），30ms UI 定时器下一拍按新
          * 算子/字段页重配 8 个旋钮；算子只影响 EG/LEVEL/PITCH 三页（PEG/VOICE/LFO
          * 是全局块）。裸 `UI fm6p` 仍是**切页**（页名表优先，见本函数末尾的 argc==2
-         * 循环）。 */
-        uint8_t op = sloop_ui_fm6p_op_get();
-        uint8_t page = sloop_ui_fm6p_page_get();
+         * 循环）。回显值一律取 getter（写入口在下面，不要缓存到局部变量）。 */
         if (argc == 3) {
             printf("用法: UI FM6P <OP 0..5（OP1..OP6） | PAGE 0..5（EG/LEVEL/PITCH/PEG/"
                    "VOICE/LFO）>（裸 `UI fm6p` 是切页）\n");
@@ -3405,7 +3403,7 @@ static int fm6p_alg(uint32_t track, uint32_t value)
         state_apply(&cmd);
     } else {
         edit_cmd_t cmd = {.type = CMD_FM6_SET, .a = track, .b = SLOOP_FM6_GLOBAL_OP,
-                          .n = 8, .v = (uint16_t)(value - 1u)};
+                          .n = SLOOP_FM6_ALG_FIELD, .v = (uint16_t)(value - 1u)};
         uint8_t status = synth_apply(&cmd);
         if (status != APP_SYNTH_STATUS_OK) return synth_err("FM6P", status);
     }

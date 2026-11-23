@@ -1775,10 +1775,24 @@ static void case_fm6_and_sample(void)
     check_ll("FM6 写后同拍回读 patch", s.fm6p.patch[1], 33);
     check_ll("FM6 写后 engine_ok", s.fm6p.engine_ok, 1);
 
-    /* 全局块：op 6 field 8（ALG）落在绝对偏移 126+8 */
-    apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP, 8, 20);
+    /* 全局块：op 6 field 8（ALG）落在绝对偏移 126+8；适配层同锁清 P_E0（ALG 宏），
+     * 状态层必须在成功后同拍重取 p[]（UI 的 `ALG MACRO n` 提示不能多留一拍）。 */
+    g_stub.param[0][SLOOP_CORE_P_COUNT - 8u] = 5;
+    uint32_t reads_before = g_stub.read_params_calls;
+    apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_ALG_FIELD, 20);
     state_get_copy(&s);
-    check_ll("FM6 全局字段回读", s.fm6p.patch[126 + 8], 20);
+    check_ll("FM6 全局字段回读", s.fm6p.patch[126 + SLOOP_FM6_ALG_FIELD], 20);
+    check_ll("ALG 写后 P_E0 同拍清零", s.p[SLOOP_CORE_P_COUNT - 8u], 0);
+    check_ll("ALG 写后重读参数一次", (int32_t)(g_stub.read_params_calls - reads_before), 1);
+    /* 非 ALG 字段：不动宏、不重读参数（省一次引擎快照）——后端故意写成 5，
+     * 状态层本轮不重读 ⇒ 投影保持上一拍的值，后端也不被改写。 */
+    g_stub.param[0][SLOOP_CORE_P_COUNT - 8u] = 5;
+    reads_before = g_stub.read_params_calls;
+    apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP, SLOOP_FM6_ALG_FIELD + 1u, 20);
+    state_get_copy(&s);
+    check_ll("非 ALG 字段不重读参数", (int32_t)(g_stub.read_params_calls - reads_before), 0);
+    check_ll("非 ALG 字段保留 P_E0 投影（不重读）", s.p[SLOOP_CORE_P_COUNT - 8u], 0);
+    check_ll("非 ALG 字段不动后端宏", g_stub.param[0][SLOOP_CORE_P_COUNT - 8u], 5);
 
     /* 越界 op：patch 可读、set 回哨兵 → invalid；鼓轨 → locked */
     apply4(CMD_FM6_SET, 0, SLOOP_FM6_GLOBAL_OP + 1, 0, 1);
