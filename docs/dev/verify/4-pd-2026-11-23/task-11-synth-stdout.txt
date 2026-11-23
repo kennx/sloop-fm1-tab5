@@ -1,11 +1,11 @@
   [fw] SCR
-  [fw] I (6143) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] I (6092) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
   [fw] SCR
-  [fw] I (23363) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] I (23332) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
   [fw] SCR
-  [fw] I (41423) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+  [fw] I (41602) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
 == inject synth @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-120326.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-121515.log
   [PASS] ⓪ STORE AUTO OFF
   [PASS] UI WINDOW 0 16
   [PASS] STATE SNAP window_bank = 0
@@ -728,19 +728,19 @@
   [PASS] ④ TAP 槽 U1
   [PASS] ④ TAP 旋钮 3（焦点移开 SET）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-120326-synth-sample.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-121515-synth-sample.png  (1280x720 rgb565)
   [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ 子签选中（SAMPLE）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ 旋钮 0 名称/数值文本: 区域 (100, 214, 232, 246) 内 (144, 148, 160)±16 像素 359（阈值 ≥30）
   [PASS] ④ 槽 U1 文本（USED name=SINE，选中色）: 区域 (16, 624, 216, 668) 内 (224, 176, 40)±24 像素 346（阈值 ≥30）
   [PASS] ④ 状态行（SET U1 = 轨 1 绿）: 区域 (972, 624, 1264, 668) 内 (56, 160, 72)±24 像素 204（阈值 ≥30）
-  [PASS] ④ UI MEM SAMPLE state=built delta=4496 est=6144（0<delta≤est）
+  [PASS] ④ UI MEM SAMPLE state=built delta=4508 est=6144（0<delta≤est）
   [PASS] ④ UI dsyn
   [PASS] ④ UI DSYN PAGE 2（SND3）
   [PASS] ④ DSYN SET FCUT = 100
   [PASS] ④ TAP DSYN 旋钮 2（FCUT）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-120326-synth-dsyn.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-121515-synth-dsyn.png  (1280x720 rgb565)
   [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ 子签选中（DSYN）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ kit chip SYN1（选中）: (36,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
@@ -748,7 +748,7 @@
   [PASS] ④ 旋钮 0 名称/数值文本: 区域 (100, 214, 232, 246) 内 (144, 148, 160)±16 像素 134（阈值 ≥30）
   [PASS] ④ DSYN 底部 + → 写后回读 101 + EDIT OK
   [PASS] ④ DSYN 底部 − → 写后回读 100
-  [PASS] ④ UI MEM DSYN state=built delta=6440 est=7168（0<delta≤est）
+  [PASS] ④ UI MEM DSYN state=built delta=6452 est=7168（0<delta≤est）
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 1
   [PASS] STATE SNAP selected_track=1 = 1
@@ -759,7 +759,7 @@
   [PASS] ④ FM6P ALG = 4（环顶探针前提 + 宏清零）
   [PASS] ④ TAP FM6P 旋钮 0（ALG）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-120326-synth-fm6p.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-synth-20261123-121515-synth-fm6p.png  (1280x720 rgb565)
   [PASS] ④ 组签选中（SYNTH）: (486,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ 子签选中（FM6P）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ④ OP3 chip（选中）: (156,80) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
@@ -774,16 +774,16 @@
   [PASS] ④ STATE SNAP fm6p_engine_ok=1 = 1
   [PASS] ④ 回 SAMPLE（同组重建兄弟页）
   [PASS] ④ 回 DSYN（SYNTH 三页全建）
-  [PASS] ④ UI MEM FM6P state=built delta=7072 est=7168（0<delta≤est）
+  [PASS] ④ UI MEM FM6P state=built delta=7068 est=7168（0<delta≤est）
   [PASS] ④ UI MEM SYNTH built=3 sum_est=20480（期望 3 / 20,480）
-  [PASS] ④ UI MEM SYNTH sum_delta=17796（0 < Σdelta ≤ Σest）
+  [PASS] ④ UI MEM SYNTH sum_delta=17824（0 < Σdelta ≤ Σest）
   [PASS] ④ UI MEM SYNTH build_ms=13ms（0 < x ≤100）
   [PASS] ⑤ SYNTH → STEP（跨组销毁 SYNTH）
-  [PASS] ⑤ SYNTH 全建 → STEP 首建后 pool_free=28780B（期望 ≥4,096B）
+  [PASS] ⑤ SYNTH 全建 → STEP 首建后 pool_free=28800B（期望 ≥4,096B）
   [PASS] ⑤ 离开 SYNTH 后 built=0（期望 0）
   [PASS] ⑤ 池往返起点 PLAY
-  [PASS] ⑤ 10 次 SYNTH/FILE/SONG/SEQ 往返后 pool_free 47064 → 47020（Δ=-44B，允许 |Δ| ≤ 128B）
-  [PASS] ⑤ 单次往返最大池下降 60B ≤ 128B（无逐次增长）
+  [PASS] ⑤ 10 次 SYNTH/FILE/SONG/SEQ 往返后 pool_free 47092 → 47008（Δ=-84B，允许 |Δ| ≤ 128B）
+  [PASS] ⑤ 单次往返最大池下降 92B ≤ 128B（无逐次增长）
   [PASS] ⑥ 擦 USR1
   [PASS] ⑥ DSYN kit 0 回工厂 808
   [PASS] ⑥ DSYN STORE（dirty=0）
@@ -803,4 +803,6 @@
   [PASS] ⑥ PARAM 63 = 0
   [PASS] ⑥ 回 PLAY
   [PASS] ⑥ STORE AUTO ON（恢复默认）
+  [PASS] ⑥ ENG SNAP 轨 0 engine=0（无 FM6 泄漏）
+  [PASS] ⑥ ENG SNAP 轨 1 engine=0（无 FM6 泄漏）
 [PASS] synth: 全部断言与像素抽检通过

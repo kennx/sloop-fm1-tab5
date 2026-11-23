@@ -6,7 +6,7 @@ STORE AUTO off
 sloop>  UI WINDOW 0 16
 UI WINDOW bank=0 start=0 len=16
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -14,7 +14,7 @@ STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
 STATE SNAP global bpm=90 swing=40
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -22,13 +22,13 @@ STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
 STATE SNAP global bpm=90 swing=40
 sloop>  UI tracks
-I (432908) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5816B 预算=7168B 池剩余=41096B 耗时=8ms
-I (432908) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (441752) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5784B 预算=7168B 池剩余=41288B 耗时=9ms
+I (441752) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
 sloop>  STATE SNAP
-STATE SNAP page=1 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -478,7 +478,139 @@ SMP 1 EMPTY
 SMP 2 EMPTY
 SMP 3 EMPTY
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=312
+KEY 0x42 down z elapsed_us=325
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop> ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
@@ -567,205 +699,95 @@ ENG SNAP dstep i=12 on=1 lvl=0 rat=0
 ENG SNAP dstep i=13 on=1 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop> ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=1
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
@@ -929,7 +951,7 @@ SMP 1 EMPTY
 SMP 2 EMPTY
 SMP 3 EMPTY
 sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=260
+KEY 0x42 down z elapsed_us=238
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
@@ -975,6 +997,50 @@ ENG SNAP dstep i=13 on=1 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop> ENG SNAP
 ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
 ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
@@ -1304,6 +1370,391 @@ ENG SNAP dstep i=12 on=1 lvl=0 rat=0
 ENG SNAP dstep i=13 on=1 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  KEY 0x42 up
+KEY 0x42 up z elapsed_us=68
+sloop>  SMP BEGIN 0
+SMP BEGIN slot=0 OK
+sloop>  SMP INFO
+SMP 0 EMPTY
+SMP 1 EMPTY
+SMP 2 EMPTY
+SMP 3 EMPTY
+sloop>  KEY 0x42 down
+KEY 0x42 down z elapsed_us=68
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop> ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop> ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop> ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  ENG SNAP
 ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
 ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
@@ -1349,436 +1800,7 @@ ENG SNAP dstep i=13 on=1 lvl=0 rat=0
 ENG SNAP dstep i=14 on=0 lvl=0 rat=0
 ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  KEY 0x42 up
-KEY 0x42 up z elapsed_us=88
-sloop>  SMP BEGIN 0
-SMP BEGIN slot=0 OK
-sloop>  SMP INFO
-SMP 0 EMPTY
-SMP 1 EMPTY
-SMP 2 EMPTY
-SMP 3 EMPTY
-sloop>  KEY 0x42 down
-KEY 0x42 down z elapsed_us=64
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop> ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop> ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop> ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>  ENG SNAP
-ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
-ENG SNAP trk k=0 engine=4 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
-ENG SNAP dstep i=0 on=1 lvl=0 rat=0
-ENG SNAP dstep i=1 on=1 lvl=0 rat=0
-ENG SNAP dstep i=2 on=1 lvl=0 rat=0
-ENG SNAP dstep i=3 on=0 lvl=0 rat=0
-ENG SNAP dstep i=4 on=0 lvl=0 rat=0
-ENG SNAP dstep i=5 on=1 lvl=0 rat=0
-ENG SNAP dstep i=6 on=1 lvl=0 rat=0
-ENG SNAP dstep i=7 on=0 lvl=0 rat=0
-ENG SNAP dstep i=8 on=0 lvl=0 rat=0
-ENG SNAP dstep i=9 on=0 lvl=0 rat=0
-ENG SNAP dstep i=10 on=1 lvl=0 rat=0
-ENG SNAP dstep i=11 on=0 lvl=0 rat=0
-ENG SNAP dstep i=12 on=1 lvl=0 rat=0
-ENG SNAP dstep i=13 on=1 lvl=0 rat=0
-ENG SNAP dstep i=14 on=0 lvl=0 rat=0
-ENG SNAP dstep i=15 on=0 lvl=0 rat=0
-sloop>KEY 0x42 up
-KEY 0x42 up z elapsed_us=27
+KEY 0x42 up z elapsed_us=31
 sloop>  SMP BEGIN 0
 SMP BEGIN slot=0 OK
 sloop>  SMP DATA 0 512 70777777774D08888899A9B9BBBCBBBBAC9A8A0022455343242433242322120099DBDBBCBCCCBABBACABAA8908325453434324334332221200A8DADBBCBCBCBCBBACABAA890831545343434333433222128198DADBBCBCBCBCBBACABAA9918215443443334343333332201A8DBCCCCCB
@@ -2197,13 +2219,13 @@ SMP 1 EMPTY
 SMP 2 EMPTY
 SMP 3 EMPTY
 sloop>  UI transport
-I (488398) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8364B 预算=9216B 池剩余=35176B 耗时=12ms
-I (488398) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (497272) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8348B 预算=9216B 池剩余=35332B 耗时=12ms
+I (497282) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  TAP 208 210
 TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=1 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=1 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -2221,7 +2243,7 @@ UI page=transport (3)
 sloop>  TAP 560 210
 TAP 560,210 page=3 -> TRANSPORT CMD_STOP
 sloop>  STATE SNAP
-STATE SNAP page=3 focus_track=0 focus_step=3 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=1 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=48 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=1 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=0 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
@@ -2654,21 +2676,21 @@ DSYN SET k=0 l=0 f=23 value=180 status="ok"
 sloop>  DSYN CRUSH 0 40
 DSYN CRUSH k=0 crush=40 status="ok"
 sloop>  UI DSYN KIT 0
-UI DSYN kit=0 lane=0 page=0
+UI DSYN kit=0 lane=0 page=2
 sloop>  UI DSYN LANE 0
-UI DSYN kit=0 lane=0 page=0
+UI DSYN kit=0 lane=0 page=2
 sloop>  DSYN INFO
 DSYN INFO kit=0 lane=0 name=808 crush=40 src=0 dirty=1 f=2,0,0,12,6,18,36,4,20,124,0,0,15,0,0,44,0,0,127,0,0,0,36,180
 sloop>  DSYN AUDITION 0 0
 DSYN AUDITION k=0 l=0 vel=100 status="ok"
 sloop>  DSYN STORE
-I (515648) sloop_store: 歌曲已保存 len=1552 来源=1
+I (524482) sloop_store: 歌曲已保存 len=1552 来源=1
 DSYN STORE dirty=0 status="ok"
 sloop>  DSYN GET 0 0
 DSYN GET k=0 l=0 name=808 crush=40 src=0 dirty=0 sound=02000C06122404147C00000F00002C007F00000024B4
 sloop>  # [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
 
-sloop>  I (4422) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+sloop>  I (4413) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
 STORE AUTO OFF
 STORE AUTO off
 sloop>  DSYN GET 0 0
@@ -2679,34 +2701,34 @@ SMP 1 EMPTY
 SMP 2 EMPTY
 SMP 3 EMPTY
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
 STATE SNAP global bpm=90 swing=40
 sloop>  ENG AUDIO OFF
-I (4952) sloop_audio_stream: stream stopped, codec 保持打开
+I (4903) sloop_audio_stream: stream stopped, codec 保持打开
 ENG AUDIO streaming=0 xrun=0 OK
 sloop>  ENG SELFTEST drums/gm_kit
-I (5052) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+I (5003) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
 ENG SELFTEST BEGIN drums/gm_kit
 regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 1.0 s
 drums/gm_kit 51ef07025d5d8f29
 ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
-I (6062) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
-I (6062) sloop_store: 歌曲设置: 来源=1 count=3 loop=0
-I (6062) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (6013) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+I (6013) sloop_store: 歌曲设置: 来源=1 count=3 loop=0
+I (6013) sloop_store: SYN kit: settings 88..1551（settings len=1552）
 sloop>  ENG AUDIO ON
-I (6172) sloop_audio_stream: stream started, half=256 frames
+I (6123) sloop_audio_stream: stream started, half=256 frames
 ENG AUDIO streaming=1 xrun=0 OK
 sloop>  DSYN GET 0 0
 DSYN GET k=0 l=0 name=808 crush=40 src=0 dirty=0 sound=02000C06122404147C00000F00002C007F00000024B4
 sloop>  # [inject] ③ FM6P：FM6 轨编辑 + ALG 清宏 + 非 FM6 锁定 + 银行往返 + 复位保持
 UI tracks
-I (6372) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6072B 预算=7168B 池剩余=42916B 耗时=9ms
-I (6382) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (6333) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=42916B 耗时=9ms
+I (6333) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
 UI page=tracks (1)
 sloop>  TAP 484 347
 TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
@@ -2779,7 +2801,7 @@ sloop>  STORE BANK LIVE
 BANK LIVE 14281E3C6350000027000000380C4602005F1E143C635A00002700000030044E0200613E283C633C0000270000003B18441C005F141432635F00002700000042085A02005F32234E634B0000270000003B1C3A020060191943634B0000270000003B0862020063636363323232320C0B22210000291854494E45204550202020
 sloop>  # [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
 
-sloop>  I (4413) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+sloop>  I (4412) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
 STORE AUTO OFF
 STORE AUTO off
 sloop>  STORE BANK GET 1
@@ -2814,17 +2836,17 @@ B25 EMPTY
 B26 EMPTY
 BANK COUNT used=1 total=27
 sloop>  STATE SNAP
-STATE SNAP page=0 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0
 STATE SNAP trk k=0 mute=1 solo=0
 STATE SNAP trk k=1 mute=0 solo=0
 STATE SNAP trk k=2 mute=0 solo=0
 STATE SNAP trk k=3 mute=0 solo=0
-STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
 STATE SNAP global bpm=90 swing=40
 sloop>  # [inject] ④ UI：SAMPLE/DSYN/FM6P 三页截屏与像素抽检 + SYNTH Σ/delta
 UI tracks
-I (4913) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=42916B 耗时=9ms
-I (4923) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (4912) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=42916B 耗时=9ms
+I (4922) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
 UI page=tracks (1)
 sloop>  TAP 172 347
 TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
@@ -2841,24 +2863,24 @@ ENG TRACK k=0 engine=4 preset=0 OK
 sloop>  PARAM 63 8
 PARAM track=0 id=63 value=8 applied=8 min=0 max=11
 sloop>  UI sample
-I (5523) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4496B 预算=6144B 池剩余=40868B 耗时=8ms
-I (5533) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=12ms
+I (5522) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4508B 预算=6144B 池剩余=40868B 耗时=8ms
+I (5532) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=12ms
 UI page=sample (8)
 sloop>  TAP 116 646
 TAP 116,646 page=8 -> SAMPLE slot=0 select
 sloop>  TAP 1114 230
 TAP 1114,230 page=8 -> PARAM slot=3 focus
-sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-120326-synth-sample.png
+sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-121515-synth-sample.png
 SCR
-I (6143) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+I (6092) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 UI MEM
-UI MEM pool_used=15948 pool_free=46640 pool_total=62588 registered=14 built=1 failed=0 sum_est=113152 reserve=-50564 group=SYNTH
+UI MEM pool_used=15956 pool_free=46632 pool_total=62588 registered=14 built=1 failed=0 sum_est=113152 reserve=-50564 group=SYNTH
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
 UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=4496 build_ms=12
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=4508 build_ms=12
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
@@ -2875,10 +2897,10 @@ UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4496 build_ms=8
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4508 build_ms=8
 sloop>  UI dsyn
-I (22803) sloop_ui: 页面构建 page=DSYN(12) 池增量=6440B 预算=7168B 池剩余=40200B 耗时=10ms
-I (22803) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 组内首建耗时=13ms
+I (22772) sloop_ui: 页面构建 page=DSYN(12) 池增量=6452B 预算=7168B 池剩余=40180B 耗时=10ms
+I (22772) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 组内首建耗时=13ms
 UI page=dsyn (12)
 sloop>  UI DSYN PAGE 2
 UI DSYN kit=0 lane=0 page=2
@@ -2886,9 +2908,9 @@ sloop>  DSYN SET 0 0 18 100
 DSYN SET k=0 l=0 f=18 value=100 status="ok"
 sloop>  TAP 798 230
 TAP 798,230 page=12 -> DSYN kit=0 lane=0 page=2 select
-sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-120326-synth-dsyn.png
+sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-121515-synth-dsyn.png
 SCR
-I (23363) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+I (23332) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 TAP 144 646
@@ -2896,11 +2918,11 @@ TAP 144,646 page=12 -> DSYN field=FCUT value=101 status="EDIT OK DIRTY"
 sloop>  TAP 56 646
 TAP 56,646 page=12 -> DSYN field=FCUT value=100 status="EDIT OK DIRTY"
 sloop>  UI MEM
-UI MEM pool_used=21536 pool_free=40404 pool_total=61940 registered=14 built=2 failed=0 sum_est=113152 reserve=-51212 group=SYNTH
+UI MEM pool_used=21544 pool_free=40396 pool_total=61940 registered=14 built=2 failed=0 sum_est=113152 reserve=-51212 group=SYNTH
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
 UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=2 sum_est=20480 sum_delta=10936 build_ms=13
+UI MEM GROUP SYNTH built=2 sum_est=20480 sum_delta=10960 build_ms=13
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
@@ -2911,16 +2933,16 @@ UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
 UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
 UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
 UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=built est=7168 delta=6440 build_ms=10
+UI MEM page id=12 title=DSYN state=built est=7168 delta=6452 build_ms=10
 UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4496 build_ms=8
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4508 build_ms=8
 sloop>  UI tracks
-I (40243) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5780B 预算=7168B 池剩余=34624B 耗时=9ms
-I (40253) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (40412) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5804B 预算=7168B 池剩余=34592B 耗时=8ms
+I (40412) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
 UI page=tracks (1)
 sloop>  TAP 484 347
 TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
@@ -2935,8 +2957,8 @@ STATE SNAP global bpm=90 swing=40
 sloop>  ENG TRACK 1 9 0
 ENG TRACK k=1 engine=9 preset=0 OK
 sloop>  UI fm6p
-I (40753) sloop_ui: 页面构建 page=FM6P(13) 池增量=7072B 预算=7168B 池剩余=37972B 耗时=9ms
-I (40763) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=13ms
+I (40922) sloop_ui: 页面构建 page=FM6P(13) 池增量=7068B 预算=7168B 池剩余=37960B 耗时=9ms
+I (40932) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=12ms
 UI page=fm6p (13)
 sloop>  UI FM6P OP 2
 UI FM6P op=2 page=0
@@ -2946,9 +2968,9 @@ sloop>  FM6P ALG 1 5
 FM6P ALG track=1 value=5 alg=4 macro=0 status="ok"
 sloop>  TAP 166 230
 TAP 166,230 page=13 -> FM6P op=2 page=4 select
-sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-120326-synth-fm6p.png
+sloop>  # [inject] SCR 截屏 -> inject-synth-20261123-121515-synth-fm6p.png
 SCR
-I (41423) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
+I (41602) sloop_console: SCR: 传输前 PSRAM 剩余 28231152 字节
 SCR 1280 720 rgb565 1843200
 SCR OK
 TAP 148 646
@@ -2964,19 +2986,19 @@ STATE SNAP trk k=3 mute=0 solo=0
 STATE SNAP param trk=1 level=104 atk=0 dec=0 sus=127 rel=0 slen=16 mute=0
 STATE SNAP global bpm=90 swing=40
 sloop>  UI sample
-I (58313) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4340B 预算=6144B 池剩余=39452B 耗时=9ms
-I (58313) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=11ms
+I (58532) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4360B 预算=6144B 池剩余=39484B 耗时=8ms
+I (58542) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=11ms
 UI page=sample (8)
 sloop>  UI dsyn
-I (58543) sloop_ui: 页面构建 page=DSYN(12) 池增量=6384B 预算=7168B 池剩余=33204B 耗时=10ms
-I (58543) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 组内首建耗时=13ms
+I (58762) sloop_ui: 页面构建 page=DSYN(12) 池增量=6396B 预算=7168B 池剩余=33220B 耗时=10ms
+I (58772) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 组内首建耗时=13ms
 UI page=dsyn (12)
 sloop>  UI MEM
-UI MEM pool_used=27744 pool_free=33428 pool_total=61172 registered=14 built=3 failed=0 sum_est=113152 reserve=-51980 group=SYNTH
+UI MEM pool_used=27740 pool_free=33432 pool_total=61172 registered=14 built=3 failed=0 sum_est=113152 reserve=-51980 group=SYNTH
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=3 sum_est=20480 sum_delta=17796 build_ms=13
+UI MEM GROUP SYNTH built=3 sum_est=20480 sum_delta=17824 build_ms=13
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
@@ -2987,30 +3009,30 @@ UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
 UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
 UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
 UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=built est=7168 delta=6384 build_ms=10
-UI MEM page id=13 title=FM6P state=built est=7168 delta=7072 build_ms=9
+UI MEM page id=12 title=DSYN state=built est=7168 delta=6396 build_ms=10
+UI MEM page id=13 title=FM6P state=built est=7168 delta=7068 build_ms=9
 UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4340 build_ms=9
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=4360 build_ms=8
 sloop>  # [inject] ⑤ 池：SYNTH 三页全建 → STEP 首建 ≥4KB；SYNTH/PLAY/SONG/FILE 往返 ≤128B
 UI step
-I (58933) sloop_ui: 页面构建 page=STEP(2) 池增量=22200B 预算=23040B 池剩余=11228B 耗时=31ms
-I (58943) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+I (59172) sloop_ui: 页面构建 page=STEP(2) 池增量=22188B 预算=23040B 池剩余=11244B 耗时=31ms
+I (59172) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=36ms
 UI page=step (2)
 sloop>  UI MEM
-UI MEM pool_used=31640 pool_free=28780 pool_total=60420 registered=14 built=1 failed=0 sum_est=113152 reserve=-52732 group=SEQ
+UI MEM pool_used=31628 pool_free=28800 pool_total=60428 registered=14 built=1 failed=0 sum_est=113152 reserve=-52724 group=SEQ
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
 UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
-UI MEM GROUP SEQ built=1 sum_est=32256 sum_delta=22200 build_ms=35
+UI MEM GROUP SEQ built=1 sum_est=32256 sum_delta=22188 build_ms=36
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
 UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=built est=23040 delta=22200 build_ms=31
+UI MEM page id=2 title=STEP state=built est=23040 delta=22188 build_ms=31
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
 UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
 UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
@@ -3023,17 +3045,17 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI MEM
-UI MEM pool_used=31640 pool_free=28780 pool_total=60420 registered=14 built=1 failed=0 sum_est=113152 reserve=-52732 group=SEQ
+UI MEM pool_used=31628 pool_free=28800 pool_total=60428 registered=14 built=1 failed=0 sum_est=113152 reserve=-52724 group=SEQ
 UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
 UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
-UI MEM GROUP SEQ built=1 sum_est=32256 sum_delta=22200 build_ms=35
+UI MEM GROUP SEQ built=1 sum_est=32256 sum_delta=22188 build_ms=36
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
 UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=built est=23040 delta=22200 build_ms=31
+UI MEM page id=2 title=STEP state=built est=23040 delta=22188 build_ms=31
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
 UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
 UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
@@ -3046,75 +3068,75 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI play
-I (59463) sloop_ui: 页面构建 page=PLAY(0) 池增量=2356B 预算=3072B 池剩余=26424B 耗时=5ms
-I (59463) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+I (59702) sloop_ui: 页面构建 page=PLAY(0) 池增量=2364B 预算=3072B 池剩余=26436B 耗时=5ms
+I (59702) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
 UI page=play (0)
 sloop>  UI transport
-I (59663) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8716B 预算=9216B 池剩余=39100B 耗时=13ms
-I (59663) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=18ms
+I (59902) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8672B 预算=9216B 池剩余=39120B 耗时=12ms
+I (59912) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
 UI page=transport (3)
 sloop>  UI song
-I (59913) sloop_ui: 页面构建 page=SONG(11) 池增量=11460B 预算=12288B 池剩余=30264B 耗时=17ms
-I (59923) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+I (60162) sloop_ui: 页面构建 page=SONG(11) 池增量=11488B 预算=12288B 池剩余=30304B 耗时=17ms
+I (60162) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
 UI page=song (11)
 sloop>  UI projects
-I (60163) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7704B 预算=8192B 池剩余=30860B 耗时=12ms
-I (60163) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=15ms
+I (60402) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7676B 预算=8192B 池剩余=30840B 耗时=13ms
+I (60412) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=17ms
 UI page=projects (9)
 sloop>  UI dsyn
-I (60393) sloop_ui: 页面构建 page=DSYN(12) 池增量=6264B 预算=7168B 池剩余=35712B 耗时=8ms
-I (60393) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=12ms
+I (60632) sloop_ui: 页面构建 page=DSYN(12) 池增量=6240B 预算=7168B 池剩余=35732B 耗时=8ms
+I (60642) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=11ms
 UI page=dsyn (12)
 sloop>  UI sample
-I (60643) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4284B 预算=6144B 池剩余=38804B 耗时=9ms
-I (60643) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=13ms
+I (60882) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4256B 预算=6144B 池剩余=38828B 耗时=10ms
+I (60882) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=14ms
 UI page=sample (8)
 sloop>  UI fm6p
-I (60873) sloop_ui: 页面构建 page=FM6P(13) 池增量=7008B 预算=7168B 池剩余=31908B 耗时=11ms
-I (60873) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 组内首建耗时=14ms
+I (61112) sloop_ui: 页面构建 page=FM6P(13) 池增量=7072B 预算=7168B 池剩余=31900B 耗时=11ms
+I (61112) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 组内首建耗时=14ms
 UI page=fm6p (13)
 sloop>  UI play
-I (61093) sloop_ui: 页面构建 page=PLAY(0) 池增量=2440B 预算=3072B 池剩余=29728B 耗时=6ms
-I (61103) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=11ms
+I (61332) sloop_ui: 页面构建 page=PLAY(0) 池增量=2424B 预算=3072B 池剩余=29720B 耗时=5ms
+I (61342) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
 UI page=play (0)
 sloop>  UI transport
-I (61303) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8384B 预算=9216B 池剩余=38688B 耗时=13ms
-I (61303) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
+I (61532) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8396B 预算=9216B 池剩余=38696B 耗时=11ms
+I (61532) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
 UI page=transport (3)
 sloop>  UI song
-I (61553) sloop_ui: 页面构建 page=SONG(11) 池增量=11344B 预算=12288B 池剩余=30092B 耗时=16ms
-I (61563) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=19ms
+I (61782) sloop_ui: 页面构建 page=SONG(11) 池增量=11304B 预算=12288B 池剩余=30100B 耗时=19ms
+I (61792) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
 UI page=song (11)
 sloop>  UI projects
-I (61803) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7488B 预算=8192B 池剩余=30792B 耗时=12ms
-I (61813) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=17ms
+I (62042) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7496B 预算=8192B 池剩余=30812B 耗时=12ms
+I (62042) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
 UI page=projects (9)
 sloop>  UI dsyn
-I (62043) sloop_ui: 页面构建 page=DSYN(12) 池增量=6276B 预算=7168B 池剩余=35656B 耗时=10ms
-I (62043) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=14ms
+I (62272) sloop_ui: 页面构建 page=DSYN(12) 池增量=6276B 预算=7168B 池剩余=35636B 耗时=10ms
+I (62282) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=13ms
 UI page=dsyn (12)
 sloop>  UI sample
-I (62293) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4332B 预算=6144B 池剩余=38700B 耗时=8ms
-I (62293) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=11ms
+I (62532) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4276B 预算=6144B 池剩余=38744B 耗时=10ms
+I (62532) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 组内首建耗时=13ms
 UI page=sample (8)
 sloop>  UI fm6p
-I (62523) sloop_ui: 页面构建 page=FM6P(13) 池增量=7068B 预算=7168B 池剩余=31772B 耗时=9ms
-I (62523) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 组内首建耗时=11ms
+I (62762) sloop_ui: 页面构建 page=FM6P(13) 池增量=6992B 预算=7168B 池剩余=31888B 耗时=9ms
+I (62762) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 组内首建耗时=12ms
 UI page=fm6p (13)
 sloop>  UI play
-I (62743) sloop_ui: 页面构建 page=PLAY(0) 池增量=2436B 预算=3072B 池剩余=29592B 耗时=5ms
-I (62743) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+I (62982) sloop_ui: 页面构建 page=PLAY(0) 池增量=2428B 预算=3072B 池剩余=29712B 耗时=6ms
+I (62982) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=11ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15464 pool_free=47064 pool_total=62528 registered=14 built=1 failed=0 sum_est=113152 reserve=-50624 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2436 build_ms=10
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM pool_used=15432 pool_free=47092 pool_total=62524 registered=14 built=1 failed=0 sum_est=113152 reserve=-50628 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2428 build_ms=11
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=11
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=17
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=19
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=17
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2436 build_ms=5
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=12
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=15
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=23
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2428 build_ms=6
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
@@ -3129,34 +3151,249 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI transport
-I (63053) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8368B 预算=9216B 池剩余=38696B 耗时=12ms
-I (63063) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
+I (63302) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8508B 预算=9216B 池剩余=38584B 耗时=12ms
+I (63302) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=15ms
 UI page=transport (3)
 sloop>  UI song
-I (63303) sloop_ui: 页面构建 page=SONG(11) 池增量=11324B 预算=12288B 池剩余=30076B 耗时=16ms
-I (63313) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
+I (63542) sloop_ui: 页面构建 page=SONG(11) 池增量=11252B 预算=12288B 池剩余=30056B 耗时=16ms
+I (63552) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=19ms
 UI page=song (11)
 sloop>  UI projects
-I (63553) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7492B 预算=8192B 池剩余=30752B 耗时=11ms
-I (63553) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+I (63802) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7476B 预算=8192B 池剩余=30860B 耗时=13ms
+I (63802) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=17ms
 UI page=projects (9)
 sloop>  UI dsyn
-I (63783) sloop_ui: 页面构建 page=DSYN(12) 池增量=6300B 预算=7168B 池剩余=35644B 耗时=10ms
-I (63793) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=14ms
+I (64042) sloop_ui: 页面构建 page=DSYN(12) 池增量=6288B 预算=7168B 池剩余=35664B 耗时=10ms
+I (64042) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=13ms
 UI page=dsyn (12)
 sloop>  UI play
-I (64033) sloop_ui: 页面构建 page=PLAY(0) 池增量=2284B 预算=3072B 池剩余=40712B 耗时=5ms
-I (64043) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+I (64282) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=40736B 耗时=5ms
+I (64292) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15444 pool_free=47092 pool_total=62536 registered=14 built=1 failed=0 sum_est=113152 reserve=-50616 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2284 build_ms=8
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM pool_used=15452 pool_free=47052 pool_total=62504 registered=14 built=1 failed=0 sum_est=113152 reserve=-50648 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=14
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=15
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=19
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=17
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI transport
+I (64592) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8404B 预算=9216B 池剩余=38648B 耗时=12ms
+I (64602) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  UI song
+I (64842) sloop_ui: 页面构建 page=SONG(11) 池增量=11232B 预算=12288B 池剩余=30056B 耗时=16ms
+I (64852) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
+UI page=song (11)
+sloop>  UI projects
+I (65092) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7536B 预算=8192B 池剩余=30724B 耗时=11ms
+I (65092) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+UI page=projects (9)
+sloop>  UI sample
+I (65312) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4184B 预算=6144B 池剩余=37652B 耗时=9ms
+I (65322) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=12ms
+UI page=sample (8)
+sloop>  UI play
+I (65542) sloop_ui: 页面构建 page=PLAY(0) 池增量=2464B 预算=3072B 池剩余=42580B 耗时=5ms
+I (65542) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=15560 pool_free=46960 pool_total=62520 registered=14 built=1 failed=0 sum_est=113152 reserve=-50632 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2464 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=12
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2464 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI transport
+I (65862) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8408B 预算=9216B 池剩余=38552B 耗时=12ms
+I (65872) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  UI song
+I (66112) sloop_ui: 页面构建 page=SONG(11) 池增量=11356B 预算=12288B 池剩余=29968B 耗时=17ms
+I (66122) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI projects
+I (66362) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7456B 预算=8192B 池剩余=30688B 耗时=11ms
+I (66372) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+UI page=projects (9)
+sloop>  UI fm6p
+I (66592) sloop_ui: 页面构建 page=FM6P(13) 池增量=7000B 预算=7168B 池剩余=34908B 耗时=10ms
+I (66602) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=14ms
+UI page=fm6p (13)
+sloop>  UI play
+I (66812) sloop_ui: 页面构建 page=PLAY(0) 池增量=2252B 预算=3072B 池剩余=39996B 耗时=4ms
+I (66822) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=15420 pool_free=47048 pool_total=62468 registered=14 built=1 failed=0 sum_est=113152 reserve=-50684 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2252 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=14
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2252 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI transport
+I (67122) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8460B 预算=9216B 池剩余=38588B 耗时=11ms
+I (67132) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=14ms
+UI page=transport (3)
+sloop>  UI song
+I (67372) sloop_ui: 页面构建 page=SONG(11) 池增量=11352B 预算=12288B 池剩余=29872B 耗时=15ms
+I (67372) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=19ms
+UI page=song (11)
+sloop>  UI projects
+I (67612) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7504B 预算=8192B 池剩余=30632B 耗时=12ms
+I (67622) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=15ms
+UI page=projects (9)
+sloop>  UI dsyn
+I (67842) sloop_ui: 页面构建 page=DSYN(12) 池增量=6328B 预算=7168B 池剩余=35528B 耗时=9ms
+I (67852) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=12ms
+UI page=dsyn (12)
+sloop>  UI play
+I (68092) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=40640B 耗时=5ms
+I (68092) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=15464 pool_free=47020 pool_total=62484 registered=14 built=1 failed=0 sum_est=113152 reserve=-50668 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=12
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=14
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=19
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=15
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI transport
+I (68402) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8436B 预算=9216B 池剩余=38584B 耗时=12ms
+I (68402) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  UI song
+I (68652) sloop_ui: 页面构建 page=SONG(11) 池增量=11236B 预算=12288B 池剩余=29960B 耗时=17ms
+I (68662) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI projects
+I (68912) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7484B 预算=8192B 池剩余=30704B 耗时=11ms
+I (68912) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+UI page=projects (9)
+sloop>  UI sample
+I (69142) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4244B 预算=6144B 池剩余=37592B 耗时=8ms
+I (69142) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=12ms
+UI page=sample (8)
+sloop>  UI play
+I (69362) sloop_ui: 页面构建 page=PLAY(0) 池增量=2392B 预算=3072B 池剩余=42548B 耗时=6ms
+I (69372) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=15512 pool_free=46988 pool_total=62500 registered=14 built=1 failed=0 sum_est=113152 reserve=-50652 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2392 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=12
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2392 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI transport
+I (69692) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8424B 预算=9216B 池剩余=38564B 耗时=13ms
+I (69692) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  UI song
+I (69942) sloop_ui: 页面构建 page=SONG(11) 池增量=11316B 预算=12288B 池剩余=29924B 耗时=18ms
+I (69942) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
+UI page=song (11)
+sloop>  UI projects
+I (70192) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7392B 预算=8192B 池剩余=30732B 耗时=12ms
+I (70202) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
+UI page=projects (9)
+sloop>  UI fm6p
+I (70432) sloop_ui: 页面构建 page=FM6P(13) 池增量=6880B 预算=7168B 池剩余=35068B 耗时=11ms
+I (70432) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=15ms
+UI page=fm6p (13)
+sloop>  UI play
+I (70652) sloop_ui: 页面构建 page=PLAY(0) 池增量=2284B 预算=3072B 池剩余=40096B 耗时=5ms
+I (70662) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=15444 pool_free=47016 pool_total=62460 registered=14 built=1 failed=0 sum_est=113152 reserve=-50692 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2284 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=15
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=23
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
 UI MEM page id=0 title=PLAY state=built est=3072 delta=2284 build_ms=5
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
@@ -3172,250 +3409,35 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI transport
-I (64343) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8484B 预算=9216B 池剩余=38608B 耗时=13ms
-I (64353) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (70982) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8348B 预算=9216B 池剩余=38668B 耗时=12ms
+I (70982) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  UI song
-I (64603) sloop_ui: 页面构建 page=SONG(11) 池增量=11328B 预算=12288B 池剩余=29900B 耗时=15ms
-I (64603) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=19ms
+I (71242) sloop_ui: 页面构建 page=SONG(11) 池增量=11292B 预算=12288B 池剩余=29968B 耗时=16ms
+I (71242) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
 UI page=song (11)
 sloop>  UI projects
-I (64843) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7464B 预算=8192B 池剩余=30720B 耗时=12ms
-I (64853) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=15ms
-UI page=projects (9)
-sloop>  UI sample
-I (65073) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4292B 预算=6144B 池剩余=37636B 耗时=10ms
-I (65083) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=13ms
-UI page=sample (8)
-sloop>  UI play
-I (65303) sloop_ui: 页面构建 page=PLAY(0) 池增量=2348B 预算=3072B 池剩余=42580B 耗时=6ms
-I (65303) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
-UI page=play (0)
-sloop>  UI MEM
-UI MEM pool_used=15464 pool_free=47064 pool_total=62528 registered=14 built=1 failed=0 sum_est=113152 reserve=-50624 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2348 build_ms=9
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
-UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=19
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=15
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2348 build_ms=6
-UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
-UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
-UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
-UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  UI transport
-I (65623) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8512B 预算=9216B 池剩余=38552B 耗时=12ms
-I (65623) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
-UI page=transport (3)
-sloop>  UI song
-I (65883) sloop_ui: 页面构建 page=SONG(11) 池增量=11300B 预算=12288B 池剩余=29960B 耗时=15ms
-I (65883) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
-UI page=song (11)
-sloop>  UI projects
-I (66133) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7468B 预算=8192B 池剩余=30752B 耗时=12ms
-I (66133) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
-UI page=projects (9)
-sloop>  UI fm6p
-I (66363) sloop_ui: 页面构建 page=FM6P(13) 池增量=6836B 预算=7168B 池剩余=35032B 耗时=10ms
-I (66363) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=15ms
-UI page=fm6p (13)
-sloop>  UI play
-I (66583) sloop_ui: 页面构建 page=PLAY(0) 池增量=2256B 预算=3072B 池剩余=40148B 耗时=6ms
-I (66583) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
-UI page=play (0)
-sloop>  UI MEM
-UI MEM pool_used=15440 pool_free=47060 pool_total=62500 registered=14 built=1 failed=0 sum_est=113152 reserve=-50652 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2256 build_ms=10
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
-UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=15
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2256 build_ms=6
-UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
-UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
-UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
-UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  UI transport
-I (66903) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8356B 预算=9216B 池剩余=38704B 耗时=12ms
-I (66903) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
-UI page=transport (3)
-sloop>  UI song
-I (67153) sloop_ui: 页面构建 page=SONG(11) 池增量=11312B 预算=12288B 池剩余=29988B 耗时=19ms
-I (67163) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
-UI page=song (11)
-sloop>  UI projects
-I (67413) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7508B 预算=8192B 池剩余=30676B 耗时=11ms
-I (67413) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+I (71482) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7436B 预算=8192B 池剩余=30676B 耗时=11ms
+I (71492) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
 UI page=projects (9)
 sloop>  UI dsyn
-I (67643) sloop_ui: 页面构建 page=DSYN(12) 池增量=6292B 预算=7168B 池剩余=35536B 耗时=9ms
-I (67653) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=12ms
+I (71712) sloop_ui: 页面构建 page=DSYN(12) 池增量=6264B 预算=7168B 池剩余=35612B 耗时=10ms
+I (71722) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=14ms
 UI page=dsyn (12)
 sloop>  UI play
-I (67893) sloop_ui: 页面构建 page=PLAY(0) 池增量=2308B 预算=3072B 池剩余=40628B 耗时=4ms
-I (67893) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+I (71962) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=40664B 耗时=4ms
+I (71962) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15480 pool_free=47000 pool_total=62480 registered=14 built=1 failed=0 sum_est=113152 reserve=-50672 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2308 build_ms=7
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
-UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=12
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=23
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2308 build_ms=4
-UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
-UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
-UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
-UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  UI transport
-I (68203) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8468B 预算=9216B 池剩余=38532B 耗时=12ms
-I (68203) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
-UI page=transport (3)
-sloop>  UI song
-I (68463) sloop_ui: 页面构建 page=SONG(11) 池增量=11256B 预算=12288B 池剩余=29916B 耗时=17ms
-I (68463) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
-UI page=song (11)
-sloop>  UI projects
-I (68703) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7484B 预算=8192B 池剩余=30744B 耗时=12ms
-I (68713) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
-UI page=projects (9)
-sloop>  UI sample
-I (68943) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4184B 预算=6144B 池剩余=37632B 耗时=10ms
-I (68953) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=13ms
-UI page=sample (8)
-sloop>  UI play
-I (69183) sloop_ui: 页面构建 page=PLAY(0) 池增量=2376B 预算=3072B 池剩余=42620B 耗时=6ms
-I (69183) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
-UI page=play (0)
-sloop>  UI MEM
-UI MEM pool_used=15528 pool_free=46992 pool_total=62520 registered=14 built=1 failed=0 sum_est=113152 reserve=-50632 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2376 build_ms=9
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
-UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2376 build_ms=6
-UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
-UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
-UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
-UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  UI transport
-I (69503) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8356B 预算=9216B 池剩余=38636B 耗时=12ms
-I (69513) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
-UI page=transport (3)
-sloop>  UI song
-I (69773) sloop_ui: 页面构建 page=SONG(11) 池增量=11308B 预算=12288B 池剩余=30016B 耗时=17ms
-I (69773) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
-UI page=song (11)
-sloop>  UI projects
-I (70023) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7448B 预算=8192B 池剩余=30764B 耗时=11ms
-I (70023) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
-UI page=projects (9)
-sloop>  UI fm6p
-I (70253) sloop_ui: 页面构建 page=FM6P(13) 池增量=6832B 预算=7168B 池剩余=35088B 耗时=11ms
-I (70253) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=15ms
-UI page=fm6p (13)
-sloop>  UI play
-I (70473) sloop_ui: 页面构建 page=PLAY(0) 池增量=2276B 预算=3072B 池剩余=40136B 耗时=6ms
-I (70473) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
-UI page=play (0)
-sloop>  UI MEM
-UI MEM pool_used=15456 pool_free=47032 pool_total=62488 registered=14 built=1 failed=0 sum_est=113152 reserve=-50664 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2276 build_ms=10
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
-UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=15
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2276 build_ms=6
-UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
-UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
-UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
-UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
-UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
-UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
-UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
-UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
-UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  UI transport
-I (70783) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8404B 预算=9216B 池剩余=38628B 耗时=12ms
-I (70793) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
-UI page=transport (3)
-sloop>  UI song
-I (71043) sloop_ui: 页面构建 page=SONG(11) 池增量=11180B 预算=12288B 池剩余=30056B 耗时=19ms
-I (71043) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
-UI page=song (11)
-sloop>  UI projects
-I (71303) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7544B 预算=8192B 池剩余=30716B 耗时=11ms
-I (71303) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
-UI page=projects (9)
-sloop>  UI dsyn
-I (71533) sloop_ui: 页面构建 page=DSYN(12) 池增量=6196B 预算=7168B 池剩余=35576B 耗时=10ms
-I (71543) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=14ms
-UI page=dsyn (12)
-sloop>  UI play
-I (71793) sloop_ui: 页面构建 page=PLAY(0) 池增量=2332B 预算=3072B 池剩余=40668B 耗时=5ms
-I (71793) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
-UI page=play (0)
-sloop>  UI MEM
-UI MEM pool_used=15508 pool_free=47004 pool_total=62512 registered=14 built=1 failed=0 sum_est=113152 reserve=-50640 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2332 build_ms=9
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM pool_used=15456 pool_free=47048 pool_total=62504 registered=14 built=1 failed=0 sum_est=113152 reserve=-50648 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
 UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=14
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2332 build_ms=5
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=4
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
@@ -3430,34 +3452,34 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI transport
-I (72103) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8396B 预算=9216B 池剩余=38608B 耗时=12ms
-I (72113) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=14ms
+I (72272) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8428B 预算=9216B 池剩余=38620B 耗时=13ms
+I (72282) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  UI song
-I (72363) sloop_ui: 页面构建 page=SONG(11) 池增量=11252B 预算=12288B 池剩余=30064B 耗时=16ms
-I (72363) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
+I (72532) sloop_ui: 页面构建 page=SONG(11) 池增量=11304B 预算=12288B 池剩余=29924B 耗时=16ms
+I (72542) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
 UI page=song (11)
 sloop>  UI projects
-I (72603) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7512B 预算=8192B 池剩余=30756B 耗时=11ms
-I (72603) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=14ms
+I (72782) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7520B 预算=8192B 池剩余=30656B 耗时=11ms
+I (72792) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=15ms
 UI page=projects (9)
 sloop>  UI sample
-I (72833) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4180B 预算=6144B 池剩余=37656B 耗时=8ms
-I (72833) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=11ms
+I (73012) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=4244B 预算=6144B 池剩余=37552B 耗时=9ms
+I (73022) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=13ms
 UI page=sample (8)
 sloop>  UI play
-I (73053) sloop_ui: 页面构建 page=PLAY(0) 池增量=2360B 预算=3072B 池剩余=42640B 耗时=5ms
-I (73053) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+I (73242) sloop_ui: 页面构建 page=PLAY(0) 池增量=2360B 预算=3072B 池剩余=42580B 耗时=5ms
+I (73252) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15484 pool_free=47048 pool_total=62532 registered=14 built=1 failed=0 sum_est=113152 reserve=-50620 group=PLAY
+UI MEM pool_used=15488 pool_free=47020 pool_total=62508 registered=14 built=1 failed=0 sum_est=113152 reserve=-50644 group=PLAY
 UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2360 build_ms=8
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=11
-UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=14
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
-UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=14
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=15
 UI MEM page id=0 title=PLAY state=built est=3072 delta=2360 build_ms=5
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
@@ -3473,35 +3495,35 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI transport
-I (73373) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8436B 预算=9216B 池剩余=38612B 耗时=12ms
-I (73383) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (73572) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8468B 预算=9216B 池剩余=38552B 耗时=12ms
+I (73572) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  UI song
-I (73633) sloop_ui: 页面构建 page=SONG(11) 池增量=11284B 预算=12288B 池剩余=29996B 耗时=18ms
-I (73643) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
+I (73822) sloop_ui: 页面构建 page=SONG(11) 池增量=11288B 预算=12288B 池剩余=29924B 耗时=18ms
+I (73832) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
 UI page=song (11)
 sloop>  UI projects
-I (73883) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7508B 预算=8192B 池剩余=30764B 耗时=12ms
-I (73893) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
+I (74072) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7468B 预算=8192B 池剩余=30688B 耗时=12ms
+I (74072) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
 UI page=projects (9)
 sloop>  UI fm6p
-I (74123) sloop_ui: 页面构建 page=FM6P(13) 池增量=6876B 预算=7168B 池剩余=34992B 耗时=11ms
-I (74123) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=15ms
+I (74302) sloop_ui: 页面构建 page=FM6P(13) 池增量=6912B 预算=7168B 池剩余=34908B 耗时=10ms
+I (74302) sloop_ui: 切页 page=FM6P(13) 组=SYNTH 跨组耗时=14ms
 UI page=fm6p (13)
 sloop>  UI play
-I (74343) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=40084B 耗时=6ms
-I (74343) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+I (74522) sloop_ui: 页面构建 page=PLAY(0) 池增量=2272B 预算=3072B 池剩余=39980B 耗时=5ms
+I (74522) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15464 pool_free=47004 pool_total=62468 registered=14 built=1 failed=0 sum_est=113152 reserve=-50684 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=10
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM pool_used=15436 pool_free=47032 pool_total=62468 registered=14 built=1 failed=0 sum_est=113152 reserve=-50684 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2272 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=15
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=14
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
 UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=23
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=6
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2272 build_ms=5
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
@@ -3516,35 +3538,35 @@ UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
 sloop>  UI transport
-I (74673) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8368B 预算=9216B 池剩余=38636B 耗时=12ms
-I (74673) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+I (74842) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8436B 预算=9216B 池剩余=38596B 耗时=12ms
+I (74852) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
 UI page=transport (3)
 sloop>  UI song
-I (74933) sloop_ui: 页面构建 page=SONG(11) 池增量=11228B 预算=12288B 池剩余=30040B 耗时=18ms
-I (74933) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+I (75102) sloop_ui: 页面构建 page=SONG(11) 池增量=11304B 预算=12288B 池剩余=29924B 耗时=19ms
+I (75112) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
 UI page=song (11)
 sloop>  UI projects
-I (75173) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7528B 预算=8192B 池剩余=30680B 耗时=12ms
-I (75183) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
+I (75352) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7452B 预算=8192B 池剩余=30732B 耗时=12ms
+I (75352) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 跨组耗时=16ms
 UI page=projects (9)
 sloop>  UI dsyn
-I (75403) sloop_ui: 页面构建 page=DSYN(12) 池增量=6264B 预算=7168B 池剩余=35548B 耗时=10ms
-I (75413) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=13ms
+I (75582) sloop_ui: 页面构建 page=DSYN(12) 池增量=6284B 预算=7168B 池剩余=35600B 耗时=8ms
+I (75582) sloop_ui: 切页 page=DSYN(12) 组=SYNTH 跨组耗时=11ms
 UI page=dsyn (12)
 sloop>  UI play
-I (75663) sloop_ui: 页面构建 page=PLAY(0) 池增量=2320B 预算=3072B 池剩余=40660B 耗时=4ms
-I (75663) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+I (75832) sloop_ui: 页面构建 page=PLAY(0) 池增量=2328B 预算=3072B 池剩余=40628B 耗时=5ms
+I (75832) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
 UI page=play (0)
 sloop>  UI MEM
-UI MEM pool_used=15484 pool_free=47020 pool_total=62504 registered=14 built=1 failed=0 sum_est=113152 reserve=-50648 group=PLAY
-UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2320 build_ms=7
-UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM pool_used=15488 pool_free=47008 pool_total=62496 registered=14 built=1 failed=0 sum_est=113152 reserve=-50656 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2328 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
 UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
-UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=13
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=11
 UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
-UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
 UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=16
-UI MEM page id=0 title=PLAY state=built est=3072 delta=2320 build_ms=4
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2328 build_ms=5
 UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
 UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
 UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
@@ -3558,7 +3580,7 @@ UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
 UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
 UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
-sloop>  # [inject] ⑤ pool_free：起点 47064 → 逐次 [47092, 47064, 47060, 47000, 46992, 47032, 47004, 47048, 47004, 47020]（10 次 transport/song/projects + SYNTH 代表页 dsyn/sample/fm6p 轮换往返）
+sloop>  # [inject] ⑤ pool_free：起点 47092 → 逐次 [47052, 46960, 47048, 47020, 46988, 47016, 47048, 47020, 47032, 47008]（10 次 transport/song/projects + SYNTH 代表页 dsyn/sample/fm6p 轮换往返）
 # [inject] ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 0/ANALOG、AUTO ON
 STATE SNAP
 STATE SNAP page=0 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=1 fm6p_slot=0 fm6p_engine_ok=1
@@ -3573,7 +3595,7 @@ SMP ERASE slot=0 OK
 sloop>  DSYN KIT 0 0
 DSYN KIT k=0 src=0 status="ok"
 sloop>  DSYN STORE
-I (76463) sloop_store: 歌曲已保存 len=1552 来源=1
+I (76642) sloop_store: 歌曲已保存 len=1552 来源=1
 DSYN STORE dirty=0 status="ok"
 sloop>  STORE BANK ERASE 0
 BANK 0 ERASED
@@ -3582,8 +3604,8 @@ BANK 1 ERASED
 sloop>  STORE BANK ERASE 2
 BANK 2 ERASED
 sloop>  UI tracks
-I (76983) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5732B 预算=7168B 池剩余=41288B 耗时=10ms
-I (76983) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
+I (77162) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5804B 预算=7168B 池剩余=41204B 耗时=9ms
+I (77172) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
 UI page=tracks (1)
 sloop>  TAP 484 347
 TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
@@ -3618,9 +3640,31 @@ PARAM track=0 id=40 value=1 applied=1 min=0 max=1
 sloop>  PARAM 63 0
 PARAM track=0 id=63 value=0 applied=0 min=0 max=4
 sloop>  UI play
-I (78203) sloop_ui: 页面构建 page=PLAY(0) 池增量=2352B 预算=3072B 池剩余=41364B 耗时=4ms
-I (78203) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+I (78382) sloop_ui: 页面构建 page=PLAY(0) 池增量=2360B 预算=3072B 池剩余=41228B 耗时=4ms
+I (78382) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=6ms
 UI page=play (0)
 sloop>  STORE AUTO ON
 STORE AUTO on
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=90 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=1 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=1 lvl=0 rat=0
+ENG SNAP dstep i=2 on=1 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=1 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=1 lvl=0 rat=0
+ENG SNAP dstep i=13 on=1 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
 sloop>  # [inject] 场景 synth 结束 failures=0

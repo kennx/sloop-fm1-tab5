@@ -7893,6 +7893,11 @@ def run_synth(s: Session) -> None:
     s.expect(r"UI page=play \(0\)", "⑥ 回 PLAY")
     s.cmd("STORE AUTO ON")
     s.expect(r"^STORE AUTO on", "⑥ STORE AUTO ON（恢复默认）")
+    # 收口的机读证据：AUTO ON 之后读一次引擎真值——轨 0 与轨 1 都必须回 ANALOG
+    # （③/④ 把轨 1 留在 FM6；只信 ENG TRACK 的回显不够，这里读 ENG SNAP）。
+    s.cmd("ENG SNAP")
+    for k in (0, 1):
+        s.expect(rf"^ENG SNAP trk k={k} engine=0 ", f"⑥ ENG SNAP 轨 {k} engine=0（无 FM6 泄漏）")
 
 
 SCENARIOS = {
