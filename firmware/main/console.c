@@ -2392,14 +2392,18 @@ static int store_settings(int argc, char **argv)
     }
     if (argc == 5 && strcasecmp(argv[2], "set") == 0) {
         sloop_set_field_t field = SLOOP_SET_FIELD_COUNT;
+        const char *name = NULL; /* 表里的规范名（输入不分大小写，回显不照抄 argv） */
         uint32_t v;
         for (uint32_t i = 0; i < SLOOP_SET_FIELD_COUNT; i++) {
-            if (strcasecmp(argv[3], STORE_SET_FIELDS[i].name) == 0) field = STORE_SET_FIELDS[i].field;
+            if (strcasecmp(argv[3], STORE_SET_FIELDS[i].name) == 0) {
+                field = STORE_SET_FIELDS[i].field;
+                name = STORE_SET_FIELDS[i].name;
+            }
         }
         if (field == SLOOP_SET_FIELD_COUNT || !eng_uint(argv[4], 0xFFFFu, &v))
             return store_err_print(ESP_ERR_INVALID_ARG);
         if ((err = sloop_store_settings_set(field, v)) != ESP_OK) return store_err_print(err);
-        printf("STORE SETTINGS SET %s=%u dirty=%u\n", argv[3],
+        printf("STORE SETTINGS SET %s=%u dirty=%u\n", name,
                (unsigned)store_set_value(sloop_store_settings(), field),
                sloop_store_settings_dirty() ? 1u : 0u);
         return 0;
