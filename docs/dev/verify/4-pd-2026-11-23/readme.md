@@ -46,9 +46,10 @@
 
 ## 3. 关键读数（归档 transcript / `UI MEM` / 构建日志）
 
-- **SYNTH 组三页**（`UI MEM` delta，跨快照 min–max，Task 11 + Task 12 全归档）：
+- **SYNTH 组三页**（`UI MEM` delta，跨快照 min–max，Task 9–12 全归档 + soak 预热）：
   SAMPLE **4,360–4,508B**（est 6,144；`页面构建` 4,148–4,508）、DSYN **6,344–6,452B**
-  （est 7,168；构建 6,172–6,452）、FM6P **6,980–7,092B**（est 7,168；构建 6,832–7,092）。
+  （est 7,168；构建 6,100–6,452）、FM6P **6,980–7,124B**（est 7,168；构建 6,832–7,124；
+  最薄余量 44B，刻意 tripwire）。
   **不同快照的 delta 不相加**；逐页门禁是 `delta ≤ est`。
 - **SYNTH `sum_delta`（`built=3` 同拍）**：**17,696–17,936B**（`sum_est` 20,480）。
 - **跨组峰值**：SYNTH 全建 → STEP 首建 `pool_free 11,244B`（STEP 池增量 22,188B、耗时 30ms；
@@ -81,8 +82,8 @@
 
 ## 5. 证据清单与哈希
 
-- 本目录同时保留 Task 0–11 的过程证据（`task-0-baseline.txt`、`task-10-*`、`task-11-*`）与
-  Task 12 最终矩阵证据（`task-12-*`）。
+- 本目录同时保留 Task 0–11 的过程证据（`task-0-baseline.txt`、`task-10-*`、`task-11-*`）、
+  Task 12 最终矩阵证据（`task-12-*`）与全分支评审修复轮证据（`task-12-fix-*`）。
 - `SHA256SUMS` 覆盖目录内全部非 `SHA256SUMS` 文件；`sha256sum -c SHA256SUMS` 应 100% OK。
 - 失败截图规则：文件名加 `-fail`；本轮无失败证据。
 
@@ -98,3 +99,39 @@
   上传必造成可闻中断；按「STOP BEFORE SAVE」纪律处理（ADR-011 §5）。
 - 采样槽不做 A/B、无自定义对象；DSU 仍写 PER3 88..1,551；FM6 live patch 不单独持久化
   （必须存 bank）——均与上游一致。
+
+## 8. 全分支评审修复轮（2026-11-23）
+
+修复范围（代码 + 文档，均不改上游数据布局）：
+
+- **I1（数据安全）**：`STORE RAW` 改用**专用 4,096B PSRAM 暂存**（`s_raw_stage`，init 分配；
+  失败 → `ready=false`），不再与 `proj_tmp` 共用。settings/DSU/song 的 `st_load` 与 1s tick
+  不会再覆盖未完成上传；`END` 直接把自己的字节交给 `st_save`。console 的「其它 STORE
+  子命令先 abort」保留为会话约定（R27）。
+- **M1**：实测区间按归档日志修正——DSYN `页面构建` 6,100–6,452B（6,100 来自 soak 预热）、
+  FM6P `UI MEM`/构建 6,980–7,124B（7,124 来自 Task 10 fix，7,104 来自 soak）；
+  **FM6P 最薄余量 44B 刻意保留为 tripwire**（est 仍 7,168；改 7,680 虽仍在最坏有序对内，
+  但没有必要）。
+- **M2/M3**：`state_internal.h`/`state.c` 的 FM6 投影注释改为「非 FM6 轨（含鼓）保留 patch、
+  engine_ok=0；越界/冻结清零」；`page_dsyn.h` 值路径补齐 `CMD_DSYN_CRUSH` 并区分
+  `CMD_DSYN_LOAD_KIT`（KIT SRC）。
+- **M4**：spec §4.4 回写实现偏差（`SET U<n>`、`LANE 01..16`、`SND1/2/3`）。
+- **M5**：SAMPLE 槽 ERASE 的 20 扇区/80KiB 同步擦写在 AGENTS §3、ADR-008 §3、ADR-011 §4
+  记录 UI 停顿；**未单独测时**（量级按 ≤150ms 级；`STORE STATS last_save_ms` 不覆盖采样擦除）。
+- **M6**：console `UI DSYN KIT/LANE` 调 `sloop_ui_dsyn_clear_action()`，与页面 chip 同语义。
+- **M7**：DSYN 延迟写条目改号 **DI-38**（DI-35 是已删除的旧 CRUSH 条目）。
+
+聚焦门禁（修复后重跑；证据 `task-12-fix-*`）：
+
+| 门禁 | 命令 | 结果 |
+|---|---|---|
+| 构建 ×2 | `scripts/build.sh` ×2 | 均 exit 0、编译警告 **0** |
+| host 五项 | `host-test` / `synth-test` / `state-test` / `seq-test` / `knob-test` | 全 exit 0 |
+| 截屏离线 | `python3 scripts/screenshot.py --selftest` | exit 0 |
+| 烧录 | `scripts/flash.sh` | exit 0、**3×** `Hash of data verified` |
+| 启动 | 复位捕获 | `App version: 7899459-dirty`、14 页、无 fatal/abort/backtrace |
+| **I1 设备冒烟** | `STORE RAW BEGIN 688` + 6 块 → `ENG SELFTEST preset/ANALOG/00_808_BOOM` → `STORE RAW END project 3` | 16/16 PASS；`saved len=688`、`FIELDS 3` 与 FUN1 `expected.json` 逐项一致、槽 3 收口 ERASE |
+
+I1 冒烟的关键判别：自检收尾会 `song_reload + dsu_reload`（旧实现把 `proj_tmp` 覆盖成
+settings 字节），修复后 END 仍提交上传的 FUN1 字节并通过格式导入。transcript：
+`task-12-fix-i1-raw-selftest.log`。
