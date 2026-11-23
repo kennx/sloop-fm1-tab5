@@ -250,3 +250,51 @@
 | **触发条件** | 用户报告「刚捕获的段在重启后丢失」；或 P4-E/P4-F 要求与上游 warm reset 语义一致；或引入关机/重启 UI 时。 |
 | **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_init` 的槽 fetch、`sloop_store_sections_tick`）、`.superpowers/sdd/2026-11-22-p4c-sequencer-arranger/task-8-report.md` §8.5、ADR-009 §6.1 |
 | **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 8 报告 §8.5 遗留） |
+
+## DI-34: 采样只支持串口分块上传，无 WAV/SD 卡/麦克风导入 UI
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-D 把上游 4×80KiB 原始采样槽接进设备（flash 权威 + PSRAM 镜像 + `SMP BEGIN/DATA/HDR/END/ERASE`），但上传通道只有 console 行（`scripts/sample_upload.py` 在 PC 侧用 vendored `sampleio.user_slot` 把 WAV 编成 IMA ADPCM）。屏上没有文件浏览器、没有 WAV 解析、没有录音采集。 |
+| **影响面** | 用户无法脱离 PC 把采样放进设备；SAMPLE/GRAIN/鼓 KIT 的 USR1–4 只能由脚本填充。设备侧擦除（SAMPLE 页 `ERASE` chip）与选择/播放已闭环。 |
+| **为何可延迟** | P4-D spec §1 明确列为非目标；WAV 解析/ADPCM 编码在 PC 脚本侧已有逐字节同一的编码器，设备侧缺的是文件 I/O + UI，属独立功能面（FATFS 已在分区表里，SD 为独立硬件）。 |
+| **解决方向** | (a) SD 卡：FATFS 挂载 + 简单文件列表页（复用 FILE 组模式），选中后流式读入 `sloop_store_sample_*`（走带中拒绝的纪律不变）；(b) 麦克风/线路录音：需要 I2S 输入路径与 ADPCM 编码器进固件，工作量更大；(c) 文件解析放设备侧时须保留 header/CRC 校验（复用 `smp_zone_ok` + `st_crc32`）。优先 (a)。 |
+| **触发条件** | 用户要求「不接电脑也能换采样」；或 P4-F 全页面验收把采样导入列进闭环。 |
+| **参考** | `firmware/components/sloop_core/src/sound_tab5.c`（采样槽实现）、`scripts/sample_upload.py`、`third_party/sloop-fm1/tools/sampleio.py`、ADR-011 §4、P4-D spec §1 非目标 |
+| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-35: DSYN-only 修改不触发 1s 延迟写（需显式 STORE 或用歌曲保存顺带落盘）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-D 的 DSU 持久化跟随 settings 对象：任何 settings 保存（显式 `STORE SONG SAVE`、sections/歌曲 1s 延迟写、`DSYN STORE`）都会把当前 RAM `dsu` 写进 PER3 88..1,551；但**只改 DSYN 不会自己触发** 1s 延迟写（上游也不；`dsu_dirty` 只影响下一次 settings 写的 payload，不参与 `autosave`——autosave 是 `project_t`，不含 DSU）。用户在 DSYN 页调完音色后若直接掉电，未 `STORE` 的修改丢失。 |
+| **影响面** | 仅 DSYN 音色的掉电保留语义；显式 `STORE`（页面/chip/console）路径完整，`synth` 场景已覆盖 dirty=0 与硬复位/自检后逐字节一致。不会丢歌曲/工程（各自 A/B 对象）。 |
+| **为何可延迟** | 上游同语义（DSYN 保存是显式动作）；把 DSYN 纳入 1s 延迟写需要新门限（`dsu_dirty` 与演奏/停止状态的关系）并会与「任何 settings 保存都写当前 dsu」的规则叠加，属产品语义决策，不宜在收口任务里改。 |
+| **解决方向** | (a) 保持显式 STORE，但在 DSYN 页把 `DIRTY` 做成醒目提示（当前状态行已有 ` DIRTY` 后缀，可强化）；(b) 或让 `sloop_store_sections_tick` 在 `dsu_dirty` 且停止/无发声/idle 时也走一次 settings 写（与歌曲共用 gap 时间戳），代价是 DSYN 编辑会周期性擦写 flash；(c) 或退出 DSYN 页时提示/自动 STORE。优先 (a) 并评估 (b)。 |
+| **触发条件** | 用户报告「调好的鼓音色重启后没了」；或 P4-E 统一「会话/持久化」语义时。 |
+| **参考** | `firmware/components/sloop_core/src/song_persist.h`（`song_per_put_dsu`/`song_per_saved`）、`store_tab5.c` 的 `sloop_store_dsu_store`/`sloop_store_sections_tick`、ADR-011 §3、P4-D spec §3.4 |
+| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-36: FM6 live patch 掉电不保留（会话状态，必须显式存 bank）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | FM6P 页直接编辑 `fm6_patch[track]` 的 155B live patch（写后 `fm6_slot[t]=p[P_E7]` 防 `fm6_poll` 覆盖），持久化只走既有 FM6 bank 27 槽（`STORE BANK PUT` / 页面 `SAVE` chip）。live patch 本身不写 flash——与上游一致（patch 是编辑器的会话状态，除非存入 bank）。因此未 SAVE 的深度编辑在掉电/复位后回到 bank 槽（或工厂）的 patch。 |
+| **影响面** | 仅 FM6 深度音色的掉电保留语义；`synth` 场景已验证「BANK PUT → GET == LIVE → 硬复位后逐字节保持」「ALG 宏清除」「非 FM6 轨拒绝」。不影响工程/歌曲/DSYN。 |
+| **为何可延迟** | 上游同语义，且 bank 是 27 槽的显式音色库；把 live patch 自动写 bank 会与槽选择（PTCH）语义纠缠，属产品决策。 |
+| **解决方向** | (a) 保持现状，在 FM6P 页把 `SAVE` 与当前槽/`DIRTY` 提示做得更醒目；(b) 若产品要求「掉电保留最后一次编辑」，需要新增独立对象或把 live patch 纳入 settings（都会偏离上游布局，须先写 ADR）；(c) 或在切轨/关机路径自动 `PUT` 到当前 PTCH 槽（仅当 PTCH 是用户槽 8+k）。优先 (a)。 |
+| **触发条件** | 用户报告「FM6 调好的音色重启后没了」；或 P4-E 统一持久化语义；或联动模式需要与 FM-1 的 patch 会话状态对齐时。 |
+| **参考** | `firmware/components/sloop_core/src/sound_tab5.c`（FM6 段）、`third_party/sloop-fm1/firmware/src/eng_fm6.c`（`fm6_set_patch`/`fm6_poll`）、`scripts/inject/inject.py` 的 `run_synth` ③、ADR-011 §6、P4-D spec §3.6 |
+| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-37: 采样名 / DSYN kit 名 / FM6 patch 名无屏上文本输入
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 采样槽名（8 字符，`smp_user_hdr_t.name`）、DSYN kit 名（8 字符）、FM6 patch 名（10 字符，`FP_NAME` 145..154）都只读显示/随文件或工厂值保留；P4-D 没有提供字符键盘/文本编辑 UI。console 也没有改名命令。 |
+| **影响面** | 仅命名体验：用户无法在设备上给自定义采样/鼓 kit/FM6 音色改名，只能沿用上传文件里的名字或工厂名。播放、持久化、bank 存取不受影响（名字随对象/槽字节保存）。 |
+| **为何可延迟** | P4-D spec §1/§7 明确列为非目标（屏幕软键盘 + 文本输入焦点模型是独立 UI 面）；现有名字在画面上可读，足以区分槽位。 |
+| **解决方向** | (a) 复用 Tab5 Keyboard 的字符键做一个小型文本输入模态（8/10 字符 + 退格/确认），页面上把名字区域变成可点击入口；(b) 写路径分别落到 `smp_user_hdr_t.name`（须重算 header CRC 并走 `sloop_store_sample_*` 的提交路径）、`dsu.k[k].name`（置 `dsu_dirty`）、`fm6_patch[FP_NAME]`（`fm6_set_patch` 不 sanitize 名字，需保留哨兵语义）；(c) console 加 `SMP NAME`/`DSYN NAME`/`FM6P NAME` 诊断面并用 host/设备用例覆盖。优先 (a)+(c)。 |
+| **触发条件** | 用户要求给采样/音色命名；或 P4-F 全页面验收把「命名」列进功能对齐清单。 |
+| **参考** | `firmware/components/sloop_core/include/sloop_core.h`（`SLOOP_DSYN_NAME`/`SLOOP_FM6_PATCH_SIZE`）、`sound_tab5.c` 的 FM6 名字只读哨兵与采样 header、`third_party/sloop-fm1/firmware/src/eng_sample.c`、ADR-011 §2/§6、P4-D spec §1 非目标 |
+| **登记** | 2026-11-23（P4-D Task 12 收口审计） |
