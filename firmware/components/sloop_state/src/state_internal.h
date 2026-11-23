@@ -22,7 +22,9 @@ uint32_t state_now_ms(void);
 void state_refresh_locked(void);
 
 /* 单份投影的同拍刷新（调用方持 state_lock）：DSYN 按当前 kit/lane 选择读 22B + kit
- * 元数据 + DSU dirty；FM6 patch 按选中轨读（鼓轨/非 FM6 轨 patch 清零、engine_ok=0）。
+ * 元数据 + DSU dirty；FM6 patch 按选中轨读——**非 FM6 轨（合成或鼓）保留 patch、
+ * 只把 engine_ok 置 0**（core 回 NOT_ALLOWED，页面据 engine_ok 显示锁定态）；只有
+ * 越界轨（INVALID_ARG）与诊断冻结（INVALID_STATE）把快照清零。
  * CMD_DSYN_* 与 CMD_FM6_SET 成功时用它们避免整份窗口快照。 */
 void state_refresh_dsyn_locked(void);
 void state_refresh_fm6_locked(void);
