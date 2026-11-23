@@ -103,6 +103,10 @@ FLT_MODE FLT_RES FCUT FENV HPF CHIP DRIVE LEVEL
   `END` 先校验 magic/version/nz/`smp_zone_ok` 与 **flash 回读数据**的 `st_crc32`，再写
   header（提交点），最后整槽 flash→镜像并 `smp_user_scan(k)`；失败时槽仍空、上传保持
   open 可重试。`ERASE` 先失效（header 0xFF + 扫描递增 gen）再清镜像数据区与擦 flash。
+- **ERASE 在 SAMPLE 页的 LVGL 回调里同步执行**（20×4KB 扇区 = 整槽 80KiB，最坏阻塞
+  一次整槽擦写）；**未单独测时**，量级同 spec §4.3 的 ≤150ms 级 UI 停顿；`STORE STATS`
+  的 `last_save_ms` 不覆盖采样擦除（`sloop_store_sample_erase` 不走 `store_note_write`）。
+  走带中由存储层拒绝，不会在播放中触发。
 - `SMP INFO` 与引擎同源只读镜像 + header CRC；4 槽信息读是文档化只读例外，页面最短
   250ms 刷新、key 稳定 1s，绝不每 30ms 做 4×80KiB CRC。
 - 被否方案：`SMP_USER_XIP` 直指 mmap（音频线程的 cache 停顿与 golden 基线难界定）；

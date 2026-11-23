@@ -1,7 +1,7 @@
 /*
  * DSYN 鼓合成编辑页（sloop_ui 内部头文件；P4-D Task 9，spec §3.3/§4.4）。
  *
- * 一页 = 页眉选择行（SYN1..4 四 kit chip、LANE −/Knn/+、字段页 chip
+ * 一页 = 页眉选择行（SYN1..4 四 kit chip、LANE −/01..16/+、字段页 chip
  * SND1/SND2/SND3/KIT、AUDITION、STORE、状态行）+ 8 个旋钮（与参数页同一 4×2 网格
  * 与 touch 语义）+ 底部细调 −/+。字段页是**页内 UI 局部态**（`UI DSYN PAGE` 与页面
  * chip 共用），不新增 app page；kit/lane 是状态层保存的 UI 局部态

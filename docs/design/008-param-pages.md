@@ -137,6 +137,12 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 | FM6P | **6,980–7,124 B**（`UI MEM` delta；构建日志 6,832–7,124；Task 10 fix 的 7,124B 为最大值） | 7,168 B | +0.6%–2.7% | 24 对象（§8.8）；余量最薄 **44B**（7,168−7,124），**刻意保留为 tripwire**：加控件前先减对象 |
 | **SYNTH 组 Σ** | **17,696–17,936 B**（`UI MEM sum_delta` 的 `built=3` 读数；与逐页区间不同源，不相加） | **20,480 B** | — | 组内三页共驻留（同组切页只改显隐）；`build_ms` 12–13ms；跨组峰值见 ADR-005 §5.1（SYNTH→STEP 实测 `pool_free 11,244B`） |
 
+- **SAMPLE 槽 ERASE 的 UI 停顿**（P4-D 评审 M5）：`ERASE` chip 在 LVGL 回调里同步擦
+  20 个 4KB 扇区（整槽 80KiB），最坏阻塞一次整槽擦写。**未单独测时**；量级同 spec
+  §4.3 的 ≤150ms 级 UI 停顿。`STORE STATS` 的 `last_save_ms` 不覆盖采样擦除
+  （`sloop_store_sample_erase` 不走 `store_note_write`）。走带中由存储层拒绝，故不会
+  在播放中触发。
+
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
 > 重跑 `lv_style_init` 会丢掉静态样式已分配的 props 数组（实测 PLAY↔TRACKS 每往返漏 ~300B）；

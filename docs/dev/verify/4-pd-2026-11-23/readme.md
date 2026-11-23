@@ -130,8 +130,8 @@
 | 截屏离线 | `python3 scripts/screenshot.py --selftest` | exit 0 |
 | 烧录 | `scripts/flash.sh` | exit 0、**3×** `Hash of data verified` |
 | 启动 | 复位捕获 | `App version: 7899459-dirty`、14 页、无 fatal/abort/backtrace |
-| **I1 设备冒烟** | `STORE RAW BEGIN 688` + 6 块 → `ENG SELFTEST preset/ANALOG/00_808_BOOM` → `STORE RAW END project 3` | 16/16 PASS；`saved len=688`、`FIELDS 3` 与 FUN1 `expected.json` 逐项一致、槽 3 收口 ERASE |
+| **I1 设备冒烟** | `STORE RAW BEGIN 688` + 6 块 → `ENG SELFTEST preset/ANALOG/00_808_BOOM` → `STORE RAW END project 3` | **18 PASS / 0 FAIL**（stdout `task-12-fix-i1-smoke-stdout.txt`；原始串口 `task-12-fix-i1-raw-selftest.log`）；`saved len=688`、`FIELDS 3` 与 FUN1 `expected.json` 逐项一致、槽 3 收口 ERASE |
 
 I1 冒烟的关键判别：自检收尾会 `song_reload + dsu_reload`（旧实现把 `proj_tmp` 覆盖成
 settings 字节），修复后 END 仍提交上传的 FUN1 字节并通过格式导入。transcript：
-`task-12-fix-i1-raw-selftest.log`。
+`task-12-fix-i1-smoke-stdout.txt`（断言）与 `task-12-fix-i1-raw-selftest.log`（串口原文）。

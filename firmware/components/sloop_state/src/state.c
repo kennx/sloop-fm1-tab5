@@ -49,9 +49,10 @@ app_state_t *state_locked(void)
  * dsyn 按**当前选择**读：kit/lane 是 UI 局部态（与 step_window 同类），不是引擎真值；
  * dirty 取存储层的 DSU 记账（DSYN 编辑置位、任何成功的 settings 写清）。读失败（诊断
  * 冻结）时保留上一次的 22B/名字，dirty 仍如实刷新。
- * fm6p 按选中轨读：非 FM6 轨（合成或鼓）回 NOT_ALLOWED 且快照带 engine_ok=0——
- * **保留** patch/slot（UI 显示锁定）；只有越界轨（INVALID_ARG）与诊断冻结
- * （INVALID_STATE）把快照清零（没有可显示的 live patch）。 */
+ * fm6p 按选中轨读：非 FM6 **合成**轨回 NOT_ALLOWED 且快照带 engine_ok=0——保留
+ * patch/slot（UI 显示锁定）；鼓轨（TRK_DRUM = 3、NPART = 3 ⇒ 越界）与越界轨回
+ * INVALID_ARG、诊断冻结回 INVALID_STATE，这两种情况把快照清零（没有可显示的
+ * live patch）。 */
 void state_refresh_dsyn_locked(void)
 {
     sloop_dsyn_sound_t snd;
