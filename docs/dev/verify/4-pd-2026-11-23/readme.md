@@ -112,8 +112,8 @@
   FM6P `UI MEM`/构建 6,980–7,124B（7,124 来自 Task 10 fix，7,104 来自 soak）；
   **FM6P 最薄余量 44B 刻意保留为 tripwire**（est 仍 7,168；改 7,680 虽仍在最坏有序对内，
   但没有必要）。
-- **M2/M3**：`state_internal.h`/`state.c` 的 FM6 投影注释改为「非 FM6 轨（含鼓）保留 patch、
-  engine_ok=0；越界/冻结清零」；`page_dsyn.h` 值路径补齐 `CMD_DSYN_CRUSH` 并区分
+- **M2/M3**：`state_internal.h`/`state.c` 的 FM6 投影注释改为「非 FM6 **合成**轨保留 patch、
+  engine_ok=0；鼓轨（`TRK_DRUM=NPART`）、越界轨与诊断冻结清零」；`page_dsyn.h` 值路径补齐 `CMD_DSYN_CRUSH` 并区分
   `CMD_DSYN_LOAD_KIT`（KIT SRC）。
 - **M4**：spec §4.4 回写实现偏差（`SET U<n>`、`LANE 01..16`、`SND1/2/3`）。
 - **M5**：SAMPLE 槽 ERASE 的 20 扇区/80KiB 同步擦写在 AGENTS §3、ADR-008 §3、ADR-011 §4
