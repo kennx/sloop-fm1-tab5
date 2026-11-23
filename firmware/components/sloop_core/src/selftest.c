@@ -928,9 +928,7 @@ int sloop_core_selftest(const char *case_name)
      * （设备实测：去掉这一句，自检后 INFO 报 lowcut=0 reso=0，而 flash 里仍是用户的值）
      * ——不重载，自检之后用户的 LOWCUT / FILTER RESO / REC 设置就悄悄变回 0。以 flash 为准
      * （未落盘的修改随回滚丢弃）。 */
-    esp_err_t set_ret = sloop_store_settings_reload();
-    if (set_ret != ESP_OK && set_ret != ESP_ERR_INVALID_STATE)
-        ESP_LOGW("sloop_core", "自检后 settings 重载失败: %s", esp_err_to_name(set_ret));
+    sloop_store_settings_reload(); /* 读不到时自己落默认并打日志；恒回 ESP_OK */
     /* 采样槽镜像同理（P4-D Task 4 的收尾，Task 5 接线）：PSRAM 镜像本身不随 restore 回滚，
      * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
      * `smp_user_scan`），槽内容因此与 flash 一致。 */

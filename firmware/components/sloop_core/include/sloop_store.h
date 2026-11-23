@@ -398,14 +398,15 @@ typedef struct {
  * `rec_count`/`rec_quant_off` 在本固件里由一份 RAM 副本 `s_set` 统一承载：
  *   reload() —— 开机（`sloop_store_init`，歌曲/DSU 之后）与 `ENG SELFTEST` 收尾：从 flash
  *               **以 flash 为准**重读（palette/lowcut/zoom/lights 五位/尾段 reso + side
- *               theme）并应用；没有对象/对象损坏/存储未就绪 → 全零 + 默认 palette（上游
- *               settings_init：MONO）。
+ *               theme）并应用；没有对象/对象损坏/存储未就绪 → 其余字段全零 + 默认
+ *               palette 4 = MONO（R13，上游 settings_init 同法）。
  *   set()    —— 停止/播放皆可：只改内存 + 应用上游 static（引擎锁内）+ 置 dirty，**不写
  *               flash**；冻结/未就绪 → ESP_ERR_INVALID_STATE。
  *   save()   —— 停止态立即写（上游 settings_save 同义；与歌曲/DSU 同一次 A/B 提交）；
  *               播放中 ESP_ERR_INVALID_STATE（`STOP BEFORE SAVE`）；成功才清 dirty。
  *   落盘还走 1s 任务的 `sections_tick`：settings dirty 与歌曲/段落同一门限（停止 + 无发声
- *   + 输入空闲 ≥1.5s + 间隔 ≥5s）、同一次写；任何一次成功的 settings 保存都顺带清 dirty。
+ *   + 输入空闲 ≥1.5s + 间隔 ≥5s）、同一次写；任何一次成功的 settings 保存都**顺带清 dirty
+ *   ——前提是刚提交的字节就是当前 RAM**（擦写窗口里又来的修改让 payload 过时，dirty 保留）。
  * 应用范围：core 只把 lowcut/reso/REC 三项写进上游 static；`lights_lvl` 只在 RAM 副本里
  * （键盘 RGB 是 UI 侧按投影驱动，spec R4）；palette/zoom/theme 同理由 UI 消费副本。
  * 自检：`sloop_core_selftest` 跑用例前把 `fx_lowcut`/`flt_reso` 归零（golden 基线口径），
@@ -426,7 +427,7 @@ typedef struct {
     char theme_name[9];
     bool dirty;
 } sloop_settings_t;
-const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未就绪 ⇒ 全零 + theme_valid=false） */
+const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未就绪 ⇒ 字段全零、palette=4、theme_valid=false） */
 /* 改内存 + apply + dirty；冻结回 INVALID_STATE；palette 钳 0..4、reso 钳 0..10、
  * lights 钳 0..3、bool 钳 0/1；字段越界回 INVALID_ARG（不写）。 */
 esp_err_t sloop_store_settings_set(sloop_set_field_t field, uint32_t v);

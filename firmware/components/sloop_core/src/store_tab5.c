@@ -992,7 +992,7 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     if (is_settings) {
         /* P4-E（spec §8.3）：payload 原样提交、**现有 side 原样随新副本**（没有/全 0xFF ⇒
          * 默认 80B）；没有 magic 防线（RAW 的语义就是任意字节，坏对象的后果与上游一致：
-         * reload 落默认、INFO 报 invalid）。写后立即按新对象重载生效副本。 */
+         * reload 落默认、INFO 报 invalid）。RAM 侧重载见函数尾（R15）。 */
         uint8_t side[SONG_SIDE_LEN];
         if (!(st_side_load(OBJ_SETTINGS, side, SONG_SIDE_LEN) == 0 && !song_side_blank(side)))
             song_side_default(side);
@@ -1004,9 +1004,11 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
     } else {
         rc = st_save(OBJ_PROJECT0 + slot, s_raw_stage, len);
     }
-    if (rc == 0) {
+    if (rc == 0 && !is_settings) {
         /* RAW 对象绕过了 proj_capture：按开机 fetch 的语义把槽的 RAM 缓存对齐到 flash
-         * （导入失败 = 槽无效，之后的 LOAD 会走 flash 回落并回 invalid）。 */
+         * （导入失败 = 槽无效，之后的 LOAD 会走 flash 回落并回 invalid）。**只对工程对象**：
+         * `settings 0` 的 slot 也是 0，但 payload 不是工程——走进来会把 A 段的 RAM 缓存
+         * memset 成空（flash 不动，`STORE PROJ HASH 0` 却报 empty，live JUMP A 应用零）。 */
         if (!proj_import(&proj_slot[slot], s_raw_stage, (int)len)) memset(&proj_slot[slot], 0, sizeof(project_t));
     }
     store_unlock();
@@ -1015,7 +1017,20 @@ esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot)
         ESP_LOGE(TAG, "RAW END %s %u 失败 rc=%d", obj, (unsigned)slot, rc);
         return ESP_ERR_NOT_FINISHED;
     }
-    if (is_settings) return sloop_store_settings_reload();
+    if (!is_settings) return ESP_OK;
+    /* R15：上传的对象就是 settings 的全部——歌曲顺序、SYN kit 银行与生效副本都要按它重载
+     * （与 `ENG SELFTEST` 收尾同一序列）。否则 RAM 里还是上传前的 arrangement/dsu：下一次
+     * 歌曲/DSYN 保存会把旧 RAM 写回去，等于悄悄撤销这次上传。三个 reload 各自取存储锁与
+     * 引擎锁（store → engine），故在**释放存储锁之后**调用（与自检收尾同：不持锁进入）。
+     * 对象损坏时 song_reload 落默认歌曲并回 INVALID_ARG、dsu_reload 回 NOT_FOUND——上传
+     * 本身已成功，只告警（INFO 报 invalid），回 OK。 */
+    esp_err_t song_ret = sloop_store_song_reload();
+    esp_err_t dsu_ret = sloop_store_dsu_reload();
+    sloop_store_settings_reload();
+    if (song_ret != ESP_OK && song_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "RAW settings 之后歌曲重载: %s（落默认歌曲）", esp_err_to_name(song_ret));
+    if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND)
+        ESP_LOGW(TAG, "RAW settings 之后 SYN kit 重载: %s（落工厂 SYN kit）", esp_err_to_name(dsu_ret));
     return ESP_OK;
 }
 

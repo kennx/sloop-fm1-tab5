@@ -24,8 +24,8 @@ static uint8_t s_midi_def[SONG_MIDI_MAX];
 
 _Static_assert(SONG_MIDI_MAX == 2u * ML_N + 8u, "尾段长度 = 2*ML_N + 8（上游 MIDI_PART）");
 
-/* 上游 panel.c:87 的 MIDI_SET_DEF（那个 .c 不在本 TU：与 store_tab5.c 的 SONG_PANEL_DEF /
- * TRK_DEF 同法固定在此）。 */
+/* 上游 panel.c:87 的 MIDI_SET_DEF（midi_part_fill 读的 midi_set[] 初值，panel.c:89；那个 .c
+ * 不在本 TU：与 store_tab5.c 的 SONG_PANEL_DEF / TRK_DEF 同法固定在此）。 */
 #define SETTINGS_MIDI_DEF {1, 2, 3, 10, 0, 2, 0, 0, 0, 0}
 
 /* 把 s_set.f 应用到上游 static（调用方持引擎锁）。**不驱动键盘 RGB**（UI 侧按投影做，
@@ -39,9 +39,11 @@ static void settings_apply_locked(void)
     rec_quant_off = (uint8_t)(s_set.f.rec_quant_off != 0u);
 }
 
-/* 尾段默认布局 = 上游 project.c `midi_part_fill()` 对本固件状态的输出。那个函数在本 TU
- * **不编入**（project.c 以 PROJ_HOST 编，midi_part_* 在它的 `#ifndef PROJ_HOST` +
- * `#if FELUCCA_FLASH` 段里），故逐行镜像它，只取默认布局：
+/* 尾段默认布局 = 上游 `midi_part_fill()`（project.c:882-897）对本固件状态的输出。那个函数在
+ * 本 TU **不编入**（project.c 以 PROJ_HOST 编，midi_part_* 在它的 `#ifndef PROJ_HOST` +
+ * `#if FELUCCA_FLASH` 段里），故逐行镜像它，只取默认布局。紧随其后的 `midi_part_default()`
+ * （project.c:898-908）**刻意不镜像**：上游用它决定「尾段非默认才写」，这里由
+ * song_per_put_settings 按 `reso ≠ 0` 决定是否追加尾段（spec §8.1 的同语义简化）。
  *   - ml_tab（seq.c，本 TU 可见）照抄——本固件没有 MIDI LEARN 入口，恒为 0；
  *   - midi_set[] / drum_preview / step_adv_off / fxfade 都在 panel.c（不在本 TU），本固件
  *     没有任何写入口 ⇒ 恒为上游默认（MIDI_SET_DEF / 0），取字面量；
