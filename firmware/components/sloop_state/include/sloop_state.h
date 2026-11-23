@@ -92,6 +92,8 @@ typedef enum {
      * 试听、采样擦除。返回码映射 app_state_t.synth_status。 */
     CMD_DSYN_SET, CMD_DSYN_LOAD_KIT, CMD_DSYN_STORE, CMD_DSYN_AUDITION,
     CMD_FM6_SET, CMD_SAMPLE_ERASE,
+    /* P4-D Task 9 fix：kit 级 CRUSH（KIT 页可编辑；追加在末尾以保住既有命令编号） */
+    CMD_DSYN_CRUSH,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -208,6 +210,9 @@ typedef enum {
  *                    ERROR；成功同拍重取 dsyn（dirty 归 0）。
  *  CMD_DSYN_AUDITION a=kit(0..3) b=lane(0..15) v=velocity(1..127)：试听（写上游队列，
  *                    **不改数据、不刷新投影**）；velocity 0/>127 与越界 kit/lane 不调 core。
+ *  CMD_DSYN_CRUSH    a=kit(0..3) v=crush(0..255)：kit 级 bit-crush / sample-and-hold
+ *                    （上游 `dkit_t.crush`）。越界 kit 或 v>255 不调 core（INVALID）、
+ *                    冻结 → FROZEN；成功同拍重取 dsyn 投影（crush 与 dirty）。
  *  CMD_FM6_SET       a=track(0..3) b=op(0..6，6=全局) n=field v=value：单字段写；
  *                    非 FM6 轨（含鼓轨）→ LOCKED、越界 op/field → INVALID、冻结 → FROZEN；
  *                    成功同拍重取 fm6p 投影（app_state_t.fm6p）。core 对全部拒绝只回

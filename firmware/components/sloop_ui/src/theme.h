@@ -211,49 +211,44 @@ static inline uint32_t ui_sample_status_color(uint8_t status)
 /* DSYN 页状态行（P4-D Task 9；屏幕文本与 console `TAP` 回显都从这里出）。act = 本页
  * 最后一次动作（页内局部态，不写 app_state_t），status = `app_state_t.synth_status`，
  * dirty = `app_state_t.dsyn.dirty`（RAM 的 SYN kit 与最近一次成功写盘不一致）：
- *   act 0 SET      → `EDIT OK`（写值已落地）
+ *   act 0 SET      → `EDIT OK`（写值已落地；CRUSH 也走 SET）
  *   act 1 STORE    → `STORE OK`（dirty 随之归 0）
  *   act 2 KIT      → `KIT LOADED`（工厂 kit 整体覆盖：CMD_DSYN_LOAD_KIT）
  *   act 3 AUDITION → `AUDITION`（只写试听队列，不改数据）
  * 尚无动作：dirty 时 `DIRTY`，否则空串。失败按 synth_status 给固定令牌：`INVALID` /
  * `FULL` / `STOP BEFORE STORE`（BLOCKED = 走带中，DSYN 只有 STORE 受走带门控）/
  * `FROZEN` / `LOCKED` / `STORE ERROR`，存储未就绪的 ERROR 显示 `NO STORAGE`。
- * 有未保存修改时在成功文本后追加 ` DIRTY`（`EDIT OK DIRTY`）。
- * `CRUSH READ ONLY` 是 KIT 页的本地特例（见 page_dsyn.c）：CRUSH 没有写入口。 */
+ * 有未保存修改时**不论成功或失败**都在文本后追加 ` DIRTY`（`EDIT OK DIRTY`、
+ * `STOP BEFORE STORE DIRTY`）——脏位不能被某个分支静默吞掉。 */
 typedef enum {
     UI_DSYN_ACT_SET = 0,
     UI_DSYN_ACT_STORE,
     UI_DSYN_ACT_KIT,
     UI_DSYN_ACT_AUDITION,
-    UI_DSYN_ACT_READONLY,
 } ui_dsyn_act_t;
 
 static inline const char *ui_dsyn_status_text(char *buf, size_t n, uint8_t act, uint8_t status,
                                               bool dirty, bool ready)
 {
     const char *mark = dirty ? " DIRTY" : "";
-    if (act == UI_DSYN_ACT_READONLY) {
-        snprintf(buf, n, "CRUSH READ ONLY");
-        return buf;
-    }
     if (act > UI_DSYN_ACT_AUDITION) {
         snprintf(buf, n, "%s", dirty ? "DIRTY" : "");
         return buf;
     }
     switch (status) {
     case APP_SYNTH_STATUS_OK:
-        if (act == UI_DSYN_ACT_STORE) snprintf(buf, n, "STORE OK");
+        if (act == UI_DSYN_ACT_STORE) snprintf(buf, n, "STORE OK%s", mark);
         else if (act == UI_DSYN_ACT_KIT) snprintf(buf, n, "KIT LOADED%s", mark);
         else if (act == UI_DSYN_ACT_AUDITION) snprintf(buf, n, "AUDITION%s", mark);
         else snprintf(buf, n, "EDIT OK%s", mark);
         break;
-    case APP_SYNTH_STATUS_INVALID: snprintf(buf, n, "INVALID"); break;
-    case APP_SYNTH_STATUS_FULL: snprintf(buf, n, "FULL"); break;
-    case APP_SYNTH_STATUS_BLOCKED: snprintf(buf, n, "STOP BEFORE STORE"); break;
-    case APP_SYNTH_STATUS_FROZEN: snprintf(buf, n, "FROZEN"); break;
-    case APP_SYNTH_STATUS_LOCKED: snprintf(buf, n, "LOCKED"); break;
+    case APP_SYNTH_STATUS_INVALID: snprintf(buf, n, "INVALID%s", mark); break;
+    case APP_SYNTH_STATUS_FULL: snprintf(buf, n, "FULL%s", mark); break;
+    case APP_SYNTH_STATUS_BLOCKED: snprintf(buf, n, "STOP BEFORE STORE%s", mark); break;
+    case APP_SYNTH_STATUS_FROZEN: snprintf(buf, n, "FROZEN%s", mark); break;
+    case APP_SYNTH_STATUS_LOCKED: snprintf(buf, n, "LOCKED%s", mark); break;
     case APP_SYNTH_STATUS_ERROR:
-        snprintf(buf, n, "%s", ready ? "STORE ERROR" : "NO STORAGE");
+        snprintf(buf, n, "%s%s", ready ? "STORE ERROR" : "NO STORAGE", mark);
         break;
     default: snprintf(buf, n, "%s", dirty ? "DIRTY" : ""); break;
     }
@@ -263,7 +258,6 @@ static inline const char *ui_dsyn_status_text(char *buf, size_t n, uint8_t act, 
 /* 状态行颜色（同一映射的视觉侧）：成功绿 / 失败红 / 仅 DIRTY 时强调黄 / 其余灰。 */
 static inline uint32_t ui_dsyn_status_color(uint8_t act, uint8_t status, bool dirty)
 {
-    if (act == UI_DSYN_ACT_READONLY) return UI_ACCENT;
     if (act <= UI_DSYN_ACT_AUDITION && status == APP_SYNTH_STATUS_OK) return ui_track_color(1);
     switch (status) {
     case APP_SYNTH_STATUS_INVALID:

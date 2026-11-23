@@ -120,6 +120,7 @@
  *  - DSYN：SYN1..SYN4 鼓音色（24 虚拟字段）。INFO 打印当前选择（kit/lane/name/crush/src/
  *    dirty）+ 24 个字段值；GET <kit> <lane> 打印该 lane 的 22B 原始字节；SET/KIT/STORE/
  *    AUDITION 走状态层命令（CMD_DSYN_*，与 DSYN 页同一路径），SET 回显写后回读值。
+ *    CRUSH <kit> <0..255> 写 kit 级的 bit-crush/S&H（CMD_DSYN_CRUSH，与 KIT 页同一路径）。
  *    `UI DSYN KIT/LANE/PAGE` 与 DSYN 页的 chip 共用同一状态（kit/lane 进状态层，page
  *    是页面静态量）；`TAP` 在该页回 `-> DSYN kit=.. lane=.. page=.. select` /
  *    `-> DSYN field=<name> value=<写后回读> status="…"` / `-> DSYN STORE status="…"` /
@@ -1683,13 +1684,13 @@ static int tap_command(int argc, char **argv)
     case SLOOP_TAP_DSYN_FIELD: {
         /* DSYN 单字段写（± chip；TAP 不能拖拽）：字段名来自页面模块（0x80/0x81 是 KIT
          * 页的 CRUSH / KIT SRC 伪字段），value 是写后回读，status 与屏幕状态行同源。
-         * err=1 = 页面本地只读拒绝（CRUSH：没有写命令），2 = 命令失败。 */
+         * err=2 = 命令失败（synth_status != OK）。 */
         const char *name = sloop_ui_dsyn_field_name(r.a);
         const char *text = sloop_ui_dsyn_status_text();
         if (r.err != 0u) {
             printf("TAP %ld,%ld page=%u -> DSYN field=%s value=%d ERR %s status=\"%s\"\n", x, y,
-                   page, name != NULL ? name : "?", (int)r.v,
-                   r.err == 1u ? "read_only" : "error", text != NULL ? text : "");
+                   page, name != NULL ? name : "?", (int)r.v, "error",
+                   text != NULL ? text : "");
         } else {
             printf("TAP %ld,%ld page=%u -> DSYN field=%s value=%d status=\"%s\"\n", x, y, page,
                    name != NULL ? name : "?", (int)r.v, text != NULL ? text : "");
@@ -3211,6 +3212,22 @@ static int dsyn_command(int argc, char **argv)
                synth_status_name(status));
         return 0;
     }
+    if (argc >= 2 && strcasecmp(argv[1], "CRUSH") == 0) {
+        /* kit 级 CRUSH（0..255）：状态层命令 CMD_DSYN_CRUSH（与 KIT 页旋钮同一路径），
+         * 范围在解析处先卡住（越界 = 用法/取值错误，不下发）。 */
+        uint32_t kit, crush;
+        if (argc != 4 || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
+            !eng_uint(argv[3], 255, &crush))
+            goto usage;
+        edit_cmd_t cmd = {.type = CMD_DSYN_CRUSH, .a = kit, .v = (uint16_t)crush};
+        uint8_t status = synth_apply(&cmd);
+        if (status != APP_SYNTH_STATUS_OK) return synth_err("DSYN", status);
+        app_state_t st;
+        state_get_copy(&st);
+        printf("DSYN CRUSH k=%u crush=%u status=\"%s\"\n", (unsigned)kit, (unsigned)st.dsyn.crush,
+               synth_status_name(status));
+        return 0;
+    }
     if (argc >= 2 && strcasecmp(argv[1], "AUDITION") == 0) {
         uint32_t kit, lane, vel = APP_STATE_VEL_DEFAULT;
         if ((argc != 4 && argc != 5) || !eng_uint(argv[2], SLOOP_DSYN_KITS - 1u, &kit) ||
@@ -3226,7 +3243,7 @@ static int dsyn_command(int argc, char **argv)
     }
 usage:
     printf("用法: DSYN INFO | GET <kit=0..3> <lane=0..15> | SET <kit> <lane> <field=0..23> <value> | "
-           "KIT <kit> <src> | STORE | AUDITION <kit> <lane> [vel=1..127]\n");
+           "KIT <kit> <src> | CRUSH <kit> <0..255> | STORE | AUDITION <kit> <lane> [vel=1..127]\n");
     return 1;
 }
 
@@ -3535,8 +3552,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t dsyn_cmd = {
         .command = "DSYN",
-        .help = "DSYN 鼓音色诊断（P4-D）：INFO/GET 只读投影；SET/KIT/STORE/AUDITION 走状态层"
-                "命令（与 DSYN 页同一路径）",
+        .help = "DSYN 鼓音色诊断（P4-D）：INFO/GET 只读投影；SET/KIT/CRUSH/STORE/AUDITION 走"
+                "状态层命令（与 DSYN 页同一路径）",
         .hint = "INFO|GET <kit=0..3> <lane=0..15>|SET <kit> <lane> <field=0..23> <value>|"
                 "KIT <kit> <src>|STORE|AUDITION <kit> <lane> [vel=1..127]",
         .func = &dsyn_command,

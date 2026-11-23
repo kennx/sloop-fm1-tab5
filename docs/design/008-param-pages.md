@@ -563,8 +563,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   当前页没有字段的槽隐藏（隐藏 = 不绘制/不命中，池峰值按 8 个算，组内切页不重新分配）。
 - **值/写路径**：读 `app_state_t.dsyn`（`sloop_dsyn_field_from_sound` 纯解码；kit 级
   crush/src 直取投影）；写 `CMD_DSYN_SET`（a=kit b=lane n=field）、KIT SRC =
-  `CMD_DSYN_LOAD_KIT`、`AUDITION` = `CMD_DSYN_AUDITION`（力度固定 100）、`STORE` =
-  `CMD_DSYN_STORE`（走带中 → `STOP BEFORE STORE`）。命令成功后投影同拍刷新，本页
+  `CMD_DSYN_LOAD_KIT`、KIT 页 `CRUSH` = `CMD_DSYN_CRUSH`（a=kit，v=0..255；状态层校验、
+  core 钳位 + `dsu_fix_kit` + `dsu_dirty`）、`AUDITION` = `CMD_DSYN_AUDITION`（力度固定
+  100）、`STORE` = `CMD_DSYN_STORE`（走带中 → `STOP BEFORE STORE`）。命令成功后投影同拍刷新，本页
   立即重绘（不做本地值推测）。kit/lane 选择走 `state_set_dsyn_select`（与
   `UI DSYN KIT/LANE` 共用，`STATE SNAP` 立即反映）；DSYN 与选中轨无关，**无锁定态**。
 - **数字文本**：`knob_t` 增加可选 `text_cb`（默认 NULL → `knob_format_value`）；DSYN
@@ -573,19 +574,20 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   百分之一 dB（`0.0dB` / `+6.0dB` / `+0.25dB` / `+31.75dB` / `-32.0dB`，正数带 `+`）。
   ms 是**显示近似**：`10254/(65536-DECAY_K[i])` 一阶反解钳 5..4000ms（长衰减端与真实
   −60dB 时间差十几%），只影响文本、不参与声音。
-- **KIT 页**：`CRUSH` 只读（P4-D Task 2/6 没有 crush 写入口，DI-35）：显示值，拖拽/±/
-  点击在状态行给 `CRUSH READ ONLY`、不发命令、不改数据。`KIT SRC` 值变化（拖拽/↑↓/±）
+- **KIT 页**：`CRUSH` 0..255 可编辑（P4-D Task 9 fix 补 `sloop_core_dsyn_set_crush` +
+  `CMD_DSYN_CRUSH`）：与 24 个声音字段**同一条** `dsyn_write` 路径（拖拽/↑↓/± 都写值、
+  写后从投影回读），不另写动作函数。`KIT SRC` 值变化（拖拽/↑↓/±）
   **立即** `CMD_DSYN_LOAD_KIT`（上游 DSYN_PUT part 17 同义：套用即覆盖该 kit 的 16 lane
   与 name/crush/src）；点击旋钮只设焦点（TAP 不能拖拽，避免误触清空编辑）。名称用状态行
   显示（无动作结果时 `KIT <name>`），来源数值就是 KIT SRC 旋钮读数。
 - **状态行**（单一映射 `theme.h` 的 `ui_dsyn_status_text`）：act（SET/STORE/KIT/
-  AUDITION/READONLY/NONE）× `synth_status` × `dsyn.dirty` × `sloop_store_ready()` →
-  `EDIT OK` / `STORE OK` / `KIT LOADED` / `AUDITION` / `CRUSH READ ONLY`（强调黄）/
-  `INVALID` / `STOP BEFORE STORE` / `FROZEN` / `NO STORAGE` / `STORE ERROR`，成功文本
-  后按 dirty 追加 ` DIRTY`。换 kit/lane/字段页清掉「上一次动作」的结果（新上下文不显示
+  AUDITION/NONE）× `synth_status` × `dsyn.dirty` × `sloop_store_ready()` →
+  `EDIT OK` / `STORE OK` / `KIT LOADED` / `AUDITION` / `INVALID` / `STOP BEFORE STORE` /
+  `FROZEN` / `NO STORAGE` / `STORE ERROR`，**所有**非空文本后按 dirty 追加 ` DIRTY`
+  （失败分支也不静默吞脏位）。换 kit/lane/字段页清掉「上一次动作」的结果（新上下文不显示
   旧 lane 的 EDIT OK）。
 - **TAP kind**：`SLOOP_TAP_DSYN_SEL`（a=kit b=lane d=page v=1；chip 与旋钮焦点）、
-  `SLOOP_TAP_DSYN_FIELD`（a=字段码、v=写后回读、err=0/1 read_only/2 error）、
+  `SLOOP_TAP_DSYN_FIELD`（a=字段码、v=写后回读、err=0 成功/2 命令失败；CRUSH 也走这条）、
   `SLOOP_TAP_DSYN_STORE`、`SLOOP_TAP_DSYN_AUDITION`（a=kit b=lane）、
   `SLOOP_TAP_DSYN_KIT`（a=kit b=新 src、v=写后回读）。回显
   `-> DSYN kit=.. lane=.. page=.. select` / `-> DSYN field=<name> value=<v> status="…"` /
@@ -596,11 +598,11 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   kit/lane/字段页 chip 只经触摸/console。
 - **预算（est 7,168B 固定）**：初版 26 个对象实测 **7,724B**（超 est 556B）→ 压缩：
   `LANE` 标签/数值/± 合成一个三区对象（−2）、KIT 名称改由状态行承载（−1）、± 保留在
-  底部；22 个对象、实测 **6,436B**（+11.2%，512 对齐下一条是 6,656/7,168，符合 +10–23%
+  底部；22 个对象、实测 **6,436B**（+11.4%，512 对齐下一条是 6,656/7,168，符合 +10–23%
   规则）。SYNTH Σest 仍 **20,480B**（SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168），组不变量
   不变。设备证据：`UI MEM page id=12 est=7168 delta=6436`（Task 9 报告）。
 - **验证入口**：host `scripts/synth-test.sh`（dsyn text 全字段）；设备 `UI DSYN KIT/LANE/
-  PAGE` + TAP（选择器/字段 ±/STORE/CRUSH 只读/AUDITION/KIT 中段 miss）+ 键盘 →/↑ +
+  PAGE` + TAP（选择器/字段 ±/CRUSH 写/STORE/AUDITION/KIT 中段 miss）+ `DSYN CRUSH` + 键盘 →/↑ +
   `UI MEM` + 四字段页截屏与像素抽检（Task 9 探针；任务 11 的 `synth` 场景固化）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）

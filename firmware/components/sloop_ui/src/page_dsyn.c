@@ -16,13 +16,13 @@
  *   （TAP 不能拖拽；键盘 ↑/↓ 是同一动作）。KIT 页只有 CRUSH/KIT SRC 两个槽。
  * - 池预算（est 7,168B）压到 22 个对象：LANE 的标签/数值/± 合成一个三区对象；
  *   KIT 页的 kit 名称由状态行承载（`KIT <name>`，无动作结果时显示），不再单独建
- *   只读信息块。实测 delta 6,444B（+11.2%，见 ADR-008 §3 与 Task 9 报告）。
+ *   只读信息块。实测 delta **6,436B**（+11.4%，见 ADR-008 §3 与 Task 9 报告）。
  *
  * 字段页（**页内 UI 局部态**，`UI DSYN PAGE` 与页面 chip 共用；不新增 app page）：
  *   SND1 = WAVE/SRC/CLAP/PITCH/FINE/BEND/BTIME/HOLD
  *   SND2 = DECAY/TLEV/T2/T2LEV/CLICK/NLEV/NHOLD/NDEC
  *   SND3 = FLT_MODE/FLT_RES/FCUT/FENV/HPF/CHIP/DRIVE/LEVEL
- *   KIT  = CRUSH（只读）/ KIT SRC（工厂套用）
+ *   KIT  = CRUSH（0..255，kit 级）/ KIT SRC（工厂套用）
  *
  * 值路径（唯一）：读 `app_state_t.dsyn`（`sloop_dsyn_field_from_sound` 纯解码；kit 级
  * crush/src 直接取投影）→ 一条状态层命令（`CMD_DSYN_SET` / `CMD_DSYN_LOAD_KIT` /
@@ -43,10 +43,10 @@
  * 成功后 KIT 页的状态行显示 `KIT <name>`（名称来自投影；来源数值就是 KIT SRC 旋钮的
  * 读数，`FACTORY F<src+1>` 不再单独占一个对象）。
  *
- * CRUSH（0..255）：spec §4.1 把它归 KIT 页，但 P4-D Task 2/6 只给了 24 个声音字段的
- * 写入口（`sloop_core_dsyn_set`）与 `CMD_DSYN_*` 四条命令，**没有 crush 写命令**。
- * 页面因此只显示（旋钮值），拖拽/±/点击都在状态行给 `CRUSH READ ONLY`、不发任何
- * 命令、不改数据；真实写入口见 docs/deferred-issues.md 的 DI-35。
+ * CRUSH（0..255）：kit 级 bit-crush / sample-and-hold（上游 `dkit_t.crush`），写路径与
+ * 声音字段同一条 `dsyn_write`：值变化（拖拽/↑↓/±）→ `CMD_DSYN_CRUSH`（a=kit，v=值，
+ * 状态层校验 0..255、core 钳位 + `dsu_fix_kit` + `dsu_dirty`）→ 投影同拍刷新 →
+ * 旋钮/状态行重绘。不写 16 lane；与 KIT SRC 的工厂套用互相独立。
  *
  * 动作结果状态行（`s_act` × `synth_status` × `dsyn.dirty`）由 theme.h 的
  * ui_dsyn_status_text 单一映射给出；console `TAP` 的 `status="…"` 读同一缓冲
@@ -238,6 +238,7 @@ const char *sloop_ui_dsyn_field_name(uint8_t code)
 
 const char *page_dsyn_status_text(void)
 {
+    if (s_status == NULL) return NULL; /* 页未建/已随组作用域销毁（与 BANK/SAMPLE 行同口径） */
     portENTER_CRITICAL(&s_mux);
     snprintf(s_status_echo, sizeof(s_status_echo), "%s", s_status_text);
     portEXIT_CRITICAL(&s_mux);
@@ -286,9 +287,8 @@ static void dsyn_lane_move(int8_t delta)
 }
 
 typedef struct {
-    bool ok;       /* 命令成功（CRUSH 只读恒 false） */
-    bool readonly; /* 页面本地拒绝：CRUSH 没有写入口（未下发给任何层） */
-    int16_t applied; /* 写后回读（CRUSH 是当前值） */
+    bool ok;         /* 命令成功（synth_status == OK） */
+    int16_t applied; /* 写后回读（投影里的真值） */
 } dsyn_write_t;
 
 /* 单字段写（旋钮拖拽、键盘 ↑/↓、± chip 共用）：一条状态层命令。
@@ -297,17 +297,9 @@ typedef struct {
  * （与 page_params 的 sloop_ui_param_adjust 同一纪律）。 */
 static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
 {
-    dsyn_write_t r = {false, false, value};
+    dsyn_write_t r = {false, value};
     app_state_t st;
     state_get_copy(&st);
-    if (field == DSYN_FIELD_CRUSH) {
-        /* core/状态层没有 crush 写命令（DI-35）：只显示、不发命令、不改数据 */
-        s_act = UI_DSYN_ACT_READONLY;
-        r.readonly = true;
-        r.applied = st.dsyn.crush;
-        if (render) refresh();
-        return r;
-    }
     edit_cmd_t cmd = {0};
     if (field == DSYN_FIELD_KITSRC) {
         int32_t src = value;
@@ -317,6 +309,16 @@ static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
         cmd.type = CMD_DSYN_LOAD_KIT;
         cmd.a = st.dsyn.kit;
         cmd.b = (uint32_t)src;
+    } else if (field == DSYN_FIELD_CRUSH) {
+        /* kit 级 CRUSH：状态层校验 0..255、core 钳位并过 dsu_fix_kit；与声音字段同一
+         * 「一条命令 + 投影回读」路径（页面不另写动作函数） */
+        int32_t crush = value;
+        if (crush < 0) crush = 0;
+        if (crush > 255) crush = 255;
+        s_act = UI_DSYN_ACT_SET;
+        cmd.type = CMD_DSYN_CRUSH;
+        cmd.a = st.dsyn.kit;
+        cmd.v = (uint16_t)crush;
     } else {
         s_act = UI_DSYN_ACT_SET;
         cmd.type = CMD_DSYN_SET;
@@ -333,10 +335,10 @@ static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
     return r;
 }
 
-/* 焦点槽 ±1（± chip、键盘 ↑/↓ 共用）。KIT 页的 CRUSH 只读：状态行给提示。 */
+/* 焦点槽 ±1（± chip、键盘 ↑/↓ 共用）：与旋钮拖拽走同一个 dsyn_write。 */
 static dsyn_write_t dsyn_step(int8_t delta, bool render)
 {
-    dsyn_write_t r = {false, false, 0};
+    dsyn_write_t r = {false, 0};
     app_state_t st;
     state_get_copy(&st);
     uint8_t slot = focus_get();
@@ -679,7 +681,7 @@ void page_dsyn_forget(void)
     memset(s_knobs, 0, sizeof(s_knobs));
     memset(s_present, 0, sizeof(s_present));
     memset(s_hidden, 0, sizeof(s_hidden));
-    s_kit_chip[0] = NULL;
+    memset(s_kit_chip, 0, sizeof(s_kit_chip));
     s_lane_chip = NULL;
     memset(s_page_chip, 0, sizeof(s_page_chip));
     s_audition = s_store = s_status = NULL;
@@ -715,7 +717,7 @@ static void out_field(sloop_tap_result_t *out, uint8_t field, const dsyn_write_t
     out->kind = SLOOP_TAP_DSYN_FIELD;
     out->a = field;
     out->v = r->applied;
-    out->err = r->readonly ? 1u : (r->ok ? 0u : 2u); /* 1 = 页面本地只读拒绝，2 = 命令失败 */
+    out->err = r->ok ? 0u : 2u; /* 2 = 命令失败（synth_status != OK） */
 }
 
 static void out_kit(sloop_tap_result_t *out, uint8_t kit, int16_t src, bool ok)
@@ -795,10 +797,6 @@ bool page_dsyn_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
             continue;
         }
         focus_set(slot);
-        if (k_fields[page][slot] == DSYN_FIELD_CRUSH) {
-            /* 只读提示（不发命令）：状态行与 TAP 的 status 同源 */
-            s_act = UI_DSYN_ACT_READONLY;
-        }
         refresh();
         out_select(out, &st, page);
         return true;

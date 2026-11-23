@@ -224,8 +224,8 @@ typedef enum {
                               * v=1。`UI DSYN KIT/LANE/PAGE` 与这些 chip 共用同一状态。 */
     SLOOP_TAP_DSYN_FIELD,    /* DSYN 页单字段写（± chip；TAP 不能拖拽）：a=字段码（0..23 =
                               * sloop_dsyn_field_t，0x80 CRUSH，0x81 KIT SRC）v=**写后回读**
-                              * err=0 成功 / 1 = 页面本地只读拒绝（CRUSH，未下发命令）/
-                              * 2 = 命令失败。字段名由 `sloop_ui_dsyn_field_name()` 给出。 */
+                              * err=0 成功 / 2 = 命令失败（synth_status != OK）。字段名由
+                              * `sloop_ui_dsyn_field_name()` 给出。 */
     SLOOP_TAP_DSYN_STORE,    /* DSYN 页 STORE chip：CMD_DSYN_STORE；结果文本由
                               * `sloop_ui_dsyn_status_text()` 与屏幕同源给出。 */
     SLOOP_TAP_DSYN_AUDITION, /* DSYN 页 AUDITION chip：a=kit b=lane v=velocity（固定 100） */
@@ -384,9 +384,11 @@ const char *sloop_ui_sample_status_text(void);
  *    与页面 chip 共用；console `UI DSYN PAGE` 只写这一静态量，30ms UI 定时器下一拍
  *    重配旋钮）。跨组页面重建保留（与 step_window 同类）。
  *  - ←/→ 在 8 槽间移动焦点（跳过当前页的空槽、环绕），↑/↓ 调焦点槽 ±1（经状态层
- *    命令，控件由下一拍刷新）。非 DSYN 页为空操作；都不取 LVGL 锁（输入任务调用）。
+ *    命令，控件由下一拍刷新）。KIT 页的 CRUSH（0..255）与 24 个声音字段同一路径
+ *    （`CMD_DSYN_CRUSH`），KIT SRC 的值变化套用工厂 kit（`CMD_DSYN_LOAD_KIT`）。非 DSYN 页为空操作；都不取 LVGL 锁（输入任务调用）。
  *  - `sloop_ui_dsyn_status_text` 是 console `TAP … status="…"` 的文本源（与屏幕同源，
- *    theme.h 的 ui_dsyn_status_text 单一映射）；页未建/当前页不是 DSYN 返回 NULL。
+ *    theme.h 的 ui_dsyn_status_text 单一映射）；页未建（控件已随组作用域销毁）或当前页
+ *    不是 DSYN 时返回 NULL（与 BANK/SAMPLE 行同口径）。
  *  - `sloop_ui_dsyn_field_name` 把 TAP 回显的字段码翻译成显示名（0x80/0x81 = KIT 页的
  *    CRUSH / KIT SRC 伪字段），未知码返回 NULL。 */
 #define SLOOP_UI_DSYN_PAGES 4u

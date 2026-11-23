@@ -583,6 +583,18 @@ int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t
     return v;
 }
 
+int16_t sloop_core_dsyn_set_crush(uint32_t kit, int16_t v)
+{
+    g_stub.dsyn_crush_calls++;
+    g_stub.last_dsyn_kit = kit;
+    g_stub.last_dsyn_crush = v;
+    if (kit >= SLOOP_DSYN_KITS || g_stub.seq_frozen) return SLOOP_DSYN_INVALID;
+    int16_t applied = v < 0 ? 0 : (v > 255 ? 255 : v); /* core 的钳位方向 */
+    g_stub.dsyn_crush[kit] = (uint8_t)applied;
+    g_stub.dsu_dirty = true;
+    return applied;
+}
+
 esp_err_t sloop_core_dsyn_load_factory(uint32_t kit, uint32_t src)
 {
     g_stub.dsyn_load_calls++;

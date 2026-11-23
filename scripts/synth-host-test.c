@@ -283,6 +283,41 @@ static void test_dsyn_fields(void)
               src == 5u,
           "factory kit 1 = DS_KITS[5]");
 
+    /* kit 级 CRUSH（P4-D Task 9 fix）：0/255 边界、>255 与负值钳位、脏位、dsu_fix_kit
+     * 不动 16 lane/name/src；越界 kit / 冻结回哨兵；一次动作一次引擎锁。 */
+    check(sloop_core_dsyn_load_factory(2, 3) == ESP_OK, "crush: load_factory(2, 3)");
+    dsu_dirty = 0;
+    check(sloop_core_dsyn_set_crush(2, 0) == 0 && dsu.k[2].crush == 0u && dsu_dirty,
+          "crush 0 round-trips and marks dsu_dirty");
+    check(sloop_core_dsyn_set_crush(2, 255) == 255 && dsu.k[2].crush == 255u, "crush 255 round-trips");
+    check(sloop_core_dsyn_set_crush(2, 256) == 255 && dsu.k[2].crush == 255u, "crush 256 clamps to 255");
+    check(sloop_core_dsyn_set_crush(2, 300) == 255, "crush 300 clamps to 255");
+    check(sloop_core_dsyn_set_crush(2, -5) == 0 && dsu.k[2].crush == 0u, "crush -5 clamps to 0");
+    {
+        uint8_t lanes[sizeof dsu.k[2].s];
+        char nm[8];
+        memcpy(lanes, dsu.k[2].s, sizeof lanes);
+        memcpy(nm, dsu.k[2].name, sizeof nm); /* name 是 8 字节，第 9 字节是 crush 本身 */
+        check(sloop_core_dsyn_set_crush(2, 0x5A) == 0x5A && dsu.k[2].crush == 0x5Au &&
+                  memcmp(dsu.k[2].s, lanes, sizeof lanes) == 0 && memcmp(dsu.k[2].name, nm, sizeof nm) == 0 &&
+                  dsu.k[2].src == 3u,
+              "crush 0x5A: dsu_fix_kit keeps 16 lanes/name/src");
+    }
+    check(sloop_core_dsyn_set_crush(SLOOP_DSYN_KITS, 10) == SLOOP_DSYN_INVALID,
+          "crush rejects kit 4");
+    s_frozen = true;
+    {
+        int16_t frozen_ret = sloop_core_dsyn_set_crush(0, 10);
+        s_frozen = false;
+        check(frozen_ret == SLOOP_DSYN_INVALID, "crush frozen -> SLOOP_DSYN_INVALID");
+    }
+    {
+        uint32_t l = engine_lock_calls, u = engine_unlock_calls;
+        (void)sloop_core_dsyn_set_crush(0, 1);
+        check(engine_lock_calls == l + 1u && engine_unlock_calls == u + 1u,
+              "crush takes the engine lock once");
+    }
+
     /* 非法参数：越界字段不写、不改数据 */
     check(sloop_core_dsyn_read(4, 0, &s, name, &crush, &src) == ESP_ERR_INVALID_ARG, "read rejects kit 4");
     check(sloop_core_dsyn_read(0, SLOOP_DSYN_LANES, &s, name, &crush, &src) == ESP_ERR_INVALID_ARG,
@@ -350,6 +385,20 @@ static void test_dsyn_fields(void)
               "text FLT_MODE 5 = LP+ALL");
         check(sloop_core_dsyn_text(SLOOP_DSYN_FLT_MODE, 4, t, sizeof t) > 0 && strcmp(t, "OFF") == 0,
               "text FLT_MODE 4 = OFF");
+        {
+            /* 8 个索引逐一对照（4 = 只有 DF_ALL 位，非法，读作 OFF） */
+            static const char *const want_flt[8] = {"OFF", "LP", "BP", "HP", "OFF",
+                                                    "LP+ALL", "BP+ALL", "HP+ALL"};
+            int okf = 1;
+            for (int f = 0; f < 8; f++) {
+                if (sloop_core_dsyn_text(SLOOP_DSYN_FLT_MODE, (int16_t)f, t, sizeof t) <= 0 ||
+                    strcmp(t, want_flt[f]) != 0)
+                    okf = 0;
+            }
+            check(okf, "text FLT_MODE 0..7 = OFF/LP/BP/HP/OFF/LP+ALL/BP+ALL/HP+ALL");
+            check(sloop_core_dsyn_set(0, 0, SLOOP_DSYN_FLT_MODE, 4) == 0,
+                  "FLT_MODE 4 (ALL alone) normalises to OFF on write");
+        }
         check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 128, t, sizeof t) > 0 && strcmp(t, "0.0dB") == 0,
               "text LEVEL 128 = 0.0dB");
         check(sloop_core_dsyn_text(SLOOP_DSYN_LEVEL, 152, t, sizeof t) > 0 && strcmp(t, "+6.0dB") == 0,

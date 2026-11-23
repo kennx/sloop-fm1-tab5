@@ -504,6 +504,22 @@ static void cmd_dsyn_store(app_state_t *s)
     if (s->synth_status == APP_SYNTH_STATUS_OK) state_refresh_dsyn_locked(); /* dirty → 0 */
 }
 
+/* kit 级 CRUSH：值域在状态层先校验（0..255），core 的哨兵因此只剩「冻结」一因
+ * （与 cmd_dsyn_set 同口径）；成功后同拍重取 dsyn 投影（crush/dirty）。 */
+static void cmd_dsyn_crush(app_state_t *s, uint32_t kit, uint16_t value)
+{
+    if (kit >= SLOOP_DSYN_KITS || value > 255u) {
+        s->synth_status = APP_SYNTH_STATUS_INVALID; /* 越界不调引擎 */
+        return;
+    }
+    if (sloop_core_dsyn_set_crush(kit, (int16_t)value) == SLOOP_DSYN_INVALID) {
+        s->synth_status = APP_SYNTH_STATUS_FROZEN;
+        return;
+    }
+    s->synth_status = APP_SYNTH_STATUS_OK;
+    state_refresh_dsyn_locked();
+}
+
 /* 试听不改数据（上游只写 dsu_aud_* 队列），因此不刷新投影；velocity 0 是「无声」、
  * >127 越界，两者都是命令错误且不调 core（上游 ED_DSYN_PLAY 同口径）。 */
 static void cmd_dsyn_audition(app_state_t *s, uint32_t kit, uint32_t lane, uint32_t velocity)
@@ -685,6 +701,7 @@ void state_apply(const edit_cmd_t *cmd)
     case CMD_DSYN_LOAD_KIT: cmd_dsyn_load_kit(s, cmd->a, cmd->b); break;
     case CMD_DSYN_STORE: cmd_dsyn_store(s); break;
     case CMD_DSYN_AUDITION: cmd_dsyn_audition(s, cmd->a, cmd->b, cmd->v); break;
+    case CMD_DSYN_CRUSH: cmd_dsyn_crush(s, cmd->a, cmd->v); break;
     case CMD_FM6_SET: cmd_fm6_set(s, cmd->a, cmd->b, cmd->n, cmd->v); break;
     case CMD_SAMPLE_ERASE: cmd_sample_erase(s, cmd->a); break;
     default: break;

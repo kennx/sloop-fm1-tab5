@@ -36,7 +36,8 @@ void page_dsyn_forget(void);
 bool page_dsyn_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 
 /* 最近一次动作的状态行文本（console `TAP` 回显与屏幕同源：两处都读本页同一缓冲）。
- * 页未建/已销毁返回 NULL。 */
+ * 页未建/已随组作用域销毁返回 NULL（`s_status == NULL`；调用方按「没有可回显的页面
+ * 状态」处理，与 BANK/SAMPLE 行同一口径）。 */
 const char *page_dsyn_status_text(void);
 
 /* 字段码 → 显示名（console `TAP` 回显的 `field=`）：0..23 取 core 描述符的 label，

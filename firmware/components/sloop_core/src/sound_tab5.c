@@ -182,6 +182,22 @@ int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t
     return ret;
 }
 
+int16_t sloop_core_dsyn_set_crush(uint32_t kit, int16_t v)
+{
+    if (kit >= SLOOP_DSYN_KITS || s_frozen) return SLOOP_DSYN_INVALID;
+    engine_lock();
+    int16_t ret = SLOOP_DSYN_INVALID;
+    if (!s_frozen) {
+        (void)dsu_kit(kit);
+        dsu.k[kit].crush = (uint8_t)clamp((int32_t)v, 0, 255);
+        dsu_fix_kit(&dsu.k[kit]); /* 名称/src/16 lane 的归一；crush 保留钳位后的字节 */
+        dsu_dirty = 1;
+        ret = (int16_t)dsu.k[kit].crush;
+    }
+    engine_unlock();
+    return ret;
+}
+
 int16_t sloop_dsyn_field_from_sound(const uint8_t sound[22], uint32_t field)
 {
     if (sound == NULL || field >= SLOOP_DSYN_FIELDS)

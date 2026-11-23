@@ -229,6 +229,11 @@ esp_err_t sloop_core_dsyn_read(uint32_t kit, uint32_t lane, sloop_dsyn_sound_t *
  * 越界/冻结返回 SLOOP_DSYN_INVALID 且不写。 */
 int16_t sloop_core_dsyn_field(uint32_t kit, uint32_t lane, uint32_t field);
 int16_t sloop_core_dsyn_set(uint32_t kit, uint32_t lane, uint32_t field, int16_t v);
+/* 写 **kit 级** CRUSH（0..255；低 nibble 丢位数、高 nibble 是 S&H−1，见上游 dkit_t）：
+ * 引擎锁内钳位 0..255 → 写 `dsu.k[kit].crush` → `dsu_fix_kit`（名称/src/16 lane 原样，
+ * crush 本身不在它的钳位范围）→ `dsu_dirty = 1`；返回写后回读值。kit 越界或诊断冻结
+ * 返回 SLOOP_DSYN_INVALID（与 24 个声音字段同一个哨兵）。一次动作一次引擎锁。 */
+int16_t sloop_core_dsyn_set_crush(uint32_t kit, int16_t v);
 /* 纯解码（UI 投影用，不取锁、无副作用）：field 越界返回 SLOOP_DSYN_INVALID。 */
 int16_t sloop_dsyn_field_from_sound(const uint8_t sound[22], uint32_t field);
 /* 索引字段的显示文本（DECAY 类 → ms，由 DECAY_K 反解；FCUT/HPF → Hz；LEVEL → dB；

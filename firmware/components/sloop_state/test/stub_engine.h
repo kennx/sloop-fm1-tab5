@@ -89,8 +89,9 @@ typedef struct {
     uint8_t dsyn_crush[4], dsyn_src[4];
     uint32_t dsyn_factory_count;    /* src 上限（模拟 DS_NKITS） */
     uint32_t dsyn_read_calls, dsyn_set_calls, dsyn_load_calls, dsyn_audition_calls;
+    uint32_t dsyn_crush_calls;
     uint32_t last_dsyn_kit, last_dsyn_lane, last_dsyn_field, last_dsyn_src, last_dsyn_vel;
-    int32_t last_dsyn_value;
+    int32_t last_dsyn_value, last_dsyn_crush;
     bool dsu_dirty;                 /* sloop_store_dsu_dirty 的返回值 */
     esp_err_t dsu_store_ret;
     uint32_t dsu_store_calls;

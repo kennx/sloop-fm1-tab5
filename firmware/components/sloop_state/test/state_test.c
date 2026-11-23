@@ -1729,6 +1729,27 @@ static void case_dsyn_commands(void)
     state_get_copy(&s);
     check_ll("非法试听不调 core", g_stub.dsyn_audition_calls, calls);
     check_ll("非法试听 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+
+    /* kit 级 CRUSH（P4-D Task 9 fix）：越界 kit / v>255 不调 core；合法写透传、
+     * 同拍回读 crush/dirty；冻结由 core 哨兵映射 FROZEN。 */
+    calls = g_stub.dsyn_crush_calls;
+    apply(CMD_DSYN_CRUSH, SLOOP_DSYN_KITS, 0, 0);
+    apply(CMD_DSYN_CRUSH, 1, 0, 256);
+    state_get_copy(&s);
+    check_ll("CRUSH 越界不调 core", g_stub.dsyn_crush_calls, calls);
+    check_ll("CRUSH 越界 → invalid", s.synth_status, APP_SYNTH_STATUS_INVALID);
+    apply(CMD_DSYN_CRUSH, 1, 0, 200);
+    check_ll("CRUSH 透传 kit", g_stub.last_dsyn_kit, 1);
+    check_ll("CRUSH 透传 value", g_stub.last_dsyn_crush, 200);
+    state_get_copy(&s);
+    check_ll("CRUSH → ok", s.synth_status, APP_SYNTH_STATUS_OK);
+    check_ll("CRUSH 同拍回读", s.dsyn.crush, 200);
+    check_ll("CRUSH 置 dirty", s.dsyn.dirty, 1);
+    g_stub.seq_frozen = true;
+    apply(CMD_DSYN_CRUSH, 1, 0, 100);
+    state_get_copy(&s);
+    check_ll("CRUSH 冻结 → frozen", s.synth_status, APP_SYNTH_STATUS_FROZEN);
+    g_stub.seq_frozen = false;
 }
 
 static void case_fm6_and_sample(void)
@@ -1847,7 +1868,7 @@ int main(void)
     run("外部选轨同步 focus_track", case_external_selection_focus);
     run("冻结 toggle/erase 与 micro/fill 超宽拒绝", case_seq_frozen_and_range);
     run("sections/chain/SONG 命令与歌曲投影", case_song_section_chain);
-    run("DSYN 命令：越界不调引擎/写后回读/STORE/试听", case_dsyn_commands);
+    run("DSYN 命令：越界不调引擎/写后回读/STORE/试听/CRUSH", case_dsyn_commands);
     run("FM6 patch 与采样擦除命令：锁定/回读/错误映射", case_fm6_and_sample);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
