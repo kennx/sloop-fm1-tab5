@@ -67,8 +67,9 @@ typedef struct {
                                    * TAP 落在该带 ⇒ miss */
 #define PARAM_FEAT_SAMPLE   0x04u /* 底部采样槽管理行（SAMPLE 页，P4-D Task 8） */
 
-/* 参数页数（布局表条目数；页 id 不要求连续——MOD/SCALE/VOICE 追加在 app_page_t 末尾） */
-#define PARAM_PAGE_COUNT 8
+/* 参数页数（布局表条目数；页 id 不要求连续——MOD/SCALE/VOICE 追加在 app_page_t 末尾；
+ * APP_PAGE_FM6 是不注册的空位 id） */
+#define PARAM_PAGE_COUNT 7
 
 /* 把布局表里的所有页注册进页面注册表（sloop_ui_start 内置注册之后调用；幂等由
  * ui.c 的内置注册标志保证）。返回第一个非 ESP_OK 的错误，全成功返回 ESP_OK。

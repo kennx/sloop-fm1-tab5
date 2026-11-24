@@ -384,7 +384,16 @@ enum {
     tP_ESYNC, tP_LSYNC, tP_LTRIG, tP_LPOL, tP_E0, tP_E1, tP_E2, tP_E3, tP_E4, tP_E5,
     tP_E6, tP_E7, tP_COUNT,
 };
-enum { tG_BPM, tG_SWING, tG_CLOCK, tG_TUNE, tG_DTIME, tG_DFDBK, tG_DCOLOR, tG_DMIX };
+/* 上游 core.h:76-96 的全局参数枚举顺序（独立复刻；只列锚点） */
+enum {
+    tG_BPM, tG_SWING, tG_CLOCK, tG_TUNE, tG_DTIME, tG_DFDBK, tG_DCOLOR, tG_DMIX,
+    tG_RSIZE, tG_RDAMP, tG_CRATE, tG_CDEPTH,
+    tG_MIDI, tG_SYNC, tG_ROUTE, tG_INFO, tG_SLOT, tG_NAME, tG_LOAD, tG_SAVE,
+    tG_ENGSEL, tG_ENGGO, tG_CLRSEQ, tG_INITSND, tG_DRCH, tG_DRLVL, tG_DRREV,
+    tG_DUST, tG_DUCK, tG_FILT, tG_ROLL, tG_NEWPRJ, tG_DRDLY,
+    tG_CH1, tG_CH2, tG_CH3, tG_CHOTH, tG_TXSRC, tG_TXLVL, tG_TXTONE, tG_TXMOVE,
+    tG_TXRATE, tG_TXWHEN, tG_TXDUCK,
+};
 
 /* 期望 chip：{名, when, 槽数, 槽 id…（TRACK scope 的绝对 id；ENGINE scope = E0+id）} */
 typedef struct {
@@ -394,11 +403,15 @@ typedef struct {
     uint8_t ids[PARAM_PAGE_SLOTS];
     uint8_t drum_ok; /* 位 k = 槽 k 在鼓轨上可编辑 */
     uint8_t engine_scope; /* 位 k = 槽 k 是 ENGINE scope（页声明引擎 0 = ANALOG） */
+    uint8_t global;       /* 1 = 全部槽是 GLOBAL scope（id 为绝对全局 id） */
 } exp_chip_t;
 
 #define EXP(nm, wh, drum, eng, ...)                                              \
     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
-      {__VA_ARGS__}, drum, eng }
+      {__VA_ARGS__}, drum, eng, 0 }
+#define EXPG(nm, ...)                                                            \
+    { nm, PARAM_CHIP_ALWAYS, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)), \
+      {__VA_ARGS__}, 0xFF, 0x00, 1 }
 
 static const exp_chip_t k_exp_mod[] = {
     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, tP_ATK, tP_DEC, tP_SUS, tP_REL),
@@ -419,6 +432,20 @@ static const exp_chip_t k_exp_voice[] = {
     EXP("PATTERN", PARAM_CHIP_ALWAYS, 0x0F, 0x00,
         tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE),
     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, tP_FTYPE, tP_E4, tP_E5, tP_E7),
+};
+
+static const exp_chip_t k_exp_fx[] = {
+    EXP("FX", PARAM_CHIP_ALWAYS, 0x70, 0x00, tP_DIST, tP_CHOR, tP_DLY, tP_REV, tP_TFLT,
+        tP_LEVEL, tP_PAN, tP_ATK),
+    EXP("SLICER", PARAM_CHIP_ALWAYS, 0x0F, 0x00, tP_SLCR, tP_SLPAT, tP_SLRATE, tP_SLDEPTH),
+    EXP("INSERT", PARAM_CHIP_ALWAYS, 0x0F, 0x00, tP_ITYPE, tP_IA, tP_IB, tP_IC),
+    EXP("INSERT 2", PARAM_CHIP_ALWAYS, 0x01, 0x00, tP_IMIX),
+};
+static const exp_chip_t k_exp_global[] = {
+    EXPG("GLO", tG_BPM, tG_SWING, tG_CLOCK, tG_TUNE, tG_DTIME, tG_DFDBK, tG_DCOLOR, tG_DMIX),
+    EXPG("REV", tG_RSIZE, tG_RDAMP, tG_CRATE, tG_CDEPTH, tG_DUST, tG_DUCK, tG_FILT, tG_ROLL),
+    EXPG("DRUMS", tG_DRCH, tG_DRLVL, tG_DRREV, tG_DRDLY),
+    EXPG("TEXTURE", tG_TXSRC, tG_TXLVL, tG_TXTONE, tG_TXMOVE, tG_TXRATE, tG_TXWHEN, tG_TXDUCK),
 };
 
 static void layout_check_chips(const param_page_t *pg, const exp_chip_t *exp, uint8_t n)
@@ -454,14 +481,20 @@ static void layout_check_chips(const param_page_t *pg, const exp_chip_t *exp, ui
                 continue;
             }
             snprintf(what, sizeof(what), "%s %s slot[%u].id", pg->title, exp[c].name, k);
-            /* ENGINE scope 存相对号（P_E0 + id）；TRACK 存绝对 id */
+            /* ENGINE scope 存相对号（P_E0 + id）；TRACK/GLOBAL 存绝对 id */
             check_ll(what, ch->slots[k].id,
                      ((exp[c].engine_scope >> k) & 1u) ? exp[c].ids[k] - tP_E0 : exp[c].ids[k]);
             snprintf(what, sizeof(what), "%s %s slot[%u].drum_ok", pg->title, exp[c].name, k);
             check_ll(what, ch->slots[k].drum_ok, (exp[c].drum_ok >> k) & 1u);
             snprintf(what, sizeof(what), "%s %s slot[%u].scope", pg->title, exp[c].name, k);
             check_ll(what, ch->slots[k].scope,
-                     ((exp[c].engine_scope >> k) & 1u) ? SLOOP_DESC_ENGINE : SLOOP_DESC_TRACK);
+                     exp[c].global ? SLOOP_DESC_GLOBAL
+                     : ((exp[c].engine_scope >> k) & 1u) ? SLOOP_DESC_ENGINE : SLOOP_DESC_TRACK);
+            if (exp[c].global) {
+                snprintf(what, sizeof(what), "%s %s slot[%u].drum_ok (global)", pg->title,
+                         exp[c].name, k);
+                check_ll(what, ch->slots[k].drum_ok, 1); /* 全局参数鼓轨恒可编辑 */
+            }
             if ((exp[c].engine_scope >> k) & 1u) {
                 snprintf(what, sizeof(what), "%s %s slot[%u].engine", pg->title, exp[c].name, k);
                 check_ll(what, ch->slots[k].engine, 0); /* ANALOG */
@@ -480,20 +513,20 @@ static void layout_check_chips(const param_page_t *pg, const exp_chip_t *exp, ui
 
 static void case_layout_pages(void)
 {
-    check_ll("PARAM_PAGE_COUNT", PARAM_PAGE_COUNT, 8);
+    check_ll("PARAM_PAGE_COUNT", PARAM_PAGE_COUNT, 7);
     static const uint8_t ids[PARAM_PAGE_COUNT] = {
-        APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
+        APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_SAMPLE,
         APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
     };
-    static const char *const titles[PARAM_PAGE_COUNT] = {"GLOBAL", "FX",  "SOUND",  "FM6",
-                                                          "SAMPLE",  "MOD", "SCALE",  "VOICE"};
-    static const uint32_t ests[PARAM_PAGE_COUNT] = {3584, 3584, 6144, 6144, 6144, 0, 0, 0};
+    static const char *const titles[PARAM_PAGE_COUNT] = {"GLOBAL", "FX",  "SOUND", "SAMPLE",
+                                                          "MOD",    "SCALE", "VOICE"};
     check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
-    check_ll("MOD id", APP_PAGE_MOD, 15);
-    check_ll("SCALE id", APP_PAGE_SCALE, 16);
-    check_ll("VOICE id", APP_PAGE_VOICE, 17);
+    check_ll("FM6 页 id 保留为空位", APP_PAGE_FM6, 7);
+    check_ll("SAMPLE id 不移位", APP_PAGE_SAMPLE, 8);
     check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 18);
-    uint32_t edit_est = 3584 + 6144; /* ANALOG + FM6（本任务不改动） */
+    uint32_t edit_est = 0, mix_est = 0, mix_max = 0;
+    const param_page_t *mod = page_layout_get(page_layout_index(APP_PAGE_MOD));
+    CHECK(mod != NULL);
     for (uint8_t i = 0; i < PARAM_PAGE_COUNT; i++) {
         const param_page_t *pg = page_layout_get(i);
         CHECK(pg != NULL);
@@ -502,22 +535,37 @@ static void case_layout_pages(void)
         check_ll("title", pg->title != NULL && strcmp(pg->title, titles[i]) == 0, 1);
         check_ll("est 取值", page_layout_est(i), pg->est_bytes);
         check_ll("page_id → 下标", page_layout_index(ids[i]), i);
-        if (i < 5) {
-            check_ll("既有页 est 不变", pg->est_bytes, ests[i]);
+        if (i == 2) {
+            /* SOUND：8 旋钮 + 页眉两行 + 条件 bank 行；est 6,144 起、上限 7,168 */
+            CHECK(pg->est_bytes >= 6144u && pg->est_bytes <= 7168u);
+        } else if (i == 3) {
+            check_ll("SAMPLE（旧式整页）est 不变", pg->est_bytes, 6144u);
         } else {
-            /* 三页对象设计相同 ⇒ est 相同（同一实测 delta 定稿，不逐页漂移） */
+            /* 六张 chip 页对象设计相同 ⇒ est 相同（同一实测 delta 定稿，不逐页漂移） */
             CHECK(pg->est_bytes > 0 && pg->est_bytes <= UI_CHIP_PAGE_EST_MAX);
-            check_ll("chip 页 est 相同", pg->est_bytes,
-                     page_layout_get(page_layout_index(APP_PAGE_MOD))->est_bytes);
+            if (mod) check_ll("chip 页 est 相同", pg->est_bytes, mod->est_bytes);
+        }
+        if (ids[i] == APP_PAGE_MOD || ids[i] == APP_PAGE_SCALE || ids[i] == APP_PAGE_VOICE ||
+            ids[i] == APP_PAGE_ANALOG) {
             edit_est += pg->est_bytes;
+        }
+        if (ids[i] == APP_PAGE_GLOBAL || ids[i] == APP_PAGE_FX) {
+            CHECK(pg->est_bytes <= 7168u); /* MIX 两页的上限 */
+            mix_est += pg->est_bytes;
+            if (pg->est_bytes > mix_max) mix_max = pg->est_bytes;
         }
     }
     check_ll("越界下标", page_layout_get(PARAM_PAGE_COUNT) == NULL, 1);
     check_ll("非参数页 → -1", page_layout_index(APP_PAGE_PLAY), -1);
+    check_ll("FM6 页不再注册（空位 id）", page_layout_index(APP_PAGE_FM6), -1);
     check_ll("未注册 id → -1", page_layout_index(APP_STATE_PAGES), -1);
-    /* 有序对账面 = base + (EDIT Σ est + STEP est) + 4KB ≤ 池可用（ADR-005 §5）：
-     * 5,120/页时是 63,848（越界），故 chip 页 est 必须 ≤ 4,608 */
-    CHECK((long long)UI_BASE_BYTES + edit_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL);
+    /* 有序对账面 = base + Σ est + 4KB ≤ 池可用（ADR-005 §5） */
+    check_ll("EDIT Σ est", edit_est, 6144u + 3u * (mod ? mod->est_bytes : 0));
+    check_ll("MIX Σ est", mix_est, 2u * mix_max);
+    CHECK((long long)UI_BASE_BYTES + edit_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL); /* EDIT→STEP */
+    CHECK((long long)UI_BASE_BYTES + mix_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL);  /* MIX→STEP */
+    /* SEQ→MIX：跨组峰值 = 源组已建 Σ（SEQ 两页）+ 目标页 est */
+    CHECK((long long)UI_BASE_BYTES + 23040u + 9216u + mix_max + 4096 <= UI_POOL_AVAIL);
 }
 
 /* 布局表：逐页 chip 完整性（≤8 槽、id 按作用域合法、chip 名页内唯一、when 枚举合法、
@@ -608,24 +656,15 @@ static void case_layout_content(void)
     layout_check_chips(mod, k_exp_mod, 5);
     layout_check_chips(scale, k_exp_scale, 4);
     layout_check_chips(voice, k_exp_voice, 4);
-    /* FX 页沿用 8 槽；鼓轨上 TFLT/LEVEL/PAN 可编辑，其余锁定（012 §3） */
-    static const uint8_t ids[8] = {tP_DIST, tP_CHOR, tP_DLY, tP_REV, tP_TFLT,
-                                   tP_LEVEL, tP_PAN, tP_ATK};
-    const param_chip_t *ch = page_layout_chip(fx, 0);
-    check_ll("FX 槽数", ch->slot_count, 8);
-    for (uint8_t k = 0; k < 8; k++) {
-        check_ll("FX id", ch->slots[k].id, ids[k]);
-        check_ll("FX drum_ok", ch->slots[k].drum_ok, k == 4 || k == 5 || k == 6);
-    }
-    /* 既有 GLOBAL 页：8 个全局 id，不受鼓轨逐槽规则影响 */
+    /* FX 页 = 4 个 chip（FX 沿用原 8 槽；鼓轨上 FX chip 内 TFLT/LEVEL/PAN 可编辑、其余
+     * 锁定；SLICER/INSERT/INSERT 2 全部可编辑）；GLOBAL 页 = GLO/REV/DRUMS/TEXTURE 四个
+     * chip，全局参数鼓轨恒可编辑（012 §3） */
+    layout_check_chips(fx, k_exp_fx, 4);
     const param_page_t *g = page_layout_get(page_layout_index(APP_PAGE_GLOBAL));
     CHECK(g != NULL);
-    if (g != NULL) {
-        for (uint8_t k = 0; k < 8; k++) {
-            check_ll("GLOBAL id", g->chips[0].slots[k].id, k);
-            check_ll("GLOBAL scope", g->chips[0].slots[k].scope, SLOOP_DESC_GLOBAL);
-        }
-    }
+    if (g != NULL) layout_check_chips(g, k_exp_global, 4);
+    check_ll("GLO id[0..7] = 原 GLOBAL 页 8 槽", g && g->chips[0].slots[0].id == tG_BPM &&
+               g->chips[0].slots[7].id == tG_DMIX && g->chips[0].slot_count == 8, 1);
 }
 
 /* SOUND 页（P4-F Task 5）：主体 = 选中轨引擎的 8 槽（TRACK scope 的 P_E0..P_E7，经
@@ -636,9 +675,8 @@ static void case_layout_sound(void)
     const param_page_t *snd = page_layout_get(page_layout_index(APP_PAGE_ANALOG));
     const param_page_t *fx = page_layout_get(page_layout_index(APP_PAGE_FX));
     const param_page_t *smp = page_layout_get(page_layout_index(APP_PAGE_SAMPLE));
-    const param_page_t *fm6 = page_layout_get(page_layout_index(APP_PAGE_FM6));
-    CHECK(snd != NULL && fx != NULL && smp != NULL && fm6 != NULL);
-    if (!snd || !fx || !smp || !fm6) return;
+    CHECK(snd != NULL && fx != NULL && smp != NULL);
+    if (!snd || !fx || !smp) return;
     check_ll("SOUND 标题", strcmp(snd->title, "SOUND") == 0, 1);
     check_ll("SOUND 是整页（无 chip 行）", snd->chip_count, 0);
     check_ll("SOUND features", snd->features, PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6);
@@ -660,8 +698,7 @@ static void case_layout_sound(void)
     /* 只有 SOUND 页带 bank 行；SAMPLE 页保留槽管理行；其余页无附加行 */
     for (uint8_t i = 0; i < PARAM_PAGE_COUNT; i++) {
         const param_page_t *pg = page_layout_get(i);
-        check_ll("bank 行在 SOUND 页与（过渡期的）独立 FM6 页", (pg->features & PARAM_FEAT_BANK_FM6) != 0,
-                 pg == snd || pg == fm6);
+        check_ll("bank 行只在 SOUND 页", (pg->features & PARAM_FEAT_BANK_FM6) != 0, pg == snd);
         check_ll("SOUND 页眉只在 SOUND 页", (pg->features & PARAM_FEAT_SOUND) != 0, pg == snd);
         check_ll("槽管理行只在 SAMPLE 页", (pg->features & PARAM_FEAT_SAMPLE) != 0, pg == smp);
     }
@@ -735,11 +772,32 @@ static void case_layout_rules(void)
         check_ll("MOD 可见 chip[4]", page_layout_visible_chip_at(mod, 4, true, 0), 4);
     }
     /* 旧式整页（无 chip 行）：可见数 1、序号 0 = chips[0] */
+    const param_page_t *smp = page_layout_get(page_layout_index(APP_PAGE_SAMPLE));
+    CHECK(smp != NULL);
+    if (smp) {
+        check_ll("SAMPLE 可见 chip 数", page_layout_visible_chips(smp, true, 0), 1);
+        check_ll("SAMPLE 可见 chip[0]", page_layout_visible_chip_at(smp, 0, true, 0), 0);
+    }
+    /* GLOBAL / FX chip 页：chip 全部无条件出现（鼓轨上也一样），可见数 = chip 数 */
+    const param_page_t *glo = page_layout_get(page_layout_index(APP_PAGE_GLOBAL));
     const param_page_t *fx = page_layout_get(page_layout_index(APP_PAGE_FX));
-    CHECK(fx != NULL);
-    if (fx) {
-        check_ll("FX 可见 chip 数", page_layout_visible_chips(fx, true, 0), 1);
-        check_ll("FX 可见 chip[0]", page_layout_visible_chip_at(fx, 0, true, 0), 0);
+    CHECK(glo != NULL && fx != NULL);
+    if (glo && fx) {
+        check_ll("GLOBAL chip 数", glo->chip_count, 4);
+        check_ll("FX chip 数", fx->chip_count, 4);
+        check_ll("GLOBAL 鼓轨可见 chip 数", page_layout_visible_chips(glo, true, 0), 4);
+        check_ll("FX 鼓轨可见 chip 数", page_layout_visible_chips(fx, true, 9), 4);
+        uint8_t unlocked = 0, total = 0;
+        for (uint8_t c = 0; c < glo->chip_count; c++) {
+            for (uint8_t k = 0; k < PARAM_PAGE_SLOTS; k++) {
+                const param_slot_t *sl = page_layout_slot(&glo->chips[c], k);
+                if (!sl) continue;
+                total++;
+                unlocked += !page_layout_slot_locked(sl, true);
+            }
+        }
+        check_ll("GLOBAL 槽总数（8+8+4+7）", total, 27);
+        check_ll("GLOBAL 鼓轨逐槽全不锁（含 DRUMS chip）", unlocked, total);
     }
     /* 逐槽锁定：全局恒不锁；drum_ok=1 恒不锁；其余仅鼓轨锁 */
     param_slot_t sl = {SLOOP_DESC_TRACK, 0, tP_ATK, 0};
@@ -752,7 +810,8 @@ static void case_layout_rules(void)
     check_ll("全局不锁（即使 drum_ok=0）", page_layout_slot_locked(&sl, true), 0);
 }
 
-/* 九组导航：组表顺序/成员/上限、TAB 扁平轮转 18 页、组签 104px 几何。 */
+/* 九组导航：组表顺序/成员/上限、TAB 扁平轮转 17 页（P4-F Task 5：SOUND 取代 ANALOG+FM6）、
+ * 组签 104px 几何。 */
 #define X_TEST_GROUP(NAME, ...) \
     {.n = (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)), \
      .pages = {__VA_ARGS__}, .name = #NAME},
@@ -768,10 +827,10 @@ static void case_nav_groups(void)
     check_ll("UI_GROUP_COUNT（由组表数出）", UI_GROUP_COUNT, 9);
     static const char *const names[9] = {"PLAY", "TRACKS", "EDIT", "MIX",
                                          "SYNTH", "SEQ",   "SONG", "FILE", "SYS"};
-    static const uint8_t counts[9] = {1, 1, 5, 2, 3, 2, 1, 2, 1};
+    static const uint8_t counts[9] = {1, 1, 4, 2, 3, 2, 1, 2, 1};
     static const uint8_t flat[] = {
         APP_PAGE_PLAY, APP_PAGE_TRACKS,
-        APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
+        APP_PAGE_ANALOG, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
         APP_PAGE_GLOBAL, APP_PAGE_FX,
         APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P,
         APP_PAGE_STEP, APP_PAGE_TRANSPORT,
@@ -791,10 +850,14 @@ static void case_nav_groups(void)
             if (pid < APP_STATE_PAGES) seen[pid]++;
         }
     }
-    check_ll("扁平页数 = 18", fi, 18);
+    check_ll("扁平页数 = 17", fi, 17);
     for (uint8_t p = 0; p < APP_STATE_PAGES; p++) {
-        check_ll("每页恰在一个组里（页签/TAB 可达）", seen[p], 1);
+        /* APP_STATE_PAGES 仍是 18：APP_PAGE_FM6（7）是空位 id，不在任何组里 */
+        check_ll("每页恰在一个组里（页签/TAB 可达），FM6 空位除外", seen[p],
+                 p == APP_PAGE_FM6 ? 0 : 1);
     }
+    check_ll("EDIT 首子页 = SOUND", k_exp_groups[2].pages[0], APP_PAGE_ANALOG);
+    check_ll("组表里没有 FM6 页 id", seen[APP_PAGE_FM6], 0);
     check_ll("UI_GROUP_W", UI_GROUP_W, 104);
     check_ll("UI_SUB_W", UI_SUB_W, 176);
     check_ll("UI_GROUP_MAX", UI_GROUP_MAX, 5);
@@ -820,12 +883,12 @@ int main(void)
     run("MONO 色表恰等于现行常量", case_theme_mono_equals_constants);
     run("GREEN accent 与固定字段", case_theme_green_accent);
     run("自定义 theme 覆盖颜色", case_theme_custom_overrides);
-    run("参数页布局表：页数/页 id/est 与 EDIT→STEP 账面", case_layout_pages);
+    run("参数页布局表：页数/页 id/est 与 EDIT/MIX 有序对账面", case_layout_pages);
     run("参数页布局表：chip 完整性（槽数/id/唯一名/枚举）", case_layout_integrity);
-    run("参数页布局表：MOD/SCALE/VOICE/FX 槽位 = 012 §3", case_layout_content);
+    run("参数页布局表：MOD/SCALE/VOICE/FX/GLOBAL 槽位 = 012 §3", case_layout_content);
     run("SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）", case_layout_sound);
     run("条件 chip 可见性与鼓轨逐槽锁定规则", case_layout_rules);
-    run("九组导航：组表顺序/成员/18 页扁平轮转/104px 组签", case_nav_groups);
+    run("九组导航：组表顺序/成员/17 页扁平轮转/104px 组签", case_nav_groups);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

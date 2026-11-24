@@ -1,11 +1,11 @@
 /*
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：分组页签 + 页面注册表）
  *
- * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 8 个组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
+ * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 9 个组签
+ * PLAY|TRACKS|EDIT|MIX|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
  * 已注册子页；组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
- * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→SYSTEM→PLAY）。
+ * （PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+ * SONG→PROJECTS→PRESETS→SYSTEM→PLAY；P4-F Task 5 起 17 页）。
  * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
  * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
  * sloop_ui_start() 内立即构建，保证开机首帧非空白。SYSTEM 为最后的 SYS 单页组。
@@ -46,7 +46,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 18 页 / 9 组）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 17 页 / 9 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -58,8 +58,8 @@ esp_err_t ui_page_register(const ui_page_t *page);
 uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
- * PLAY→TRACKS→ANALOG→FM6→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→
- * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**。page 未注册/非法时返回
+ * PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→
+ * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**（APP_PAGE_FM6 是空位）。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
 
@@ -146,7 +146,7 @@ void sloop_ui_theme_apply(const sloop_settings_t *s);
 void sloop_ui_rebuild_all(void);
 void sloop_ui_zoom_knob(const struct knob *k);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG 7=FM6 8=SAMPLE
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=SOUND 7=(空位，未注册) 8=SAMPLE
  * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM（同 app_page_t）；首次进入时构建该页。
  * 组作用域（ADR-005 §3）：目标页与当前页不同组时，顺序固定为「建目标页 →
  * 切到目标页 → 销毁源组全部已建页（含原当前页）」——因此离开组后源组 built=0；
@@ -357,12 +357,12 @@ bool sloop_ui_param_page_active(void);
 void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽/隐藏槽，环绕） */
 void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓ 与 ENTER(+1)：±1 原始步进（钳位在引擎） */
 
-/* 参数页 chip 框架（P4-F Task 4；布局表 page_layout.c，ADR-008 §8.9）：MOD/SCALE/VOICE
- * 等页由多个 chip 复用同一组 8 个旋钮，选中 chip 是**页内 UI 局部态**（chip 行、键盘
+/* 参数页 chip 框架（P4-F Task 4/5；布局表 page_layout.c，ADR-008 §8.9）：MOD/SCALE/VOICE/
+ * GLOBAL/FX 页由多个 chip 复用同一组 8 个旋钮，选中 chip 是**页内 UI 局部态**（chip 行、键盘
  * 与 console `UI <page> CHIP <n>` 共用；切 chip 零分配重配，下一个 30ms 拍落地）。
- * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/SOUND/FM6/SAMPLE/
- *   MOD/SCALE/VOICE）；未启动前即可调用（只查表）。
- * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 整页，无 chip 行：SOUND/FM6/SAMPLE）。
+ * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/SOUND/SAMPLE/
+ *   MOD/SCALE/VOICE；APP_PAGE_FM6 是空位 id ⇒ false）；未启动前即可调用（只查表）。
+ * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 整页，无 chip 行：SOUND/SAMPLE）。
  * - sloop_ui_param_chip_set(page, chip)：写选中 chip；越界/非 chip 页 =
  *   ESP_ERR_INVALID_ARG，条件 chip 在当前上下文隐藏 = ESP_ERR_NOT_ALLOWED（不改选择），
  *   另有 INVALID_STATE（UI 未启动/诊断期静默）、TIMEOUT（LVGL 锁超时）。
@@ -416,10 +416,11 @@ void sloop_ui_transport_adjust(int8_t delta);     /* ↑/↓：+1 / -1 步进焦
  * 返回 NULL；返回指针指向组件内静态缓冲（下一次调用覆盖），调用方负责当次使用。 */
 const char *sloop_ui_transport_status_text(void);
 
-/* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
- * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页
- * （选中轨引擎 ≠ FM6，含鼓轨）的本地拒绝返回 `NOT FM6`（红字，不进 store_status）；
- * 其余映射复用 theme.h 的 ui_file_status_text（act 0 SAVE / 2 ERASE，与 FILE 页同一套
+/* SOUND 页 bank 存取行（P4-F Task 5 起随 FM6 引擎出现在 SOUND 页底部；原属 FM6 页）的
+ * 状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：当前页不是 SOUND、
+ * bank 行尚未构建（页未建/已随源组销毁）、或行隐藏（选中轨不是 FM6 引擎的合成轨——
+ * 那时 TAP 不命中）时返回 NULL。映射复用 theme.h 的 ui_file_status_text（act 0 SAVE /
+ * 2 ERASE，与 FILE 页同一套
  * 文案：`SAVE OK` / `ERASE OK` / `STOP BEFORE SAVE` / `NO STORAGE` /
  * `DRUM TRACK: NO SOUND`）。不取 LVGL 锁（只读 UI 局部态 + 状态层快照），可在
  * console/任意任务调用。 */

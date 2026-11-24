@@ -11,7 +11,7 @@
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
- * ANALOG|FM6|MOD|SCALE|VOICE（EDIT 组）与 MIX 组的 GLOBAL|FX（page_params.c + knob.c，
+ * SOUND|MOD|SCALE|VOICE（EDIT 组）与 MIX 组的 GLOBAL|FX（page_params.c + knob.c，
  * 布局表 page_layout.c；MOD/SCALE/VOICE 是 chip 页，P4-F Task 4）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
@@ -664,7 +664,7 @@ static void register_builtin_pages(void)
                      esp_err_to_name(ret));
         }
     }
-    /* 参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE + chip 页 MOD/SCALE/VOICE）：布局表与注册表
+    /* 参数页（GLOBAL/FX/SOUND/SAMPLE + chip 页 MOD/SCALE/VOICE）：布局表与注册表
      * 条目同源（page_layout.c 的 X 宏表，注册胶水在 page_params.c）。注册顺序只决定
      * `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[] 决定 */
     esp_err_t ret = page_layout_register();

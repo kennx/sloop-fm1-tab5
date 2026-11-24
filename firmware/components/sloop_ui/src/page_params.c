@@ -1928,7 +1928,7 @@ bool page_params_slot_locked(uint8_t index, uint8_t chip, uint8_t slot)
 /* ---------------------------------------------------------------- 注册表胶水 --- */
 /* 布局表的每页 build/update 包装（下标 0..PARAM_PAGE_COUNT-1）与函数指针表：页 id/
  * 标题/est 不在这里重复，注册时从 page_layout_get() 取。 */
-#define PARAM_PAGE_BUILDERS(X) X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
+#define PARAM_PAGE_BUILDERS(X) X(0) X(1) X(2) X(3) X(4) X(5) X(6)
 
 #define X_BUILD(n)                                                                       \
     static lv_obj_t *params_build_##n(lv_obj_t *parent)                                \

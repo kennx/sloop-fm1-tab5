@@ -14,12 +14,13 @@
 #define UI_H 720
 
 /* 组表：X(名, 成员页 id…)，成员 ≤ UI_GROUP_MAX（宏体内不放注释：每行都要续行）。
- * EDIT（P4-F Task 4，R1）：每轨族 ANALOG / FM6 / MOD / SCALE / VOICE = 5 页（上限）；
- * GLOBAL/FX 移入 MIX。Task 5 用 SOUND 取代 ANALOG+FM6，Task 6 的 TOOLS 进 MIX。 */
+ * EDIT（P4-F Task 4，R1）：每轨族页；GLOBAL/FX 在 MIX。P4-F Task 5：SOUND（页 id 沿用
+ * APP_PAGE_ANALOG）取代 ANALOG + FM6 两页 ⇒ EDIT = SOUND / MOD / SCALE / VOICE（4 页；
+ * 独立 FM6 页删除，APP_PAGE_FM6 是空位 id、不进组表）。Task 6 的 TOOLS 进 MIX。 */
 #define UI_GROUP_LIST(X)                                                                         \
     X(PLAY, APP_PAGE_PLAY)                                                                       \
     X(TRACKS, APP_PAGE_TRACKS)                                                                   \
-    X(EDIT, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE)         \
+    X(EDIT, APP_PAGE_ANALOG, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE)                       \
     X(MIX, APP_PAGE_GLOBAL, APP_PAGE_FX)                                                         \
     X(SYNTH, APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P)                                     \
     X(SEQ, APP_PAGE_STEP, APP_PAGE_TRANSPORT)                                                   \
