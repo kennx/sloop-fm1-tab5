@@ -1154,11 +1154,12 @@ static int ui_mem_dump(void)
     static const char *const states[] = {"unbuilt", "built", "failed"};
     uint32_t sum_est = 0;
     for (uint8_t i = 0; i < ps.registered; i++) sum_est += ps.pages[i].est_bytes;
-    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d group=%s\n",
+    printf("UI MEM pool_used=%u pool_free=%u pool_total=%u registered=%u built=%u failed=%u sum_est=%u reserve=%d group=%s lvgl_stack_free=%u\n",
            (unsigned)ps.pool_used, (unsigned)ps.pool_free, (unsigned)ps.pool_total,
            (unsigned)ps.registered, (unsigned)ps.built, (unsigned)ps.failed, (unsigned)sum_est,
            (int)(ps.pool_total - sum_est),
-           ps.current_group < ps.group_count ? ps.groups[ps.current_group].name : "-");
+           ps.current_group < ps.group_count ? ps.groups[ps.current_group].name : "-",
+           (unsigned)ps.lvgl_stack_free);
     /* 分组水位（ADR-005 §5）：sum_est = 组内已注册成员 est（静态预算），
      * sum_delta = 组内已建成员的池增量；离开组后 built/sum_delta 回 0。
      * build_ms = 最近一次跨组进入/组内首建的耗时（≤100ms 预算口径）。 */
