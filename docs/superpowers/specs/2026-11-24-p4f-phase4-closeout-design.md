@@ -81,19 +81,19 @@ bank 存取行**（SAVE/ERASE/槽号，旋钮区显示 `SOUND` 页同款 8 槽�
 新增对：MIX→STEP 21,504+23,040 = 44,544（同上 60,264）；SEQ→MIX 32,256+7,168 = 39,424 ⇒ 55,184。
 FM6P 44B tripwire、ZOOM +768B（zoom ON 时 61,544）口径不变。**est 是上限**：实测超限先改对象设计。
 （FM6 页删除的连带：`UI fm6` 页名→重定向到 SOUND 并显示 bank 行；`params`/`store`/`synth` 场景的
-FM6 用例改指向 SOUND；TAB 轮转 19 页。）
+FM6 用例改指向 SOUND；TAB 轮转 18 页。）
 
 ## 4. 字段/页面映射（上游 → Tab5）
 
 | Tab5 页 | 内容（数据全部来自 `sloop_core_desc`，不引入新描述符表） | 交互 |
 |---|---|---|
-| **SOUND**（取代 ANALOG+FM6） | 选中轨引擎的 `edit[0..7]`（标题显示引擎名，标签经引擎 `desc` 钩子；鼓轨 ⇒ 锁定 `NO SOUND`，同现 ANALOG 锁定语义）；底部：引擎为 FM6 ⇒ bank 行（B1..B27/SAVE/ERASE，A10）；SAMPLE 引擎的槽行只在 SAMPLE 页 | 同现 ANALOG/FM6 页 |
+| **SOUND**（取代 ANALOG+FM6） | 页眉：`ENGINE − 名 +` / `PRESET − 名 +`（选中轨换引擎/换预置，经状态层新命令 `CMD_SET_ENGINE`/`CMD_SET_PRESET`；上游 PRESETS 页 KNOB 1/2 的对应物——审计发现此前只有 console `ENG TRACK`）；主体：选中轨引擎的 `edit[0..7]`（标题显示引擎名，标签经引擎 `desc` 钩子；鼓轨 ⇒ 旋钮区锁定并改显示 `KIT − 名 +` 行写鼓轨 `P_E0`——上游 DRUMS 屏 KNOB 1）；底部：引擎为 FM6 ⇒ bank 行（B1..B27/SAVE/ERASE，A10）；SAMPLE 引擎的槽行只在 SAMPLE 页 | 同现 ANALOG/FM6 页 |
 | **MOD**（chip 页） | chip：ENV（ATK/DEC/SUS/REL + 其余 ENV 族 TP 参数按上游 ENV 页序）/ ENV DEST / LFO / LFO 2 / LFO DEST；每 chip ≤8 槽，`desc` 缺失的槽不建 | DSYN 页 chip 模式；键盘 ←→ 焦点、↑↓ 调值、chip 经 `UI MOD PAGE` |
 | **SCALE**（chip 页） | SEL / SEL 2 / ARP / ARP 2 | 同上 |
-| **VOICE**（chip 页） | VOICE / VOICE 2 / PATTERN（`P_SDIV/P_SSWING/P_SGATE`，A8）；ANALOG 的 FILTER TYPE 页仅当引擎为 ANALOG 时追加为第 4 chip | 同上 |
+| **VOICE**（chip 页） | VOICE / VOICE 2 / PATTERN（`P_SLEN/P_SDIV/P_SSWING/P_SGATE`，A8）；FILTER（`P_FTYPE`+E4/E5/E7）是条件 chip，仅引擎为 ANALOG 且非鼓轨时出现 | 同上 |
 | **FX**（chip 页，从 EDIT 移入 MIX） | FX / SLICER / INSERT / INSERT 2（FX chip = 现 FX 页 8 槽，保持兼容） | 同上 |
-| **GLOBAL**（chip 页） | GLO / DLY / REV / MASTER / DRUMS / TEXTURE / TEXTURE 2（GLO+DLY = 现 8 槽） | 同上 |
-| **TOOLS** | 三动作：CLEAR SEQ / INIT SOUND / NEW PROJECT（上游 TOOLS 页 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 的语义经适配层移植，动作型全局在引擎里如何落地以清单审计为准） | 触摸 chip + 确认态（二次点击确认，防误触）；走状态层 `CMD_TOOLS_*` |
+| **GLOBAL**（chip 页） | GLO（= 现 8 槽：GLOBAL+DLY）/ REV（REV/CHO+MASTER 8 槽）/ DRUMS（4 槽）/ TEXTURE（7 槽） | 同上 |
+| **TOOLS** | 三动作（另：TRANSPORT 增 REC 配置 chip QUANT/MODE/START；STEP 页键盘 EDIT 层加参数锁 lock/unlock 与 fill 条件循环——零新增 LVGL 对象，TRANSPORT est 不变）：CLEAR SEQ / INIT SOUND / NEW PROJECT（上游 TOOLS 页 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 的语义经适配层移植，动作型全局在引擎里如何落地以清单审计为准） | 触摸 chip + 确认态（二次点击确认，防误触）；走状态层 `CMD_TOOLS_*` |
 | MIDI / MIDI 2 / MIDI 3 / SYSTEM | 阶段 5（非目标） | — |
 | NOTES（上游音序编辑器） | STEP 页（P4-C） | — |
 | REC / STUDIO(DSYN) / SONG / PRESETS / USER / SECTION / MENU | 已对齐（TRANSPORT / DSYN / SONG / PRESETS / PROJECTS / SYSTEM） | — |
@@ -127,7 +127,7 @@ TOOLS 动作在上游不是「参数」而是 UI 动作），**以清单与上�
 **禁止**用「自检后手动重建堆」之类掩盖。DI-26 条目自带的四个方向是候选不是结论。
 
 **A4 截屏矩阵**（取独立脚本）：`scripts/screenshot_matrix.py`（复用 `inject.py` 的 `Session` 与
-`screenshot.py` 的读取/重试），不塞进 8.5k 行的 `inject.py` 场景。矩阵 = 19 页 × 2–4 个关键状态
+`screenshot.py` 的读取/重试），不塞进 8.5k 行的 `inject.py` 场景。矩阵 = 18 页 × 2–4 个关键状态
 （默认 / 编辑中 / 播放中 / 锁定或错误），产物 `matrix/<page>-<state>.png` + `matrix.csv`
 （页/状态/命令/锚点像素）+ 每组一张联系表（Pillow 拼图，≤4×5 格）。像素锚点只做抽检；
 **人眼复核是外部门禁**（联系表就是给用户的复核材料）。
@@ -146,9 +146,7 @@ TOOLS 动作在上游不是「参数」而是 UI 动作），**以清单与上�
 **A8 表外缺口的处置规则**（builder check 裁决）：审计发现 §4 未列的缺口时——(i) 数据已可达且能作为
 一个 chip 进现有页 ⇒ P4-F 内做；(ii) 需要新页、新适配语义或超过一个任务 ⇒ 登记 DI + 触发条件；
 (iii) **仅 console `PARAM` 可写不算用户可达入口**（对上游有页/旋钮的参数而言）。已知三项落位：
-上游 PATTERN 页（`P_SDIV/P_SSWING/P_SGATE`）⇒ VOICE 页第 3 个 chip `PATTERN`；鼓轨 ⇒ SOUND 锁定
-（引擎 edit 无意义），但 MOD/SCALE/VOICE/FX 各 chip 按上游 `page_for_drum` 决定可编辑还是锁定，
-审计列出逐 chip 结论；LEN（STEP 页工具）/PAN（FX 页）已可达；`P_ED_FX` 上游亦无页，不算缺口。
+上游 PATTERN 页（`P_SLEN/P_SDIV/P_SSWING/P_SGATE`）⇒ VOICE 页第 3 个 chip `PATTERN`；鼓轨 ⇒ SOUND 旋钮区锁定（改显示 kit 选择行），MOD/SCALE/VOICE/FX 按上游 `page_for_drum` **逐槽**决定可编辑还是锁定（清单 012 §3）；工厂预置/换引擎、REC 配置、参数锁/fill 条件此前只有 console 入口 ⇒ 分别进 SOUND 页眉、TRANSPORT chip、键盘层；LEN（STEP 页工具）/PAN（FX 页）已可达；`P_ED_FX` 上游亦无页，不算缺口。
 
 **A9 状态相关标签**（builder check 裁决）：上游 `track_desc()` 有三处按状态换标签/名/格式而范围不变
 （INSERT A/B/C 随 `P_ITYPE`、ATK/DEC/REL 在 ENV SYNC 时显示音名、LOFI/NOISE/PHYS 随引擎模式）。
@@ -175,7 +173,7 @@ SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` �
   （chip 页纯函数：族→槽表）、`seq/persist/synth` 不变。
 - **注入**：`params.sh` 扩成六页（SOUND 的 12 引擎轮换：`ENG TRACK` 换 12 个引擎后 8 槽 label
   与 `ENG DESC` 一致、鼓轨锁定、FM6/SAMPLE 底行条件出现；MOD/SCALE/VOICE/FX/GLOBAL 各 chip
-  的字段名逐一对照 `desc`、写后回读；TOOLS 三动作的确认态与效果）；`nav.sh` 19 页轮转 / 9 组 / 104px；
+  的字段名逐一对照 `desc`、写后回读；TOOLS 三动作的确认态与效果）；`nav.sh` 18 页轮转 / 9 组 / 104px；
   `store`/`synth` 场景的 FM6 用例改指向 SOUND；新有序对（EDIT→STEP / MIX→STEP / SEQ→MIX）实测 `pool_free ≥ 4,096`。
 - **截屏矩阵**：`screenshot_matrix.py` 退出码 0 + PNG 解码校验 + 联系表生成。
 - **soak**：3h + `ENG POWER` 列；soak-selftest.py 的 host 单测同步。
@@ -184,7 +182,7 @@ SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` �
 ## 7. 人测项与需要用户配合的事（不自动执行）
 
 1. 长 soak 3h 期间 Tab5 保持 USB 连接（屏幕常亮）。
-2. 联系表目检（19 页 × 状态）。
+2. 联系表目检（18 页 × 状态）。
 3. DI-4 键盘 70 键全矩阵、DI-16 旋钮手感、DI-7/39 听感、键盘 RGB 颜色（DI-43(4)）、亮度/音量。
 4. 人测结论回填到 verification-log（可选）；dev→main **不在本阶段**，无需决定。
 

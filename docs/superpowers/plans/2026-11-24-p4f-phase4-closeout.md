@@ -101,26 +101,26 @@
 ### Task 5: SOUND 页（取代 ANALOG+FM6）+ GLOBAL/FX chip 页 + 导航重组
 
 **Files:**
-- Modify: `page_layout.c`（SOUND = 选中轨引擎 edit[0..7]；GLOBAL chips GLO/REV/DRUMS/TEXTURE；FX chips FX/SLICER/INSERT/INSERT 2）、`page_params.c`（SOUND 标题显示引擎名、FM6 底行条件化、SAMPLE 不重复槽行）、`ui.c`（删 FM6 页注册、`k_groups` 重组、`UI fm6`/`UI analog` 别名）、`theme.h`（`UI_GROUP_W 104`、断言）、`sloop_state.h`（追加 `APP_PAGE_SOUND`；`APP_PAGE_ANALOG/FM6` 保留为别名常量）、`console.c`、`scripts/inject/inject.py`（`PAGES`、`UI fm6`/`UI analog` 用例改指向 SOUND）、`scripts/soak.py`
+- Modify: `page_layout.c`（SOUND = 选中轨引擎 edit[0..7] + 页眉 ENGINE/PRESET 选择 + 鼓轨 KIT 行；GLOBAL chips GLO/REV/DRUMS/TEXTURE；FX chips FX/SLICER/INSERT/INSERT 2）、`page_params.c`（SOUND 标题显示引擎名、FM6 底行条件化、SAMPLE 不重复槽行）、`ui.c`（删 FM6 页注册、`k_groups` 重组、`UI fm6`/`UI analog` 别名）、`theme.h`（`UI_GROUP_W 104`、断言）、`sloop_state.h`（追加 `APP_PAGE_SOUND`；`APP_PAGE_ANALOG/FM6` 保留为别名常量）、`console.c`、`scripts/inject/inject.py`（`PAGES`、`UI fm6`/`UI analog` 用例改指向 SOUND）、`scripts/soak.py`
 - Test: `scripts/knob-test.sh`、`scripts/inject/{nav,params,store,synth}.sh`
 
 **Interfaces:**
 - Consumes: Task 3 `sloop_core_desc_track_live`、Task 4 chip 框架。
-- Produces: 9 组 / 18 页；`UI MEM GROUP MIX`；SOUND 底行规则（A10）；`UI fm6` → `UI page=sound (id)`；`store` ⓰ / `params` 的「NOT FM6」锁定用例改为「底行缺席 ⇒ TAP miss」。
+- Produces: 9 组 / 18 页；`UI MEM GROUP MIX`；`CMD_SET_ENGINE{a=track,v=engine}` / `CMD_SET_PRESET{a=track,v=preset}`（状态层包 `sloop_core_set_engine` / `sloop_core_apply_preset`，越界不调引擎）；SOUND 页眉回显 `-> SOUND ENGINE value=<写后回读>` / `-> SOUND PRESET …`；鼓轨 `-> SOUND KIT …`；SOUND 底行规则（A10）；`UI fm6` → `UI page=sound (id)`；`store` ⓰ / `params` 的「NOT FM6」锁定用例改为「底行缺席 ⇒ TAP miss」。
 
 - [ ] Step 1: 更新 `nav` 期望（18 页轮转、9 组签、`UI TAB mix`/`UI SUB 0..2`）与 `PAGES` 表；跑 `nav` 得 RED。
 - [ ] Step 2: 实现；构建 ×2；烧录；`UI MEM`：SOUND ≤6,144、FX/GLOBAL ≤7,168；12 引擎轮换（`ENG TRACK 0 <e> 0`）后 SOUND 8 槽 label 与 `ENG DESC` 一致、鼓轨锁定；FM6 轨底行 SAVE/ERASE 往返、非 FM6 轨底行 TAP miss；有序对 EDIT→STEP / MIX→STEP / SEQ→MIX `池剩余 ≥4,096`。
 - [ ] Step 3: 回归 `nav`/`params`/`store`/`synth` 全绿。
 - [ ] Step 4: 提交 `feat(components/sloop_ui): SOUND 通用引擎页、GLOBAL/FX chip 页与九组导航`。
 
-### Task 6: TOOLS 页与三动作
+### Task 6: TOOLS 页与三动作 + TRANSPORT REC 配置 chip + 键盘参数锁/fill 条件
 
 **Files:**
 - Create: `firmware/components/sloop_ui/src/page_tools.c/.h`
-- Modify: `firmware/components/sloop_core/src/seq_tab5.c` 或 `store_tab5.c`（上游 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 语义适配：`sloop_core_tools_*`，持引擎锁）、`include/sloop_core.h`、`sloop_state.{h,c}`（`CMD_TOOLS_CLRSEQ/INITSOUND/NEWPRJ` + `tools_status`）、`ui.c`（注册）、`console.c`（`TOOLS <act>` 诊断 + TAP 回显）、`page_layout.c`（TOOLS 条目）
+- Modify: `firmware/components/sloop_core/src/seq_tab5.c` 或 `store_tab5.c`（上游 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 语义适配：`sloop_core_tools_*`，持引擎锁；`project_new` 是 `ui_input.c:462-490` 的 static、不在 TU ⇒ 逐行镜像并引用行号，清单 012 §4）、`firmware/components/sloop_ui/src/page_transport.c`（REC 配置 chip ×3：QUANT/MODE/START → 已有 `CMD_REC_CONFIG`）、`firmware/components/sloop_ui/src/input.c` + `input_map.h`（EDIT 层键位：lock / unlock / fill 条件循环，作用于 STEP 页聚焦步 × 状态层记录的「最近编辑参数」；零新增 LVGL 对象）、`include/sloop_core.h`、`sloop_state.{h,c}`（`CMD_TOOLS_CLRSEQ/INITSOUND/NEWPRJ` + `tools_status`）、`ui.c`（注册）、`console.c`（`TOOLS <act>` 诊断 + TAP 回显）、`page_layout.c`（TOOLS 条目）
 
 **Interfaces:**
-- Produces: `esp_err_t sloop_core_tools(uint32_t action)`（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；走带中 `ESP_ERR_NOT_ALLOWED`；冻结 `ESP_ERR_INVALID_STATE`）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
+- Produces: `esp_err_t sloop_core_tools(uint32_t action)`；`CMD_LOCK_FOCUS{a=lock|unlock}`（状态层：取 STEP 焦点步 + `app_state_t.last_param{scope,id}` → 既有 `CMD_LOCK_SET/DEL`）、`CMD_FILL_STEP{v=0..3}`（→ 既有 `CMD_SET_FILL`）、状态层在每次成功 `CMD_SET_PARAM` 后记录 `last_param`；（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；走带中 `ESP_ERR_NOT_ALLOWED`；冻结 `ESP_ERR_INVALID_STATE`）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
 
 - [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（步表清空 / 声音回默认 / 工程回默认的逐项断言，以 Task 1 审计出的上游语义为准）、走带中/冻结拒绝、state 映射。
 - [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；走带中 ⇒ `STOP FIRST`。
