@@ -128,7 +128,7 @@
 
 | 页 | chip | 槽（顺序即上游页序） | 鼓轨 | 备注 |
 |---|---|---|---|---|
-| SOUND | — | 页眉 `ENGINE −/+`、`PRESET −/+`（选中轨换引擎/预置）；主体 `ENGINES[sel_engine]->edit[0..7]`（ENGINE scope，经 `e->desc` 钩子取标签） | 旋钮区锁；显示 `KIT −/+` 行（写 `P_E0`） | FM6 引擎时底部 bank 行（A10） |
+| SOUND | — | 页眉 `ENGINE −/+`、`PRESET −/+`（选中轨换引擎/预置）；主体 `ENGINES[sel_engine]->edit[0..7]`（TRACK scope `P_E0..P_E7`，经 `sloop_core_desc_track_live` 取 `e->desc` 钩子的标签） | 旋钮区锁；显示 `KIT −/+` 行（写 `P_E0`） | FM6 引擎时底部 bank 行（A10） |
 | MOD | ENV | P_ATK P_DEC P_SUS P_REL | 锁 | |
 | MOD | ENV DEST | P_ED_FLT P_ED_PIT P_ED_SHP P_ESYNC | 锁 | ESYNC 标签镜像（Task 3） |
 | MOD | LFO | P_LRATE P_LWAVE P_LPHASE P_LFADE | 锁 | |
