@@ -171,8 +171,10 @@ bool page_tools_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 lv_obj_t *page_tools_build(lv_obj_t *parent)
 {
     styles_init();
-    /* 懒建/组作用域重建：控件是全新的，复位脏检查缓存与预备态（离开本页即取消） */
+    /* 懒建/组作用域重建：控件是全新的，复位脏检查缓存、预备态（离开本页即取消）与
+     * 「最近一次执行」（与 FILE 页同一取舍：重新进页不重放上一次的结果，状态行回 READY）。 */
     s_arm = TOOLS_NO_ACT;
+    s_act = TOOLS_NO_ACT;
     memset(s_chip, 0, sizeof(s_chip));
     memset(s_desc, 0, sizeof(s_desc));
     s_arm_shown = -1;
