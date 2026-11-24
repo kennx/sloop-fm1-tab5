@@ -2,7 +2,7 @@
 
 > 阶段 4 / P4-E：SYSTEM 设置页、settings 生效副本与 PER3 设置字段、NVS 平台三键、键盘 RGB、
 > 运行时 palette/theme 与 ZOOM、SELFTEST chip、RAW settings/SIDE、D7 golden 归零（`feat/phase4e`，Task 8 收口）
-> 固件提交：`8963fc8`（`task-8-boot-8963fc8.log` 的 `App version: 8963fc8`；矩阵期间工作树仅 `docs/` 改动）
+> 固件提交：§1–§4 矩阵为 `8963fc8`（`task-8-boot-8963fc8.log` 的 `App version: 8963fc8`；矩阵期间工作树仅 `docs/` 改动）；§5 修复轮为干净树 `86711a4`（`fix-boot-86711a4.log`）
 > 设备：Tab5 `/dev/ttyACM0`；ESP-IDF 5.5.5，target `esp32p4`
 > 门禁口径：AGENTS §5.5；顺序按任务 brief：clean → 增量 ×2 → host → 烧录 ×3 → 自检 → 十注入 + 三复跑 → 复位 → soak。
 > `task-6-*` / `task-7-*` 是前序任务的证据（原样保留，`SHA256SUMS` 条目未变）。
@@ -108,9 +108,9 @@ sys 054900），PNG 保留原始时间戳文件名。目录里的 `inject-sys-20
 
 | 项 | 根因 | 修复 | 证据 |
 |---|---|---|---|
-| DI-40 全量自检后音频每块超预算 | 全量自检泄漏 ~40KB 内部堆（DI-26）后，`xTaskCreate` 把音频任务的 4KB 栈落到 P4 的 **LP SRAM**（IDF 将其注册为 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆）；栈上局部变量密集的 DSP 在该落点慢 ~24×（每块 ≈13ms vs 5.8ms 预算）⇒ 每块 xrun，复位才恢复。排除项：停流 165s 本身（xrun 0）、引擎状态（console 上下文离线 `ENG PERF` us_mean=537 ≈ 基线） | `audio_stream.c`：首次启流用 `heap_caps_malloc(INTERNAL\|DMA)` 显式分配常驻 L2MEM 栈 + 静态 TCB；`stop` 等 IDLE 回收后再复用；分配失败回 `ESP_ERR_NO_MEM`（ADR-007 新节） | 复现 `fix-probe-r1-full-20261124-071552.log`（xrun==render_blocks、duty 224%）、干预 `fix-probe-r5-final-20261124-075515.log`（栈 `0x4ff2____`、xrun 0、9.1%）；修复后 `fix-clean-sys-stdout.log`：⑤ console 全量自检后 `duty_mean=11.34%`、3s 窗口 xrun 0→0；⑧ worker 起流后 `duty_mean=9.51%`、xrun 0 |
+| DI-40 全量自检后音频每块超预算 | 全量自检泄漏 ~40KB 内部堆（DI-26）后，`xTaskCreate` 把音频任务的 4KB 栈落到 P4 的 **LP SRAM**（IDF 将其注册为 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆）；栈上局部变量密集的 DSP 在该落点慢 ~24×（每块 ≈13ms vs 5.8ms 预算）⇒ 每块 xrun，复位才恢复。排除项：停流 165s 本身（xrun 0）、引擎状态（console 上下文离线 `ENG PERF` us_mean=537 ≈ 基线） | `audio_stream.c`：首次启流用 `heap_caps_malloc(INTERNAL\|DMA)` 显式分配常驻 L2MEM 栈 + 静态 TCB；`stop` 等 IDLE 回收后再复用；分配失败回 `ESP_ERR_NO_MEM`（ADR-007 新节） | 复现 `fix-probe-r1-full-20261124-071552.log`（xrun==render_blocks、duty 224%）、干预 `fix-probe-r5-final-20261124-075515.log`（栈 `0x4ff2____`、xrun 0、9.1%）；修复后 `fix-inject-sys.log`：⑤ console 全量自检后 `duty_mean=11.34%`、3s 窗口 xrun 0→0；⑧ worker 起流后 `duty_mean=9.51%`、xrun 0 |
 | DI-42 无/坏 settings 对象默认 palette | `settings_reload` 的 `!from_flash` 分支清零后只钳越界值，palette 停在 0（GREEN） | 归 4（MONO，上游 `settings_init` 默认；R13） | `fix-probe-di42-before-20261124-075326.log`；`sys` ①b-a 断言 `kind=invalid ⇒ palette=4` |
-| DI-41 chip 全路径证据缺口 | `.noinit` 每 boot 标记按设计跨 esptool 复位存活（R8） | 诊断 `SYS SELFTEST ARM`（只清标记，不取 LVGL 锁；RUNNING 中回 `busy`） | `inject-sys-20261124-100357.log`：`ARMED → RUNNING → ARM busy → SELFTEST 182/182 PASS → stack=0x4ff2____ → 离开/重返 RESET FIRST`，328 PASS / 0 FAIL |
+| DI-41 chip 全路径证据缺口 | `.noinit` 每 boot 标记按设计跨 esptool 复位存活（R8） | 诊断 `SYS SELFTEST ARM`（只清标记，不取 LVGL 锁；RUNNING 中回 `busy`） | `fix-sys-transcript.log`：`ARMED → RUNNING → ARM busy → SELFTEST 182/182 PASS → stack=0x4ff2____ → 离开/重返 RESET FIRST`，328 PASS / 0 FAIL |
 
 **干净树门禁（受影响项重跑；`fix-clean-runs-summary.txt`）**：host 九项全 exit 0、MANIFEST 233/233、双遍构建第二遍
 0 警告、烧录 Hash verified、启动无 fatal；`store` **902/0**、`sys` **328/0**（全路径）、`device-selftest` **182/182**、
@@ -125,5 +125,5 @@ tracks / nav / params / song / sequence / synth 八条——修复提交只改 `
 - `task-8-*`：本最终矩阵（构建/host/工具/烧录/自检日志、十场景 stdout + 最新 transcript + PNG、soak 摘要与
   原始日志、启动日志、§4 的诊断探针脚本与 transcript）。
 - `task-6-*` / `task-7-*`：P4-E 前序任务证据。
-- `fix-*` / `inject-sys-20261124-100357-*` / `p4e-final-smoke-*`：修复轮（§5）。`fix-precommit-*` 是修复代码未提交时的首轮运行（soak 证明跑在修复前的二进制上，故以 `fix-soak-*`/`fix-clean-*` 的干净树重跑为准）。
-- 全部文件（`readme.md` 与 `SHA256SUMS` 自身除外）列入 `SHA256SUMS`，`sha256sum -c SHA256SUMS` 141 项全 OK。
+- `fix-*` / `inject-sys-20261124-100357-*` / `p4e-final-smoke-*`：修复轮（§5）。`fix-precommit-*` 是修复代码未提交时的首轮运行（soak 证明跑在修复前的二进制上，故以 `fix-soak-*`/`fix-inject-*`/`fix-sys-transcript.log`/`fix-clean-runs-summary.txt` 的干净树重跑为准）。
+- 全部文件（`readme.md` 与 `SHA256SUMS` 自身除外）列入 `SHA256SUMS`，`sha256sum -c SHA256SUMS` 182 项全 OK（修复轮重算）。
