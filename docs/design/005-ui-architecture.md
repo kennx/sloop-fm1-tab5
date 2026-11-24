@@ -207,7 +207,7 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 > `UI_GROUP_MAX` 上限**——这也是不把 GLOBAL/FX 留在 EDIT 的原因）。组表的一处定义移到
 > 纯数据头 `ui_nav.h` 的 `UI_GROUP_LIST`（ui.c 生成 `k_groups[]`，host 单测
 > `scripts/knob-test.sh` 校验顺序/成员/每页可达），几何常量与静态断言随之迁入。**中间态**：
-> Task 5 用 SOUND 取代 ANALOG+FM6（17 页），Task 6 加 TOOLS（18 页）。
+> Task 5 用 SOUND 取代 ANALOG+FM6（17 页，见 §5.4），Task 6 加 TOOLS（18 页）。
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
   `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`，P4-E Task 6 追加
@@ -436,6 +436,30 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   `build_ms` 5–7ms；EDIT 五页全建 → 首建 STEP 的过渡峰值 **`pool_free 11,160B`**、
   MIX 两页全建 → STEP **22,380B**、SEQ 两页全建 → MIX 首建 GLOBAL **25,624B**（均
   ≥4,096B）；20 次切 chip `pool_free` 首末差 **+0B**（MOD/SCALE/VOICE 各 20 次）。
+
+#### 5.4 P4-F Task 5 中间态 17 页/9 组预算（2026-11-24）
+
+- **SOUND 取代 ANALOG + FM6**（ADR-008 §8.10）：页 id 沿用 `APP_PAGE_ANALOG`（6），
+  `APP_PAGE_FM6`（7）成为**空位常量**（不注册、不进组表；`APP_STATE_PAGES` 仍为 18）。
+  注册页数 18 → **17**，EDIT = SOUND / MOD / SCALE / VOICE（4 子签），MIX 不变。`TAB` 扁平
+  轮转：`PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+  SONG→PROJECTS→PRESETS→SYSTEM→PLAY`。
+- 组 est：**EDIT** `SOUND 6,144 + MOD/SCALE/VOICE 3×3,584 = 16,896`（原 20,480；两页并一页
+  且 SOUND 带 FM6 的 bank 行）；**MIX** `GLOBAL 3,584 + FX 3,584 = 7,168`（两页改为 chip
+  页，est 不变）。
+- 有序对（base 11,624 + 对值 + 4,096 ≤ 63,120）：最坏仍是 **SEQ→PRESETS 60,776**（余
+  2,344B，不变）。受影响/新增的对：**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面
+  **55,656**（原 59,240）；**MIX→STEP** `14,336 + 23,040 = 37,376` ⇒ **53,096**；
+  **SEQ→MIX** `32,256 + 3,584（目标页）= 35,840` ⇒ **51,560**（与 Task 4 同值：跨组峰值 =
+  源组已建 Σ + 目标页 est，MIX 两页 est 未变）。`free ≥ est`、构建后池剩余 ≥4,096B 的门禁
+  不变。
+- **实测（P4-F Task 5 设备探针 `p4f-task5-verify` run3，`firmware/build/verify/
+  p4f-task5-peaks.txt`）**：SOUND 池增量 **5,360–5,554B**（est 6,144）、GLOBAL
+  **2,936–3,080B**、FX **2,916–3,080B**（est 3,584），`build_ms` 4–10ms；EDIT 四页全建 →
+  首建 STEP 的过渡峰值 **`池剩余 13,260B`**（Task 4 五页时 11,160B）、MIX 两页全建 → STEP
+  **21,692B**、SEQ 两页全建 → MIX 首建 GLOBAL/FX **17,140 / 17,092B**（Task 4 时 25,624B：
+  目标页从 3,584 的首建口径不变，差异来自 STEP/TRANSPORT 重建后的池历史），均 ≥4,096B。
+  GLOBAL/FX 20 次切 chip `pool_free` 首末差 **+0B**。
 
 #### 6. 验证入口
 
