@@ -35,6 +35,7 @@ static const char *TAG = "sloop_state";
 #define STATE_SYS_BRIGHT_MIN 10u
 #define STATE_SYS_BRIGHT_MAX 100u
 #define STATE_SYS_VOL_MAX 100u
+#define STATE_P_E0 (SLOOP_CORE_P_COUNT - 8u) /* 上游 P_E0：鼓轨的 kit（SOUND 页 KIT 行） */
 
 static void cmd_note(app_state_t *s, uint32_t track, uint16_t note, bool on)
 {
@@ -200,6 +201,9 @@ static void cmd_set_param(app_state_t *s, uint32_t track, uint32_t id, uint16_t 
     int16_t v = (int16_t)value;
     sloop_core_set_params(track, &pid, &v, 1u);
     state_refresh_params(s);
+    /* 选中轨的 P_E0 决定 sound 块里鼓轨的 kit 名（SOUND 页 KIT 行）：同拍重取，
+     * 页眉与 TAP 回显不落后一拍。其它参数不改 sound 块，不读。 */
+    if (pid == STATE_P_E0 && track == s->core.selected_track) state_refresh_sound_locked();
 }
 
 /* 批量参数：解包 POD 到两个栈数组（引擎 API 是 ids/values 双数组），一次引擎调用

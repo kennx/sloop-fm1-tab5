@@ -2314,6 +2314,19 @@ static void case_sound_projection(void)
     reads = g_stub.sound_read_calls;
     apply(CMD_PROJECT_SAVE, 0, 0, 0);
     check_ll("整份刷新读 sound 一次", g_stub.sound_read_calls - reads, 1);
+
+    /* 鼓轨的 P_E0 就是 kit：CMD_SET_PARAM 写**选中轨**的 P_E0 时 sound 块同拍重取
+     * （SOUND 页眉 KIT 名与 TAP 回显不落后一拍）；其它 id / 非选中轨不额外读。 */
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_PARAM, 3, SLOOP_CORE_P_COUNT - 8u, 7);
+    check_ll("写选中鼓轨 P_E0 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("kit 名同拍更新", strcmp(s.sound.kit_name, "KIT7") == 0, 1);
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_PARAM, 3, 5, 7);
+    check_ll("其它 id 不读 sound", g_stub.sound_read_calls - reads, 0);
+    apply(CMD_SET_PARAM, 1, SLOOP_CORE_P_COUNT - 8u, 9);
+    check_ll("非选中轨的 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
 }
 
 int main(void)
