@@ -67,6 +67,9 @@ sys 054900），PNG 保留原始时间戳文件名。目录里的 `inject-sys-20
   SYNTH→STEP 28,428B），均 ≥4,096B。池往返：nav PLAY↔TRACKS ×10 Δ−28B、song SEQ↔SONG Δ−24B /
   SONG↔PLAY 0B、synth 四组往返 Δ−24B、soak 五组 ×10 Δ+32B，均 ≤128B。
 - **D7 golden 归零**：lowcut=1 / reso=6 下 `device-selftest.py` **182/182**，自检后 settings 仍为 1/6（随后恢复）。
+  **范围更正（终审 I2）**：本矩阵里那个「1/6」读数取自自检**之后的硬复位**（证明的是开机 reload），当时脚本在
+  `settings_expect` 之前就复位了，D7 的「收尾 reload」半边在本矩阵**没有**同 boot 断言；§7 的修复波起 `sys` ⑤
+  在复位之前断言（lowcut=1 / reso=6 / dirty=0）。
 - **持久化**：settings / NVS 三键 / REC 三项硬复位保持；RAW settings + SIDE 的 THM2 主题 accent
   `(248,0,248)` 与硬复位保持；`STORE TEST PASS 6/6`。
 - **soak**（复位后，`task-8-soak-summary.txt`）：31 次采样 / 1801s；内部堆 68,755 → 68,739B（Δ−16B）、
@@ -98,7 +101,8 @@ sys 054900），PNG 保留原始时间戳文件名。目录里的 `inject-sys-20
    **→ 已在修复轮定位并修复（§5）**。
 3. **视觉**：十场景的像素抽检全过；64 张 PNG 经 Pillow 校验均为 1280×720 RGB、≥64 色、亮度满量程。
    本轮接管者**没有**做图像工具/人眼读图；前任实现者在 `task-8-report` 中自报曾用图像工具读过
-   system / selftest-pass / raw-theme 三张（未复核）。人眼读图、物理触摸、亮度/音量/RGB 与听感是外部门禁。
+   system / selftest-pass / raw-theme 三张——**自报，收口与终审均未复核**（`verification-log.md` 的 Task 7 行
+   同一口径）。人眼读图、物理触摸、亮度/音量/RGB 与听感是外部门禁。
 
 ## 5. 修复轮（clean tree `86711a4`，2026-11-24）
 
@@ -124,6 +128,44 @@ tracks / nav / params / song / sequence / synth 八条——修复提交只改 `
 
 - `task-8-*`：本最终矩阵（构建/host/工具/烧录/自检日志、十场景 stdout + 最新 transcript + PNG、soak 摘要与
   原始日志、启动日志、§4 的诊断探针脚本与 transcript）。
+- `final-*`：终审修复波（§7）。
 - `task-6-*` / `task-7-*`：P4-E 前序任务证据。
 - `fix-*` / `inject-sys-20261124-100357-*` / `p4e-final-smoke-*`：修复轮（§5）。`fix-precommit-*` 是修复代码未提交时的首轮运行（soak 证明跑在修复前的二进制上，故以 `fix-soak-*`/`fix-inject-*`/`fix-sys-transcript.log`/`fix-clean-runs-summary.txt` 的干净树重跑为准）。
-- 全部文件（`readme.md` 与 `SHA256SUMS` 自身除外）列入 `SHA256SUMS`，`sha256sum -c SHA256SUMS` 182 项全 OK（修复轮重算）。
+- 全部文件（`readme.md` 与 `SHA256SUMS` 自身除外）列入 `SHA256SUMS`，`sha256sum -c SHA256SUMS` 225 项全 OK（终审修复波重算；修复轮 182 项）。
+
+## 7. 终审修复波（clean tree `a6c22d9`，2026-11-24）
+
+整分支终审（Critical 0 / Important 3 / Minor 12）之后的单次修复；代码提交 `dd874e0`（I1）、`bb6de7a`（M3）、
+`d60d1d9`（M1）、`19a6f4a`（M4）、`6d35316`（M9）、`a6c22d9`（I2 的脚本断言）。**受测固件 `App version: a6c22d9`**
+（无 `-dirty`，`final-boot-a6c22d9.log`；烧录三段 Hash of data verified，`final-flash.log`）。M2/M5/M6/M7/M8/M10/M12
+按裁决不在本波（M10 余项并入 DI-43）。
+
+| 项 | 改动 | 证据 |
+|---|---|---|
+| **I1** chip 自检丢弃未落盘编辑与设置 | worker 停流后、自检前 `sloop_store_flush_all()`：不等时间门限写 autosave（hash 有变才写）/dirty section/歌曲+DSU+settings/NVS，flash 与 NVS 都在引擎锁外、仅停止态；失败只记日志。spec D6 同步 | `final-sys-stdout.log` ⑧：chip 前 `autosave_writes` 未增、`LIVEHASH A834206D != autosave_hash 38CFD22E`、RESO `dirty=1` → chip 182/182 PASS → `autosave_hash == LIVEHASH`、bpm=124 保持、INFO `reso=7 dirty=0`。**RED**：worker 的 flush 改成 no-op 的临时固件 `final-red-noflush-sys-stdout.log` **346 PASS / 3 FAIL**（LIVEHASH 恢复 `AE244BDD != 8E138131`、bpm≠124、`reso=0`），即这三条断言精确对应 I1 |
+| **I2** D7 收尾 reload 无设备断言 | `sys` ⑤ 在硬复位**之前**加 `settings_expect`（lowcut=1 / reso=6 / dirty=0）；⑧ 加 chip 后 INFO 断言（并入上行的 RESO 用例）；§3 的 D7 措辞更正 | `final-sys-stdout.log` ⑤「同一 boot 自检后 settings（收尾 reload）」3 条 PASS（RED 固件上同样 PASS——这一半与 flush 无关） |
+| **I3** 内部堆余量 + worker 常驻栈 | 文档：DI-43（含 VOLUME/NVS commit 的 xrun 未测、键盘 B,G,R 字节序仅人测） | `docs/deferred-issues.md` |
+| **M1** 自检收尾先解冻后重载 | `diag_freeze(false)` / quiesce 钩子移到四次 reload 之后 | 无设备断言（可见性是「闪一帧 GREEN」）；由 sys ⑤/⑧ 与 `device-selftest` 182/182 证明收尾顺序不变 |
+| **M3** 存储后端失败时 palette 0 | 早退前 `sloop_store_settings_reload()` | 代码路径（HAL init 失败）在设备上不可达，未测 |
+| **M4** lights 档位越界 | `song_per_get_settings` ≥4 ⇒ OFF；persist host +3 例 | `final-host-seq-test.log`：`lights_lvl=4/15 ⇒ OFF`、`3` 照常，`persist-host: PASS (0 failures)` |
+| **M9** 死接口 + 临界区内 `snprintf` | 删 `sloop_ui_system_clear_action`；两处改 `memcpy` | 构建 0 警告；`sys` 全绿 |
+| **M11** 文档口径 | AGENTS §5.5 收口行标明各次 soak 的固件；Task 7「视觉读取」= 实现者自报、收口未复核（本文件 §4.3 与 verification-log 同口径） | 见对应文件 |
+
+**重跑计数（最终固件，同一次烧录内顺序执行）**：`sys` **348 / 0**（修复轮 328；多重集对比 `fix-inject-sys.log`：新增的是 ⑤ 同 boot 3 条、⑧ 的 I1 判别用例与两次 BPM 改值的回显，
+其余差额是场景的条件分支——①b 的「槽 A 起点已用/为空」二选一与收口「仅当起点为空才擦槽 A」，随设备起点状态变化）、
+`store` **901 / 0**（修复轮 902——差的一条是幂等归一步「⑩eN 清空轨 n 步 n」在起点已空时跳过，断言多重集逐项对比只差这一条）、
+`sequence` **562 / 0**、`device-selftest.py` **182/182**（`identical=182 mismatch=0 checks=7`）。**未重跑**：transport / step_edit /
+tracks / nav / params / song / synth 七条——本轮不改它们覆盖的固件路径（改动面：`sys_selftest.c` worker、`store_tab5.c` 的
+autosave/sections 写段重构与 flush、`selftest.c` 收尾顺序、`song_persist.h` 的 lights 读回、`page_system.c` 状态行、`ui.c` 死接口）。
+Host：双遍构建第二遍 **0 警告**、`seq`（含 persist）/`state` 37/37/`synth`/`knob` 10/10/`host-test` 全 exit 0（`final-build-*.log`、
+`final-host-*-test.log`）。
+
+**最终 soak**（硬复位、稳定 30s 后 `soak.py /dev/ttyACM0 --duration 1800 --interval 60 --save-window 900`，`final-soak-summary.txt`）：
+exit 0、**1801s / 31 采样**；内部堆 68,611 → 68,595B（Δ−16B）、`internal_min` **65,536B**（门限 61,440B，余量 4,096B——DI-43）；
+streaming=1、**xrun 0**；duty_mean 最大 **12.53%**（上限 18.88%）；音频栈最小 **3,120B**；KEY 0→300；五组 ×10 往返
+pool_free 46,240 → 46,288（Δ**+48B**、单次最小 −60B，容差 ±128B）；save 窗口 900s xrun 0 → 0、窗口后 streaming=1；无 panic/WDT；
+断言 **3,223 PASS / 0 FAIL**。对照：`8963fc8` 矩阵 soak min 66,016B / 12.41% / +32B，`86711a4` 修复轮 min 65,536B / 12.35% / +4B。
+
+**仍未覆盖（如实记录）**：人眼读图、物理触摸、亮度/音量/RGB 与听感是外部门禁；本波三场景的 22 张 PNG（sys 11 / store 8 / sequence 3）只过了像素抽检与 Pillow 解码，
+没有用图像工具或人眼复核。DI-26（全量自检 ~40KB 堆泄漏）仍在，sys ⑤ 之后照旧硬复位。M1 的 GREEN 闪帧没有机读断言。
+
