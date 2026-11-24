@@ -1,0 +1,7 @@
+# Task 6 host gates（评审修复轮，HEAD 5bf1165）
+state-test.sh rc=0 :: 45 passed, 0 failed STATE TEST PASSED 
+knob-test.sh rc=0 :: 17 passed, 0 failed KNOB TEST PASSED 
+seq-test.sh rc=0 :: SEQ HOST TEST PASSED (0 failures) persist-host: PASS (0 failures) 
+synth-test.sh rc=0 :: SYNTH HOST TEST PASSED 
+host-test.sh rc=0 :: ALL HOST TESTS PASSED (subset)
+MANIFEST: 233/233 OK
