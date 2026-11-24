@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把阶段 4 收到 roadmap §6 的完成判据：修掉自检堆泄漏（DI-26）、落成功能对齐清单、补齐参数族覆盖（12 引擎 + 每轨/全局/FX 族 + TOOLS）、全页面截屏矩阵、3h soak（含 INA226/温度），证据入库；dev→main 合并须用户确认。
+**Goal:** 把阶段 4 收到 roadmap §6 的完成判据：修掉自检堆泄漏（DI-26）、落成功能对齐清单、补齐参数族覆盖（12 引擎 + 每轨/全局/FX 族 + TOOLS）、全页面截屏矩阵、3h soak（含 INA226/温度），证据入库；**不合并 main**（用户明示）。
 
 **Architecture:** 新增六张「族页」——SOUND（通用引擎页，取代 ANALOG/FM6）与五张 chip 页（MOD/SCALE/VOICE/FX/GLOBAL），全部由 `page_layout.c` 的 X 宏表驱动（每页 ≤4 chip、每 chip ≤8 槽，数据只来自 `sloop_core_desc`）；新增 MIX 组承载 GLOBAL/FX/TOOLS（9 组 / 18 页 / 组签 104px）。TOOLS 三动作走状态层命令 + 上游语义适配。DI-26 用二分优先的堆定位法。
 
@@ -20,7 +20,7 @@
 - `ENG SELFTEST` console 语义不变；DI-26 不得用掩盖性修法（自检后重建堆、放宽断言）。
 - 截屏/听感/触摸/LED：机器只做像素抽检与 PNG 解码校验，**人眼/人耳是外部门禁**，文档不得声称已目检。
 - 提交格式 AGENTS.md §7.2（`<type>(<模块>): 中文摘要` + 四标签；fix 加 `[Root_Cause]/[Blast_Radius]`）；按逻辑单元拆分；每任务 review clean 后 push。
-- **dev→main 合并不在任何任务里自动执行**：Task 10 产出收口报告后停，等用户确认。
+- **不合并 main**（用户 2026-11-24 明示）：Task 10 止于 `feat/phase4f` → `dev` 与收口报告；roadmap 的 dev→main 里程碑在报告里标为待办。
 
 ## Review Focus
 
@@ -156,21 +156,21 @@
 - [ ] Step 2: soak.py 增列；`soak-selftest.py` 通过；短跑 `soak.py --duration 300 --interval 60` 验证列。
 - [ ] Step 3: 提交 `feat(firmware/main): ENG POWER 读数与 soak 的功耗温度采样`。
 
-### Task 10: 文档、证据、全矩阵、3h soak、收口报告（**不做 dev→main**）
+### Task 10: 文档、证据、全矩阵、3h soak、收口报告（**不合并 main**）
 
 **Files:**
 - Modify: `AGENTS.md`（§3/§5.1/§5.4.1/§5.5）、`docs/design/005-ui-architecture.md`（§1 组表 9 组、§2 组签 104px、§5.3 P4-F 预算与实测）、`docs/design/008-param-pages.md`（chip 页框架、SOUND）、`docs/design/012-feature-parity-checklist.md`（终态打勾）、`docs/design/002-port-roadmap.md`（P4-F 状态）、parity spec P4-F 行、`docs/dev/verification-log.md`
 - Create: `docs/dev/verify/4-pf-<日期>/`（readme + SHA256SUMS）、`docs/dev/closeout-phase4.md`（收口报告）
 
 **Interfaces:**
-- Produces: 收口报告（给用户）：门禁→结论、清单状态（✅/DI 开放项）、soak 数值（含功率/温度）、**人测待办清单**（联系表路径、DI-4/16/7/39、LED 颜色、亮度/音量）、**dev→main 合并提请**（含是否带开放 DI）。
+- Produces: 收口报告（给用户）：门禁→结论、清单状态（✅/DI 开放项）、soak 数值（含功率/温度）、**人测待办清单**（联系表路径、DI-4/16/7/39、LED 颜色、亮度/音量）、**dev→main 标为待办**（不在本阶段）与开放 DI 列表。
 
 - [ ] Step 1: host 全矩阵 + MANIFEST；烧录 ×3；182；十一条注入场景（含复跑）；`selftest-heap.py`。
 - [ ] Step 2: `screenshot_matrix.py`；联系表入库。
 - [ ] Step 3: 硬复位 → 后台 `soak.py --duration 10800 --interval 60 --save-window 900`（断连判失败重试一次），期间完成文档。
 - [ ] Step 4: 证据晋升 + SHA256SUMS + verification-log；提交 `docs(design)` / `docs(dev/verify)`。
 - [ ] Step 5: 整分支终审 → 修复波 → 合并 `feat/phase4f` → `dev` 并重跑合并后门禁 → push dev。
-- [ ] Step 6: **停**：输出收口报告，等待用户对 dev→main 与人测项的决定。
+- [ ] Step 6: **停**：输出收口报告（含人测待办清单与开放 DI）；不合并 main。
 
 ---
 
