@@ -55,7 +55,7 @@
 | REV/CHO（RSIZE/RDAMP/CRATE/CDEPTH）+ MASTER（DUST/DUCK/FILT/ROLL） | REV/CHO、MASTER 页 | GLOBAL·REV | ✅ | `params.sh` ⑩ | P4-F Task 5 |
 | DRUMS（DRCH/DRLVL/DRREV/DRDLY） | DRUMS 页 | GLOBAL·DRUMS | ✅ | `params.sh` ⑩（鼓轨上 DRCH 可编辑） | P4-F Task 5（DRCH 属 MIDI 通道，联动阶段生效） |
 | TEXTURE / TEXTURE 2（7 参数） | 两页 | GLOBAL·TEXTURE | ✅ | `params.sh` ⑩ | P4-F Task 5 |
-| TOOLS（CLEAR SEQ / INIT SOUND / NEW） | TOOLS 页 | — | ○ | — | Task 6（语义见 §4） |
+| TOOLS（CLEAR SEQ / INIT SOUND / NEW） | TOOLS 页 | MIX·TOOLS 页（三张 chip，两段式确认 1.5s） | ✅ | `params.sh` ⑪ TOOLS 段；`seq-test.sh` `test_tools_*` | P4-F Task 6（语义见 §4；ADR-008 §8.11 / ADR-010 §11） |
 | SYSTEM（MIDI/SYNC/ROUTE/INFO） | SYSTEM 页 | INFO = SYSTEM 页版本行 | ◐ | `sys.sh` | MIDI/SYNC/ROUTE 非目标（阶段 5） |
 | MIDI / MIDI 2 / MIDI 3 | 三页 | — | 非目标 | — | 阶段 5（DI-1） |
 | 用户预置 32 槽存取（USER 页） | USER 页 | PRESETS 页（SAVE/LOAD/ERASE） | ✅ | `store.sh` | — |
@@ -69,12 +69,12 @@
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
 | PLAY/STOP；REC arm/record/free take | PLAY/REC、REC 屏 | TRANSPORT 页 | ✅ | `transport.sh`、`sequence.sh` | — |
-| REC 配置：QUANT / MODE(FREE·TEMPO) / START(NOTE·COUNT)（count-in） | REC 屏 | 仅 console `SEQ REC CONFIG`（`CMD_REC_CONFIG` 无 UI 调用者） | ○ | `sys.sh`（持久化，console） | Task 6：TRANSPORT 增三个配置 chip（走已有 `CMD_REC_CONFIG`） |
+| REC 配置：QUANT / MODE(FREE·TEMPO) / START(NOTE·COUNT)（count-in） | REC 屏 | 仅 console `SEQ REC CONFIG`（`CMD_REC_CONFIG` 无 UI 调用者） | ✅ | `params.sh` ⑪ REC 配置行；`state-test.sh`；`sys.sh`（持久化） | P4-F Task 6：TRANSPORT 的 QNT/MODE/START 三格（走已有 `CMD_REC_CONFIG`） |
 | hold REC 清选中轨（~2s 环） | REC 长按 | TRANSPORT `CLEAR T<n>`（即时，无长按） | ✅ | `transport.sh` | 口径差异：Tab5 即时清，文档化 |
 | SEQ steps 1–64 分四页；步 LEVEL/RATCHET/NUDGE/TIE/SLIDE | SEQ 层 | STEP 页 | ✅ | `step_edit.sh`、`sequence.sh` | — |
 | EDIT 层旋钮 SHIFT(rotate)/LENGTH ×2÷/TRANSPOSE/UNDO/REDO | EDIT 层 | TRANSPORT 工具区 | ✅ | `transport.sh` | undo 粒度：每次调用一次（上游一次 hold 算一次） |
 | EDIT 层 **erase**（按住 EDIT + 键，走带中 MPC 式擦除该音符/鼓声） | EDIT 层 | 键盘 EDIT 层 a–g 擦除**聚焦步**里的同名音（`input.c:166-169`）；非走带中逐拍 | ◐ | 键位绑定 `input.c:166-169`，**无机器证据** | DI-45（live 变体）；Task 7 补 `step_edit` 的 KEY 注入断言 |
-| 参数锁（步 held + PRESETS 旋钮锁最近编辑的参数）/ fill 条件（步 held + OCT+） | SEQ 层 | 仅 console `SEQ LOCK SET/DEL`、`SEQ FILL`（状态层命令已有、无 UI 调用者） | ○ | `sequence.sh`（console） | Task 6：键盘 EDIT 层键位（lock/unlock/fill 条件循环，零新增 LVGL 对象） |
+| 参数锁（步 held + PRESETS 旋钮锁最近编辑的参数）/ fill 条件（步 held + OCT+） | SEQ 层 | 仅 console `SEQ LOCK SET/DEL`、`SEQ FILL`（状态层命令已有、无 UI 调用者） | ✅ | `params.sh` ⑪ STEP 键盘锁段；`state-test.sh`；`sequence.sh`（console） | P4-F Task 6：EDIT 层 Aa+k / Aa+l / Aa+9（ADR-006「STEP 页步工具」；零新增 LVGL 对象） |
 | 鼓轨 MUTE mode（EDIT + 黑键：静音 Sequencer 里的某个鼓声） | EDIT 层 | — | ○ | — | DI-46 |
 | ARP 层 **roll**（按住 ARP + 键 = note repeat，RATE 1/8…1/64） | ARP 层 | — | ○ | — | DI-47 |
 | GLO 层 mute/solo 键；fill 保持 / fill next bar | GLO 层 | 键盘 GLO 层 1–8 键（`input.c:159-162`）；TRACKS 卡只显示状态；TRANSPORT FILL | ✅ | `state-test.sh`（mute/solo 命令路径，host）、`transport.sh`（fill）；键位绑定 `input.c:159-162` **无设备证据** → Task 7 补 `tracks` 的 KEY 注入断言 | — |

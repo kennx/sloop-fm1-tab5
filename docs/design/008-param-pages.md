@@ -814,6 +814,30 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `scripts/inject/params.sh`（12 引擎轮换、ENGINE/PRESET/KIT 行、bank 行出现/缺席、五张
   chip 页、有序对峰值）与 `store.sh` ⓰（bank 行缺席 ⇒ TAP miss）。
 
+### 8.11 TOOLS 页与 TRANSPORT 的 REC 配置行（P4-F Task 6）
+
+- **TOOLS 页**（`page_tools.c`，MIX 组第 3 张子签，页 id `APP_PAGE_TOOLS` = 18）：状态行 +
+  三张单对象 chip（CLEAR SEQ / INIT SOUND / NEW）+ 三行说明 + 提示，共 8 个 label；
+  实测 delta **2,568–2,732B**（≈320B/对象），est **3,584**（控制器的 7,168 是上限）。
+  MIX Σ est = GLOBAL 3,584 + FX 3,584 + TOOLS 3,584 = **10,752**；MIX→STEP 有序对
+  11,624 + 10,752 + 23,040 + 4,096 = 49,512 ≤ 63,120。
+- **两段式确认**（上游 `ui.arm` / `ui.arm_t = 90` ≈ 1.5s）：第一次点 chip = 预备（chip 换
+  `UI_ACCENT` 底、状态行 `AGAIN TO CONFIRM`），窗口内再点同一 chip 才执行（一条
+  `CMD_TOOLS`），超时自动取消；预备期间点另一张 = 改为预备那一张。时钟用 esp_timer 毫秒、
+  在 30ms UI 拍里比较；预备态是页内 UI 局部态，跨组页面重建即取消。动作语义与守卫全在
+  状态层/`sloop_core_tools`（清单 012 §4、ADR-010 §11），本页只做确认态与文案。
+- **REC 配置行**（TRANSPORT，上游 REC 屏的 QUANT / MODE / START）：与录音/fill 行同高
+  y=384，三格落在 NEXT 右侧到 pattern 区之前的空带（x=456/564/672）。**三格是同一个自绘
+  可点击对象**（§8.9 chip 行的同一做法：`DRAW_MAIN` 画圆角底 + 居中 16pt 文本，CLICKED 按
+  指针落点分格）——首版用三个单对象 label，实测把 TRANSPORT 顶到 9,348–9,628B（改前
+  8,392–8,660B，est 9,216 是 SEQ→PRESETS 有序对锁死的上限，不得抬）；单对象后回到
+  **8,636–8,876B**。每格点一次翻转自己那一项并发**整份** `CMD_REC_CONFIG`（另两项取 rec
+  投影）；文本读 `app_state_t.rec`。格间 8px 缝 TAP miss（与其它 chip 的间距一致）。
+- **MIX 组三张子签**：`UI SUB 2` 自本任务起是 TOOLS（`UI SUB 3` 越界）；TAB 轮转 18 页。
+- **验证入口**：`scripts/knob-test.sh`（18 页轮转、MIX 三成员、TOOLS 页 id）；
+  `scripts/inject/params.sh` ⑪ 段（TOOLS est/delta、MIX Σ est、SEQ→MIX(TOOLS) 有序对、
+  预备/超时/改预备的像素与回显、REC 配置行的三格像素与三项往返、格间缝 miss）。
+
 ### 9. 描述符契约的定稿决定（Task 8/10）
 
 

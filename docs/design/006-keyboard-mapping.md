@@ -32,6 +32,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | 层（按住） | Sym 0x30=FX；Aa 0x31=EDIT；Ctrl 0x40=SEL；Alt 0x41=GLO | 层键 down/up 置/清 `layer_held` 位（`APP_LAYER_*`） |
 | FX 层 | Sym + 任意键 | MVP 无功能（只置位 + 页签条提示），阶段 4 接 27 垫 |
 | EDIT 层 | Aa + a 0x32 / b 0x46 / c 0x44 / d 0x34 / e 0x23 / f 0x35 / g 0x36 | 音名 A/B/C/D/E/F/G：按**音级**擦除聚焦步里的同名音（跨八度；命令 `CMD_ERASE_NOTE` 按精确音符，逐音符发；音高→index 的查找+删除现在由 seq adapter 在**同一把引擎锁**内完成，实时录音并发改步不会让 index 失效） |
+| **EDIT 层步工具（P4-F Task 6）** | Aa + k 0x39 / l 0x3A / 9 0x09 / ; 0x2B | **只在 STEP 页生效**，作用于聚焦步（`sloop_ui_step_tool()`，见下「STEP 页步工具」小节）：k = 把「焦点轨上最后碰过的参数」（状态层 `last_param`）以该轨当前值锁到聚焦步（`CMD_LOCK_FOCUS{a=1}`）；l = 删除该键的锁（`CMD_LOCK_FOCUS{a=0}`）；9 与 ; 同义 = 聚焦步的 fill 条件循环 NORMAL → FILL ONLY → NO FILL（`CMD_FILL_STEP`）。四个键码在基础层/GLO/SEL/FX 都没有绑定（`scripts/knob-test.sh` 的键表门禁）；结果文本顶替 STEP 页状态行 ≈2.4s，`KEY` 注入在行尾追加 `step="…"` |
 | SEL 层 | Ctrl + 1..4（0x01..0x04） | 选轨 0..3（`CMD_SELECT_TRACK`，同时设焦点轨；armed/recording 的 rec 位跟随选中轨，上游 `rec_follow`） |
 | GLO 层 | Alt + 1..4 / 5..8（0x01..0x04 / 0x05..0x08） | 静音 / 独奏轨 0..3（`CMD_MUTE`/`CMD_SOLO`；引擎写入口 `sloop_core_set_mute/set_solo`，`STATE SNAP`/`ENG SNAP` 同源） |
 | 走带 | space 0x4D | **物理 PLAY 键**（P4-C Task 6）：down/up 两沿发 `CMD_PLAY_BUTTON`，与上游面板按钮同一路径——自由录音（free take）进行中按下 = **drop**（丢弃，工程不变），其它情况请求走带（playing 时 stop）。API PLAY（`CMD_PLAY`/console `SEQ REC BUTTON` 之外的 `ENG`/LIVE 入口）仍走 `sloop_core_play`，对自由录音是 **close**（收成 loop）。两个入口不得混用 |
@@ -39,7 +40,7 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | FILL 保持 | `-` 0x0B（按住） | down/up 发 `CMD_FILL_CONTROL{a=1/0,b=0}` → 上游 `fill_held`：按住期间 fill 步条件成立（fill-only 步演奏、no-fill 步静音） |
 | FILL NEXT | `+` 0x0C（点按） | down 发 `CMD_FILL_CONTROL{a=0,b=1}` → **脉冲**：只翻转上游 `fill_arm`（下一小节 fill），**不读不写 `fill_held`**（按住 `-` 时点 `+` 不会清掉保持电平）；再按一次取消。STOP 清 held/armed |
 | ENTER 动作 | enter 0x3D | **STEP 页 = 切换聚焦步的选中 drum lane 位**（`sloop_ui_step_drum_toggle()` → `CMD_DRUM_STEP_WRITE`，P4-C Task 9）；**FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；**TRANSPORT 页 = 焦点工具字段 +1/切换**（`sloop_ui_transport_adjust(1)`，P4-C Task 10：LVL/RAT 循环、MIC/SPAN ±1、SLIDE 切换、ROT/LEN/TRANS 前进）；**SONG 页 = LOAD 选中 section**（`sloop_ui_song_load()` → `CMD_SECTION_LOAD`，P4-C Task 11）；其它页无动作（不抢演奏键）。FILE 的 SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
-| 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 12 页**（P4-C Task 11 起 SONG 已注册）PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（ADR-005 §4；跳过未注册页） |
+| 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 12 页**（P4-C Task 11 起 SONG 已注册）PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（ADR-005 §4；跳过未注册页）。**P4-F Task 6 起 = 18 页**：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→**TOOLS**→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY |
 | 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；**TRANSPORT 页**在 8 个工具字段环上移动（`sloop_ui_transport_focus_move()`：LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS 环绕）；**SONG 页**在 count 内的 16 个歌曲条目间移动（`sloop_ui_song_entry_move()`，环绕）；↑ 0x3B / ↓ 0x4B：普通页移焦点轨（三条合成轨环绕）；**STEP 页**走焦点环 `T1,T2,T3,DRM L1..L16`（`sloop_ui_step_focus_vertical()`：T3↓→L1、T1↑→L16、L1↑→T3、L16↓→T1，鼓轨上逐 lane）；**TRANSPORT 页**调焦点工具字段（`sloop_ui_transport_adjust(±1)`）；**SONG 页**在 A–D section 卡间移动（`sloop_ui_song_section_move()`，环绕） | `state_set_focus()` / `sloop_ui_step_focus_vertical()` / `sloop_ui_file_slot_move()` / `sloop_ui_transport_focus_move()` / `sloop_ui_transport_adjust()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
 
 八度切换（原计划的 OCT±）**未实现**：`-` 0x0B / `+` 0x0C 已在 P4-C 分配给 FILL 保持 /
@@ -82,6 +83,31 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 （不阻塞本任务：若实测发现组合缺事件，只改 `input.c` 的层键处理为「点按锁定/再按解锁」，
 映射表与架构不变）。注：按住 Aa 在本键盘内部还会改大小写状态（`aa_flag`，只影响 HID/字符
 模式），普通模式下对事件流无影响。
+
+### STEP 页步工具（P4-F Task 6）
+
+上游 SEQ 层的 LOCK 旋钮把「最后碰过的参数」（`ui.lock_par`）锁到步上，步的 fill 条件另有
+条件键（`ui_layers.c`）。Tab5 上两者都只经键盘、**零新增 LVGL 对象**：
+
+- **键表是纯数据**：键码、`input_action_t`、绑定表 `k_bindings` 与查表 `input_map_find_binding`
+  自本任务起在 `src/input_map.h`（从 `input.c` 原样移入；无 LVGL/FreeRTOS），
+  `scripts/knob-test.sh` 同源编译并断言「同一 (键, 层) 至多一条」「EDIT 层 = 7 条音名擦除 +
+  4 条步工具」「步工具键在其它层无绑定」。
+- **锁哪个参数**：状态层在每次成功的 `CMD_SET_PARAM` / `CMD_SET_PARAM_BATCH` 后记录写在
+  **焦点轨**上的最后一对（`app_state_t.last_param{track,id}`，`id=0xFF` = 还没有；sync/选轨/
+  整份刷新不改写）。参数页的旋钮、± 与 console `PARAM` 都走这条命令，所以在 MOD/SOUND 等
+  页改过的参数就是 k 要锁的那个；非焦点轨的写不记录。
+- **作用对象与判定**：焦点轨 × 聚焦步（窗口列 → 绝对步）。可锁性（上游 `p_lockable`）、锁表
+  容量、诊断冻结由既有 `sloop_seq_lock_set` 判定（`NOT LOCKABLE` / `LOCK TABLE FULL` /
+  `FROZEN`）；**空步**（合成轨无 NOTE、鼓轨 16 lane 位图为 0）回 `NO STEP` 且不调引擎——空步
+  上的锁/条件在 STEP 页不可见；焦点轨没有已记录参数回 `NO PARAM`；解锁时该键无锁回
+  `NO LOCK`。鼓轨同样适用（kit = `P_E0` 的锁走上游 `DRUM_KIT_DESC`）。
+- **fill 条件**：读快照里该步的当前条件 +1（mod 3；raw 3 与 0 同为 NORMAL）后以绝对值下发
+  `CMD_FILL_STEP`，与 TRANSPORT/console 的 `CMD_SET_FILL` 是同一个引擎入口。
+- **结果呈现**：`LOCKED <参数名>` / `UNLOCKED` / `FILL <模式>` / 上述拒绝文案进页内邮箱，STEP
+  页右上状态行顶替显示 ≈2.4s（焦点移走即恢复聚焦步派生文本）；console `KEY` 注入在同一行
+  尾部追加 `step="…"`（`sloop_ui_step_tool_text`，与屏幕同源）。参数名取
+  `sloop_core_desc_track_live` 的 label。
 
 ### SONG 页（P4-C Task 11）
 
