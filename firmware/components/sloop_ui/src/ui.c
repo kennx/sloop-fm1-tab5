@@ -114,8 +114,9 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
     {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
     /* TOOLS（P4-F Task 6，MIX 组第 3 张子签）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
-     * label。est = 实测首次构建 delta 上取整到 512（ADR-008 预算表；控制器的 7,168 是上限）。 */
-    {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 2560},
+     * label，实测 delta 2,568–2,664B（≈320B/对象）。est = 实测 +10% 上取整到 512 的常规档
+     * 3,584（ADR-008 预算表；控制器的 7,168 是上限）。 */
+    {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 3584},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
