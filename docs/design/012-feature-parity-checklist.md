@@ -21,21 +21,25 @@
 
 ### 2.1 参数编辑 — 每轨族（`PAGES[]` SC_TRACK）
 
+> P4-F Task 4（2026-11-24）打勾：ENV/ENV DEST/LFO×3/SEL×2/ARP×2/VOICE×2/PATTERN/FILTER 八行
+> 由 `params.sh` ⑩ 给出机器证据（每 chip 逐槽 label == `ENG DESC live`、首槽写后回读、鼓轨
+> 逐槽规则、FILTER 条件 chip）；槽表本身由 `scripts/knob-test.sh` 对照本节 §3 钉住。
+
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
-| ENV（ATK/DEC/SUS/REL） | GLO? 否：ENV 页 | FX 页只有 ATK | ◐ | `params.sh`（ATK） | Task 4 MOD·ENV |
-| ENV DEST（ED_FLT/ED_PIT/ED_SHP/ESYNC） | ENV DEST 页 | — | ○ | — | Task 4 MOD·ENV DEST |
-| LFO / LFO 2 / LFO DEST | 三页 | — | ○ | — | Task 4 MOD·LFO/LFO 2/LFO DEST |
+| ENV（ATK/DEC/SUS/REL） | GLO? 否：ENV 页 | MOD·ENV | ✅ | `params.sh` ⑩（`knob-test.sh` 槽表） | P4-F Task 4 |
+| ENV DEST（ED_FLT/ED_PIT/ED_SHP/ESYNC） | ENV DEST 页 | MOD·ENV DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
+| LFO / LFO 2 / LFO DEST | 三页 | MOD·LFO / LFO 2 / LFO DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | FX（DIST/CHOR/DLY/REV）+ 轨道滤波 TFLT | FX / FILTER 页 | FX 页 8 槽（另加 LVL/PAN/ATK） | ✅ | `params.sh` | 保留 FX 页的扩展 8 槽（兼容） |
 | SLICER（SLCR/SLPAT/SLRATE/SLDEPTH） | SLICER 页 | — | ○ | — | Task 5 FX·SLICER |
 | INSERT / INSERT 2（ITYPE/IA/IB/IC；IMIX） | 两页 | — | ○ | — | Task 5 FX·INSERT/INSERT 2（标签随 ITYPE，Task 3 镜像） |
-| SEL / SEL 2（ROOT/SCALE/QUANT/CHORD；TRANS/STRUM/VLEAD） | SEL 页 | — | ○ | — | Task 4 SCALE·SEL/SEL 2 |
-| ARP / ARP 2（8 参数） | ARP 页 | 仅 `PARAM` | ○ | — | Task 4 SCALE·ARP/ARP 2 |
+| SEL / SEL 2（ROOT/SCALE/QUANT/CHORD；TRANS/STRUM/VLEAD） | SEL 页 | SCALE·SEL / SEL 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
+| ARP / ARP 2（8 参数） | ARP 页 | SCALE·ARP / ARP 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | EDIT 1/2 — ANALOG / FM6 / SAMPLE 引擎 | EDIT 页 | ANALOG/FM6/SAMPLE 页 | ✅ | `params.sh`、`synth.sh` | — |
 | EDIT 1/2 — 其余 9 引擎（DIGITAL/DRAWBAR/FORMANT/GRAIN/LOFI/NOISE/PHASE/PHYS/SLICE/TRIO） | EDIT 页 | 仅 `PARAM` | ○ | — | Task 5 SOUND 页（标签经引擎 `desc` 钩子） |
-| FILTER TYPE（ANALOG 专属；FTYPE+E4/E5/E7） | EDIT>FILTER 页 | 仅 `PARAM` | ○ | — | Task 4 VOICE·FILTER（ANALOG 且非鼓轨） |
-| VOICE / VOICE 2（VOICE/GLIDE/GLMODE/PRIO；ALLOC/DETUNE/PAN/MUTE） | 两页 | PAN/MUTE 在 FX 页/TRACKS | ◐ | `tracks.sh` | Task 4 VOICE·VOICE/VOICE 2 |
-| PATTERN（SLEN/SDIV/SSWING/SGATE） | PATTERN 页 | LEN 在 TRANSPORT 工具；DIV/SWING/GATE 仅 `PARAM` | ◐ | `transport.sh` | Task 4 VOICE·PATTERN |
+| FILTER TYPE（ANALOG 专属；FTYPE+E4/E5/E7） | EDIT>FILTER 页 | VOICE·FILTER（条件 chip） | ✅ | `params.sh` ⑩（DIGITAL 隐藏/ANALOG 出现） | P4-F Task 4 |
+| VOICE / VOICE 2（VOICE/GLIDE/GLMODE/PRIO；ALLOC/DETUNE/PAN/MUTE） | 两页 | VOICE·VOICE / VOICE 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
+| PATTERN（SLEN/SDIV/SSWING/SGATE） | PATTERN 页 | VOICE·PATTERN | ✅ | `params.sh` ⑩ | P4-F Task 4（TRANSPORT 的 LEN 工具保留） |
 | 鼓轨 kit 选择（`P_E0`，上游 DRUMS 屏 KNOB 1） | DRUMS 屏 | DSYN 的 KIT chip 只选**编辑**哪个 kit，不写鼓轨；仅 `PARAM 0` | ○ | — | Task 5：SOUND 在鼓轨上显示 kit 选择行（DSYN kit 编辑不变） |
 
 ### 2.2 参数编辑 — 全局族（SC_GLOBAL）
