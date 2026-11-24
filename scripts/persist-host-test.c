@@ -818,6 +818,22 @@ int main(void)
         payload[a_len - 2u] = 0xFF; /* bits 2..5 = 15：上游读回钳到 10 */
         memset(&g, 0, sizeof g);
         check(song_per_get_settings(payload, a_len, &g) && g.flt_reso == 10u, "settings_roundtrip: reso 读回 >10 钳到 10");
+        /* lights_lvl：RAW/外部对象可带 4..15（上游 lights_from_word：≥ LIGHTS_N(4) ⇒ OFF）；
+         * 低 4 位之外的位（keys 等）不进投影。 */
+        memcpy(payload, a_pay, a_len);
+        put_word(payload + SONG_LIGHTS_OFF, 4u | 1u << 9);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 0u && g.rec_tempo == 1u,
+              "settings_roundtrip: lights_lvl=4 ⇒ 读回 OFF(0)（上游 ≥ LIGHTS_N 归 OFF）");
+        put_word(payload + SONG_LIGHTS_OFF, 15u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 0u && g.rec_tempo == 0u,
+              "settings_roundtrip: lights_lvl=15 ⇒ 读回 OFF(0)");
+        put_word(payload + SONG_LIGHTS_OFF, 0xFFFFFFF0u | 3u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 3u && g.rec_tempo == 1u &&
+                  g.theme_on == 1u && g.rec_quant_off == 1u,
+              "settings_roundtrip: lights_lvl=3 照常读回，owned 位各自解出");
         /* 历史格式/长度：PER1/PER2 只读 palette；<88B 没有 lights；32/36B 尾段没有 byte38 */
         memset(&g, 0xFF, sizeof g);
         check(song_per_get_settings(payload, SONG_PER_V22, &g) && g.lights_lvl == 0u && g.rec_tempo == 0u &&

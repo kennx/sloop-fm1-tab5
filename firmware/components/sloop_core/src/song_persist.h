@@ -408,7 +408,7 @@ static bool song_per_get_settings(const uint8_t *payload, uint32_t len, song_set
     out->zoom = song_per_word(payload + SONG_ZOOM_OFF);
     if (len < SONG_PER_BASE) return true; /* 2.2 的 84B：没有 lights（上游当 0） */
     w = song_per_word(payload + SONG_LIGHTS_OFF);
-    out->lights_lvl = w & 0xFu;
+    out->lights_lvl = (w & 15u) < 4u ? (w & 15u) : 0u; /* 上游 lights_from_word：≥ LIGHTS_N(4) ⇒ OFF */
     out->rec_tempo = (w >> 9) & 1u;
     out->rec_count = (w >> 10) & 1u;
     out->theme_on = (w >> 30) & 1u;
