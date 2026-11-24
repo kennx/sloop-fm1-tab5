@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "esp_heap_caps.h"
+
 #include "bsp/m5stack_tab5.h"
 #include "driver/i2c_master.h"
 #include "esp_codec_dev.h"
@@ -29,6 +31,14 @@ static volatile bool stop_requested;
 static sloop_hal_render_fn_t render_fn;
 static int32_t render_buf[2][AUDIO_HALF_FRAMES * 2u];
 static int16_t output_buf[2][AUDIO_HALF_FRAMES * 2u];
+/* 音频任务的栈必须整块落在内部 L2MEM：P4 的 32KB LP SRAM 是 MALLOC_CAP_INTERNAL 的低优先级
+ * 兜底堆，L2MEM 拿不出连续的整块栈时（全量 ENG SELFTEST 之后，DI-26 的堆泄漏）xTaskCreate
+ * 会把栈落到那里——该落点下栈上局部变量密集的 DSP 渲染实测慢 ~24 倍（推断：HP 核访问 LP SRAM
+ * 不经 L1 cache；落点→变慢的因果已由「换回 L2MEM 即恢复」的干预实验证实）
+ * （每块 13ms > 5.8ms 预算，持续 xrun，直到复位）。故首次启流时用 INTERNAL|DMA（LP SRAM
+ * 没有 DMA 能力）显式分配，复位前常驻复用；TCB 静态。 */
+static StackType_t *audio_stack;
+static StaticTask_t audio_tcb;
 static volatile uint32_t xruns;
 /* 渲染耗时统计（窗口 = 本次流会话：sloop_hal_audio_start 清零，故 ENG PERF 的
  * duty_* 是「本次启流以来」而非自开机累计）。仅供诊断读取，读取方 console
@@ -170,11 +180,19 @@ esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render)
     render_us_sum = 0;
     render_us_max = 0;
     audio_running = true;
-    if (xTaskCreate(audio_task_run, "sloop_audio", AUDIO_TASK_STACK, NULL, AUDIO_TASK_PRIORITY, &audio_task) != pdPASS) {
+    if (audio_stack == NULL) audio_stack = heap_caps_malloc(AUDIO_TASK_STACK, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if (audio_stack == NULL) {
         audio_running = false;
         return ESP_ERR_NO_MEM;
     }
-    ESP_LOGI(TAG, "stream started, half=%u frames", (unsigned)AUDIO_HALF_FRAMES);
+    audio_task = xTaskCreateStatic(audio_task_run, "sloop_audio", AUDIO_TASK_STACK / sizeof(StackType_t), NULL,
+                                    AUDIO_TASK_PRIORITY, audio_stack, &audio_tcb);
+    if (audio_task == NULL) {
+        audio_running = false;
+        return ESP_ERR_NO_MEM;
+    }
+    ESP_LOGI(TAG, "stream started, half=%u frames stack=%p", (unsigned)AUDIO_HALF_FRAMES,
+             pxTaskGetStackStart(audio_task));
     return ESP_OK;
 }
 
@@ -182,9 +200,9 @@ esp_err_t sloop_hal_audio_start(sloop_hal_render_fn_t render)
  * → vTaskDelete → 句柄置 NULL；codec 保持打开（AUD TONE 仍可用）。
  * 不可直接 vTaskDelete 阻塞在 esp_codec_dev_write 里的任务：那会把 i2s_channel
  * 的 binary 信号量永久留在被删任务手里（实测 AUD TONE 报 "channel is not
- * enabled"）。缓冲与 render_fn 均为 static，无任务局部对象。
- * 返回：正常停流 ESP_OK；超时强删返回 ESP_ERR_INVALID_STATE（同时置 broken，
- * 后续 sloop_hal_audio_start 拒绝启流，需复位设备）。
+ * enabled"）。缓冲、render_fn 与 TCB 均为 static，栈是首次启流分配的常驻 L2MEM 整块，无任务局部对象。
+ * 返回：正常停流 ESP_OK；超时强删或已删任务 1s 内未被 IDLE 回收（静态 TCB 不能复用）
+ * 返回 ESP_ERR_INVALID_STATE（同时置 broken，后续 sloop_hal_audio_start 拒绝启流，需复位设备）。
  * 调用上下文：console REPL（ENG TRIG/ENG AUDIO）是启停的常规上下文；main.c 开机
  * 序列另调一次 start，与 console 首条命令之间只有数十 ms 启动窗口，故 start/stop
  * 未加锁（该窗口内的并发启停未防护；正常时序下 start 在首条命令前已返回）。 */
@@ -204,13 +222,25 @@ esp_err_t sloop_hal_audio_stop(void)
          * 丢失，此路径后 AUD TONE 需复位设备才能恢复 */
         ESP_LOGW(TAG, "stop timeout: force delete, I2S 驱动锁可能丢失");
     }
+    const UBaseType_t tasks_after = uxTaskGetNumberOfTasks() - 1u;
     vTaskDelete(audio_task);   /* 任务此时已自挂起，或（超时兜底）仍在写里 */
     audio_running = false;     /* 任务已删除：正常路径由任务自身清除，强制路径这里补 */
+    /* TCB 是 static 的：必须等 IDLE 把它从待清理表摘掉（任务数减一）才能复用，否则下一次
+     * start 重新初始化它之后，IDLE 的 uxListRemove 摘掉的是**新任务**的状态表项。 */
+    const int64_t reap_deadline = esp_timer_get_time() + (int64_t)AUDIO_STOP_TIMEOUT_MS * 1000;
+    while (!forced && uxTaskGetNumberOfTasks() != tasks_after && esp_timer_get_time() < reap_deadline) {
+        vTaskDelay(1);
+    }
     audio_task = NULL;
     stop_requested = false;
     if (forced) {
         broken = true;
         ESP_LOGE(TAG, "stream force-stopped, codec 保持打开但 I2S 驱动可能已损坏（需复位设备）");
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (uxTaskGetNumberOfTasks() != tasks_after) {
+        broken = true;
+        ESP_LOGE(TAG, "stop: 已删任务未被 IDLE 回收，TCB 不可复用（需复位设备）");
         return ESP_ERR_INVALID_STATE;
     }
     ESP_LOGI(TAG, "stream stopped, codec 保持打开");

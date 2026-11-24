@@ -88,6 +88,42 @@ yield 风暴。**该归因不成立**：阶段 4 实测显示只加 quiesce（�
 
 实现要点（真机教训）：不可直接 `vTaskDelete` 阻塞在 `esp_codec_dev_write` 里的任务——`i2s_channel_write()` 持有驱动 `binary` 信号量，任务被删后信号量不归还，后续写报 `The channel is not enabled`（实测 AUD TONE 失败）。故必须让任务自己走出写路径再删；超时兜底（任务卡死 DMA）保留强删并显式告警 I2S 状态可能损坏。
 
+### 音频任务栈必须整块在内部 L2MEM（2026-11-24，P4-E 收口时定位，原 DI-40）
+
+现象：全量 `ENG SELFTEST` 之后 `ENG AUDIO ON`，console 被饿死 5–400s，`ENG PERF` 显示
+`xrun == render_blocks`、`render_mean_us ≈ 13,000`（预算 5,804）、`duty_mean ≈ 220%`，
+`voices=0`，停流再启流不恢复，硬复位才好；单例自检不触发。P4-D 固件同序列 xrun 0。
+
+定位链（每步都有设备读数）：
+
+- **不是引擎状态**：自检后立刻在 console 任务里跑离线 `ENG PERF`，`us_mean=527`（正常 9%）；
+  同一份 `sloop_core_render` 在音频任务里 13ms。
+- **不是时间**：只停流 165s 不自检，再启流 xrun 0。
+- **是任务上下文**：坏态下 `task_wdt` 的寄存器转储里音频任务的 SP 全在 `0x5010_9xxx`
+  （`lp_ram_seg`，32KB LP SRAM），console 任务的 SP 在 `0x4ff3_xxxx`（L2MEM）；PC 落在
+  `fx_buses`/`track_render`/`mix_units` 的 DSP 热循环（`-Og` 下局部变量都在栈上）。
+- **机制**：P4 上 LP SRAM 以 `SOC_MEMORY_TYPE_RTCRAM` 注册为 `MALLOC_CAP_INTERNAL` 的
+  **低优先级兜底堆**（IDF `heap/port/esp32p4/memory_layout.c`）；全量自检的堆泄漏（DI-26，
+  P4-E 开机 68.9KB → 自检后 28.7KB）之后 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频
+  任务的栈落到 LP SRAM——该落点下栈密集的 DSP 慢 ~24 倍（推断原因是 HP 核访问 LP SRAM 不经
+  L1 cache；机制本身未单独验证，落点→变慢的因果由下面的干预实验证实）。P4-D 开机
+  内部堆多 ~20KB，同样的泄漏后仍放得下，故未暴露。
+- **干预验证**：把栈固定到 L2MEM 之后同一流程 `ENG AUDIO ON` 100ms 返回、xrun 0、
+  `render_mean_us=526`，`stream started … stack=0x4ff2____`。
+
+决策：`sloop_hal_audio_start()` 不再用 `xTaskCreate` 的默认内部堆，而是首次启流时
+`heap_caps_malloc(AUDIO_TASK_STACK, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA)`（LP SRAM 没有
+DMA 能力，必然落在 L2MEM）、复位前常驻复用，配 `xTaskCreateStatic` + 静态 TCB。为什么不把
+栈/TCB 直接放 `.bss`：那会让开机 `internal_min` 恒减 ~4.4KB（实测 65,888 → 61,440，正好压在
+soak 的 60KB 门限上），而稳态（流式）占用两种做法相同。静态 TCB 的代价是 `stop()` 必须等
+IDLE 把已删任务从待清理表摘掉（任务数减一，上限 1s）才能复用，否则下一次 start 重新初始化
+TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不到即置 `broken` 并返回
+`ESP_ERR_INVALID_STATE`（与超时强删同一出口）。堆泄漏本身仍是 DI-26。
+
+回归：`scripts/inject/sys.sh` ⑤（console 全量自检之后）与 ⑧（chip worker 起流之后）都断言
+`ENG PERF` 的 `duty_mean ≤ 18.88%` 且 3s 窗口 xrun 增量 0；启流日志行带 `stack=<地址>`，
+可直接看出落点。
+
 ## 后果
 
 - 成品固件的诊断门（SELFTEST/AUD TONE/离线 PERF/SMOKE）保留，但都需要先停流；脚本化路径已自动化。
