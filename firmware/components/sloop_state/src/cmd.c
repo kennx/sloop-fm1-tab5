@@ -67,6 +67,9 @@ static void cmd_select_track(app_state_t *s, uint32_t track)
      * 可能落在「标题=新轨、参数=旧轨」的一帧里（参数页读 p[]）。同锁内回读，
      * 与其它编辑写路径一样是 state 锁 → 引擎锁的顺序。 */
     state_refresh_params(s);
+    /* SOUND 页眉同理：sound 块是选中轨的引擎/预置名，等下一拍 sync 会有一帧「标题=新轨、
+     * 页眉=旧轨的声音」。 */
+    state_refresh_sound_locked();
 }
 
 static void state_seq_result(app_state_t *s, esp_err_t ret)
@@ -659,6 +662,42 @@ static void cmd_sys(app_state_t *s, edit_cmd_type_t type, uint16_t value)
     if (ret == ESP_OK) state_refresh_sys_locked();
 }
 
+/* ------------------------------------ P4-F Task 5: SOUND 页眉（换引擎/换预置） -------
+ * 边界在状态层判：core 的 set_engine/apply_preset 对越界、鼓轨与冻结都静默丢弃（void），
+ * 不先拒就把「值非法」与「成功」混成同一个结果。预置数按 a 轨自己的引擎取。
+ * 成功 = 一次整份刷新（换声音会改该轨全部参数；sound 块随同重取）。 */
+static void cmd_set_engine(app_state_t *s, uint32_t track, uint16_t engine)
+{
+    if (track >= STATE_SYNTH_TRACKS || engine >= SLOOP_CORE_NENGINES) {
+        s->sound_status = APP_SOUND_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->sound_status = APP_SOUND_STATUS_FROZEN;
+        return;
+    }
+    sloop_core_set_engine(track, engine);
+    s->sound_status = APP_SOUND_STATUS_OK;
+    state_refresh_locked();
+}
+
+static void cmd_set_preset(app_state_t *s, uint32_t track, uint16_t preset)
+{
+    sloop_sound_snapshot_t info;
+    if (track >= STATE_SYNTH_TRACKS || !sloop_core_sound_read((uint8_t)track, &info) ||
+        preset >= info.npresets) {
+        s->sound_status = APP_SOUND_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->sound_status = APP_SOUND_STATUS_FROZEN;
+        return;
+    }
+    sloop_core_apply_preset(track, preset);
+    s->sound_status = APP_SOUND_STATUS_OK;
+    state_refresh_locked();
+}
+
 /* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
  * （命令无效 ≠ 存储失败）。返回码按 app_store_status_t 映射；成功即整份刷新投影
  * （工程/预置载入会改引擎真值）。存储调用在状态锁内、flash 擦写由存储层在引擎锁外
@@ -815,6 +854,8 @@ void state_apply(const edit_cmd_t *cmd)
         s->selftest_failed = 0;
         s->settings_status = APP_SETTINGS_OK;
         break;
+    case CMD_SET_ENGINE: cmd_set_engine(s, cmd->a, cmd->v); break;
+    case CMD_SET_PRESET: cmd_set_preset(s, cmd->a, cmd->v); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

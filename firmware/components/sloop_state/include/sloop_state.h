@@ -99,6 +99,9 @@ typedef enum {
     CMD_SETTINGS_SET, CMD_SYS_BRIGHT, CMD_SYS_VOLUME, CMD_SYS_OUTPUT,
     /* P4-E Task 7：SYSTEM 页自检请求（只排队，绝不在调用上下文跑自检） */
     CMD_SELFTEST_RUN,
+    /* P4-F Task 5：SOUND 页眉的换引擎 / 换预置（上游 PRESETS 页 KNOB 1/2）。返回码映射
+     * app_state_t.sound_status。 */
+    CMD_SET_ENGINE, CMD_SET_PRESET,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -248,6 +251,18 @@ typedef enum {
  *  上述命令的返回码写 settings_status（app_settings_status_t）：ESP_OK → OK、
  *  INVALID_ARG / NOT_SUPPORTED（headphone，本板 speaker-only）→ INVALID、
  *  INVALID_STATE（诊断冻结 / 存储未就绪）→ BLOCKED、其它 → ERROR；失败不改投影。
+ *
+ *  P4-F Task 5：SOUND 页眉（上游 PRESETS 页 KNOB 1/2 的对应物）：
+ *  CMD_SET_ENGINE    a=track(0..2) v=engine(0..NENGINES-1)：分发 sloop_core_set_engine
+ *                    （上游 set_engine_of：引擎默认值 + 预置 0，混音/图案等 param_kept 保留）。
+ *  CMD_SET_PRESET    a=track(0..2) v=preset(0..npresets-1)：分发 sloop_core_apply_preset
+ *                    （预置的整份声音写 p[]）。npresets 按 **a 轨自己**的引擎取
+ *                    （sloop_core_sound_read），不是选中轨的。
+ *  两者：轨号 ≥ 4、目标是鼓轨（track 3：没有引擎与预置，kit 是 P_E0）、值越界 ⇒
+ *  sound_status = INVALID 且**不调引擎**（core 的写入口对这些输入静默丢弃，状态层
+ *  不先拒就无法把原因分开）；诊断冻结 ⇒ FROZEN、不调引擎；成功 ⇒ OK 并整份刷新投影
+ *  （sound 块与 p[] 各一次回读——换声音会改该轨全部参数）。不受走带限制（上游同）。
+ *  鼓轨的 kit 不走这两条命令：SOUND 页的 KIT 行经 CMD_SET_PARAM 写 P_E0。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -312,6 +327,16 @@ typedef enum {
     APP_SETTINGS_ERROR = 4,   /* 其它失败（平台调用失败等） */
 } app_settings_status_t;
 
+/* 最近一次 SOUND 页眉命令（CMD_SET_ENGINE / CMD_SET_PRESET）的结果（app_state_t.sound_status）。
+ * INVALID 兼表「轨/引擎/预置越界」与「鼓轨没有引擎与预置」（都不调引擎）；FROZEN =
+ * 诊断冻结（core 的写入口对冻结静默丢弃，状态层先拒才能把原因分开）。 */
+typedef enum {
+    APP_SOUND_STATUS_IDLE = 0,
+    APP_SOUND_STATUS_OK = 1,      /* 成功（投影已整份刷新） */
+    APP_SOUND_STATUS_INVALID = 2, /* 轨号/引擎/预置越界，或目标是鼓轨 */
+    APP_SOUND_STATUS_FROZEN = 3,  /* 诊断冻结（ENG FREEZE / SELFTEST） */
+} app_sound_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -351,6 +376,11 @@ typedef struct {
     uint8_t selftest_req, selftest_done;
     uint8_t selftest_unavailable; /* main 的 worker 创建失败：请求立即 FAIL，不排队 */
     uint32_t selftest_ran, selftest_failed;
+    /* P4-F Task 5：SOUND 页投影 = **选中轨**的引擎/预置下标、预置数与名字（鼓轨 = kit 名，
+     * drum=1）。init / sync / 整份刷新 / 选轨各读一次；换引擎/换预置命令成功后同拍重取。
+     * UI 只读本块，不读上游 ENGINES[]。 */
+    sloop_sound_snapshot_t sound;
+    uint8_t sound_status; /* 最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -361,7 +391,12 @@ typedef struct {
 
 typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
-    /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致） */
+    /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致）。
+     * APP_PAGE_ANALOG 自 P4-F Task 5 起是 **SOUND** 页（通用引擎页，取代原 ANALOG 与
+     * FM6 两页；页 id 与数值不变）。APP_PAGE_FM6（= 7）只是**空位常量**：独立 FM6 页
+     * 已删除、该 id 不再注册任何页面，保留枚举值是为了让 SAMPLE 及其后的既有页 id
+     * 不移位（工程/脚本/日志里的页号照旧）；它不是 SOUND 的别名——console 的
+     * `UI fm6` / `UI analog` 两个页名才是 SOUND 的别名。 */
     APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
     /* FILE 组（P4-B：Task 10 扩 id、Task 11 组模型、Task 12 注册页面与页签） */
     APP_PAGE_PROJECTS, APP_PAGE_PRESETS,

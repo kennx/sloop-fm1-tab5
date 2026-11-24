@@ -1,5 +1,6 @@
 #include "stub_engine.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "sloop_store.h" /* sloop_store_note_activity：host 单测的空实现（见文件末尾） */
@@ -768,6 +769,59 @@ esp_err_t sloop_hal_settings_set_volume(uint8_t v)
     g_stub.hal_vol = v;
     g_stub.hal_dirty = true;
     return ESP_OK;
+}
+
+/* ---- P4-F Task 5：SOUND 页投影与换音命令替身 ----------------------------------------
+ * 假引擎表：引擎 0/1/2 各 4/2/0 个预置（0 = 「没有预置」的边界），其余 3 个；名字
+     * `ENG<e>` / `PRE<e>.<k>`，鼓轨 kit 名 `KIT<n>`（P_E0 钳到 0..45，上游 DRUM_KIT_DESC）。 */
+static const uint8_t k_stub_npresets[SLOOP_CORE_NENGINES] = {4, 2, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+
+bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
+{
+    g_stub.sound_read_calls++;
+    if (out == NULL) return false;
+    memset(out, 0, sizeof(*out));
+    out->nengines = (uint8_t)SLOOP_CORE_NENGINES;
+    if (track >= 4u) return false;
+    if (track == 3u) {
+        int32_t kit = g_stub.param[3][STUB_ENGINE_P_E0];
+        out->drum = 1u;
+        snprintf(out->kit_name, sizeof(out->kit_name), "KIT%d", kit < 0 ? 0 : kit > 45 ? 45 : kit);
+        return true;
+    }
+    out->engine = (uint8_t)(g_stub.sound_engine[track] % SLOOP_CORE_NENGINES);
+    out->npresets = k_stub_npresets[out->engine];
+    snprintf(out->engine_name, sizeof(out->engine_name), "ENG%u", (unsigned)out->engine);
+    if (out->npresets != 0u) {
+        out->preset = (uint8_t)(g_stub.sound_preset[track] % out->npresets);
+        snprintf(out->preset_name, sizeof(out->preset_name), "PRE%u.%u", (unsigned)out->engine,
+                 (unsigned)out->preset);
+    }
+    return true;
+}
+
+void sloop_core_set_engine(uint32_t track, uint32_t engine)
+{
+    g_stub.set_engine_calls++;
+    g_stub.last_set_engine_track = track;
+    g_stub.last_set_engine = engine;
+    if (track >= STUB_ENGINE_TRACKS || engine >= SLOOP_CORE_NENGINES || g_stub.seq_frozen) return;
+    g_stub.sound_engine[track] = (uint8_t)engine;
+    g_stub.sound_preset[track] = 0;
+    g_stub.param[track][STUB_ENGINE_P_E0] = (int16_t)(engine + 1u);
+    g_stub.snap.trk[track].engine = (uint8_t)engine;
+    g_stub.snap.trk[track].preset = 0;
+}
+
+void sloop_core_apply_preset(uint32_t track, uint32_t preset)
+{
+    g_stub.apply_preset_calls++;
+    g_stub.last_preset_track = track;
+    g_stub.last_preset = preset;
+    if (track >= STUB_ENGINE_TRACKS || g_stub.seq_frozen) return;
+    g_stub.sound_preset[track] = (uint8_t)preset;
+    g_stub.param[track][STUB_ENGINE_P_E0 + 1u] = (int16_t)(preset + 1u);
+    g_stub.snap.trk[track].preset = (uint8_t)preset;
 }
 
 /* speaker-only（R16）：非 speaker 回 NOT_SUPPORTED 且状态不变；speaker 是开机态，

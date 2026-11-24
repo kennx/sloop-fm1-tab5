@@ -1106,6 +1106,9 @@ static void case_page_ids(void)
     check_ll("MOD id", APP_PAGE_MOD, 15);
     check_ll("SCALE id", APP_PAGE_SCALE, 16);
     check_ll("VOICE id", APP_PAGE_VOICE, 17);
+    check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
+    check_ll("FM6 页 id 保留为空位（不注册；既有 id 不移位）", APP_PAGE_FM6, 7);
+    check_ll("APP_PAGE_FM6 不是任何已注册页（≠ SOUND）", APP_PAGE_FM6 != APP_PAGE_ANALOG, 1);
     state_set_page(APP_PAGE_SONG);
     state_get_copy(&s);
     check_ll("新页可设", s.page, APP_PAGE_SONG);
@@ -2145,6 +2148,174 @@ static void case_selftest_worker_unavailable_fails_fast(void)
     check_ll("恢复后清不可用失败结果", s.selftest_done, 0);
 }
 
+/* ---------------- P4-F Task 5：SOUND 页眉（ENGINE / PRESET）与 sound 投影 ---------------- */
+
+/* ① CMD_SET_ENGINE：合法 → 引擎入口一次 (a=轨, v=引擎)、预置回 0、sound 投影与 p[] 同拍
+ * 刷新（各一次回读）；越界引擎 / 鼓轨 / 越界轨 → INVALID，冻结 → FROZEN，都不调引擎、
+ * 投影不动。对**非选中轨**下发时投影仍是选中轨的声音（投影恒为选中轨）。 */
+static void case_set_engine(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_ENGINE, 0, 0, 5);
+    check_ll("换引擎调用一次", g_stub.set_engine_calls, 1);
+    check_ll("换引擎透传轨", g_stub.last_set_engine_track, 0);
+    check_ll("换引擎透传引擎", g_stub.last_set_engine, 5);
+    state_get_copy(&s);
+    check_ll("换引擎 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("投影 engine", s.sound.engine, 5);
+    check_ll("投影 engine_name", strcmp(s.sound.engine_name, "ENG5") == 0, 1);
+    check_ll("投影 nengines", s.sound.nengines, SLOOP_CORE_NENGINES);
+    check_ll("换引擎预置回 0", s.sound.preset, 0);
+    check_ll("投影 npresets", s.sound.npresets, 3);
+    check_ll("p[] 同拍刷新（引擎槽）", s.p[SLOOP_CORE_P_COUNT - 8u], 6);
+
+    /* 成功 = 一次整份刷新：参数与 sound 各回读一次（每命令一次，不重复） */
+    uint32_t reads = g_stub.read_params_calls, sreads = g_stub.sound_read_calls;
+    apply(CMD_SET_ENGINE, 2, 0, 3);
+    check_ll("非选中轨换引擎", g_stub.set_engine_calls, 2);
+    check_ll("成功后参数回读一次", g_stub.read_params_calls - reads, 1);
+    check_ll("成功后 sound 回读一次", g_stub.sound_read_calls - sreads, 1);
+    state_get_copy(&s);
+    check_ll("投影恒为选中轨（engine 不变）", s.sound.engine, 5);
+
+    uint32_t calls = g_stub.set_engine_calls;
+    apply(CMD_SET_ENGINE, 0, 0, SLOOP_CORE_NENGINES);
+    state_get_copy(&s);
+    check_ll("引擎越界不调引擎", g_stub.set_engine_calls, calls);
+    check_ll("引擎越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 0, 0, 0xFFFFu);
+    state_get_copy(&s);
+    check_ll("引擎 0xFFFF → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 3, 0, 1);
+    state_get_copy(&s);
+    check_ll("鼓轨换引擎 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 4, 0, 1);
+    state_get_copy(&s);
+    check_ll("轨号越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("四条拒绝都不调引擎", g_stub.set_engine_calls, calls);
+    check_ll("拒绝后投影不动", s.sound.engine, 5);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("冻结 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结不调引擎", g_stub.set_engine_calls, calls);
+    g_stub.seq_frozen = false;
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("解冻后同一命令成功", s.sound_status, APP_SOUND_STATUS_OK);
+}
+
+/* ② CMD_SET_PRESET：合法 → apply_preset 一次；preset ≥ **该轨引擎**的 npresets → INVALID
+ * 不调引擎（越界判定按 a 轨自己的引擎，不是选中轨的）；鼓轨/越界轨 → INVALID；
+ * 冻结 → FROZEN；npresets == 0 的引擎任何预置都越界。 */
+static void case_set_preset(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_ENGINE, 0, 0, 1); /* 引擎 1：2 个预置 */
+    apply(CMD_SET_PRESET, 0, 0, 1);
+    check_ll("换预置调用一次", g_stub.apply_preset_calls, 1);
+    check_ll("换预置透传轨", g_stub.last_preset_track, 0);
+    check_ll("换预置透传预置", g_stub.last_preset, 1);
+    state_get_copy(&s);
+    check_ll("换预置 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("投影 preset", s.sound.preset, 1);
+    check_ll("投影 preset_name", strcmp(s.sound.preset_name, "PRE1.1") == 0, 1);
+    check_ll("p[] 同拍刷新（预置写值）", s.p[SLOOP_CORE_P_COUNT - 7u], 2);
+
+    uint32_t calls = g_stub.apply_preset_calls;
+    apply(CMD_SET_PRESET, 0, 0, 2);
+    state_get_copy(&s);
+    check_ll("preset == npresets 不调引擎", g_stub.apply_preset_calls, calls);
+    check_ll("preset == npresets → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_PRESET, 0, 0, 0xFFFFu);
+    state_get_copy(&s);
+    check_ll("preset 0xFFFF → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("拒绝后投影不动", s.sound.preset, 1);
+
+    /* 越界判定按 a 轨自己的引擎：轨 1 = 引擎 0（4 个预置，选中轨是引擎 1 的 2 个） */
+    apply(CMD_SET_PRESET, 1, 0, 3);
+    state_get_copy(&s);
+    check_ll("别的轨：preset 3 < 该轨 npresets 4 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("别的轨换预置调用", g_stub.apply_preset_calls, calls + 1);
+    apply(CMD_SET_PRESET, 1, 0, 4);
+    state_get_copy(&s);
+    check_ll("别的轨：preset 4 ≥ npresets 4 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("投影恒为选中轨（preset 不变）", s.sound.preset, 1);
+
+    calls = g_stub.apply_preset_calls;
+    apply(CMD_SET_PRESET, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨换预置 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_PRESET, 4, 0, 0);
+    state_get_copy(&s);
+    check_ll("轨号越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("两条拒绝都不调引擎", g_stub.apply_preset_calls, calls);
+
+    /* npresets == 0 的引擎：预置 0 也越界 */
+    apply(CMD_SET_ENGINE, 2, 0, 2);
+    apply(CMD_SET_PRESET, 2, 0, 0);
+    state_get_copy(&s);
+    check_ll("无预置引擎：preset 0 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("无预置引擎不调引擎", g_stub.apply_preset_calls, calls);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PRESET, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结不调引擎", g_stub.apply_preset_calls, calls);
+    g_stub.seq_frozen = false;
+}
+
+/* ③ sound 投影：init / sync / 选轨 / 整份刷新各读一次；随选中轨切换（鼓轨 → drum=1 +
+ * kit 名、无引擎/预置）。 */
+static void case_sound_projection(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    check_ll("init 读 sound 一次", g_stub.sound_read_calls, 1);
+
+    /* 引擎侧外部改动（console `ENG TRACK`、工程载入）：下一拍 sync 采纳 */
+    g_stub.sound_engine[1] = 7;
+    g_stub.sound_preset[1] = 2;
+    uint32_t reads = g_stub.sound_read_calls;
+    state_sync_from_engine();
+    check_ll("sync 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("sync 后仍是选中轨（轨 0）的引擎", s.sound.engine, 0);
+
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_TRACK, 1, 0, 0);
+    check_ll("选轨读 sound 一次（不等下一拍 sync）", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("选轨后 engine", s.sound.engine, 7);
+    check_ll("选轨后 preset", s.sound.preset, 2);
+    check_ll("选轨后 preset_name", strcmp(s.sound.preset_name, "PRE7.2") == 0, 1);
+    check_ll("选轨后非鼓轨", s.sound.drum, 0);
+
+    g_stub.param[3][SLOOP_CORE_P_COUNT - 8u] = 12;
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨 drum=1", s.sound.drum, 1);
+    check_ll("鼓轨 kit 名", strcmp(s.sound.kit_name, "KIT12") == 0, 1);
+    check_ll("鼓轨 engine_name 空", s.sound.engine_name[0], 0);
+    check_ll("鼓轨 preset_name 空", s.sound.preset_name[0], 0);
+
+    /* 存储命令成功后的整份刷新同样带 sound（工程载入会换引擎/预置） */
+    g_stub.sound_preset[3] = 0;
+    g_stub.sound_engine[3] = 0;
+    reads = g_stub.sound_read_calls;
+    apply(CMD_PROJECT_SAVE, 0, 0, 0);
+    check_ll("整份刷新读 sound 一次", g_stub.sound_read_calls - reads, 1);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -2184,6 +2355,9 @@ int main(void)
     run("REC CONFIG 成功置 settings dirty", case_rec_config_marks_settings_dirty);
     run("SELFTEST_RUN 请求深度 1 与结果投影", case_selftest_run_sets_request);
     run("SELFTEST worker 不可用立即 FAIL", case_selftest_worker_unavailable_fails_fast);
+    run("SET_ENGINE：换引擎调用/同拍投影/越界·鼓轨·冻结不调引擎", case_set_engine);
+    run("SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎", case_set_preset);
+    run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

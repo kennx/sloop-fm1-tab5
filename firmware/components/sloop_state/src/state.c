@@ -99,6 +99,11 @@ void state_refresh_settings_locked(void)
     memcpy(s_state.settings.theme_name, st->theme_name, sizeof s_state.settings.theme_name);
 }
 
+void state_refresh_sound_locked(void)
+{
+    sloop_core_sound_read(s_state.core.selected_track, &s_state.sound);
+}
+
 void state_refresh_sys_locked(void)
 {
     s_state.sys.bright = sloop_hal_settings_bright();
@@ -131,6 +136,8 @@ void state_init(void)
     /* settings 生效副本 / 平台设置投影（开机默认或上一次落盘的值） */
     state_refresh_settings_locked();
     state_refresh_sys_locked();
+    /* SOUND 页投影（选中轨的引擎/预置/kit 名） */
+    state_refresh_sound_locked();
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -192,6 +199,8 @@ void state_sync_from_engine(void)
         bool dsu_dirty = sloop_store_dsu_dirty();
         sloop_fm6_patch_snapshot_t fm6_snap;
         esp_err_t fm6_ret = sloop_core_fm6_patch(snap.selected_track, &fm6_snap);
+        sloop_sound_snapshot_t sound;
+        sloop_core_sound_read(snap.selected_track, &sound);
 
         state_lock();
         if (s_state.window.window_start == win.window_start &&
@@ -216,6 +225,7 @@ void state_sync_from_engine(void)
             } else {
                 memset(&s_state.fm6p, 0, sizeof s_state.fm6p);
             }
+            s_state.sound = sound;
             /* 录音快照只在写回成功的这一拍读一次：take 结果是一次性的（读即消费），
              * 重试循环里读会把结果丢在第一次 attempt 上。 */
             sloop_seq_rec_read(&s_state.rec);
@@ -315,4 +325,5 @@ void state_refresh_locked(void)
     sloop_seq_song_read(&s_state.song);
     state_refresh_settings_locked();
     state_refresh_sys_locked();
+    state_refresh_sound_locked();
 }
