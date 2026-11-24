@@ -104,7 +104,7 @@ yield 风暴。**该归因不成立**：阶段 4 实测显示只加 quiesce（�
   `fx_buses`/`track_render`/`mix_units` 的 DSP 热循环（`-Og` 下局部变量都在栈上）。
 - **机制**：P4 上 LP SRAM 以 `SOC_MEMORY_TYPE_RTCRAM` 注册为 `MALLOC_CAP_INTERNAL` 的
   **低优先级兜底堆**（IDF `heap/port/esp32p4/memory_layout.c`）；全量自检的堆泄漏（DI-26，
-  P4-E 开机 68.9KB → 自检后 28.7KB）之后 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频
+  P4-E 开机 68.9KB → 自检后 28.7KB；（DI-26 已于 2026-11-24 P4-F Task 2 修复：host 替身 `cpu1_host` 的懒初始化落在自检快照窗口内、每 job 回滚重建 mutex/cond，现改为快照前预初始化；`scripts/selftest-heap.py` 守住））之后 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频
   任务的栈落到 LP SRAM——该落点下栈密集的 DSP 慢 ~24 倍（推断原因是 HP 核访问 LP SRAM 不经
   L1 cache；机制本身未单独验证，落点→变慢的因果由下面的干预实验证实）。P4-D 开机
   内部堆多 ~20KB，同样的泄漏后仍放得下，故未暴露。
@@ -118,7 +118,10 @@ DMA 能力，必然落在 L2MEM）、复位前常驻复用，配 `xTaskCreateSta
 soak 的 60KB 门限上），而稳态（流式）占用两种做法相同。静态 TCB 的代价是 `stop()` 必须等
 IDLE 把已删任务从待清理表摘掉（任务数减一，上限 1s）才能复用，否则下一次 start 重新初始化
 TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不到即置 `broken` 并返回
-`ESP_ERR_INVALID_STATE`（与超时强删同一出口）。堆泄漏本身仍是 DI-26。
+`ESP_ERR_INVALID_STATE`（与超时强删同一出口）。堆泄漏本身当时仍是 DI-26（已于 2026-11-24 P4-F Task 2 修复，回归门禁 `scripts/selftest-heap.py`）。
+**由此定下的规则**：selftest TU（`selftest.c` 及其 include 的上游/host 替身）里任何带堆的懒初始化状态
+（RTOS 对象、libc 缓存、「已初始化」标志 + 句柄）都必须在 `selftest_snapshot_init()` **之前**完成——
+落在快照窗口里的「未初始化」标志会被 `selftest_restore()` 逐 job 回滚，变成每 job 一次的泄漏。
 
 回归：`scripts/inject/sys.sh` ⑤（console 全量自检之后）与 ⑧（chip worker 起流之后）都断言
 `ENG PERF` 的 `duty_mean ≤ 18.88%` 且 3s 窗口 xrun 增量 0；启流日志行带 `stack=<地址>`，

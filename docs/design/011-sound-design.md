@@ -172,6 +172,6 @@ ADR-005 §5.1、ADR-008 §3 的表一致；后续改页面必须重跑同一门�
 - 走带中拒绝上传是唯一的显式行为差异，已记录并可被 `SMP ERR playing` 断言。
 - 遗留（见 `docs/deferred-issues.md`）：SAMPLE 名称/DSYN kit 名/FM6 patch 名的屏上文本
   输入（DI-37）、采样 WAV/SD 导入 UI（DI-34）、DSYN-only 修改的延迟写策略（DI-38）、
-  FM6 live patch 掉电语义（DI-36）、自检堆泄漏（DI-26，P4-F 前处理）。
+  FM6 live patch 掉电语义（DI-36）、自检堆泄漏（DI-26，已于 P4-F Task 2 修复）。
 - 人耳听感（DSYN 试听、采样出声、FM6 patch 音色）与物理触摸手感仍是外部门禁，不由机器
   证据冒充。
