@@ -1185,6 +1185,11 @@ void sloop_ui_system_clear_action(void)
     page_system_clear_action();
 }
 
+esp_err_t sloop_ui_system_selftest_arm(void)
+{
+    return page_system_selftest_arm();
+}
+
 uint8_t sloop_ui_group_count(void)
 {
     return GROUP_COUNT;

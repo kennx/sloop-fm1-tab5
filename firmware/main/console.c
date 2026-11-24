@@ -9,7 +9,8 @@
  *    AUD OUT [speaker|headphone] 是平台设置的音量/输出路由，经 HAL，P4-E Task 3）。
  *  - DISP：DISP BRIGHT [0..100] 背光亮度（经 HAL：钳位 + 立即生效 + NVS 延迟提交）。
  *  - KBD：KBD RGB [off|low|mid|high] 键盘 RGB 档位（白色，经 HAL → tab5_keyboard）。
- *  - SYS：SYS NVS ERASE 删除平台设置三键（诊断；下一次 boot 落默认）。
+ *  - SYS：SYS NVS ERASE 删除平台设置三键（诊断；下一次 boot 落默认）；SYS SELFTEST ARM 清
+ *    SYSTEM 页 SELFTEST chip 的每 boot 一次标记（R25 诊断注入，让复位后的 chip 重走 worker）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
  *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
@@ -478,7 +479,9 @@ static int kbd_command(int argc, char **argv)
     return 1;
 }
 
-/* SYS NVS ERASE：删除平台设置三键（诊断；RAM 值与硬件不变，下一次 boot 落默认） */
+/* SYS NVS ERASE：删除平台设置三键（诊断；RAM 值与硬件不变，下一次 boot 落默认）。
+ * SYS SELFTEST ARM：清 SYSTEM 页 SELFTEST chip 的每 boot 一次标记与结果缓存（R25 诊断注入；
+ * DI-26：同一 boot 内每跑一次全量自检泄漏 ~40KB 内部堆，本命令给复位后的重跑用）。 */
 static int sys_command(int argc, char **argv)
 {
     if (argc == 3 && strcasecmp(argv[1], "nvs") == 0 && strcasecmp(argv[2], "erase") == 0) {
@@ -486,7 +489,16 @@ static int sys_command(int argc, char **argv)
         printf("SYS NVS ERASED\n");
         return 0;
     }
-    printf("用法: SYS NVS ERASE\n");
+    if (argc == 3 && strcasecmp(argv[1], "selftest") == 0 && strcasecmp(argv[2], "arm") == 0) {
+        esp_err_t err = sloop_ui_system_selftest_arm();
+        if (err != ESP_OK) {
+            printf("SYS SELFTEST ARM ERR busy\n");
+            return 1;
+        }
+        printf("SYS SELFTEST ARMED\n");
+        return 0;
+    }
+    printf("用法: SYS NVS ERASE | SYS SELFTEST ARM\n");
     return 1;
 }
 
@@ -3859,7 +3871,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t sys_cmd = {
         .command = "SYS",
-        .help = "平台诊断：SYS NVS ERASE 删除平台设置三键（亮度/音量/路由，下一次 boot 落默认）",
+        .help = "平台诊断：SYS NVS ERASE 删除平台设置三键（亮度/音量/路由，下一次 boot 落默认）；"
+               "SYS SELFTEST ARM 清自检 chip 的一次性标记",
         .hint = "NVS ERASE",
         .func = &sys_command,
     };

@@ -545,3 +545,19 @@ void page_system_clear_action(void)
     s_status_text[0] = '\0';
     portEXIT_CRITICAL(&s_mux);
 }
+
+/* 诊断注入（console `SYS SELFTEST ARM`，R25）：清「本 boot 已跑过」标记与 `.noinit` 的
+ * 结果缓存，让 esptool 硬复位之后（标记按 R8 设计跨复位存活）的下一次 chip 走完整 worker
+ * 路径。自检进行中拒绝（ESP_ERR_INVALID_STATE）。同一 boot 内已跑过一次时状态层仍留着上次的
+ * 结果（selftest_done=1），状态行会继续显示它直到下一次 RUNNING——本命令只管 chip 的门。 */
+esp_err_t page_system_selftest_arm(void)
+{
+    app_state_t st;
+    state_get_copy(&st);
+    if (st.selftest_req || (s_act == UI_SYS_ACT_SELFTEST && !st.selftest_done)) return ESP_ERR_INVALID_STATE;
+    s_selftest_ran = 0;
+    s_selftest_magic = 0;
+    s_selftest_last_magic = 0;
+    page_system_clear_action();
+    return ESP_OK;
+}

@@ -470,6 +470,10 @@ bool sloop_ui_system_page_active(void);
 esp_err_t sloop_ui_system_key(uint32_t code);
 const char *sloop_ui_system_status_text(void);
 void sloop_ui_system_clear_action(void);
+/* 诊断注入（console `SYS SELFTEST ARM`）：清 SYSTEM 页 SELFTEST chip 的「本 boot 已跑过」标记
+ * 与结果缓存（两者都在 .noinit，跨 esptool 硬复位存活），下一次 chip 走完整 worker 路径。
+ * 自检进行中返回 ESP_ERR_INVALID_STATE。不碰 LVGL。 */
+esp_err_t sloop_ui_system_selftest_arm(void);
 
 /* 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`，ADR-008 §8.2/§8.5）：
  * 向**当前**参数页第 slot 槽旋钮派发合成的 PRESSED/PRESSING 事件（dx/dy 相对旋钮

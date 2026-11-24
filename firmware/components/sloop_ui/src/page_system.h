@@ -16,3 +16,4 @@ bool page_system_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 esp_err_t page_system_key(uint32_t code);
 const char *page_system_status_text(void);
 void page_system_clear_action(void);
+esp_err_t page_system_selftest_arm(void);
