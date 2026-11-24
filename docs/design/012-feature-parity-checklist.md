@@ -24,37 +24,42 @@
 > P4-F Task 4（2026-11-24）打勾：ENV/ENV DEST/LFO×3/SEL×2/ARP×2/VOICE×2/PATTERN/FILTER 八行
 > 由 `params.sh` ⑩ 给出机器证据（每 chip 逐槽 label == `ENG DESC live`、首槽写后回读、鼓轨
 > 逐槽规则、FILTER 条件 chip）；槽表本身由 `scripts/knob-test.sh` 对照本节 §3 钉住。
+>
+> P4-F Task 5（2026-11-24）打勾：SOUND 页（12 引擎的 edit[0..7]、页眉 ENGINE/PRESET、鼓轨
+> KIT 行）由 `params.sh` 的 SOUND 段给出机器证据（12 引擎轮换 8 槽 label == `ENG DESC live`、
+> 页眉 ± 经 TAP 的回读、KIT 行写 `P_E0`）；GLOBAL/FX 的 chip（REV/DRUMS/TEXTURE、SLICER/
+> INSERT×2）由 `params.sh` ⑩ 给出证据（逐槽 label == 描述符、首槽写后回读、鼓轨逐槽）。
 
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
 | ENV（ATK/DEC/SUS/REL） | GLO? 否：ENV 页 | MOD·ENV | ✅ | `params.sh` ⑩（`knob-test.sh` 槽表） | P4-F Task 4 |
 | ENV DEST（ED_FLT/ED_PIT/ED_SHP/ESYNC） | ENV DEST 页 | MOD·ENV DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | LFO / LFO 2 / LFO DEST | 三页 | MOD·LFO / LFO 2 / LFO DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
-| FX（DIST/CHOR/DLY/REV）+ 轨道滤波 TFLT | FX / FILTER 页 | FX 页 8 槽（另加 LVL/PAN/ATK） | ✅ | `params.sh` | 保留 FX 页的扩展 8 槽（兼容） |
-| SLICER（SLCR/SLPAT/SLRATE/SLDEPTH） | SLICER 页 | — | ○ | — | Task 5 FX·SLICER |
-| INSERT / INSERT 2（ITYPE/IA/IB/IC；IMIX） | 两页 | — | ○ | — | Task 5 FX·INSERT/INSERT 2（标签随 ITYPE，Task 3 镜像） |
+| FX（DIST/CHOR/DLY/REV）+ 轨道滤波 TFLT | FX / FILTER 页 | FX 页的 `FX` chip（8 槽，另加 LVL/PAN/ATK） | ✅ | `params.sh` | 保留 FX 页的扩展 8 槽（兼容）；P4-F Task 5 起是 chip 页 |
+| SLICER（SLCR/SLPAT/SLRATE/SLDEPTH） | SLICER 页 | FX·SLICER | ✅ | `params.sh` ⑩（`knob-test.sh` 槽表） | P4-F Task 5 |
+| INSERT / INSERT 2（ITYPE/IA/IB/IC；IMIX） | 两页 | FX·INSERT / INSERT 2 | ✅ | `params.sh` ⑩（TYPE=5 ⇒ BITS/RATE/LPF） | P4-F Task 5（标签经 Task 3 的 live 描述符） |
 | SEL / SEL 2（ROOT/SCALE/QUANT/CHORD；TRANS/STRUM/VLEAD） | SEL 页 | SCALE·SEL / SEL 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | ARP / ARP 2（8 参数） | ARP 页 | SCALE·ARP / ARP 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
-| EDIT 1/2 — ANALOG / FM6 / SAMPLE 引擎 | EDIT 页 | ANALOG/FM6/SAMPLE 页 | ✅ | `params.sh`、`synth.sh` | — |
-| EDIT 1/2 — 其余 9 引擎（DIGITAL/DRAWBAR/FORMANT/GRAIN/LOFI/NOISE/PHASE/PHYS/SLICE/TRIO） | EDIT 页 | 仅 `PARAM` | ○ | — | Task 5 SOUND 页（标签经引擎 `desc` 钩子） |
+| EDIT 1/2 — ANALOG / FM6 / SAMPLE 引擎 | EDIT 页 | SOUND / SAMPLE 页（FM6 的 bank 行在 SOUND 底部） | ✅ | `params.sh`、`synth.sh`、`store.sh` ⓰ | P4-F Task 5：ANALOG+FM6 两页并为 SOUND |
+| EDIT 1/2 — 其余 9 引擎（DIGITAL/DRAWBAR/FORMANT/GRAIN/LOFI/NOISE/PHASE/PHYS/SLICE/TRIO） | EDIT 页 | SOUND 页（标签经引擎 `desc` 钩子） | ✅ | `params.sh`（12 引擎轮换 8 槽 label == `ENG DESC live`） | P4-F Task 5（SLICE 引擎不在本固件的 12 个里，见 core.h `FELUCCA_SLICE`） |
 | FILTER TYPE（ANALOG 专属；FTYPE+E4/E5/E7） | EDIT>FILTER 页 | VOICE·FILTER（条件 chip） | ✅ | `params.sh` ⑩（DIGITAL 隐藏/ANALOG 出现） | P4-F Task 4 |
 | VOICE / VOICE 2（VOICE/GLIDE/GLMODE/PRIO；ALLOC/DETUNE/PAN/MUTE） | 两页 | VOICE·VOICE / VOICE 2 | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | PATTERN（SLEN/SDIV/SSWING/SGATE） | PATTERN 页 | VOICE·PATTERN | ✅ | `params.sh` ⑩ | P4-F Task 4（TRANSPORT 的 LEN 工具保留） |
-| 鼓轨 kit 选择（`P_E0`，上游 DRUMS 屏 KNOB 1） | DRUMS 屏 | DSYN 的 KIT chip 只选**编辑**哪个 kit，不写鼓轨；仅 `PARAM 0` | ○ | — | Task 5：SOUND 在鼓轨上显示 kit 选择行（DSYN kit 编辑不变） |
+| 鼓轨 kit 选择（`P_E0`，上游 DRUMS 屏 KNOB 1） | DRUMS 屏 | SOUND 页在鼓轨上的 KIT 行（DSYN kit 编辑不变） | ✅ | `params.sh`（KIT ± 写 `P_E0` 回读） | P4-F Task 5 |
 
 ### 2.2 参数编辑 — 全局族（SC_GLOBAL）
 
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
 | GLOBAL（BPM/SWING/CLOCK/TUNE）+ DLY | GLOBAL/DLY 页 | GLOBAL 页 8 槽 | ✅ | `params.sh`、`transport.sh` | — |
-| REV/CHO（RSIZE/RDAMP/CRATE/CDEPTH）+ MASTER（DUST/DUCK/FILT/ROLL） | REV/CHO、MASTER 页 | 仅 `PARAM GLOBAL` | ○ | — | Task 5 GLOBAL·REV（8 槽） |
-| DRUMS（DRCH/DRLVL/DRREV/DRDLY） | DRUMS 页 | 仅 `PARAM GLOBAL` | ○ | — | Task 5 GLOBAL·DRUMS（DRCH 属 MIDI 通道，联动阶段生效） |
-| TEXTURE / TEXTURE 2（7 参数） | 两页 | 仅 `PARAM GLOBAL` | ○ | — | Task 5 GLOBAL·TEXTURE（7 槽） |
+| REV/CHO（RSIZE/RDAMP/CRATE/CDEPTH）+ MASTER（DUST/DUCK/FILT/ROLL） | REV/CHO、MASTER 页 | GLOBAL·REV | ✅ | `params.sh` ⑩ | P4-F Task 5 |
+| DRUMS（DRCH/DRLVL/DRREV/DRDLY） | DRUMS 页 | GLOBAL·DRUMS | ✅ | `params.sh` ⑩（鼓轨上 DRCH 可编辑） | P4-F Task 5（DRCH 属 MIDI 通道，联动阶段生效） |
+| TEXTURE / TEXTURE 2（7 参数） | 两页 | GLOBAL·TEXTURE | ✅ | `params.sh` ⑩ | P4-F Task 5 |
 | TOOLS（CLEAR SEQ / INIT SOUND / NEW） | TOOLS 页 | — | ○ | — | Task 6（语义见 §4） |
 | SYSTEM（MIDI/SYNC/ROUTE/INFO） | SYSTEM 页 | INFO = SYSTEM 页版本行 | ◐ | `sys.sh` | MIDI/SYNC/ROUTE 非目标（阶段 5） |
 | MIDI / MIDI 2 / MIDI 3 | 三页 | — | 非目标 | — | 阶段 5（DI-1） |
 | 用户预置 32 槽存取（USER 页） | USER 页 | PRESETS 页（SAVE/LOAD/ERASE） | ✅ | `store.sh` | — |
-| **工厂预置选择 + 换引擎**（PRESETS 页 KNOB 1/2） | PRESETS 页 | 仅 console `ENG TRACK`；PRESETS 页无预置/引擎槽 | ○ | — | Task 5：SOUND 页眉 `ENGINE − 名 +` / `PRESET − 名 +`（经状态层新命令） |
+| **工厂预置选择 + 换引擎**（PRESETS 页 KNOB 1/2） | PRESETS 页 | SOUND 页眉 `ENGINE − 名 +` / `PRESET − 名 +`（`CMD_SET_ENGINE`/`CMD_SET_PRESET`） | ✅ | `params.sh`（TAP ± 的回读与名字、`ENG SNAP`）、`state-test.sh` | P4-F Task 5（按名浏览全部预置见 DI-54） |
 | 按名浏览全部工厂预置（列表） | PRESETS 页 | — | ○ | — | DI-54 |
 | 收藏（fav，PRESETS KNOB 4，16 个） | PRESETS 页 | — | ○ | — | DI-44 |
 | SECTION / PROJECT（A–D） | SECTION 页 | PROJECTS 页 + SONG 页 | ✅ | `store.sh`、`song.sh` | — |
@@ -160,7 +165,7 @@
 | 处置 | 项 |
 |---|---|
 | P4-F Task 4 | ENV/ENV DEST/LFO×3、SEL×2、ARP×2、VOICE×2、PATTERN、FILTER(ANALOG) 的参数页 |
-| P4-F Task 5 | SOUND（9 引擎 + 页眉 ENGINE/PRESET 选择）、鼓轨 kit 选择行、SLICER/INSERT×2、REV/MASTER、DRUMS、TEXTURE |
+| P4-F Task 5（2026-11-24 已落地并打勾，见 §2.1/§2.2 的 ✅） | SOUND（12 引擎 + 页眉 ENGINE/PRESET 选择）、鼓轨 kit 选择行、SLICER/INSERT×2、REV/MASTER、DRUMS、TEXTURE |
 | P4-F Task 6 | TOOLS 三动作；TRANSPORT REC 配置 chip（QUANT/MODE/START）；键盘参数锁 lock/unlock 与 fill 条件 |
 | 非目标（阶段 5） | SYSTEM 页的 MIDI/SYNC/ROUTE（清单 §2.2） |
 | 文档化（显式试听等效） | SEQ > DRUM PREVIEW |
