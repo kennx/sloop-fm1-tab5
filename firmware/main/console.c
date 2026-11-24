@@ -1665,7 +1665,7 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|mod|scale|voice> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|mod|scale|voice|tools> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
            "UI FM6P [OP <0..5> | PAGE <0..5>] | UI GLOBAL|FX|MOD|SCALE|VOICE CHIP [<n>] | "
            "UI TOOL [<field=0..7>] | "
@@ -1689,6 +1689,7 @@ static int ui_command(int argc, char **argv)
 static uint32_t s_key_calls;
 static uint64_t s_key_us_sum;
 static uint32_t s_key_us_max;
+static uint32_t s_key_step_seq; /* 上一次已回显的 STEP 步工具结果代号（0 = 无） */
 
 static int key_command(int argc, char **argv)
 {
@@ -1728,6 +1729,17 @@ static int key_command(int argc, char **argv)
             s_key_calls++;
             s_key_us_sum += us;
             if (us > s_key_us_max) s_key_us_max = us;
+            /* EDIT 层步工具（Aa+k / Aa+l / Aa+9，STEP 页）：有新结果时在行尾追加结果文本
+             * （与屏幕状态行同源：sloop_ui_step_tool_text）。 */
+            uint32_t step_seq = 0;
+            const char *step_txt = sloop_ui_step_tool_text(&step_seq);
+            if (step_txt != NULL && step_seq != s_key_step_seq) {
+                s_key_step_seq = step_seq;
+                printf("KEY 0x%02lX %s %s elapsed_us=%u step=\"%s\"\n", code,
+                       down ? "down" : "up", tab5_kb_key_name((uint8_t)code), (unsigned)us,
+                       step_txt);
+                return 0;
+            }
             printf("KEY 0x%02lX %s %s elapsed_us=%u\n", code, down ? "down" : "up",
                    tab5_kb_key_name((uint8_t)code), (unsigned)us);
             return 0;
@@ -1760,6 +1772,9 @@ static const char *transport_act_cmd(uint8_t act)
 {
     switch (act) {
     case SLOOP_TR_REC: return "CMD_REC_TOGGLE";
+    case SLOOP_TR_REC_QNT:
+    case SLOOP_TR_REC_MODE:
+    case SLOOP_TR_REC_START: return "CMD_REC_CONFIG";
     case SLOOP_TR_FILL_HOLD: return "CMD_FILL_CONTROL hold";
     case SLOOP_TR_FILL_NEXT: return "CMD_FILL_CONTROL next";
     case SLOOP_TR_LVL_DN:
@@ -1796,6 +1811,9 @@ static const char *transport_act_op(uint8_t act)
     case SLOOP_TR_SPAN_DN:
     case SLOOP_TR_SPAN_UP: return "span";
     case SLOOP_TR_SLIDE: return "slide";
+    case SLOOP_TR_REC_QNT: return "quant";
+    case SLOOP_TR_REC_MODE: return "mode";
+    case SLOOP_TR_REC_START: return "start";
     case SLOOP_TR_ROT_DN:
     case SLOOP_TR_ROT_UP: return "rotate";
     case SLOOP_TR_LEN_X2:
@@ -2135,6 +2153,24 @@ static int tap_command(int argc, char **argv)
         } else {
             printf("TAP %ld,%ld page=%u -> SONG %s%s value=%d status=\"%s\"\n", x, y, page, name,
                    where, (int)r.v, text != NULL ? text : "");
+        }
+        break;
+    }
+    case SLOOP_TAP_TOOLS: {
+        /* TOOLS 页三张 chip（P4-F Task 6）：v=1 = 本次点按只进入/保持**预备态**（未执行，
+         * 1.5s 内再点同一 chip 才执行）；v=0 = 已执行（一条 CMD_TOOLS）。status 与屏幕状态行
+         * 同源（ui_tools_status_text）：`AGAIN TO CONFIRM` / `PATTERN CLEARED` /
+         * `SOUND INIT` / `NEW LOOP, A-D KEPT` / `STOP THE SONG FIRST` /
+         * `DRUM TRACK: NO SOUND` / `FROZEN`。 */
+        static const char *const acts[] = {"CLRSEQ", "INITSOUND", "NEWPRJ"};
+        const char *text = sloop_ui_tools_status_text();
+        const char *name = r.a < 3u ? acts[r.a] : "?";
+        if (r.v != 0u) {
+            printf("TAP %ld,%ld page=%u -> TOOLS %s armed status=\"%s\"\n", x, y, page, name,
+                   text != NULL ? text : "?");
+        } else {
+            printf("TAP %ld,%ld page=%u -> TOOLS %s value=%u status=\"%s\"\n", x, y, page, name,
+                   (unsigned)r.a, text != NULL ? text : "?");
         }
         break;
     }
