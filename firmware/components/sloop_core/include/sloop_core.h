@@ -205,6 +205,29 @@ bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, slo
  * 未命中返回 false 且不改 out。`out` 的指针指向上游静态数据，调用方不得释放/改写。 */
 bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out);
 
+/* ---- SOUND 页投影（P4-F Task 5）：选中轨的引擎 / 预置 / 名字 -------------------------
+ * UI 不读上游全局：ENGINE/PRESET 页眉的文案、± 的环绕范围与 CMD_SET_PRESET 的越界判定
+ * 都读这份投影。引擎取 t->eng_req（与 sloop_core_desc_track_live 的引擎槽同一字段），
+ * 预设下标按上游口径 `t->preset % npresets`；名字是上游 ENGINES[]/presets[]/DRUM_KIT_NAMES
+ * 的静态串的拷贝（engine_name ≥ 12、preset_name/kit_name ≥ 16 字节放得下上游最长的名字
+ * 「DIGITAL」7 字符 / 「PLUGG BASS」10 字符 / 「ACOUSTIC」8 字符；scripts/synth-test.sh
+ * 钉住不截断）。鼓轨没有引擎与预置：drum=1、engine/npresets 为 0、kit_name = P_E0 钳位后
+ * 的 kit 名（上游 drum_kit() 同法）。不取引擎锁、冻结态同样可读（与
+ * sloop_core_desc_track_live 同口径：只读 trk[] 的整数字段与静态表）。越界 track 或
+ * out == NULL 返回 false 且 *out 清零（若非 NULL）。 */
+#define SLOOP_ENGINE_NAME 12u
+#define SLOOP_PRESET_NAME 16u
+typedef struct {
+    uint8_t engine, preset; /* 选中合成轨的引擎 / 预置下标（鼓轨为 0） */
+    uint8_t nengines;       /* SLOOP_CORE_NENGINES */
+    uint8_t npresets;       /* 该引擎的工厂预置数（鼓轨 0） */
+    uint8_t drum;           /* 1 = 鼓轨（没有引擎/预置；kit 名在 kit_name） */
+    char engine_name[SLOOP_ENGINE_NAME];
+    char preset_name[SLOOP_PRESET_NAME];
+    char kit_name[SLOOP_PRESET_NAME]; /* 鼓轨的 kit 名；合成轨为空串 */
+} sloop_sound_snapshot_t;
+bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out);
+
 /* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
  * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。
  * 编辑面把它拆成 **24 个虚拟字段**（顺序固定，编号即协议）：`flt` 拆成 FLT_MODE

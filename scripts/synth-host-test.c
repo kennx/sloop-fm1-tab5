@@ -1221,12 +1221,84 @@ static void test_desc_live(void)
     trk[0].p[P_E1] = save_e1;
 }
 
+/* ---------------------------------------------------- SOUND 页投影（P4-F Task 5）---
+ * sloop_core_sound_read：选中轨的引擎/预置/名字（UI 不读上游全局）。期望 = 上游表本身
+ * （ENGINES[e]->name / npresets / presets[k].name 直接比对，不经被测函数的输出）；预设下标
+ * 按上游口径 `% npresets`；鼓轨 = kit 名（drums.c 的 DRUM_KIT_NAMES：0 ACOUSTIC、5 808、
+ * 末项 SYN4），值按 drum_kit() 同法钳到 0..DRUM_KITS-1。 */
+static void test_sound_read(void)
+{
+    sloop_sound_snapshot_t sn;
+    uint8_t save_eng = trk[0].eng_req, save_preset = trk[0].preset;
+    int16_t save_kit = trk[TRK_DRUM].p[P_E0];
+    uint32_t e, k, i;
+    int ok;
+
+    /* 全部引擎 × 全部预置：名字逐字节等于上游静态串（不截断）、npresets/nengines 如实 */
+    ok = 1;
+    for (e = 0; e < NENGINES; e++) {
+        const engine_t *E = ENGINES[e];
+        trk[0].eng_req = (uint8_t)e;
+        for (k = 0; k < E->npresets; k++) {
+            trk[0].preset = (uint8_t)k;
+            memset(&sn, 0, sizeof(sn));
+            ok = ok && sloop_core_sound_read(0, &sn);
+            ok = ok && sn.drum == 0u && sn.engine == e && sn.preset == k &&
+                 sn.nengines == NENGINES && sn.npresets == E->npresets && sn.kit_name[0] == '\0';
+            ok = ok && strcmp(sn.engine_name, E->name) == 0;
+            ok = ok && strcmp(sn.preset_name, E->presets[k].name) == 0;
+        }
+    }
+    check(ok, "sound read: every engine/preset name equals the upstream table (no truncation)");
+    check(strlen(ENGINES[0]->presets[0].name) == 8 && strcmp(ENGINES[0]->presets[0].name, "808 BOOM") == 0,
+          "sound read: upstream anchor (ANALOG preset 0 = 808 BOOM) unchanged");
+
+    /* 预设下标越界：按上游口径取模（ui.c: `t->preset % e->npresets`） */
+    trk[0].eng_req = 1u; /* DIGITAL：22 个预置 */
+    trk[0].preset = 25u;
+    ok = sloop_core_sound_read(0, &sn) && sn.preset == 3u &&
+         strcmp(sn.preset_name, ENGINES[1]->presets[3].name) == 0;
+    trk[0].preset = 255u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.preset == 255u % ENGINES[1]->npresets &&
+         strcmp(sn.preset_name, ENGINES[1]->presets[255u % ENGINES[1]->npresets].name) == 0;
+    check(ok, "sound read: preset index wraps modulo npresets (upstream convention)");
+
+    /* 鼓轨：没有引擎/预置，kit 名按 P_E0 钳位取 DRUM_KIT_NAMES */
+    trk[TRK_DRUM].p[P_E0] = 0;
+    memset(&sn, 0, sizeof(sn));
+    ok = sloop_core_sound_read(TRK_DRUM, &sn) && sn.drum == 1u && sn.engine == 0u &&
+         sn.preset == 0u && sn.npresets == 0u && sn.nengines == NENGINES &&
+         sn.engine_name[0] == '\0' && sn.preset_name[0] == '\0' &&
+         strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    trk[TRK_DRUM].p[P_E0] = 5;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "808") == 0;
+    trk[TRK_DRUM].p[P_E0] = 1000;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "SYN4") == 0;
+    trk[TRK_DRUM].p[P_E0] = -7;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    check(ok, "sound read: drum track reports the kit name (P_E0 clamped), no engine/preset");
+
+    /* 越界 / NULL：返回 false；out 清零（没有可显示的声音）——nengines 是常量，照常给出 */
+    memset(&sn, 0xA5, sizeof(sn));
+    ok = !sloop_core_sound_read(4u, &sn);
+    for (i = 0; i < sizeof(sn); i++)
+        ok = ok && (((const uint8_t *)&sn)[i] == 0u ||
+                    (const uint8_t *)&sn + i == (const uint8_t *)&sn.nengines);
+    ok = ok && sn.nengines == NENGINES && !sloop_core_sound_read(0, NULL);
+    check(ok, "sound read: track >= 4 / out == NULL rejected (out zeroed)");
+
+    trk[0].eng_req = save_eng;
+    trk[0].preset = save_preset;
+    trk[TRK_DRUM].p[P_E0] = save_kit;
+}
+
 int main(void)
 {
     test_dsyn_fields();
     test_fm6_fields();
     test_sample_slot();
     test_desc_live();
+    test_sound_read();
     if (fails) {
         printf("SYNTH HOST TEST FAILED (%d failure%s)\n", fails, fails == 1 ? "" : "s");
         return 1;
