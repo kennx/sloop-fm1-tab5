@@ -278,6 +278,56 @@ void state_set_dsyn_select(uint8_t kit, uint8_t lane)
     state_unlock();
 }
 
+/* 窄读访问器（契约见 sloop_state.h）：各自在状态锁内读一个字段/一小块，不拷整份 AppState。 */
+uint8_t state_selected_track(void)
+{
+    state_lock();
+    uint8_t track = s_state.core.selected_track;
+    state_unlock();
+    return track;
+}
+
+uint8_t state_selected_engine(void)
+{
+    state_lock();
+    uint8_t track = s_state.core.selected_track;
+    uint8_t engine = track < APP_STATE_TRACKS - 1u ? s_state.core.trk[track].engine : 0u;
+    state_unlock();
+    return engine;
+}
+
+int16_t state_read_p(uint8_t id)
+{
+    state_lock();
+    int16_t v = id < SLOOP_CORE_P_COUNT ? s_state.p[id] : 0;
+    state_unlock();
+    return v;
+}
+
+int16_t state_read_g(uint8_t id)
+{
+    state_lock();
+    int16_t v = id < SLOOP_CORE_G_COUNT ? s_state.g[id] : 0;
+    state_unlock();
+    return v;
+}
+
+void state_read_sound(sloop_sound_snapshot_t *out)
+{
+    if (out == NULL) return;
+    state_lock();
+    *out = s_state.sound;
+    state_unlock();
+}
+
+uint8_t state_sound_status(void)
+{
+    state_lock();
+    uint8_t st = s_state.sound_status;
+    state_unlock();
+    return st;
+}
+
 bool state_take_selftest_request(void)
 {
     state_lock();

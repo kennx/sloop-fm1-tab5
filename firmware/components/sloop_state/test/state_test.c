@@ -2308,6 +2308,22 @@ static void case_sound_projection(void)
     check_ll("鼓轨 engine_name 空", s.sound.engine_name[0], 0);
     check_ll("鼓轨 preset_name 空", s.sound.preset_name[0], 0);
 
+    /* 批量写命中 (选中轨, P_E0) 同理（评审 R10 minor：与单写同一规则） */
+    reads = g_stub.sound_read_calls;
+    {
+        const sloop_param_pair_t no_e0[2] = {{5, 7}, {6, 8}};
+        const sloop_param_pair_t with_e0[2] = {{5, 7}, {SLOOP_CORE_P_COUNT - 8u, 4}};
+        apply_param_batch(3, no_e0, 2);
+        check_ll("批量不含 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+        apply_param_batch(3, with_e0, 2);
+        check_ll("批量含 P_E0 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+        state_get_copy(&s);
+        check_ll("批量写 P_E0 后 kit 名同拍更新", strcmp(s.sound.kit_name, "KIT4") == 0, 1);
+        reads = g_stub.sound_read_calls;
+        apply_param_batch(1, with_e0, 2);
+        check_ll("非选中轨的批量 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+    }
+
     /* 存储命令成功后的整份刷新同样带 sound（工程载入会换引擎/预置） */
     g_stub.sound_preset[3] = 0;
     g_stub.sound_engine[3] = 0;
@@ -2327,6 +2343,62 @@ static void case_sound_projection(void)
     check_ll("其它 id 不读 sound", g_stub.sound_read_calls - reads, 0);
     apply(CMD_SET_PARAM, 1, SLOOP_CORE_P_COUNT - 8u, 9);
     check_ll("非选中轨的 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+}
+
+/* ④ 窄读访问器（Task 5 评审 R10）：UI 的点击/键盘路径在 LVGL 任务里跑，不为读一两个投影字段
+ * 在栈上放整份 app_state_t（≈1.7KB）。取值必须与 state_get_copy 的副本同源；越界回 0。 */
+static void case_narrow_accessors(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    sloop_sound_snapshot_t snd;
+
+    state_get_copy(&s);
+    check_ll("selected_track", state_selected_track(), s.core.selected_track);
+    check_ll("selected_engine（轨 0）", state_selected_engine(), s.core.trk[0].engine);
+    check_ll("read_p(5)", state_read_p(5), s.p[5]);
+    check_ll("read_g(0)", state_read_g(0), s.g[0]);
+
+    /* 外部改动经 sync 采纳：访问器读的是同一份投影 */
+    g_stub.snap.trk[0].engine = 9;
+    g_stub.param[0][5] = 42;
+    state_sync_from_engine();
+    check_ll("sync 后 selected_engine", state_selected_engine(), 9);
+    check_ll("sync 后 read_p(5)", state_read_p(5), 42);
+    state_get_copy(&s);
+    check_ll("与副本同源", state_read_p(5) == s.p[5] && state_selected_engine() == s.core.trk[0].engine, 1);
+
+    /* 越界 id 回 0；鼓轨没有引擎（回 0），p[] 仍是该轨的投影 */
+    check_ll("read_p 越界", state_read_p(SLOOP_CORE_P_COUNT), 0);
+    check_ll("read_p 0xFF", state_read_p(0xFFu), 0);
+    check_ll("read_g 越界", state_read_g(SLOOP_CORE_G_COUNT), 0);
+    g_stub.param[3][SLOOP_CORE_P_COUNT - 8u] = 7;
+    g_stub.snap.trk[3].engine = 9; /* 快照对鼓轨保留上游原值（不置零）：访问器必须自己判鼓轨 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("前提：投影里鼓轨的 engine 原值 = 9", s.core.trk[3].engine, 9);
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    check_ll("鼓轨 selected_engine = 0", state_selected_engine(), 0);
+    check_ll("鼓轨 read_p(P_E0)", state_read_p(SLOOP_CORE_P_COUNT - 8u), 7);
+
+    /* sound 块：读回与 sound_status */
+    g_stub.sound_engine[2] = 5;
+    g_stub.sound_preset[2] = 2; /* 引擎 5 在替身表里有 3 个预置 */
+    apply(CMD_SET_TRACK, 2, 0, 0);
+    memset(&snd, 0, sizeof(snd));
+    state_read_sound(&snd);
+    state_get_copy(&s);
+    check_ll("read_sound engine", snd.engine, 5);
+    check_ll("read_sound engine_name", strcmp(snd.engine_name, "ENG5") == 0, 1);
+    check_ll("read_sound preset", snd.preset, 2);
+    check_ll("read_sound preset_name", strcmp(snd.preset_name, "PRE5.2") == 0, 1);
+    check_ll("read_sound 与副本同源", snd.engine == s.sound.engine && snd.preset == s.sound.preset, 1);
+    check_ll("sound_status 初值 idle", state_sound_status(), APP_SOUND_STATUS_IDLE);
+    apply(CMD_SET_ENGINE, 2, 0, 6);
+    check_ll("sound_status ok", state_sound_status(), APP_SOUND_STATUS_OK);
+    apply(CMD_SET_ENGINE, 2, 0, 99);
+    check_ll("sound_status invalid", state_sound_status(), APP_SOUND_STATUS_INVALID);
 }
 
 int main(void)
@@ -2371,6 +2443,7 @@ int main(void)
     run("SET_ENGINE：换引擎调用/同拍投影/越界·鼓轨·冻结不调引擎", case_set_engine);
     run("SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎", case_set_preset);
     run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
+    run("窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0", case_narrow_accessors);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

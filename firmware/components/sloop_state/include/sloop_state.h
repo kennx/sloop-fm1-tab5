@@ -450,6 +450,21 @@ void state_set_focus(uint8_t track, uint8_t step);
 void state_set_dsyn_select(uint8_t kit, uint8_t lane);
 void state_set_layer(uint8_t mask);
 
+/* 窄读访问器（P4-F Task 5 评审 R10）：UI 的点击/键盘回调在 LVGL 任务里跑（栈只有几 KB，
+ * app_state_t ≈1.7KB），为读一两个投影字段不值得在栈上放整份副本。取值与 state_get_copy
+ * 的副本同源（同一把状态锁内的字节/短读），行为不变；越界 id 回 0。
+ *  - state_selected_track：选中轨（0..3）
+ *  - state_selected_engine：选中合成轨的引擎号；鼓轨（轨 3）没有引擎，回 0
+ *  - state_read_p / state_read_g：选中轨的参数投影 p[id] / 全局投影 g[id]
+ *  - state_read_sound：sound 块（49B；选中轨的引擎/预置/kit 名）
+ *  - state_sound_status：最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
+uint8_t state_selected_track(void);
+uint8_t state_selected_engine(void);
+int16_t state_read_p(uint8_t id);
+int16_t state_read_g(uint8_t id);
+void state_read_sound(sloop_sound_snapshot_t *out);
+uint8_t state_sound_status(void);
+
 /* 取走一次 SELFTEST 请求（1 = 有请求，取后清零）；worker 完成后写回实际计数并置 done。 */
 bool state_take_selftest_request(void);
 void state_set_selftest_result(uint32_t ran, uint32_t failed);
