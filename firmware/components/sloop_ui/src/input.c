@@ -122,6 +122,10 @@ static void input_unlock(void)
 /* 演奏键：选中合成轨 = 24 音半音矩阵；选中鼓轨 = 16 lane 鼓键表（ADR-006），其它
  * 演奏键在鼓轨上忽略——**不回退 track 0**。释放**永远**按按下时记录的轨号收尾
  * （s_note_on/s_note_track），即使期间切到鼓轨也不进鼓分支（否则音符挂住）。 */
+/* 快照纪律（R13）：本文件的每个动作函数至多在栈上放**一份** app_state_t（host sizeof
+ * ≈1.66KB），动作之间不嵌套；sloop_ui_input_key 自己不再持有副本（层键位用
+ * state_read_layer_held 窄读）——此前它持有一份、被调动作再持有一份，Aa+k 这类
+ * 「外层查表 + 动作快照 + 命令体」的链路会叠两份快照。 */
 static void act_note(uint8_t code, int8_t offset, bool down)
 {
     if (!down) {
@@ -235,10 +239,9 @@ static void act_erase(int8_t pitch_class)
 
 static void act_layer(uint8_t bit, bool down)
 {
-    app_state_t st;
-    state_get_copy(&st);
-    uint8_t mask = down ? (uint8_t)(st.layer_held | bit) : (uint8_t)(st.layer_held & ~bit);
-    if (mask == st.layer_held) return;
+    const uint8_t held = state_read_layer_held();
+    uint8_t mask = down ? (uint8_t)(held | bit) : (uint8_t)(held & ~bit);
+    if (mask == held) return;
     state_set_layer(mask);
     ESP_LOGD(TAG, "layer %s 0x%02X", down ? "down" : "up", (unsigned)mask);
 }
@@ -407,13 +410,13 @@ void sloop_ui_input_key(uint8_t code, bool down)
         input_unlock();
         return;
     }
-    app_state_t st;
-    state_get_copy(&st);
-    const key_binding_t *b = input_map_find_binding(code, st.layer_held);
+    /* 层键位窄读：这里不持整份快照（见文件头的快照纪律），快照留给真正需要的动作函数。 */
+    const uint8_t layer_held = state_read_layer_held();
+    const key_binding_t *b = input_map_find_binding(code, layer_held);
     /* EDIT/SEL/GLO 按住时演奏键不发声：否则 Aa+c（擦除 C）与 Aa+z（弹 C）行为不一致，
      * 且层内的误触会带出音符。FX 是 MVP 无功能层，保持演奏透明。 */
     if (b != NULL && b->action == ACT_NOTE && b->layer == 0 &&
-        (st.layer_held & (APP_LAYER_EDIT | APP_LAYER_SEL | APP_LAYER_GLO)) != 0) {
+        (layer_held & (APP_LAYER_EDIT | APP_LAYER_SEL | APP_LAYER_GLO)) != 0) {
         b = NULL;
     }
     if (b != NULL) {
