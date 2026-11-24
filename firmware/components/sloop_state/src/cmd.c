@@ -220,12 +220,15 @@ static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, u
     const sloop_param_pair_t *pairs = p;
     uint8_t ids[APP_STATE_PARAM_BATCH_MAX];
     int16_t values[APP_STATE_PARAM_BATCH_MAX];
+    bool writes_e0 = false; /* 批里含 P_E0：与单写同一规则（见 cmd_set_param） */
     for (uint32_t i = 0; i < n; i++) {
         ids[i] = pairs[i].id;
         values[i] = pairs[i].v;
+        writes_e0 = writes_e0 || ids[i] == STATE_P_E0;
     }
     sloop_core_set_params(track, ids, values, n);
     state_refresh_params(s);
+    if (writes_e0 && track == s->core.selected_track) state_refresh_sound_locked();
 }
 
 /* 全局参数（GLOBAL 参数页的唯一写路径）：经引擎写入口按 GP[id] 钳位后立即回读
