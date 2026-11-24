@@ -131,7 +131,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - **机制**：IDF `components/heap/port/esp32p4/memory_layout.c` 把 32KB LP SRAM 注册为
   `SOC_MEMORY_TYPE_RTCRAM`，它的**低优先级匹配**含 `MALLOC_CAP_INTERNAL`。按分配器的匹配顺序，
   `xTaskCreate` 的栈落到 LP SRAM 只会是 L2MEM 各堆都拿不出连续整块——全量自检的堆泄漏（DI-26，
-  P4-E 开机 68.9KB → 28.7KB）之后正是如此。该落点下渲染慢 ~24 倍（推断是 HP 核访问 LP SRAM 不经
+  P4-E 开机 68.9KB → 28.7KB；（DI-26 已于 2026-11-24 P4-F Task 2 修复：host 替身 `cpu1_host` 的懒初始化落在自检快照窗口内、每 job 回滚重建 mutex/cond，现改为快照前预初始化；`scripts/selftest-heap.py` 守住））之后正是如此。该落点下渲染慢 ~24 倍（推断是 HP 核访问 LP SRAM 不经
   L1 cache，未单独验证；`-Og` 下 DSP 的局部变量全在栈上）。`internal_free` 还有 28KB 也会发生：
   **看 largest free block，不看 free**。P4-D 开机内部堆多 ~20KB，所以当时没暴露。
 - **处置**：音频任务栈在首次启流时 `heap_caps_malloc(…, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA)`
