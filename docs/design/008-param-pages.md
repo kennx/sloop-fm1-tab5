@@ -750,8 +750,10 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `TP[P_ATK]` 是 `F_TIME`（ms）——min/max（0..127）相同，但「这个数字是什么意思」
   完全不同。因此本投影的前提只是 **min/max 相同**（钳位安全）；fmt/unit 的差异
   必须由使用方处理：
-  - 现状（P4-A）：FX 页在选中轨 `P_ESYNC != 0` 时把 ATK 槽标注为 `ATK/ESYNC` 并按
-    `F_INT` 原始值 0..127 显示（无 ms 后缀，`page_params.c` 的 `slot_desc`），
+  - 现状（P4-A；**P4-F Task 3/4 起已改**：TRACK scope 一律走
+    `sloop_core_desc_track_live`，ATK/DEC/REL 直接显示上游音符名，下面的手工标注与
+    route a 复核项都已落地，见 §8.9）：FX 页在选中轨 `P_ESYNC != 0` 时把 ATK 槽标注为
+    `ATK/ESYNC` 并按 `F_INT` 原始值 0..127 显示（无 ms 后缀，`page_params.c` 的 `slot_desc`），
     绝不把音符值显示成毫秒。**运行中翻转**（console `PARAM 59` 注入或后续 FM-1
     同步）：`page_params_update` 把 `P_ESYNC` 纳入页面上下文键，位变化时重新解析
     已建槽的描述符并按 label/fmt/unit 差异重绘，不要求重进页面（P4-A 无 ENV 编辑页，
