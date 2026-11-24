@@ -148,8 +148,8 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g);
  *  fmt 为上游 F_* 编码（core.h）；unit 原样投影上游可选单位（多数为 NULL——PCT/DB/
  *  TIME 等显示单位由 fmt 决定，见上游 param_format）。enums/enum_count 在 names
  *  非空时给出：F_ENUM 每个取值一个名字；F_INT + names 为 0 终止表（值域均分映射，
- *  同 param_format）。引擎的 `desc` 钩子（依赖轨道状态的动态描述符）不投影，只给
- *  基础 edit[] 表。 */
+ *  同 param_format）。引擎的 `desc` 钩子与 INSERT/ENV SYNC 这类依赖轨道状态的动态
+ *  描述符不投影（只给基础表）——需要它们时用 sloop_core_desc_track_live。 */
 typedef enum { SLOOP_DESC_TRACK, SLOOP_DESC_GLOBAL, SLOOP_DESC_ENGINE } sloop_desc_scope_t;
 /* desc.fmt 的公开镜像（上游 core.h 的 F_* 编码）。`sloop_core_desc` 原样投影上游值，
  * 这里给出名字以便 UI 按常量分支格式化；selftest.c 用静态断言保证两者一致
@@ -180,6 +180,30 @@ typedef struct {
     uint8_t enum_count;
 } sloop_desc_t;
 bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out);
+
+/* 随轨道状态取描述符（P4-F Task 3）：直接转调上游 params.c 的 track_desc()，不建任何
+ * 镜像/范围表。对轨 0..3（越界回 false）与 id < P_COUNT（越界回 false）应用、且只应用
+ * track_desc() 的规则：
+ *  1. 鼓轨（轨 3）的 id == P_E0 → DRUM_KIT_DESC（kit，= sloop_core_desc 的鼓轨哨兵）；
+ *  2. id == P_IA..P_IC → ins_desc(P_ITYPE)：TYPE 1..4 (SOFT..FUZZ) = DRIVE/TONE/LEVEL，
+ *     5 (CRUSH) = BITS/RATE(单位 Hz)/LPF，6..8 (PHASR..CHOR) = RATE/DEPTH/FDBK，
+ *     OFF 与越界 TYPE = TP[] 的 INS A/B/C；
+ *  3. P_ESYNC 开且 id == P_ATK/P_DEC/P_REL → ESYNC_DESC（F_INT + 音符名表 ESYNC_NAMES，
+ *     范围与默认值同 TP[]）；
+ *  4. id == P_E0..P_E7 → 该轨 eng_req 引擎的 desc 钩子（非 NULL 且命中时；LOFI/NOISE/PHYS
+ *     按模式换 label/names/unit），否则该引擎的 edit[k]。引擎取 t->eng_req（上游同一字段；
+ *     淡入淡出期间可能与 t->engine 短暂不同，与 sloop_core_set_params 的钳位表一致）；
+ *  5. 其余 id < P_E0 → TP[id]。
+ * 不应用上游 page_desc() 的页面规则（page_for_drum / SC_STEP、SC_TRK 作用域 / GLOBAL），
+ * 也不做 editor.c ed_tdesc 的静态化。
+ * 本函数在 1 与 4 之外对鼓轨的 P_E1..P_E7 回 false（上游 track_desc 对它们会落到引擎
+ * 分支）。本函数不建任何范围表：min/max/def/enums 全部取上游返回的那条描述符——动态
+ * 规则按上游现状只换 label/names/unit/fmt、范围与默认值同静态表（这是上游的事实，
+ * 不是本函数的保证；上游若让动态范围偏离静态表，这里如实跟随）。
+ * 上游 static 表与引擎钩子只读 t->p[]/eng_req 的整数值，**不取引擎锁**、可在任意任务
+ * 调用（与 sloop_core_desc 同口径）；冻结态同样可读。out 为 NULL 时只判有无描述符。
+ * 未命中返回 false 且不改 out。`out` 的指针指向上游静态数据，调用方不得释放/改写。 */
+bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out);
 
 /* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
  * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。

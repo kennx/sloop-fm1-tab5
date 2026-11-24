@@ -698,68 +698,9 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
 }
 
 /* ------------------------------------------------- 描述符投影 --- */
-/* 公开 fmt 镜像（sloop_core.h 的 sloop_desc_fmt_t）↔ 上游 core.h 的 F_*：换上游版本
- * 时编译期暴露，显示层（参数页）按镜像常量分支格式化。 */
-_Static_assert((int)SLOOP_DESC_FMT_INT == (int)F_INT && (int)SLOOP_DESC_FMT_PCT == (int)F_PCT &&
-                   (int)SLOOP_DESC_FMT_BIPCT == (int)F_BIPCT && (int)SLOOP_DESC_FMT_TIME == (int)F_TIME &&
-                   (int)SLOOP_DESC_FMT_LFOHZ == (int)F_LFOHZ && (int)SLOOP_DESC_FMT_CUTOFF == (int)F_CUTOFF &&
-                   (int)SLOOP_DESC_FMT_DB == (int)F_DB && (int)SLOOP_DESC_FMT_SEMI == (int)F_SEMI &&
-                   (int)SLOOP_DESC_FMT_ENUM == (int)F_ENUM && (int)SLOOP_DESC_FMT_BPM == (int)F_BPM &&
-                   (int)SLOOP_DESC_FMT_NOTE == (int)F_NOTE && (int)SLOOP_DESC_FMT_ONOFF == (int)F_ONOFF &&
-                   (int)SLOOP_DESC_FMT_OCT == (int)F_OCT && (int)SLOOP_DESC_FMT_STEPS == (int)F_STEPS &&
-                   (int)SLOOP_DESC_FMT_SWING == (int)F_SWING && (int)SLOOP_DESC_FMT_FILT == (int)F_FILT,
-               "sloop_desc_fmt_t 与上游 core.h 的 F_* 编码不同步");
-
-/* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
- * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
- * max-min+1，不依赖终止符。 */
-static uint8_t desc_enum_count(const param_desc_t *d)
-{
-    if (d->names == NULL) return 0;
-    if (d->fmt == F_ENUM) return (uint8_t)(d->max - d->min + 1);
-    uint32_t n = 0;
-    while (n < 64u && d->names[n] != NULL) n++;
-    return (uint8_t)n;
-}
-
-bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out)
-{
-    const param_desc_t *d;
-    switch (scope) {
-    case SLOOP_DESC_TRACK:
-        if (id >= P_E0) return false; /* P_E0..P_E7 无轨道上下文，走 ENGINE */
-        d = &TP[id];
-        break;
-    case SLOOP_DESC_GLOBAL:
-        if (id >= G_COUNT) return false;
-        d = &GP[id];
-        break;
-    case SLOOP_DESC_ENGINE:
-        if (id >= 8u) return false;
-        if (engine == SLOOP_CORE_NENGINES) { /* 鼓轨哨兵（上游 ed_eng 对鼓轨报 NENGINES） */
-            if (id != 0u) return false;      /* 鼓轨只有 P_E0 = kit */
-            d = &DRUM_KIT_DESC;
-        } else if (engine < NENGINES) {
-            d = &ENGINES[engine]->edit[id];
-        } else {
-            return false;
-        }
-        break;
-    default:
-        return false;
-    }
-    if (out != NULL) {
-        out->label = d->label;
-        out->unit = d->unit;
-        out->fmt = d->fmt;
-        out->min = d->min;
-        out->max = d->max;
-        out->def = d->def;
-        out->enums = d->names;
-        out->enum_count = desc_enum_count(d);
-    }
-    return true;
-}
+/* sloop_core_desc（静态基础表）与 sloop_core_desc_track_live（上游 track_desc，随轨道状态）：
+ * 与 scripts/synth-host-test.c 同源编译，见 desc_tab5.h。 */
+#include "desc_tab5.h"
 
 void sloop_core_set_mute(uint32_t k, bool mute)
 {
