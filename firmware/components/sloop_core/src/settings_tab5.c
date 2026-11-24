@@ -168,7 +168,13 @@ esp_err_t sloop_store_settings_reload(void)
         store_unlock();
         theme_ok = have_side && song_per_side_theme(side, &theme);
     }
-    if (!from_flash) memset(&f, 0, sizeof f);
+    /* 读不到（未就绪/没有对象/对象损坏）：全零 + 上游默认 palette（settings_init：MONO=4，
+     * R13）——P4-E 之前的固件把 palette=0 写进对象，0 在这里不再是「没有设置」的含义；
+     * palette 越界同样归 4。 */
+    if (!from_flash) {
+        memset(&f, 0, sizeof f);
+        f.palette = SLOOP_SETTINGS_PALETTES - 1u;
+    }
     if (f.palette >= SLOOP_SETTINGS_PALETTES) f.palette = SLOOP_SETTINGS_PALETTES - 1u;
 
     engine_lock();

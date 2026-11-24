@@ -374,6 +374,14 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   GREEN），与用户真的选了 GREEN 无法区分，故不做迁移——这类设备升级后首次开机按字面读回
   GREEN，用户可在 SYSTEM 页的 COLOR 行改回 MONO；`sys` 场景 ⑦ 的收口会把开发机归一到
   palette 4（MONO）并 SAVE。
+- **R13：读不到设置时的默认 palette 是 4（MONO），不是 0**（2026-11-24 修复轮，原 DI-42）：
+  `sloop_store_settings_reload()` 的 `!from_flash` 分支（没有对象 / 对象损坏 / 存储未就绪——
+  `song_per_get_settings` 对三者是同一条返回 false 的路径）此前把结构体清零后只钳越界值，
+  palette 停在 0（GREEN），与同函数注释和裁决不符；设备实测写入 64B 垃圾对象并复位后
+  `STORE SETTINGS INFO kind=invalid … palette=0`、`STATE SNAP set_palette=0`。现在该分支显式写 `palette = SLOOP_SETTINGS_PALETTES - 1`
+  （上游 `settings_init()` 的 MONO=4），越界钳位保留。`sys` ①b-a 用损坏对象断言
+  `INFO kind=invalid palette=4` 与 `STATE SNAP set_palette=4`；损坏对象按设计仍拒绝
+  `STORE SETTINGS SAVE`（`STORE ERR invalid`，不覆盖）。
 
 ### 7. 内存：PSRAM 宏重定向与内部 SRAM 边界
 
