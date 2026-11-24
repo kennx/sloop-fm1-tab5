@@ -19,6 +19,10 @@
  *   REC 文本即**五态**（`REC OFF` / `REC ARM` / `REC ON T<n>` / `REC CNT T<n>` /
  *   `FREE TAKE`），FILL 显示保持电平（`FILL` / `FILL ON`），NEXT 显示待命
  *   （`NEXT` / `NEXT ARM`）；
+ * - REC 配置行（P4-F Task 6）与录音/fill 行同高 y=384：QNT (456,100) / MODE (564,100) /
+ *   START (672,100)——落在 NEXT 右侧到 pattern 区（x=792）之前的空带，不挤其它行。文本即
+ *   当前值（`QNT ON` / `QNT OFF`、`FREE` / `TEMPO`、`NOTE` / `COUNT`，读 app_state_t.rec）；
+ *   点一次翻转该项并发**整份** CMD_REC_CONFIG（另两项取 rec 投影）。不在键盘焦点环内；
  * - 聚焦步字段工具行 y=464（56 高，88 宽、间距 8，x = 24 + i*96）：
  *   LVL / RAT / MIC- / MIC+ / SPAN / SLIDE。LVL 与 RAT 是**循环按钮**（点一次
  *   前进一档：LVL 响度序 GHOST<SOFT<NORM<HARD、RAT x1..x4），SPAN 点一次 +1
@@ -52,7 +56,7 @@
  * 内边距来自静态共享 lv_style_t（styles_init 每次开机只跑一次——组作用域会反复销毁/
  * 重建本页；重跑 lv_style_init 会漏掉 props 数组）。状态变化只换/加共享样式指针或改
  * 文本，脏检查避免每拍重设。工具动作的结果复用走带状态 label（不新增状态行对象），
- * 页面净增 18 个单对象 chip（实测见 ADR-008 的 TRANSPORT 行）。
+ * 页面净增 18 + 3（REC 配置）= 21 个单对象 chip（实测见 ADR-008 的 TRANSPORT 行；est 仍为 9,216）。
  */
 #include "theme.h"
 
@@ -89,6 +93,11 @@
 #define TR_FILL_X 200
 #define TR_FILL_W 120
 #define TR_NEXT_X 328
+
+/* REC 配置行（与录音/fill 行同 y；宽 100、间距 108，右端 772 < pattern 区 792） */
+#define TR_CFG_X0     456
+#define TR_CFG_W      100
+#define TR_CFG_PITCH  108
 
 /* 聚焦步字段工具行 */
 #define TR_STEP_Y     464
@@ -128,6 +137,7 @@ enum {
     CHIP_LVL, CHIP_RAT, CHIP_MIC_DN, CHIP_MIC_UP, CHIP_SPAN, CHIP_SLIDE,
     CHIP_ROT_DN, CHIP_ROT_UP, CHIP_LEN_X2, CHIP_LEN_D2, CHIP_TRANS_DN, CHIP_TRANS_UP,
     CHIP_UNDO, CHIP_REDO, CHIP_CLEAR,
+    CHIP_QNT, CHIP_MODE, CHIP_START, /* REC 配置（追加在末尾：既有 chip 下标不变） */
     CHIP_COUNT
 };
 
@@ -157,6 +167,9 @@ static const tr_chip_t k_chips[CHIP_COUNT] = {
     {TR_PAT_X_UNDO, TR_PAT_ROW1, TR_PAT_W_SM, TR_PAT_H, SLOOP_TR_UNDO, "UNDO"},
     {TR_PAT_X_REDO, TR_PAT_ROW1, TR_PAT_W_SM, TR_PAT_H, SLOOP_TR_REDO, "REDO"},
     {TR_PAT_X0, TR_PAT_ROW2, TR_PAT_W_WIDE, TR_PAT_H, SLOOP_TR_CLEAR, "CLEAR"},
+    {TR_CFG_X0 + 0 * TR_CFG_PITCH, TR_REC_Y, TR_CFG_W, TR_REC_H, SLOOP_TR_REC_QNT, "QNT ON"},
+    {TR_CFG_X0 + 1 * TR_CFG_PITCH, TR_REC_Y, TR_CFG_W, TR_REC_H, SLOOP_TR_REC_MODE, "TEMPO"},
+    {TR_CFG_X0 + 2 * TR_CFG_PITCH, TR_REC_Y, TR_CFG_W, TR_REC_H, SLOOP_TR_REC_START, "NOTE"},
 };
 
 /* chip → 焦点字段（-1 = 不属于焦点环：REC/fill/UNDO/REDO/CLEAR） */
@@ -164,6 +177,7 @@ static const int8_t k_chip_field[CHIP_COUNT] = {
     -1, -1, -1,
     TR_F_LVL, TR_F_RAT, TR_F_MIC, TR_F_MIC, TR_F_SPAN, TR_F_SLIDE,
     TR_F_ROT, TR_F_ROT, TR_F_LEN, TR_F_LEN, TR_F_TRANS, TR_F_TRANS,
+    -1, -1, -1,
     -1, -1, -1,
 };
 
@@ -193,6 +207,7 @@ static char s_rec_cache[16];
 static char s_take_txt[14];   /* 最近一次 take 结果（OFF 时显示在 REC chip 上） */
 static char s_fill_cache[8];
 static char s_next_cache[12];
+static char s_cfg_cache[3][12]; /* REC 配置三 chip 的文本缓存 */
 static uint8_t s_rec_style = 0xFF;  /* 已应用的录音态底色（0..4） */
 static int8_t s_focus_shown = -1;   /* 已画描边的字段 */
 static int8_t s_drum_shown = -1;    /* SPAN/SLIDE 的可用态（鼓轨 = 不可用） */
@@ -386,6 +401,7 @@ static const char *const k_act_name[SLOOP_TR_ACT_COUNT] = {
     "LVL", "LVL", "RAT", "RAT", "MIC", "MIC", "SPAN", "SPAN", "SLIDE",
     "ROTATE", "ROTATE", "LEN", "LEN", "TRANSPOSE", "TRANSPOSE",
     "CLEAR", "UNDO", "REDO",
+    "QNT", "MODE", "START",
 };
 static const char *const k_lvl_name[4] = {"NORM", "GHOST", "SOFT", "HARD"};
 
@@ -434,6 +450,9 @@ static void status_note(uint8_t act, const tr_result_t *r, uint8_t track)
     case SLOOP_TR_TRANS_DN: snprintf(b, sizeof(b), "TRANSPOSE: -1"); break;
     case SLOOP_TR_TRANS_UP: snprintf(b, sizeof(b), "TRANSPOSE: +1"); break;
     case SLOOP_TR_CLEAR: snprintf(b, sizeof(b), "CLEAR: T%u", (unsigned)track + 1u); break;
+    case SLOOP_TR_REC_QNT: snprintf(b, sizeof(b), "QNT: %s", r->value ? "OFF" : "ON"); break;
+    case SLOOP_TR_REC_MODE: snprintf(b, sizeof(b), "MODE: %s", r->value ? "TEMPO" : "FREE"); break;
+    case SLOOP_TR_REC_START: snprintf(b, sizeof(b), "START: %s", r->value ? "COUNT" : "NOTE"); break;
     case SLOOP_TR_UNDO: snprintf(b, sizeof(b), "UNDO: OK"); break;
     case SLOOP_TR_REDO: snprintf(b, sizeof(b), "REDO: OK"); break;
     default: snprintf(b, sizeof(b), "%s", k_act_name[act]); break;
@@ -559,6 +578,21 @@ static tr_result_t tr_action(uint8_t act)
         cmd.p = &edit;
         break;
     }
+    case SLOOP_TR_REC_QNT:
+    case SLOOP_TR_REC_MODE:
+    case SLOOP_TR_REC_START: {
+        /* 整份三元组：另两项取 rec 投影（CMD_REC_CONFIG 成功后状态层同拍重取投影） */
+        uint8_t q = st.rec.quant_off ? 1u : 0u, m = st.rec.tempo_mode ? 1u : 0u,
+                c = st.rec.count_mode ? 1u : 0u;
+        if (act == SLOOP_TR_REC_QNT) q ^= 1u;
+        else if (act == SLOOP_TR_REC_MODE) m ^= 1u;
+        else c ^= 1u;
+        cmd.type = CMD_REC_CONFIG;
+        cmd.a = q;
+        cmd.b = m;
+        cmd.v = c;
+        break;
+    }
     case SLOOP_TR_ROT_DN:
     case SLOOP_TR_ROT_UP:
     case SLOOP_TR_LEN_X2:
@@ -651,6 +685,9 @@ static tr_result_t tr_action(uint8_t act)
     case SLOOP_TR_SLIDE:
         r.value = (st.core.step[ft][fs].flags & STEP_FLAG_SLIDE) ? 1 : 0;
         break;
+    case SLOOP_TR_REC_QNT: r.value = st.rec.quant_off ? 1 : 0; break;
+    case SLOOP_TR_REC_MODE: r.value = st.rec.tempo_mode ? 1 : 0; break;
+    case SLOOP_TR_REC_START: r.value = st.rec.count_mode ? 1 : 0; break;
     case SLOOP_TR_LEN_X2:
     case SLOOP_TR_LEN_D2:
         r.value = (int16_t)(st.core.trk[track < APP_STATE_TRACKS ? track : 0u].len);
@@ -884,6 +921,7 @@ lv_obj_t *page_transport_build(lv_obj_t *parent)
     s_fill_shown = -1;
     s_next_shown = -1;
     s_slide_shown = -1;
+    memset(s_cfg_cache, 0, sizeof(s_cfg_cache));
     memset(s_chip, 0, sizeof(s_chip));
     {
         static bool first = true;
@@ -1148,6 +1186,20 @@ void page_transport_update(const app_state_t *st)
         for (uint8_t i = CHIP_SPAN; i <= CHIP_SLIDE; i++) {
             if (s_chip[i] != NULL) lv_obj_set_style_text_color(s_chip[i], lv_color_hex(col), 0);
         }
+    }
+
+    /* REC 配置三 chip：文本 = rec 投影的当前值（CMD_REC_CONFIG 成功后同拍刷新） */
+    {
+        char buf[12];
+        snprintf(buf, sizeof(buf), "QNT %s", st->rec.quant_off ? "OFF" : "ON");
+        if (text_changed(s_cfg_cache[0], sizeof(s_cfg_cache[0]), buf) && s_chip[CHIP_QNT] != NULL)
+            lv_label_set_text(s_chip[CHIP_QNT], buf);
+        snprintf(buf, sizeof(buf), "%s", st->rec.tempo_mode ? "TEMPO" : "FREE");
+        if (text_changed(s_cfg_cache[1], sizeof(s_cfg_cache[1]), buf) && s_chip[CHIP_MODE] != NULL)
+            lv_label_set_text(s_chip[CHIP_MODE], buf);
+        snprintf(buf, sizeof(buf), "%s", st->rec.count_mode ? "COUNT" : "NOTE");
+        if (text_changed(s_cfg_cache[2], sizeof(s_cfg_cache[2]), buf) && s_chip[CHIP_START] != NULL)
+            lv_label_set_text(s_chip[CHIP_START], buf);
     }
 
     /* 键盘工具焦点描边。 */

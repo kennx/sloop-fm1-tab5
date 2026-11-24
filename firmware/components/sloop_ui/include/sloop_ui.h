@@ -315,6 +315,11 @@ typedef enum {
     SLOOP_TR_LEN_X2, SLOOP_TR_LEN_D2,   /* CMD_PATTERN length（×2 / ÷2） */
     SLOOP_TR_TRANS_DN, SLOOP_TR_TRANS_UP, /* CMD_PATTERN transpose */
     SLOOP_TR_CLEAR, SLOOP_TR_UNDO, SLOOP_TR_REDO, /* CMD_PATTERN clear/undo/redo */
+    /* REC 配置三 chip（P4-F Task 6；上游 REC 屏的 QUANT / MODE / START）：每条 = 一条
+     * CMD_REC_CONFIG（整份三元组下发，只翻转自己那一项；其余两项取 rec 投影）。 */
+    SLOOP_TR_REC_QNT,     /* quant_off 取反 */
+    SLOOP_TR_REC_MODE,    /* tempo_mode 取反（FREE / TEMPO） */
+    SLOOP_TR_REC_START,   /* count_mode 取反（NOTE / COUNT） */
     SLOOP_TR_ACT_COUNT,
 } sloop_transport_act_t;
 
