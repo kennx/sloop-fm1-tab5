@@ -1010,7 +1010,6 @@ static void test_sample_slot(void)
  * sloop_core_desc_track_live：随轨道状态取上游描述符。期望值逐项硬编码自上游源码
  * （params.c 的 INS_DESC/ESYNC_DESC、eng_lofi.c 的 LOFI_WAVNUM/LOFI_DCY、eng_noise.c 的
  * NOISE_LONG/NOISE_META/NOISE_CLK、eng_phys.c 的 PHYS_D_*），不取自被测函数的输出。 */
-#define T_P_E0 P_E0 /* 上游引擎槽起点（= SLOOP_CORE_P_COUNT - 8） */
 
 static int desc_is(const sloop_desc_t *d, const char *label, int fmt, int min, int max, int def,
                    const char *unit, unsigned enums, const char *first, const char *last)
@@ -1033,7 +1032,7 @@ static int desc_same_as_base(const sloop_desc_t *d, sloop_desc_scope_t scope, ui
            d->enums == b.enums && d->enum_count == b.enum_count;
 }
 
-/* 拒绝：返回 false 且 out 一字节不动（哨兵 memcmp） */
+/* 拒绝：返回 false 且 out 逐字节不动（0xA5 哨兵） */
 static int desc_rejects(uint8_t track, uint32_t id)
 {
     sloop_desc_t d;
@@ -1073,69 +1072,69 @@ static void test_desc_live(void)
     trk[0].eng_req = (uint8_t)ENG_ANALOG_;
     trk[0].p[P_ITYPE] = 0;
     trk[0].p[P_ESYNC] = 0;
-    for (k = 0; k < T_P_E0; k++)
+    for (k = 0; k < P_E0; k++)
         ok = ok && sloop_core_desc_track_live(0, k, &d) && desc_same_as_base(&d, SLOOP_DESC_TRACK, 0, k);
     for (k = 0; k < 8u; k++)
-        ok = ok && sloop_core_desc_track_live(0, T_P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_ANALOG_, k);
+        ok = ok && sloop_core_desc_track_live(0, P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_ANALOG_, k);
     check(ok, "desc live: ANALOG track 0, every id == static TP[]/edit[] projection");
     check(sloop_core_desc_track_live(0, 0, NULL), "desc live: out == NULL is allowed (true, nothing written)");
 
     /* (a) 引擎钩子：LOFI——WAVE=WRAM(4) 时 edit[2] DUTY→WAV#（16 个 wave RAM 名），
      * CHIP=STEP(4) 时 edit[3] CRSH→DCY（32 个包络名）；其余槽与不命中时落回 edit[] */
     trk[0].eng_req = (uint8_t)ENG_LOFI_;
-    trk[0].p[T_P_E0] = 0;
-    trk[0].p[T_P_E0 + 1u] = 0;
-    check(live_is(0, T_P_E0 + 2u, "DUTY", F_INT_, 0, 127, 64, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 0u, "CHIP", F_ENUM_, 0, 4, 0, dash, 5, "4BIT", "STEP"),
+    trk[0].p[P_E0] = 0;
+    trk[0].p[P_E0 + 1u] = 0;
+    check(live_is(0, P_E0 + 2u, "DUTY", F_INT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 0u, "CHIP", F_ENUM_, 0, 4, 0, dash, 5, "4BIT", "STEP"),
           "desc live: LOFI default mode keeps edit[] (DUTY/CRSH/CHIP)");
-    trk[0].p[T_P_E0 + 1u] = 4; /* RW_WRAM */
-    check(live_is(0, T_P_E0 + 2u, "WAV#", F_INT_, 0, 127, 64, dash, 16, "SQ50", "STAIR") &&
-              live_is(0, T_P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+    trk[0].p[P_E0 + 1u] = 4; /* RW_WRAM */
+    check(live_is(0, P_E0 + 2u, "WAV#", F_INT_, 0, 127, 64, dash, 16, "SQ50", "STAIR") &&
+              live_is(0, P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
           "desc live: LOFI WAVE=WRAM: edit[2] DUTY -> WAV# (N_WRAM), edit[3] untouched");
-    trk[0].p[T_P_E0] = 4; /* CHIP_STEP */
-    check(live_is(0, T_P_E0 + 3u, "DCY", F_INT_, 0, 127, 0, dash, 32, "CONST", "L15"),
+    trk[0].p[P_E0] = 4; /* CHIP_STEP */
+    check(live_is(0, P_E0 + 3u, "DCY", F_INT_, 0, 127, 0, dash, 32, "CONST", "L15"),
           "desc live: LOFI CHIP=STEP: edit[3] CRSH -> DCY (N_DCY)");
 
     /* (a) NOISE——MODE>=LFSR(2)：edit[5] DENS→LEN（LFSR 8 个寄存器长 / META 8 个序列），
      * edit[7] CRSH→CLK（单位 st）；ANLG/DUST 落回 edit[] */
     trk[0].eng_req = (uint8_t)ENG_NOISE_;
-    trk[0].p[T_P_E0] = 0;
-    check(live_is(0, T_P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 7u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+    trk[0].p[P_E0] = 0;
+    check(live_is(0, P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 7u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
           "desc live: NOISE ANLG keeps edit[] (DENS/CRSH)");
-    trk[0].p[T_P_E0] = 1; /* DUST */
-    check(live_is(0, T_P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+    trk[0].p[P_E0] = 1; /* DUST */
+    check(live_is(0, P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
           "desc live: NOISE DUST keeps edit[] (DENS)");
-    trk[0].p[T_P_E0] = 2; /* LFSR */
-    check(live_is(0, T_P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "L23", "L7") &&
-              live_is(0, T_P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
+    trk[0].p[P_E0] = 2; /* LFSR */
+    check(live_is(0, P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "L23", "L7") &&
+              live_is(0, P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
           "desc live: NOISE LFSR: DENS -> LEN (N_NOISE_LONG), CRSH -> CLK (unit st)");
-    trk[0].p[T_P_E0] = 3; /* META */
-    check(live_is(0, T_P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "127", "7") &&
-              live_is(0, T_P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
+    trk[0].p[P_E0] = 3; /* META */
+    check(live_is(0, P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "127", "7") &&
+              live_is(0, P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
           "desc live: NOISE META: DENS -> LEN (N_NOISE_META), CRSH -> CLK");
 
     /* (a) PHYS——edit[] = MODEL/STRC/BRIT/DAMP/POS/ACC/BOW/EXC；PHYS_DESC[SYMP(3)] 把槽 1/4/6
      * 换成 CHRD/SYMP/BUZZ（其余落回 edit[]），[MEMB(2)] 把槽 1/6 换成 HARM/BEND；
      * MODAL(0)：全部 edit[]。范围与默认值同 edit[] */
     trk[0].eng_req = (uint8_t)ENG_PHYS_;
-    trk[0].p[T_P_E0] = 3; /* PM_SYMP */
-    check(live_is(0, T_P_E0 + 1u, "CHRD", F_INT_, 0, 127, 64, dash, 8, "OCT", "ROOT") &&
-              live_is(0, T_P_E0 + 4u, "SYMP", F_PCT_, 0, 127, 20, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 6u, "BUZZ", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 2u, "BRIT", F_PCT_, 0, 127, 80, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 0u, "MODEL", F_ENUM_, 0, 3, 0, dash, 4, "MODAL", "SYMP"),
+    trk[0].p[P_E0] = 3; /* PM_SYMP */
+    check(live_is(0, P_E0 + 1u, "CHRD", F_INT_, 0, 127, 64, dash, 8, "OCT", "ROOT") &&
+              live_is(0, P_E0 + 4u, "SYMP", F_PCT_, 0, 127, 20, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 6u, "BUZZ", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 2u, "BRIT", F_PCT_, 0, 127, 80, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 0u, "MODEL", F_ENUM_, 0, 3, 0, dash, 4, "MODAL", "SYMP"),
           "desc live: PHYS SYMP: slot1->CHRD, slot4->SYMP, slot6->BUZZ (BRIT/MODEL from edit[])");
-    trk[0].p[T_P_E0] = 2; /* PM_MEMB */
-    check(live_is(0, T_P_E0 + 1u, "HARM", F_PCT_, 0, 127, 64, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 6u, "BEND", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
-              live_is(0, T_P_E0 + 4u, "POS", F_PCT_, 0, 127, 20, dash, 0, dash, dash),
+    trk[0].p[P_E0] = 2; /* PM_MEMB */
+    check(live_is(0, P_E0 + 1u, "HARM", F_PCT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 6u, "BEND", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 4u, "POS", F_PCT_, 0, 127, 20, dash, 0, dash, dash),
           "desc live: PHYS MEMB: slot1->HARM, slot6->BEND (POS from edit[])");
-    trk[0].p[T_P_E0] = 0; /* PM_MODAL */
+    trk[0].p[P_E0] = 0; /* PM_MODAL */
     ok = 1;
     for (k = 0; k < 8u; k++)
-        ok = ok && sloop_core_desc_track_live(0, T_P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_PHYS_, k);
+        ok = ok && sloop_core_desc_track_live(0, P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_PHYS_, k);
     check(ok, "desc live: PHYS MODAL: every slot == edit[]");
 
     /* (b) INSERT：P_IA/P_IB/P_IC 的标签/格式随 P_ITYPE；min/max 恒等于 TP[P_IA..P_IC]（0..127） */
@@ -1199,16 +1198,16 @@ static void test_desc_live(void)
     trk[0].p[P_ESYNC] = 0;
 
     /* (d) 鼓轨：P_E0 = kit 描述符（= ENGINE 哨兵 12 id 0），P_E1..P_E7 无描述符 */
-    check(sloop_core_desc_track_live(3, T_P_E0, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, SLOOP_CORE_NENGINES, 0) &&
+    check(sloop_core_desc_track_live(3, P_E0, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, SLOOP_CORE_NENGINES, 0) &&
               desc_is(&d, "KIT", F_ENUM_, 0, 45, 0, dash, 46, "ACOUSTIC", "SYN4"),
           "desc live: drum track P_E0 == DRUM_KIT_DESC (KIT, 46 kits)");
     ok = 1;
     for (k = 1; k < 8u; k++)
-        ok = ok && desc_rejects(3, T_P_E0 + k);
+        ok = ok && desc_rejects(3, P_E0 + k);
     check(ok, "desc live: drum track P_E1..P_E7 rejected, out untouched");
 
     /* (e) 越界：轨号 ≥ 4、id ≥ P_COUNT 回 false 且 out 不动；合法 id P_E7 可读 */
-    ok = desc_rejects(4, 0) && desc_rejects(4, T_P_E0) && desc_rejects(255, P_ATK) &&
+    ok = desc_rejects(4, 0) && desc_rejects(4, P_E0) && desc_rejects(255, P_ATK) &&
          desc_rejects(0, SLOOP_CORE_P_COUNT) && desc_rejects(0, 255) && desc_rejects(3, SLOOP_CORE_P_COUNT);
     check(ok, "desc live: track >= 4 / id >= P_COUNT rejected, out untouched");
     check(sloop_core_desc_track_live(0, SLOOP_CORE_P_COUNT - 1u, &d) &&
