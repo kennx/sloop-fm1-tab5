@@ -768,11 +768,30 @@ static int eng_command(int argc, char **argv)
     if (argc == 5 && strcasecmp(argv[1], "desc") == 0) {
         /* 描述符投影抽样（scripts/desc-check.py 对端）：scope=track → TP[id]；
          * global → GP[id]；engine → ENGINES[engine]->edit[id]，engine=12 为鼓轨
-         * 哨兵（id=0 → DRUM_KIT_DESC）。label/unit/first/last 加引号（上游 label
+         * 哨兵（id=0 → DRUM_KIT_DESC）；live → sloop_core_desc_track_live（上游
+         * track_desc：随该轨的 P_ITYPE/P_ESYNC/引擎模式的 label/names/unit，第二个
+         * 参数是轨号 0..3）。label/unit/first/last 加引号（上游 label
          * 可含空格，如 "INS A"），空单位/无枚举名打印 "-"。 */
         uint32_t engine = 0, id = 0;
         sloop_desc_scope_t scope = SLOOP_DESC_TRACK;
         const char *scope_name = NULL;
+        if (strcasecmp(argv[2], "live") == 0) {
+            sloop_desc_t d;
+            /* 轨/ id 的上界交给 sloop_core_desc_track_live（越界回 ERR，与其它 scope 同一令牌） */
+            if (!eng_uint(argv[3], 255, &engine) || !eng_uint(argv[4], 255, &id)) {
+                printf("用法: ENG DESC live <track=0..3> <id=0..70>（越界值回 ERR）\n");
+                return 1;
+            }
+            if (!sloop_core_desc_track_live((uint8_t)engine, id, &d)) {
+                printf("ENG DESC ERR scope=live track=%u id=%u\n", (unsigned)engine, (unsigned)id);
+                return 1;
+            }
+            printf("ENG DESC scope=live track=%u id=%u label=\"%s\" fmt=%u min=%d max=%d def=%d unit=\"%s\" enums=%u first=\"%s\" last=\"%s\"\n",
+                   (unsigned)engine, (unsigned)id, d.label != NULL ? d.label : "-", (unsigned)d.fmt,
+                   (int)d.min, (int)d.max, (int)d.def, d.unit != NULL ? d.unit : "-", (unsigned)d.enum_count,
+                   d.enum_count > 0 ? d.enums[0] : "-", d.enum_count > 0 ? d.enums[d.enum_count - 1] : "-");
+            return 0;
+        }
         if (strcasecmp(argv[2], "track") == 0) {
             scope = SLOOP_DESC_TRACK;
             scope_name = "track";
@@ -784,7 +803,7 @@ static int eng_command(int argc, char **argv)
             scope_name = "engine";
         }
         if (scope_name == NULL || !eng_uint(argv[3], 255, &engine) || !eng_uint(argv[4], 255, &id)) {
-            printf("用法: ENG DESC <track|global|engine> <engine=0..12> <id=0..255>（engine=12 为鼓轨 kit 哨兵；越界值回 ERR）\n");
+            printf("用法: ENG DESC <track|global|engine> <engine=0..12> <id=0..255>|DESC live <track=0..3> <id=0..70>（engine=12 为鼓轨 kit 哨兵；越界值回 ERR）\n");
             return 1;
         }
         sloop_desc_t d;
@@ -819,7 +838,7 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
     return 1;
 }
 
@@ -3887,7 +3906,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
         .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/DESC/PERF/MEM/AUDIO",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|PERF|MEM|AUDIO [ON|OFF]",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|MEM|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);
