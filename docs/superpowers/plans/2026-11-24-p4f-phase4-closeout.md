@@ -120,15 +120,15 @@
 - Modify: `firmware/components/sloop_core/src/seq_tab5.c` 或 `store_tab5.c`（上游 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 语义适配：`sloop_core_tools_*`，持引擎锁；`project_new` 是 `ui_input.c:462-490` 的 static、不在 TU ⇒ 逐行镜像并引用行号，清单 012 §4）、`firmware/components/sloop_ui/src/page_transport.c`（REC 配置 chip ×3：QUANT/MODE/START → 已有 `CMD_REC_CONFIG`）、`firmware/components/sloop_ui/src/input.c` + `input_map.h`（EDIT 层键位：lock / unlock / fill 条件循环，作用于 STEP 页聚焦步 × 状态层记录的「最近编辑参数」；零新增 LVGL 对象）、`include/sloop_core.h`、`sloop_state.{h,c}`（`CMD_TOOLS_CLRSEQ/INITSOUND/NEWPRJ` + `tools_status`）、`ui.c`（注册）、`console.c`（`TOOLS <act>` 诊断 + TAP 回显）、`page_layout.c`（TOOLS 条目）
 
 **Interfaces:**
-- Produces: `esp_err_t sloop_core_tools(uint32_t action)`；`CMD_LOCK_FOCUS{a=lock|unlock}`（状态层：取 STEP 焦点步 + `app_state_t.last_param{scope,id}` → 既有 `CMD_LOCK_SET/DEL`）、`CMD_FILL_STEP{v=0..3}`（→ 既有 `CMD_SET_FILL`）、状态层在每次成功 `CMD_SET_PARAM` 后记录 `last_param`；（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；走带中 `ESP_ERR_NOT_ALLOWED`；冻结 `ESP_ERR_INVALID_STATE`）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
+- Produces: `esp_err_t sloop_core_tools(uint32_t action)`；`CMD_LOCK_FOCUS{a=lock|unlock}`（状态层：取 STEP 焦点步 + `app_state_t.last_param{scope,id}` → 既有 `CMD_LOCK_SET/DEL`）、`CMD_FILL_STEP{v=0..3}`（→ 既有 `CMD_SET_FILL`）、状态层在每次成功 `CMD_SET_PARAM` 后记录 `last_param`；（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；**走带守卫按上游**：0/1 走带中允许（引擎锁内完成），2 仅在 SONG 播放且 arrangement_enabled 时 `ESP_ERR_NOT_ALLOWED`（`STOP THE SONG FIRST`），其余情况自行停走带后执行；冻结 `ESP_ERR_INVALID_STATE`；鼓轨：1 拒绝（`page_desc` 排除）、0 允许）
 
 - [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（步表清空 / 声音回默认 / 工程回默认的逐项断言，以 Task 1 审计出的上游语义为准）、走带中/冻结拒绝、state 映射。
-- [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；走带中 ⇒ `STOP FIRST`。
+- [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；SONG 播放中 NEW ⇒ `STOP THE SONG FIRST`；走带中 CLRSEQ/INITSOUND 允许且走带不中断；UNDO 可撤销 CLEAR SEQ。
 - [ ] Step 3: 提交（core / state / ui / console 拆分）。
 
 ### Task 7: `params.sh` 全扩展 + `nav` 定稿
 
-**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值）、`scripts/inject/params.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
+**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值、`run_tracks` 的 GLO 层 1–8 键 mute/solo `KEY` 断言、`run_step_edit` 的 EDIT 层 a–g 擦除断言、`run_sys` 的 SYSTEM 版本行断言）、`scripts/inject/{params,nav,tracks,step_edit,sys}.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
 
 - [ ] Step 1: 按本任务 Interfaces 写断言（先 RED 若功能缺失）。
 - [ ] Step 2: `bash scripts/inject/params.sh && bash scripts/inject/nav.sh` 全绿；`python3 scripts/soak-selftest.py`。

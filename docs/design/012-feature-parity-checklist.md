@@ -10,7 +10,7 @@
 
 | 状态 | 行数 | 处置 |
 |---|---|---|
-| ✅ 已对齐（机器证据） | 25 | — |
+| ✅ 已对齐（机器证据） | 23 | — |
 | ◐ 部分 | 7 | 3 → P4-F Task 4；1 → DI-45（live 变体）；1 → 既有 DI-39；1 非目标（阶段 5）；1 文档化（DRUM PREVIEW） |
 | ○ 缺失 | 26 | 6 → P4-F Task 4；8 → Task 5；3 → Task 6；9 → DI-44/46/47/48/50/51/52/53/54 |
 | 非目标（硬件/联动/阶段） | 8 | spec §2（其中 1 行 LIGHTS 为「✅ 键盘 RGB / 非目标 KEYS·NOTES」双状态） |
@@ -53,7 +53,6 @@
 | **工厂预置选择 + 换引擎**（PRESETS 页 KNOB 1/2） | PRESETS 页 | 仅 console `ENG TRACK`；PRESETS 页无预置/引擎槽 | ○ | — | Task 5：SOUND 页眉 `ENGINE − 名 +` / `PRESET − 名 +`（经状态层新命令） |
 | 按名浏览全部工厂预置（列表） | PRESETS 页 | — | ○ | — | DI-54 |
 | 收藏（fav，PRESETS KNOB 4，16 个） | PRESETS 页 | — | ○ | — | DI-44 |
-| USER 预置存取 | USER 页 | PRESETS 页 SAVE/LOAD/ERASE | ✅ | `store.sh` | — |
 | SECTION / PROJECT（A–D） | SECTION 页 | PROJECTS 页 + SONG 页 | ✅ | `store.sh`、`song.sh` | — |
 
 ### 2.3 播放 / 音序 / 录音 / 编排
@@ -63,18 +62,18 @@
 | PLAY/STOP；REC arm/record/free take | PLAY/REC、REC 屏 | TRANSPORT 页 | ✅ | `transport.sh`、`sequence.sh` | — |
 | REC 配置：QUANT / MODE(FREE·TEMPO) / START(NOTE·COUNT)（count-in） | REC 屏 | 仅 console `SEQ REC CONFIG`（`CMD_REC_CONFIG` 无 UI 调用者） | ○ | `sys.sh`（持久化，console） | Task 6：TRANSPORT 增三个配置 chip（走已有 `CMD_REC_CONFIG`） |
 | hold REC 清选中轨（~2s 环） | REC 长按 | TRANSPORT `CLEAR T<n>`（即时，无长按） | ✅ | `transport.sh` | 口径差异：Tab5 即时清，文档化 |
-| SEQ steps 1–64 分四页；步 LEVEL/RATCHET/NUDGE/TIE/SLIDE/fill/锁 | SEQ 层 | STEP 页 | ✅ | `step_edit.sh`、`sequence.sh` | — |
+| SEQ steps 1–64 分四页；步 LEVEL/RATCHET/NUDGE/TIE/SLIDE | SEQ 层 | STEP 页 | ✅ | `step_edit.sh`、`sequence.sh` | — |
 | EDIT 层旋钮 SHIFT(rotate)/LENGTH ×2÷/TRANSPOSE/UNDO/REDO | EDIT 层 | TRANSPORT 工具区 | ✅ | `transport.sh` | undo 粒度：每次调用一次（上游一次 hold 算一次） |
-| EDIT 层 **erase**（按住 EDIT + 键，走带中 MPC 式擦除该音符/鼓声） | EDIT 层 | 键盘 EDIT 层 a–g 擦除**聚焦步**里的同名音（`input.c:166-169`）；非走带中逐拍 | ◐ | `knob-test.sh`（键表）；无注入断言 | DI-45（live 变体）；Task 7 补注入断言 |
+| EDIT 层 **erase**（按住 EDIT + 键，走带中 MPC 式擦除该音符/鼓声） | EDIT 层 | 键盘 EDIT 层 a–g 擦除**聚焦步**里的同名音（`input.c:166-169`）；非走带中逐拍 | ◐ | 键位绑定 `input.c:166-169`，**无机器证据** | DI-45（live 变体）；Task 7 补 `step_edit` 的 KEY 注入断言 |
 | 参数锁（步 held + PRESETS 旋钮锁最近编辑的参数）/ fill 条件（步 held + OCT+） | SEQ 层 | 仅 console `SEQ LOCK SET/DEL`、`SEQ FILL`（状态层命令已有、无 UI 调用者） | ○ | `sequence.sh`（console） | Task 6：键盘 EDIT 层键位（lock/unlock/fill 条件循环，零新增 LVGL 对象） |
 | 鼓轨 MUTE mode（EDIT + 黑键：静音 Sequencer 里的某个鼓声） | EDIT 层 | — | ○ | — | DI-46 |
 | ARP 层 **roll**（按住 ARP + 键 = note repeat，RATE 1/8…1/64） | ARP 层 | — | ○ | — | DI-47 |
-| GLO 层 mute/solo 键；fill 保持 / fill next bar | GLO 层 | 键盘 GLO 层 1–8 键（`input.c:159-162`）；TRACKS 卡只显示状态；TRANSPORT FILL | ✅ | `state-test.sh`（mute/solo host）、`transport.sh`（fill）；**注入无 mute/solo 断言** → Task 7 补 | — |
+| GLO 层 mute/solo 键；fill 保持 / fill next bar | GLO 层 | 键盘 GLO 层 1–8 键（`input.c:159-162`）；TRACKS 卡只显示状态；TRANSPORT FILL | ✅ | `state-test.sh`（mute/solo 命令路径，host）、`transport.sh`（fill）；键位绑定 `input.c:159-162` **无设备证据** → Task 7 补 `tracks` 的 KEY 注入断言 | — |
 | GLO 层 track levels ×4 | GLO 层 KNOB | FX 页 LEVEL 槽（逐轨） | ✅ | `params.sh`（LEVEL 写读） | — |
 | GLO 层 **tap tempo** | GLO 层白键 16 | 仅 BPM± | ○ | — | DI-48 |
 | SEL 层 参数（KEY/CHORD/SCALE/KEYS/TRANSPOSE） | SEL 层 | 参数 → Task 4 SCALE 页 | ○ | — | Task 4（参数）；键盘「按音阶走」行为见 DI-49 |
 | SAVE 层：section 播放 / chain / loop / song / SONG REC | SAVE 层 | SONG 页 | ✅ | `song.sh`、`sequence.sh` | — |
-| 选轨（ALGORITHM） | 面板 | TRACKS 卡 / 键盘 SEL 层 | ✅ | `tracks.sh`、`knob-test.sh`（键表） | — |
+| 选轨（ALGORITHM） | 面板 | TRACKS 卡 / 键盘 SEL 层 1–4 | ✅ | `tracks.sh`（卡片）；SEL 层键位无设备证据 → Task 7 | — |
 | 八度（OCT−/+，合成轨） | 面板 | **无**：Tab5 键盘音高固定，无八度移位 | ○ | — | DI-53 |
 | 鼓轨 16 lane 网格、ghost/hard（力度） | DRUMS 屏 | STEP 鼓格 / 键盘 lane | ✅ | `step_edit.sh`、`sequence.sh` | — |
 | SONG 模式 / loop 恢复 | SONG 屏 | SONG 页 | ✅ | `song.sh`、`sequence.sh` | warm reset 见 DI-33 |
@@ -85,7 +84,6 @@
 
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
-| 12 引擎 × 工厂预置换音 | PRESETS | PRESETS 页 / `ENG TRACK` | ✅ | `store.sh`（71/71） | — |
 | FM6 深度 patch（6×21+29）+ DX7 bank 27 槽 | FM6 编辑屏 | FM6P 页 + bank 行 | ✅ | `synth.sh` | live patch 掉电 DI-36 |
 | DSYN kit（4 kit × 16 lane × 22B）+ 工厂 kit | DRUMS/STUDIO 屏 | DSYN 页 | ✅ | `synth.sh` | 命名 DI-37、延迟写 DI-38 |
 | 用户采样 USR1–4 | 采样上传 | SAMPLE 页 + `sample_upload.py` | ✅ | `synth.sh` | 导入 UI DI-34 |
@@ -117,11 +115,11 @@
 
 ## 3. 族页槽位权威表（Task 3–6 的唯一来源；id 为上游 `core.h` 枚举名）
 
-鼓轨规则（`params.c:447` `page_for_drum`）：全局页除 PRESETS/USER 全可编辑（但 TOOLS 的 `G_INITSND` 对鼓轨排除，`params.c:466-468`）；TRACK 页仅 FAM_SEQ（PATTERN）、GR_SLCR（SLICER）、GR_INS（INSERT×2）、`id[0]==P_TFLT`；TRACK 页里的 LEVEL/PAN 属 SC_TRK（TRACKS 页「TRACK LEVEL LEN PAN」）故鼓轨可编辑；ENGINE 页不可。**Tab5 落实**：鼓轨上 SOUND 整页锁定；其余页**逐槽**判定——该参数出现在任一鼓轨可编辑的上游页即可编辑（下表「鼓」列）。
+鼓轨规则（`params.c:447` `page_for_drum`）：全局页除 PRESETS/USER 全可编辑（但 TOOLS 的 `G_INITSND` 对鼓轨排除，`params.c:466-468`）；TRACK 页仅 FAM_SEQ（PATTERN）、GR_SLCR（SLICER）、GR_INS（INSERT×2）、`id[0]==P_TFLT`；TRACK 页里的 LEVEL/PAN 属 SC_TRK（TRACKS 页「TRACK LEVEL LEN PAN」）故鼓轨可编辑；ENGINE 页不可。**Tab5 落实**：鼓轨上 SOUND 旋钮区锁定、改显示 kit 选择行；其余页**逐槽**判定——该参数出现在任一鼓轨可编辑的上游页即可编辑（下表「鼓」列）。
 
 | 页 | chip | 槽（顺序即上游页序） | 鼓轨 | 备注 |
 |---|---|---|---|---|
-| SOUND | — | `ENGINES[sel_engine]->edit[0..7]`（ENGINE scope，经 `e->desc` 钩子取标签） | 锁 | FM6 引擎时底部 bank 行（A10） |
+| SOUND | — | 页眉 `ENGINE −/+`、`PRESET −/+`（选中轨换引擎/预置）；主体 `ENGINES[sel_engine]->edit[0..7]`（ENGINE scope，经 `e->desc` 钩子取标签） | 旋钮区锁；显示 `KIT −/+` 行（写 `P_E0`） | FM6 引擎时底部 bank 行（A10） |
 | MOD | ENV | P_ATK P_DEC P_SUS P_REL | 锁 | |
 | MOD | ENV DEST | P_ED_FLT P_ED_PIT P_ED_SHP P_ESYNC | 锁 | ESYNC 标签镜像（Task 3） |
 | MOD | LFO | P_LRATE P_LWAVE P_LPHASE P_LFADE | 锁 | |
@@ -173,8 +171,6 @@
 | DI-50 | 开机画面 / 开机音 |
 | DI-51 | VIS 可视化 |
 | DI-52 | Punch-in effects 层 |
-| DI-53 | 八度移位（OCT−/+） |
-| DI-54 | 按名浏览全部工厂预置的列表 |
 | 既有 DI | DI-33（warm reset）、DI-34（采样导入）、DI-36、DI-37、DI-38、DI-39（路由）、DI-43 |
 
 ## 6. 审计裁决（对 spec 的修订/确认）

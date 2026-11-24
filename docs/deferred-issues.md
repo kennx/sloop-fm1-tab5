@@ -331,7 +331,7 @@
 | **背景** | 上游 2.6：EDIT 层 + 黑键进入 MUTE mode，白键静音/恢复 Sequencer 里对应的鼓声（live，不擦除）。Tab5 无。 |
 | **影响面** | 现场无法快速静音某个鼓 lane；可用 STEP 页逐格清代替（破坏性）。 |
 | **为何可延迟** | 同 DI-45 的输入层工作；非核心。 |
-| **解决方向** | 与 DI-45 一并实现：lane 级 live mute 标志（引擎已有 `drum lane mute` 语义则复用，否则适配层）。 |
+| **解决方向** | 与 DI-45 一并实现：lane 级 live mute，复用上游 `drum_mute` 位掩码（`ui_layers.c:787`，同 TU 可达）。 |
 | **触发条件** | 用户提出需求；或与 DI-45 同批。 |
 | **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
 | **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |

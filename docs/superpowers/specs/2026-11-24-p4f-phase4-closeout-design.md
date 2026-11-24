@@ -96,7 +96,7 @@ FM6 用例改指向 SOUND；TAB 轮转 18 页。）
 | **TOOLS** | 三动作（另：TRANSPORT 增 REC 配置 chip QUANT/MODE/START；STEP 页键盘 EDIT 层加参数锁 lock/unlock 与 fill 条件循环——零新增 LVGL 对象，TRANSPORT est 不变）：CLEAR SEQ / INIT SOUND / NEW PROJECT（上游 TOOLS 页 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 的语义经适配层移植，动作型全局在引擎里如何落地以清单审计为准） | 触摸 chip + 确认态（二次点击确认，防误触）；走状态层 `CMD_TOOLS_*` |
 | MIDI / MIDI 2 / MIDI 3 / SYSTEM | 阶段 5（非目标） | — |
 | NOTES（上游音序编辑器） | STEP 页（P4-C） | — |
-| REC / STUDIO(DSYN) / SONG / PRESETS / USER / SECTION / MENU | 已对齐（TRANSPORT / DSYN / SONG / PRESETS / PROJECTS / SYSTEM） | — |
+| REC / STUDIO(DSYN) / SONG / USER 预置 / SECTION / MENU | 已对齐（TRANSPORT / DSYN / SONG / PRESETS 用户槽 / PROJECTS / SYSTEM） | 工厂预置选择与换引擎见 SOUND 页眉（清单 012 §6 裁决 8） |
 | VIS / PUNCH / LIVE / LEARN / HARDWARE CALIBRATION | 清单登记 DI（触发条件写明） | — |
 
 审计修订（Task 1，2026-11-24，以 `docs/design/012-feature-parity-checklist.md` §3/§6 为准）：PATTERN chip 为 4 槽
