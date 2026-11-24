@@ -63,10 +63,10 @@ sys.path.insert(0, str(SCRIPTS_DIR / "inject"))
 import inject  # noqa: E402
 
 PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
-         "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8,
+         "global": 4, "fx": 5, "sound": 6, "sample": 8,               # id 7 = 空位（FM6 页已删）
          "projects": 9, "presets": 10, "song": 11,
          "dsyn": 12, "fm6p": 13, "system": 14,
-         "mod": 15, "scale": 16, "voice": 17}  # 18 页：P4-F Task 4 追加 EDIT 组的 chip 页
+         "mod": 15, "scale": 16, "voice": 17}  # 17 页：P4-F Task 5 的 SOUND 取代 ANALOG+FM6
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -78,8 +78,9 @@ SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
 POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 POOL_RT_GROUPS 的代表页各一次）
 # 非当前组（PLAY/TRACKS 之外）的代表页（组作用域销毁/重建）；P4-F Task 4 起组表多出
-# EDIT（analog）与 MIX（global）——跨组往返的分配面各多一组，轮数与阈值不变。
-POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system", "analog", "global")
+# EDIT 与 MIX——跨组往返的分配面各多一组，轮数与阈值不变（Task 5 起 EDIT 的代表页是
+# SOUND：页名 `sound`，`analog`/`fm6` 是它的 console 别名）。
+POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system", "sound", "global")
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -144,7 +145,7 @@ GROUPS = ("play", "tracks", "edit", "mix", "synth", "seq", "song", "file", "sys"
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 18 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
+    """采样前把 17 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
     （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:
