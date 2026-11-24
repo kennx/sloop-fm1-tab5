@@ -737,8 +737,11 @@ static void case_layout_sound(void)
                                     SOUND_ROW_NAME_R >= 11 * 10, 1);
     check_ll("KIT 名字列宽", page_layout_sound_row_w(0) - page_layout_sound_name_x(0, true) -
                                  SOUND_ROW_NAME_R >= 11 * 8, 1);
-    check_ll("行名不与名字列重叠（ENGINE，最长名）",
-             page_layout_sound_name_x(0, false) <= SOUND_ROW_TEXT_X + 11 * 6 + 8 + 1, 1);
+    /* 名字列左缘 = 区宽 42 + 留白 12 + 行名宽（11px/字符）+ 间隙 8，独立算出期望值：
+     * ENGINE/PRESET（6 字符）= 128，KIT（3 字符）= 95 */
+    check_ll("名字列左缘（ENGINE）", page_layout_sound_name_x(0, false), 42 + 12 + 11 * 6 + 8);
+    check_ll("名字列左缘（PRESET）", page_layout_sound_name_x(1, false), 42 + 12 + 11 * 6 + 8);
+    check_ll("名字列左缘（KIT）", page_layout_sound_name_x(0, true), 42 + 12 + 11 * 3 + 8);
     check_ll("上下文行宽 > 0", UI_W - 16 - page_layout_sound_header_x(false) > 0, 1);
     check_ll("上下文行不压 ± 按钮", page_layout_sound_header_x(false) < 1096, 1);
 }

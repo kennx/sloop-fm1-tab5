@@ -62,6 +62,8 @@
  * 行的可见性是比原「锁定页拒绝」更强的守卫：选中轨不是 FM6（含鼓轨）时整行不显示、
  * 不建命中区（TAP miss），不可能用别的引擎的轨把该轨最后一次载入的 patch 写进用户银行槽；
  * 原页面本地的 `NOT FM6` 拒绝态因此不再存在（鼓轨 PUT 的状态层拒绝不变）。
+ * **行可见性按此刻的状态重新判定**（`bank_row_visible`，不信任上一拍 update 的显隐标志：
+ * 换引擎与本回调之间可能隔着不到一拍），行隐藏时命令不下发。
  * 擦写发生在 LVGL 回调里（TAP/按钮 → state_apply → 存储层），一次 SAVE 最坏阻塞
  * 一次整银行擦写窗口（spec §4.3 接受的 ≤150ms 级 UI 停顿）；bank 是 4KB 扇区重写，
  * 与工程/预置保存同一条「擦写期间不持引擎锁」纪律（ADR-009 §3）。
@@ -172,7 +174,7 @@ typedef struct {
     uint8_t shown_itype; /* 选中轨 INSERT TYPE（INSERT A/B/C 槽描述符随它变，Task 5） */
     uint8_t focus_shown;  /* 最近渲染的焦点槽 */
     bool ctx_valid;
-    /* bank 存取行（仅 FM6 页；其它页为 NULL） */
+    /* bank 存取行（建在带 PARAM_FEAT_BANK_FM6 的页 = SOUND，仅 FM6 引擎时显示；其它页为 NULL） */
     lv_obj_t *bank_label;
     lv_obj_t *bank_dec;
     lv_obj_t *bank_inc;
@@ -287,9 +289,9 @@ static bool slot_desc(const param_page_t *pg, uint8_t chip, uint8_t slot, sloop_
     case SLOOP_DESC_GLOBAL:
         return sloop_core_desc(SLOOP_DESC_GLOBAL, 0, s->id, out);
     default: {
-        app_state_t st;
-        state_get_copy(&st);
-        uint8_t track = st.core.selected_track;
+        /* 窄读选中轨：本函数在点击路径的第三层帧里被调（回调 → refresh → update → 这里），
+         * 在栈上放整份 app_state_t（≈1.7KB）会把 LVGL 任务的 7KB 栈压穿（Task 5 评审 R10）。 */
+        uint8_t track = state_selected_track();
         return track < APP_STATE_TRACKS && sloop_core_desc_track_live(track, s->id, out);
     }
     }
@@ -341,6 +343,15 @@ static bool page_locked(const param_page_t *pg, const app_state_t *st)
     return st->core.trk[track].engine != eng;
 }
 
+/* page_locked 的「此刻」版本（窄读）：旧式引擎页整页锁 */
+static bool page_locked_now(const param_page_t *pg)
+{
+    uint8_t eng = page_engine(pg);
+    if (eng == 0xFF) return false;
+    if (state_selected_track() >= 3u) return true;
+    return state_selected_engine() != eng;
+}
+
 /* 选中轨上下文：是否鼓轨、引擎号（鼓轨无引擎，回 0） */
 static void sel_context(const app_state_t *st, bool *drum, uint8_t *engine)
 {
@@ -360,6 +371,38 @@ static bool slot_locked(const param_page_t *pg, uint8_t chip, uint8_t slot, cons
     sel_context(st, &drum, &engine);
     (void)engine;
     return page_layout_slot_locked(s, drum);
+}
+
+/* slot_locked / slot_value 的「此刻」版本：点击路径（± 按钮、旋钮拖动、页眉行）不持整份
+ * 状态副本，逐字段经状态层的窄读访问器取（与 slot_locked/slot_value 同一判定与同一投影）。 */
+static bool slot_locked_now(const param_page_t *pg, uint8_t chip, uint8_t slot)
+{
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL) return true;
+    if (page_locked_now(pg)) return s->scope == SLOOP_DESC_ENGINE;
+    return page_layout_slot_locked(s, state_selected_track() >= APP_STATE_TRACKS - 1u);
+}
+
+static bool slot_value_now(const param_page_t *pg, uint8_t chip, uint8_t slot, int16_t *out)
+{
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL || out == NULL) return false;
+    switch (s->scope) {
+    case SLOOP_DESC_GLOBAL:
+        if (s->id >= SLOOP_CORE_G_COUNT) return false;
+        *out = state_read_g(s->id);
+        return true;
+    case SLOOP_DESC_TRACK:
+        if (s->id >= SLOOP_CORE_P_COUNT) return false;
+        *out = state_read_p(s->id);
+        return true;
+    case SLOOP_DESC_ENGINE:
+        if (s->id >= 8u) return false;
+        *out = state_read_p((uint8_t)(PARAM_ENGINE_BASE + s->id));
+        return true;
+    default:
+        return false;
+    }
 }
 
 /* 槽位当前值（GLOBAL→g[]、TRACK→p[]、ENGINE→p[P_E0+id]）；不可读返回 false */
@@ -400,11 +443,8 @@ static bool slot_write(uint8_t index, uint8_t chip, uint8_t slot, int16_t value,
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL || slot >= PARAM_PAGE_SLOTS) return false;
-    app_state_t st;
-    state_get_copy(&st);
-    if (slot_locked(pg, chip, slot, &st)) return false;
     const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
-    if (s == NULL) return false;
+    if (s == NULL || slot_locked_now(pg, chip, slot)) return false;
 
     edit_cmd_t cmd = {0};
     if (s->scope == SLOOP_DESC_GLOBAL) {
@@ -413,7 +453,7 @@ static bool slot_write(uint8_t index, uint8_t chip, uint8_t slot, int16_t value,
         cmd.v = (uint16_t)value;
     } else if (s->scope == SLOOP_DESC_TRACK || s->scope == SLOOP_DESC_ENGINE) {
         cmd.type = CMD_SET_PARAM;
-        cmd.a = st.core.selected_track;
+        cmd.a = state_selected_track();
         cmd.b = slot_abs_id(pg, chip, slot);
         cmd.v = (uint16_t)value;
     } else {
@@ -421,9 +461,8 @@ static bool slot_write(uint8_t index, uint8_t chip, uint8_t slot, int16_t value,
     }
     state_apply(&cmd);
     if (applied != NULL) {
-        state_get_copy(&st);
         int16_t v;
-        *applied = slot_value(pg, chip, slot, &st, &v) ? v : value;
+        *applied = slot_value_now(pg, chip, slot, &v) ? v : value;
     }
     return true;
 }
@@ -484,12 +523,11 @@ static bool param_step(uint8_t index, int8_t delta, int16_t *applied)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL) return false;
-    app_state_t st;
-    state_get_copy(&st);
     uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t v;
-    if (!slot_value(pg, chip, slot, &st, &v) || slot_locked(pg, chip, slot, &st)) return false;
+    /* 不持状态副本：本函数经 btn_cb/键盘在 LVGL 任务里跑，调用方随后还会 refresh（一份副本） */
+    if (!slot_value_now(pg, chip, slot, &v) || slot_locked_now(pg, chip, slot)) return false;
     return slot_write(index, chip, slot, (int16_t)(v + delta), applied);
 }
 
@@ -541,6 +579,11 @@ static void bank_action(uint8_t index, uint8_t act)
 {
     const param_page_t *pg = page_layout_get(index);
     if (!bank_row_present(pg)) return;
+    app_state_t st;
+    state_get_copy(&st);
+    /* 此刻重新判定行的可见性（不依赖上一拍 update 记下的显隐标志）：行隐藏 = 选中轨不是
+     * FM6 引擎的合成轨，没有可存/可擦的 FM6 live patch，命令不下发。 */
+    if (!bank_row_visible(pg, &st)) return;
     s_bank_act = act;
     edit_cmd_t cmd = {0};
     cmd.type = act == 0 ? CMD_BANK_PUT : CMD_BANK_ERASE;
@@ -863,17 +906,19 @@ static bool sound_step(uint8_t index, uint8_t row, int8_t delta, sloop_tap_resul
 {
     const param_page_t *pg = page_layout_get(index);
     if (!page_layout_is_sound(pg) || delta == 0) return false;
-    app_state_t st;
-    state_get_copy(&st);
-    uint8_t track = st.core.selected_track;
+    /* 只取 49B 的 sound 块与几个标量，不持整份 app_state_t：本函数经页眉行回调在 LVGL 任务
+     * 里跑，调用方随后还会 refresh（Task 5 评审 R10）。 */
+    sloop_sound_snapshot_t snd;
+    state_read_sound(&snd);
+    uint8_t track = state_selected_track();
     edit_cmd_t cmd = {0};
-    if (row == 0u && st.sound.drum) {
+    if (row == 0u && snd.drum) {
         sloop_desc_t d;
         if (track >= APP_STATE_TRACKS ||
             !sloop_core_desc_track_live(track, PARAM_ENGINE_BASE, &d)) {
             return false;
         }
-        int32_t v = (int32_t)st.p[PARAM_ENGINE_BASE] + delta;
+        int32_t v = (int32_t)state_read_p(PARAM_ENGINE_BASE) + delta;
         if (v > d.max) v = d.min;
         if (v < d.min) v = d.max;
         cmd.type = CMD_SET_PARAM;
@@ -882,17 +927,16 @@ static bool sound_step(uint8_t index, uint8_t row, int8_t delta, sloop_tap_resul
         cmd.v = (uint16_t)(int16_t)v;
         state_apply(&cmd);
         if (out == NULL) return true;
-        state_get_copy(&st);
         out->kind = SLOOP_TAP_SOUND_KIT;
-        out->a = (uint8_t)st.p[PARAM_ENGINE_BASE];
+        out->a = (uint8_t)state_read_p(PARAM_ENGINE_BASE);
         out->d = delta;
         out->err = sloop_seq_frozen() ? APP_SOUND_STATUS_FROZEN : 0u;
         return true;
     }
-    if (st.sound.drum || row >= page_layout_sound_rows(false)) return false; /* 鼓轨没有 PRESET 行 */
-    uint32_t n = row == 0u ? st.sound.nengines : st.sound.npresets;
+    if (snd.drum || row >= page_layout_sound_rows(false)) return false; /* 鼓轨没有 PRESET 行 */
+    uint32_t n = row == 0u ? snd.nengines : snd.npresets;
     if (n == 0u) return false;
-    int32_t v = (int32_t)(row == 0u ? st.sound.engine : st.sound.preset) + delta;
+    int32_t v = (int32_t)(row == 0u ? snd.engine : snd.preset) + delta;
     if (v < 0) v += (int32_t)n;
     if (v >= (int32_t)n) v -= (int32_t)n;
     cmd.type = row == 0u ? CMD_SET_ENGINE : CMD_SET_PRESET;
@@ -900,11 +944,11 @@ static bool sound_step(uint8_t index, uint8_t row, int8_t delta, sloop_tap_resul
     cmd.v = (uint16_t)v;
     state_apply(&cmd);
     if (out == NULL) return true;
-    state_get_copy(&st);
+    state_read_sound(&snd);
     out->kind = row == 0u ? SLOOP_TAP_SOUND_ENGINE : SLOOP_TAP_SOUND_PRESET;
-    out->a = row == 0u ? st.sound.engine : st.sound.preset;
+    out->a = row == 0u ? snd.engine : snd.preset;
     out->d = delta;
-    out->err = st.sound_status;
+    out->err = state_sound_status();
     return true;
 }
 
@@ -1137,10 +1181,6 @@ static lv_obj_t *build_bank_row(uint8_t index, lv_obj_t *parent)
     ui->bank_shown_slot = 0xFF;
     ui->bank_status_key = 0xFFFFFFFFu;
     ui->bank_vis_shown = -1; /* 可见性由紧随的 update 按选中轨引擎落地 */
-    /* 对象常驻：先隐藏，可见时 update 再逐个显示（不在 30ms 拍里建/删对象） */
-    lv_obj_t *objs[] = {ui->bank_label, ui->bank_value, ui->bank_dec, ui->bank_inc,
-                        ui->bank_save, ui->bank_erase, ui->bank_status};
-    for (size_t i = 0; i < sizeof(objs) / sizeof(objs[0]); i++) lv_obj_set_hidden(objs[i], true);
 
     ui->bank_label = make_row_label(parent, BANK_LABEL_X, BANK_ROW_Y, BANK_LABEL_W, UI_TEXT_DIM,
                                     LV_TEXT_ALIGN_LEFT);
@@ -1168,6 +1208,12 @@ static lv_obj_t *build_bank_row(uint8_t index, lv_obj_t *parent)
     ui->bank_status = make_row_label(parent, BANK_STATUS_X, BANK_ROW_Y, BANK_STATUS_W, UI_TEXT_DIM,
                                      LV_TEXT_ALIGN_LEFT);
     UI_BUILD_CHECK(ui->bank_status);
+
+    /* 对象常驻：建完先整行隐藏，可见（FM6 引擎）时 update 再逐个显示（不在 30ms 拍里
+     * 建/删对象）。必须在七个对象都建好之后——建之前隐藏是对空指针的空操作。 */
+    lv_obj_t *objs[] = {ui->bank_label, ui->bank_value, ui->bank_dec, ui->bank_inc,
+                        ui->bank_save, ui->bank_erase, ui->bank_status};
+    for (size_t i = 0; i < sizeof(objs) / sizeof(objs[0]); i++) lv_obj_set_hidden(objs[i], true);
     return parent;
 }
 

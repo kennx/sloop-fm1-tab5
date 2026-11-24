@@ -760,12 +760,13 @@ void sloop_ui_zoom_knob(const knob_t *k)
     }
 }
 
-/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
 /* 已建页刷新：UI 拍里**唯一**的一份状态副本放在这个独立函数的帧里，不留在
  * ui_timer_cb——后者还要调 state_sync_from_engine()（自带一份引擎快照 + 参数数组）与
  * show_page()（自带一份状态副本，页面构建还可能再取）。LVGL 任务栈只有 7,168B，三份
  * ~1.7KB 的副本叠起来后余量不足 0.5KB（P4-F Task 5 用高水位实测；再多一份即
  * Stack protection fault）。 */
+static uint32_t s_lvgl_stack_free; /* LVGL 任务栈的历史最小余量（字节；0 = 尚未跑过 UI 拍） */
+
 static void ui_refresh_built(void)
 {
     app_state_t st;
@@ -781,9 +782,17 @@ static void ui_refresh_built(void)
     }
 }
 
+/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示/待切页，最后经
+ * ui_refresh_built() 刷新已建页。 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
+    /* LVGL 任务栈余量（console `UI MEM` 的 lvgl_stack_free）：本回调恒在 LVGL 任务里跑，
+     * 每拍在任务内取高水位。内核按 StackType_t 计数；ESP-IDF 的 RISC-V 端口里它是
+     * uint8_t（portmacro.h），乘 sizeof(StackType_t) 即字节。点击路径
+     * （页眉行/±/chip/bank 的控件回调）也跑在本任务里，app_state_t ≈1.7KB 的副本叠到
+     * 第三份就压穿——ADR-008 §8.10。 */
+    s_lvgl_stack_free = (uint32_t)uxTaskGetStackHighWaterMark(NULL) * (uint32_t)sizeof(StackType_t);
     state_sync_from_engine();
     const sloop_settings_t *settings = sloop_store_settings();
     if (s_applied_palette != settings->f.palette || s_applied_theme_on != settings->f.theme_on ||
@@ -1289,6 +1298,7 @@ esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out)
     out->pool_total = (uint32_t)mon.total_size;
     out->pool_free = (uint32_t)mon.free_size;
     out->pool_used = (uint32_t)(mon.total_size - mon.free_size);
+    out->lvgl_stack_free = s_lvgl_stack_free;
     out->registered = s_reg_count;
     for (uint8_t i = 0; i < s_reg_count; i++) {
         const ui_page_t *def = s_registry[i];

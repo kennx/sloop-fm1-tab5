@@ -111,6 +111,8 @@ typedef struct {
 
 typedef struct {
     uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
+    uint32_t lvgl_stack_free; /* LVGL 任务栈的历史最小余量（字节；每拍在任务内取高水位，
+                               * 含 30ms 拍/切页构建/控件回调/渲染。门禁 ≥2,048，ADR-008 §8.10） */
     uint8_t registered, built, failed;
     sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
     uint8_t group_count;                         /* 组数（当前 9） */
