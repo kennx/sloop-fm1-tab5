@@ -8073,7 +8073,7 @@ def sys_device_selftest(s: Session) -> None:
     finally:
         s.ser = s._open()
     # console 全量自检之后 device-selftest.py 已 `ENG AUDIO ON`：这是 DI-40 的原始路径
-    # （chip worker 走同一段起流），先断言音频没进入持续超预算态再复位避开 DI-26。
+    # （chip worker 走同一段起流），先断言音频没进入持续超预算态再复位取干净基线（DI-26 的堆泄漏已修，复位不再是必需）。
     sys_perf_healthy(s, "⑤ console 全量自检后音频")
     # 同一 boot 内读（复位之前）：自检的 restore 把 s_set/fx_lowcut/flt_reso 回滚成 0，收尾的
     # settings_reload 以 flash 重放——INFO 读的是生效副本，这里才是 D7「收尾 reload」那一半的断言
@@ -8394,7 +8394,8 @@ def run_sys(s: Session) -> None:
     settings_save(s, "⑤ 自检前 SAVE")
     sys_device_selftest(s)
     settings_expect(s, {"lowcut": 1, "reso": 6}, "⑤ 自检后 settings 保持")
-    # DI-26：sys_device_selftest 已硬复位，后续池与 chip 门禁不继承自检堆泄漏。
+    # sys_device_selftest 已硬复位，后续池与 chip 门禁不继承自检后的设备状态（原 DI-26 的堆泄漏
+    # 已修，复位只为干净基线）。
 
     # ---------- ⑥ SEQ↔SYS 有序对过渡峰值 ----------
     s.ser.note("⑥ 有序对：SEQ 两页全建→SYS、SYS→STEP，构建后池剩余 ≥4,096")
@@ -8445,7 +8446,7 @@ def run_sys(s: Session) -> None:
     s.expect(r"^STORE AUTO on", "⑦ STORE AUTO ON（恢复默认）")
 
     # ---------- ⑧ SELFTEST chip：每 boot 一次，独立 worker 停流/恢复 ----------
-    # ⑤ 已跑过一次全量 console 自检；先复位避开 DI-26 的既有堆泄漏，再测产品 chip。
+    # ⑤ 已跑过一次全量 console 自检；先复位取干净基线，再测产品 chip。
     s.ser.note("⑧ SELFTEST chip：SYS SELFTEST ARM → 播放守卫 → 未落盘编辑+设置 → 完整 worker（先落盘）"
                " → 工作工程/设置/流/AUTO 恢复 → PERF")
     s.reboot()
