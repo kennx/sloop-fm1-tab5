@@ -7,7 +7,8 @@
  * （A–D RAM 场景应用与 SONG 工作 loop 暂存）与 upreset.c（用户预置
  * 32 槽；#define FELUCCA_FLASH 1 才走 st_xip）编进来，缺的符号在本文件顶部做薄 shim。
  * ui.c 的预置机制（apply_preset_to/set_engine_of/TRK_DEF/param_kept/arp_is_sounds）也
- * 按原语义移植在这里（换引擎/预置 = 换声音，见「换引擎/预置」小节）。
+ * 按原语义移植在 preset_tab5.h（换引擎/预置 = 换声音；P4-F Task 6 抽出成头文件，
+ * host 测试同源编译）。
  * third_party/ 零修改。
  *
  * 内存（ADR-009 §7，fidelity-first）：
@@ -74,22 +75,13 @@ static void ui_say(const char *a, const char *b)
     printf("%s%s\n", a, b);
 }
 
-/* 上游 ui.c:592：上电时各合成轨的（引擎，预置）——"ANALOG 808 BOOM / DIGITAL RHODES /
- * SAMPLE LOFI FLUTE"。project.c 的 FUN1 导入需要它（其余三轨的默认声音）。 */
-static const uint8_t TRK_DEF[NPART][2] = {{0, 0}, {1, 0}, {4, 5}};
-static uint32_t trk_def_engine(uint32_t i)
-{
-    return i < NPART ? TRK_DEF[i][0] : 0u;
-}
-
-/* 上游 ui.c:592 的 param_kept：载入声音时**不**被覆盖的参数（混音、图案参数、调性）。
- * upreset.c 的 up_load_to 与工厂预置的预设应用（preset_values/preset_apply_locked）
- * 都用它逐项保留轨道自己的值。 */
-static int param_kept(uint32_t i)
-{
-    return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_SLEN && i <= P_SGATE) ||
-           (i >= P_ROOT && i <= P_QUANT) || i == P_CHORD || i == P_TFLT || i == P_STRUM || i == P_VLEAD;
-}
+/* 上游 ui.c 的「载入声音」机制（TRK_DEF / param_kept / arp_is_sounds / apply_preset_to /
+ * set_engine_of）在 preset_tab5.h（P4-F Task 6 抽出；host 测试同源编译）。它的 user_of /
+ * arp_is_sounds 用到 upreset.c 的 up_used / up_arp_of——该文件在下面才 include，故先声明
+ * （与 ui.c 的写法相同）。 */
+static int up_used(uint32_t k);
+static int up_arp_of(uint32_t k, int16_t *a);
+#include "preset_tab5.h"
 
 /* XIP：st_xip 在上游 flash 里原地读 payload（upreset.c 的 up_bank_find / fm6_bank.c
  * 依赖它，省掉 RAM 镜像）。Tab5 上就是 sloopstore 的 mmap 窗口（ADR-009 §2）。
@@ -162,9 +154,7 @@ _Static_assert(sizeof(proj_tmp) >= sizeof(project_v5_t), "暂存装得下格式 
 /* FELUCCA_FLASH 必须为 1：upreset.c 的 up_bank_find / up_put 只在
  * `#if FELUCCA_FLASH` 内走 st_xip（否则银行永远读空、写也不落 flash）。project.c 是在
  * 这个宏未定义的条件下编入的（PROJ_HOST 段本就与 flash 无关），故这里只包住 include。
- * up_load_to 会调 arp_is_sounds（上游在 ui.c:607）；它依赖本 include 的 up_arp_of 与
- * user_of，故先声明、在 include 之后定义（ui.c 的写法相同）。 */
-static int arp_is_sounds(const track_t *t);
+ */
 
 #define FELUCCA_FLASH 1
 #include "upreset.c"
@@ -196,129 +186,6 @@ static void settings_written_locked(bool ok, const song_settings_t *written);
 _Static_assert(SLOOP_STORE_BANK_SLOTS == FM6_BANK_N, "公共 API 的银行槽数与上游 fm6_bank.c 一致");
 _Static_assert(SLOOP_STORE_BANK_PACKED == FM6_PACKED, "公共 API 的 packed 记录长度与上游一致");
 
-/* 上游 ui.c:24：轨的声音来自哪个用户预置（UP_SLOTS = 不是用户预置） */
-static uint32_t user_of(const track_t *t)
-{
-    return t->user && up_used(t->user - 1u) ? t->user - 1u : UP_SLOTS;
-}
-
-/* 上游 ui.c:607（逐行同义）：正在跑的琶音是不是这个声音自带的（2.7.1）——载入新声音
- * 时只有「不是它带来的」琶音才保留。up_load_to 用它，故必须在 include 之后定义。 */
-static int arp_is_sounds(const track_t *t)
-{
-    int16_t a[8];
-    uint32_t i, k = user_of(t);
-    if (k < UP_SLOTS) {
-        if (up_arp_of(k, a))
-            return 0;
-    } else {
-        const engine_t *e = ENGINES[t->engine % NENGINES];
-        const preset_t *pr;
-        if (t->user || !e->npresets)
-            return 0;
-        pr = &e->presets[t->preset % e->npresets];
-        for (i = 0; i < 8u; i++)
-            a[i] = (int16_t)(i < 4u && pr->arp[i] ? pr->arp[i] - 1 : TP[P_AMODE + i].def);
-    }
-    for (i = 0; i < 8u; i++)
-        if (t->p[P_AMODE + i] != a[i])
-            return 0;
-    return 1;
-}
-
-/* ------------------------------------------------ 换引擎/预置 = 换声音 --- */
-/* 上游 ui.c:581-691 的预置机制（TRK_DEF/trk_def_engine/param_kept/arp_param/
- * arp_is_sounds/apply_preset_to/set_engine_of）按原语义移植到本适配层。这是「换工厂
- * 预置 / 换引擎 = 换声音」的唯一实现：音频路径（voice.c/fx.c）读的是 t->p[]，只写
- * eng_req/preset 索引不会改声音（P4-B spec §2 的真缺陷）。
- *
- * 锁：上游在 FM-1 上用 fm1_irq_off/on 挡住音频 ISR；Tab5 上渲染走引擎锁
- * （sloop_core_render 与所有写 API 共用），故下面的 `*_locked` 变体**要求调用方已持
- * 引擎锁**——公共 API 与 sloop_store_project_load 都在锁内调它们，绝不递归取锁
- * （xSemaphoreCreateMutex 不可重入）。 */
-
-/* 上游 ui.c:594 的 arp_param：琶音参数（MODE…ORDER）。在跑琶音时它们不被下一个声音
- * 覆盖（2.7：你按下的琶音设置继续用），由 keep_arp 决定 */
-static int arp_param(uint32_t i)
-{
-    return i >= P_AMODE && i <= P_AORDER;
-}
-
-/* 上游 apply_preset_to 的**纯写值**部分（抽成一份实现，供应用与预览共用）：v = base->p[]
- * 的拷贝，再按引擎 e 的预置 pi 覆写——param_kept 保留项、keep_arp 下的 arp 参数、
- * kbd_hold 下的 P_AHOLD 不写；P_E0 以下其余回到 TP 默认；P_E0..P_E7、包络、ENV→FLT、
- * level trim、VOICE、fx[4]、arp[4] 与 preset_extras 取预置值。引擎没有预置时上游在
- * 写索引与清默认之前就返回：p[] 一个字节都不写（v 即 base 的拷贝）。 */
-static void preset_values(int16_t *v, const track_t *base, uint32_t e, uint32_t pi, int keep_arp,
-                          int kbd_hold)
-{
-    const engine_t *en = ENGINES[e % NENGINES];
-    const preset_t *pr;
-    uint32_t i;
-    memcpy(v, base->p, sizeof base->p);
-    if (!en->npresets) return;
-    pi %= en->npresets;
-    pr = &en->presets[pi];
-    for (i = 0; i < P_E0; i++) /* 声音的其余部分回到默认：预置才是声音（不是图案、不是混音） */
-        if (!param_kept(i) && !(keep_arp && arp_param(i)) && !(kbd_hold && i == P_AHOLD))
-            v[i] = TP[i].def;
-    for (i = 0; i < 8u; i++) v[P_E0 + i] = (int16_t)pr->e[i];
-    v[P_ATK] = pr->env[0];
-    v[P_DEC] = pr->env[1];
-    v[P_SUS] = pr->env[2];
-    v[P_REL] = pr->env[3];
-    v[P_ED_FLT] = pr->fenv;
-    v[P_ED_FX] = preset_trim(e % NENGINES, pi); /* 电平对齐（tools/level_presets.py） */
-    v[P_VOICE] = pr->mono ? V_LEGATO : V_POLY;  /* mono 预置保留 legato 手感 */
-    {
-        static const uint8_t FX_DEF[4] = {0, 24, 28, 36};
-        for (i = 0; i < 4u; i++) {
-            v[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
-            if (!keep_arp)
-                v[P_AMODE + i] = (int16_t)(pr->arp[i] ? pr->arp[i] - 1 : TP[P_AMODE + i].def);
-        }
-        preset_extras(v, pr); /* glide、pitch / LFO 调制、voice mode */
-    }
-}
-
-/* 上游 apply_preset_to（ui.c:620-673，逐行同义）的副作用半段：琶音保留请求（必须在
- * panic 之前）→ sound_change（旧声音淡出，无爆音）→ panic 本轨（MONO/POLY 可能变）→
- * user 清 0 → 选中轨置 sync_reload → 预置索引 → 纯写值 → FM6 载入预置的 patch。
- * 调用方持引擎锁（上游此处以 fm1_irq_off/on 保护）。 */
-static void preset_apply_locked(track_t *t, uint32_t pi)
-{
-    const engine_t *e = ENGINES[t->eng_req % NENGINES];
-    int16_t v[P_COUNT];
-    int keep_arp, kbd_hold;
-    if (is_drum(t)) return;
-    keep_arp = t->p[P_AMODE] != 0 && !arp_is_sounds(t); /* 2.7：在跑的琶音不是声音自带的才保留 */
-    kbd_hold = !t->p[P_AMODE] && t->p[P_AHOLD];         /* 2.7：KBD HOLD 保持开 */
-    if (keep_arp) arp_keep_req |= (uint8_t)(1u << trk_index(t));
-    sound_change(t);
-    panic_req |= (uint8_t)(1u << trk_index(t));
-    t->user = 0;
-    if (t == &trk[song.sel]) sync_reload = 1;
-    if (!e->npresets) return;
-    pi %= e->npresets;
-    t->preset = (uint8_t)pi;
-    preset_values(v, t, t->eng_req % NENGINES, pi, keep_arp, kbd_hold);
-    memcpy(t->p, v, sizeof v);
-    fm6_track_loaded(t);
-}
-
-/* 上游 set_engine_of（ui.c:677-689）：锁先还原（在锁里的参数先回基准）→ sound_change →
- * 记下新引擎 → 引擎默认值 → 预置 0。上游的 fm1_irq_off/on 在这里就是引擎锁。 */
-static void set_engine_of_locked(track_t *t, uint32_t ei)
-{
-    const engine_t *e = ENGINES[ei % NENGINES];
-    uint32_t i;
-    if (is_drum(t)) return;
-    locks_restore(t);
-    sound_change(t);
-    t->eng_req = (uint8_t)(ei % NENGINES);
-    for (i = 0; i < 8u; i++) t->p[P_E0 + i] = e->edit[i].def;
-    preset_apply_locked(t, 0);
-}
 
 /* 上游 project.c:639-647 的 proj_foreign_parts：工程里某轨的声音来自本固件没有的引擎
  * （Clipper 写的 HYBRID/FMX…）时，proj_apply 会把引擎号绕回另一个引擎并带上别人的参数；
