@@ -7943,6 +7943,14 @@ def settings_expect(s: Session, want: dict, label: str) -> None:
             f"{label} {key}={info[key]}（期望 {value}）")
 
 
+def sys_palette_default(s: Session, label: str, info_palette: int) -> None:
+    """R13：settings 读不到（空/损坏/未就绪）⇒ 生效 palette = 4（MONO）。INFO 的 palette 是
+    生效副本（reload 之后），`STATE SNAP set_palette` 是 UI 消费的同一投影，两者都查。"""
+    (s.ok if info_palette == 4 else s.fail)(f"{label} INFO palette={info_palette}（期望 4 = MONO，R13）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_palette=(\d+)", 4, f"{label} STATE SNAP set_palette=4")
+
+
 # 上游 arr_defaults（arranger.c:23）填 count 之外条目的方式：scene = i % 4、bars = 4。
 SYS_DEFAULT_BARS = 4
 # 上游 panel.c PANEL_DEFAULT = song_persist.h 的 SONG_PANEL_DEF（"PAN5" + 14 按钮 + 7 编码器 + 7 方向）
@@ -8012,6 +8020,31 @@ def sys_wait_settings_dirty(s: Session, want: int, label: str, timeout: float = 
     s.fail(f"{label} 超时（dirty 未到 {want}）")
 
 
+# soak 的流式占空比上限（2× 阶段 2 静默渲染基线 9.44%，AGENTS §5.5）；自检后的坏态实测 ≈220%。
+SYS_DUTY_MAX_PCT = 18.88
+
+
+def sys_perf_healthy(s: Session, label: str, window: float = 3.0) -> None:
+    """DI-40 回归：自检之后音频任务不得进入持续超预算态。流式 `ENG PERF` 的 duty_mean ≤ soak
+    上限、`window` 秒内 xrun 增量为 0（坏态：音频任务栈落进 LP SRAM ⇒ 每块 ≈13ms、
+    duty ≈220%、xrun == render_blocks，直到复位）。坏态下 console 还会被饿死（最长 >400s
+    无提示符）——那由 Session 的命令超时以 InjectError 判场景失败。"""
+    s.cmd("ENG PERF")
+    s.expect_int(r"streaming=(\d+) xrun=(\d+)", 1, f"{label} streaming=1")
+    xrun0 = s.snap_int(r"streaming=1 xrun=(\d+)")
+    m = re.search(r"render_mean_us=(\d+) render_max_us=(\d+) duty_mean=([\d.]+)%", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"{label}: ENG PERF 回显缺少 duty_mean：{s.last!r}")
+    duty = float(m.group(3))
+    (s.ok if duty <= SYS_DUTY_MAX_PCT else s.fail)(
+        f"{label} duty_mean={duty:.2f}% render_mean_us={m.group(1)}（≤ {SYS_DUTY_MAX_PCT}%）")
+    time.sleep(window)
+    s.cmd("ENG PERF")
+    xrun1 = s.snap_int(r"streaming=1 xrun=(\d+)")
+    (s.ok if xrun1 == xrun0 else s.fail)(
+        f"{label} {window:.0f}s 窗口 xrun {xrun0} → {xrun1}（期望增量 0）")
+
+
 def sys_wait_selftest(s: Session, timeout: float = 180.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -8039,7 +8072,9 @@ def sys_device_selftest(s: Session) -> None:
             print(cp.stderr, end="", file=sys.stderr)
     finally:
         s.ser = s._open()
-    # 不在旧音频恢复路径上等提示符：DI-26 后 console 可能已卡住，直接复位再继续。
+    # console 全量自检之后 device-selftest.py 已 `ENG AUDIO ON`：这是 DI-40 的原始路径
+    # （chip worker 走同一段起流），先断言音频没进入持续超预算态再复位避开 DI-26。
+    sys_perf_healthy(s, "⑤ console 全量自检后音频")
     s.reboot()
     (s.ok if cp.returncode == 0 else s.fail)(f"⑤ device-selftest.py exit={cp.returncode}（期望 0）")
 
@@ -8058,7 +8093,9 @@ def run_sys(s: Session) -> None:
     ③ 全部设置行 + THEME 第 6 档 + 键盘 + 播放中 20 次平台写（xrun 不增）；
     ④ settings/NVS/REC 三项的延迟写与硬复位保持；⑤ lowcut=1/reso=6 下 182 例 golden；
     ⑥ SEQ↔SYS 有序对过渡峰值；⑦ 归一 SAVE + AUTO ON；⑧ SELFTEST chip 的一次性 worker、
-    STOP/RESET 守卫与工作工程恢复；⑨ RAW settings + SIDE theme 往返、硬复位与 STORE TEST。
+    STOP/RESET 守卫与工作工程恢复（先 `SYS SELFTEST ARM`，worker 全路径必跑；DI-40：⑤/⑧ 自检后
+    `ENG PERF` duty ≤ soak 上限、xrun 增量 0；DI-42：①/①b-a 空/损坏对象 ⇒ palette 4）；
+    ⑨ RAW settings + SIDE theme 往返、硬复位与 STORE TEST。
     ①b 收口先恢复槽 A 的空/非空状态，再恢复歌曲，避免 `arr_drop_scene` 截断待恢复歌曲。
 
     **破坏性**（整份替换 OBJ_SETTINGS：上传的 88B 没有 SYN kit 银行 ⇒ 之后落工厂 SYN kit；
@@ -8071,6 +8108,15 @@ def run_sys(s: Session) -> None:
     s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
     ensure_stopped(s)
     base = settings_info(s)
+    # R13 的默认 palette 只在 reload 那一刻成立（开机/RAW 之后）：起点 RAM 里的 palette 可能
+    # 是用户此后改过的，故空/损坏对象的断言放在 ①b-a（RAW 写入触发的 reload）而不是这里。
+    if base["kind"] == "invalid":
+        # 起点是损坏对象（上一轮在 ①b-a 之后异常终止）：SAVE 按设计被拒（`STORE ERR invalid`、
+        # 不覆盖），先用 RAW 写回一份合法的默认 PER3（palette=MONO、默认歌曲）再继续。
+        store_raw.upload_raw(s.cmd, sys_per3_88(4, {"count": 4, "loop": 0, "entry": {}}), "settings", 0)
+        base = settings_info(s)
+        (s.ok if base["kind"] == "per3" and base["palette"] == 4 else s.fail)(
+            f"① 损坏对象归一 kind={base['kind']} palette={base['palette']}（期望 per3 / 4）")
     if base["dirty"] != 0:
         settings_save(s, "① 起点 dirty=1：先 SAVE 归一（允许上次中断后续跑）")
         base = settings_info(s)
@@ -8114,6 +8160,14 @@ def run_sys(s: Session) -> None:
         up_song = {"count": 3, "loop": 0, "entry": {0: (2, 1), 1: (3, 2), 2: (0, 1)}}
     up_want = (up_song["count"], up_song["loop"])
     s.ser.note(f"①b 上传歌曲 count={up_want[0]} loop={up_want[1]}（起点 count={song0['count']} loop={song0['loop']}）")
+    # R13：没有对象 / 对象损坏 / 存储未就绪 ⇒ 同一个 `!from_flash` 分支，生效 palette 必须是 4
+    # （MONO）。开发机上永远有对象，这里用 64B 垃圾对象走同一分支（INFO 报 invalid）；随后的
+    # 88B PER3 上传把它覆盖回合法对象。
+    store_raw.upload_raw(s.cmd, bytes([0xA5]) * 64, "settings", 0)
+    info = settings_info(s)
+    (s.ok if info["kind"] == "invalid" and info["len"] == 64 else s.fail)(
+        f"①b-a 损坏对象 kind={info['kind']} len={info['len']}（期望 invalid / 64）")
+    sys_palette_default(s, "①b-a 损坏对象", info["palette"])
     store_raw.upload_raw(s.cmd, sys_per3_88(1, up_song), "settings", 0)
     s.ok("①b STORE RAW END settings 0 saved len=88（88B PER3，palette=1）")
     settings_expect(s, {"kind": "per3", "len": 88, "palette": 1, "dirty": 0, "side": side0},
@@ -8388,9 +8442,13 @@ def run_sys(s: Session) -> None:
 
     # ---------- ⑧ SELFTEST chip：每 boot 一次，独立 worker 停流/恢复 ----------
     # ⑤ 已跑过一次全量 console 自检；先复位避开 DI-26 的既有堆泄漏，再测产品 chip。
-    s.ser.note("⑧ SELFTEST chip：播放守卫 → 一次性 worker → 工作工程/流/AUTO 恢复 → RESET FIRST")
+    s.ser.note("⑧ SELFTEST chip：SYS SELFTEST ARM → 播放守卫 → 完整 worker → 工作工程/流/AUTO 恢复 → PERF")
     s.reboot()
     ensure_stopped(s)
+    # R8 的「每 boot 一次」标记在 .noinit，跨 esptool 硬复位存活；R25 的诊断注入清掉它与结果
+    # 缓存，chip 才走完整 worker 路径（否则下面只会得到 RESET FIRST + 上一轮的缓存结果）。
+    s.cmd("SYS SELFTEST ARM")
+    s.expect(r"^SYS SELFTEST ARMED\r?$", "⑧ SYS SELFTEST ARM（R25：清每 boot 一次标记与结果缓存）")
     s.cmd("UI system")
     s.expect(r"^UI page=system \(14\)\r?$", "⑧ UI system")
     auto = autosave_fields(s)
@@ -8429,6 +8487,8 @@ def run_sys(s: Session) -> None:
     chip_ran = "RESET FIRST" not in s.last
     if chip_ran:
         s.expect(r"-> SYS SELFTEST status=\"SELFTEST RUNNING\"", "⑧ 停止后 chip 只入队")
+        s.cmd("SYS SELFTEST ARM")
+        s.expect(r"^SYS SELFTEST ARM ERR busy\r?$", "⑧ 自检进行中 ARM 被拒（busy）")
         sys_wait_selftest(s)
         s.cmd("STORE STATS")
         s.expect(r"^STORE STATS .*autosave=1 ", "⑧ worker 结束后 STORE AUTO 回 on")
@@ -8438,9 +8498,9 @@ def run_sys(s: Session) -> None:
             f"⑧ 工作工程恢复：LIVEHASH {hash_after:08X} == 自检前 {hash_before:08X}")
         s.cmd("ENG AUDIO")
         s.expect_int(r"streaming=(\d+)", 1, "⑧ worker 恢复流式")
+        sys_perf_healthy(s, "⑧ worker 恢复流式后音频")
     else:
-        s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"",
-                 "⑧ 本 boot 已有自检：SCR 重试不重复跑（R8，复用前一轮结果）")
+        s.fail("⑧ ARM 之后 chip 仍回 RESET FIRST：worker 全路径未执行")
     # 离开/重返不得再次清 R8 标记；PASS 或此前的 PASS 缓存都在重建后显示。
     s.cmd("UI play")
     s.expect(r"^UI page=play \(0\)\r?$", "⑧ 自检后离开 SYSTEM")
