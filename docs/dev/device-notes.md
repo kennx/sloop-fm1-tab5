@@ -114,3 +114,32 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
   可靠性问题由自动重试解决）；若后续出现「重试后仍失败」「停滞波及非截屏串口命令」或「需要固件侧修 USB-JTAG
   TX」，按新问题重新登记，并以 `-fail.bin`/`-fail.txt` 与当时的 `dmesg`/USB 拓扑为起点取证。
 
+## 9. P4 的 LP SRAM 是内部堆的低优先级兜底——实时任务的栈不能靠 `xTaskCreate`（2026-11-24，P4-E 收口 DI-40 定位）
+
+- **现象**：全量 `ENG SELFTEST`（182 例）之后 `ENG AUDIO ON`，console 被饿死 5–400s；`ENG PERF`
+  显示 `xrun == render_blocks`、`render_mean_us ≈ 13,000`（预算 5,804）、`duty_mean ≈ 220%`，
+  `task_wdt` 每 5s 报一次 IDLE；停流再启流不恢复，硬复位才好。单例自检不触发。
+- **判别手法**（下次遇到「某个任务莫名慢」可直接复用）：
+  1. 同一份工作换到别的任务里量：自检后立刻在 console 里跑离线 `ENG PERF` ⇒ `us_mean=537`（正常），
+     说明不是引擎/DSP 状态，是**任务上下文**。
+  2. 读 `task_wdt` 的寄存器转储：坏态下音频任务的 `SP` 全在 `0x5010_9xxx`，console 的在 `0x4ff3_xxxx`。
+     对照 `firmware/build/sloop_fm1_tab5.map`：`lp_ram_seg 0x50108018 len 0x7fe8` 是 **LP SRAM**，
+     `0x4ff0_0000…` 才是 L2MEM。
+  3. `MEPC`/`RA` 用 `riscv32-esp-elf-addr2line -e build/sloop_fm1_tab5.elf -f -C -i <addr>…` 符号化
+     （工具链在 `~/.espressif/tools/riscv32-esp-elf/*/riscv32-esp-elf/bin/`；须带 `-e`）。坏态的 PC 全在
+     `fx_buses`/`track_render`/`mix_units` 的 DSP 热循环 ⇒ 是真在算，只是慢了 ~24 倍。
+- **机制**：IDF `components/heap/port/esp32p4/memory_layout.c` 把 32KB LP SRAM 注册为
+  `SOC_MEMORY_TYPE_RTCRAM`，它的**低优先级匹配**含 `MALLOC_CAP_INTERNAL`。按分配器的匹配顺序，
+  `xTaskCreate` 的栈落到 LP SRAM 只会是 L2MEM 各堆都拿不出连续整块——全量自检的堆泄漏（DI-26，
+  P4-E 开机 68.9KB → 28.7KB）之后正是如此。该落点下渲染慢 ~24 倍（推断是 HP 核访问 LP SRAM 不经
+  L1 cache，未单独验证；`-Og` 下 DSP 的局部变量全在栈上）。`internal_free` 还有 28KB 也会发生：
+  **看 largest free block，不看 free**。P4-D 开机内部堆多 ~20KB，所以当时没暴露。
+- **处置**：音频任务栈在首次启流时 `heap_caps_malloc(…, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA)`
+  （LP SRAM 没有 DMA 能力）显式分配、复位前常驻，配 `xTaskCreateStatic`（ADR-007「音频任务栈必须整块在
+  内部 L2MEM」）。启流日志 `stream started, half=256 frames stack=0x4ff2____` 即落点自证；
+  `0x5010____` 就是又掉进去了。其它将来新建的实时/渲染任务同理，不要用裸 `xTaskCreate`。
+- **别踩的坑**：把栈/TCB 直接放 `.bss` 会让开机 `internal_min` 恒减 ~4.4KB（实测 65,888 → 61,440，
+  正压 soak 的 60KB 门限）；静态 TCB 复用前必须等 IDLE 回收已删任务（`stop()` 里等任务数减一）。
+- 取证 transcript：`firmware/build/verify/probe-r{1-full,2-idle,3-diag,4-fix,5-final}-*.log`、
+  `probe-di42-before-*.log`（原件 gitignored，不入库）；证据包 `docs/dev/verify/4-pe-2026-11-23/` 收录其中
+  `fix-probe-r1-full-*.log`（复现）、`fix-probe-r5-final-*.log`（修复后同一流程）与 `fix-probe-di42-before-*.log`。

@@ -144,17 +144,17 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB，音频重启超时）
+## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB；音频重启超时已修，堆泄漏仍在）
 
 | 项 | 内容 |
 |---|---|
 | **背景** | P4-B Task 14 收口矩阵（注入六场景 → `device-selftest` → soak 同一会话）暴露：**每次全量 `ENG SELFTEST`（182 例）净减 ~40KB 内部堆**，且不随重启前的其它命令出现。实测 2026-11-22（固件 `6167039-dirty`）：复位后 `internal_free=99,739` → 全量 #1 后 `59,443` → 全量 #2 后 `19,323`；两次后 `ENG AUDIO ON` 超时（收 14 字节无提示符），需重启恢复。单用例重复 20 次 `-4,612B`（≈230B/执行 job）；未知用例（0 job）每次 ~40B；音频 OFF/ON ×3 与普通命令（`ENG MEM`/`ENG PERF`/`ENG SNAP`）无此量级变化——泄漏只在 regress job 执行路径上。同一会话里紧随其后的 soak 因此跌破 60KB 门禁（59,355B）；**复位后同一 soak 命令 PASS**（99,211→99,263B）。测量留档：`docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、`task-14-soak-fail-after-selftest*.txt`。 |
-| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
+| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位（P4-B 实测；2026-11-24 定位到该「重启超时」的机理是泄漏后音频任务栈落到 LP SRAM，已由 `c62823e` 修复——栈改为开机首次启流即固定在 L2MEM 的常驻整块，音频不再依赖自检后的堆余量；**堆耗尽本身的风险未变**：P4-E 开机约 69KB、一次全量后约 29KB，第二次全量预计把内部堆耗尽，未实测）；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
 | **为何可延迟** | 不在用户操作路径上；根因未定位（本条目按实测登记，不做猜测性修法）。门禁已用「selftest 之后复位再 soak」的矩阵顺序规避（AGENTS §5.1/§5.5 已注明），证据完整。修法涉及 selftest 快照/恢复与堆所有权（P4-B 起 store TU 编入同一快照窗口），需要单独一轮带堆跟踪的排查，避免在收口任务里盲改。 |
 | **解决方向** | ① 先定位：对 `ENG SELFTEST` 单用例做堆跟踪（`heap_caps_get_info` 前后快照 / `esp_heap_trace` 或二分 job 名单），确认是 regress job 内的库调用（如 `snprintf("%.2f")` 的 newlib 缓冲）还是 `selftest_restore()` 回滚了某个堆相关的全局；② 若为恢复回滚：把「自检期间分配、恢复后仍被使用的指针」移出快照窗口（`.noinit` 或重扫），参照 Task 7 的 `fm6_bank_boot`/`up_boot` 入口重扫；③ 若为库缓冲：改为定长格式化或预热；④ 无论修法，补一条门禁断言：连续两次全量 `ENG SELFTEST` 后 `internal_free` 下降 ≤1KB。 |
-| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB、音频无法重启）。 |
-| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫） |
-| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS） |
+| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB——P4-B 读数；音频栈落点已修，剩余风险是堆耗尽）。 |
+| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫）、`docs/dev/device-notes.md` §9（栈落点的判别手法）、`docs/dev/verify/4-pe-2026-11-23/fix-probe-r{1-full,5-final}-*.log`（泄漏后 `internal_free=33,363` / `28,719` 的复现与修复对照） |
+| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS）；2026-11-24 P4-E 修复轮：定位到本泄漏的一条**可见后果**——泄漏后内部 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频任务的栈落到 LP SRAM（P4 上是 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆，该落点下渲染慢 ~24 倍，推断是 HP 核访问不经 L1 cache）、每块 xrun 直到复位（原 DI-40；据前任报告 P4-D 开机内部堆多 ~20KB 因而当时未暴露——推断，未在 P4-D 固件上复现）。音频任务栈已改为首次启流用 `INTERNAL\|DMA` 显式分配的常驻 L2MEM 整块，音频不再受泄漏影响；泄漏本身仍未定位（本次实测 P4-E 开机 68.9KB → 一次全量后 28.7KB；按此斜率同一 boot 内第二次全量会把内部堆耗尽，未实测）。新增的 `SYS SELFTEST ARM` 诊断让 chip 可在同一供电周期内重跑，使用时须「先复位再 ARM」 |
 
 ## DI-27: 一次性 take 结果（`take_bars`）在设备脚本里不可稳定观测
 
@@ -287,39 +287,3 @@
 | **触发条件** | SYSTEM 页需要可用的 HEADPHONE 选项时；或人测报告扬声器底噪偏大 / 单声道不可接受时。(c) 在硬件旁做听音时顺手完成，完成后从本条删除。 |
 | **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定）。已封存的证据包（如 `docs/dev/verify/4-pc-2026-11-22/`、`1-bringup-2026-11-19/`）里的 `DI-6` 是历史编号（R18：证据包不可变），即指本条 |
 | **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |
-
-## DI-40: 全量 `ENG SELFTEST` 之后音频重启进入持续超预算态（每块 xrun，复位才恢复）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | P4-E Task 8 阶段收口时在最终固件 `8963fc8` 上重复观察到（5 次：矩阵 3 次 + 探针 2 次）：全量 182 例自检（console 路径）结束后 `ENG AUDIO ON`，console 被饿死 5.6–35s，随后 `ENG PERF` 显示 `xrun == render_blocks`、`render_mean_us ≈ 12.6–13ms`（块预算 5.8ms）、`duty_mean ≈ 220%`，同时 `playing=0`、四轨 `voices=0`；task_wdt 每 5s 报一次 IDLE（CPU 上跑的是 `sloop_audio`）。停流再起流不恢复，数分钟内不自愈，esptool 硬复位后恢复（xrun 0、duty ≈9.5%）。单例自检（`ENG SELFTEST preset/ANALOG/00_808_BOOM`）不触发。P4-D 的同类日志（`4-pd-2026-11-23/task-12-selftest.log`）自检后 ON 为 `xrun=0`。根因未定位。 |
-| **影响面** | SYSTEM 页 SELFTEST chip 的 worker 收尾会停流→自检→起流，用户点完 chip 后音频即处于该态（每块超预算 = 持续欠载），只能靠复位恢复；`device-selftest.py` / `sys` ⑤ 之后脚本都会复位，所以既有门禁没有覆盖到「自检后继续出声」。全量自检另有 DI-26 的 ~40KB 内部堆泄漏（本次实测 69KB → 33KB，已低于 soak 的 60KB 门限），两者是否同源未知。 |
-| **为何可延迟** | 只影响「全量自检之后不复位就继续用」的路径；诊断自检不是产品日常操作，所有脚本在自检后都复位。soak（复位后 1801s）xrun 0。 |
-| **解决方向** | 在自检收尾二分：跑完全量但跳过 restore / 逐个跳过 song/DSU/采样/settings 重载，看哪一步之后 `ENG PERF` 变差；对照 P4-D 固件同一流程确认是否 P4-E 引入（P4-E 新增的是 settings_reload 与 D7 的 lowcut/reso 归零/重放）；同时查 DI-26（内部堆 33KB 是否让某条渲染路径退化）。修复后 `sys` ⑧ 断言补「worker 结束后 `ENG PERF xrun` 增量」。 |
-| **触发条件** | 合并 `feat/phase4e` 到 dev 之前（SYSTEM chip 是本阶段交付面）；或任何人测报告「自检后声音异常」。 |
-| **参考** | `docs/dev/verify/4-pe-2026-11-23/readme.md` §4(2)、`task-8-diag-probe{1,3,4}.py` 与 transcript、`task-8-device-selftest.log`（xrun=680）、`task-8-inject-sys{,-2}.log` ⑤（xrun 415/416）。 |
-| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |
-
-## DI-41: SELFTEST chip 的「每 boot 一次」标记跨 esptool 硬复位存活，`sys` ⑧ 的 worker 全路径没有归档证据
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `page_system.c` 的 `.noinit` ran+magic 只在 `esp_reset_reason()` 为 POWERON/BROWNOUT 时清零；esptool `hard_reset` 之后该标记仍在。实测（`task-8-diag-probe1-transcript.log`）：硬复位后第一次点 chip 即 `RESET FIRST`。`inject.py` 的 `run_sys` ⑧ 只在 SCR 重试时才应当走这个分支，但它不校验 `s.resets`，所以无重试的运行同样以「本 boot 已有自检：SCR 重试不重复跑」PASS，PASS 截图显示的是 `.noinit` 缓存的上一次结果。 |
-| **影响面** | 最终矩阵的两次 `sys`（各 312 PASS）与 Task 7 的归档运行都没有执行 chip worker 的 `RUNNING → 182/182 → AUTO 回 on → LIVEHASH 恢复 → 流恢复` 断言；只有 `task-7-sys-red-120s.log` 证明 chip 能进入 RUNNING。同一供电周期内（USB 不拔）任何脚本都无法让 chip 再跑一次。 |
-| **为何可延迟** | worker 本身与 console 自检共用 `sloop_core_selftest()`；缺口在证据而非已知的功能缺陷。但 DI-40 说明「起流恢复」实际并不健康，两者应一起处理。 |
-| **解决方向** | (a) 取证：物理断电重上电后重跑 `bash scripts/inject/sys.sh`，确认 ⑧ 走 `chip_ran` 分支并保留 stdout；(b) 脚本：`else` 分支要求 `s.resets > 0`，否则 FAIL；(c) 可选：console 增加清标记的诊断命令，免物理断电。 |
-| **触发条件** | 处理 DI-40 时一并做（DI-40 的修复验证需要 chip 真正跑一遍）。 |
-| **参考** | `firmware/components/sloop_ui/src/page_system.c`（`page_system_build` 的冷启动清零、`system_action` 的 `RESET FIRST`）、`scripts/inject/inject.py`（`run_sys` ⑧）。 |
-| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |
-
-## DI-42: settings 为空/损坏/未就绪时默认 palette 疑为 0（GREEN）而非 R13 的 4（MONO）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | 代码阅读发现（未在设备复现，开发机始终有 settings 对象）：`settings_tab5.c` 的 `sloop_store_settings_reload()` 在 `!from_flash` 时把 `song_settings_t` 清零，随后只对越界值钳到 4——没有把 palette 置 4 的分支；函数注释与裁决 R13 都写的是「MONO=4」。上游 `settings_init()`（`panel.c:149`）默认是 4。 |
-| **影响面** | 全新/擦除过 `sloopstore` 的设备、settings 对象损坏或存储未就绪时，首次开机 UI 是 GREEN 而不是 Tab5 默认视觉 MONO；用户可在 SYSTEM 页 COLOR 行改。 |
-| **为何可延迟** | 只影响首启配色；P4-E 之前的固件本来就写 palette=0（ADR-009 §6.4「历史 palette 不迁移」）。 |
-| **解决方向** | `if (!from_flash) { memset(&f, 0, sizeof f); f.palette = SLOOP_SETTINGS_PALETTES - 1u; }`，并在 host 测试补「无对象 → palette 4」。 |
-| **触发条件** | 处理 DI-40/DI-41 的固件修复轮顺带修；或工厂/恢复出厂流程落地前。 |
-| **参考** | `firmware/components/sloop_core/src/settings_tab5.c:150-172`、`.superpowers/sdd/2026-11-23-p4e-settings-page/progress.md` Ruling R13。 |
-| **登记** | 2026-11-24（P4-E Task 8 接管者复核） |
