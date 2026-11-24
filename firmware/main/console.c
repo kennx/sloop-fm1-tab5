@@ -481,7 +481,9 @@ static int kbd_command(int argc, char **argv)
 
 /* SYS NVS ERASE：删除平台设置三键（诊断；RAM 值与硬件不变，下一次 boot 落默认）。
  * SYS SELFTEST ARM：清 SYSTEM 页 SELFTEST chip 的每 boot 一次标记与结果缓存（R25 诊断注入；
- * DI-26：同一 boot 内每跑一次全量自检泄漏 ~40KB 内部堆，本命令给复位后的重跑用）。 */
+ * 原 DI-26——同一 boot 内每次全量自检泄漏 ~40KB 内部堆——已修：`cpu1_host` 替身改在自检快照前
+ * 预初始化（sloop_core_init），重复全量自检不再泄漏（scripts/selftest-heap.py 守住）。worker 开机
+ * 只创建一次、跑完自删不重建，本命令仍是给复位后的重跑用）。 */
 static int sys_command(int argc, char **argv)
 {
     if (argc == 3 && strcasecmp(argv[1], "nvs") == 0 && strcasecmp(argv[2], "erase") == 0) {
