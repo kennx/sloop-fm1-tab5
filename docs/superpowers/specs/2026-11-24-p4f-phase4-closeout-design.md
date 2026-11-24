@@ -99,6 +99,10 @@ FM6 用例改指向 SOUND；TAB 轮转 19 页。）
 | REC / STUDIO(DSYN) / SONG / PRESETS / USER / SECTION / MENU | 已对齐（TRANSPORT / DSYN / SONG / PRESETS / PROJECTS / SYSTEM） | — |
 | VIS / PUNCH / LIVE / LEARN / HARDWARE CALIBRATION | 清单登记 DI（触发条件写明） | — |
 
+审计修订（Task 1，2026-11-24，以 `docs/design/012-feature-parity-checklist.md` §3/§6 为准）：PATTERN chip 为 4 槽
+（含 `P_SLEN`）；VOICE 页的 FILTER chip 是**条件 chip**（仅 ANALOG 且非鼓轨出现，非 ANALOG 时该页 3 个 chip）；
+鼓轨规则落实到**逐槽**（FX chip 内 TFLT/LEVEL/PAN 可编辑、其余锁定），不是逐 chip。
+
 审计先行（Task 1）：清单落定后若上游事实与本表冲突（例如某族的参数在 `desc` 不可达、
 TOOLS 动作在上游不是「参数」而是 UI 动作），**以清单与上游源码为准**，回头修订本表并记录裁决。
 

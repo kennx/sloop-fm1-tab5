@@ -299,3 +299,111 @@
 | **触发条件** | (1)(2) P4-F 第一个涉及 USB host/MIDI 的任务开工前（新增内部 RAM 分配之前）；soak 的 `internal_min` 低于 ~62KB 时立即处理。(3)(4) 用户报告播放中调音量有爆音，或键盘灯颜色与屏上 accent 不一致。 |
 | **参考** | `firmware/main/sys_selftest.c`（`SYS_SELFTEST_STACK`、worker 循环）、`firmware/main/main.c`（`sys_selftest_start` 调用点）、`scripts/soak.py`（`HEAP_FLOOR`）、`docs/dev/verify/4-pe-2026-11-23/fix-soak-summary.txt`（min 65,536B）、ADR-007（音频任务栈的 L2MEM 分配）、DI-26（全量自检堆泄漏）、`firmware/components/sloop_hal_tab5/src/sys_settings.c`（`sloop_hal_settings_flush`）、`firmware/components/tab5_keyboard`（`tab5_keyboard_rgb_set`）、P4-E spec §5 D2/D9 |
 | **登记** | 2026-11-24（P4-E 整分支终审 I3；合并 triage 的 M10 余项与键盘字节序） |
+
+## DI-44: PRESETS 收藏（fav 16）无 UI
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 2.7：PRESETS 页 KNOB 4 把当前声音加入/移除收藏（最多 16，置顶列表），随 settings 的 side record（FAVS 段）持久化。Tab5 PRESETS 页无此交互；side record 的 fav 字节逐字节保留。 |
+| **影响面** | PRESETS 页缺少「收藏置顶」浏览方式；数据无损。 |
+| **为何可延迟** | 非核心路径；P4-E 已保证 fav 字节不丢，随时可补。 |
+| **解决方向** | PRESETS 页加收藏切换（chip 或键盘键）+ `CMD_PRESET_FAV`；读 `fav[]`（同 TU 可达）并镜像上游 `fav_toggle` 语义。 |
+| **触发条件** | 用户在 32 用户预置 + 工厂预置间来回找同一个声音；或 P4-F 之后的 PRESETS 页改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-45: EDIT 层实时擦除（走带中 MPC 式）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 EDIT 层：按住 EDIT + 键 = 该音符/鼓声在走带中从播放头经过的每一步被擦除；另有 MUTE mode。Tab5 只有 STEP 格点切换与 `SEQ EDIT DEL`。 |
+| **影响面** | 实时演奏中无法「按着键擦掉某个音」；离线编辑不受影响。 |
+| **为何可延迟** | 需要新的输入层（修饰键 + 音符键 → 按拍调用擦除），涉及 InputManager 层模型与录音并发（DI-28 同类风险）。 |
+| **解决方向** | InputManager 增 EDIT 层：按住某键期间每个 30ms 拍/每步对选中轨调用 `SEQ_STEP_NOTE_DEL`（鼓：按 lane 清位）；人测手感。 |
+| **触发条件** | 用户提出现场擦除需求；或 P5 输入层改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-46: 鼓轨 MUTE mode（Sequencer 内静音某鼓声）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 2.6：EDIT 层 + 黑键进入 MUTE mode，白键静音/恢复 Sequencer 里对应的鼓声（live，不擦除）。Tab5 无。 |
+| **影响面** | 现场无法快速静音某个鼓 lane；可用 STEP 页逐格清代替（破坏性）。 |
+| **为何可延迟** | 同 DI-45 的输入层工作；非核心。 |
+| **解决方向** | 与 DI-45 一并实现：lane 级 live mute 标志（引擎已有 `drum lane mute` 语义则复用，否则适配层）。 |
+| **触发条件** | 用户提出需求；或与 DI-45 同批。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-47: ARP roll（note repeat 层）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 ARP 层：按住 ARP + 键 = 以 RATE（1/8…1/64）重复该音，锁定 tempo/swing；录音时写成 ratchet。Tab5 无。 |
+| **影响面** | 演奏表现力缺一项；ARP 参数页本阶段补齐（Task 4），但 roll 是输入层功能。 |
+| **为何可延迟** | 输入层 + 录音写入路径，和 DI-45/46 同类。 |
+| **解决方向** | InputManager 增 ARP 层：按住期间按 RATE 调度重复 note-on；录音中经 `sloop_seq_drum_hit`/note 写入。 |
+| **触发条件** | 用户提出需求。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-48: tap tempo 未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 GLO 层白键 16：连敲两次以上设 BPM。Tab5 只有 BPM±。 |
+| **影响面** | 排练时无法快速跟拍；BPM 旋钮可替代。 |
+| **为何可延迟** | 小功能但需输入层 + 时间窗逻辑。 |
+| **解决方向** | TRANSPORT 增 TAP chip / 键盘键：两次间隔 → BPM（40..240 钳位），经 `CMD_SET_BPM`。 |
+| **触发条件** | 用户提出需求；或 TRANSPORT 页下次改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-49: SEL 层键盘行为（CHORD / KEYS SNAP·WHITE）未映射到 Tab5 键盘
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 SEL 层：CHORD 模式下单指走和弦、黑键换和弦；KEYS = OFF/SNAP/WHITE 改变琴键行为。Tab5 键盘直接发原始音高；参数本身本阶段补齐（Task 4 SCALE 页）。 |
+| **影响面** | 参数能改，但 Tab5 键盘上听不到 CHORD/KEYS 的效果（若引擎在 note-on 前由 ui_input 做映射）。 |
+| **为何可延迟** | 需先核实上游是在 `ui_input.c` 做键位映射还是引擎内处理；属输入层。 |
+| **解决方向** | 读 `ui_input.c` 的 keys/chord 处理，移植到 InputManager 的 note-on 路径（纯函数，host 单测）。 |
+| **触发条件** | Task 4 落地 SCALE 页后若参数在 Tab5 键盘上无效，则升级为必修。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-50: 开机画面 / 开机音未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游有 splash 与开机音（`splash.c`、boot sound）。Tab5 开机直接进 PLAY 页。 |
+| **影响面** | 观感差异；无功能影响。 |
+| **为何可延迟** | 纯呈现；开机即启流（DI-8）下开机音需小心与流式启动顺序。 |
+| **解决方向** | display 就绪后 1–2 帧标题画面；开机音经 `sloop_core` 触发一次 note（停流或混入流）。 |
+| **触发条件** | 产品化验收前。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-51: VIS 可视化（12 风格）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 VIS 屏读取 `vis_tap`（fx.c）画示波器等 12 种风格；Tab5 无。 |
+| **影响面** | 少一个页面；`vis_style` 位保留。 |
+| **为何可延迟** | PLAY 页是只读呈现，可视化需持续重绘（LVGL 池/帧预算）。 |
+| **解决方向** | PLAY 页叠加 canvas 读 `vis_tap`（需 HAL 导出），先做 1 种风格；LVGL 池预算另评。 |
+| **触发条件** | 用户提出需求；或 PLAY 页改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-52: Punch-in effects 层未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 FX 层：按住 FX + 键触发 punch-in 效果（滤波/dust/duck/轨滤波等 27 键），KNOB 调 master；`punch_process` 已在引擎 `mix_block` 内运行，Tab5 无 UI/输入层。 |
+| **影响面** | 现场效果缺一类；引擎能力已在。 |
+| **为何可延迟** | 输入层 + 效果映射；与 DI-45/47 同类。 |
+| **解决方向** | InputManager 增 FX 层：按住键 → `punch` 触发（经同 TU 适配 `sloop_core_punch_*`）。 |
+| **触发条件** | 用户提出需求；或 P5 输入层。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
