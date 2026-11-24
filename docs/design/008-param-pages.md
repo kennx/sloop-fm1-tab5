@@ -683,7 +683,58 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `NOT FM6`、ALG 宏提示、BANK SAVE→`STORE BANK GET` 往返）+ 键盘 ←/→/↑ + `UI MEM` +
   三张截屏与像素抽检（Task 10 探针；任务 11/12 的 `synth` 场景固化）。
 
+### 8.9 参数页 chip 框架（P4-F Task 4：MOD / SCALE / VOICE）
+
+- **布局表升为 chip 结构**（`page_layout.{h,c}`，**不含 LVGL**、host 单测
+  `scripts/knob-test.sh` 同源编译）：`param_page_t{page_id,title,est_bytes,chip_count,
+  chips[5]}`，`param_chip_t{name,when,slot_count,slots[8]}`，`param_slot_t{scope,engine,id,
+  drum_ok}`。页 id/title/est/chip/槽来自同一张 X-macro 表；`ui_page_t` 注册条目在
+  `page_params.c` 注册时由表填出（`page_layout_register` 迁到那里——它需要 LVGL）。
+  **权威槽表 = `docs/design/012-feature-parity-checklist.md` §3**；host 测试用上游
+  `core.h:48-75` 的枚举顺序独立复刻 `tP_*`，逐槽比对 MOD/SCALE/VOICE/FX（布局表写的是
+  `L_P_*` 数字，抄错即 FAIL）。
+- **两类页**：`chip_count == 0` 的旧式整页（GLOBAL/FX/ANALOG/FM6/SAMPLE：一个无名单 chip、
+  不画 chip 行、对象与行为不变）；`chip_count ≥ 2` 的 chip 页（MOD 5 chip、SCALE 4、
+  VOICE 4）——8 个旋钮对象常驻，切 chip **零分配**重配：只换 `desc`（label/fmt/范围）、
+  显隐与焦点，不新建/删除对象、不改样式。选中 chip 是**页内 UI 局部态**（跨组页面重建
+  保留），chip 行、TAP、键盘与 console `UI <page> CHIP <n>` 共用。
+- **chip 行 = 一个自绘可点击对象**（页眉行 y=4..36；chip 宽 `11×字符数+16`、间距 8、
+  x0=16；`LV_EVENT_DRAW_MAIN` 画圆角底 + 居中 16pt 名字，`CLICKED` 按指针 x 选 chip；
+  标题「`<页> · TRACK n`」挪到行右侧）。取舍：首版每 chip 一个可点击 label 实测
+  **336B/chip**（MOD 5 chip ⇒ delta 4,544B，est 须 5,120，EDIT→STEP 账面 63,848 >
+  63,120）；单对象后 **3,012–3,088B**，**est 3,584**（+16..19%、512 对齐，与旧式参数页
+  同值）。EDIT Σ 20,480、MIX Σ 7,168（ADR-005 §5.3）。
+- **描述符来源**：TRACK scope 一律 `sloop_core_desc_track_live(选中轨, id)`（Task 3；
+  ENV SYNC 的 ATK/DEC/REL 音符名、INSERT A/B/C、引擎钩子的动态标签，范围同静态表）——
+  FX 页原来的 `ATK/ESYNC` 手工标注因此删除；GLOBAL/ENGINE scope 仍取静态
+  `sloop_core_desc`。页面上下文键加入 `P_ESYNC`/`P_ITYPE`，两者翻转即重解析已建槽的
+  描述符并重绘。
+- **鼓轨规则逐槽**（布局表 `drum_ok`，012 §3「鼓」列）：选中鼓轨时未标 `drum_ok` 的
+  TRACK/ENGINE 槽显示 `--` 且拒绝编辑（`TAP ±` 回 `-> PARAM slot=n locked (page or slot
+  N/A)`、`UI KNOB` 回 `ignored (locked)`、键盘无动作，**不发命令**）；标了的照常
+  （FX：TFLT/LEVEL/PAN；VOICE：PAN；PATTERN 四槽）；全局参数不受影响。旧式引擎页
+  （ANALOG/FM6/SAMPLE）的整页锁不变；逐槽规则页在鼓轨上的页眉是
+  `… · TRACK 4 (DRUM)`（不是红字 N/A）。
+- **条件 chip**：`when` 谓词按选中轨上下文求值——`CHIP_WHEN_ANALOG`（VOICE·FILTER =
+  `P_FTYPE` + ANALOG 的 E4/E5/E7，上游 `page_shown`：仅 ANALOG 合成轨出现）。隐藏的
+  chip 那一格留空（下标不塌陷、可见 chip 位置恒定），TAP miss、`UI VOICE CHIP 3` 回
+  `UI ERR chip (hidden)`；选中的 chip 变隐藏时生效 chip 落到首个可见并回写选择。
+- **键盘**：←/→ 在当前 chip 的存在槽间环绕（跳过空/隐藏槽）、↑/↓ 调焦点槽 ±1、
+  **ENTER = 焦点槽 +1**（全部参数页生效；锁定槽无动作）。chip 只经触摸与 console。
+- **console**：`UI <参数页名> CHIP [<n>]`——写选中 chip（LVGL 锁内立即重配；越界/
+  非法 `UI ERR chip`、隐藏 `UI ERR chip (hidden)`、旧式整页不可写）；回显
+  `UI <page> chip=<n>` + 生效 chip 的逐槽行 `UI <page> slot=<k> id=<绝对 id>
+  label="<旋钮正在显示的名称>" locked=<0|1>`（旧式整页也可读——鼓轨逐槽规则的机读口；
+  脚本把 label 与 `ENG DESC live <track> <id>` 逐槽对照）。TAP 回显
+  `-> PARAMS <page> chip=<n> select`（`SLOOP_TAP_PARAM_CHIP`）。
+- **验证入口**：`scripts/knob-test.sh`（表完整性 + 槽位 = 012 §3 + 可见性/锁定规则 +
+  九组导航）；`scripts/inject/params.sh` ⑩（三页 est/构建、每 chip 逐槽 label ==
+  `ENG DESC live`、首槽 ± 回读、chip 行 TAP、键盘、20 次切 chip 零分配、鼓轨逐槽、
+  FILTER 条件 chip；六页全面矩阵留给 Task 7）。FX/GLOBAL 的 chip 化（SLICER/INSERT/
+  REV/DRUMS/TEXTURE）是 Task 5，同一框架加表行即可。
+
 ### 9. 描述符契约的定稿决定（Task 8/10）
+
 
 - **不做新描述符表**：`sloop_core_desc` 直接投影上游 `param_desc_t`（`label/unit/fmt/
   min/max/def/names`），指针指向上游静态数据，调用方不得释放/改写。

@@ -199,6 +199,15 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 | SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
 | FILE | PROJECTS / PRESETS |
 | SYS | SYSTEM（P4-E Task 6：独立组单页） |
+| MIX | GLOBAL / FX（P4-F Task 4 起从 EDIT 移入；TOOLS 待 Task 6） |
+
+> **P4-F Task 4（2026-11-24，控制器裁决 R1）**：组顺序改为 `PLAY/TRACKS/EDIT/MIX/SYNTH/
+> SEQ/SONG/FILE/SYS`（9 组，MIX 插在 EDIT 与 SYNTH 之间）；EDIT = ANALOG / FM6 / MOD /
+> SCALE / VOICE（MOD/SCALE/VOICE 是参数页 chip 页，见 ADR-008 §8.9；**正好 5 页 =
+> `UI_GROUP_MAX` 上限**——这也是不把 GLOBAL/FX 留在 EDIT 的原因）。组表的一处定义移到
+> 纯数据头 `ui_nav.h` 的 `UI_GROUP_LIST`（ui.c 生成 `k_groups[]`，host 单测
+> `scripts/knob-test.sh` 校验顺序/成员/每页可达），几何常量与静态断言随之迁入。**中间态**：
+> Task 5 用 SOUND 取代 ANALOG+FM6（17 页），Task 6 加 TOOLS（18 页）。
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
   `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`，P4-E Task 6 追加
@@ -217,7 +226,10 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
   5×8)/6) = 171.5 → **168px**（6×168+5×8=1,048，右端 1,064 = 1,280−**216** reserve）；
   P4-D Task 8 增至 7 组后取 **142px**（7×142+6×8=1,042，右端 16+1,042=**1,058** ≤
   1,064，theme.h 有静态断言；SLOOP 标题起点 ~1,191 仍有 133px）；P4-E Task 6 增至 8 组后取
-  **122px**（8×122+7×8=1,032，右端 16+1,032=**1,048** ≤1,064）。子行仍是 176px（5 个
+  **122px**（8×122+7×8=1,032，右端 16+1,032=**1,048** ≤1,064）；**P4-F Task 4 增至 9 组**
+  后取 `min(176,(1280−32−216−8×8)/9)=107.5 → 104px`（9×104+8×8=1,000，右端
+  16+1,000=**1,016** ≤1,064；`ui_nav.h` 有静态断言；最长标签 `TRACKS` ≈66px 仍放得下，
+  `nav` ① 对选中签左右内缘与第 9 张右缘做像素抽检）。子行仍是 176px（5 个
   复用槽，右端 928），**不受组数影响**。**不再受 N=10 时 95px < `TRANSPORT` 101.6px 的
   宽度墙约束**。
 
@@ -400,6 +412,30 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - **ZOOM 大读数条**（Task 5，ui.c 全局单对象、首次使用时懒建）不计页 est，按上限 **768B**
   计入 zoom ON 的瞬时占用；最坏对账面 `60,776+768=61,544B`，余 **1,576B ≥0**。默认 zoom OFF
   无此开销，FM6P 的 44B tripwire 与各页 est 不变。
+
+#### 5.3 P4-F Task 4 中间态 18 页/9 组预算（2026-11-24）
+
+- 组顺序 `PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/SONG/FILE/SYS`；组签 122→**104px**（见 §2）。
+  `APP_STATE_PAGES` 15→**18**：`APP_PAGE_MOD=15`、`APP_PAGE_SCALE=16`、`APP_PAGE_VOICE=17`
+  追加在 `app_page_t` **末尾**（不接在 GLOBAL..SAMPLE 的参数页 id 段之后——既有 id 不变；
+  布局表按 id 查找，`page_layout.c` 不再依赖参数页连续）。`TAB` 变 18 页扁平轮转：
+  `PLAY→TRACKS→ANALOG→FM6→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+  SONG→PROJECTS→PRESETS→SYSTEM→PLAY`。
+- 组 est：**EDIT** `ANALOG 3,584 + FM6 6,144 + MOD/SCALE/VOICE 3×3,584 = 20,480`；
+  **MIX** `GLOBAL 3,584 + FX 3,584 = 7,168`（本任务只是搬组，两页对象不变）；其余组不变。
+  chip 页 est 的来历见 ADR-008 §8.9（首版「每 chip 一个 label」实测 MOD 4,544B，会把
+  EDIT→STEP 账面顶到 63,848 > 63,120；chip 行收成单对象后 3,012–3,088B，est 3,584）。
+- 有序对（base 11,624 + 对值 + 4,096 ≤ 63,120）：最坏仍是 **SEQ→PRESETS 60,776**（余
+  2,344B，不变）。受影响的对：**EDIT→STEP** `20,480 + 23,040 = 43,520` ⇒ 账面 **59,240**
+  （余 3,880B；原 16,896 时是 55,656）；**MIX→STEP** `7,168 + 23,040 = 30,208` ⇒ 45,928；
+  **SEQ→MIX** `32,256 + 3,584 = 35,840` ⇒ 51,560（原 SEQ→EDIT 同值）；EDIT/MIX→PRESETS
+  33,280 / 19,968 ⇒ 48,000 / 35,688。`free ≥ est`、构建后池剩余 ≥4,096B、跨组往返
+  ≤128B 的门禁不变。
+- **实测（P4-F Task 4 设备探针，`firmware/build/verify/p4f-task4-*`）**：MOD **3,032B**、
+  SCALE **3,076B**、VOICE **3,064B**（`UI MEM` delta；跨 boot 另见 3,012–3,088），
+  `build_ms` 5–7ms；EDIT 五页全建 → 首建 STEP 的过渡峰值 **`pool_free 11,160B`**、
+  MIX 两页全建 → STEP **22,380B**、SEQ 两页全建 → MIX 首建 GLOBAL **25,624B**（均
+  ≥4,096B）；20 次切 chip `pool_free` 首末差 **+0B**（MOD/SCALE/VOICE 各 20 次）。
 
 #### 6. 验证入口
 
