@@ -1,27 +1,27 @@
   [fw] SCR
-  [fw] I (7859) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (8229) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (26289) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (26719) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (48189) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (48599) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (70049) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (70479) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (91899) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (92339) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (113859) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (114409) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (135719) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (136289) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (157719) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
+  [fw] I (158259) sloop_console: SCR: 传输前 PSRAM 剩余 28226892 字节
   [fw] SCR
-  [fw] I (25409) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (189418) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (44189) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (212798) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (5070) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (5049) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
 == inject sys @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356.log
   [PASS] ① STORE AUTO OFF
   [PASS] ① ENG AUDIO streaming=1
   [PASS] STORE SETTINGS INFO
@@ -47,8 +47,12 @@
   [PASS] ① 硬复位后 INFO kind=per3（期望 per3）
   [PASS] ① 硬复位后 INFO len=1552（期望 1552）
   [PASS] STORE SETTINGS INFO
-  [PASS] ①b 槽 A 为空：先 SAVE 0 造一个非空槽（HASH 往返的判别前提）
+  [PASS] ①b RAW 前 STORE PROJ HASH 0（槽 A 已在用）
   [PASS] ①b RAW 前 HASH 0
+  [PASS] STORE SETTINGS INFO
+  [PASS] ①b-a 损坏对象 kind=invalid len=64（期望 invalid / 64）
+  [PASS] ①b-a 损坏对象 INFO palette=4（期望 4 = MONO，R13）
+  [PASS] ①b-a 损坏对象 STATE SNAP set_palette=4 = 4
   [PASS] ①b STORE RAW END settings 0 saved len=88（88B PER3，palette=1）
   [PASS] STORE SETTINGS INFO
   [PASS] ①b RAW 后 INFO（上传的字节 + 现有 side 随新副本） kind=per3（期望 per3）
@@ -65,7 +69,6 @@
   [PASS] ①b RAW 之后 STORE SONG SAVE
   [PASS] ①b 保存把 88B 补成 canonical：len=1552（≥ 1,552）
   [PASS] ①b 随后的保存写的是已重载的歌（不是上传前的旧 RAM）
-  [PASS] 收口 先擦回起点为空的槽 A（避免 arr_drop_scene 截断待恢复歌曲）
   [PASS] 收口 恢复起点歌曲顺序
   [PASS] 收口 SET palette
   [PASS] 收口 SAVE（歌曲 + settings 同一次提交）
@@ -76,19 +79,16 @@
   [PASS] 收口后对象 len=1552（≥ 1,552）
   [PASS] 收口后 STORE SONG（dirty=0）
   [PASS] 收口后 SONG 0
-  [PASS] 收口后 SONG 1
-  [PASS] 收口后 SONG 2
-  [PASS] 收口后 SONG 3
   [PASS] ② 归一 MONO（组签像素锚点）
   [PASS] ② 归一 SAVE
   [PASS] ② UI system → SYSTEM(14)
   [PASS] ② GROUP SYS built=1 sum_est=10240（期望 1 / 10,240）
-  [PASS] ② GROUP SYS build_ms=11ms（0 < x ≤100）
-  [PASS] ② SYSTEM state=built est=10240 delta=5464（期望 built / 10,240 / 0<delta≤est）
+  [PASS] ② GROUP SYS build_ms=10ms（0 < x ≤100）
+  [PASS] ② SYSTEM state=built est=10240 delta=5500（期望 built / 10,240 / 0<delta≤est）
   [PASS] ② UI TAB sys
   [PASS] ② SYS 单页组：UI SUB 0 回 ERR（子行为空）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-system.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-system.png  (1280x720 rgb565)
   [PASS] ② 第 8 个组签 SYS 高亮: 区域 (926, 4, 1048, 36) 内 (224, 176, 40)±16 像素 3624（阈值 ≥500）
   [PASS] ③ 归一 palette=MONO
   [PASS] ③ 归一到 THEME 档（下一档才是 GREEN）
@@ -105,25 +105,25 @@
   [PASS] ③ COLOR GREEN INFO palette=0（期望 0）
   [PASS] ③ COLOR GREEN INFO theme_on=0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-green.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-green.png  (1280x720 rgb565)
   [PASS] ③ GREEN accent: (946,8) 实测 (120,252,144) ≈ 期望 (120,255,148)（容差 16）
   [PASS] ③ COLOR + → AMBER
   [PASS] STORE SETTINGS INFO
   [PASS] ③ COLOR AMBER INFO palette=1（期望 1）
   [PASS] ③ COLOR AMBER INFO theme_on=0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-amber.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-amber.png  (1280x720 rgb565)
   [PASS] ③ AMBER accent: (946,8) 实测 (248,164,40) ≈ 期望 (255,164,40)（容差 16）
   [PASS] ③ COLOR + → CYAN
   [PASS] STORE SETTINGS INFO
   [PASS] ③ COLOR CYAN INFO palette=2（期望 2）
   [PASS] ③ COLOR CYAN INFO theme_on=0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-cyan.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-cyan.png  (1280x720 rgb565)
   [PASS] ③ CYAN accent: (946,8) 实测 (136,220,248) ≈ 期望 (140,220,255)（容差 16）
   [PASS] ③ CYAN 兄弟页 UI tracks
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-tracks-cyan.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-tracks-cyan.png  (1280x720 rgb565)
   [PASS] ③ TRACKS 兄弟页采用 CYAN accent: (166,8) 实测 (136,220,248) ≈ 期望 (140,220,255)（容差 16）
   [PASS] ③ 回 SYSTEM
   [PASS] ③ COLOR + → RED
@@ -131,14 +131,14 @@
   [PASS] ③ COLOR RED INFO palette=3（期望 3）
   [PASS] ③ COLOR RED INFO theme_on=0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-red.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-red.png  (1280x720 rgb565)
   [PASS] ③ RED accent: (946,8) 实测 (248,112,88) ≈ 期望 (255,108,92)（容差 16）
   [PASS] ③ COLOR + → MONO
   [PASS] STORE SETTINGS INFO
   [PASS] ③ COLOR MONO INFO palette=4（期望 4）
   [PASS] ③ COLOR MONO INFO theme_on=0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-mono.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-mono.png  (1280x720 rgb565)
   [PASS] ③ MONO accent: (946,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] STORE SETTINGS INFO
   [PASS] ③ COLOR 第 6 档 = side theme
@@ -146,7 +146,7 @@
   [PASS] ③ THEME_ON=1 且 palette 保持 MONO palette=4（期望 4）
   [PASS] ③ THEME_ON=1 且 palette 保持 MONO theme_on=1（期望 1）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-color-theme.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-color-theme.png  (1280x720 rgb565)
   [PASS] ③ THEME accent 与 MONO 不同
   [PASS] ③ THEME→GREEN：先 THEME_ON=0 再 PALETTE=0
   [PASS] STORE SETTINGS INFO
@@ -223,6 +223,7 @@
   [PASS] STORE SETTINGS INFO
   [PASS] STORE SETTINGS INFO
   [PASS] STORE SETTINGS INFO
+  [PASS] STORE SETTINGS INFO
   [PASS] ④ 停止+空闲窗口落盘 settings dirty=0
   [PASS] ④ settings 保存不改变 side = 1
   [PASS] STORE SETTINGS INFO
@@ -256,7 +257,7 @@
   [PASS] STORE SETTINGS INFO
   [PASS] ④ REC 三项过静默窗口落盘 dirty=0
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
-  设备已重启，console 就绪（4.2s）
+  设备已重启，console 就绪（4.1s）
   [PASS] ④ REC 复位后 AUTO OFF
   [PASS] ④ 硬复位保持 REC quant/tempo/count
   [PASS] STORE SETTINGS INFO
@@ -269,30 +270,30 @@
 STORE AUTO OFF
 STORE AUTO off
 sloop>  ENG AUDIO OFF
-I (10129) sloop_audio_stream: stream stopped, codec 保持打开
+I (10169) sloop_audio_stream: stream stopped, codec 保持打开
 ENG AUDIO streaming=0 xrun=0 OK
 sloop>  ENG SELFTEST
-I (10139) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+I (10179) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
 ENG SELFTEST BEGIN
-E (166439) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
-E (166439) task_wdt:  - IDLE0 (CPU 0)
-E (166439) task_wdt: Tasks currently running:
-E (166439) task_wdt: CPU 0: console_repl
-E (166439) task_wdt: CPU 1: IDLE1
-E (166439) task_wdt: Print CPU 0 (current core) registers
+E (167879) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+E (167879) task_wdt:  - IDLE0 (CPU 0)
+E (167879) task_wdt: Tasks currently running:
+E (167879) task_wdt: CPU 0: console_repl
+E (167879) task_wdt: CPU 1: IDLE1
+E (167879) task_wdt: Print CPU 0 (current core) registers
 Core  0 register dump:
-MEPC    : 0x40051cd6  RA      : 0x40051a90  SP      : 0x4ff3e4a0  GP      : 0x4ff17300
-TP      : 0x4ff3f510  T0      : 0x4ff51388  T1      : 0x00000000  T2      : 0x00000fff
-S0/FP   : 0x4ff5128c  S1      : 0x4ff5130c  A0      : 0x4ff1ae6c  A1      : 0x4ff5130c
-A2      : 0x4ff5128c  A3      : 0x00000020  A4      : 0x000067fa  A5      : 0x4ff51000
-A6      : 0xffff5a16  A7      : 0x00000000  S2      : 0x00000020  S3      : 0x00000000
-S4      : 0x00000000  S5      : 0x00000000  S6      : 0x00000000  S7      : 0x00001000
-S8      : 0x4ff65000  S9      : 0x4ff64fb0  S10     : 0x00000000  S11     : 0xfffffd68
-T3      : 0x00000000  T4      : 0x00000000  T5      : 0x00000000  T6      : 0x4ff51308
+MEPC    : 0x40048b32  RA      : 0x40048e8c  SP      : 0x4ff3e330  GP      : 0x4ff17380
+TP      : 0x4ff3f510  T0      : 0x4fc1a058  T1      : 0xfffffff4  T2      : 0xfffbc458
+S0/FP   : 0x00000000  S1      : 0x01e9da1a  A0      : 0x4ff3e368  A1      : 0x0000cd57
+A2      : 0x00000002  A3      : 0x00000000  A4      : 0x4ff3e368  A5      : 0x00000005
+A6      : 0x00008000  A7      : 0x00000003  S2      : 0x4ff64d44  S3      : 0x00000001
+S4      : 0x9c971fe7  S5      : 0x00003840  S6      : 0x4ff9b408  S7      : 0x00000000
+S8      : 0x00000020  S9      : 0xcd575d3c  S10     : 0x4ff3e400  S11     : 0x00000003
+T3      : 0xffffeb7e  T4      : 0x000000c8  T5      : 0x00000005  T6      : 0x00000000
 MSTATUS : 0x00001888  MTVEC   : 0x4ff00003  MCAUSE  : 0xdeadc0de  MTVAL   : 0xdeadc0de
 MHARTID : 0x00000000
 Please enable CONFIG_ESP_SYSTEM_USE_FRAME_POINTER option to have a full backtrace.
-regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (0 notes), 158 crashes; 157.5 s
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (0 notes), 158 crashes; 158.9 s
 preset/ANALOG/00_808_BOOM 0b447c66765e1780
 preset/ANALOG/01_808_DIRTY 402ad42574c9a7ac
 preset/ANALOG/02_SUB_BASS e2923181844810dc
@@ -476,33 +477,18 @@ slicer/gate/ANALOG_DARK_STR 254a2e23a4e028bd
 slicer/stut/DIGITAL_RHODES bd7cf0fa9a98ce22
 slicer/song_gate_stut 63b91e6114945bd0
 ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
-I (167709) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
-I (167709) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
-I (167719) sloop_store: SYN kit: settings 88..1551（settings len=1592）
-I (167719) sloop_store: settings: flash palette=3 lowcut=1 zoom=0 lights=1 reso=6 rec=1/1/1 theme=P4E7
+I (169179) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+I (169179) sloop_store: 歌曲设置: 来源=1 count=1 loop=0
+I (169189) sloop_store: SYN kit: settings 88..1551（settings len=1592）
+I (169189) sloop_store: settings: flash palette=3 lowcut=1 zoom=0 lights=1 reso=6 rec=1/1/1 theme=P4E7
 sloop>  ENG AUDIO ON
-E (172739) task_wdt: Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
-E (172739) task_wdt:  - IDLE0 (CPU 0)
-E (172739) task_wdt: Tasks currently running:
-E (172739) task_wdt: CPU 0: sloop_audio
-E (172739) task_wdt: CPU 1: IDLE1
-E (172739) task_wdt: Print CPU 0 (current core) registers
-Core  0 register dump:
-MEPC    : 0x40051056  RA      : 0x40050a18  SP      : 0x501091a0  GP      : 0x4ff17300
-TP      : 0x50109360  T0      : 0x00000000  T1      : 0x000177b5  T2      : 0x00000000
-S0/FP   : 0x4ff65568  S1      : 0x4ff6a13c  A0      : 0x4ff675e2  A1      : 0x000066f8
-A2      : 0x00000000  A3      : 0x00000000  A4      : 0x00000000  A5      : 0x00000000
-A6      : 0x00000000  A7      : 0x00000000  S2      : 0x4ff65f2c  S3      : 0x00000054
-S4      : 0x0000026d  S5      : 0x4ff65084  S6      : 0x000000e4  S7      : 0x00007fff
-S8      : 0x00000507  S9      : 0x4ff65d64  S10     : 0x0000061a  S11     : 0x00000000
-T3      : 0x00000000  T4      : 0x00000000  T5      : 0xffff8000  T6      : 0x00008000
-MSTATUS : 0x00001888  MTVEC   : 0x4ff00003  MCAUSE  : 0xdeadc0de  MTVAL   : 0xdeadc0de
-MHARTID : 0x00000000
-Please enable CONFIG_ESP_SYSTEM_USE_FRAME_POINTER option to have a full backtrace.
-I (173279) sloop_audio_stream: stream started, half=256 frames
-ENG AUDIO streaming=1 xrun=416 OK
+I (169219) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2dd00
+ENG AUDIO streaming=1 xrun=0 OK
 SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS
 DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
+  [PASS] ⑤ console 全量自检后音频 streaming=1 = 1
+  [PASS] ⑤ console 全量自检后音频 duty_mean=13.58% render_mean_us=788（≤ 18.88%）
+  [PASS] ⑤ console 全量自检后音频 3s 窗口 xrun 0 → 0（期望增量 0）
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
   设备已重启，console 就绪（4.2s）
   [PASS] ⑤ device-selftest.py exit=0（期望 0）
@@ -512,10 +498,10 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑥ UI step
   [PASS] ⑥ UI transport（SEQ 两页全建）
   [PASS] ⑥ SEQ→SYSTEM
-  [PASS] ⑥ SEQ→SYS 过渡池剩余=15396B（≥4,096）
+  [PASS] ⑥ SEQ→SYS 过渡池剩余=15392B（≥4,096）
   [PASS] ⑥ GROUP SEQ sum_est=32256（期望 32,256）
   [PASS] ⑥ SYS→STEP
-  [PASS] ⑥ SYS→STEP 过渡池剩余=23140B（≥4,096）
+  [PASS] ⑥ SYS→STEP 过渡池剩余=23136B（≥4,096）
   [PASS] ⑦ SET palette=4
   [PASS] ⑦ SET zoom=0
   [PASS] ⑦ SET lights=0
@@ -539,6 +525,7 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑦ STORE AUTO ON（恢复默认）
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
   设备已重启，console 就绪（4.2s）
+  [PASS] ⑧ SYS SELFTEST ARM（R25：清每 boot 一次标记与结果缓存）
   [PASS] ⑧ UI system
   [PASS] BPM 120 → 127
   [PASS] STATE SNAP bpm=127（改值生效）
@@ -550,21 +537,31 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑧ 回 SYSTEM
   [PASS] ⑧ 播放中 chip 预热（建立状态文本路径）
   [PASS] ⑧ 播放中 chip → STOP FIRST
-  [PASS] ⑧ STOP FIRST 未启动自检（free 68999→68979，噪声 ≤64B；min 66016→66016 不变）
+  [PASS] ⑧ STOP FIRST 未启动自检（free 68859→68855，噪声 ≤64B；min 65536→65536 不变）
   [PASS] ⑧ STOP FIRST 后音频仍 ON = 1
   [PASS] ⑧ STOP FIRST 未发 CMD_SELFTEST_RUN = 0
   [PASS] UI transport
   [PASS] TAP 停止
   [PASS] STATE SNAP playing = 0
-  [PASS] ⑧ 本 boot 已有自检：SCR 重试不重复跑（R8，复用前一轮结果）
+  [PASS] ⑧ 停止后 chip 只入队
+  [PASS] ⑧ 自检进行中 ARM 被拒（busy）
+  [PASS] ⑧ SYSTEM 状态行数据 SELFTEST 182/182 PASS
+  [PASS] ⑧ worker 结束后 STORE AUTO 回 on
+  [PASS] ⑧ 自检后 LIVEHASH
+  [PASS] ⑧ 工作工程恢复：LIVEHASH 1DA7F20C == 自检前 1DA7F20C
+  [PASS] ⑧ worker 恢复流式 = 1
+  [PASS] ⑧ worker 恢复流式后音频 streaming=1 = 1
+  [PASS] ⑧ worker 恢复流式后音频 duty_mean=9.89% render_mean_us=574（≤ 18.88%）
+  [PASS] ⑧ worker 恢复流式后音频 3s 窗口 xrun 0 → 0（期望增量 0）
   [PASS] ⑧ 自检后离开 SYSTEM
   [PASS] ⑧ 自检后重返 SYSTEM
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-selftest-pass.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-selftest-pass.png  (1280x720 rgb565)
   [PASS] ⑧ SELFTEST PASS PNG 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
   [PASS] ⑧ SELFTEST PASS 状态行（accent）: 区域 (24, 672, 700, 712) 内 (224, 176, 40)±16 像素 681（阈值 ≥40）
   [PASS] ⑧ 第二次 chip → RESET FIRST
   [PASS] ⑨ RAW settings 上传前走带已停 = 0
+  [PASS] ⑨ RAW settings 上传前 SELFTEST 已收尾 = 1
   [PASS] ⑨ STORE RAW END settings 0 saved len=88
   [PASS] ⑨ SIDE 短记录 → invalid
   [PASS] ⑨ SIDE 非 hex → invalid
@@ -586,7 +583,7 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑨ 选中 THEME 后 INFO theme_valid=1（期望 1）
   [PASS] ⑨ 选中 THEME 后 INFO theme_on=1（期望 1）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-raw-theme.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-raw-theme.png  (1280x720 rgb565)
   [PASS] ⑨ THEME accent == side.hi RGB565(0xF81F): (946,8) 实测 (248,0,248) ≈ 期望 (255,0,255)（容差 16）
   复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
   设备已重启，console 就绪（4.2s）
@@ -597,7 +594,7 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑨ 硬复位后 theme/palette 保持 theme_on=1（期望 1）
   [PASS] ⑨ 硬复位后 theme/palette 保持 side=1（期望 1）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-053536-raw-theme-reset.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sys-20261124-091356-raw-theme-reset.png  (1280x720 rgb565)
   [PASS] ⑨ 复位后 THEME accent 仍 == side.hi: (946,8) 实测 (248,0,248) ≈ 期望 (255,0,255)（容差 16）
   [PASS] ⑨ STORE TEST PASS 6/6
   [PASS] ⑨ 收口 THEME_ON=0
@@ -605,3 +602,4 @@ DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_f
   [PASS] ⑨ 收口 SAVE（保留有效 side，回内置 MONO）
   [PASS] ⑨ 收口 AUTO ON
 [PASS] sys: 全部断言与像素抽检通过
+exit=0

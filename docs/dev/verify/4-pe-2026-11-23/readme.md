@@ -86,6 +86,7 @@ sys 054900），PNG 保留原始时间戳文件名。目录里的 `inject-sys-20
    在最终固件上**没有任何归档日志**；`task-7-sys-red-120s.log` 只证明 chip 能进入 `SELFTEST RUNNING`。
    复现探针 `task-8-diag-probe1.py`（`task-8-diag-probe1-transcript.log` 首按即 `RESET FIRST`）。
    要拿到证据须**物理断电重上电**（清 `.noinit`）后重跑 `bash scripts/inject/sys.sh`。
+   **→ 已在修复轮关闭（§5）**：新增诊断 `SYS SELFTEST ARM` 清每 boot 标记，`sys` ⑧ 复位后先 ARM 再点 chip，worker 全路径 transcript 与 PASS PNG 已归档（`inject-sys-20261124-100357-*`）。
 2. **全量 `ENG SELFTEST` 之后音频重启进入持续超预算态**（矩阵三次全量自检后均出现：`task-8-device-selftest.log`
    `ENG AUDIO streaming=1 xrun=680`、`task-8-inject-sys{,-2}.log` ⑤ 后 xrun 415/416）。探针
    `task-8-diag-probe{1,4}.py`：复位后正常（xrun 0、duty ≈9.5%）；全量自检后 `ENG AUDIO ON` 的响应被
@@ -94,13 +95,35 @@ sys 054900），PNG 保留原始时间戳文件名。目录里的 `inject-sys-20
    恢复；每次全量自检后内部堆 69KB → 33KB（DI-26）。复位后恢复。单例自检（`probe3`）不触发。
    P4-D 的同类日志（`4-pd-2026-11-23/task-12-selftest.log`）自检后 ON 为 xrun 0。
    这会直接影响 SYSTEM chip 自检结束后的听感，须在合并前定位（DI-40）。
+   **→ 已在修复轮定位并修复（§5）**。
 3. **视觉**：十场景的像素抽检全过；64 张 PNG 经 Pillow 校验均为 1280×720 RGB、≥64 色、亮度满量程。
    本轮接管者**没有**做图像工具/人眼读图；前任实现者在 `task-8-report` 中自报曾用图像工具读过
    system / selftest-pass / raw-theme 三张（未复核）。人眼读图、物理触摸、亮度/音量/RGB 与听感是外部门禁。
 
-## 5. 文件与校验
+## 5. 修复轮（clean tree `86711a4`，2026-11-24）
+
+矩阵之后接管者用探针复现并定位了 §4 的两项异常，修复后**在已提交的干净树**上重跑受影响的设备门禁
+（受测固件 `App version: 86711a4`，无 `-dirty`；`fix-boot-86711a4.log`）。代码提交：`c62823e`（DI-40）、
+`f67e58c`（DI-42）、`7e386ca`（`SYS SELFTEST ARM`）、`0c59f50`（`sys` 断言）；DI-40/41/42 已从 deferred-issues 删除。
+
+| 项 | 根因 | 修复 | 证据 |
+|---|---|---|---|
+| DI-40 全量自检后音频每块超预算 | 全量自检泄漏 ~40KB 内部堆（DI-26）后，`xTaskCreate` 把音频任务的 4KB 栈落到 P4 的 **LP SRAM**（IDF 将其注册为 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆）；栈上局部变量密集的 DSP 在该落点慢 ~24×（每块 ≈13ms vs 5.8ms 预算）⇒ 每块 xrun，复位才恢复。排除项：停流 165s 本身（xrun 0）、引擎状态（console 上下文离线 `ENG PERF` us_mean=537 ≈ 基线） | `audio_stream.c`：首次启流用 `heap_caps_malloc(INTERNAL\|DMA)` 显式分配常驻 L2MEM 栈 + 静态 TCB；`stop` 等 IDLE 回收后再复用；分配失败回 `ESP_ERR_NO_MEM`（ADR-007 新节） | 复现 `fix-probe-r1-full-20261124-071552.log`（xrun==render_blocks、duty 224%）、干预 `fix-probe-r5-final-20261124-075515.log`（栈 `0x4ff2____`、xrun 0、9.1%）；修复后 `fix-clean-sys-stdout.log`：⑤ console 全量自检后 `duty_mean=11.34%`、3s 窗口 xrun 0→0；⑧ worker 起流后 `duty_mean=9.51%`、xrun 0 |
+| DI-42 无/坏 settings 对象默认 palette | `settings_reload` 的 `!from_flash` 分支清零后只钳越界值，palette 停在 0（GREEN） | 归 4（MONO，上游 `settings_init` 默认；R13） | `fix-probe-di42-before-20261124-075326.log`；`sys` ①b-a 断言 `kind=invalid ⇒ palette=4` |
+| DI-41 chip 全路径证据缺口 | `.noinit` 每 boot 标记按设计跨 esptool 复位存活（R8） | 诊断 `SYS SELFTEST ARM`（只清标记，不取 LVGL 锁；RUNNING 中回 `busy`） | `inject-sys-20261124-100357.log`：`ARMED → RUNNING → ARM busy → SELFTEST 182/182 PASS → stack=0x4ff2____ → 离开/重返 RESET FIRST`，328 PASS / 0 FAIL |
+
+**干净树门禁（受影响项重跑；`fix-clean-runs-summary.txt`）**：host 九项全 exit 0、MANIFEST 233/233、双遍构建第二遍
+0 警告、烧录 Hash verified、启动无 fatal；`store` **902/0**、`sys` **328/0**（全路径）、`device-selftest` **182/182**、
+soak **PASS**（1801s / 31 采样，内部堆 68,607 → 68,599B、`internal_min` 65,536B、xrun 0、duty_mean ≤12.35%、音频栈
+最小 3,120B、池往返 46,252 → 46,256B（+4B）、KEY 0 → 300、save 窗口 xrun 增量 0；`fix-soak-summary.txt` / `fix-soak-transcript.log`）。**未重跑**：transport / step_edit /
+tracks / nav / params / song / sequence / synth 八条——修复提交只改 `audio_stream.c`（任务栈）、`settings_tab5.c`
+（默认 palette）、自检 ARM 与 `sys` 脚本，§1/§2 的十场景计数来自修复前的 `8963fc8` 矩阵（范围说明，不是复验）。
+**DI-26 仍在**：泄漏点未定位（音频已不受影响）；同一 boot 内第二次全量自检可能耗尽内部堆、自检后 soak 仍须复位。
+
+## 6. 文件与校验
 
 - `task-8-*`：本最终矩阵（构建/host/工具/烧录/自检日志、十场景 stdout + 最新 transcript + PNG、soak 摘要与
   原始日志、启动日志、§4 的诊断探针脚本与 transcript）。
 - `task-6-*` / `task-7-*`：P4-E 前序任务证据。
+- `fix-*` / `inject-sys-20261124-100357-*` / `p4e-final-smoke-*`：修复轮（§5）。`fix-precommit-*` 是修复代码未提交时的首轮运行（soak 证明跑在修复前的二进制上，故以 `fix-soak-*`/`fix-clean-*` 的干净树重跑为准）。
 - 全部文件（`readme.md` 与 `SHA256SUMS` 自身除外）列入 `SHA256SUMS`，`sha256sum -c SHA256SUMS` 141 项全 OK。

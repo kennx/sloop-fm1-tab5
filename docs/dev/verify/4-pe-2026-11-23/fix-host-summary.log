@@ -1,0 +1,10 @@
+host-test exit=0
+seq-test exit=0
+state-test exit=0
+knob-test exit=0
+synth-test exit=0
+screenshot-selftest exit=0
+soak-selftest exit=0
+sample-selftest exit=0
+settings-fixture-selftest exit=0
+manifest 233/233 OK (third_party sha256sum -c, run in subshell)
