@@ -14,6 +14,7 @@ void stub_engine_reset(void)
     g_stub_on_read_window = NULL;
     g_stub.snap.bpm = 90; /* 上游 GP[G_BPM].def */
     g_stub.param_g[0] = 90; /* G_BPM：参数投影与快照 bpm 同源 */
+    g_stub.no_desc_id = 0xFFFFFFFFu;
     for (uint32_t k = 0; k < 4; k++) {
         g_stub.snap.trk[k].len = 16;
         g_stub.snap.trk[k].div = 2;
@@ -356,6 +357,14 @@ uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
         n++;
     }
     return n;
+}
+
+/* 描述符有无（状态层据此决定一次参数写是否能生效）：越界/被标记的 id 回 false。 */
+bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out)
+{
+    if (track >= 4u || id >= SLOOP_CORE_P_COUNT || id == g_stub.no_desc_id) return false;
+    if (out != NULL) memset(out, 0, sizeof *out);
+    return true;
 }
 
 esp_err_t sloop_core_tools(uint32_t action)

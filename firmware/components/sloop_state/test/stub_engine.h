@@ -128,6 +128,8 @@ typedef struct {
     /* P4-F Task 6：TOOLS 三动作替身（返回 tools_ret 并记录动作）。 */
     uint32_t tools_calls, last_tools_action;
     esp_err_t tools_ret;
+    uint32_t no_desc_id;            /* sloop_core_desc_track_live 替身：该 id 在任何轨上都「无描述符」；
+                                       0xFFFFFFFF = 全部有（默认） */
 } stub_engine_t;
 
 extern stub_engine_t g_stub;

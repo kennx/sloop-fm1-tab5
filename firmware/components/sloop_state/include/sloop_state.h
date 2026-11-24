@@ -280,15 +280,18 @@ typedef enum {
  *                    last_param。加锁 = CMD_LOCK_SET(track, step, id, 该轨当前 p[id])，可锁性
  *                    与锁表容量由既有 sloop_seq_lock_set 判定（上游 p_lockable：NOT LOCKABLE
  *                    → INVALID、NO LOCK LEFT → FULL）；解锁 = 该键有锁才 CMD_LOCK_DEL。
+ *                    诊断冻结时两者都直接回 FROZEN（先于查锁表：冻结时 lock_list 回 0）。
  *  CMD_FILL_STEP     v=0..3：聚焦步的 fill 条件，= 同一 (track, step) 的 CMD_SET_FILL。
  *                    v > 3 ⇒ INVALID 且不调引擎。
- *  last_param{track,id}：每次 CMD_SET_PARAM / CMD_SET_PARAM_BATCH 落地后记录**写在焦点轨
- *                    上的最后一对**（上游 ui.lock_par「最后碰过的参数」；非焦点轨的写不记，
- *                    id=0xFF = 还没有）。它是 UI 局部态：sync/选轨/整份刷新都不改写。
- *  LOCK_FOCUS / FILL_STEP 的前置：聚焦步必须**有音**（合成轨 n>0 且 time==NOTE；鼓轨
- *                    16 lane 位图非 0）——空步上的锁/条件在 STEP 页不可见，回 NOT_FOUND
- *                    （页面 `NO STEP`）且不调引擎；焦点轨没有已记录参数同样 NOT_FOUND
- *                    （`NO PARAM`），解锁时该键无锁 NOT_FOUND（`NO LOCK`）。a 越界 INVALID。
+ *  last_param{track,id}：每次 CMD_SET_PARAM / CMD_SET_PARAM_BATCH 之后记录**能生效**且写在
+ *                    焦点轨上的最后一对（上游 ui.lock_par「最后碰过的参数」）：非焦点轨的写、
+ *                    诊断冻结期间的写、该轨上没有描述符的 id（引擎静默丢弃）都不记；
+ *                    id=0xFF = 还没有。它是 UI 局部态：sync/选轨/整份刷新都不改写。
+ *  LOCK_FOCUS / FILL_STEP 的前置（R12，上游 ui_layers.c 的 held-step 循环 `idx < trk_len`）：
+ *                    聚焦步必须在本轨 LEN 之内——**不要求有音**（空步、只有 TIE 的步同样
+ *                    可锁/可设条件）；LEN 之外回 NOT_FOUND（页面 `NO STEP`）且不调引擎。
+ *                    焦点轨没有已记录参数同样 NOT_FOUND（`NO PARAM`），解锁时该键无锁
+ *                    NOT_FOUND（`NO LOCK`）。a 越界 INVALID。
  *  两者的成功/失败写 seq_status（成功同拍重取窗口投影，fill 立即可见）。
  */
 typedef struct {
@@ -509,6 +512,9 @@ void state_set_layer(uint8_t mask);
  *  - state_sound_status：最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
 uint8_t state_selected_track(void);
 uint8_t state_selected_engine(void);
+/* layer_held（层键位掩码）：InputManager 每次按键都要读它来选层，用窄读而不是整份副本
+ * （输入任务栈上只留一份 app_state_t 给真正需要快照的动作，R13）。 */
+uint8_t state_read_layer_held(void);
 int16_t state_read_p(uint8_t id);
 int16_t state_read_g(uint8_t id);
 void state_read_sound(sloop_sound_snapshot_t *out);

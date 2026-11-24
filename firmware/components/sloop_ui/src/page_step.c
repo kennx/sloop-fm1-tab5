@@ -50,8 +50,10 @@
  *   鼓轨上 ENTER = sloop_ui_step_drum_toggle）。
  * - EDIT 层步工具（P4-F Task 6，ADR-006；零新增 LVGL 对象）：Aa+k / Aa+l 把「焦点轨上
  *   最后碰过的参数」（状态层 last_param）锁到聚焦步 / 解锁，Aa+9（或 Aa+;）循环该步的
- *   fill 条件（NORMAL → FILL ONLY → NO FILL）。入口 sloop_ui_step_tool 在输入任务/console
- *   上下文跑（不取 LVGL 锁），只发 CMD_LOCK_FOCUS / CMD_FILL_STEP；结果文本
+ *   fill 条件（NORMAL → FILL ONLY → NO FILL）。范围 = 聚焦步在本轨 LEN 之内（R12：上游
+ *   held-step 循环 `idx < trk_len`，空步/只有 TIE 的步同样可锁）。入口 sloop_ui_step_tool 在
+ *   输入任务/console 上下文跑（不取 LVGL 锁），栈上只放**一份** app_state_t 快照、发命令后
+ *   原位刷新（R13：输入任务栈只有一份快照的预算）；只发 CMD_LOCK_FOCUS / CMD_FILL_STEP；结果文本
  *   （`LOCKED <参数>` / `UNLOCKED` / `FILL <模式>` / `NO STEP` / `NO PARAM` / `NO LOCK` /
  *   `NOT LOCKABLE` / `LOCK TABLE FULL` / `FROZEN`）latch 进页内邮箱，由 30ms 拍顶替状态行
  *   ≈2.4s（焦点移走即恢复派生文本）。console `KEY` 回显读同一份文本（sloop_ui_step_tool_text）。
@@ -1006,11 +1008,13 @@ void sloop_ui_step_focus_vertical(int8_t delta)
 
 /* ------------------------------------------------------------ EDIT 层步工具 --- */
 
-static bool focus_has_note(const app_state_t *st, uint8_t ft, uint8_t col)
+/* 锁/fill 的范围 = 聚焦步在本轨 LEN 之内（R12，与状态层 focus_step_in_len 同口径）：不要求
+ * 有音；LEN 之外的格在 STEP 页是暗显的、播放不经过。 */
+static bool focus_in_len(const app_state_t *st, uint8_t ft, uint8_t abs)
 {
-    if (ft == APP_STATE_TRACKS - 1u)
-        return st->core.dstep_raw[col].on[0] != 0u || st->core.dstep_raw[col].on[1] != 0u;
-    return state_step_is_on(st->core.step[ft][col].n, st->core.step[ft][col].time);
+    uint8_t len = st->core.trk[ft].len;
+    if (len < 1u) len = 1u;
+    return abs < len;
 }
 
 static uint8_t focus_fill(const app_state_t *st, uint8_t ft, uint8_t col)
@@ -1033,8 +1037,9 @@ static void step_tool_store(const char *text, uint8_t color, uint8_t ft, uint8_t
 /* EDIT 层步工具的唯一实现（input.c 的 ACT_STEP_* 派发；输入任务/console 上下文，不取
  * LVGL 锁）：一条状态层命令 → 回读 seq_status → 结果文本进邮箱（页面状态行与 console
  * `KEY` 回显同源）。非 STEP 页为空操作。锁/解锁针对「焦点轨 × 聚焦步 × last_param」，
- * fill 针对聚焦步；两者的可锁性/空步/冻结判定都在状态层（NOT_FOUND 的三种原因按发送前
- * 的快照在本页分开：NO STEP / NO PARAM / NO LOCK）。 */
+ * fill 针对聚焦步；两者的可锁性/LEN 范围/冻结判定都在状态层（NOT_FOUND 的三种原因按发送前
+ * 的快照在本页分开：NO STEP / NO PARAM / NO LOCK）。快照缓冲只有 st 这一份：命令之后用
+ * state_get_copy 原位刷新，不再叠第二份（R13：输入任务栈上至多一份 app_state_t）。 */
 void sloop_ui_step_tool(uint8_t tool_id)
 {
     static const char *const k_fill_name[3] = {"NORMAL", "FILL ONLY", "NO FILL"};
@@ -1047,7 +1052,7 @@ void sloop_ui_step_tool(uint8_t tool_id)
     const uint8_t wlen = window_len_of(&st);
     const uint8_t ft = st.focus_track < APP_STATE_TRACKS ? st.focus_track : 0u;
     const uint8_t col = st.focus_step < wlen ? st.focus_step : 0u;
-    const bool has_note = focus_has_note(&st, ft, col);
+    const bool in_len = focus_in_len(&st, ft, step_window_abs(&st.window, col));
     const bool has_param = st.last_param.id != 0xFFu && st.last_param.track == ft;
 
     if (tool_id == SLOOP_STEP_TOOL_FILL) {
@@ -1062,7 +1067,7 @@ void sloop_ui_step_tool(uint8_t tool_id)
             snprintf(text, sizeof(text), "FILL %s", k_fill_name[shown == 3u ? 0u : shown]);
             color = 1;
             break;
-        case SEQ_STATUS_NOT_FOUND: snprintf(text, sizeof(text), "NO STEP"); break;
+        case SEQ_STATUS_NOT_FOUND: snprintf(text, sizeof(text), "NO STEP"); break; /* 聚焦步在 LEN 之外 */
         case SEQ_STATUS_FROZEN: snprintf(text, sizeof(text), "FROZEN"); color = 0; break;
         default: snprintf(text, sizeof(text), "FILL ERROR"); break;
         }
@@ -1082,7 +1087,7 @@ void sloop_ui_step_tool(uint8_t tool_id)
             color = 1;
             break;
         case SEQ_STATUS_NOT_FOUND:
-            snprintf(text, sizeof(text), "%s", !has_note ? "NO STEP" : !has_param ? "NO PARAM" : "NO LOCK");
+            snprintf(text, sizeof(text), "%s", !in_len ? "NO STEP" : !has_param ? "NO PARAM" : "NO LOCK");
             break;
         case SEQ_STATUS_INVALID:
             snprintf(text, sizeof(text), "%s", lock ? "NOT LOCKABLE" : "INVALID");

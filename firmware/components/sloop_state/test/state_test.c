@@ -2456,6 +2456,8 @@ static void case_lock_focus_and_fill_step(void)
     apply(CMD_SET_TRACK, 0, 0, 0); /* 选中轨 0（≠ 焦点轨）：p[] 投影是轨 0 的 */
     state_set_focus(2, 3);
     apply(CMD_SET_WINDOW, 0, 16, 16); /* 焦点列 3 → 绝对步 19 */
+    g_stub.snap.trk[2].len = 32;      /* R12：聚焦步须在本轨 LEN 内（bank1 的步要 LEN>16） */
+    g_stub.snap.trk[3].len = 32;
     g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 60, 0, 0, 0 }, .time = 0, .fill = 0 };
     state_sync_from_engine();
 
@@ -2522,19 +2524,32 @@ static void case_lock_focus_and_fill_step(void)
     state_get_copy(&s);
     check_ll("LOCK_FOCUS a 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
 
-    /* 空步：not_found、不调引擎（锁与 fill 都只作用于有音的聚焦步） */
+    /* R12：锁/fill 的范围 = 聚焦步 < 本轨 LEN（上游 ui_layers.c 的 held-step 循环），不要求有音 */
     g_stub.step[2][19] = (sloop_step_t){ .n = 0, .time = 2 };
     state_sync_from_engine();
-    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
     apply(CMD_LOCK_FOCUS, 1, 0, 0);
-    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("LEN 内的空步可以加锁（R12）", s.seq_status, SEQ_STATUS_OK);
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 1 }; /* TIE */
+    state_sync_from_engine();
     uint32_t fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("TIE 步的 FILL 透传（R12）", g_stub.seq_fill_calls - fills0, 1);
+    /* 超出本轨 LEN 的步：not_found、不调引擎 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 0 };
+    g_stub.snap.trk[2].len = 10; /* 聚焦步 = 16 + 3 = 19 ≥ LEN */
+    state_sync_from_engine();
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
     apply(CMD_FILL_STEP, 0, 0, 1);
-    check_ll("空步的 LOCK/UNLOCK/FILL 不调引擎",
+    check_ll("LEN 之外的步：LOCK/FILL 不调引擎",
              g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls - locks0 +
                  g_stub.seq_fill_calls - fills0, 0);
     state_get_copy(&s);
-    check_ll("空步 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    check_ll("LEN 之外的步 → not_found（页面 NO STEP）", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    g_stub.snap.trk[2].len = 32;
+    state_sync_from_engine();
 
     /* FILL：v 透传到焦点轨的绝对步；越界 invalid；鼓轨按 lane 位图判定有音 */
     g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 0 };
@@ -2551,15 +2566,19 @@ static void case_lock_focus_and_fill_step(void)
     state_get_copy(&s);
     check_ll("FILL_STEP v 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
     state_set_focus(3, 3);
+    g_stub.raw_dstep[19].on[0] = 0x10;
     state_sync_from_engine();
     fills0 = g_stub.seq_fill_calls;
     apply(CMD_FILL_STEP, 0, 0, 2);
-    check_ll("空鼓步的 FILL 不调引擎", g_stub.seq_fill_calls - fills0, 0);
-    g_stub.raw_dstep[19].on[0] = 0x10;
-    state_sync_from_engine();
-    apply(CMD_FILL_STEP, 0, 0, 2);
-    check_ll("鼓轨 FILL 透传", (g_stub.seq_fill_calls - fills0) | 0, 1);
+    check_ll("鼓轨 FILL 透传", g_stub.seq_fill_calls - fills0, 1);
     check_ll("鼓轨 FILL track = 3", g_stub.last_seq_track, 3);
+    g_stub.snap.trk[3].len = 10;
+    state_sync_from_engine();
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("鼓轨 LEN 之外的步：FILL 不调引擎", g_stub.seq_fill_calls - fills0, 0);
+    g_stub.snap.trk[3].len = 32;
+    state_sync_from_engine();
 
     /* 没有可锁的参数：焦点轨从未写过参数 → not_found、不调引擎 */
     stub_engine_reset();
@@ -2589,6 +2608,17 @@ static void case_lock_focus_and_fill_step(void)
         check_ll("LOCK_FOCUS 错误码映射", s.seq_status, results[i].status);
     }
     g_stub.seq_ret = ESP_OK;
+    /* 诊断冻结：加锁与解锁都回 FROZEN，且不查锁表（冻结时 lock_list 回 0，会误报 NO LOCK）、不调引擎 */
+    g_stub.seq_frozen = true;
+    uint32_t lists0 = g_stub.lock_list_calls;
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结：UNLOCK → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    check_ll("冻结：LOCK/UNLOCK 不查锁表、不调引擎",
+             g_stub.lock_list_calls - lists0 + g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls - locks0, 0);
+    g_stub.seq_frozen = false;
 
     /* 记录属于轨 1；焦点移到从未写过参数的轨 2（有音的步）⇒ 不拿轨 1 的参数去锁轨 2 */
     g_stub.step[2][5] = (sloop_step_t){ .n = 1, .note = { 64, 0, 0, 0 }, .time = 0 };
@@ -2622,6 +2652,40 @@ static void case_last_param_survives_sync(void)
     state_init();
     state_get_copy(&s);
     check_ll("state_init 清 last_param", s.last_param.id, 0xFF);
+}
+
+/* last_param 只记**能生效**的写：诊断冻结、或该 id 在这条轨上没有描述符（引擎会丢弃）时不记录。 */
+static void case_last_param_only_effective_writes(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    state_set_focus(1, 0);
+    apply(CMD_SET_PARAM, 1, 29, 0);
+    state_get_copy(&s);
+    check_ll("前提：生效的写被记录", s.last_param.id, 29);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PARAM, 1, 30, 0);
+    state_get_copy(&s);
+    check_ll("冻结期间的参数写不记录", s.last_param.id, 29);
+    g_stub.seq_frozen = false;
+
+    g_stub.no_desc_id = 30;
+    apply(CMD_SET_PARAM, 1, 30, 0);
+    state_get_copy(&s);
+    check_ll("该轨无描述符的 id 不记录", s.last_param.id, 29);
+    g_stub.no_desc_id = 0xFFFFFFFFu;
+
+    const sloop_param_pair_t batch[] = { { 30, 1 }, { 31, 2 } };
+    g_stub.no_desc_id = 31;
+    apply_param_batch(1, batch, 2);
+    state_get_copy(&s);
+    check_ll("批量：最后一对无描述符 ⇒ 记前一对生效的", s.last_param.id, 30);
+    g_stub.no_desc_id = 0xFFFFFFFFu;
+    apply(CMD_SET_PARAM, 1, 31, 0);
+    state_get_copy(&s);
+    check_ll("有描述符的 id 恢复记录", s.last_param.id, 31);
 }
 
 int main(void)
@@ -2668,9 +2732,10 @@ int main(void)
     run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
     run("窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0", case_narrow_accessors);
     run("TOOLS：action 越界不调引擎/返回码映射/成功整份刷新", case_tools_cmd);
-    run("LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、UNLOCK 无锁、空步、错误码映射",
+    run("LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、R12 范围（LEN 内含 TIE/空步）、UNLOCK 无锁、冻结、错误码映射",
         case_lock_focus_and_fill_step);
     run("last_param 跨 sync/选轨保持", case_last_param_survives_sync);
+    run("last_param 只记生效写（冻结/无描述符不记）", case_last_param_only_effective_writes);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

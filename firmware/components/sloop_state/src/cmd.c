@@ -188,13 +188,18 @@ static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
     for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
 }
 
-/* 「最后碰过的参数」（P4-F Task 6；上游 ui.lock_par）：只记写在**焦点轨**上的那一对，
- * CMD_LOCK_FOCUS 据此决定锁哪个参数。UI 局部态，sync/刷新不改写。 */
-static void state_note_param(app_state_t *s, uint32_t track, uint8_t id)
+/* 「最后碰过的参数」（P4-F Task 6；上游 ui.lock_par）：只记**能生效**且写在**焦点轨**上的
+ * 那一对，CMD_LOCK_FOCUS 据此决定锁哪个参数。引擎批量入口是 void、对冻结与「该轨上没有
+ * 描述符的 id」静默丢弃，状态层不先判就会把一次没落地的写记成锁的对象。UI 局部态，
+ * sync/刷新不改写。返回是否记录。 */
+static bool state_note_param(app_state_t *s, uint32_t track, uint8_t id)
 {
-    if (track != s->focus_track) return;
+    if (track != s->focus_track) return false;
+    if (sloop_seq_frozen()) return false;
+    if (!sloop_core_desc_track_live((uint8_t)track, id, NULL)) return false;
     s->last_param.track = (uint8_t)track;
     s->last_param.id = id;
+    return true;
 }
 
 /* 单值参数：以批量入口 N=1 下发（钳位与越界判定只在引擎一处）。v 是 uint16——
@@ -238,7 +243,10 @@ static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, u
     }
     sloop_core_set_params(track, ids, values, n);
     state_refresh_params(s);
-    state_note_param(s, track, ids[n - 1u]); /* 批量的最后一对 */
+    /* 批量：最后一对**能生效**的（尾部若是无描述符的 id，不能把没落地的写记成锁的对象） */
+    for (uint32_t i = n; i > 0u; i--) {
+        if (state_note_param(s, track, ids[i - 1u])) break;
+    }
     if (writes_e0 && track == s->core.selected_track) state_refresh_sound_locked();
 }
 
@@ -746,14 +754,13 @@ static bool focus_step_abs(const app_state_t *s, uint32_t *ft, uint32_t *abs)
     return *abs < STATE_STEPS_MAX;
 }
 
-/* 聚焦步有音（合成轨 n>0 且 time==NOTE；鼓轨 16 lane 位图非 0）：锁与 fill 条件只作用
- * 于有音的步——空步上的锁/条件在 STEP 页不可见（见 sloop_state.h）。 */
-static bool focus_step_on(const app_state_t *s, uint32_t ft)
+/* 锁与 fill 条件的范围 = 聚焦步在本轨 LEN 之内（R12：上游 ui_layers.c 的 held-step 循环
+ * `idx < trk_len(t)`）——不要求该步有音，空步与只有 TIE 的步同样可锁。 */
+static bool focus_step_in_len(const app_state_t *s, uint32_t ft, uint32_t abs)
 {
-    uint32_t col = s->focus_step;
-    if (ft == APP_STATE_TRACKS - 1u) /* 鼓轨 */
-        return s->core.dstep_raw[col].on[0] != 0u || s->core.dstep_raw[col].on[1] != 0u;
-    return state_step_is_on(s->core.step[ft][col].n, s->core.step[ft][col].time);
+    uint8_t len = s->core.trk[ft].len;
+    if (len < 1u) len = 1u;
+    return abs < len;
 }
 
 #define STATE_LOCK_LIST_MAX 32u /* ≥ 上游 NLOCK(24)：整条轨的锁一次取完 */
@@ -765,25 +772,33 @@ static void cmd_lock_focus(app_state_t *s, uint32_t lock)
         s->seq_status = SEQ_STATUS_INVALID;
         return;
     }
-    if (!focus_step_abs(s, &ft, &abs) || !focus_step_on(s, ft)) {
-        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP */
+    /* 冻结要先于查锁表：冻结时 sloop_seq_lock_list 回 0，先查会把解锁误报成 NO LOCK。 */
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
+        return;
+    }
+    if (!focus_step_abs(s, &ft, &abs) || !focus_step_in_len(s, ft, abs)) {
+        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP：聚焦步在本轨 LEN 之外 */
         return;
     }
     if (s->last_param.id == 0xFFu || s->last_param.track != ft) {
         s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO PARAM：这条轨上还没碰过参数 */
         return;
     }
+    /* 加锁与解锁互斥：共用一块栈缓冲（参数回读 142B / 锁表 128B 取其大）。 */
+    union {
+        int16_t value[SLOOP_CORE_P_COUNT];
+        sloop_lock_t locks[STATE_LOCK_LIST_MAX];
+    } buf;
     if (lock != 0u) {
         /* 锁值 = 该轨当前参数（上游 LOCK 旋钮从现值起；不是选中轨的 p[] 投影） */
-        int16_t value[SLOOP_CORE_P_COUNT];
-        sloop_core_read_params(ft, value, NULL);
-        state_seq_result(s, sloop_seq_lock_set(ft, abs, s->last_param.id, value[s->last_param.id]));
+        sloop_core_read_params(ft, buf.value, NULL);
+        state_seq_result(s, sloop_seq_lock_set(ft, abs, s->last_param.id, buf.value[s->last_param.id]));
         return;
     }
-    sloop_lock_t locks[STATE_LOCK_LIST_MAX];
-    uint32_t n = sloop_seq_lock_list(ft, locks, STATE_LOCK_LIST_MAX);
+    uint32_t n = sloop_seq_lock_list(ft, buf.locks, STATE_LOCK_LIST_MAX);
     for (uint32_t i = 0; i < n; i++) {
-        if (locks[i].step != abs || locks[i].param != s->last_param.id) continue;
+        if (buf.locks[i].step != abs || buf.locks[i].param != s->last_param.id) continue;
         state_seq_result(s, sloop_seq_lock_del(ft, abs, s->last_param.id));
         return;
     }
@@ -797,8 +812,8 @@ static void cmd_fill_step(app_state_t *s, uint16_t value)
         s->seq_status = SEQ_STATUS_INVALID;
         return;
     }
-    if (!focus_step_abs(s, &ft, &abs) || !focus_step_on(s, ft)) {
-        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP */
+    if (!focus_step_abs(s, &ft, &abs) || !focus_step_in_len(s, ft, abs)) {
+        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP：聚焦步在本轨 LEN 之外 */
         return;
     }
     state_seq_result(s, sloop_seq_set_fill(ft, abs, (uint8_t)value));

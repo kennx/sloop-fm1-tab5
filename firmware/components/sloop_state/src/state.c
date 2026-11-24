@@ -280,6 +280,14 @@ void state_set_dsyn_select(uint8_t kit, uint8_t lane)
 }
 
 /* 窄读访问器（契约见 sloop_state.h）：各自在状态锁内读一个字段/一小块，不拷整份 AppState。 */
+uint8_t state_read_layer_held(void)
+{
+    state_lock();
+    uint8_t mask = s_state.layer_held;
+    state_unlock();
+    return mask;
+}
+
 uint8_t state_selected_track(void)
 {
     state_lock();
