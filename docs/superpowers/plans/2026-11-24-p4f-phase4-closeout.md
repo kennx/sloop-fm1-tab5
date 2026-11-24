@@ -122,16 +122,16 @@
 **Interfaces:**
 - Produces: `esp_err_t sloop_core_tools(uint32_t action)`；`CMD_LOCK_FOCUS{a=lock|unlock}`（状态层：取 STEP 焦点步 + `app_state_t.last_param{scope,id}` → 既有 `CMD_LOCK_SET/DEL`）、`CMD_FILL_STEP{v=0..3}`（→ 既有 `CMD_SET_FILL`）、状态层在每次成功 `CMD_SET_PARAM` 后记录 `last_param`；（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；**走带守卫按上游**：0/1 走带中允许（引擎锁内完成），2 仅在 SONG 播放且 arrangement_enabled 时 `ESP_ERR_NOT_ALLOWED`（`STOP THE SONG FIRST`），其余情况自行停走带后执行；冻结 `ESP_ERR_INVALID_STATE`；鼓轨：1 拒绝（`page_desc` 排除）、0 允许）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
 
-- [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（步表清空 / 声音回默认 / 工程回默认的逐项断言，以 Task 1 审计出的上游语义为准）、走带中/冻结拒绝、state 映射。
+- [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（CLEAR SEQ 清选中轨步表且可 undo / INIT SOUND 回引擎默认+预置 0 / NEW 的逐项副作用，以清单 012 §4 为准）、守卫（冻结 ⇒ INVALID_STATE；NEW 在 SONG 播放且 arrangement_enabled ⇒ NOT_ALLOWED，其余自停走带；走带中 CLRSEQ/INITSOUND 允许且 playing 不变；鼓轨 INIT SOUND 拒绝）、state 映射。
 - [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；SONG 播放中 NEW ⇒ `STOP THE SONG FIRST`；走带中 CLRSEQ/INITSOUND 允许且走带不中断；UNDO 可撤销 CLEAR SEQ。
 - [ ] Step 3: 提交（core / state / ui / console 拆分）。
 
 ### Task 7: `params.sh` 全扩展 + `nav` 定稿
 
-**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值、`run_tracks` 的 GLO 层 1–8 键 mute/solo `KEY` 断言、`run_step_edit` 的 EDIT 层 a–g 擦除断言、`run_sys` 的 SYSTEM 版本行断言）、`scripts/inject/{params,nav,tracks,step_edit,sys}.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
+**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值、`run_tracks` 的 GLO 层 1–8 键 mute/solo 与 SEL 层 1–4 键选轨 `KEY` 断言、`run_step_edit` 的 EDIT 层 a–g 擦除断言、`run_sys` 的 SYSTEM 版本行断言）、`scripts/inject/{params,nav,tracks,step_edit,sys}.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
 
 - [ ] Step 1: 按本任务 Interfaces 写断言（先 RED 若功能缺失）。
-- [ ] Step 2: `bash scripts/inject/params.sh && bash scripts/inject/nav.sh` 全绿；`python3 scripts/soak-selftest.py`。
+- [ ] Step 2: `bash scripts/inject/params.sh && bash scripts/inject/nav.sh && bash scripts/inject/tracks.sh && bash scripts/inject/step_edit.sh && bash scripts/inject/sys.sh` 全绿；`python3 scripts/soak-selftest.py`。
 - [ ] Step 3: 提交 `test(scripts/inject): 参数族页与九组导航的注入矩阵`。
 
 ### Task 8: 全页面截屏矩阵 + 联系表
