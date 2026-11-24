@@ -43,6 +43,27 @@ void sloop_core_set_engine(uint32_t track, uint32_t engine);
  * 同样不改值）。参数锁在生效时 set_engine_of 会先 locks_restore，此时预览只作参考。 */
 bool sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset,
                                int16_t out[SLOOP_CORE_P_COUNT]);
+
+/* TOOLS 三动作（P4-F Task 6；上游 ui_input.c:568-612 的 GO 按钮，语义清单见
+ * docs/design/012-feature-parity-checklist.md §4）。作用于**选中轨**；一次动作一次引擎锁。
+ *  CLRSEQ   清选中轨的步表（先 undo_mark，再 steps_clear ⇒ TRANSPORT 的 UNDO 可撤销）。
+ *           走带中允许（上游同），playing 不变。
+ *  INITSOUND 引擎默认值 + 预设 0（= sloop_core_set_engine(选中轨, 当前引擎)，param_kept
+ *           的混音/图案参数保留）。走带中允许。选中鼓轨回 ESP_ERR_NOT_ALLOWED（上游
+ *           page_desc 不给鼓轨这一项）。
+ *  NEWPRJ   上游 project_new（ui_input.c:462-490 的逐行镜像，见 seq_tab5.c）：自行停走带、
+ *           panic、四轨参数回默认 + TRK_DEF 默认声音、鼓 kit/tune/decay/mute 复位、除
+ *           MIDI 类外全局回默认、清 solo/八度；A–D section 与 settings 对象不碰。
+ *           唯一守卫：SONG 播放中且 arrangement_enabled ⇒ ESP_ERR_NOT_ALLOWED
+ *           （"STOP THE SONG FIRST"，否则停止会把旧 loop 带回来）；其余走带状态自停后执行。
+ * 返回：ESP_OK；ESP_ERR_INVALID_ARG（action 越界）；ESP_ERR_NOT_ALLOWED（见上）；
+ * ESP_ERR_INVALID_STATE（诊断冻结，锁外/锁内各查一次）。不得在 ISR 调用。 */
+typedef enum {
+    SLOOP_TOOL_CLRSEQ = 0,
+    SLOOP_TOOL_INITSOUND = 1,
+    SLOOP_TOOL_NEWPRJ = 2,
+} sloop_tool_t;
+esp_err_t sloop_core_tools(uint32_t action);
 void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);

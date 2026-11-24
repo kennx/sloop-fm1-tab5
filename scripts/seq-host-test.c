@@ -18,8 +18,17 @@
 #include "../third_party/sloop-fm1/tests/hostsim.c"
 #undef main
 
+/* P4-F Task 6：固件 store_tab5.c 的「载入声音」机制同源编译（TRK_DEF 现在是设备映射
+ * {ANALOG 0, DIGITAL 1, SAMPLE 4}——与 synth-host-test 相同；project.c 的 FUN1 导入用它，
+ * 本文件不测 FUN1）。用户预设银行（upreset.c）不在本可执行文件里：t->user 恒 0，
+ * user_of/arp_is_sounds 走不到这两个查询，替身只为满足链接。 */
+static uint8_t sync_reload;
+static struct { uint8_t force; uint8_t rsv[3]; } ui;
+static int up_used(uint32_t k) { (void)k; return 0; }
+static int up_arp_of(uint32_t k, int16_t *a) { (void)k; (void)a; return 1; }
+#include "../firmware/components/sloop_core/src/preset_tab5.h"
+
 #define PROJ_HOST 1
-static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? i : 0; }
 /* 与固件 store_tab5.c 同法：proj_slot 退化为指针（PSRAM 槽），init 之前指针可以为
  * NULL/垃圾。no-storage 用例把指针置 NULL——没有 sloop_store_ready() 门的实现会在这里
  * 段错误，而不是在设备上偶发 panic。 */
@@ -27,10 +36,9 @@ static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? i : 0; }
 #include "../third_party/sloop-fm1/firmware/src/project.c"
 #undef PROJ_HOST
 static project_t h_slot_mem[4];
-static struct { uint8_t force; } ui;
-static uint8_t sync_reload;
 #include "../third_party/sloop-fm1/firmware/src/arranger_scene.c"
 
+#include "sloop_core.h"
 #include "sloop_seq.h"
 #include "sloop_store.h"
 
@@ -1699,6 +1707,308 @@ static void test_play_release_without_lock(void)
     blocks(1);
 }
 
+/* ------------------------------------------------- P4-F Task 6: TOOLS 三动作 ---
+ * sloop_core_tools 的同源门禁（上游 ui_input.c:568-612；清单 012 §4）。声音相关的期望不
+ * 从被测函数反推：用 preset_tab5.h 的同一对 set_engine_of_locked/preset_apply_locked 在
+ * **另一条轨**上独立构造（INIT SOUND），或与「上电默认」快照逐字段比对（NEW）。 */
+
+/* 上电声音（felucca_init 的 Tab5 口径）：轨 0..2 套 TRK_DEF，鼓轨 808 kit。 */
+static void tools_init_sounds(void)
+{
+    for (uint32_t k = 0; k < NTRK; k++) {
+        if (k < NPART) {
+            set_engine_of_locked(&trk[k], TRK_DEF[k][0]);
+            preset_apply_locked(&trk[k], TRK_DEF[k][1]);
+            trk[k].engine = trk[k].eng_req;
+        }
+    }
+    TDRUM->p[P_E0] = DRUM_DEFAULT_KIT;
+}
+
+static int steps_all_empty(uint32_t track)
+{
+    if (track == TRK_DRUM) {
+        for (uint32_t i = 0; i < NSTEP; i++)
+            if (memcmp(&trk[track].dstep[i], "\0\0\0\0\0\0\0\0\0\0", sizeof(dstep_t)) != 0) return 0;
+        return 1;
+    }
+    for (uint32_t i = 0; i < NSTEP; i++)
+        if (trk[track].step[i].n || trk[track].step[i].time != ST_REST) return 0;
+    return 1;
+}
+
+static void test_tools_clrseq(void)
+{
+    step_t keep0[NSTEP];
+    dstep_t keep3[NSTEP];
+    sloop_lock_t locks[NLOCK];
+    reset();
+    tools_init_sounds();
+    song.sel = 1;
+    put_note(&trk[0], 3, 60, 1);
+    put_note(&trk[1], 0, 64, 0);
+    put_note(&trk[1], 9, 67, 2);
+    trk[1].micro[9] = 7;
+    memset(&trk[3].dstep[5], 0, sizeof(dstep_t));
+    trk[3].dstep[5].on[0] = 0x81;
+    check(sloop_seq_lock_set(1, 9, P_DIST, 20) == ESP_OK && sloop_seq_set_fill(1, 9, 2) == ESP_OK,
+          "clrseq fixture: lock + fill on the selected track");
+    memcpy(keep0, trk[0].step, sizeof keep0);
+    memcpy(keep3, trk[3].dstep, sizeof keep3);
+    step_t before[NSTEP];
+    memcpy(before, trk[1].step, sizeof before);
+    int16_t p_before[P_COUNT];
+    memcpy(p_before, trk[1].p, sizeof p_before);
+
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    transport_req = 1;
+    blocks(1);
+    check(song.playing, "clrseq fixture: transport is playing");
+    uint32_t locks_taken = engine_lock_calls, unlocks = engine_unlock_calls;
+    check(sloop_core_tools(SLOOP_TOOL_CLRSEQ) == ESP_OK, "CLEAR SEQ on the selected track succeeds while playing");
+    check(engine_lock_calls == locks_taken + 1u && engine_unlock_calls == unlocks + 1u,
+          "CLEAR SEQ takes the engine lock exactly once");
+    check(steps_all_empty(1), "CLEAR SEQ empties the selected track's step table (TIEs included)");
+    check(sloop_seq_lock_list(1, locks, NLOCK) == 0, "CLEAR SEQ drops the selected track's parameter locks");
+    check(trk[1].micro[9] == 0 && step_fill(&trk[1], 9) == FC_NORM, "CLEAR SEQ resets micro and fill conditions");
+    check(memcmp(trk[0].step, keep0, sizeof keep0) == 0 && memcmp(trk[3].dstep, keep3, sizeof keep3) == 0,
+          "CLEAR SEQ leaves the other tracks untouched");
+    check(memcmp(trk[1].p, p_before, sizeof p_before) == 0, "CLEAR SEQ does not touch parameters");
+    check(song.playing && transport_req == 0, "CLEAR SEQ while playing: the transport keeps running");
+
+    check(sloop_seq_pattern(1, SEQ_PATTERN_UNDO, 0) == ESP_OK && memcmp(trk[1].step, before, sizeof before) == 0,
+          "UNDO restores the cleared pattern");
+    transport_req = 2;
+    blocks(1);
+
+    uint32_t l = engine_lock_calls;
+    check(sloop_core_tools(3u) == ESP_ERR_INVALID_ARG && engine_lock_calls == l,
+          "unknown action is rejected before taking the lock");
+    s_frozen = true;
+    check(sloop_core_tools(SLOOP_TOOL_CLRSEQ) == ESP_ERR_INVALID_STATE && engine_lock_calls == l,
+          "frozen: CLEAR SEQ returns invalid state without touching the engine");
+    s_frozen = false;
+}
+
+static void test_tools_initsound(void)
+{
+    reset();
+    tools_init_sounds();
+    /* 两条轨走同一条路：轨 1 经 TOOLS，轨 2 直接调 set_engine_of_locked（=
+     * sloop_core_set_engine 在锁内做的事）。 */
+    for (uint32_t k = 1; k <= 2u; k++) {
+        set_engine_of_locked(&trk[k], 4);
+        preset_apply_locked(&trk[k], 5);
+        trk[k].p[P_DIST] = 99;
+        trk[k].p[P_E0] = (int16_t)(trk[k].p[P_E0] ^ 1);
+        trk[k].p[P_ATK] = 3;
+    }
+    trk[1].p[P_LEVEL] = 50;
+    trk[2].p[P_LEVEL] = 50;
+    set_engine_of_locked(&trk[2], trk[2].eng_req);
+    song.sel = 1;
+    check(trk[1].preset == 5 && trk[1].p[P_DIST] == 99, "initsound fixture: sound is dirty before the action");
+    uint32_t l = engine_lock_calls;
+    check(sloop_core_tools(SLOOP_TOOL_INITSOUND) == ESP_OK && engine_lock_calls == l + 1u,
+          "INIT SOUND succeeds with one engine lock");
+    check(trk[1].preset == 0 && trk[1].eng_req == 4, "INIT SOUND: engine kept, preset 0");
+    check(memcmp(trk[1].p, trk[2].p, sizeof trk[1].p) == 0, "INIT SOUND p[] == sloop_core_set_engine on the same sound");
+    check(trk[1].p[P_DIST] != 99 && trk[1].p[P_LEVEL] == 50, "INIT SOUND: sound params reset, mix (LEVEL) kept");
+
+    int16_t p3[P_COUNT];
+    memcpy(p3, TDRUM->p, sizeof p3);
+    song.sel = TRK_DRUM;
+    check(sloop_core_tools(SLOOP_TOOL_INITSOUND) == ESP_ERR_NOT_ALLOWED &&
+              memcmp(TDRUM->p, p3, sizeof p3) == 0,
+          "INIT SOUND on the drum track is not allowed (page_desc excludes it)");
+    song.sel = 1;
+    s_frozen = true;
+    check(sloop_core_tools(SLOOP_TOOL_INITSOUND) == ESP_ERR_INVALID_STATE && engine_lock_calls == l + 2u,
+          "frozen: INIT SOUND returns invalid state without the engine lock");
+    s_frozen = false;
+
+    /* 走带中允许且不中断 */
+    reset();
+    tools_init_sounds();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    transport_req = 1;
+    blocks(1);
+    check(sloop_core_tools(SLOOP_TOOL_INITSOUND) == ESP_OK && song.playing && transport_req == 0,
+          "INIT SOUND while playing: the transport keeps running");
+    transport_req = 2;
+    blocks(1);
+}
+
+/* build_section 只动轨 0 的当前步表；这里需要四个互不覆盖的 section（NEW 不得碰它们）。 */
+static void build_section_slot(uint32_t slot, uint8_t note, uint32_t len)
+{
+    static step_t keep[NSTEP];
+    memcpy(keep, trk[0].step, sizeof keep);
+    build_section(slot, note, len);
+    memcpy(trk[0].step, keep, sizeof keep);
+}
+
+/* NEW 的逐项副作用（ui_input.c:462-490）。 */
+static void test_tools_new(void)
+{
+    static project_t slots[4];
+    sloop_lock_t locks[NLOCK];
+    static arr_config_t arr;
+    static const uint16_t midi_ids[] = {G_SLOT,  G_DRCH,  G_SYNC,   G_MIDI,   G_ROUTE,  G_CH1,
+                                        G_CH2,   G_CH3,   G_CHOTH,  G_BEND,   G_FXCH,   G_DRMAP,
+                                        G_RMCH,  G_CLKOUT, G_FXFADE};
+    int16_t g_before[G_COUNT];
+    reset();
+    tools_init_sounds();
+    for (uint32_t s = 0; s < 4u; s++) build_section_slot(s, (uint8_t)(40 + s), 16);
+    memcpy(slots, proj_slot, sizeof slots);
+    arr_defaults(&arrangement);
+    arrangement.count = 2;
+    arrangement.entry[0] = (arr_entry_t){1, 3};
+    arrangement.entry[1] = (arr_entry_t){2, 2};
+    memcpy(&arr, &arrangement, sizeof arr);
+    h_sec_dirty = 0x5;
+    h_song_dirty = 1;
+
+    /* 弄脏一切 NEW 应该复位的东西 */
+    for (uint32_t k = 0; k < NTRK; k++) {
+        for (uint32_t i = 0; i < P_E0; i++) trk[k].p[i] = (int16_t)(TP[i].def + 3);
+        put_note(&trk[k], 2, 60, 0);
+        trk[k].micro[2] = -5;
+    }
+    set_engine_of_locked(&trk[0], 9);
+    preset_apply_locked(&trk[0], 2);
+    trk[0].engine = 9;
+    check(sloop_seq_lock_set(0, 2, P_DIST, 40) == ESP_OK, "new fixture: a lock on track 0");
+    TDRUM->p[P_E0] = (int16_t)(DRUM_DEFAULT_KIT + 1);
+    memset(&TDRUM->dstep[4], 0, sizeof(dstep_t));
+    TDRUM->dstep[4].on[0] = 0x0F;
+    drum_tune[3] = 5;
+    drum_dec[7] = -2;
+    drum_mute = 0x00F0;
+    song.solo = 0x5;
+    song.octave = 2;
+    for (uint32_t i = 0; i < G_COUNT; i++) song.g[i] = (int16_t)(GP[i].def + 1);
+    for (size_t i = 0; i < sizeof midi_ids / sizeof midi_ids[0]; i++) {
+        song.g[midi_ids[i]] = (int16_t)(GP[midi_ids[i]].def + 7);
+        g_before[i] = song.g[midi_ids[i]];
+    }
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    song.sel = 2;
+    sync_reload = 0;
+    uint32_t sess = undo_sess;
+    transport_req = 1;
+    blocks(1);
+    check(song.playing && song.g[G_BPM] == (int16_t)TEST_BPM, "new fixture: transport is playing");
+
+    uint32_t l = engine_lock_calls;
+    check(sloop_core_tools(SLOOP_TOOL_NEWPRJ) == ESP_OK && engine_lock_calls == l + 1u,
+          "NEW succeeds with one engine lock while the loop is playing");
+    check(transport_req == 2 && panic_req == (1u << NTRK) - 1u,
+          "NEW requests a transport stop and a panic on every track");
+    check(undo_sess == sess + 16u && undo.valid && undo.trk == TRK_DRUM && undo.sess == (undo_sess | 3u),
+          "NEW marks undo on every track (one session per track, drum last)");
+    check(sync_reload == 1 && ui.force == 1, "NEW sets the reload/force flags");
+    for (uint32_t k = 0; k < NPART; k++) {
+        check(trk[k].eng_req == TRK_DEF[k][0] && trk[k].preset == TRK_DEF[k][1] && trk[k].pold == 1,
+              "NEW: default sound of TRK_DEF on every synth track (old sound fades out)");
+        check(steps_all_empty(k) && trk[k].p[P_LEVEL] == TP[P_LEVEL].def && trk[k].p[P_SLEN] == TP[P_SLEN].def,
+              "NEW: empty pattern and default parameters on every synth track");
+    }
+    check(trk[2].p[P_LEVEL] != (int16_t)(TP[P_LEVEL].def + 3) && trk[0].eng_req != 9 && trk[0].preset != 2,
+          "NEW: the dirty sound/pattern values are gone");
+    check(sloop_seq_lock_list(0, locks, NLOCK) == 0, "NEW: parameter locks cleared");
+    check(TDRUM->p[P_E0] == DRUM_DEFAULT_KIT && steps_all_empty(TRK_DRUM),
+          "NEW: default kit and empty drum pattern");
+    int tune_ok = 1, dec_ok = 1;
+    for (uint32_t i = 0; i < DRUM_LANES; i++) {
+        tune_ok &= drum_tune[i] == 0;
+        dec_ok &= drum_dec[i] == 0;
+    }
+    check(tune_ok && dec_ok && drum_mute == 0, "NEW: drum tune/decay/live mutes reset");
+    check(song.solo == 0 && song.octave == 0, "NEW: solo and octave cleared");
+    int g_ok = 1, midi_ok = 1;
+    for (uint32_t i = 0; i < G_COUNT; i++) {
+        int excluded = 0;
+        for (size_t m = 0; m < sizeof midi_ids / sizeof midi_ids[0]; m++) excluded |= midi_ids[m] == i;
+        if (excluded) continue;
+        g_ok &= song.g[i] == GP[i].def;
+    }
+    for (size_t m = 0; m < sizeof midi_ids / sizeof midi_ids[0]; m++)
+        midi_ok &= song.g[midi_ids[m]] == g_before[m];
+    check(g_ok, "NEW: every non-MIDI global back to its default (BPM/swing/fx too)");
+    check(midi_ok, "NEW: the FM-1's MIDI-class settings are kept");
+    check(song.sel == 2, "NEW: the selected track is kept");
+    check(memcmp(slots, proj_slot, sizeof slots) == 0 && h_sec_dirty == 0x5 && h_song_dirty == 1,
+          "NEW: sections A-D (RAM slots + dirty) untouched");
+    check(memcmp(&arr, &arrangement, sizeof arr) == 0, "NEW: song arrangement untouched");
+    blocks(1);
+    check(!song.playing, "NEW: the transport stops (request consumed by the render block)");
+}
+
+/* NEW 的唯一守卫：SONG 播放中且 arrangement_enabled。 */
+static void test_tools_new_guards(void)
+{
+    int16_t p_before[P_COUNT];
+    reset();
+    tools_init_sounds();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    trk[0].p[P_LEVEL] = 33;
+    memcpy(p_before, trk[0].p, sizeof p_before);
+
+    /* arrangement_enabled 但没在走带（loop 模式停止态）：NEW 照常 */
+    arrangement_enabled = 1;
+    check(sloop_core_tools(SLOOP_TOOL_NEWPRJ) == ESP_OK && trk[0].p[P_LEVEL] == TP[P_LEVEL].def,
+          "NEW with arrangement enabled but stopped proceeds");
+
+    /* SONG 播放中：拒绝，状态一字不动 */
+    reset();
+    tools_init_sounds();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    trk[0].p[P_LEVEL] = 33;
+    memcpy(p_before, trk[0].p, sizeof p_before);
+    build_section(0, 40, 16);
+    arrangement_enabled = 1;
+    arr_defaults(&arrangement);
+    arrangement.count = 1;
+    arrangement.entry[0] = (arr_entry_t){0, 1};
+    transport_req = 1;
+    blocks(2);
+    check(arrangement_clock.running, "guard fixture: the song is playing");
+    uint32_t l = engine_lock_calls;
+    check(sloop_core_tools(SLOOP_TOOL_NEWPRJ) == ESP_ERR_NOT_ALLOWED && engine_lock_calls == l + 1u,
+          "NEW while the song plays: not allowed");
+    check(memcmp(trk[0].p, p_before, sizeof p_before) == 0 && song.playing && transport_req == 0,
+          "NEW refused by the song guard: nothing changes, transport still running");
+    /* 同一状态下 CLRSEQ / INIT SOUND 仍允许 */
+    song.sel = 0;
+    put_note(&trk[0], 1, 60, 0);
+    check(sloop_core_tools(SLOOP_TOOL_CLRSEQ) == ESP_OK && sloop_core_tools(SLOOP_TOOL_INITSOUND) == ESP_OK &&
+              song.playing && arrangement_clock.running,
+          "CLEAR SEQ / INIT SOUND stay allowed while the song plays");
+    transport_req = 2;
+    blocks(1);
+
+    /* 走带中（无 SONG）：NEW 自己停走带后执行 */
+    reset();
+    tools_init_sounds();
+    song.g[G_BPM] = (int16_t)TEST_BPM;
+    trk[0].p[P_LEVEL] = 33;
+    put_note(&trk[0], 4, 60, 0);
+    transport_req = 1;
+    blocks(1);
+    check(sloop_core_tools(SLOOP_TOOL_NEWPRJ) == ESP_OK && steps_all_empty(0) &&
+              trk[0].p[P_LEVEL] == TP[P_LEVEL].def,
+          "NEW while the loop plays proceeds (stops the transport itself)");
+    blocks(1);
+    check(!song.playing, "NEW: loop transport stopped");
+
+    s_frozen = true;
+    check(sloop_core_tools(SLOOP_TOOL_NEWPRJ) == ESP_ERR_INVALID_STATE, "frozen: NEW returns invalid state");
+    s_frozen = false;
+}
+
+
 int main(void)
 {
     _Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "public drum step has the upstream packed layout");
@@ -1744,6 +2054,10 @@ int main(void)
     test_srec_empty_no_song();
     test_srec_reconcile_before_new_take();
     test_rec_fill_projection();
+    test_tools_clrseq();
+    test_tools_initsound();
+    test_tools_new();
+    test_tools_new_guards();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }

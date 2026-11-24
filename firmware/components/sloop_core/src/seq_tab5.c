@@ -931,3 +931,90 @@ esp_err_t sloop_seq_song_rec(void)
     if (ret == ESP_OK) song_result_reconcile();
     return ret;
 }
+
+/* --------------------------------------------------- P4-F Task 6: TOOLS ---
+ * 上游 ui_input.c:568-612 的三个 GO 按钮（G_CLRSEQ / G_INITSND / G_NEWPRJ）；语义清单见
+ * docs/design/012-feature-parity-checklist.md §4。一次动作一次引擎锁；冻结在锁外/锁内
+ * 各查一次（与 Task 3/4 同口径）。走带守卫按上游：CLRSEQ/INITSOUND 走带中允许，NEW 只在
+ * SONG 播放（song.playing && arrangement_enabled）时拒绝——其余情况 project_new 自己
+ * transport_req = 2，渲染块消费后停走带。 */
+
+/* 上游 ui.c:692 的 track_defaults（不在本 TU）：P_E0 以下的参数回 TP 默认 + 清步表。 */
+static void track_defaults_tab5(track_t *t)
+{
+    uint32_t i;
+    for (i = 0; i < P_E0; i++)
+        t->p[i] = TP[i].def;
+    steps_clear(t);
+}
+
+/* 上游 ui_input.c:462-490 的 project_new（UI_SMALL static，不在 sloop_core TU）的**逐行
+ * 镜像**——R5：改上游那一段时同步这里。与 SONG_PANEL_DEF / TRK_DEF 同法固定在本适配层；
+ * 副作用逐项由 scripts/seq-host-test.c 守。上游的 fm1_irq_off/on 在这里就是调用方持有的
+ * 引擎锁；上游同文件的 undo_mark / sound_change / drum_tune / drum_dec / drum_mute /
+ * panic_req / transport_req 与 arranger.c 的 arrangement_enabled 都在同一 TU。调用方持引擎锁。 */
+static void project_new_tab5(void)
+{
+    uint32_t i;
+    transport_req = 2;
+    panic_req = (1u << NTRK) - 1u;
+    for (i = 0; i < NTRK; i++) {
+        track_t *t = &trk[i];
+        undo_mark(t, (undo_sess += 4u) | 3u);
+        if (i < NPART)
+            sound_change(t);                            /* (2.6: what sounds fades out with its own sound) */
+        track_defaults_tab5(t);
+        if (i < NPART) {
+            set_engine_of_locked(t, TRK_DEF[i][0]);
+            preset_apply_locked(&trk[i], TRK_DEF[i][1]);
+        }
+    }
+    TDRUM->p[P_E0] = DRUM_DEFAULT_KIT;
+    memset(drum_tune, 0, sizeof drum_tune);             /* (2.7) every drum sound as the kit has it */
+    memset(drum_dec, 0, sizeof drum_dec);
+    drum_mute = 0;                                      /* (2.6: the live mutes) */
+    for (i = 0; i < G_COUNT; i++)
+        if (i != G_SLOT && i != G_DRCH && i != G_SYNC && i != G_MIDI && i != G_ROUTE &&
+            (i < G_CH1 || i > G_CHOTH) && i != G_BEND && i != G_FXCH && i != G_DRMAP &&
+            i != G_RMCH && i != G_CLKOUT && i != G_FXFADE)                              /* (the
+            * FM-1's settings: GLO > MIDI 2.6) */
+            song.g[i] = GP[i].def;
+    song.solo = 0;
+    song.octave = 0;
+    sync_reload = 1;
+    ui.force = 1;
+}
+
+esp_err_t sloop_core_tools(uint32_t action)
+{
+    if (action > (uint32_t)SLOOP_TOOL_NEWPRJ) return ESP_ERR_INVALID_ARG;
+    if (s_frozen) return ESP_ERR_INVALID_STATE;
+    engine_lock();
+    if (s_frozen) {
+        engine_unlock();
+        return ESP_ERR_INVALID_STATE;
+    }
+    track_t *sel = &trk[song.sel % NTRK];
+    esp_err_t ret = ESP_OK;
+    switch (action) {
+    case SLOOP_TOOL_CLRSEQ:
+        undo_mark(sel, (undo_sess += 4u) | 3u);
+        steps_clear(sel);
+        break;
+    case SLOOP_TOOL_INITSOUND:
+        if (is_drum(sel))
+            ret = ESP_ERR_NOT_ALLOWED;                  /* 上游 page_desc 不给鼓轨这一项 */
+        else
+            set_engine_of_locked(sel, sel->eng_req);    /* engine defaults + its first preset */
+        break;
+    default:
+        if (song.playing && arrangement_enabled) {      /* (the song's stop would bring the old loop back) */
+            ret = ESP_ERR_NOT_ALLOWED;
+            break;
+        }
+        project_new_tab5();
+        break;
+    }
+    engine_unlock();
+    return ret;
+}
