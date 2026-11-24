@@ -53,6 +53,22 @@ static void step_clear(step_t *st)
     st->time = ST_REST;
 }
 
+/* 上游 lock_del 只把槽位标回 LOCK_FREE、保留槽里的 param/val；而 proj_capture 原样拷贝
+ * 24 个锁槽、proj_apply 把空闲槽归一成 (LOCK_FREE, 0, 0)——于是解锁之后工程 SAVE→LOAD 的
+ * live hash 必然不等（空闲槽里的残留字节；没有数据丢失）。适配层在解锁后把全部空闲槽的
+ * 残留清零，live 状态与 LOAD 之后的形态一致。调用方持引擎锁。 */
+static void lock_del_canonical(track_t *t, uint32_t step, uint32_t param)
+{
+    uint32_t k;
+    lock_del(t, step, param);
+    for (k = 0; k < NLOCK; k++) {
+        if (t->lock[k].step == LOCK_FREE) {
+            t->lock[k].param = 0;
+            t->lock[k].val = 0;
+        }
+    }
+}
+
 static uint8_t drop2(uint32_t v, uint32_t k)
 {
     return (uint8_t)((v & ((1u << (2u * k)) - 1u)) | ((v >> (2u * k + 2u)) << (2u * k)));
@@ -350,7 +366,7 @@ esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
         engine_unlock();
         return ESP_ERR_INVALID_STATE;
     }
-    lock_del(&trk[track], step, param);
+    lock_del_canonical(&trk[track], step, param);
     engine_unlock();
     return ESP_OK;
 }
@@ -465,7 +481,7 @@ esp_err_t sloop_seq_step_edit(const sloop_step_edit_t *cmd)
         } else {
             while (step_on(&t->step[step])) note_del(t, step, 0);
         }
-        lock_del(t, step, P_COUNT);
+        lock_del_canonical(t, step, P_COUNT);
         t->micro[step] = 0;
         step_fill_set(t, step, FC_NORM);
     }

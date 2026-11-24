@@ -2009,6 +2009,40 @@ static void test_tools_new_guards(void)
 }
 
 
+/* 解锁之后工程 SAVE→LOAD 必须无损：上游 lock_del 只把槽标回 LOCK_FREE、保留 param/val，
+ * 而 proj_apply 把空闲槽归一成 (LOCK_FREE,0,0)——适配层在解锁后清零空闲槽的残留字节。 */
+static void test_lock_del_canonical(void)
+{
+    project_t p;
+    uint32_t sum0;
+    reset();
+    /* 前置：先把全部轨的锁表规范化（更早的用例直接调上游 lock_del，会在别的轨留下
+     * 空闲槽残留；proj_apply 会清掉它们）。本用例只验证「经适配层解锁之后」的往返。 */
+    proj_capture(&p);
+    proj_apply(&p, 1);
+    put_note(&trk[0], 5, 60, 0);
+    check(sloop_seq_lock_set(0, 5, P_DIST, 40) == ESP_OK && sloop_seq_lock_set(0, 9, P_CHOR, 7) == ESP_OK,
+          "canonical fixture: two locks");
+    check(sloop_seq_lock_del(0, 5, P_DIST) == ESP_OK, "unlock one lock");
+    proj_capture(&p);
+    sum0 = p.sum;
+    proj_apply(&p, 1);
+    proj_capture(&p);
+    check(p.sum == sum0, "SAVE -> LOAD after an unlock keeps the live hash (no residue in the free slot)");
+    reset();
+    put_note(&trk[0], 5, 60, 0);
+    check(sloop_seq_lock_set(0, 5, P_DIST, 40) == ESP_OK, "canonical fixture 2: a locked step");
+    {
+        const sloop_step_edit_t edit = {.track = 0, .step = 5, .op = SEQ_STEP_CLEAR};
+        check(sloop_seq_step_edit(&edit) == ESP_OK, "clear the locked step (lock_del with P_COUNT)");
+    }
+    proj_capture(&p);
+    sum0 = p.sum;
+    proj_apply(&p, 1);
+    proj_capture(&p);
+    check(p.sum == sum0, "SAVE -> LOAD after clearing a locked step keeps the live hash");
+}
+
 int main(void)
 {
     _Static_assert(sizeof(sloop_dstep_t) == sizeof(dstep_t), "public drum step has the upstream packed layout");
@@ -2058,6 +2092,7 @@ int main(void)
     test_tools_initsound();
     test_tools_new();
     test_tools_new_guards();
+    test_lock_del_canonical();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;
 }
