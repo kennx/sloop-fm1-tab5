@@ -1094,6 +1094,8 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
     /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
      * FM6P 由 Task 10 换成实体页） */
     "dsyn", "fm6p", "system",
+    /* EDIT 组的 chip 页（P4-F Task 4）：MOD / SCALE / VOICE，id 追加在最后 */
+    "mod", "scale", "voice",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1251,8 +1253,8 @@ static int ui_command(int argc, char **argv)
             printf("UI ERR not_started\n");
             return 1;
         }
-        if (page < APP_PAGE_GLOBAL || page > APP_PAGE_SAMPLE) {
-            /* 参数页是 app_page_t 的连续段 GLOBAL..SAMPLE（page_layout.c 有静态断言）；
+        if (!sloop_ui_param_page((uint8_t)page)) {
+            /* 参数页 = 布局表里的 8 页（GLOBAL..SAMPLE + MOD/SCALE/VOICE，page_layout.c）；
              * FILE 组两页（PROJECTS/PRESETS）不是参数页，旋钮注入不适用。 */
             printf("UI ERR not_params\n");
             return 1;
@@ -1432,11 +1434,56 @@ static int ui_command(int argc, char **argv)
                (unsigned)sloop_ui_fm6p_page_get());
         return 0;
     }
+    /* UI <参数页名> CHIP [<n>]：参数页 chip 框架的选择器 + 逐槽诊断（P4-F Task 4；
+     * MOD/SCALE/VOICE 是 chip 页，Task 5 的 FX/GLOBAL 同一入口）。与页面 chip 行共用页内
+     * UI 局部态；写入口在 LVGL 锁内立即重配刷新（零分配）。条件 chip 在当前上下文隐藏
+     * （如非 ANALOG 轨上的 FILTER）回 `UI ERR chip (hidden)` 且不改选择。旧式整页
+     * （GLOBAL/FX/ANALOG/FM6/SAMPLE）没有 chip 行：只读（`CHIP <n>` 回 `UI ERR chip`），
+     * 逐槽行照打（鼓轨逐槽规则的机读口）。裸 `UI mod` 仍是**切页**（页名表优先，见本
+     * 函数末尾的 argc==2 循环）。 */
+    {
+        uint8_t chip_page = 0;
+        if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "chip") == 0 &&
+            ui_parse_page(argv[1], &chip_page) && sloop_ui_param_page(chip_page)) {
+            uint8_t nchips = sloop_ui_param_chip_count(chip_page);
+            uint32_t v = 0;
+            if (argc == 4) {
+                if (nchips <= 1u || !eng_uint(argv[3], nchips - 1u, &v)) {
+                    printf("UI ERR chip\n");
+                    return 1;
+                }
+                esp_err_t ret = sloop_ui_param_chip_set(chip_page, (uint8_t)v);
+                if (ret == ESP_ERR_NOT_ALLOWED) {
+                    printf("UI ERR chip (hidden)\n");
+                    return 1;
+                }
+                if (ret != ESP_OK) {
+                    printf("UI ERR chip (%s)\n", esp_err_to_name(ret));
+                    return 1;
+                }
+            }
+            uint8_t chip = sloop_ui_param_chip_get(chip_page);
+            printf("UI %s chip=%u\n", k_page_names[chip_page], (unsigned)chip);
+            /* 生效 chip 的逐槽行（脚本把 label 与 `ENG DESC live <track> <id>` 对照）：
+             * label 是旋钮正在显示的名称；`locked=1` 的槽显示 -- 且拒绝编辑 */
+            for (uint8_t slot = 0; slot < 8; slot++) {
+                uint8_t id = 0;
+                const char *label = "-";
+                bool locked = false;
+                if (sloop_ui_param_slot_info(chip_page, chip, slot, &id, &label, &locked)) {
+                    printf("UI %s slot=%u id=%u label=\"%s\" locked=%u\n",
+                           k_page_names[chip_page], (unsigned)slot, (unsigned)id,
+                           label != NULL ? label : "-", (unsigned)locked);
+                }
+            }
+            return 0;
+        }
+    }
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
             printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
-                   "dsyn|fm6p|projects|presets|song|0..%u)\n",
+                   "projects|presets|song|dsyn|fm6p|system|mod|scale|voice|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1563,7 +1610,7 @@ static int ui_command(int argc, char **argv)
         }
         char *end = NULL;
         long idx = strtol(argv[2], &end, 0);
-        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT/SYNTH ≤4 页）：
+        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT = 5 页）：
          * 0..4 之外的 index 一律用法错误（与 sloop_ui_sub_select 的上界同口径）。 */
         if (end == argv[2] || *end != '\0' || idx < 0 || idx > 4) {
             printf("用法: UI SUB <index=0..4>（当前组的子签下标；组内最多 5 页）\n");
@@ -1590,7 +1637,7 @@ static int ui_command(int argc, char **argv)
     }
     printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
-           "UI FM6P [OP <0..5> | PAGE <0..5>] | "
+           "UI FM6P [OP <0..5> | PAGE <0..5>] | UI MOD|SCALE|VOICE CHIP [<n>] | "
            "UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -1839,8 +1886,13 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> PARAM slot=%u focus\n", x, y, page, (unsigned)r.a);
         break;
     case SLOOP_TAP_PARAM_LOCKED:
-        printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (engine page N/A)\n", x, y, page,
+        /* 引擎页不适用（选中轨引擎 ≠ 页声明/鼓轨）或鼓轨逐槽规则锁定的槽：未下发命令 */
+        printf("TAP %ld,%ld page=%u -> PARAM slot=%u locked (page or slot N/A)\n", x, y, page,
                (unsigned)r.a);
+        break;
+    case SLOOP_TAP_PARAM_CHIP:
+        printf("TAP %ld,%ld page=%u -> PARAMS %s chip=%u select\n", x, y, page,
+               r.a < APP_STATE_PAGES ? k_page_names[r.a] : "?", (unsigned)r.b);
         break;
     case SLOOP_TAP_FILE_SLOT:
         /* FILE 页（PROJECTS/PRESETS）：槽位选中。状态行文本/引擎结果另由 STORE/STATE
