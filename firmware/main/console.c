@@ -1694,9 +1694,14 @@ static uint32_t s_key_step_seq; /* 上一次已回显的 STEP 步工具结果代
 static int key_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "stats") == 0) {
-        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u quiesce_dropped=%u\n",
+        /* phys = input 任务自己从键盘轮询派发的事件数（物理按键）。input_stack_free 是 input
+         * 任务循环里采样的栈高水位最小值：只有物理按键走过深路径（快照 + 命令体）才会下降，
+         * console 的 KEY 注入跑在 console 任务上、量不到它——phys=0 时该读数只说明轮询循环
+         * 很浅，脚本不得据此判输入路径的栈安全（R13）。 */
+        printf("KEY STATS count=%u mean_us=%u max_us=%u input_stack_free=%u phys=%u quiesce_dropped=%u\n",
                (unsigned)s_key_calls, (unsigned)(s_key_calls ? s_key_us_sum / s_key_calls : 0),
                (unsigned)s_key_us_max, (unsigned)sloop_ui_input_stack_free(),
+               (unsigned)sloop_ui_input_physical_events(),
                (unsigned)sloop_ui_input_quiesce_dropped());
         return 0;
     }

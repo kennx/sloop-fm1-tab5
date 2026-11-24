@@ -560,8 +560,12 @@ esp_err_t sloop_ui_system_selftest_arm(void);
  * `UI ERR quiesced` 由调用方区分）。 */
 esp_err_t sloop_ui_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value);
 
-/* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
+/* 输入任务栈余量（高水位，字节；未启动返回 0）：input 任务在自己的轮询循环里采样的
+ * 历史最小值（R13）。它只在**物理按键**派发过深路径后才会下降——console 的 `KEY` 注入跑在
+ * console 任务上，量不到输入任务的栈；`sloop_ui_input_physical_events` 给出物理事件数，
+ * 场景据此区分「量过」与「本轮没有物理按键」（后者不得当作通过）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
+uint32_t sloop_ui_input_physical_events(void);
 
 /* 诊断期静默（`ENG SELFTEST` 全量运行期间；sloop_core_selftest 经
  * sloop_core_diag_quiesce_hook 调用，console `UI QUIESCE <on|off>` 可用于复验）：

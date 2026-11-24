@@ -73,7 +73,12 @@
 
 static const char *TAG = "sloop_input";
 
-#define INPUT_TASK_STACK 4096
+/* 8,192B（R13；原 4,096）：一次按键派发在最深处只放**一份** app_state_t 快照（host
+ * sizeof ≈1.66KB：STEP 步工具 / 擦除 / 焦点 / 音符路由），其上是 state_apply → 状态层命令
+ * 函数体（锁命令另有一块 142B 的共用缓冲）→ 引擎锁与 sloop_core 写入口的帧；console 的
+ * `KEY` 注入跑在 console 任务上，量不到这条路径，所以按最坏链路留余量。高水位见
+ * `KEY STATS input_stack_free`（在 input 任务自己的循环里采样）。 */
+#define INPUT_TASK_STACK 8192
 #define INPUT_TASK_PRIO  4 /* 低于音频任务（5），与键盘解码任务同级 */
 #define INPUT_POLL_MS    5
 /* tick 下限 1：CONFIG_FREERTOS_HZ=100 时 pdMS_TO_TICKS(5) 取整成 0，vTaskDelay(0)
@@ -108,6 +113,11 @@ static uint8_t s_note_val[128];
 static uint8_t s_note_track[128];
 static bool s_drum_on[128];
 static bool s_play_down;
+/* 输入任务自己的观测量（都在 input 任务里写）：phys = 由键盘轮询派发的事件数（物理按键；
+ * console 的 `KEY` 注入不计——注入跑在 console 任务上，量不到输入任务的栈）；
+ * s_stack_free = 循环里采样的任务栈高水位的**历史最小值**。 */
+static volatile uint32_t s_phys_events;
+static volatile uint32_t s_stack_free = 0xFFFFFFFFu;
 
 static void input_lock(void)
 {
@@ -125,7 +135,7 @@ static void input_unlock(void)
 /* 快照纪律（R13）：本文件的每个动作函数至多在栈上放**一份** app_state_t（host sizeof
  * ≈1.66KB），动作之间不嵌套；sloop_ui_input_key 自己不再持有副本（层键位用
  * state_read_layer_held 窄读）——此前它持有一份、被调动作再持有一份，Aa+k 这类
- * 「外层查表 + 动作快照 + 命令体」的链路会叠两份快照。 */
+ * 「外层查表 + 动作快照 + 命令体」的链路按估算会压穿 4KB 的任务栈。 */
 static void act_note(uint8_t code, int8_t offset, bool down)
 {
     if (!down) {
@@ -471,6 +481,13 @@ static void input_task(void *arg)
         for (int i = 0; i < n; i++) {
             sloop_ui_input_key(ev[i].code, ev[i].pressed);
         }
+        /* 批次之后在任务自身上下文采样栈高水位（R13）：`KEY STATS` 报的是这里的最小值。 */
+        {
+            uint32_t free_words = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
+            uint32_t free_bytes = free_words * sizeof(StackType_t);
+            if (free_bytes < s_stack_free) s_stack_free = free_bytes;
+        }
+        s_phys_events += (uint32_t)n;
         vTaskDelay(INPUT_POLL_TICKS);
     }
 }
@@ -502,7 +519,15 @@ esp_err_t input_start(void)
 
 uint32_t sloop_ui_input_stack_free(void)
 {
-    return s_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(s_task) : 0;
+    if (s_task == NULL) return 0;
+    /* 优先报 input 任务自己循环里采到的最小值；首个批次之前用内核的高水位（同一个量）。 */
+    if (s_stack_free != 0xFFFFFFFFu) return s_stack_free;
+    return (uint32_t)uxTaskGetStackHighWaterMark(s_task) * sizeof(StackType_t);
+}
+
+uint32_t sloop_ui_input_physical_events(void)
+{
+    return s_phys_events;
 }
 
 bool input_quiesce_begin(uint32_t timeout_ms)
