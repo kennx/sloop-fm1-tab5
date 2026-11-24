@@ -6,9 +6,15 @@
 
 PORT 缺省自动探测（/dev/ttyACM* 优先，其次 /dev/ttyUSB*）。10 个正例覆盖
 F_DB / F_TIME / F_BIPCT / F_ENUM（含非空枚举名）/ F_BPM / 鼓轨 kit 哨兵 /
-ANALOG·FM6·SAMPLE 三引擎 edit[]（含 unit="ct" 与 F_INT+names 表）；另验证 4 条
-越界路径回 `ENG DESC ERR`（不改状态）。原始串口回显逐字节存
+ANALOG·FM6·SAMPLE 三引擎 edit[]（含 unit="ct" 与 F_INT+names 表）；另验证 7 条
+越界路径回 `ENG DESC ERR`。原始串口回显逐字节存
 `$SLOOP_TAB5_PROJECT/build/verify/desc-<时间戳>.log`（只含 `# [desc-check]` 工具注记）。
+
+live scope（P4-F Task 3）：`ENG DESC live <track> <id>` = sloop_core_desc_track_live（上游
+track_desc()）的 2 个抽样——在 `STATE SNAP` 的选中轨上用 `PARAM` 写入 P_ITYPE / P_ESYNC，
+断言 P_IA 的标签（INSERT）与 P_ATK 的格式/音符名表（ENV SYNC）随状态变化、范围不变；
+写前读原值、结束时逐项写回（结束时状态与开始时相同）。期望值硬编码自 params.c 的
+INS_DESC / ESYNC_DESC。另 3 条 live 越界（鼓轨 P_E1 / 轨 4 / id ≥ P_COUNT）。
 退出码 0 = 全部字段一致且越界路径被拒。
 """
 import argparse
@@ -60,7 +66,19 @@ NEGATIVE = [
     dict(scope="global", engine=0, id=50, why="G_COUNT=50 上界外"),
     dict(scope="engine", engine=13, id=0, why="engine 13 不存在（哨兵只到 12）"),
     dict(scope="engine", engine=12, id=1, why="鼓轨只有 P_E0 = kit"),
+    dict(scope="live", engine=3, id=64, why="鼓轨没有 P_E1..P_E7（只有 P_E0 = kit）"),
+    dict(scope="live", engine=4, id=0, why="轨 4 不存在"),
+    dict(scope="live", engine=0, id=71, why="id ≥ P_COUNT=71"),
 ]
+
+# live 抽样（上游 P_* 枚举序：P_ATK=1、P_ITYPE=53、P_IA=54、P_ESYNC=59）
+LIVE_P_ATK, LIVE_P_ITYPE, LIVE_P_IA, LIVE_P_ESYNC = 1, 53, 54, 59
+# params.c ins_desc()：TYPE 1..4 (SOFT..FUZZ) → "DRIVE" (F_PCT)；5 (CRUSH) → "BITS" (F_INT + N_IBITS 16 名)
+LIVE_INSERT = {1: dict(label="DRIVE", fmt=F_PCT, min=0, max=127, default=64, unit="-", enums=0, first="-", last="-"),
+               5: dict(label="BITS", fmt=F_INT, min=0, max=127, default=64, unit="-", enums=16, first="1", last="16")}
+# params.c ESYNC_DESC[0]：ATK 开 ENV SYNC → F_INT + ESYNC_NAMES 25 名（"0".."4BAR"），范围/默认值同 TP[P_ATK]
+LIVE_ESYNC_ON = dict(label="ATK", fmt=F_INT, min=0, max=127, default=10, unit="-", enums=25, first="0", last="4BAR")
+LIVE_ESYNC_OFF = dict(label="ATK", fmt=F_TIME, min=0, max=127, default=10, unit="-", enums=0, first="-", last="-")
 
 
 def default_port():
@@ -166,6 +184,84 @@ def check_negative(session, case):
     return False
 
 
+def live_fields(session, track, pid):
+    """`ENG DESC live <track> <id>` 的字段；无描述符（ERR）回 None。"""
+    lines = session.cmd(f"ENG DESC live {track} {pid}")
+    response = next((ln for ln in lines if RESPONSE.match(ln)), None)
+    if response is None or response.startswith("ENG DESC ERR"):
+        return None
+    return parse_fields(response)
+
+
+def live_expect(session, track, pid, want, what):
+    got = live_fields(session, track, pid)
+    bad = [] if got else ["无描述符回显"]
+    for key in (FIELDS if got else ()):
+        w = want["default" if key == "def" else key]
+        if got.get(key) != str(w):
+            bad.append(f"{key}={got.get(key)!r}（期望 {w!r}）")
+    if bad:
+        print(f"  [FAIL] live {what}: " + "；".join(bad))
+        return False
+    print(f"  [PASS] live {what}: label={got['label']} fmt={got['fmt']} min={got['min']} max={got['max']} "
+          f"def={got['def']} unit={got['unit']} enums={got['enums']} first={got['first']} last={got['last']}")
+    return True
+
+
+def param_value(session, pid):
+    """`PARAM <id>`（只读）的引擎真值。"""
+    lines = session.cmd(f"PARAM {pid}")
+    m = next((re.match(r"PARAM track=\d+ id=\d+ value=(-?\d+) ", ln) for ln in lines
+              if re.match(r"PARAM track=\d+ id=\d+ value=-?\d+ ", ln)), None)
+    if m is None:
+        raise RuntimeError(f"PARAM {pid} 只读无回显：{lines[-1] if lines else '空响应'}")
+    return int(m.group(1))
+
+
+def param_write(session, pid, value):
+    lines = session.cmd(f"PARAM {pid} {value}")
+    if not any(re.match(rf"PARAM track=\d+ id={pid} value={value} applied={value} ", ln) for ln in lines):
+        raise RuntimeError(f"PARAM {pid} {value} 未落地：{lines[-1] if lines else '空响应'}")
+
+
+def check_live(session):
+    """live scope 的 2 个抽样：INSERT（随 P_ITYPE）与 ENV SYNC（随 P_ESYNC）。
+    在选中轨上写、断言、写回；写回放在 finally 里，断言失败也不留下改动。"""
+    lines = session.cmd("STATE SNAP")
+    m = next((re.search(r"selected_track=(\d+)", ln) for ln in lines if "selected_track=" in ln), None)
+    if m is None:
+        print("  [FAIL] live: STATE SNAP 无 selected_track")
+        return 0, 2
+    track = int(m.group(1))
+    orig = {LIVE_P_ITYPE: param_value(session, LIVE_P_ITYPE),
+            LIVE_P_ESYNC: param_value(session, LIVE_P_ESYNC)}
+    session.note(f"live samples on selected track {track}: P_ITYPE={orig[LIVE_P_ITYPE]} "
+                 f"P_ESYNC={orig[LIVE_P_ESYNC]}（结束后写回）")
+    got = [False, False]
+    try:
+        # INSERT：挑一个与当前标签不同的 TYPE（原值已是 SOFT 时改用 CRUSH），否则断言没有判别力
+        before = live_fields(session, track, LIVE_P_IA)
+        itype = 5 if (before or {}).get("label") == "DRIVE" else 1
+        param_write(session, LIVE_P_ITYPE, itype)
+        got[0] = live_expect(session, track, LIVE_P_IA, LIVE_INSERT[itype], f"INSERT track={track} P_ITYPE={itype} P_IA")
+        # ENV SYNC：先关（F_TIME）再开（F_INT + 音符名），两个方向都与写前状态无关
+        param_write(session, LIVE_P_ESYNC, 0)
+        off_ok = live_expect(session, track, LIVE_P_ATK, LIVE_ESYNC_OFF, f"ENV SYNC off track={track} P_ATK")
+        param_write(session, LIVE_P_ESYNC, 1)
+        on_ok = live_expect(session, track, LIVE_P_ATK, LIVE_ESYNC_ON, f"ENV SYNC on track={track} P_ATK")
+        got[1] = off_ok and on_ok
+    finally:
+        for pid, value in orig.items():
+            param_write(session, pid, value)
+    restored = all(param_value(session, pid) == value for pid, value in orig.items())
+    after = live_fields(session, track, LIVE_P_IA)
+    if not restored or after is None or any(after.get(k) != (before or {}).get(k) for k in FIELDS):
+        print("  [FAIL] live: 写回后 P_ITYPE/P_ESYNC 或 P_IA 描述符与开始时不同")
+        return sum(got), 2
+    print(f"  [PASS] live: P_ITYPE/P_ESYNC 写回原值，P_IA 描述符回到 {after.get('label')}")
+    return sum(got), 2
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="设备 ENG DESC 抽样逐字段对照 params.c 期望表（Task 8 门禁）")
@@ -186,12 +282,13 @@ def main():
     try:
         passed = sum(check_case(session, c) for c in CASES)
         rejected = sum(check_negative(session, c) for c in NEGATIVE)
+        live_passed, live_total = check_live(session)
     finally:
         session.close()
 
-    ok = passed == len(CASES) and rejected == len(NEGATIVE)
-    print(f"DESC CHECK passed={passed}/{len(CASES)} negative={rejected}/{len(NEGATIVE)} "
-          f"result={'PASS' if ok else 'FAIL'}")
+    ok = passed == len(CASES) and rejected == len(NEGATIVE) and live_passed == live_total
+    print(f"DESC CHECK passed={passed}/{len(CASES)} live={live_passed}/{live_total} "
+          f"negative={rejected}/{len(NEGATIVE)} result={'PASS' if ok else 'FAIL'}")
     print(f"transcript: {log_path}")
     return 0 if ok else 1
 
