@@ -2518,7 +2518,8 @@ def param_knob_xy(slot: int) -> tuple:
     return (x, y)
 
 
-# FM6 页 bank 存取行（P4-B Task 13）：几何与 page_params.c 的 BANK_* 宏同名同值。
+# bank 存取行（P4-B Task 13 原属 FM6 页；P4-F Task 5 起在 SOUND 页底部、仅 FM6 引擎时显示）：
+# 几何与 page_params.c 的 BANK_* 宏同名同值。
 # 页面区相对 y = 552（旋钮盒底边 536 + 16px 间隙），行高 44；屏幕绝对 y = 72 + 552。
 BANK_ROW_Y = 72 + 552
 BANK_ROW_H = 44
@@ -2723,6 +2724,9 @@ def param_value(s: Session, key: str = "value") -> int:
 def param_mem(s: Session) -> dict:
     """`UI MEM` → {page_id: (state, est, delta)} + 首行字段 + 分组行。
 
+    首行字段另含 `lvgl_stack_free`（LVGL 任务栈的历史最小余量，字节；缺失记 -1 —— 固件回显
+    改名时不得静默通过，见 LVGL_STACK_FLOOR 的断言）。
+
     分组行（ADR-005 §5）：`UI MEM GROUP <name> built=<n> sum_est=<B> sum_delta=<B>
     build_ms=<ms>`；sum_est = 组内已注册成员 est（静态预算），sum_delta = 组内已建
     成员的池增量（离开组后 built/sum_delta 回 0）。"""
@@ -2735,6 +2739,8 @@ def param_mem(s: Session) -> dict:
                     map(int, m.groups())))
     gm = re.search(r"group=(\w+|-)", s.last)
     head["group"] = gm.group(1) if gm else "?"
+    sm = re.search(r"lvgl_stack_free=(\d+)", s.last)
+    head["lvgl_stack_free"] = int(sm.group(1)) if sm else -1
     pages = {}
     for line in s.last.splitlines():
         pm = re.search(r"UI MEM page id=(\d+) title=(\S+) state=(\w+) est=(\d+) delta=(-?\d+)", line)
@@ -2891,6 +2897,8 @@ PARAM_BPM_DEF = 90
 # 间距 8、x0=16、y=4（页面区相对），与 page_params.c 的 CHIP_* / page_layout_chip_width 同源。
 # 顺序 = 首建顺序：MIX 两页先访问、EDIT 三页后访问（组作用域下后进的组销毁先前的；
 # 首建后的 UI MEM 断言针对最后访问的 EDIT 三页）
+LVGL_STACK_FLOOR = 2048         # LVGL 任务栈最小余量门禁（字节；栈 10,240，ADR-008 §8.10）
+
 CHIP_PAGES = {
     # P4-F Task 5：GLOBAL / FX 改为 chip 页（012 §3：REV/CHO+MASTER、DRUMS、TEXTURE；SLICER、INSERT×2）
     "global": [("GLO", 8), ("REV", 8), ("DRUMS", 4), ("TEXTURE", 7)],
@@ -3925,6 +3933,12 @@ def run_params(s: Session) -> None:
         free = int(m.group(1)) if m else -1
         (s.ok if free >= 4096 else s.fail)(
             f"有序对 {label}：构建日志 池剩余={free}B（≥4,096）")
+    # LVGL 任务栈余量（Task 5 评审 R10）：高水位是累计最小值，覆盖到此为止的 30ms 拍、
+    # TAB/切页构建与渲染（控件回调跑在同一任务，但 TAP 注入在 console 任务，量不到）。
+    lv = param_mem(s)["head"]["lvgl_stack_free"]
+    s.ser.note(f"UI MEM lvgl_stack_free={lv}B（SOUND/GLOBAL/FX 段之后；门禁 ≥{LVGL_STACK_FLOOR}）")
+    (s.ok if lv >= LVGL_STACK_FLOOR else s.fail)(
+        f"LVGL 任务栈最小余量 lvgl_stack_free={lv}B（≥{LVGL_STACK_FLOOR}）")
 
     param_chip_pages(s)
 
@@ -3934,6 +3948,12 @@ def run_params(s: Session) -> None:
     s.expect(r"UI page=projects \(9\)", "⑨ UI KNOB on FILE：UI projects")
     s.cmd("UI KNOB 0 press 0 0")
     s.expect(r"^UI ERR not_params\r?$", "⑨ UI KNOB on FILE → UI ERR not_params")
+
+    # 全场景收尾再读一次：高水位只降不升，这里是整个 params 的最小余量
+    lv_end = param_mem(s)["head"]["lvgl_stack_free"]
+    s.ser.note(f"UI MEM lvgl_stack_free={lv_end}B（params 全场景收尾）")
+    (s.ok if lv_end >= LVGL_STACK_FLOOR else s.fail)(
+        f"LVGL 任务栈最小余量（全场景）lvgl_stack_free={lv_end}B（≥{LVGL_STACK_FLOOR}）")
 
     # 复位：PLAY 页、轨 0（脚本可重复运行）
     s.cmd("UI play")
