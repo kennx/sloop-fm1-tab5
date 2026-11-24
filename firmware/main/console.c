@@ -1077,7 +1077,8 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|sound|sample|dsyn|fm6p|projects|presets|song|system|mod|scale|voice>；无参打印当前页。
+ * `analog` / `fm6` 是 SOUND 的别名（P4-F Task 5：独立 FM6 页删除、ANALOG 页改为通用引擎页）。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -1089,7 +1090,7 @@ static int param_command(int argc, char **argv)
  * （向下对齐 16、钳位 0..48，bank = start/16），len 1..16；无参打印当前窗口。
  * 状态层经 CMD_SET_WINDOW 落地并立即重取窗口列投影，STEP 页下一拍刷新。 */
 static const char *const k_page_names[APP_STATE_PAGES] = {
-    "play", "tracks", "step", "transport", "global", "fx", "analog", "fm6", "sample",
+    "play", "tracks", "step", "transport", "global", "fx", "sound", "unused", "sample",
     "projects", "presets", "song",
     /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
      * FM6P 由 Task 10 换成实体页） */
@@ -1100,9 +1101,27 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
 
-/* 页名（不区分大小写）或十进制页号 → 页 id；失败返回 false */
+/* console 页名别名（P4-F Task 5）：SOUND 页（id 沿用 APP_PAGE_ANALOG）取代了独立的
+ * ANALOG 与 FM6 两页，旧页名继续指向 SOUND（既有脚本/肌肉记忆不改）。id 7
+ * （APP_PAGE_FM6）是空位——k_page_names[7] 只是打印占位，`UI unused`/`UI 7` 回
+ * not_registered；别名先于页名表匹配，故 `UI fm6` 不会落到 id 7。 */
+static const struct {
+    const char *alias;
+    uint8_t page;
+} k_page_aliases[] = {
+    {"analog", APP_PAGE_ANALOG},
+    {"fm6", APP_PAGE_ANALOG},
+};
+
+/* 页名（不区分大小写；别名优先）或十进制页号 → 页 id；失败返回 false */
 static bool ui_parse_page(const char *arg, uint8_t *out)
 {
+    for (size_t i = 0; i < sizeof(k_page_aliases) / sizeof(k_page_aliases[0]); i++) {
+        if (strcasecmp(arg, k_page_aliases[i].alias) == 0) {
+            *out = k_page_aliases[i].page;
+            return true;
+        }
+    }
     for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
         if (strcasecmp(arg, k_page_names[i]) == 0) {
             *out = i;
@@ -1254,7 +1273,7 @@ static int ui_command(int argc, char **argv)
             return 1;
         }
         if (!sloop_ui_param_page((uint8_t)page)) {
-            /* 参数页 = 布局表里的 8 页（GLOBAL..SAMPLE + MOD/SCALE/VOICE，page_layout.c）；
+            /* 参数页 = 布局表里的 7 页（GLOBAL/FX/SOUND/SAMPLE + MOD/SCALE/VOICE，page_layout.c）；
              * FILE 组两页（PROJECTS/PRESETS）不是参数页，旋钮注入不适用。 */
             printf("UI ERR not_params\n");
             return 1;
@@ -1438,7 +1457,7 @@ static int ui_command(int argc, char **argv)
      * MOD/SCALE/VOICE 是 chip 页，Task 5 的 FX/GLOBAL 同一入口）。与页面 chip 行共用页内
      * UI 局部态；写入口在 LVGL 锁内立即重配刷新（零分配）。条件 chip 在当前上下文隐藏
      * （如非 ANALOG 轨上的 FILTER）回 `UI ERR chip (hidden)` 且不改选择。旧式整页
-     * （GLOBAL/FX/ANALOG/FM6/SAMPLE）没有 chip 行：只读（`CHIP <n>` 回 `UI ERR chip`），
+     * （SOUND/SAMPLE）没有 chip 行：只读（`CHIP <n>` 回 `UI ERR chip`），
      * 逐槽行照打（鼓轨逐槽规则的机读口）。裸 `UI mod` 仍是**切页**（页名表优先，见本
      * 函数末尾的 argc==2 循环）。 */
     {
@@ -1482,8 +1501,8 @@ static int ui_command(int argc, char **argv)
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
-            printf("UI ERR page (want=play|tracks|step|transport|global|fx|analog|fm6|sample|"
-                   "projects|presets|song|dsyn|fm6p|system|mod|scale|voice|0..%u)\n",
+            printf("UI ERR page (want=play|tracks|step|transport|global|fx|sound|analog|fm6|"
+                   "sample|projects|presets|song|dsyn|fm6p|system|mod|scale|voice|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -1534,8 +1553,16 @@ static int ui_command(int argc, char **argv)
         return ui_lockhold_command(argv[2]);
     }
     if (argc == 2) {
-        for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-            if (strcasecmp(argv[1], k_page_names[i]) != 0) continue;
+        /* 只按页名/别名匹配（十进制页号留给 FORCEFAIL）：目标页 id = 匹配到的表项 */
+        uint8_t want = APP_STATE_PAGES;
+        for (uint8_t i = 0; i < APP_STATE_PAGES && want == APP_STATE_PAGES; i++) {
+            if (strcasecmp(argv[1], k_page_names[i]) == 0) want = i;
+        }
+        for (size_t a = 0; a < sizeof(k_page_aliases) / sizeof(k_page_aliases[0]); a++) {
+            if (strcasecmp(argv[1], k_page_aliases[a].alias) == 0) want = k_page_aliases[a].page;
+        }
+        if (want < APP_STATE_PAGES) {
+            uint8_t i = want;
             esp_err_t ret = sloop_ui_switch_page(i);
             if (ret == ESP_ERR_TIMEOUT) {
                 /* 与 miss 区分：锁超时没有落地，脚本的 miss/页断言不得误判为通过 */
@@ -1635,9 +1662,9 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|global|fx|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|mod|scale|voice> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
-           "UI FM6P [OP <0..5> | PAGE <0..5>] | UI MOD|SCALE|VOICE CHIP [<n>] | "
+           "UI FM6P [OP <0..5> | PAGE <0..5>] | UI GLOBAL|FX|MOD|SCALE|VOICE CHIP [<n>] | "
            "UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -1911,8 +1938,35 @@ static int tap_command(int argc, char **argv)
                (unsigned)r.v < 3 ? acts[r.v] : "?", text != NULL ? text : "?");
         break;
     }
+    case SLOOP_TAP_SOUND_ENGINE:
+    case SLOOP_TAP_SOUND_PRESET:
+    case SLOOP_TAP_SOUND_KIT: {
+        /* SOUND 页眉行（P4-F Task 5）：value = 写后回读的下标（引擎/预置/kit 号），name
+         * 取自状态层投影（与屏幕同源：app_state_t.sound）。err = sound_status（KIT 行的
+         * 0 = 已下发，CMD_SET_PARAM 没有独立的状态字段）；失败（冻结，未调引擎）另带
+         * ERR 令牌。 */
+        static const char *const what[] = {"ENGINE", "PRESET", "KIT"};
+        static const char *const status_txt[] = {"OK", "OK", "INVALID", "FROZEN"};
+        static const char *const err_txt[] = {NULL, NULL, "invalid", "frozen"};
+        app_state_t st;
+        state_get_copy(&st);
+        const char *name = r.kind == SLOOP_TAP_SOUND_KIT ? st.sound.kit_name
+                          : r.kind == SLOOP_TAP_SOUND_PRESET ? st.sound.preset_name
+                                                             : st.sound.engine_name;
+        uint8_t kind = (uint8_t)(r.kind - SLOOP_TAP_SOUND_ENGINE);
+        uint8_t err = r.err <= APP_SOUND_STATUS_FROZEN ? r.err : 0u;
+        if (err_txt[err] != NULL) {
+            printf("TAP %ld,%ld page=%u -> SOUND %s value=%u name=\"%s\" ERR %s status=\"%s\"\n",
+                   x, y, page, what[kind], (unsigned)r.a, name, err_txt[err], status_txt[err]);
+        } else {
+            printf("TAP %ld,%ld page=%u -> SOUND %s value=%u name=\"%s\" status=\"%s\"\n", x, y,
+                   page, what[kind], (unsigned)r.a, name, status_txt[err]);
+        }
+        break;
+    }
     case SLOOP_TAP_BANK_SLOT:
-        /* FM6 页 bank 目标槽 ±：只改目标槽（不写存储/引擎），回显落地槽号 */
+        /* SOUND 页 bank 目标槽 ±（仅 FM6 引擎时行可见）：只改目标槽（不写存储/引擎），
+         * 回显落地槽号 */
         printf("TAP %ld,%ld page=%u -> BANK slot=%u delta=%+d\n", x, y, page, (unsigned)r.b,
                (int)r.d);
         break;
