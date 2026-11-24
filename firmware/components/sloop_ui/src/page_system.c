@@ -187,7 +187,7 @@ static void status_record(const app_state_t *st)
         color = ui_sys_status_color(s_act, st);
     }
     portENTER_CRITICAL(&s_mux);
-    snprintf(s_status_text, sizeof(s_status_text), "%s", text);
+    memcpy(s_status_text, text, sizeof s_status_text);
     s_status_color = color;
     portEXIT_CRITICAL(&s_mux);
 }
@@ -197,7 +197,7 @@ static void status_render(void)
     char text[40];
     uint32_t color;
     portENTER_CRITICAL(&s_mux);
-    snprintf(text, sizeof(text), "%s", s_status_text);
+    memcpy(text, s_status_text, sizeof text);
     color = s_status_color;
     portEXIT_CRITICAL(&s_mux);
     if (strcmp(text, s_status_cache) != 0) {

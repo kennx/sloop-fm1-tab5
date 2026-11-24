@@ -1180,11 +1180,6 @@ const char *sloop_ui_system_status_text(void)
     return page_system_status_text();
 }
 
-void sloop_ui_system_clear_action(void)
-{
-    page_system_clear_action();
-}
-
 esp_err_t sloop_ui_system_selftest_arm(void)
 {
     return page_system_selftest_arm();
