@@ -378,9 +378,11 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   MIDI 类保留、section/arrangement 字节不变、SONG 守卫、走带中 CLRSEQ/INITSOUND、UNDO）。
 - **状态层**：`CMD_TOOLS{a}` → `tools_status`（INVALID/BLOCKED/FROZEN/ERROR/OK；BLOCKED 兼表
   鼓轨 INIT SOUND 与 SONG 播放中的 NEW，页面按「动作 × 鼓轨」选文案）；`CMD_LOCK_FOCUS{a}` /
-  `CMD_FILL_STEP{v}`（契约见 `sloop_state.h`）作用于焦点轨 × 聚焦步，前置与返回码写
-  `seq_status`；`last_param` 在焦点轨上的参数写之后记录。键位与呈现见 ADR-006「STEP 页步
-  工具」。
+  `CMD_FILL_STEP{v}`（契约见 `sloop_state.h`）作用于焦点轨 × 聚焦步，范围 = 聚焦步在本轨
+  LEN 之内（R12，不要求有音），前置与返回码写 `seq_status`；冻结时锁命令先于查锁表直接回
+  FROZEN（否则解锁会被 `lock_list` 的 0 误报成 NO LOCK）；`last_param` 只在**能生效**的写之后
+  记录（非焦点轨、冻结、该轨无描述符的 id 都不记）。键位、范围与栈纪律见 ADR-006「STEP 页
+  步工具」。
 - **空闲锁槽的规范化**（P4-F Task 6，`lock_del_canonical`）：上游 `lock_del` 只把槽标回
   `LOCK_FREE`、保留 param/val，而 `proj_capture` 原样拷贝 24 个锁槽、`proj_apply` 把空闲槽
   归一成 `(LOCK_FREE, 0, 0)`——解锁之后工程 SAVE→LOAD 的 live hash 必然不等（空闲槽里的

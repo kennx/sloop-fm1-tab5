@@ -96,14 +96,25 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 - **锁哪个参数**：状态层在每次成功的 `CMD_SET_PARAM` / `CMD_SET_PARAM_BATCH` 后记录写在
   **焦点轨**上的最后一对（`app_state_t.last_param{track,id}`，`id=0xFF` = 还没有；sync/选轨/
   整份刷新不改写）。参数页的旋钮、± 与 console `PARAM` 都走这条命令，所以在 MOD/SOUND 等
-  页改过的参数就是 k 要锁的那个；非焦点轨的写不记录。
-- **作用对象与判定**：焦点轨 × 聚焦步（窗口列 → 绝对步）。可锁性（上游 `p_lockable`）、锁表
-  容量、诊断冻结由既有 `sloop_seq_lock_set` 判定（`NOT LOCKABLE` / `LOCK TABLE FULL` /
-  `FROZEN`）；**空步**（合成轨无 NOTE、鼓轨 16 lane 位图为 0）回 `NO STEP` 且不调引擎——空步
-  上的锁/条件在 STEP 页不可见；焦点轨没有已记录参数回 `NO PARAM`；解锁时该键无锁回
-  `NO LOCK`。鼓轨同样适用（kit = `P_E0` 的锁走上游 `DRUM_KIT_DESC`）。
+  页改过的参数就是 k 要锁的那个；非焦点轨的写、诊断冻结期间的写、该轨上没有描述符的 id
+（引擎静默丢弃）都不记录——只有**能生效**的写才成为锁的对象。
+- **作用对象与判定（R12）**：焦点轨 × 聚焦步（窗口列 → 绝对步）。范围 = **聚焦步在本轨
+  LEN 之内**（上游 `ui_layers.c` 的 held-step 循环 `idx < trk_len`）——不要求该步有音，空步与
+  只有 TIE 的步同样可锁/可设条件；LEN 之外的步回 `NO STEP` 且不调引擎。可锁性（上游
+  `p_lockable`）、锁表容量由既有 `sloop_seq_lock_set` 判定（`NOT LOCKABLE` / `LOCK TABLE
+  FULL`）；诊断冻结下加锁与解锁都直接回 `FROZEN`（状态层先判冻结、再查锁表——冻结时
+  `lock_list` 回 0，先查会把解锁误报成 `NO LOCK`），锁保持不动。焦点轨没有已记录参数回
+  `NO PARAM`；解锁时该键无锁回 `NO LOCK`。鼓轨同样适用（kit = `P_E0` 的锁走上游
+  `DRUM_KIT_DESC`）。
 - **fill 条件**：读快照里该步的当前条件 +1（mod 3；raw 3 与 0 同为 NORMAL）后以绝对值下发
-  `CMD_FILL_STEP`，与 TRANSPORT/console 的 `CMD_SET_FILL` 是同一个引擎入口。
+  `CMD_FILL_STEP`，与 TRANSPORT/console 的 `CMD_SET_FILL` 是同一个引擎入口；范围同上（R12）。
+- **栈（R13）**：输入任务栈 **8,192B**。`sloop_ui_input_key` 不持整份快照（层键位用
+  `state_read_layer_held` 窄读）；每个动作函数至多在栈上放一份 `app_state_t`（host sizeof
+  ≈1.66KB）且动作之间不嵌套（`sloop_ui_step_tool` 发命令后用 `state_get_copy` 原位刷新同一份
+  缓冲）；状态层锁命令的加锁/解锁共用一块 142B 缓冲。余量由 `KEY STATS` 的
+  `input_stack_free`（input 任务自己在轮询循环里采样的最小值）报告——**它只在物理按键走过
+  深路径后才下降**：console 的 `KEY` 注入跑在 console 任务上，量不到输入任务的栈；
+  `phys=<n>` 给出物理事件数，`phys=0` 时场景必须显式跳过该断言而不是当作通过。
 - **结果呈现**：`LOCKED <参数名>` / `UNLOCKED` / `FILL <模式>` / 上述拒绝文案进页内邮箱，STEP
   页右上状态行顶替显示 ≈2.4s（焦点移走即恢复聚焦步派生文本）；console `KEY` 注入在同一行
   尾部追加 `step="…"`（`sloop_ui_step_tool_text`，与屏幕同源）。参数名取
