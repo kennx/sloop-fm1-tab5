@@ -557,6 +557,9 @@ esp_err_t sloop_store_init(void)
     esp_err_t ret = sloop_hal_storage_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "存储后端初始化失败: %s（ready=false，上层按空存储返回）", esp_err_to_name(ret));
+        /* 生效副本仍要落上游默认（palette 4，R13）：s_set 是 .bss 的全零，不重载就是
+         * palette 0 = GREEN——与公共头「读不到 ⇒ palette 4」及正常开机的口径不一致。 */
+        sloop_store_settings_reload();
         return ret;
     }
 
