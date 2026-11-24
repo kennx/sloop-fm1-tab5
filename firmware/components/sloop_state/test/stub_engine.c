@@ -62,6 +62,9 @@ static void stub_fill_window(sloop_core_snapshot_t *out, uint32_t start)
         out->dstep[i].on = g_stub.dstep[start + i].on;
         out->dstep[i].lvl = g_stub.dstep[start + i].lvl;
         out->dstep[i].rat = g_stub.dstep[start + i].rat;
+        /* 与真引擎同一契约：dstep_raw[] 是窗口列的原始 16 lane 位图（P4-F Task 6 的
+         * CMD_LOCK_FOCUS/CMD_FILL_STEP 据此判定鼓步有音）。 */
+        out->dstep_raw[i] = g_stub.raw_dstep[start + i];
     }
 }
 
@@ -335,7 +338,31 @@ esp_err_t sloop_seq_lock_set(uint32_t track, uint32_t step, uint32_t param, int1
     if (track >= 4u || step >= STUB_ENGINE_STEPS || param >= SLOOP_CORE_P_COUNT)
         return ESP_ERR_INVALID_ARG;
     g_stub.lock_present[track][step] = 1;
+    g_stub.lock_param[track][step] = (uint8_t)param;
     return ESP_OK;
+}
+
+/* 与真实适配层同一口径：按槽序列出该轨的锁（这里每步至多一把，见 lock_param）。 */
+uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
+{
+    g_stub.lock_list_calls++;
+    if (track >= 4u || out == NULL || cap == 0u || g_stub.seq_frozen) return 0;
+    uint32_t n = 0;
+    for (uint32_t step = 0; step < STUB_ENGINE_STEPS && n < cap; step++) {
+        if (!g_stub.lock_present[track][step]) continue;
+        out[n].step = (uint8_t)step;
+        out[n].param = g_stub.lock_param[track][step];
+        out[n].value = 0;
+        n++;
+    }
+    return n;
+}
+
+esp_err_t sloop_core_tools(uint32_t action)
+{
+    g_stub.tools_calls++;
+    g_stub.last_tools_action = action;
+    return g_stub.tools_ret;
 }
 
 esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
@@ -347,7 +374,8 @@ esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
     if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
     if (track >= 4u || step >= STUB_ENGINE_STEPS || param > SLOOP_CORE_P_COUNT)
         return ESP_ERR_INVALID_ARG;
-    if (param == SLOOP_CORE_P_COUNT) g_stub.lock_present[track][step] = 0;
+    if (param == SLOOP_CORE_P_COUNT || param == g_stub.lock_param[track][step])
+        g_stub.lock_present[track][step] = 0;
     return ESP_OK;
 }
 

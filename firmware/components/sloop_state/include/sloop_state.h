@@ -102,6 +102,9 @@ typedef enum {
     /* P4-F Task 5：SOUND 页眉的换引擎 / 换预置（上游 PRESETS 页 KNOB 1/2）。返回码映射
      * app_state_t.sound_status。 */
     CMD_SET_ENGINE, CMD_SET_PRESET,
+    /* P4-F Task 6：TOOLS 三动作（返回码映射 app_state_t.tools_status）；STEP 页键盘的参数锁
+     * 与 fill 条件（作用于焦点步，返回码映射 seq_status）。同样追加在末尾。 */
+    CMD_TOOLS, CMD_LOCK_FOCUS, CMD_FILL_STEP,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -263,6 +266,29 @@ typedef enum {
  *  不先拒就无法把原因分开）；诊断冻结 ⇒ FROZEN、不调引擎；成功 ⇒ OK 并整份刷新投影
  *  （sound 块与 p[] 各一次回读——换声音会改该轨全部参数）。不受走带限制（上游同）。
  *  鼓轨的 kit 不走这两条命令：SOUND 页的 KIT 行经 CMD_SET_PARAM 写 P_E0。
+ *
+ *  P4-F Task 6（清单 012 §4；上游 ui_input.c:568-612 的 TOOLS 与 ui_layers.c 的 LOCK/条件）：
+ *  CMD_TOOLS         a=action（sloop_tool_t：0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ）：分发
+ *                    sloop_core_tools（选中轨；语义与守卫见 sloop_core.h）。a 越界 ⇒
+ *                    tools_status = INVALID 且**不调引擎**；其余按返回码映射
+ *                    app_tools_status_t（NOT_ALLOWED = 鼓轨的 INIT SOUND 或 SONG 播放中的
+ *                    NEW → BLOCKED；INVALID_STATE 只表示诊断冻结 → FROZEN）。成功 ⇒ OK 并
+ *                    整份刷新投影（NEW 会改四条轨的参数/步表与全局）。
+ *  CMD_LOCK_FOCUS    a=1 加锁 / 0 解锁：目标 = **焦点轨 × 聚焦步**（focus_track、
+ *                    focus_step 是窗口列 → 绝对步 window_start + focus_step）× 状态层记录的
+ *                    last_param。加锁 = CMD_LOCK_SET(track, step, id, 该轨当前 p[id])，可锁性
+ *                    与锁表容量由既有 sloop_seq_lock_set 判定（上游 p_lockable：NOT LOCKABLE
+ *                    → INVALID、NO LOCK LEFT → FULL）；解锁 = 该键有锁才 CMD_LOCK_DEL。
+ *  CMD_FILL_STEP     v=0..3：聚焦步的 fill 条件，= 同一 (track, step) 的 CMD_SET_FILL。
+ *                    v > 3 ⇒ INVALID 且不调引擎。
+ *  last_param{track,id}：每次 CMD_SET_PARAM / CMD_SET_PARAM_BATCH 落地后记录**写在焦点轨
+ *                    上的最后一对**（上游 ui.lock_par「最后碰过的参数」；非焦点轨的写不记，
+ *                    id=0xFF = 还没有）。它是 UI 局部态：sync/选轨/整份刷新都不改写。
+ *  LOCK_FOCUS / FILL_STEP 的前置：聚焦步必须**有音**（合成轨 n>0 且 time==NOTE；鼓轨
+ *                    16 lane 位图非 0）——空步上的锁/条件在 STEP 页不可见，回 NOT_FOUND
+ *                    （页面 `NO STEP`）且不调引擎；焦点轨没有已记录参数同样 NOT_FOUND
+ *                    （`NO PARAM`），解锁时该键无锁 NOT_FOUND（`NO LOCK`）。a 越界 INVALID。
+ *  两者的成功/失败写 seq_status（成功同拍重取窗口投影，fill 立即可见）。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -337,6 +363,19 @@ typedef enum {
     APP_SOUND_STATUS_FROZEN = 3,  /* 诊断冻结（ENG FREEZE / SELFTEST） */
 } app_sound_status_t;
 
+/* 最近一次 TOOLS 命令（CMD_TOOLS）的结果（app_state_t.tools_status）。INVALID 兼表
+ * 「action 越界」；BLOCKED = 选中鼓轨的 INIT SOUND（上游 page_desc 不给鼓轨这一项）或
+ * SONG 播放中（arrangement_enabled）的 NEW（"STOP THE SONG FIRST"）——两者都回
+ * ESP_ERR_NOT_ALLOWED，页面按「动作 × 选中轨是否鼓轨」选文案；FROZEN = 诊断冻结。 */
+typedef enum {
+    APP_TOOLS_STATUS_IDLE = 0,
+    APP_TOOLS_STATUS_OK = 1,      /* 成功（投影已整份刷新） */
+    APP_TOOLS_STATUS_INVALID = 2, /* action 越界（不调引擎）/ ESP_ERR_INVALID_ARG */
+    APP_TOOLS_STATUS_BLOCKED = 3, /* 鼓轨 INIT SOUND / SONG 播放中的 NEW（ESP_ERR_NOT_ALLOWED） */
+    APP_TOOLS_STATUS_FROZEN = 4,  /* 诊断冻结（ESP_ERR_INVALID_STATE） */
+    APP_TOOLS_STATUS_ERROR = 5,   /* 其它失败 */
+} app_tools_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -381,6 +420,12 @@ typedef struct {
      * UI 只读本块，不读上游 ENGINES[]。 */
     sloop_sound_snapshot_t sound;
     uint8_t sound_status; /* 最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
+    /* P4-F Task 6：TOOLS 的结果与「焦点轨上最后碰过的参数」（CMD_LOCK_FOCUS 的锁参数；
+     * id=0xFF = 还没有）。契约见上方 P4-F Task 6 段。 */
+    uint8_t tools_status; /* 最近一次 CMD_TOOLS 的结果（app_tools_status_t） */
+    struct {
+        uint8_t track, id;
+    } last_param;
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */

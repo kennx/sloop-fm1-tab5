@@ -2401,6 +2401,227 @@ static void case_narrow_accessors(void)
     check_ll("sound_status invalid", state_sound_status(), APP_SOUND_STATUS_INVALID);
 }
 
+/* P4-F Task 6：TOOLS 三动作的返回码映射（action 越界不调引擎；成功整份刷新）。 */
+static void case_tools_cmd(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_get_copy(&s);
+    check_ll("tools_status 初值 idle", s.tools_status, APP_TOOLS_STATUS_IDLE);
+    apply(CMD_TOOLS, 3, 0, 0);
+    check_ll("action 越界不调引擎", g_stub.tools_calls, 0);
+    state_get_copy(&s);
+    check_ll("action 越界 → invalid", s.tools_status, APP_TOOLS_STATUS_INVALID);
+
+    const struct { esp_err_t ret; uint8_t status; } results[] = {
+        { ESP_ERR_INVALID_ARG, APP_TOOLS_STATUS_INVALID },
+        { ESP_ERR_NOT_ALLOWED, APP_TOOLS_STATUS_BLOCKED },
+        { ESP_ERR_INVALID_STATE, APP_TOOLS_STATUS_FROZEN },
+        { ESP_FAIL, APP_TOOLS_STATUS_ERROR },
+    };
+    for (uint32_t i = 0; i < sizeof(results) / sizeof(results[0]); i++) {
+        g_stub.tools_ret = results[i].ret;
+        uint32_t reads0 = g_stub.read_window_calls;
+        apply(CMD_TOOLS, i % 3u, 0, 0);
+        state_get_copy(&s);
+        check_ll("TOOLS 错误码逐项映射", s.tools_status, results[i].status);
+        check_ll("TOOLS 失败不刷新投影", g_stub.read_window_calls - reads0, 0);
+    }
+    g_stub.tools_ret = ESP_OK;
+    for (uint32_t a = 0; a < 3u; a++) {
+        uint32_t reads0 = g_stub.read_window_calls;
+        apply(CMD_TOOLS, a, 0, 0);
+        check_ll("TOOLS action 透传", g_stub.last_tools_action, a);
+        state_get_copy(&s);
+        check_ll("TOOLS 成功 → ok", s.tools_status, APP_TOOLS_STATUS_OK);
+        check_ll("TOOLS 成功整份刷新（窗口快照一次）", g_stub.read_window_calls - reads0, 1);
+    }
+    check_ll("TOOLS 调用次数 = 4 次错误映射 + 3 次成功", g_stub.tools_calls, 7);
+    check_ll("TOOLS 不改 seq_status", s.seq_status, SEQ_STATUS_IDLE);
+}
+
+/* 焦点步 = 焦点轨 × 窗口列 → 引擎绝对步；锁的参数 = 状态层在**焦点轨**上记录的最近
+ * 一次参数写（单写与批量），值 = 该轨当前参数。 */
+static void case_lock_focus_and_fill_step(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    const uint32_t P29 = 29, P30 = 30, P31 = 31;
+
+    apply(CMD_SET_TRACK, 0, 0, 0); /* 选中轨 0（≠ 焦点轨）：p[] 投影是轨 0 的 */
+    state_set_focus(2, 3);
+    apply(CMD_SET_WINDOW, 0, 16, 16); /* 焦点列 3 → 绝对步 19 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 60, 0, 0, 0 }, .time = 0, .fill = 0 };
+    state_sync_from_engine();
+
+    state_get_copy(&s);
+    check_ll("last_param 初值 = 无", s.last_param.id, 0xFF);
+    apply(CMD_SET_PARAM, 0, P30, 0);
+    state_get_copy(&s);
+    check_ll("非焦点轨的参数写不记录", s.last_param.id, 0xFF);
+    apply(CMD_SET_PARAM, 2, P29, 11);
+    state_get_copy(&s);
+    check_ll("焦点轨单写记录 (track,id)", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 29);
+    apply(CMD_SET_PARAM, 0, P30, 0);
+    state_get_copy(&s);
+    check_ll("随后的非焦点轨写不改记录", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 29);
+
+    /* LOCK：track 2 / 绝对步 19 / last_param / 值 = 轨 2 当前参数 */
+    uint32_t locks0 = g_stub.seq_lock_set_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("LOCK_FOCUS 调 lock_set", g_stub.seq_lock_set_calls - locks0, 1);
+    check_ll("LOCK_FOCUS track = 焦点轨", g_stub.last_seq_track, 2);
+    check_ll("LOCK_FOCUS step = 窗口绝对步", g_stub.last_seq_step, 19);
+    check_ll("LOCK_FOCUS param = last_param", g_stub.last_seq_param, 29);
+    check_ll("LOCK_FOCUS value = 该轨当前参数（不是选中轨的 p[]）", g_stub.last_seq_value, 11);
+    state_get_copy(&s);
+    check_ll("LOCK_FOCUS → seq ok", s.seq_status, SEQ_STATUS_OK);
+    check_ll("LOCK_FOCUS 不改 tools_status", s.tools_status, APP_TOOLS_STATUS_IDLE);
+
+    /* UNLOCK：有锁 → lock_del 同键；批量写的最后一对成为 last_param */
+    const sloop_param_pair_t batch[] = { { 5, 1 }, { 31, 2 } };
+    apply_param_batch(2, batch, 2);
+    state_get_copy(&s);
+    check_ll("批量写记录最后一对（单写之前）", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    apply(CMD_SET_PARAM, 2, P31, 0); /* 批量后同 id 再写：值取引擎 */
+    g_stub.param[2][P31] = 9;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("批量后 last_param 保持", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    const sloop_param_pair_t other[] = { { 6, 1 }, { 7, 2 } };
+    apply_param_batch(0, other, 2);
+    state_get_copy(&s);
+    check_ll("非焦点轨的批量写不记录", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("LOCK_FOCUS 批量后的 param", g_stub.last_seq_param, 31);
+    check_ll("LOCK_FOCUS 值取引擎回读", g_stub.last_seq_value, 9);
+    uint32_t dels0 = g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("UNLOCK 调 lock_del", g_stub.seq_lock_del_calls - dels0, 1);
+    check_ll("UNLOCK 同键", (g_stub.last_seq_track << 16) | (g_stub.last_seq_step << 8) | g_stub.last_seq_param,
+             (2 << 16) | (19 << 8) | 31);
+    state_get_copy(&s);
+    check_ll("UNLOCK → seq ok", s.seq_status, SEQ_STATUS_OK);
+
+    /* UNLOCK 没有对应的锁：not_found、不调 lock_del */
+    dels0 = g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("无锁 UNLOCK 不调 lock_del", g_stub.seq_lock_del_calls - dels0, 0);
+    state_get_copy(&s);
+    check_ll("无锁 UNLOCK → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+
+    /* a 越界：invalid、不调引擎 */
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 2, 0, 0);
+    check_ll("LOCK_FOCUS a 越界不调引擎", g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("LOCK_FOCUS a 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+
+    /* 空步：not_found、不调引擎（锁与 fill 都只作用于有音的聚焦步） */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 0, .time = 2 };
+    state_sync_from_engine();
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    uint32_t fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 1);
+    check_ll("空步的 LOCK/UNLOCK/FILL 不调引擎",
+             g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls - locks0 +
+                 g_stub.seq_fill_calls - fills0, 0);
+    state_get_copy(&s);
+    check_ll("空步 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+
+    /* FILL：v 透传到焦点轨的绝对步；越界 invalid；鼓轨按 lane 位图判定有音 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 0 };
+    state_sync_from_engine();
+    for (uint32_t v = 0; v < 4u; v++) {
+        apply(CMD_FILL_STEP, 0, 0, (uint16_t)v);
+        check_ll("FILL_STEP v 透传", g_stub.last_seq_value, (int32_t)v);
+        check_ll("FILL_STEP track/step", (g_stub.last_seq_track << 8) | g_stub.last_seq_step, (2 << 8) | 19);
+    }
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 4);
+    apply(CMD_FILL_STEP, 0, 0, 0xFFFF);
+    check_ll("FILL_STEP v 越界不调引擎", g_stub.seq_fill_calls - fills0, 0);
+    state_get_copy(&s);
+    check_ll("FILL_STEP v 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    state_set_focus(3, 3);
+    state_sync_from_engine();
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("空鼓步的 FILL 不调引擎", g_stub.seq_fill_calls - fills0, 0);
+    g_stub.raw_dstep[19].on[0] = 0x10;
+    state_sync_from_engine();
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("鼓轨 FILL 透传", (g_stub.seq_fill_calls - fills0) | 0, 1);
+    check_ll("鼓轨 FILL track = 3", g_stub.last_seq_track, 3);
+
+    /* 没有可锁的参数：焦点轨从未写过参数 → not_found、不调引擎 */
+    stub_engine_reset();
+    state_init();
+    g_stub.step[1][4] = (sloop_step_t){ .n = 1, .note = { 60, 0, 0, 0 }, .time = 0 };
+    state_set_focus(1, 4);
+    state_sync_from_engine();
+    apply(CMD_SET_PARAM, 0, P29, 0); /* 只写过轨 0 */
+    locks0 = g_stub.seq_lock_set_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("焦点轨没有已记录参数：不调引擎", g_stub.seq_lock_set_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("没有已记录参数 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+
+    /* 引擎拒绝逐项映射：不可锁（INVALID_ARG）/ 锁表满（NO_MEM）/ 冻结 */
+    apply(CMD_SET_PARAM, 1, P29, 0);
+    const struct { esp_err_t ret; uint8_t status; } results[] = {
+        { ESP_ERR_INVALID_ARG, SEQ_STATUS_INVALID },
+        { ESP_ERR_NO_MEM, SEQ_STATUS_FULL },
+        { ESP_ERR_INVALID_STATE, SEQ_STATUS_FROZEN },
+    };
+    for (uint32_t i = 0; i < sizeof(results) / sizeof(results[0]); i++) {
+        g_stub.seq_ret = results[i].ret;
+        apply(CMD_LOCK_FOCUS, 1, 0, 0);
+        state_get_copy(&s);
+        check_ll("LOCK_FOCUS 错误码映射", s.seq_status, results[i].status);
+    }
+    g_stub.seq_ret = ESP_OK;
+
+    /* 记录属于轨 1；焦点移到从未写过参数的轨 2（有音的步）⇒ 不拿轨 1 的参数去锁轨 2 */
+    g_stub.step[2][5] = (sloop_step_t){ .n = 1, .note = { 64, 0, 0, 0 }, .time = 0 };
+    state_set_focus(2, 5);
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("前提：last_param 仍属于轨 1", (s.last_param.track << 8) | s.last_param.id, (1 << 8) | 29);
+    locks0 = g_stub.seq_lock_set_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("焦点换轨后不调引擎", g_stub.seq_lock_set_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("焦点换轨 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    state_set_focus(1, 4);
+    state_sync_from_engine();
+
+}
+
+/* last_param 不被 sync 覆盖
+/* last_param 不被 sync 覆盖（UI 局部态同类），选轨/整份刷新也不清。 */
+static void case_last_param_survives_sync(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    state_set_focus(1, 0);
+    apply(CMD_SET_PARAM, 1, 29, 0);
+    state_sync_from_engine();
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("sync/选轨后 last_param 保持", (s.last_param.track << 8) | s.last_param.id, (1 << 8) | 29);
+    state_init();
+    state_get_copy(&s);
+    check_ll("state_init 清 last_param", s.last_param.id, 0xFF);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -2444,6 +2665,10 @@ int main(void)
     run("SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎", case_set_preset);
     run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
     run("窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0", case_narrow_accessors);
+    run("TOOLS：action 越界不调引擎/返回码映射/成功整份刷新", case_tools_cmd);
+    run("LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、UNLOCK 无锁、空步、错误码映射",
+        case_lock_focus_and_fill_step);
+    run("last_param 跨 sync/选轨保持", case_last_param_survives_sync);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

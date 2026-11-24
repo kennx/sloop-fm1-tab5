@@ -122,6 +122,7 @@ void state_init(void)
     /* host 单测每个用例都要一份干净的 AppState，重复调用等价于重置。 */
 #endif
     memset(&s_state, 0, sizeof(s_state));
+    s_state.last_param.id = 0xFF; /* 0 是合法参数 id：必须显式表示「还没碰过参数」 */
     sloop_core_read(&s_state.core);
     s_state.focus_track = s_state.core.selected_track;
     /* 参数投影与 core 同拍初化（p = 选中轨，g = 全局） */

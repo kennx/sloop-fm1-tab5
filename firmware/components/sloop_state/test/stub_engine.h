@@ -25,6 +25,8 @@ typedef struct {
     struct { uint8_t on, lvl, rat; } dstep[STUB_ENGINE_STEPS]; /* 鼓轨聚合后端（窗口读） */
     sloop_dstep_t raw_dstep[STUB_ENGINE_STEPS];
     uint8_t lock_present[4][STUB_ENGINE_STEPS];
+    uint8_t lock_param[4][STUB_ENGINE_STEPS];      /* lock_set 写入的参数 id（lock_list 据此回读）*/
+    uint32_t lock_list_calls;
     esp_err_t seq_ret;
     bool seq_frozen;
     uint32_t seq_step_edit_calls, seq_pattern_calls, seq_micro_calls, seq_fill_calls;
@@ -123,6 +125,9 @@ typedef struct {
     uint8_t sound_engine[4], sound_preset[4];
     uint32_t sound_read_calls, set_engine_calls, apply_preset_calls;
     uint32_t last_set_engine_track, last_set_engine, last_preset_track, last_preset;
+    /* P4-F Task 6：TOOLS 三动作替身（返回 tools_ret 并记录动作）。 */
+    uint32_t tools_calls, last_tools_action;
+    esp_err_t tools_ret;
 } stub_engine_t;
 
 extern stub_engine_t g_stub;
