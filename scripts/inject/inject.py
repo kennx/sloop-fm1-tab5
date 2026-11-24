@@ -8075,6 +8075,10 @@ def sys_device_selftest(s: Session) -> None:
     # console 全量自检之后 device-selftest.py 已 `ENG AUDIO ON`：这是 DI-40 的原始路径
     # （chip worker 走同一段起流），先断言音频没进入持续超预算态再复位避开 DI-26。
     sys_perf_healthy(s, "⑤ console 全量自检后音频")
+    # 同一 boot 内读（复位之前）：自检的 restore 把 s_set/fx_lowcut/flt_reso 回滚成 0，收尾的
+    # settings_reload 以 flash 重放——INFO 读的是生效副本，这里才是 D7「收尾 reload」那一半的断言
+    # （复位后的读数只是开机 reload，证明不了它）。
+    settings_expect(s, {"lowcut": 1, "reso": 6, "dirty": 0}, "⑤ 同一 boot 自检后 settings（收尾 reload）")
     s.reboot()
     (s.ok if cp.returncode == 0 else s.fail)(f"⑤ device-selftest.py exit={cp.returncode}（期望 0）")
 
@@ -8442,7 +8446,8 @@ def run_sys(s: Session) -> None:
 
     # ---------- ⑧ SELFTEST chip：每 boot 一次，独立 worker 停流/恢复 ----------
     # ⑤ 已跑过一次全量 console 自检；先复位避开 DI-26 的既有堆泄漏，再测产品 chip。
-    s.ser.note("⑧ SELFTEST chip：SYS SELFTEST ARM → 播放守卫 → 完整 worker → 工作工程/流/AUTO 恢复 → PERF")
+    s.ser.note("⑧ SELFTEST chip：SYS SELFTEST ARM → 播放守卫 → 未落盘编辑+设置 → 完整 worker（先落盘）"
+               " → 工作工程/设置/流/AUTO 恢复 → PERF")
     s.reboot()
     ensure_stopped(s)
     # R8 的「每 boot 一次」标记在 .noinit，跨 esptool 硬复位存活；R25 的诊断注入清掉它与结果
@@ -8458,8 +8463,6 @@ def run_sys(s: Session) -> None:
     autosave_bump_bpm(s, 120)
     autosave_wait_writes(s, auto["writes"] + 1, 25.0,
                          "⑧ 先落一份当前工作工程（worker 的 resume 来源）")
-    hash_before = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
-                             "⑧ 自检前 LIVEHASH")
 
     seq_play(s, "⑧ 走带中守卫前提")
     s.cmd("UI system")
@@ -8482,6 +8485,19 @@ def run_sys(s: Session) -> None:
     s.cmd("STATE SNAP")
     s.expect_int(r"selftest_req=(\d+)", 0, "⑧ STOP FIRST 未发 CMD_SELFTEST_RUN")
     ensure_stopped(s)
+    # 终审 I1：chip 之前刻意**不等**落盘——改 BPM（工作工程，autosave 的 20s gap 未到）与 RESO
+    # （settings 的 1.5s/5s 延迟写窗口未到），随后立刻点 chip。没有 worker 的自检前落盘，
+    # 自检的 restore 会把这两处都丢掉（BPM 回到上一次 autosave、RESO 回到 0）。
+    autosave_bump_bpm(s, 124)
+    settings_set(s, "reso", 7, label="⑧ 自检前未落盘 RESO=7")
+    st0 = autosave_fields(s)
+    (s.ok if st0["writes"] == auto["writes"] + 1 else s.fail)(
+        f"⑧ chip 前 autosave_writes={st0['writes']}（期望仍 {auto['writes'] + 1}：编辑尚未自动存档）")
+    settings_expect(s, {"reso": 7, "dirty": 1}, "⑧ chip 前设置仍 dirty（延迟写窗口未到）")
+    hash_before = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                             "⑧ 自检前 LIVEHASH（含未存档的 BPM）")
+    (s.ok if hash_before != st0["hash"] else s.fail)(
+        f"⑧ 判别力：LIVEHASH {hash_before:08X} != autosave_hash {st0['hash']:08X}")
     s.cmd("UI system")
     sys_tap(s, 8)
     chip_ran = "RESET FIRST" not in s.last
@@ -8496,9 +8512,17 @@ def run_sys(s: Session) -> None:
                                 "⑧ 自检后 LIVEHASH")
         (s.ok if hash_after == hash_before else s.fail)(
             f"⑧ 工作工程恢复：LIVEHASH {hash_after:08X} == 自检前 {hash_before:08X}")
+        st1 = autosave_fields(s)
+        (s.ok if st1["hash"] == hash_after else s.fail)(
+            f"⑧ 未存档的编辑已由 worker 落盘：autosave_hash {st1['hash']:08X} == LIVEHASH（I1）")
+        (s.ok if store_bpm_settled(s, 124, 3.0) else s.fail)(
+            "⑧ 自检前未存档的 BPM 编辑保持（STATE SNAP bpm=124）")
         s.cmd("ENG AUDIO")
         s.expect_int(r"streaming=(\d+)", 1, "⑧ worker 恢复流式")
         sys_perf_healthy(s, "⑧ worker 恢复流式后音频")
+        # settings：worker 自检前落盘 + 收尾 reload ⇒ chip 之前**没保存**的 RESO 原值回来、dirty 清。
+        settings_expect(s, {"reso": 7, "dirty": 0}, "⑧ 自检后 settings（chip 前未保存的 RESO 保持）")
+        autosave_bump_bpm(s, 120)  # ⑨ 的工作工程回到 120（下一次 autosave 窗口自会落盘）
     else:
         s.fail("⑧ ARM 之后 chip 仍回 RESET FIRST：worker 全路径未执行")
     # 离开/重返不得再次清 R8 标记；PASS 或此前的 PASS 缓存都在重建后显示。
