@@ -66,7 +66,8 @@ PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
          "global": 4, "fx": 5, "sound": 6, "sample": 8,               # id 7 = 空位（FM6 页已删）
          "projects": 9, "presets": 10, "song": 11,
          "dsyn": 12, "fm6p": 13, "system": 14,
-         "mod": 15, "scale": 16, "voice": 17}  # 17 页：P4-F Task 5 的 SOUND 取代 ANALOG+FM6
+         "mod": 15, "scale": 16, "voice": 17,
+         "tools": 18}                # 18 页：Task 5 的 SOUND 取代 ANALOG+FM6；Task 6 加 TOOLS（MIX）
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -145,7 +146,7 @@ GROUPS = ("play", "tracks", "edit", "mix", "synth", "seq", "song", "file", "sys"
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 17 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
+    """采样前把 18 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
     （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:

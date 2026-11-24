@@ -389,7 +389,7 @@ def sub_tab_probe(i: int) -> tuple:
 C_TAB_PLAY = group_tab_probe(0)
 C_TAB_TRACKS = group_tab_probe(1)
 C_TAB_EDIT = group_tab_probe(2)
-C_TAB_MIX = group_tab_probe(3)     # P4-F Task 4：GLOBAL/FX（Task 6 加 TOOLS）
+C_TAB_MIX = group_tab_probe(3)     # P4-F Task 4：GLOBAL/FX；Task 6 加 TOOLS
 C_TAB_SYNTH = group_tab_probe(4)   # P4-D Task 8：SAMPLE/DSYN/FM6P 组
 C_TAB_SEQ = group_tab_probe(5)
 C_TAB_SONG = group_tab_probe(6)
@@ -399,6 +399,7 @@ C_TAB_STEP = sub_tab_probe(0)
 C_TAB_TRANSPORT = sub_tab_probe(1)
 C_TAB_GLOBAL = sub_tab_probe(0)
 C_TAB_FX = sub_tab_probe(1)
+C_TAB_TOOLS = sub_tab_probe(2)    # MIX 第 3 张子签（P4-F Task 6）
 C_TAB_ANALOG = sub_tab_probe(0)   # EDIT 首个子签（P4-F Task 5 起 = SOUND；页 id 沿用 6）
 C_TAB_FM6 = sub_tab_probe(1)      # EDIT 第 2 张子签（P4-F Task 5 起 = MOD）
 C_TAB_SAMPLE = sub_tab_probe(0)
@@ -1789,12 +1790,12 @@ NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
 # TAB 扁平整轮顺序（P4-F Task 5 起 17 页 / 9 组：SOUND 取代 ANALOG+FM6，独立 FM6 页删除、
-# APP_PAGE_FM6=7 是空位 id）——group 顺序 + 组内顺序，与 ui_nav.h 的 UI_GROUP_LIST 同源
-# （Task 6 加 TOOLS 时再更新）。
+# APP_PAGE_FM6=7 是空位 id；Task 6 加 TOOLS ⇒ 18 页：TOOLS 是 MIX 的第 3 张子签）——group
+# 顺序 + 组内顺序，与 ui_nav.h 的 UI_GROUP_LIST 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (6, "sound"), (15, "mod"), (16, "scale"),
-             (17, "voice"), (4, "global"), (5, "fx"), (8, "sample"), (12, "dsyn"), (13, "fm6p"),
-             (2, "step"), (3, "transport"), (11, "song"), (9, "projects"), (10, "presets"),
-             (14, "system"))
+             (17, "voice"), (4, "global"), (5, "fx"), (18, "tools"), (8, "sample"), (12, "dsyn"),
+             (13, "fm6p"), (2, "step"), (3, "transport"), (11, "song"), (9, "projects"),
+             (10, "presets"), (14, "system"))
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
@@ -2268,8 +2269,8 @@ def run_nav(s: Session) -> None:
         f"⑥ 离开 EDIT 后 built={mem_edit['groups']['EDIT']['built']} "
         + " ".join(f"{p}={mem_edit['pages'].get(p, ('?',))[0]}" for p in (6, 15, 16, 17))
         + "（期望 0 / unbuilt ×4）")
-    # MIX 组（P4-F Task 4 新增：GLOBAL/FX）：点组进上次子页、两张子签、`UI SUB 2` 越界、
-    # 离开组两页销毁。
+    # MIX 组（P4-F Task 4 新增：GLOBAL/FX；Task 6 加 TOOLS）：点组进上次子页、三张子签、
+    # `UI SUB 3` 越界、离开组三页销毁。
     s.cmd("UI global")
     s.expect(r"UI page=global \(4\)", "⑥ 归一 MIX 上次子页 = GLOBAL")
     s.cmd("UI tab play")
@@ -2277,25 +2278,28 @@ def run_nav(s: Session) -> None:
     s.cmd("UI TAB MIX")
     s.expect(r"UI TAB MIX page=global \(4\)", "⑥ UI TAB MIX（→ 上次子页 GLOBAL）")
     mem_mix = param_mem(s)
-    (s.ok if mem_mix["groups"]["MIX"]["built"] == 1 and mem_mix["groups"]["MIX"]["sum_est"] == 7168
-     else s.fail)(
+    (s.ok if mem_mix["groups"]["MIX"]["built"] == 1
+     and mem_mix["groups"]["MIX"]["sum_est"] == PARAM_MIX_SUM_EST else s.fail)(
         f"⑥ MIX built={mem_mix['groups']['MIX']['built']} "
-        f"sum_est={mem_mix['groups']['MIX']['sum_est']}（期望 1 / 7168）")
+        f"sum_est={mem_mix['groups']['MIX']['sum_est']}（期望 1 / {PARAM_MIX_SUM_EST:,}）")
     s.cmd("UI SUB 1")
     s.expect(r"UI SUB 1 page=fx \(5\)", "⑥ UI SUB 1 切 FX（同组不重建 GLOBAL）")
     s.cmd("UI SUB 2")
-    s.expect(r"UI ERR sub 2", "⑥ MIX 组只有 2 张子签：UI SUB 2 越界")
+    s.expect(r"UI SUB 2 page=tools \(18\)", "⑥ UI SUB 2 切 TOOLS（MIX 第 3 张子签）")
+    s.cmd("UI SUB 3")
+    s.expect(r"UI ERR sub 3", "⑥ MIX 组只有 3 张子签：UI SUB 3 越界")
     img_mix = s.capture("nav-06b-mix")
     s.probe(img_mix, "⑥ MIX 组签选中", *C_TAB_MIX, C_YELLOW)
-    s.probe(img_mix, "⑥ MIX 子签选中（FX）", *C_TAB_FX, C_YELLOW)
+    s.probe(img_mix, "⑥ MIX 子签选中（TOOLS）", *C_TAB_TOOLS, C_YELLOW)
+    s.probe(img_mix, "⑥ GLOBAL 子签未选中", *C_TAB_GLOBAL, C_PANEL_HI, 10)
     s.cmd("UI tab play")
-    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（MIX 两页销毁）")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（MIX 三页销毁）")
     mem_mix = param_mem(s)
     (s.ok if mem_mix["groups"]["MIX"]["built"] == 0
-     and all(mem_mix["pages"].get(p, ("?",))[0] == "unbuilt" for p in (4, 5)) else s.fail)(
+     and all(mem_mix["pages"].get(p, ("?",))[0] == "unbuilt" for p in (4, 5, 18)) else s.fail)(
         f"⑥ 离开 MIX 后 built={mem_mix['groups']['MIX']['built']} "
-        + " ".join(f"{p}={mem_mix['pages'].get(p, ('?',))[0]}" for p in (4, 5))
-        + "（期望 0 / unbuilt ×2）")
+        + " ".join(f"{p}={mem_mix['pages'].get(p, ('?',))[0]}" for p in (4, 5, 18))
+        + "（期望 0 / unbuilt ×3）")
     s.cmd("UI SUB 0")
     s.expect(r"UI ERR sub 0", "⑥ 单页组子行为空：UI SUB 0 → UI ERR sub")
     s.cmd("UI")
@@ -2432,11 +2436,11 @@ def run_nav(s: Session) -> None:
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
-    # ---------- ⑦ TAB 全 17 页轮转（P4-F Task 5：EDIT 四页 + MIX 两页） ----------
-    # 一拍一页从 PLAY 走完 17 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # ---------- ⑦ TAB 全 18 页轮转（P4-F Task 5：EDIT 四页；Task 6：MIX 三页） ----------
+    # 一拍一页从 PLAY 走完 18 页并回卷到 PLAY：每个目标页都由**当前页**计算
     # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
     # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
-    s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→"
+    s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→TOOLS→SAMPLE→"
                "DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY")
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
@@ -2499,15 +2503,18 @@ PARAM_BTN_PLUS = (1224, 94)
 
 # 组 Σ est（ADR-008 §3 / ADR-005 §5.1）：EDIT = SOUND 6,144（P4-F Task 5：8 旋钮 + 页眉两行
 # + 常驻隐藏的 bank 行；取代 ANALOG 3,584 + FM6 6,144）+ MOD/SCALE/VOICE 3×3,584（P4-F Task 4
-# 的 chip 页）= **16,896**；MIX = GLOBAL 3,584 + FX 3,584（Task 5 起也是 chip 页）= **7,168**；
+# 的 chip 页）= **16,896**；MIX = GLOBAL 3,584 + FX 3,584（Task 5 起也是 chip 页）+ TOOLS
+# 3,584（Task 6：8 个单对象 label，实测 2,568–2,732）= **10,752**；
 # SYNTH = SAMPLE 6,144 + DSYN 7,168 + FM6P 7,168 = **20,480**。
 # 页面 est 改了这里必须同步（params 场景的组预算断言）。
 PARAM_EDIT_SUM_EST = 6144 + 3 * 3584
-PARAM_MIX_SUM_EST = 2 * 3584
+PARAM_MIX_SUM_EST = 3 * 3584
+TOOLS_EST = 3584
 PARAM_SYNTH_SUM_EST = 6144 + 7168 + 7168
-# EDIT 组子签（P4-F Task 5 起）：SOUND 0 / MOD 1 / SCALE 2 / VOICE 3；MIX：GLOBAL 0 / FX 1
+# EDIT 组子签（P4-F Task 5 起）：SOUND 0 / MOD 1 / SCALE 2 / VOICE 3；MIX：GLOBAL 0 / FX 1 /
+# TOOLS 2（Task 6）
 PARAM_EDIT_PAGES = ("sound", "mod", "scale", "voice")
-PARAM_MIX_PAGES = ("global", "fx")
+PARAM_MIX_PAGES = ("global", "fx", "tools")
 
 
 def param_knob_xy(slot: int) -> tuple:
@@ -3199,6 +3206,367 @@ def param_chip_pages(s: Session) -> None:
     s.cmd("UI play")
 
 
+# ---------------------------------------------------------------- TOOLS（P4-F Task 6）---
+# TOOLS 页三张 chip（page_tools.c 的 TOOLS_CHIP_*：x = 24 + i*384、y=120、360×140）⇒ 屏幕中心
+# （y + UI_TAB_BAR_H=72）。顺序 = sloop_tool_t：0 CLEAR SEQ / 1 INIT SOUND / 2 NEW。
+TOOLS_CHIP = tuple((24 + i * 384 + 180, 72 + 120 + 70) for i in range(3))
+TOOLS_NAMES = ("CLRSEQ", "INITSOUND", "NEWPRJ")
+TOOLS_STATUS_BOX = (24, 92, 700, 130)   # 状态行 label (24,20) 28pt
+# TRANSPORT 的 REC 配置行（page_transport.c 的 TR_CFG_*：一个自绘对象、三格 x=456+i*108、
+# y=384、100×56；格间 8px 缝是页面背景）。格顺序 = SLOOP_TR_REC_QNT / MODE / START。
+TR_CFG = tuple((456 + i * 108 + 50, 72 + 384 + 28) for i in range(3))
+TR_CFG_GAP = (456 + 104, 72 + 384 + 28)
+TR_CFG_TOKEN = ("quant", "mode", "start")
+TR_UNDO = (1048 + 42, 72 + 360 + 28)    # UNDO chip（84 宽）
+# STEP 页 EDIT 层步工具键（input_map.h / ADR-006）：Aa 0x31 按住 + k 0x39 / l 0x3A / 9 0x09
+KEY_AA, KEY_K, KEY_L, KEY_9 = 0x31, 0x39, 0x3A, 0x09
+
+
+def wait_playing(s: Session, want: int, label: str, timeout: float = 2.5) -> None:
+    """轮询 `STATE SNAP playing=`（走带请求在音频块边界才被消费，不能假定命令返回即生效）。"""
+    deadline = time.monotonic() + timeout
+    got = -1
+    while time.monotonic() < deadline:
+        s.cmd("STATE SNAP")
+        got = s.snap_int(r"playing=(\d)")
+        if got == want:
+            break
+        time.sleep(0.03)
+    (s.ok if got == want else s.fail)(f"{label}: STATE SNAP playing={got}（期望 {want}）")
+
+
+def tools_tap(s: Session, idx: int):
+    """点 TOOLS 页第 idx 张 chip。返回 (是否只进入预备态, 状态行文本)；回显缺失记 FAIL。"""
+    s.cmd("TAP %d %d" % TOOLS_CHIP[idx])
+    m = re.search(rf"-> TOOLS {TOOLS_NAMES[idx]} (armed|value={idx}) status=\"([^\"]*)\"", s.last)
+    if m is None:
+        lines = [ln for ln in s.last.splitlines() if "TOOLS" in ln]
+        s.fail(f"TOOLS {TOOLS_NAMES[idx]} TAP 回显缺失：{lines}")
+        return None, None
+    armed = m.group(1) == "armed"
+    s.ok(f"TAP {TOOLS_NAMES[idx]} → {'armed' if armed else 'executed'} status=\"{m.group(2)}\"")
+    return armed, m.group(2)
+
+
+def rec_cfg_read(s: Session) -> tuple:
+    """`SEQ REC` 的三项配置 (quant_off, tempo_mode, count_mode)，各 0/1。"""
+    s.cmd("SEQ REC")
+    m = re.search(r"quant=(on|off) tempo=(free|tempo) count=(note|count)", s.last)
+    if m is None:
+        raise InjectError(f"SEQ REC 回显缺少配置三项：{s.last.strip()!r}")
+    return (m.group(1) == "off", m.group(2) == "tempo", m.group(3) == "count")
+
+
+def ensure_step_on(s: Session, track: int, col: int) -> dict:
+    """保证轨 track 的绝对步 col 是**开**的 NOTE（n>0 且 time==NOTE(0)），返回 `ENG STEP` 全字段。
+    与状态层 state_step_is_on 同口径：残留的 n>0 / time=REST·TIE 步算空（PARAM 页此前
+    的 SPAN/UNDO 用例会留下这种步）——CMD_TOGGLE_STEP 把它开成 NOTE。"""
+    e = eng_step(s, track, col)
+    if not (e["n"] > 0 and e["time"] == 0):
+        x, y = step_cell_xy(col, track)
+        s.cmd(f"TAP {x} {y}")
+        s.expect(rf"-> STEP track={track} step={col} CMD_TOGGLE_STEP",
+                 f"TAP 步 ({track},{col}) 建音（残留 n={e['n']} time={e['time']} 算空）")
+        e = eng_step(s, track, col)
+    (s.ok if e["n"] > 0 and e["time"] == 0 else s.fail)(
+        f"轨 {track} 绝对步 {col} 是开的 NOTE（n={e['n']} note={e['note0']},{e['note1']}）")
+    return e
+
+
+def param_rec_config(s: Session) -> None:
+    """TRANSPORT 的 REC 配置行：三格 TAP = 整份 CMD_REC_CONFIG（只翻转自己那一项）、
+    文本/底色像素、格间缝 TAP miss、诊断冻结拒绝。三项在结束时回到起始值。"""
+    s.ser.note("⑪ TRANSPORT REC 配置行（QUANT / MODE / START）")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
+    cfg0 = rec_cfg_read(s)
+    img = s.capture("task6-transport-rec-config")
+    for i, name in enumerate(("QNT", "MODE", "START")):
+        cx, cy = TR_CFG[i]
+        s.probe(img, f"⑪ REC 配置 {name} 格底 = UI_PANEL_HI", cx - 40, cy - 22, C_PANEL_HI)
+        s.probe_region(img, f"⑪ REC 配置 {name} 格内有白字", (cx - 46, cy - 10, cx + 46, cy + 12),
+                       C_TEXT, 16, 30)
+    s.probe(img, "⑪ REC 配置格间缝 = 页面背景", *TR_CFG_GAP, C_BG)
+    # 索引 = 写后回读的原始值：quant_off 0 ON / 1 OFF；tempo_mode 0 FREE / 1 TEMPO；
+    # count_mode 0 NOTE / 1 COUNT（上游 seq.c 的 REC 屏变量）
+    status_of = (("QNT: ON", "QNT: OFF"), ("MODE: FREE", "MODE: TEMPO"),
+                 ("START: NOTE", "START: COUNT"))
+    for i in range(3):
+        for flip in (1, 0):   # 翻转一次、再翻回来
+            before = rec_cfg_read(s)
+            want = list(before)
+            want[i] ^= True
+            s.cmd("TAP %d %d" % TR_CFG[i])
+            s.expect(rf"-> TRANSPORT CMD_REC_CONFIG {TR_CFG_TOKEN[i]} value={int(want[i])} "
+                     rf'status="{re.escape(status_of[i][int(want[i])])}"',
+                     f"⑪ TAP {TR_CFG_TOKEN[i].upper()}（第 {2 - flip} 次）")
+            got = rec_cfg_read(s)
+            (s.ok if got == tuple(want) else s.fail)(
+                f"⑪ SEQ REC 三项 = {got}（期望 {tuple(want)}：只翻转 {TR_CFG_TOKEN[i]}）")
+    s.cmd("TAP %d %d" % TR_CFG_GAP)
+    s.expect(r"TAP miss", "⑪ REC 配置格间缝 TAP miss")
+    cfg1 = rec_cfg_read(s)
+    (s.ok if cfg1 == cfg0 else s.fail)(f"⑪ REC 配置回到起始值 {cfg1}")
+    # 诊断冻结：命令被拒、配置不变
+    s.cmd("ENG FREEZE ON")
+    s.cmd("TAP %d %d" % TR_CFG[0])
+    s.expect(r'-> TRANSPORT CMD_REC_CONFIG quant ERR frozen .*status="QNT: FROZEN"',
+             "⑪ 冻结：REC 配置 TAP → ERR frozen")
+    s.cmd("ENG FREEZE OFF")
+    s.expect(r"ENG FREEZE off", "⑪ 解除冻结")
+    # 冻结期间 `SEQ REC` 读到的是零快照（sloop_seq_rec_read 的冻结契约），配置是否不变
+    # 只能在解除冻结之后判。
+    (s.ok if rec_cfg_read(s) == cfg0 else s.fail)("⑪ 冻结：REC 配置不变（解除冻结后读）")
+
+
+def param_step_keys(s: Session) -> None:
+    """STEP 页 EDIT 层步工具：MOD 页经 TAP 改参数 ⇒ last_param；Aa+k 锁到聚焦步、Aa+l 解锁、
+    Aa+9 循环 fill 条件；不可锁参数 ⇒ NOT LOCKABLE；空步 ⇒ NO STEP。"""
+    s.ser.note("⑪ STEP 键盘参数锁 / fill 条件（Aa+k / Aa+l / Aa+9）")
+    select_track(s, 0)
+    ensure_window(s, 0, 16)
+    # MOD 页 chip 0 槽 0：TAP 旋钮设焦点、TAP 底部 ± 改值（CMD_SET_PARAM ⇒ 状态层记 last_param）
+    s.cmd("UI mod")
+    s.expect(r"UI page=mod \(15\)", "⑪ UI mod")
+    s.cmd("UI MOD CHIP 0")
+    m = re.search(r"UI mod slot=0 id=(\d+) label=\"([^\"]+)\"", s.last)
+    if m is None:
+        raise InjectError(f"UI MOD CHIP 逐槽行缺失：{s.last!r}")
+    pid, label = int(m.group(1)), m.group(2)
+    s.cmd(f"PARAM {pid}")
+    v0, vmax = param_value(s), param_value(s, "max")
+    step = 1 if v0 < vmax else -1
+    s.cmd("TAP %d %d" % param_knob_xy(0))
+    s.expect(r"-> PARAM slot=0 focus", "⑪ MOD 槽 0 旋钮：设焦点")
+    s.cmd("TAP %d %d" % (PARAM_BTN_PLUS if step > 0 else PARAM_BTN_MINUS))
+    s.expect(rf"-> PARAM slot=0 id={pid} delta=[+-]1 value={v0 + step}",
+             f"⑪ MOD 槽 0（{label}）TAP ± 经状态层写参数")
+    s.cmd(f"TAP %d %d" % (PARAM_BTN_MINUS if step > 0 else PARAM_BTN_PLUS))
+    param_expect_value(s, f"PARAM {pid}", v0, f"⑪ {label} 回基线")
+
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑪ UI step")
+    nav_set_focus(s, 0, 5)
+    ensure_step_on(s, 0, 5)
+    s.cmd(f"PARAM {pid}")
+    lock_v = param_value(s)
+    s.cmd("KEY 0x%02X down" % KEY_AA)
+    s.cmd("KEY 0x%02X down" % KEY_K)
+    s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="LOCKED {re.escape(label)}"',
+             f"⑪ Aa+k ⇒ LOCKED {label}（KEY 回显）")
+    s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(rf"SEQ LOCK step=5 param={pid} value={lock_v}", "⑪ SEQ LOCK LIST：聚焦步 × last_param")
+    s.expect(r"SEQ LOCK LIST track=0 count=1", "⑪ 轨 0 恰一把锁")
+    img = s.capture("task6-step-locked")
+    s.probe_region(img, "⑪ STEP 状态行显示结果（成功绿）", NAV_STATUS_BOX, C_GREEN, 16, 30)
+    s.cmd("KEY 0x%02X down" % KEY_L)
+    s.expect(rf'KEY 0x{KEY_L:02X} down l elapsed_us=\d+ step="UNLOCKED"', "⑪ Aa+l ⇒ UNLOCKED")
+    s.cmd("KEY 0x%02X up" % KEY_L)
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(r"SEQ LOCK LIST track=0 count=0", "⑪ 解锁后轨 0 无锁")
+    s.cmd("KEY 0x%02X down" % KEY_L)
+    s.expect(rf'KEY 0x{KEY_L:02X} down l elapsed_us=\d+ step="NO LOCK"', "⑪ 再解锁 ⇒ NO LOCK")
+    s.cmd("KEY 0x%02X up" % KEY_L)
+
+    fill0 = eng_step(s, 0, 5)["fill"] & 3
+    fill_name = ("FILL NORMAL", "FILL FILL ONLY", "FILL NO FILL")   # 下标 = 原始 fill 值
+    for k, (want_fill, text) in enumerate((
+            ((fill0 + 1) % 3, fill_name[(fill0 + 1) % 3]),
+            ((fill0 + 2) % 3, fill_name[(fill0 + 2) % 3]),
+            (fill0 % 3, fill_name[fill0 % 3]))):
+        s.cmd("KEY 0x%02X down" % KEY_9)
+        s.expect(rf'KEY 0x{KEY_9:02X} down 9 elapsed_us=\d+ step="{text}"',
+                 f"⑪ Aa+9 第 {k + 1} 次 ⇒ {text}")
+        s.cmd("KEY 0x%02X up" % KEY_9)
+        got = eng_step(s, 0, 5)["fill"] & 3
+        (s.ok if got == want_fill else s.fail)(
+            f"⑪ ENG STEP fill={got}（期望 {want_fill}；SEQ FILL 同一字段）")
+
+    # 不可锁的参数：上游 p_lockable 只含声音类（id ≤ P_LD_AMP、SGATE、FX、E0..E7、INSERT…）；
+    # 图案/调性/琶音类不在其中。P_TRANS=28（移调）无发声副作用：改它 ⇒ last_param 换成它
+    # ⇒ NOT LOCKABLE。（P_LEVEL=0 **是**可锁的：id ≤ P_LD_AMP——设备实测 LOCKED LVL。）
+    s.cmd("PARAM 28")
+    trans = param_value(s)
+    s.cmd("PARAM 28 %d" % (trans + 1 if trans < 24 else trans - 1))
+    s.expect(r"PARAM track=0 id=28 .*applied=", "⑪ 改一个不可锁的参数（P_TRANS）")
+    s.cmd("KEY 0x%02X down" % KEY_K)
+    s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="NOT LOCKABLE"', "⑪ 不可锁参数 ⇒ NOT LOCKABLE")
+    s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(r"SEQ LOCK LIST track=0 count=0", "⑪ NOT LOCKABLE 不留锁")
+    s.cmd("PARAM 28 %d" % trans)
+    param_expect_value(s, "PARAM 28", trans, "⑪ P_TRANS 回基线")
+    # 空步：先找一个没音的列并把焦点移过去
+    empty = next((c for c in range(16)
+                  if not (eng_step(s, 0, c)["n"] > 0 and eng_step(s, 0, c)["time"] == 0)), None)
+    if empty is None:
+        s.fail("⑪ 找不到空步（前提不成立）")
+    else:
+        nav_set_focus(s, 0, empty)
+        s.cmd("KEY 0x%02X down" % KEY_K)
+        s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="NO STEP"', "⑪ 空步 ⇒ NO STEP")
+        s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("KEY 0x%02X up" % KEY_AA)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"layer_held=0x([0-9A-Fa-f]+)", 0, "⑪ Aa 松开后 layer_held=0")
+
+
+def param_tools(s: Session) -> None:
+    """TOOLS 页：两段式确认（未确认 ⇒ 状态不变；超时取消）、走带守卫（CLRSEQ/INITSOUND 走带中
+    允许、NEW 在 SONG 播放中拒绝）、NEW 的副作用。**破坏性**（NEW 清空工作工程）：先把工作
+    工程存进诊断槽 3，结束 LOAD 还原并以 LIVEHASH 逐位证明；section 用诊断槽 D——它与工程
+    槽 3 是同一个存储槽，故在捕获 D 之前先 LOAD 回快照，收口以 SECTION ERASE 清空该槽、
+    歌曲顺序回默认。"""
+    s.ser.note("⑪ TOOLS 页：两段式确认 / 走带守卫 / NEW（工程快照 → 槽 3，结束还原）")
+    s.cmd("STORE PROJ SAVE 3")
+    s.expect(r"PROJ 3 SAVED hash=", "⑪ 工作工程快照 → 诊断槽 3")
+    h0 = live_hash(s)
+    ensure_stopped(s)
+    select_track(s, 0)
+    ensure_window(s, 0, 16)
+    s.cmd("UI step")
+    nav_set_focus(s, 0, 5)
+    st5 = ensure_step_on(s, 0, 5)
+    s.cmd("UI tools")
+    s.expect(r"UI page=tools \(18\)", "⑪ UI tools")
+    img = s.capture("task6-tools")
+    for i, name in enumerate(("CLEAR SEQ", "INIT SOUND", "NEW")):
+        s.probe(img, f"⑪ {name} chip 底 = UI_PANEL_HI", TOOLS_CHIP[i][0] - 150,
+                TOOLS_CHIP[i][1] - 52, C_PANEL_HI)
+    s.probe_region(img, "⑪ 状态行 READY（灰字）", TOOLS_STATUS_BOX, C_TEXT_DIM, 16, 40)
+
+    # 未确认 ⇒ 状态不变；预备 = chip 强调底 + AGAIN TO CONFIRM
+    armed, st = tools_tap(s, 0)
+    (s.ok if armed is True and st == "AGAIN TO CONFIRM" else s.fail)(
+        f"⑪ 第一次点 CLEAR SEQ 只预备：armed={armed} status={st!r}")
+    (s.ok if eng_step(s, 0, 5) == st5 else s.fail)("⑪ 未确认：步表不变")
+    img = s.capture("task6-tools-armed")
+    s.probe(img, "⑪ 预备 chip 底 = UI_ACCENT", TOOLS_CHIP[0][0] - 150, TOOLS_CHIP[0][1] - 52, C_YELLOW)
+    for i in (1, 2):
+        s.probe(img, f"⑪ 非预备 chip {i} 底仍是 UI_PANEL_HI", TOOLS_CHIP[i][0] - 150,
+                TOOLS_CHIP[i][1] - 52, C_PANEL_HI)
+    s.probe_region(img, "⑪ 状态行 AGAIN TO CONFIRM（强调色）", TOOLS_STATUS_BOX, C_YELLOW, 16, 40)
+    # 预备期间点另一张 = 改为预备那一张
+    tools_tap(s, 2)
+    armed, st = tools_tap(s, 1)
+    (s.ok if armed is True and st == "AGAIN TO CONFIRM" else s.fail)("⑪ 预备 NEW 时点 INIT SOUND = 改预备")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK .*OK", "⑪ 轨 0 归一 ANALOG 预置 0")
+    time.sleep(1.7)     # > 1.5s 窗口：上一次预备已超时取消
+    s.cmd("ENG TRACK 0 0 3")
+    armed, st = tools_tap(s, 1)
+    (s.ok if armed is True else s.fail)(
+        f"⑪ 超时后再点是**重新预备**（未执行：armed={armed} status={st!r}）")
+    armed, st = tools_tap(s, 1)
+    (s.ok if armed is False and st == "SOUND INIT" else s.fail)(
+        f"⑪ 窗口内再点 INIT SOUND 执行：armed={armed} status={st!r}")
+    s.cmd("ENG SNAP")
+    s.expect(r"ENG SNAP trk k=0 engine=0 preset=0 ", "⑪ INIT SOUND：引擎保留、预置 0")
+    s.cmd("ENG TRACK 0 0 0")
+
+    # CLEAR SEQ 走带中允许且不中断；UNDO 可撤销
+    s.cmd("UI step")
+    nav_set_focus(s, 0, 5)
+    ensure_step_on(s, 0, 5)
+    s.cmd("KEY 0x4D down")
+    s.cmd("KEY 0x4D up")
+    wait_playing(s, 1, "⑪ 物理 PLAY")
+    s.cmd("UI tools")
+    tools_tap(s, 0)
+    armed, st = tools_tap(s, 0)
+    (s.ok if armed is False and st == "PATTERN CLEARED" else s.fail)(
+        f"⑪ 走带中 CLEAR SEQ 执行：armed={armed} status={st!r}")
+    (s.ok if step_fields(s, 0, 5)[0] == 0 else s.fail)("⑪ CLEAR SEQ 后步表已清")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d)", 1, "⑪ CLEAR SEQ 走带不中断")
+    img = s.capture("task6-tools-cleared")
+    s.probe(img, "⑪ 执行后 chip 回普通底", TOOLS_CHIP[0][0] - 150, TOOLS_CHIP[0][1] - 52, C_PANEL_HI)
+    s.probe_region(img, "⑪ 状态行 PATTERN CLEARED（成功绿）", TOOLS_STATUS_BOX, C_GREEN, 16, 40)
+    ensure_stopped(s)
+    s.cmd("TAP %d %d" % TR_UNDO)
+    s.expect(r'-> TRANSPORT CMD_PATTERN undo value=0 status="UNDO: OK"', "⑪ TRANSPORT UNDO")
+    (s.ok if eng_step(s, 0, 5) == st5 else s.fail)("⑪ UNDO 撤销 CLEAR SEQ（全字段）")
+
+    # 鼓轨的 INIT SOUND：上游 page_desc 不给鼓轨这一项
+    select_track(s, 3)
+    s.cmd("PARAM 63")
+    kit = param_value(s)
+    s.cmd("UI tools")
+    tools_tap(s, 1)
+    armed, st = tools_tap(s, 1)
+    (s.ok if armed is False and st == "DRUM TRACK: NO SOUND" else s.fail)(
+        f"⑪ 鼓轨 INIT SOUND 拒绝：armed={armed} status={st!r}")
+    s.cmd("PARAM 63")
+    param_expect_value(s, "PARAM 63", kit, "⑪ 鼓轨 kit 不变")
+
+    # 还原工作工程（此刻还原：section A–D 与工程槽 A–D 是**同一组四个存储槽**，下面的
+    # 诊断 section D 就是槽 3——先 LOAD 回快照，D 捕获到的才是与快照相同的状态）
+    s.cmd("STORE PROJ LOAD 3")
+    s.expect(r"PROJ 3 LOADED hash=", "⑪ 还原工作工程（捕获 section D 之前）")
+    (s.ok if live_hash(s) == h0 else s.fail)("⑪ 还原后 LIVEHASH == 快照")
+
+    # NEW 的唯一守卫：SONG 播放中且 arrangement_enabled ⇒ STOP THE SONG FIRST
+    select_track(s, 0)
+    s.cmd("SEQ SECTION 3 STORE")
+    s.expect(r"SEQ SECTION D STORE OK", "⑪ 诊断 section D = 当前 loop")
+    s.cmd("STORE SONG SET 1 0 3:1")
+    s.expect(r"STORE SONG SET count=1 loop=0 dirty=1", "⑪ 歌曲 = D ×1")
+    s.cmd("SEQ SONG MODE song")
+    s.expect(r"SEQ SONG mode=song", "⑪ SONG 模式")
+    s.cmd("PARAM GLOBAL 0 137")
+    s.expect(r"PARAM GLOBAL id=0 value=137 applied=137 ", "⑪ 标记 BPM=137")
+    s.cmd("UI tools")
+    s.cmd("KEY 0x4D down")
+    s.cmd("KEY 0x4D up")
+    wait_playing(s, 1, "⑪ SONG 起播")
+    s.cmd("SEQ SONG")
+    s.expect(r"SEQ SONG mode=song running=1 ", "⑪ 歌曲播放中")
+    ready_before = s.snap_int(r"ready=0x([0-9A-Fa-f]+)") if re.search(r"ready=0x", s.last) else -1
+    tools_tap(s, 2)
+    armed, st = tools_tap(s, 2)
+    (s.ok if armed is False and st == "STOP THE SONG FIRST" else s.fail)(
+        f"⑪ SONG 播放中 NEW 拒绝：armed={armed} status={st!r}")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"bpm=(\d+)", 137, "⑪ 被拒的 NEW 不改 BPM")
+    s.expect_int(r"playing=(\d)", 1, "⑪ 被拒的 NEW 不停走带")
+    ensure_stopped(s)
+    s.cmd("SEQ SONG MODE loop")
+    s.expect(r"SEQ SONG mode=loop", "⑪ 回 loop 模式")
+
+    # loop 走带中 NEW：自行停走带后执行（四轨默认声音与参数、BPM 90、A–D 段保留）
+    s.cmd("KEY 0x4D down")
+    s.cmd("KEY 0x4D up")
+    wait_playing(s, 1, "⑪ loop 起播")
+    s.cmd("UI tools")
+    tools_tap(s, 2)
+    armed, st = tools_tap(s, 2)
+    (s.ok if armed is False and st == "NEW LOOP, A-D KEPT" else s.fail)(
+        f"⑪ NEW 执行：armed={armed} status={st!r}")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"bpm=(\d+)", 90, "⑪ NEW：BPM 回默认 90")
+    wait_playing(s, 0, "⑪ NEW 自行停走带")
+    s.cmd("ENG SNAP")
+    for k, eng, pre in ((0, 0, 0), (1, 1, 0), (2, 4, 5)):
+        s.expect(rf"ENG SNAP trk k={k} engine={eng} preset={pre} ", f"⑪ NEW：轨 {k} = TRK_DEF 声音")
+    (s.ok if step_fields(s, 0, 5)[0] == 0 else s.fail)("⑪ NEW：图案清空")
+    s.cmd("SEQ SECTION")
+    s.expect(rf"SEQ SECTION ready=0x0*{ready_before:X} ", "⑪ NEW：section A–D 保留")
+
+    # 还原：工作工程（LIVEHASH 逐位）、默认歌曲、诊断 section D、诊断槽 3
+    s.cmd("STORE PROJ LOAD 3")
+    s.expect(r"PROJ 3 LOADED hash=", "⑪ 还原工作工程")
+    (s.ok if live_hash(s) == h0 else s.fail)("⑪ 还原后 LIVEHASH == 快照")
+    s.cmd("SEQ SECTION 3 ERASE")
+    s.expect(r"SEQ SECTION D ERASE OK", "⑪ 擦诊断 section D")
+    s.cmd("STORE SONG SET 4 0 0:4 1:4 2:4 3:4")
+    s.expect(r"STORE SONG SET count=4 loop=0 dirty=1", "⑪ 歌曲回默认（A–D 各 4 小节）")
+    s.cmd("STORE PROJ LIST")
+    s.expect(r"PROJ 3 EMPTY", "⑪ 诊断槽 3（= section D）已空")
+    select_track(s, 0)
+
+
+
 def run_params(s: Session) -> None:
     """④ 参数页：GLOBAL/FX/SOUND 构建 + TAP ± / 键盘编辑生效 + 池水位 + 截屏。
 
@@ -3237,9 +3605,9 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 17 else s.fail)(
-        f"UI MEM registered=17（4 基础 + 4 EDIT + 2 MIX + 3 SYNTH + 2 FILE + SONG + SYSTEM；"
-        f"独立 FM6 页已删除、id 7 是空位）实得 {mem0['head']['registered']}")
+    (s.ok if mem0["head"]["registered"] == 18 else s.fail)(
+        f"UI MEM registered=18（4 基础 + 4 EDIT + 3 MIX + 3 SYNTH + 2 FILE + SONG + SYSTEM；"
+        f"独立 FM6 页已删除、id 7 是空位；P4-F Task 6 加 TOOLS）实得 {mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
     s.cmd("UI global")
@@ -3892,8 +4260,8 @@ def run_params(s: Session) -> None:
     (s.ok if mem_mix["head"]["built"] == 2 and gm["MIX"]["built"] == 2
      and gm["MIX"]["sum_est"] == PARAM_MIX_SUM_EST else s.fail)(
         f"UI MEM built={mem_mix['head']['built']} / MIX built={gm['MIX']['built']} "
-        f"sum_est={gm['MIX']['sum_est']}（期望 2 / 2 / {PARAM_MIX_SUM_EST:,}：GLOBAL+FX 属 MIX，"
-        f"PLAY 已随跨组销毁）")
+        f"sum_est={gm['MIX']['sum_est']}（期望 2 / 2 / {PARAM_MIX_SUM_EST:,}：GLOBAL+FX+TOOLS 属 MIX，"
+        f"TOOLS 此刻未建；PLAY 已随跨组销毁）")
     s.cmd("UI sound")
     s.cmd("UI mod")
     s.cmd("UI scale")
@@ -3923,9 +4291,10 @@ def run_params(s: Session) -> None:
     # 有序对峰值（ADR-005 §5；P4-F Task 5 的新组合）：源组全建 → 跨组首建目标页，构建日志的
     # 池剩余 ≥ 4,096（EDIT→STEP 是最小的一对：SOUND 6,144 + 三张 chip 页 + STEP 23,040）。
     for label, src, dst in (("EDIT 全建 → STEP", ("sound", "mod", "scale", "voice"), "step"),
-                            ("MIX 全建 → STEP", ("global", "fx"), "step"),
+                            ("MIX 全建 → STEP", ("global", "fx", "tools"), "step"),
                             ("SEQ 全建 → MIX（GLOBAL）", ("step", "transport"), "global"),
-                            ("SEQ 全建 → MIX（FX）", ("step", "transport"), "fx")):
+                            ("SEQ 全建 → MIX（FX）", ("step", "transport"), "fx"),
+                            ("SEQ 全建 → MIX（TOOLS）", ("step", "transport"), "tools")):
         for p in src:
             s.cmd(f"UI {p}")
         s.cmd(f"UI {dst}")
@@ -3941,6 +4310,24 @@ def run_params(s: Session) -> None:
         f"LVGL 任务栈最小余量 lvgl_stack_free={lv}B（≥{LVGL_STACK_FLOOR}）")
 
     param_chip_pages(s)
+
+    # P4-F Task 6：TOOLS 页 / TRANSPORT 的 REC 配置行 / STEP 页键盘参数锁与 fill 条件
+    param_rec_config(s)
+    param_step_keys(s)
+    param_tools(s)
+    # 段落之后的 TOOLS 池水位（上面的有序对已各建过一次；这里在 MIX 组内复核 Σ est）
+    s.cmd("UI global")
+    s.cmd("UI fx")
+    s.cmd("UI tools")
+    mem_t = param_mem(s)
+    gt = mem_t["groups"]["MIX"]
+    tt = mem_t["pages"][18]
+    (s.ok if gt["built"] == 3 and gt["sum_est"] == PARAM_MIX_SUM_EST and tt[0] == "built"
+     and tt[1] == TOOLS_EST and 0 < tt[2] <= TOOLS_EST
+     and 0 < gt["build_ms"] <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑪ UI MEM TOOLS state={tt[0]} est={tt[1]} delta={tt[2]} / MIX built={gt['built']} "
+        f"sum_est={gt['sum_est']} build_ms={gt['build_ms']}（期望 built / {TOOLS_EST} / "
+        f"0<delta≤est / 3 / {PARAM_MIX_SUM_EST:,} / ≤{NAV_BUILD_BUDGET_MS}）")
 
     # FILE 页不是参数页：`UI KNOB` 必须回文档化的 UI ERR not_params（Task 14 终审：
     # 旧判定只排除 page < GLOBAL，PROJECTS(9)/PRESETS(10) 会掉进旋钮路径）。
