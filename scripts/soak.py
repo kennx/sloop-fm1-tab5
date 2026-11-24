@@ -32,7 +32,7 @@
        恢复 ON；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
-   10. 跨组池检查：PLAY 稳态下 10 轮「SEQ/SONG/FILE/SYNTH/SYS 五组各访问一次 → 回 PLAY」，
+   10. 跨组池检查：PLAY 稳态下 10 轮「七个非 PLAY/TRACKS 组的代表页各访问一次 → 回 PLAY」，
        `UI MEM` 的 pool_free 首末差与单次下降都 ≤ 128B（组作用域不变量 + R34 实测
        噪声 84B；测量点固定在 PLAY 稳态，避开各页面 TLSF 碎片的涨落）。
 
@@ -64,8 +64,9 @@ import inject  # noqa: E402
 
 PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
          "global": 4, "fx": 5, "analog": 6, "fm6": 7, "sample": 8,
-         "song": 11, "projects": 9, "presets": 10,
-         "dsyn": 12, "fm6p": 13, "system": 14}  # 15 页：P4-E 追加 SYS/SYSTEM
+         "projects": 9, "presets": 10, "song": 11,
+         "dsyn": 12, "fm6p": 13, "system": 14,
+         "mod": 15, "scale": 16, "voice": 17}  # 18 页：P4-F Task 4 追加 EDIT 组的 chip 页
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -75,8 +76,10 @@ STACK_FLOOR = 2048
 KEY_EVENTS_PER_CYCLE = 2        # 每轮 KEY down + up
 SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash 擦写不饿死音频）
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
-POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 SEQ/SONG/FILE/SYNTH/SYS 五组各一次）
-POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system")   # 五个非 PLAY 组的代表页（组作用域销毁/重建）
+POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 POOL_RT_GROUPS 的代表页各一次）
+# 非当前组（PLAY/TRACKS 之外）的代表页（组作用域销毁/重建）；P4-F Task 4 起组表多出
+# EDIT（analog）与 MIX（global）——跨组往返的分配面各多一组，轮数与阈值不变。
+POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system", "analog", "global")
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -137,11 +140,11 @@ def switch(s, page: str) -> None:
     s.expect_int(r"page=(\d+)", PAGES[page], f"STATE page（{page}）")
 
 
-GROUPS = ("play", "tracks", "edit", "synth", "seq", "song", "file", "sys")
+GROUPS = ("play", "tracks", "edit", "mix", "synth", "seq", "song", "file", "sys")  # 九组（P4-F Task 4）
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 15 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过八个组签
+    """采样前把 18 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
     （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:
