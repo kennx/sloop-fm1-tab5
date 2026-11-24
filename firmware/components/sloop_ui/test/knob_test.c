@@ -877,6 +877,55 @@ static void case_nav_groups(void)
     check_ll("TRACKS 标签宽 ≤ 组签宽", 11 * 6 <= UI_GROUP_W, 1);
 }
 
+/* EDIT 层步工具键（P4-F Task 6，ADR-006）：k = 参数锁、l = 解锁、9 / ; = fill 条件循环。
+ * 键表是 input_map.h 的纯数据（input.c 与本测试同源），这里证明：
+ *  - 同一 (键, 层) 在表里至多一条（find_binding 取首条，重复条目会被静默遮蔽）；
+ *  - EDIT 层 = a–g 的 7 条音名擦除 + 4 条步工具，不多不少；
+ *  - 四个步工具键码在**其它任何层**（基础演奏/GLO/SEL/FX）都没有绑定——它们在该层是
+ *    空闲键，不会抢演奏键，也不会被层内别的功能抢先。 */
+static void case_step_tool_keys(void)
+{
+    const struct {
+        uint8_t code;
+        uint8_t action;
+        const char *name;
+    } exp[] = {
+        {0x39, ACT_STEP_LOCK, "k"},   {0x3A, ACT_STEP_UNLOCK, "l"},
+        {0x09, ACT_STEP_FILL, "9"},   {0x2B, ACT_STEP_FILL, ";"},
+    };
+    for (size_t i = 0; i < INPUT_MAP_BINDING_COUNT; i++) {
+        for (size_t j = i + 1u; j < INPUT_MAP_BINDING_COUNT; j++) {
+            CHECK(!(k_bindings[i].code == k_bindings[j].code &&
+                    k_bindings[i].layer == k_bindings[j].layer));
+        }
+    }
+    uint32_t edit_n = 0;
+    static const uint8_t erase_codes[7] = {0x32, 0x46, 0x44, 0x34, 0x23, 0x35, 0x36};
+    for (size_t i = 0; i < INPUT_MAP_BINDING_COUNT; i++) {
+        if (k_bindings[i].layer != APP_LAYER_EDIT) continue;
+        edit_n++;
+        const key_binding_t *b = &k_bindings[i];
+        bool tool = false, erase = false;
+        for (size_t k = 0; k < sizeof(exp) / sizeof(exp[0]); k++) tool |= b->code == exp[k].code;
+        for (size_t k = 0; k < 7u; k++) erase |= b->code == erase_codes[k];
+        CHECK(tool || erase);
+        if (erase) CHECK(b->action == ACT_ERASE);
+    }
+    check_ll("EDIT 层条目数 = 7 音名擦除 + 4 步工具", edit_n, 11);
+    for (size_t k = 0; k < sizeof(exp) / sizeof(exp[0]); k++) {
+        uint32_t n = 0;
+        for (size_t i = 0; i < INPUT_MAP_BINDING_COUNT; i++) n += k_bindings[i].code == exp[k].code;
+        CHECK(n == 1);
+        const key_binding_t *b = input_map_find_binding(exp[k].code, APP_LAYER_EDIT);
+        CHECK(b != NULL && b->action == exp[k].action && b->layer == APP_LAYER_EDIT);
+        CHECK(input_map_find_binding(exp[k].code, 0) == NULL);                 /* 基础层空闲 */
+        CHECK(input_map_find_binding(exp[k].code, APP_LAYER_GLO | APP_LAYER_SEL | APP_LAYER_FX) == NULL);
+    }
+    /* 键名与码的对照（tab5_keyboard.c 的 k_key_names：row<<4|col） */
+    CHECK(K_K == 0x39 && K_L == 0x3A && K_9 == 0x09 &&
+          K_SEMI == 0x2B);
+}
+
 int main(void)
 {
     run("值 ↔ 弧线值往返与钳位", case_arc_roundtrip);
@@ -895,6 +944,7 @@ int main(void)
     run("SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）", case_layout_sound);
     run("条件 chip 可见性与鼓轨逐槽锁定规则", case_layout_rules);
     run("九组导航：组表顺序/成员/18 页扁平轮转/104px 组签", case_nav_groups);
+    run("EDIT 层步工具键：k/l/9/; 唯一且不占其它层", case_step_tool_keys);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

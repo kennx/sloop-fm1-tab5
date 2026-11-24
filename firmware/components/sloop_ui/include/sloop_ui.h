@@ -406,6 +406,25 @@ void sloop_ui_step_lane_set(uint8_t lane);
 void sloop_ui_step_focus_vertical(int8_t delta); /* ↑=-1 / ↓=+1（含进/出鼓轨） */
 void sloop_ui_step_drum_toggle(void);            /* ENTER：聚焦步的选中 lane 位取反 */
 
+/* EDIT 层步工具（P4-F Task 6；InputManager 的 Aa+k / Aa+l / Aa+9（或 Aa+;）与 console `KEY`
+ * 注入共用）：作用于 **STEP 页**的聚焦步（非 STEP 页为空操作）。
+ *  - LOCK：把状态层记录的 last_param（焦点轨上最后碰过的参数）以该轨当前值锁到聚焦步
+ *    （CMD_LOCK_FOCUS{a=1}）；UNLOCK：删除该键的锁（CMD_LOCK_FOCUS{a=0}）；FILL：聚焦步的
+ *    fill 条件循环 NORMAL → FILL ONLY → NO FILL → NORMAL（CMD_FILL_STEP，值取快照里的当前
+ *    条件 +1）。可锁性、锁表容量、空步与冻结的判定都在状态层/引擎，本层只回读 seq_status。
+ *  - 结果文本进页内邮箱：STEP 页状态行顶替显示 ≈2.4s；sloop_ui_step_tool_text 取同一份
+ *    文本（`LOCKED <参数名>` / `UNLOCKED` / `FILL <模式>` / `NO STEP` / `NO PARAM` /
+ *    `NO LOCK` / `NOT LOCKABLE` / `LOCK TABLE FULL` / `FROZEN`）。*seq 是结果代号（0 = 还
+ *    没有结果；每次工具动作 +1），console `KEY` 据此只在有新结果时追加回显。返回指针指向
+ *    组件内静态缓冲（下一次调用覆盖）。不取 LVGL 锁。 */
+typedef enum {
+    SLOOP_STEP_TOOL_LOCK = 0,
+    SLOOP_STEP_TOOL_UNLOCK,
+    SLOOP_STEP_TOOL_FILL,
+} sloop_step_tool_t;
+void sloop_ui_step_tool(uint8_t tool);
+const char *sloop_ui_step_tool_text(uint32_t *seq);
+
 /* TRANSPORT 页工具焦点（P4-C Task 10；InputManager 与 console `UI TOOL` 共用）：
  *  - 焦点字段 = LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS（0..7）：←/→ 在环上移动、
  *    ↑/↓ 调焦点字段（LVL/RAT/SLIDE/ROT/TRANS 走 ±1 或切换，MIC ±1，LEN ×2/÷2，

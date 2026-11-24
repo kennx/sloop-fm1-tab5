@@ -14,7 +14,7 @@
  * - 格子 (r,c)：x = 88 + c*73, y = 84 + r*124, 67×104，圆角 10；
  * - 列号绝对步号单行标在网格下方 (x+24, 568) 16pt：16 列全标（window_start 16
  *   对齐，故 bank1 显示 17..32），窗口外的列随格子一起隐藏；
- * - 底部两行提示 (24, 604) 16pt：字形图例 + 鼓 lane 操作。
+ * - 底部三行提示 (24, 590) 16pt：字形图例 / 音符颜色 + EDIT 层步工具键 / 鼓 lane 操作。
  *
  * 渲染口径：
  * - 格底色 = 状态层「有音」判定（n>0 且 time==NOTE，与切换同一判定，TIE/REST 不算
@@ -48,6 +48,13 @@
  *   局部态（s_lane），键盘 ↑/↓/ENTER 与 console `UI LANE` 共享。
  * - 键盘焦点环 = T1,T2,T3,DRM L1..L16（input.c 调 sloop_ui_step_focus_vertical；
  *   鼓轨上 ENTER = sloop_ui_step_drum_toggle）。
+ * - EDIT 层步工具（P4-F Task 6，ADR-006；零新增 LVGL 对象）：Aa+k / Aa+l 把「焦点轨上
+ *   最后碰过的参数」（状态层 last_param）锁到聚焦步 / 解锁，Aa+9（或 Aa+;）循环该步的
+ *   fill 条件（NORMAL → FILL ONLY → NO FILL）。入口 sloop_ui_step_tool 在输入任务/console
+ *   上下文跑（不取 LVGL 锁），只发 CMD_LOCK_FOCUS / CMD_FILL_STEP；结果文本
+ *   （`LOCKED <参数>` / `UNLOCKED` / `FILL <模式>` / `NO STEP` / `NO PARAM` / `NO LOCK` /
+ *   `NOT LOCKABLE` / `LOCK TABLE FULL` / `FROZEN`）latch 进页内邮箱，由 30ms 拍顶替状态行
+ *   ≈2.4s（焦点移走即恢复派生文本）。console `KEY` 回显读同一份文本（sloop_ui_step_tool_text）。
  *
  * 内存：64 格 + 16 列号 + 顶栏/状态行/提示 + 1 overlay 共用静态 lv_style_t；
  * 状态变化用 lv_obj_replace_style 换共享样式指针，不分配新样式。脏检查：每格
@@ -60,6 +67,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "freertos/FreeRTOS.h"
 #include "lvgl.h"
 #include "sloop_state.h"
 
@@ -157,6 +165,21 @@ static bool s_win_dirty = true;
 static char s_status_cache[96];
 static uint32_t s_status_color;
 static bool s_status_dirty = true;
+
+/* EDIT 层步工具的结果邮箱（输入任务/console 写、LVGL 任务读；临界区保护）。seq 是代号
+ * （0 = 还没有结果），hold 是剩余显示拍数（30ms/拍）；track/col = 产生结果时的焦点。 */
+#define STEP_TOOL_TEXT      40
+#define STEP_TOOL_HOLD_TICKS 80u /* ≈2.4s */
+typedef struct {
+    char text[STEP_TOOL_TEXT];
+    uint8_t color; /* 0 灰 / 1 成功绿 / 2 失败红 */
+    uint8_t track, col;
+    uint32_t seq;
+} step_tool_msg_t;
+static step_tool_msg_t s_tool;
+static portMUX_TYPE s_tool_mux = portMUX_INITIALIZER_UNLOCKED;
+static uint32_t s_tool_seq_shown;
+static uint16_t s_tool_hold;
 
 static void cell_shape_style(lv_style_t *st, uint32_t bg)
 {
@@ -757,10 +780,11 @@ lv_obj_t *page_step_build(lv_obj_t *parent)
     lv_label_set_text(hint,
                       "TAP = TOGGLE   DIM = BEYOND LEN   TIE = HOLD   A = ACCENT   S = SLIDE   "
                       "F = FILL   N = NO-FILL   m± = NUDGE   xN = RATCHET\n"
-                      "NOTE: WHITE=NORM YELLOW=HARD GREY=SOFT DARK=GHOST  |  DRM: TAP DOT="
-                      "SELECT+TOGGLE, TAP CELL=TOGGLE, UP/DN=LANE, ENTER=TOGGLE");
+                      "NOTE: WHITE=NORM YELLOW=HARD GREY=SOFT DARK=GHOST  |  AA+K = LOCK   "
+                      "AA+L = UNLOCK   AA+9 = FILL CONDITION\n"
+                      "DRM: TAP DOT=SELECT+TOGGLE, TAP CELL=TOGGLE, UP/DN=LANE, ENTER=TOGGLE");
     lv_obj_add_style(hint, &s_st_hint, 0);
-    lv_obj_set_pos(hint, 24, 604);
+    lv_obj_set_pos(hint, 24, 590);
     return parent;
 }
 
@@ -811,11 +835,27 @@ void page_step_update(const app_state_t *st)
         lv_obj_set_style_text_color(s_header, lv_color_hex(ui_track_color(ft)), 0);
     }
 
-    /* 状态行：聚焦步/选中 lane 的派生文本（P4-C Task 9；TAP 与键盘焦点变化都可见） */
+    /* 状态行：聚焦步/选中 lane 的派生文本（P4-C Task 9；TAP 与键盘焦点变化都可见）。
+     * 刚做过 EDIT 层步工具（锁/fill）时，结果文本顶替派生文本 ≈2.4s（焦点移走即让位）。 */
     {
         char buf[96];
         uint32_t color = UI_TEXT_DIM;
-        status_build(st, buf, sizeof(buf), &color);
+        step_tool_msg_t tool;
+        portENTER_CRITICAL(&s_tool_mux);
+        tool = s_tool;
+        portEXIT_CRITICAL(&s_tool_mux);
+        if (tool.seq != s_tool_seq_shown) {
+            s_tool_seq_shown = tool.seq;
+            s_tool_hold = STEP_TOOL_HOLD_TICKS;
+        }
+        if (s_tool_hold > 0u && (tool.track != ft || tool.col != fs)) s_tool_hold = 0;
+        if (s_tool_hold > 0u && tool.seq != 0u) {
+            s_tool_hold--;
+            snprintf(buf, sizeof(buf), "%s", tool.text);
+            color = tool.color == 1u ? ui_track_color(1) : tool.color == 2u ? UI_ERROR : UI_TEXT_DIM;
+        } else {
+            status_build(st, buf, sizeof(buf), &color);
+        }
         if (s_status_dirty || strcmp(buf, s_status_cache) != 0 ||
             color != s_status_color) {
             s_status_dirty = false;
@@ -962,6 +1002,108 @@ void sloop_ui_step_focus_vertical(int8_t delta)
         s_lane = (uint8_t)lane;
         state_set_focus(APP_STATE_TRACKS - 1u, step);
     }
+}
+
+/* ------------------------------------------------------------ EDIT 层步工具 --- */
+
+static bool focus_has_note(const app_state_t *st, uint8_t ft, uint8_t col)
+{
+    if (ft == APP_STATE_TRACKS - 1u)
+        return st->core.dstep_raw[col].on[0] != 0u || st->core.dstep_raw[col].on[1] != 0u;
+    return state_step_is_on(st->core.step[ft][col].n, st->core.step[ft][col].time);
+}
+
+static uint8_t focus_fill(const app_state_t *st, uint8_t ft, uint8_t col)
+{
+    return ft == APP_STATE_TRACKS - 1u ? (st->core.dstep[col].fill & 3u)
+                                       : (st->core.step[ft][col].fill & 3u);
+}
+
+static void step_tool_store(const char *text, uint8_t color, uint8_t ft, uint8_t col)
+{
+    portENTER_CRITICAL(&s_tool_mux);
+    snprintf(s_tool.text, sizeof(s_tool.text), "%s", text);
+    s_tool.color = color;
+    s_tool.track = ft;
+    s_tool.col = col;
+    s_tool.seq++;
+    portEXIT_CRITICAL(&s_tool_mux);
+}
+
+/* EDIT 层步工具的唯一实现（input.c 的 ACT_STEP_* 派发；输入任务/console 上下文，不取
+ * LVGL 锁）：一条状态层命令 → 回读 seq_status → 结果文本进邮箱（页面状态行与 console
+ * `KEY` 回显同源）。非 STEP 页为空操作。锁/解锁针对「焦点轨 × 聚焦步 × last_param」，
+ * fill 针对聚焦步；两者的可锁性/空步/冻结判定都在状态层（NOT_FOUND 的三种原因按发送前
+ * 的快照在本页分开：NO STEP / NO PARAM / NO LOCK）。 */
+void sloop_ui_step_tool(uint8_t tool_id)
+{
+    static const char *const k_fill_name[3] = {"NORMAL", "FILL ONLY", "NO FILL"};
+    char text[STEP_TOOL_TEXT];
+    uint8_t color = 2;
+    if (tool_id > SLOOP_STEP_TOOL_FILL || !sloop_ui_step_page_active()) return;
+
+    app_state_t st;
+    state_get_copy(&st);
+    const uint8_t wlen = window_len_of(&st);
+    const uint8_t ft = st.focus_track < APP_STATE_TRACKS ? st.focus_track : 0u;
+    const uint8_t col = st.focus_step < wlen ? st.focus_step : 0u;
+    const bool has_note = focus_has_note(&st, ft, col);
+    const bool has_param = st.last_param.id != 0xFFu && st.last_param.track == ft;
+
+    if (tool_id == SLOOP_STEP_TOOL_FILL) {
+        const uint8_t cur = focus_fill(&st, ft, col) & 3u; /* raw 3 = NORMAL（上游同） */
+        const edit_cmd_t cmd = {
+            .type = CMD_FILL_STEP, .v = (uint16_t)(((cur == 3u ? 0u : cur) + 1u) % 3u)};
+        state_apply(&cmd);
+        state_get_copy(&st);
+        switch (st.seq_status) {
+        case SEQ_STATUS_OK:
+            const uint8_t shown = focus_fill(&st, ft, col) & 3u; /* raw 3 = NORMAL（上游同） */
+            snprintf(text, sizeof(text), "FILL %s", k_fill_name[shown == 3u ? 0u : shown]);
+            color = 1;
+            break;
+        case SEQ_STATUS_NOT_FOUND: snprintf(text, sizeof(text), "NO STEP"); break;
+        case SEQ_STATUS_FROZEN: snprintf(text, sizeof(text), "FROZEN"); color = 0; break;
+        default: snprintf(text, sizeof(text), "FILL ERROR"); break;
+        }
+    } else {
+        const bool lock = tool_id == SLOOP_STEP_TOOL_LOCK;
+        const edit_cmd_t cmd = {.type = CMD_LOCK_FOCUS, .a = lock ? 1u : 0u};
+        sloop_desc_t d;
+        char label[12] = "";
+        if (has_param && sloop_core_desc_track_live(ft, st.last_param.id, &d))
+            snprintf(label, sizeof(label), "%s", d.label);
+        state_apply(&cmd);
+        state_get_copy(&st);
+        switch (st.seq_status) {
+        case SEQ_STATUS_OK:
+            if (lock) snprintf(text, sizeof(text), "LOCKED %s", label);
+            else snprintf(text, sizeof(text), "UNLOCKED");
+            color = 1;
+            break;
+        case SEQ_STATUS_NOT_FOUND:
+            snprintf(text, sizeof(text), "%s", !has_note ? "NO STEP" : !has_param ? "NO PARAM" : "NO LOCK");
+            break;
+        case SEQ_STATUS_INVALID:
+            snprintf(text, sizeof(text), "%s", lock ? "NOT LOCKABLE" : "INVALID");
+            break;
+        case SEQ_STATUS_FULL: snprintf(text, sizeof(text), "LOCK TABLE FULL"); break;
+        case SEQ_STATUS_FROZEN: snprintf(text, sizeof(text), "FROZEN"); color = 0; break;
+        default: snprintf(text, sizeof(text), "%s ERROR", lock ? "LOCK" : "UNLOCK"); break;
+        }
+    }
+    step_tool_store(text, color, ft, col);
+}
+
+const char *sloop_ui_step_tool_text(uint32_t *seq)
+{
+    static char echo[STEP_TOOL_TEXT];
+    portENTER_CRITICAL(&s_tool_mux);
+    uint32_t s = s_tool.seq;
+    if (s != 0u) snprintf(echo, sizeof(echo), "%s", s_tool.text);
+    portEXIT_CRITICAL(&s_tool_mux);
+    if (seq != NULL) *seq = s;
+    return s != 0u ? echo : NULL;
 }
 
 void sloop_ui_step_drum_toggle(void)
