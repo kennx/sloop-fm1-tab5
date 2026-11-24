@@ -391,6 +391,14 @@ esp_err_t sloop_core_init(void)
             return core_status;
         }
     }
+    /* host 替身 tests/cpu1_host.c（hostsim.c 无条件编入）在第一次 cpu1_on()——mix_block 每块都调——
+     * 里懒初始化：pthread_mutex_init / pthread_cond_init 在内部堆上创建互斥与条件量，句柄与 `init`
+     * 标志都在它的 static `c1h` 里，而 c1h 是本 TU 的 .bss，落在下面的快照窗口内。不先初始化一次，
+     * 快照里的 c1h 就是「未初始化」，selftest_restore() 在每个 job 前把它回滚 ⇒ 每个 job 的第一块
+     * 重新创建一对 mutex/cond、丢掉旧的：每执行一个 job 泄漏 208B 内部堆（182 例 ≈ 40KB，原 DI-26）。
+     * 快照之前跑一次，窗口里留下的就是已初始化状态与仍然有效的句柄。设备上 CORES 恒为 1
+     * （getenv 替身只认 JOBS）：job 在 cpu1_wait 内联执行，这两个对象创建后不再被使用。 */
+    cpu1_on();
     core_status = selftest_snapshot_init();
     if (core_status != ESP_OK) return core_status;
     /* 存储（P4-B，ADR-009 §5 启动顺序）：**工厂态快照之后**才做 PSRAM 槽/暂存 + 分区
