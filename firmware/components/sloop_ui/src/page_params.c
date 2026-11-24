@@ -13,6 +13,27 @@
  * 1 个原始单位（细调）。调试注入 console `UI KNOB` 走同一指针路径（ADR-008 §8.2）。
  * TAP 注入与控件回调共用同一动作函数（param_step/slot_write），只是 TAP 不能拖拽。
  *
+ * chip 页（P4-F Task 4：MOD / SCALE / VOICE；ADR-008 §8.9）：一页 = 多个 chip 共用同一组
+ * 8 个旋钮（DSYN 模式）。chip 行在页眉行（y=4..36）：**一个自绘可点击对象**画出整行
+ * chip（宽度按名字长度；点击按指针 x 落到哪个 chip），标题挪到 chip 行右侧；页眉/±
+ * 按钮几何不变。整行一个对象而不是每 chip 一个 label：实测每 chip 一个 label 约
+ * 336B（5 chip 的 MOD 页 delta 4,544B），而 EDIT→STEP 有序对的账面要求 chip 页 est
+ * ≤ 4,608（ADR-005 §5）——按「超预算先改对象设计」收成单对象（STEP 格/旋钮同一纪律）。选中 chip 是**页内 UI 局部态**
+ * （`UI <page> CHIP <n>` 与 chip 行共用，跨组页面重建保留）。切 chip 在 30ms 拍内
+ * **零分配**重配：8 个旋钮对象常驻，只换 desc（label/fmt/范围）、显隐与焦点；chip 行
+ * 只改「可见掩码/选中下标」两个字节并失效重绘——不新建/删除对象、不改样式。
+ * 布局表 chip_count ≥ 2 的页是 chip 页；旧式整页（GLOBAL/FX/ANALOG/FM6/SAMPLE）是
+ * chip_count == 0 的无名单 chip，不画 chip 行、行为不变。
+ *
+ * 槽位描述符与鼓轨规则：TRACK scope 一律取 `sloop_core_desc_track_live(选中轨, id)`
+ * （INSERT/ENV SYNC/引擎钩子的动态标签，范围同静态表——FX 页的 `ATK/ESYNC` 手工标注
+ * 因此删除）；GLOBAL/ENGINE scope 仍取静态 `sloop_core_desc`。鼓轨规则**逐槽**
+ * （布局表 drum_ok，012 §3）：选中鼓轨时未标 drum_ok 的 TRACK/ENGINE 槽显示 -- 且
+ * 拒绝编辑（不发命令），标了的（TFLT/LEVEL/PAN、PATTERN 四槽）照常；全局参数不受
+ * 影响。旧式引擎页（ANALOG/FM6/SAMPLE）的整页锁定语义不变（page_locked）。
+ * 条件 chip：`when` 谓词按选中轨上下文求值（VOICE·FILTER 仅 ANALOG 合成轨出现）；
+ * 选中的 chip 变隐藏时生效 chip 落到首个可见 chip 并回写选择。
+ *
  * 引擎页的适用性：槽位描述符取**页声明的引擎**（布局表），值是 trk[选中轨].p[P_E0+i]；
  * 选中轨的引擎与页不符（或选中鼓轨）时页面不可编辑、显示 --，避免拿 ANALOG 的 label
  * 写另一个引擎的槽位。
@@ -105,6 +126,14 @@
 #define SAMPLE_STATUS_X   972
 #define SAMPLE_STATUS_W   292
 
+/* chip 行（仅 chip 页）：页眉行 y=4..36，与上下文行同一行；一个自绘可点击对象，
+ * 每个 chip 宽 = page_layout_chip_width(名字)（11px/字符 + 16），x = 16 起按序排、
+ * 间距 8（chip_x_at）。建控件、绘制与 TAP 命中同源。标题（上下文行）挪到行右侧。 */
+#define CHIP_Y   4
+#define CHIP_H   32
+#define CHIP_X0  16
+#define CHIP_GAP 8
+
 /* 页声明引擎号（布局表 L_ENG_SAMPLE/L_ENG_FM6，上游 ENGINES[] 的 SAMPLE/FM6）：
  * bank 行只在 FM6 页、槽管理行只在 SAMPLE 页。 */
 #define PARAM_ENGINE_SAMPLE 4u
@@ -119,10 +148,15 @@ typedef struct {
     lv_obj_t *header;
     lv_obj_t *btn_dec;
     lv_obj_t *btn_inc;
+    uint8_t shown_chip;  /* 已重配到页面的生效 chip；0xFF = 尚未 */
+    uint8_t chip_vis_shown;   /* chip 行最近渲染的可见掩码（bit c） */
+    int8_t chip_sel_shown;    /* chip 行最近渲染的选中 chip；-1 = 尚未 */
+    lv_obj_t *chip_row; /* chip 行（仅 chip 页）：整行一个自绘可点击对象 */
     uint8_t shown_track;
     uint8_t shown_engine;
     int8_t shown_locked;  /* -1 = 尚未渲染上下文 */
-    int8_t shown_esync;   /* 选中轨 ENV SYNC 位（ATK 槽描述符随它变，见 slot_desc） */
+    int8_t shown_esync;   /* 选中轨 ENV SYNC 位（ATK/DEC/REL 槽描述符随它变） */
+    uint8_t shown_itype; /* 选中轨 INSERT TYPE（INSERT A/B/C 槽描述符随它变，Task 5） */
     uint8_t focus_shown;  /* 最近渲染的焦点槽 */
     bool ctx_valid;
     /* bank 存取行（仅 FM6 页；其它页为 NULL） */
@@ -170,6 +204,8 @@ static char s_sample_echo[32];                  /* console TAP 回显专用 */
 /* 焦点槽（UI 局部态）：TAP 在 LVGL 上下文写、键盘在输入任务读/写 → 临界区保护。 */
 static portMUX_TYPE s_focus_mux = portMUX_INITIALIZER_UNLOCKED;
 static uint8_t s_focus[PARAM_PAGE_COUNT];
+/* 每 chip 页选中的 chip（UI 局部态，同上保护；非 chip 页恒 0）。0xFF = 未选 → 首个。 */
+static uint8_t s_chip[PARAM_PAGE_COUNT];
 
 /* 旋钮的页面上下文编码进 knob_t.user：((页下标 << 4) | 槽位) + 1。
  * +1 让「页 0 槽 0」不是 NULL——NULL 是「未设置」的哨兵，初版直接编码成 NULL，
@@ -201,44 +237,56 @@ static void focus_set(uint8_t index, uint8_t slot)
     portEXIT_CRITICAL(&s_focus_mux);
 }
 
+static uint8_t chip_get(uint8_t index)
+{
+    if (index >= PARAM_PAGE_COUNT) return 0;
+    portENTER_CRITICAL(&s_focus_mux);
+    uint8_t c = s_chip[index];
+    portEXIT_CRITICAL(&s_focus_mux);
+    return c;
+}
+
+static void chip_set(uint8_t index, uint8_t chip)
+{
+    if (index >= PARAM_PAGE_COUNT) return;
+    portENTER_CRITICAL(&s_focus_mux);
+    s_chip[index] = chip;
+    portEXIT_CRITICAL(&s_focus_mux);
+}
+
 /* ---------------------------------------------------------------- 槽位解析 --- */
-/* 上游 TP[] 的 ATK 与 ENV SYNC 开关 id（core.h 枚举值，SLOOP 2.8.5 起稳定；布局表
- * FX 页的 ATK 槽就是 TP[1]）。 */
-#define PARAM_TP_ATK   1u
+/* 上游 TP[] 里会按状态换描述符的两个开关 id（core.h 枚举值；页面上下文键的一部分）：
+ * P_ESYNC 开 ⇒ ATK/DEC/REL 显示音符名（ESYNC_DESC），P_ITYPE ⇒ INSERT A/B/C 的 label/
+ * 范围含义（Task 5 的 INSERT chip）。两者都经 sloop_core_desc_track_live 取上游动态表。 */
 #define PARAM_TP_ESYNC 59u
-/* P_ESYNC 打开时上游 track_desc() 把 ATK/DEC/REL 换成 ESYNC_DESC[]：F_INT + 音符名
- * 表、单位 1/384 小节；静态 TP[P_ATK] 仍是 F_TIME（ms）。sloop_core_desc 不投影
- * 动态钩子（需要轨上下文），所以这里显式标注：名称后缀 /ESYNC、按 0..127 原始值
- * 显示（无 ms 后缀），绝不把音符值显示成毫秒。P4-B 接 ENV 页/动态描述符时改为取
- * 上游动态表（ADR-008 §9 的 P4-B 复核项）。 */
-static bool track_env_sync_on(void)
-{
-    app_state_t st;
-    state_get_copy(&st);
-    return st.core.selected_track < APP_STATE_TRACKS && st.p[PARAM_TP_ESYNC] != 0;
-}
+#define PARAM_TP_ITYPE 53u
 
-static bool slot_desc(const param_page_t *pg, uint8_t slot, sloop_desc_t *out)
+/* 槽位描述符：TRACK 取**选中轨**的动态描述符（上游 track_desc），GLOBAL/ENGINE 取静态表 */
+static bool slot_desc(const param_page_t *pg, uint8_t chip, uint8_t slot, sloop_desc_t *out)
 {
-    const param_slot_t *s = &pg->slots[slot];
-    if (s->id == 0xFF) return false;
-    if (!sloop_core_desc((sloop_desc_scope_t)s->scope, s->engine, s->id, out)) return false;
-    if (s->scope == SLOOP_DESC_TRACK && s->id == PARAM_TP_ATK && track_env_sync_on()) {
-        out->label = "ATK/ESYNC";
-        out->fmt = SLOOP_DESC_FMT_INT;
-        out->unit = NULL;
-        out->enums = NULL;
-        out->enum_count = 0;
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL) return false;
+    switch (s->scope) {
+    case SLOOP_DESC_ENGINE:
+        return sloop_core_desc(SLOOP_DESC_ENGINE, s->engine, s->id, out);
+    case SLOOP_DESC_GLOBAL:
+        return sloop_core_desc(SLOOP_DESC_GLOBAL, 0, s->id, out);
+    default: {
+        app_state_t st;
+        state_get_copy(&st);
+        uint8_t track = st.core.selected_track;
+        return track < APP_STATE_TRACKS && sloop_core_desc_track_live(track, s->id, out);
     }
-    return true;
+    }
 }
 
-/* 页声明的引擎（ENGINE 槽位的 engine 字段）；非引擎页返回 0xFF */
+/* 旧式整页声明的引擎（ENGINE 槽位的 engine 字段）；chip 页/非引擎页返回 0xFF */
 static uint8_t page_engine(const param_page_t *pg)
 {
+    if (pg->chip_count != 0) return 0xFF;
     for (uint8_t i = 0; i < PARAM_PAGE_SLOTS; i++) {
-        if (pg->slots[i].id != 0xFF && pg->slots[i].scope == SLOOP_DESC_ENGINE) {
-            return pg->slots[i].engine;
+        if (pg->chips[0].slots[i].id != 0xFF && pg->chips[0].slots[i].scope == SLOOP_DESC_ENGINE) {
+            return pg->chips[0].slots[i].engine;
         }
     }
     return 0xFF;
@@ -250,14 +298,14 @@ static bool bank_row_present(const param_page_t *pg)
     return pg != NULL && page_engine(pg) == PARAM_ENGINE_FM6;
 }
 
-/* SAMPLE 页 = 布局表的 SAMPLE 下标（参数页是 app_page_t 的连续段，page_layout.c 有
- * 静态断言）：槽管理行只在这一页建（TAP 命中表/更新/回显同源）。 */
+/* SAMPLE 页 = 布局表里页 id 为 SAMPLE 的那一页：槽管理行只在这一页建（TAP 命中表/
+ * 更新/回显同源）。参数页 id 不再连续（MOD/SCALE/VOICE 在 app_page_t 末尾）。 */
 static bool sample_row_present(const param_page_t *pg)
 {
-    return pg != NULL && pg == page_layout_get((uint8_t)(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL));
+    return pg != NULL && pg->page_id == APP_PAGE_SAMPLE;
 }
 
-/* 引擎页不可编辑：选中鼓轨（没有引擎槽）或所选轨引擎与页声明不符 */
+/* 旧式引擎页整页不可编辑：选中鼓轨（没有引擎槽）或所选轨引擎与页声明不符 */
 static bool page_locked(const param_page_t *pg, const app_state_t *st)
 {
     uint8_t eng = page_engine(pg);
@@ -267,11 +315,33 @@ static bool page_locked(const param_page_t *pg, const app_state_t *st)
     return st->core.trk[track].engine != eng;
 }
 
-/* 槽位当前值（GLOBAL→g[]、TRACK→p[]、ENGINE→p[P_E0+id]）；不可读返回 false */
-static bool slot_value(const param_page_t *pg, uint8_t slot, const app_state_t *st, int16_t *out)
+/* 选中轨上下文：是否鼓轨、引擎号（鼓轨无引擎，回 0） */
+static void sel_context(const app_state_t *st, bool *drum, uint8_t *engine)
 {
-    const param_slot_t *s = &pg->slots[slot];
-    if (s->id == 0xFF || out == NULL) return false;
+    uint8_t track = st->core.selected_track;
+    *drum = track >= APP_STATE_TRACKS - 1u;
+    *engine = *drum || track >= APP_STATE_TRACKS ? 0u : (uint8_t)st->core.trk[track].engine;
+}
+
+/* 槽位是否锁定（显示 --、拒绝编辑）：旧式引擎页的整页锁（只锁 ENGINE 槽）+ 鼓轨逐槽规则 */
+static bool slot_locked(const param_page_t *pg, uint8_t chip, uint8_t slot, const app_state_t *st)
+{
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL) return true;
+    if (page_locked(pg, st)) return s->scope == SLOOP_DESC_ENGINE;
+    bool drum;
+    uint8_t engine;
+    sel_context(st, &drum, &engine);
+    (void)engine;
+    return page_layout_slot_locked(s, drum);
+}
+
+/* 槽位当前值（GLOBAL→g[]、TRACK→p[]、ENGINE→p[P_E0+id]）；不可读返回 false */
+static bool slot_value(const param_page_t *pg, uint8_t chip, uint8_t slot, const app_state_t *st,
+                       int16_t *out)
+{
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL || out == NULL) return false;
     switch (s->scope) {
     case SLOOP_DESC_GLOBAL:
         if (s->id >= SLOOP_CORE_G_COUNT) return false;
@@ -291,23 +361,23 @@ static bool slot_value(const param_page_t *pg, uint8_t slot, const app_state_t *
 }
 
 /* 槽位参数在状态层命令里的 id：GLOBAL 是全局 id，TRACK 是 TP id，ENGINE 是 P_E0+i */
-static uint8_t slot_abs_id(const param_page_t *pg, uint8_t slot)
+static uint8_t slot_abs_id(const param_page_t *pg, uint8_t chip, uint8_t slot)
 {
-    const param_slot_t *s = &pg->slots[slot];
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
     return s->scope == SLOOP_DESC_ENGINE ? (uint8_t)(PARAM_ENGINE_BASE + s->id) : s->id;
 }
 
-/* 写槽位值（状态层命令 + 引擎钳位）；返回 false = 页面不可编辑/槽位不可读。
+/* 写槽位值（状态层命令 + 引擎钳位）；返回 false = 槽位锁定/不可读（不发命令）。
  * applied（可 NULL）回填写后投影里的真值（钳位结果）。 */
-static bool slot_write(uint8_t index, uint8_t slot, int16_t value, int16_t *applied)
+static bool slot_write(uint8_t index, uint8_t chip, uint8_t slot, int16_t value, int16_t *applied)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL || slot >= PARAM_PAGE_SLOTS) return false;
     app_state_t st;
     state_get_copy(&st);
-    if (page_locked(pg, &st)) return false;
-    const param_slot_t *s = &pg->slots[slot];
-    if (s->id == 0xFF) return false;
+    if (slot_locked(pg, chip, slot, &st)) return false;
+    const param_slot_t *s = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (s == NULL) return false;
 
     edit_cmd_t cmd = {0};
     if (s->scope == SLOOP_DESC_GLOBAL) {
@@ -317,7 +387,7 @@ static bool slot_write(uint8_t index, uint8_t slot, int16_t value, int16_t *appl
     } else if (s->scope == SLOOP_DESC_TRACK || s->scope == SLOOP_DESC_ENGINE) {
         cmd.type = CMD_SET_PARAM;
         cmd.a = st.core.selected_track;
-        cmd.b = slot_abs_id(pg, slot);
+        cmd.b = slot_abs_id(pg, chip, slot);
         cmd.v = (uint16_t)value;
     } else {
         return false;
@@ -326,7 +396,7 @@ static bool slot_write(uint8_t index, uint8_t slot, int16_t value, int16_t *appl
     if (applied != NULL) {
         state_get_copy(&st);
         int16_t v;
-        *applied = slot_value(pg, slot, &st, &v) ? v : value;
+        *applied = slot_value(pg, chip, slot, &st, &v) ? v : value;
     }
     return true;
 }
@@ -340,21 +410,23 @@ static void refresh(uint8_t index)
 
 /* ---------------------------------------------------------------- 上下文/焦点 --- */
 static void update_header(uint8_t index, const param_page_t *pg, const app_state_t *st, uint8_t track,
-                          bool locked)
+                          uint8_t chip, bool locked)
 {
     page_ui_t *ui = &s_ui[index];
     if (ui->header == NULL) return;
     char text[64];
-    uint8_t scope = pg->slots[0].scope;
+    const param_slot_t *s0 = page_layout_slot(page_layout_chip(pg, chip), 0);
+    uint8_t scope = s0 != NULL ? s0->scope : SLOOP_DESC_TRACK;
     if (scope == SLOOP_DESC_GLOBAL) {
         snprintf(text, sizeof(text), "%s", pg->title);
-    } else if (scope == SLOOP_DESC_TRACK) {
-        snprintf(text, sizeof(text), "%s · TRACK %u", pg->title, (unsigned)(track + 1));
     } else if (locked && track >= 3u) {
         snprintf(text, sizeof(text), "%s · TRACK %u (DRUM) — N/A", pg->title, (unsigned)(track + 1));
     } else if (locked) {
         snprintf(text, sizeof(text), "%s · TRACK %u USES ENG %u — N/A", pg->title,
                  (unsigned)(track + 1), (unsigned)st->core.trk[track].engine);
+    } else if (track >= 3u) {
+        /* 逐槽规则页在鼓轨上不是整页锁：标出鼓轨，锁定的槽各自显示 -- */
+        snprintf(text, sizeof(text), "%s · TRACK %u (DRUM)", pg->title, (unsigned)(track + 1));
     } else {
         snprintf(text, sizeof(text), "%s · TRACK %u", pg->title, (unsigned)(track + 1));
     }
@@ -373,24 +445,25 @@ static void apply_focus(uint8_t index, uint8_t focus)
 }
 
 /* ---------------------------------------------------------------- 动作函数 --- */
-/* 焦点槽 ±1（控件回调与 TAP 的共同路径）。返回 false = 不可编辑/无值。 */
+/* 焦点槽 ±1（控件回调、TAP 与键盘 ↑/↓/ENTER 的共同路径）。返回 false = 槽位锁定/无值。 */
 static bool param_step(uint8_t index, int8_t delta, int16_t *applied)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL) return false;
     app_state_t st;
     state_get_copy(&st);
+    uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t v;
-    if (!slot_value(pg, slot, &st, &v) || page_locked(pg, &st)) return false;
-    return slot_write(index, slot, (int16_t)(v + delta), applied);
+    if (!slot_value(pg, chip, slot, &st, &v) || slot_locked(pg, chip, slot, &st)) return false;
+    return slot_write(index, chip, slot, (int16_t)(v + delta), applied);
 }
 
 /* 旋钮拖动（LVGL 上下文）：值变化 → 状态层 → 立即刷新本页 */
 static void knob_change_cb(knob_t *k, int16_t value)
 {
     uint8_t index = ctx_page(k->user);
-    slot_write(index, ctx_slot(k->user), value, NULL);
+    (void)slot_write(index, chip_get(index), ctx_slot(k->user), value, NULL);
     refresh(index);
 }
 
@@ -530,8 +603,9 @@ static uint32_t sig_mix(uint32_t h, uint32_t v)
 static uint32_t sample_row_sig(const app_state_t *st)
 {
     uint32_t h = 2166136261u;
-    uint8_t pidx = (uint8_t)(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL);
-    h = sig_mix(h, page_locked(page_layout_get(pidx), st) ? 1u : 0u);
+    h = sig_mix(h, page_locked(page_layout_get((uint8_t)page_layout_index(APP_PAGE_SAMPLE)), st)
+                     ? 1u
+                     : 0u);
     h = sig_mix(h, sample_selected_slot(st));
     h = sig_mix(h, s_sample_act);
     h = sig_mix(h, (uint32_t)s_sample_status);
@@ -586,7 +660,7 @@ static bool sample_select(uint8_t index, uint8_t slot)
     app_state_t st;
     state_get_copy(&st);
     bool locked = page_locked(pg, &st);
-    if (base == 0 || locked || !slot_write(index, 0, (int16_t)(base + slot), NULL)) {
+    if (base == 0 || locked || !slot_write(index, 0, 0, (int16_t)(base + slot), NULL)) {
         s_sample_act = 0u;
         s_sample_status = UI_SAMPLE_STATUS_NOT_USR;
         /* 只有「锁定页」的拒绝随解锁复位；描述符缺失（base==0）是环境问题，留着可见 */
@@ -673,11 +747,12 @@ void sloop_ui_param_focus_move(int8_t delta)
     int idx = current_index();
     if (idx < 0 || delta == 0) return;
     const param_page_t *pg = page_layout_get((uint8_t)idx);
+    uint8_t chip = chip_get((uint8_t)idx);
     uint8_t f = focus_get((uint8_t)idx);
     for (uint8_t n = 0; n < PARAM_PAGE_SLOTS; n++) {
         f = (uint8_t)((f + PARAM_PAGE_SLOTS + delta) % PARAM_PAGE_SLOTS);
         sloop_desc_t d;
-        if (slot_desc(pg, f, &d)) break;
+        if (slot_desc(pg, chip, f, &d)) break;
     }
     focus_set((uint8_t)idx, f);
 }
@@ -701,11 +776,13 @@ esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press
     page_ui_t *ui = &s_ui[idx];
     if (ui->header == NULL) return ESP_ERR_INVALID_STATE;
     if (!ui->present[slot]) return ESP_ERR_INVALID_ARG;
-    /* 引擎页不适用（选中轨引擎与页声明不符/鼓轨）：旋钮显示 -- 且不可编辑。
-     * 用独立错误码让 console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。 */
+    /* 槽位锁定（引擎页不适用/鼓轨逐槽规则）：旋钮显示 -- 且不可编辑。用独立错误码让
+     * console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。 */
     app_state_t st;
     state_get_copy(&st);
-    if (page_locked(page_layout_get((uint8_t)idx), &st)) return ESP_ERR_NOT_ALLOWED;
+    if (slot_locked(page_layout_get((uint8_t)idx), chip_get((uint8_t)idx), slot, &st)) {
+        return ESP_ERR_NOT_ALLOWED;
+    }
     knob_t *k = &ui->knobs[slot];
     bool accepted = press ? knob_test_press(k, dx, dy) : knob_test_drag(k, dx, dy);
     if (value != NULL) *value = k->value;
@@ -905,24 +982,210 @@ static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
     return parent;
 }
 
+static bool param_chip_select(uint8_t index, uint8_t chip);
+
+/* chip 行几何：第 c 个 chip 的左缘（对象内相对坐标）。隐藏 chip 不占位之外的空间——
+ * 条件 chip 隐藏时它那一格留空（下标不塌陷，可见 chip 位置恒定，TAP/绘制同一张表）。 */
+static int16_t chip_x_at(const param_page_t *pg, uint8_t chip)
+{
+    int32_t x = 0;
+    for (uint8_t c = 0; c < chip && c < pg->chip_count; c++) {
+        x += page_layout_chip_width(pg->chips[c].name) + CHIP_GAP;
+    }
+    return (int16_t)x;
+}
+
+static int16_t chip_row_width(const param_page_t *pg)
+{
+    return (int16_t)(chip_x_at(pg, pg->chip_count) - CHIP_GAP);
+}
+
+/* 自绘：每个可见 chip 一个圆角底 + 居中 16pt 名字；选中的 chip 用强调色底/背景色字。
+ * 名称是布局表里的静态字符串（text_local=0，不复制）。 */
+static void chip_row_draw(lv_event_t *e)
+{
+    uint8_t index = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
+    const param_page_t *pg = page_layout_get(index);
+    const page_ui_t *ui = &s_ui[index];
+    if (pg == NULL) return;
+    lv_layer_t *layer = lv_event_get_layer(e);
+    lv_obj_t *obj = lv_event_get_target_obj(e);
+    /* 绘制坐标是屏幕绝对坐标：行对象放在 (CHIP_X0, CHIP_Y)，chip 在行内横向排布 */
+    lv_area_t row;
+    lv_obj_get_coords(obj, &row);
+    for (uint8_t c = 0; c < pg->chip_count; c++) {
+        if ((ui->chip_vis_shown & (1u << c)) == 0) continue;
+        bool sel = (int8_t)c == ui->chip_sel_shown;
+        int32_t x = row.x1 + chip_x_at(pg, c);
+        int32_t w = page_layout_chip_width(pg->chips[c].name);
+        lv_area_t area = {.x1 = x, .y1 = row.y1, .x2 = x + w - 1, .y2 = row.y2};
+        lv_draw_rect_dsc_t rect;
+        lv_draw_rect_dsc_init(&rect);
+        rect.base.layer = layer;
+        rect.bg_color = lv_color_hex(sel ? UI_ACCENT : UI_PANEL_HI);
+        rect.bg_opa = LV_OPA_COVER;
+        rect.radius = 10;
+        lv_draw_rect(layer, &rect, &area);
+        lv_draw_label_dsc_t label;
+        lv_draw_label_dsc_init(&label);
+        label.base.layer = layer;
+        label.font = &lv_font_montserrat_16;
+        label.color = lv_color_hex(sel ? UI_BG : UI_TEXT);
+        label.align = LV_TEXT_ALIGN_CENTER;
+        label.text = pg->chips[c].name;
+        label.text_local = false;
+        /* 16pt 行高 ≈20px：文字区从行顶 +6 起（垂直居中，与 DSYN chip 的 pad_top 6 同） */
+        lv_area_t ta = {.x1 = x, .y1 = row.y1 + 6, .x2 = x + w - 1, .y2 = row.y2};
+        lv_draw_label(layer, &label, &ta);
+    }
+}
+
+/* 点击：按指针落在哪个可见 chip（x 区间与绘制/TAP 同源）切生效 chip。 */
+static void chip_row_event_cb(lv_event_t *e)
+{
+    switch (lv_event_get_code(e)) {
+    case LV_EVENT_DRAW_MAIN:
+        chip_row_draw(e);
+        break;
+    case LV_EVENT_CLICKED: {
+        lv_indev_t *indev = lv_indev_active();
+        if (indev == NULL) return;
+        uint8_t index = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
+        const param_page_t *pg = page_layout_get(index);
+        if (pg == NULL) return;
+        lv_point_t p;
+        lv_indev_get_point(indev, &p);
+        lv_area_t a;
+        lv_obj_get_coords(lv_event_get_target_obj(e), &a);
+        int32_t rx = p.x - a.x1;
+        for (uint8_t c = 0; c < pg->chip_count; c++) {
+            if ((s_ui[index].chip_vis_shown & (1u << c)) == 0) continue;
+            int32_t x = chip_x_at(pg, c);
+            if (rx >= x && rx < x + page_layout_chip_width(pg->chips[c].name)) {
+                (void)param_chip_select(index, c);
+                return;
+            }
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+/* 生效 chip：选中 chip 若在当前上下文隐藏（条件 chip），落到首个可见 chip 并回写选择。
+ * 非 chip 页恒 0。调用方已持 LVGL 锁或处于 LVGL 上下文。 */
+static uint8_t chip_effective(uint8_t index, const param_page_t *pg, const app_state_t *st)
+{
+    uint8_t chip = chip_get(index);
+    if (pg->chip_count <= 1u) return 0;
+    bool drum;
+    uint8_t engine;
+    sel_context(st, &drum, &engine);
+    if (chip < page_layout_chip_count(pg) &&
+        page_layout_chip_visible(&pg->chips[chip], drum, engine)) {
+        return chip;
+    }
+    int vis = page_layout_visible_chip_at(pg, 0, drum, engine);
+    chip = vis >= 0 ? (uint8_t)vis : 0u;
+    chip_set(index, chip);
+    return chip;
+}
+
+/* chip 切换（chip 行回调、TAP、console `UI <page> CHIP` 的共同路径）：只改页内选择
+ * 并立即刷新本页（update 拍内零分配重配 8 个旋钮）。越界/当前上下文隐藏的 chip
+ * （条件 chip 不成立）拒绝且不改选择。 */
+static bool param_chip_select(uint8_t index, uint8_t chip)
+{
+    const param_page_t *pg = page_layout_get(index);
+    if (pg == NULL || chip >= page_layout_chip_count(pg)) return false;
+    app_state_t st;
+    state_get_copy(&st);
+    bool drum;
+    uint8_t engine;
+    sel_context(&st, &drum, &engine);
+    if (!page_layout_chip_visible(&pg->chips[chip], drum, engine)) return false;
+    chip_set(index, chip);
+    refresh(index);
+    return true;
+}
+
+/* 把 8 个常驻旋钮重配到 chip（零分配）：换 desc（label/fmt/范围）、强制重绘、显隐，
+ * 焦点夹到存在的槽。旧式整页也走这里（不存在的槽没有控件对象，直接跳过）。 */
+static void apply_chip(uint8_t index, uint8_t chip)
+{
+    page_ui_t *ui = &s_ui[index];
+    const param_page_t *pg = page_layout_get(index);
+    for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
+        knob_t *k = &ui->knobs[slot];
+        sloop_desc_t d;
+        bool have = k->obj != NULL && slot_desc(pg, chip, slot, &d);
+        ui->present[slot] = have;
+        if (!have) {
+            if (k->obj != NULL) {
+                lv_obj_set_hidden(k->obj, true);
+                knob_set_active(k, false);
+            }
+            continue;
+        }
+        k->desc = d;
+        k->shown = false; /* 新描述符：名称/数值强制重绘 */
+        k->dragging = false;
+        lv_obj_set_hidden(k->obj, false);
+        lv_obj_invalidate(k->obj);
+    }
+    uint8_t f = focus_get(index);
+    if (!ui->present[f]) {
+        for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
+            if (ui->present[slot]) {
+                focus_set(index, slot);
+                break;
+            }
+        }
+    }
+    ui->focus_shown = 0xFF; /* 焦点可能被夹过 */
+    ui->ctx_valid = false;  /* 页眉/描述符重解析 */
+}
+
 lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL || parent == NULL) return NULL;
     page_ui_t *ui = &s_ui[index];
-    /* 懒建重试时控件是全新的：复位上下文/焦点缓存（焦点槽本身保留） */
+    /* 懒建重试时控件是全新的：复位上下文/焦点缓存（焦点槽与 chip 选择本身保留） */
     memset(ui, 0, sizeof(*ui));
     ui->shown_locked = -1;
     ui->focus_shown = 0xFF;
+    ui->shown_chip = 0xFF;
+    ui->chip_sel_shown = -1;
+    const bool paged = pg->chip_count > 1u;
 
     ui->header = lv_label_create(parent);
     UI_BUILD_CHECK(ui->header);
-    lv_obj_set_pos(ui->header, HEADER_X, HEADER_Y);
-    lv_obj_set_size(ui->header, 1000, 30);
     lv_obj_set_style_text_font(ui->header, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(ui->header, lv_color_hex(UI_TEXT_DIM), 0);
     lv_label_set_long_mode(ui->header, LV_LABEL_LONG_CLIP);
     lv_label_set_text(ui->header, "");
+
+    /* chip 行（仅 chip 页）：位置/宽度写进 page_ui_t，TAP 命中与建控件同源 */
+    int16_t header_x = HEADER_X;
+    int16_t header_w = 1000;
+    if (paged) {
+        int16_t x;
+        ui->chip_row = lv_obj_create(parent);
+        UI_BUILD_CHECK(ui->chip_row);
+        lv_obj_remove_style_all(ui->chip_row);
+        lv_obj_set_scrollable(ui->chip_row, false);
+        lv_obj_set_pos(ui->chip_row, CHIP_X0, CHIP_Y);
+        lv_obj_set_size(ui->chip_row, chip_row_width(pg), CHIP_H);
+        lv_obj_set_clickable(ui->chip_row, true);
+        lv_obj_add_event_cb(ui->chip_row, chip_row_event_cb, LV_EVENT_ALL, (void *)(uintptr_t)index);
+        x = (int16_t)(CHIP_X0 + chip_row_width(pg));
+        header_x = (int16_t)(x - CHIP_GAP + 16);
+        header_w = (int16_t)(BTN_DEC_X - 16 - header_x);
+    }
+    lv_obj_set_pos(ui->header, header_x, HEADER_Y);
+    lv_obj_set_size(ui->header, header_w, 30);
 
     /* ± 按钮：共用同一回调，user_data 编码 (页下标 << 4 | 方向位)；方向位 0=减 1=加。
      * 旋钮上下文另有 +1 偏移（见 KNOB_CTX），按钮不需要（解码不经过 NULL 哨兵）。 */
@@ -933,9 +1196,14 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
                               (void *)(uintptr_t)(((unsigned)index << 4) | 1u));
     UI_BUILD_CHECK(ui->btn_inc);
 
+    /* 旋钮：旧式整页只为有描述符的槽建控件；chip 页 8 个对象常驻（desc/显隐由
+     * update 首拍的 apply_chip 落地），切 chip 不新建/删除对象。 */
+    uint8_t chip = chip_get(index);
+    if (chip >= page_layout_chip_count(pg)) chip = 0;
+    static const sloop_desc_t placeholder = {"?", NULL, SLOOP_DESC_FMT_INT, 0, 1, 0, NULL, 0};
     for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
-        sloop_desc_t desc;
-        if (!slot_desc(pg, slot, &desc)) continue;
+        sloop_desc_t desc = placeholder;
+        if (!paged && !slot_desc(pg, chip, slot, &desc)) continue;
         knob_t *k = &ui->knobs[slot];
         int16_t cx = (int16_t)(GRID_X0 + (slot % 4u) * CELL_PITCH);
         int16_t cy = (int16_t)(GRID_Y0 + (slot / 4u) * ROW_PITCH);
@@ -943,12 +1211,16 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
                          knob_focus_cb)) {
             return NULL;
         }
-        ui->present[slot] = true;
+        if (paged) {
+            lv_obj_set_hidden(k->obj, true);
+        } else {
+            ui->present[slot] = true;
+        }
     }
 
-    /* 焦点槽落在第一个有控件的槽上（重试后槽集合可能变化） */
+    /* 焦点槽落在第一个有控件的槽上（重试后槽集合可能变化；chip 页由 apply_chip 夹） */
     uint8_t f = focus_get(index);
-    if (!ui->present[f]) {
+    if (!paged && !ui->present[f]) {
         for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
             if (ui->present[slot]) {
                 focus_set(index, slot);
@@ -983,22 +1255,48 @@ void page_params_update(uint8_t index, const app_state_t *st)
         s_sample_status = UI_SAMPLE_STATUS_NONE;
         s_sample_act = 0xFF;
     }
+
+    /* chip 页：生效 chip（条件 chip 隐藏时夹到首个可见）变化 ⇒ 零分配重配 8 旋钮 */
+    uint8_t chip = chip_effective(index, pg, st);
+    if (chip != ui->shown_chip) {
+        ui->shown_chip = chip;
+        apply_chip(index, chip);
+    }
+    bool drum;
+    uint8_t sel_engine;
+    sel_context(st, &drum, &sel_engine);
+    if (pg->chip_count > 1u && ui->chip_row != NULL) {
+        /* chip 行：可见掩码/选中下标变化才失效重绘（两个字节 + invalidate，零分配）。 */
+        uint8_t vis = 0;
+        for (uint8_t c = 0; c < pg->chip_count; c++) {
+            if (page_layout_chip_visible(&pg->chips[c], drum, sel_engine)) vis |= (uint8_t)(1u << c);
+        }
+        if (vis != ui->chip_vis_shown || (int8_t)chip != ui->chip_sel_shown) {
+            ui->chip_vis_shown = vis;
+            ui->chip_sel_shown = (int8_t)chip;
+            lv_obj_invalidate(ui->chip_row);
+        }
+    }
+
     uint8_t engine = page_engine(pg);
     bool esync = st->p[PARAM_TP_ESYNC] != 0;
+    uint8_t itype = (uint8_t)st->p[PARAM_TP_ITYPE];
     if (!ui->ctx_valid || ui->shown_track != track || ui->shown_engine != engine ||
-        ui->shown_locked != (int8_t)locked || ui->shown_esync != (int8_t)esync) {
+        ui->shown_locked != (int8_t)locked || ui->shown_esync != (int8_t)esync ||
+        ui->shown_itype != itype) {
         ui->ctx_valid = true;
         ui->shown_track = track;
         ui->shown_engine = engine;
         ui->shown_locked = (int8_t)locked;
         ui->shown_esync = (int8_t)esync;
-        update_header(index, pg, st, track, locked);
-        /* ENV SYNC 翻转会换 ATK 槽的 label/fmt（ms ↔ 音符值）：重新解析并重绘，
-         * 不要求用户重进页面（PARAM 59 注入/FM-1 同步都能触发）。 */
+        ui->shown_itype = itype;
+        update_header(index, pg, st, track, chip, locked);
+        /* 动态描述符翻转（ENV SYNC 的 ATK/DEC/REL、INSERT TYPE 的 A/B/C；引擎钩子随
+         * 换轨/换引擎）：重新解析并重绘，不要求用户重进页面。 */
         for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
             if (!ui->present[slot]) continue;
             sloop_desc_t d;
-            if (!slot_desc(pg, slot, &d)) continue;
+            if (!slot_desc(pg, chip, slot, &d)) continue;
             knob_t *k = &ui->knobs[slot];
             if (d.label == k->desc.label && d.fmt == k->desc.fmt && d.unit == k->desc.unit) continue;
             k->desc = d;
@@ -1009,15 +1307,16 @@ void page_params_update(uint8_t index, const app_state_t *st)
     uint8_t focus = focus_get(index);
     if (ui->focus_shown != focus) apply_focus(index, focus);
 
+    /* 锁定槽（引擎页不适用/鼓轨逐槽规则）：-- 且不接受拖拽；可编辑槽按投影值刷新 */
     for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
         if (!ui->present[slot]) continue;
         knob_t *k = &ui->knobs[slot];
-        if (locked && pg->slots[slot].scope == SLOOP_DESC_ENGINE) {
+        if (slot_locked(pg, chip, slot, st)) {
             if (!k->shown || !k->locked) knob_show_locked(k);
             continue;
         }
         int16_t v;
-        if (!slot_value(pg, slot, st, &v)) continue;
+        if (!slot_value(pg, chip, slot, st, &v)) continue;
         if (!k->shown || k->locked || k->value != v) knob_show(k, v);
     }
     sloop_ui_zoom_knob(ui->present[focus] ? &ui->knobs[focus] : NULL);
@@ -1077,14 +1376,13 @@ static bool rect_hit(int16_t x, int16_t y, int32_t rx, int32_t ry, int32_t rw, i
 static void param_tap_button(uint8_t index, int8_t delta, sloop_tap_result_t *out)
 {
     const param_page_t *pg = page_layout_get(index);
-    app_state_t st;
-    state_get_copy(&st);
+    uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t applied = 0;
-    bool ok = !page_locked(pg, &st) && param_step(index, delta, &applied);
+    bool ok = param_step(index, delta, &applied); /* 锁定槽：false ⇒ PARAM_LOCKED（未下发） */
     if (out != NULL) {
         out->a = slot;
-        out->b = ok ? slot_abs_id(pg, slot) : 0u;
+        out->b = ok ? slot_abs_id(pg, chip, slot) : 0u;
         out->v = ok ? applied : 0;
         out->d = delta;
         out->kind = ok ? SLOOP_TAP_PARAM_STEP : SLOOP_TAP_PARAM_LOCKED;
@@ -1156,6 +1454,25 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
     if (rect_hit(x, y, BTN_INC_X, BTN_Y, BTN_W, BTN_H)) {
         param_tap_button(index, +1, out);
         return true;
+    }
+    /* chip 行（仅 chip 页；矩形与绘制同源，隐藏 chip 的那一格是空位 ⇒ 落到后面 = miss）：
+     * 切生效 chip（零分配重配）。 */
+    if (pg->chip_count > 1u && ui->chip_row != NULL &&
+        rect_hit(x, y, CHIP_X0, CHIP_Y, chip_row_width(pg), CHIP_H)) {
+        for (uint8_t c = 0; c < pg->chip_count; c++) {
+            if ((ui->chip_vis_shown & (1u << c)) == 0) continue;
+            int16_t cx = (int16_t)(CHIP_X0 + chip_x_at(pg, c));
+            if (!rect_hit(x, y, cx, CHIP_Y, page_layout_chip_width(pg->chips[c].name), CHIP_H)) {
+                continue;
+            }
+            bool sel = param_chip_select(index, c);
+            if (out != NULL) {
+                out->kind = SLOOP_TAP_PARAM_CHIP;
+                out->a = pg->page_id;
+                out->b = sel ? c : 0xFFu;
+            }
+            return true;
+        }
     }
     for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
         if (!ui->present[slot]) continue;
@@ -1243,4 +1560,103 @@ const char *page_params_sample_status_text(uint8_t index)
     if (s_ui[index].sample_label[0] == NULL) return NULL;
     return ui_sample_status_text(s_sample_echo, sizeof(s_sample_echo), (uint8_t)s_sample_status,
                                  s_sample_sel_slot);
+}
+
+/* ---------------------------------------------------------------- chip 公共入口 --- */
+/* 生效 chip（console `UI <page> CHIP` 的读；条件 chip 隐藏时 = 夹后的首个可见 chip）。
+ * 只读状态层快照与布局表、写页内选择（临界区），不碰 LVGL 对象。 */
+uint8_t page_params_chip_get(uint8_t index)
+{
+    const param_page_t *pg = page_layout_get(index);
+    if (pg == NULL) return 0;
+    app_state_t st;
+    state_get_copy(&st);
+    return chip_effective(index, pg, &st);
+}
+
+/* 写 chip 选择（调用方已持 LVGL 锁：已建页立即重配刷新）。非 chip 页/越界回
+ * INVALID_ARG；条件 chip 在当前上下文隐藏回 NOT_ALLOWED 且不改选择。 */
+esp_err_t page_params_chip_set(uint8_t index, uint8_t chip)
+{
+    const param_page_t *pg = page_layout_get(index);
+    if (pg == NULL || pg->chip_count <= 1u) return ESP_ERR_INVALID_ARG;
+    if (chip >= pg->chip_count) return ESP_ERR_INVALID_ARG;
+    if (s_ui[index].header != NULL) {
+        return param_chip_select(index, chip) ? ESP_OK : ESP_ERR_NOT_ALLOWED;
+    }
+    /* 页未建/已随源组销毁：只校验并写选择，建页时由 update 首拍落地 */
+    app_state_t st;
+    state_get_copy(&st);
+    bool drum;
+    uint8_t engine;
+    sel_context(&st, &drum, &engine);
+    if (!page_layout_chip_visible(&pg->chips[chip], drum, engine)) return ESP_ERR_NOT_ALLOWED;
+    chip_set(index, chip);
+    return ESP_OK;
+}
+
+/* 槽位诊断（console `UI <page> CHIP` 的逐槽行）：id = 状态层命令里的绝对 id；label =
+ * 旋钮**正在显示**的名称（已建页取 knob 的 desc，未建页取描述符——同一个描述符来源）；
+ * locked = 显示 -- 且拒绝编辑。槽不存在回 false。读 desc 不取 LVGL 锁：label 指向上游
+ * 静态串，UI 任务重配只换指针（32 位对齐读是原子的），最坏读到相邻拍的描述符。 */
+bool page_params_slot_info(uint8_t index, uint8_t chip, uint8_t slot, uint8_t *id,
+                           const char **label, bool *locked)
+{
+    const param_page_t *pg = page_layout_get(index);
+    const param_slot_t *sl = page_layout_slot(page_layout_chip(pg, chip), slot);
+    if (sl == NULL) return false;
+    app_state_t st;
+    state_get_copy(&st);
+    sloop_desc_t d;
+    const char *name = s_ui[index].present[slot] ? s_ui[index].knobs[slot].desc.label : NULL;
+    if (name == NULL && slot_desc(pg, chip, slot, &d)) name = d.label;
+    if (id != NULL) *id = slot_abs_id(pg, chip, slot);
+    if (label != NULL) *label = name != NULL ? name : "-";
+    if (locked != NULL) *locked = slot_locked(pg, chip, slot, &st);
+    return true;
+}
+
+/* 槽位是否锁定（console/脚本读；chip 越界 = 锁定）。不取 LVGL 锁。 */
+bool page_params_slot_locked(uint8_t index, uint8_t chip, uint8_t slot)
+{
+    const param_page_t *pg = page_layout_get(index);
+    if (pg == NULL) return true;
+    app_state_t st;
+    state_get_copy(&st);
+    return slot_locked(pg, chip, slot, &st);
+}
+
+/* ---------------------------------------------------------------- 注册表胶水 --- */
+/* 布局表的每页 build/update 包装（下标 0..PARAM_PAGE_COUNT-1）与函数指针表：页 id/
+ * 标题/est 不在这里重复，注册时从 page_layout_get() 取。 */
+#define PARAM_PAGE_BUILDERS(X) X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
+
+#define X_BUILD(n)                                                                       \
+    static lv_obj_t *params_build_##n(lv_obj_t *parent)                                \
+    {                                                                                    \
+        return page_params_build(n, parent);                                            \
+    }                                                                                    \
+    static void params_update_##n(const app_state_t *st) { page_params_update(n, st); }
+PARAM_PAGE_BUILDERS(X_BUILD)
+
+#define X_BUILD_FN(n) [n] = params_build_##n,
+static lv_obj_t *(*const k_build[PARAM_PAGE_COUNT])(lv_obj_t *) = { PARAM_PAGE_BUILDERS(X_BUILD_FN) };
+#define X_UPDATE_FN(n) [n] = params_update_##n,
+static void (*const k_update[PARAM_PAGE_COUNT])(const app_state_t *) = {
+    PARAM_PAGE_BUILDERS(X_UPDATE_FN)
+};
+
+esp_err_t page_layout_register(void)
+{
+    static ui_page_t k_entries[PARAM_PAGE_COUNT];
+    esp_err_t first = ESP_OK;
+    for (uint8_t i = 0; i < PARAM_PAGE_COUNT; i++) {
+        const param_page_t *pg = page_layout_get(i);
+        if (pg == NULL) continue;
+        k_entries[i] = (ui_page_t){.id = pg->page_id, .title = pg->title, .build = k_build[i],
+                                   .update = k_update[i], .est_bytes = pg->est_bytes};
+        esp_err_t ret = ui_page_register(&k_entries[i]);
+        if (ret != ESP_OK && first == ESP_OK) first = ret;
+    }
+    return first;
 }

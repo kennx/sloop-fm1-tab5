@@ -27,7 +27,9 @@
 #include "sloop_state.h"
 #include "sloop_store.h"
 
-#define SLOOP_UI_GROUPS 8 /* PLAY / TRACKS / EDIT / SYNTH / SEQ / SONG / FILE / SYS（ADR-005） */
+/* 组数（与 ui_nav.h 的组表 UI_GROUP_LIST 静态比对）：PLAY / TRACKS / EDIT / MIX / SYNTH /
+ * SEQ / SONG / FILE / SYS（ADR-005；P4-F Task 4 起 9 组——MIX 承接 GLOBAL/FX，EDIT 留给每轨族） */
+#define SLOOP_UI_GROUPS 9
 
 /* 页面注册表条目（ADR-008）。注册顺序 = 子签顺序（组内），组顺序见
  * sloop_ui_page_order_next()。id 为 app_page_t（< APP_STATE_PAGES）。
@@ -44,7 +46,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 15 页 / 8 组）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 18 页 / 9 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -56,15 +58,15 @@ esp_err_t ui_page_register(const ui_page_t *page);
 uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
- * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**。page 未注册/非法时返回
+ * PLAY→TRACKS→ANALOG→FM6→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→
+ * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
 
 /* 组签/子签的程序化入口（console `UI TAB <group>` / `UI SUB <index>`，R32）：与物理
  * 页签点击走**同一**动作函数（`group_select_locked`/`sub_select_locked`），因此覆盖
  * 「点组进上次子页 / 点子签切页」的导航路径（TAP 对 y<72 一律 miss，无法覆盖它）。
- * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/SYNTH/SEQ/
+ * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/
  *   SONG/FILE/SYS），名字为静态生命周期；越界 name 返回 NULL。
  * - group_select(group)：进入该组上次的子页（未记录/已未注册则首个已注册成员）；
  *   空组（没有已注册页的组）返回 ESP_ERR_INVALID_ARG。
@@ -111,7 +113,7 @@ typedef struct {
     uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
     uint8_t registered, built, failed;
     sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
-    uint8_t group_count;                         /* 组数（当前 8） */
+    uint8_t group_count;                         /* 组数（当前 9） */
     uint8_t current_group;                       /* 当前页所属组下标；0xFF = 无 */
     sloop_ui_group_stat_t groups[SLOOP_UI_GROUPS];
 } sloop_ui_pool_stats_t;
@@ -210,7 +212,8 @@ typedef enum {
                                * （鼓轨上的 span/slide：**未下发命令**，v 为写前真值） */
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
     SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
-    SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
+    SLOOP_TAP_PARAM_LOCKED,  /* 参数页槽位不可编辑（引擎页不适用/鼓轨逐槽规则）：a=槽位 */
+    SLOOP_TAP_PARAM_CHIP,    /* chip 页的 chip 行：a=页 id b=chip 下标（选中即生效） */
     SLOOP_TAP_FILE_SLOT,     /* FILE 页槽位（PROJECTS 卡 A–D / PRESETS 格）：
                               * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
     SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
@@ -341,8 +344,30 @@ const char *sloop_ui_file_status_text(void);
  * 调值走状态层 CMD_SET_PARAM/CMD_SET_GLOBAL，页面控件由 30ms UI 定时器刷新。
  * 非参数页/UI 未启动时为空操作；不可编辑的引擎页（所选轨引擎与页不符）忽略调值。 */
 bool sloop_ui_param_page_active(void);
-void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
-void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
+void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽/隐藏槽，环绕） */
+void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓ 与 ENTER(+1)：±1 原始步进（钳位在引擎） */
+
+/* 参数页 chip 框架（P4-F Task 4；布局表 page_layout.c，ADR-008 §8.9）：MOD/SCALE/VOICE
+ * 等页由多个 chip 复用同一组 8 个旋钮，选中 chip 是**页内 UI 局部态**（chip 行、键盘
+ * 与 console `UI <page> CHIP <n>` 共用；切 chip 零分配重配，下一个 30ms 拍落地）。
+ * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/ANALOG/FM6/SAMPLE/
+ *   MOD/SCALE/VOICE）；未启动前即可调用（只查表）。
+ * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 旧式整页，无 chip 行）。
+ * - sloop_ui_param_chip_set(page, chip)：写选中 chip；越界/非 chip 页 =
+ *   ESP_ERR_INVALID_ARG，条件 chip 在当前上下文隐藏 = ESP_ERR_NOT_ALLOWED（不改选择），
+ *   另有 INVALID_STATE（UI 未启动/诊断期静默）、TIMEOUT（LVGL 锁超时）。
+ * - sloop_ui_param_chip_get(page)：生效 chip（隐藏时 = 夹后的首个可见 chip）；非参数页 0。
+ * - sloop_ui_param_slot_locked(page, chip, slot)：槽位是否锁定（显示 -- 且拒绝编辑：
+ *   引擎页不适用、鼓轨逐槽规则、槽不存在）。只读状态层快照与布局表，不取 LVGL 锁。 */
+bool sloop_ui_param_page(uint8_t page);
+uint8_t sloop_ui_param_chip_count(uint8_t page);
+esp_err_t sloop_ui_param_chip_set(uint8_t page, uint8_t chip);
+uint8_t sloop_ui_param_chip_get(uint8_t page);
+bool sloop_ui_param_slot_locked(uint8_t page, uint8_t chip, uint8_t slot);
+/* 槽位诊断（console `UI <page> CHIP` 的逐槽行）：id = 状态层命令里的绝对 id，label =
+ * 旋钮正在显示的名称（"-" = 无控件），locked = 显示 -- 且拒绝编辑。槽不存在回 false。 */
+bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t *id,
+                              const char **label, bool *locked);
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、

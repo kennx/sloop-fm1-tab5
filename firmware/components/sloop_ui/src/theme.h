@@ -18,10 +18,20 @@
 #include "sloop_store.h"
 #include "sloop_ui.h"
 #include "theme_derive.h"
+#include "ui_nav.h"
 
-#define UI_W 1280
-#define UI_H 720
+/* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
+ * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行宽度
+ * UI_GROUP_W、子签宽度 UI_SUB_W/槽位上限 UI_GROUP_MAX、右侧 reserve 与组表都在
+ * ui_nav.h（纯数据，host 单测同源）；本文件只留行高与行 y。页面区起点 y=72 不随组数
+ * 变化，页内几何全部不变。 */
 #define UI_TAB_BAR_H 72
+#define UI_GROUP_H 32
+#define UI_GROUP_Y 4
+#define UI_SUB_H   30
+#define UI_SUB_Y   38
+/* 公共常量（sloop_ui.h，console 的 UI MEM 组数组长度）与组表同源比对。 */
+_Static_assert(SLOOP_UI_GROUPS == UI_GROUP_COUNT, "SLOOP_UI_GROUPS 与组表 UI_GROUP_LIST 不同步");
 
 /* 运行时配色（P4-E Task 5）：MONO 派生结果与旧编译期常量逐项相同。 */
 const ui_theme_t *ui_theme(void);
@@ -33,35 +43,6 @@ const ui_theme_t *ui_theme(void);
 #define UI_TEXT_DIM  (ui_theme()->text_dim) /* 次级文本 */
 #define UI_ACCENT    (ui_theme()->accent)   /* 选中页签/播放头（强调色） */
 #define UI_ERROR     (ui_theme()->error)    /* 可见错误（仅失败路径出现） */
-
-/* 两行页签（ADR-005「导航决策」）：上行 = 组签 y∈[4,36)，下行 = 当前组的子签
- * y∈[38,68)，两行都在 72px 页签条内（页面区起点仍是 UI_TAB_BAR_H=72）。组行 8 个组签
- * （PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE/SYS，P4-E Task 6），122px 宽
- * （8×122+7×8=1,032，右端 16+1,032=1,048 ≤ 1,280−216=1,064）；子行复用固定
- * UI_GROUP_MAX 个槽（176px），只显示当前组已注册页（EDIT 4 页是最大组，右端 744）。
- * 右侧 UI_TAB_RIGHT_RESERVE=216 给上行 SLOOP 标题与下行层键提示留位：组行右端
- * 1,048（≤1,064 = 1,280−216）；子行右端 928，提示盒从 936 起，宽度封顶 +
- * 省略号截断，绝不压到子签。 */
-#define UI_TAB_X0  16
-#define UI_TAB_GAP 8
-#define UI_TAB_RIGHT_RESERVE 216
-#define UI_GROUP_W 122
-#define UI_GROUP_H 32
-#define UI_GROUP_Y 4
-#define UI_SUB_W   176
-#define UI_SUB_H   30
-#define UI_SUB_Y   38
-/* 单组成员上限 = 子行可容纳的子签数：5 张（5×176+4×8=912，右端 928；
- * 层提示盒从 936 起）。组内加第 6 页须先拆分组的布局决策（ADR-005 §2）。 */
-#define UI_GROUP_MAX 5
-_Static_assert(UI_TAB_X0 + UI_GROUP_MAX * (UI_SUB_W + UI_TAB_GAP) - UI_TAB_GAP <=
-                   UI_W - UI_TAB_RIGHT_RESERVE,
-               "子签槽位超出行宽（与右侧层提示重叠）");
-/* 组签槽位：宽度按组数取（§2 的 min(176, …) 结果），右端不得越过 reserve 线
- * （SLOOP 标题从 ~1,191 起；8 组时右端 1,048）。 */
-_Static_assert(UI_TAB_X0 + (SLOOP_UI_GROUPS * (UI_GROUP_W + UI_TAB_GAP)) - UI_TAB_GAP <=
-                   UI_W - UI_TAB_RIGHT_RESERVE,
-               "组签槽位超出行宽（与右侧 SLOOP 标题重叠）");
 
 /* 四轨主题色（track 0..3 = 蓝/绿/黄/橙，同时是鼓轨第四行色） */
 static inline uint32_t ui_track_color(uint8_t k)

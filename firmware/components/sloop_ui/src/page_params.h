@@ -9,6 +9,11 @@
  * 引擎页只在「选中轨的引擎 = 页声明的引擎」时可编辑（否则显示 --，避免用 ANALOG 的
  * label 写另一个引擎的槽位）；鼓轨不适用引擎页。
  *
+ * chip 页（P4-F Task 4）：布局表 chip_count ≥ 2 的页有 chip 行，8 个旋钮对象常驻，
+ * 切 chip 零分配重配；选中 chip 是页内 UI 局部态（page_params_chip_get/set 与 chip 行、
+ * console `UI <page> CHIP` 共用）。鼓轨规则逐槽：未标 drum_ok 的槽显示 --、拒绝编辑。
+ * sloop_ui.h 的 sloop_ui_param_chip_* 是加锁外壳。
+ *
  * 线程：build/update/tap 由 ui.c 在 LVGL 锁内调用；键盘路由（sloop_ui_param_*）不取
  * LVGL 锁，焦点用临界区保护，调值经状态层、控件刷新交给 30ms UI 定时器。
  */
@@ -43,6 +48,18 @@ const char *page_params_bank_status_text(uint8_t index);
  * 复用 theme.h 的 ui_sample_status_text（`SET U<n>` / `ERASE OK` / `STOP BEFORE ERASE` /
  * `NO STORAGE` / `ERASE ERROR`）。不取 LVGL 锁（读 UI 局部态 + 状态层快照）。 */
 const char *page_params_sample_status_text(uint8_t index);
+
+/* chip 页的生效 chip（读：条件 chip 隐藏时 = 夹后的首个可见 chip）。不取 LVGL 锁。 */
+uint8_t page_params_chip_get(uint8_t index);
+/* 写 chip 选择：**调用方已持 LVGL 锁**（已建页立即重配刷新）。非 chip 页/越界 =
+ * ESP_ERR_INVALID_ARG；条件 chip 在当前上下文隐藏 = ESP_ERR_NOT_ALLOWED（不改选择）。 */
+esp_err_t page_params_chip_set(uint8_t index, uint8_t chip);
+/* 槽位是否锁定（引擎页不适用/鼓轨逐槽规则/槽不存在）；chip 越界 = 锁定。不取 LVGL 锁。 */
+/* 槽位诊断（console 逐槽行）：绝对 id / 旋钮正在显示的名称（"-" = 无）/ 是否锁定。
+ * 槽不存在回 false。不取 LVGL 锁。 */
+bool page_params_slot_info(uint8_t index, uint8_t chip, uint8_t slot, uint8_t *id,
+                           const char **label, bool *locked);
+bool page_params_slot_locked(uint8_t index, uint8_t chip, uint8_t slot);
 
 /* 调试注入（console `UI KNOB`）：向**当前**参数页第 slot 槽旋钮派发合成
  * PRESSED/PRESSING（dx/dy 相对旋钮中心），走与物理触摸相同的处理路径。

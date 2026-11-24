@@ -396,9 +396,9 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 15 页顺序：PLAY→TRACKS→
-         * GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→
-         * PRESETS→SYSTEM→PLAY，跳过未注册页）。
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 18 页顺序：PLAY→TRACKS→
+         * ANALOG→FM6→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+         * SONG→PROJECTS→PRESETS→SYSTEM→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
         uint8_t next = sloop_ui_page_order_next(sloop_ui_current_page());
@@ -430,7 +430,8 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_FILE_LOAD:
         /* enter：SYSTEM 页 = 焦点行 +1/切换；STEP 页 = 切换聚焦步的选中 drum lane 位；
          * FILE 页 = LOAD 选中槽；TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；
-         * SONG 页 = LOAD 选中 section。其它页保持无动作。 */
+         * SONG 页 = LOAD 选中 section；参数页 = 焦点槽 +1（P4-F Task 4；锁定槽无动作）。
+         * 其它页保持无动作。 */
         if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_step_page_active()) {
@@ -441,6 +442,8 @@ static void dispatch(const key_binding_t *b, bool down)
             sloop_ui_transport_adjust(1);
         } else if (sloop_ui_song_page_active()) {
             sloop_ui_song_load();
+        } else if (sloop_ui_param_page_active()) {
+            sloop_ui_param_adjust(1);
         }
         break;
     case ACT_FOCUS_TRACK:

@@ -3,14 +3,16 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示），下行当前
- * 组的子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
+ * PLAY|TRACKS|EDIT|MIX|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示；组表
+ * = ui_nav.h 的 UI_GROUP_LIST，P4-F Task 4 起 9 组 104px），下行当前组的子签
+ * （y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
- * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
+ * ANALOG|FM6|MOD|SCALE|VOICE（EDIT 组）与 MIX 组的 GLOBAL|FX（page_params.c + knob.c，
+ * 布局表 page_layout.c；MOD/SCALE/VOICE 是 chip 页，P4-F Task 4）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
  * page_presets.c，P4-B Task 12）/ SYSTEM（page_system.c，P4-E Task 6）都在组表
@@ -123,22 +125,17 @@ typedef struct {
     uint8_t pages[UI_GROUP_MAX];
 } ui_group_t;
 
-static const ui_group_t k_groups[] = {
-    {"PLAY", 1, {APP_PAGE_PLAY}},
-    {"TRACKS", 1, {APP_PAGE_TRACKS}},
-    {"EDIT", 4, {APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6}},
-    /* SYNTH（P4-D Task 8）：SAMPLE 参数页从 EDIT 移入，与 DSYN/FM6P 同组；
-     * EDIT 因此缩为 4 页（Σest 16,896），SYNTH Σest 20,480（ADR-005 §5）。 */
-    {"SYNTH", 3, {APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P}},
-    {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
-    {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
-    {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
-    {"SYS", 1, {APP_PAGE_SYSTEM}},
-};
+/* 组表由 ui_nav.h 的 UI_GROUP_LIST 生成（一处定义；host 单测校验顺序/成员/每页可达）：
+ * X(名, 成员页 id…)，成员数 = 实参数。 */
+#define UI_NAV_NARG(...) UI_NAV_NARG_(__VA_ARGS__, 5, 4, 3, 2, 1, 0)
+#define UI_NAV_NARG_(a, b, c, d, e, n, ...) n
+#define X_GROUP(NAME, ...) \
+    {.name = #NAME, .count = (uint8_t)UI_NAV_NARG(__VA_ARGS__), .pages = {__VA_ARGS__}},
+static const ui_group_t k_groups[] = {UI_GROUP_LIST(X_GROUP)};
 
 #define GROUP_COUNT ((uint8_t)(sizeof(k_groups) / sizeof(k_groups[0])))
-_Static_assert(sizeof(k_groups) / sizeof(k_groups[0]) == SLOOP_UI_GROUPS,
-               "组表与 SLOOP_UI_GROUPS 不同步");
+_Static_assert(GROUP_COUNT == SLOOP_UI_GROUPS, "组表与 SLOOP_UI_GROUPS 不同步");
+_Static_assert(GROUP_COUNT == UI_GROUP_COUNT, "组表与 UI_GROUP_COUNT 不同步");
 
 static const ui_page_t *s_registry[APP_STATE_PAGES];
 static uint8_t s_reg_count;
@@ -585,7 +582,7 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 GROUP_COUNT 槽（8 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（9 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
@@ -597,7 +594,7 @@ static bool create_tab_bar(void)
         s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
-    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 4 页，
+    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 5 页，
      * SYNTH 3 页） */
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_t *btn = make_tab_button(bar, UI_SUB_W, UI_SUB_H, sub_clicked_cb,
@@ -609,7 +606,7 @@ static bool create_tab_bar(void)
         s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（8 个组签右端 1,048；标题从 ~1,191 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（9 个组签右端 1,016；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
     s_title = title;
@@ -667,9 +664,9 @@ static void register_builtin_pages(void)
                      esp_err_to_name(ret));
         }
     }
-    /* 参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE…）：布局表与注册表条目同源（page_layout.c
-     * 的 X 宏表）。注册顺序只决定 `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[]
-     * 决定（EDIT 组的子签顺序 = GLOBAL|FX|ANALOG|FM6|SAMPLE） */
+    /* 参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE + chip 页 MOD/SCALE/VOICE）：布局表与注册表
+     * 条目同源（page_layout.c 的 X 宏表，注册胶水在 page_params.c）。注册顺序只决定
+     * `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[] 决定 */
     esp_err_t ret = page_layout_register();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "参数页注册失败: %s", esp_err_to_name(ret));
@@ -1101,6 +1098,49 @@ uint8_t sloop_ui_page_order_next(uint8_t page)
 uint8_t sloop_ui_current_page(void)
 {
     return s_started ? s_page : 0xFF;
+}
+
+/* 参数页 chip 框架（P4-F Task 4）：页 id → 布局表下标的薄外壳；逻辑都在 page_params.c。 */
+bool sloop_ui_param_page(uint8_t page)
+{
+    return page < APP_STATE_PAGES && page_layout_index(page) >= 0;
+}
+
+uint8_t sloop_ui_param_chip_count(uint8_t page)
+{
+    int idx = page_layout_index(page);
+    const param_page_t *pg = idx >= 0 ? page_layout_get((uint8_t)idx) : NULL;
+    return pg != NULL ? pg->chip_count : 0u;
+}
+
+esp_err_t sloop_ui_param_chip_set(uint8_t page, uint8_t chip)
+{
+    int idx = page_layout_index(page);
+    if (idx < 0) return ESP_ERR_INVALID_ARG;
+    if (!s_started || s_quiesced) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_params_chip_set((uint8_t)idx, chip);
+    bsp_display_unlock();
+    return ret;
+}
+
+uint8_t sloop_ui_param_chip_get(uint8_t page)
+{
+    int idx = page_layout_index(page);
+    return idx >= 0 ? page_params_chip_get((uint8_t)idx) : 0u;
+}
+
+bool sloop_ui_param_slot_locked(uint8_t page, uint8_t chip, uint8_t slot)
+{
+    int idx = page_layout_index(page);
+    return idx < 0 || page_params_slot_locked((uint8_t)idx, chip, slot);
+}
+
+bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t *id,
+                              const char **label, bool *locked)
+{
+    int idx = page_layout_index(page);
+    return idx >= 0 && page_params_slot_info((uint8_t)idx, chip, slot, id, label, locked);
 }
 
 /* FILE 页路由（InputManager 调用，不取 LVGL 锁）：只读单字节 s_page（与
