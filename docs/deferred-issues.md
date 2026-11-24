@@ -287,3 +287,15 @@
 | **触发条件** | SYSTEM 页需要可用的 HEADPHONE 选项时；或人测报告扬声器底噪偏大 / 单声道不可接受时。(c) 在硬件旁做听音时顺手完成，完成后从本条删除。 |
 | **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定）。已封存的证据包（如 `docs/dev/verify/4-pc-2026-11-22/`、`1-bringup-2026-11-19/`）里的 `DI-6` 是历史编号（R18：证据包不可变），即指本条 |
 | **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |
+
+## DI-43: 内部堆余量仅 4KB（SELFTEST worker 16KB 栈常驻）+ 平台设置的两处未验证项
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-E 修复轮固件（`86711a4`，终审时的 HEAD 固件同构）的 1800s soak `internal_min` = **65,536B**，§5.5 门限 61,440B（60KB）⇒ 余量恰 **4,096B**；P4-D 同口径为 83,780B。P4-D→P4-E 少的 ~18KB 里，**SELFTEST chip 的 worker 占 16KB**：`sys_selftest.c` 的 `SYS_SELFTEST_STACK 16384`，`main.c` 在 UI 启动后 `xTaskCreate` 一次、之后 forever `vTaskDelay` 等 `CMD_SELFTEST_RUN`（栈与 TCB 常驻内部堆；`.noinit` 标记让它每 boot 只真正跑一次）。**刻意**在开机创建（任何泄漏之前）：这样栈落在内部 L2MEM；放到请求时再创建，DI-26 泄漏之后可能落到 LP SRAM（DI-40 的同款坑）。其余差额按终审笔记归 NVS（平台设置三键；推断，未逐项量测）。**同条登记终审 triage 的两项平台设置遗留**：(a) 播放中写 xrun 的用例只测亮度（LEDC），**VOLUME**（codec 互斥 + I2C）与 **NVS commit** 在流式期间的 xrun 影响没有机读覆盖——1s 任务的静默窗口会让 NVS 提交避开发声，但窗口判定（`audio_quiet`）与提交之间没有 codec 静音；(b) 键盘 RGB 颜色缓冲 `0x60..` 的字节序 **B,G,R** 取自 M5Tab5-Keyboard-Internal-FW 的寄存器语义，console `KBD RGB` 只发白色 `0xFFFFFF`，字节序错了机器看不出来（accent 为黄/品红/青时才会显色差）。 |
+| **影响面** | 余量：任何新增的常驻内部 RAM（P4-F 的 USB host / USB-MIDI / 联动协议缓冲几乎必然要内部 DMA 内存）都可能把 soak 的 heap floor 顶穿；soak 门限本身不改。平台设置：(a) 只在「播放中调音量」这个用户路径上可能有可听的爆音/xrun，未观测到；(b) 只影响键盘灯颜色（亮度档位与开关已机读覆盖）。 |
+| **为何可延迟** | 当前固件 soak PASS（xrun 0、min 65,536B ≥ 门限），没有功能性缺陷；worker 栈的高水位需要真跑一次全量自检才能量到（本轮修复波已占用设备门禁窗口）。平台设置两项是人测可兜底的可见性问题。 |
+| **解决方向** | (1) worker 跑完后用 `uxTaskGetStackHighWaterMark(NULL)` 打印高水位并写进 `STATE SNAP`/worker 日志，按实测（预期远小于 16KB，console 任务栈的量级）下调 `SYS_SELFTEST_STACK`，或改成开机只占 TCB、栈在请求时用 `INTERNAL\|DMA` 显式分配（与 ADR-007 音频任务栈同法，避开 DI-26 的落点问题）。(2) **P4-F 动工前重估 soak floor**：按 USB host/MIDI 的实际常驻量重新定 60KB 门限或明确记为「联动模式下不适用」。(3) xrun：给 `sys` ③ 的播放中 20 次写加 VOLUME 变化（0↔70）+ `ENG PERF` 3s 窗口 xrun 增量 = 0 的断言，并在播放中制造一次 NVS dirty 后的提交（或直接在 `sloop_hal_settings_flush` 的 commit 前后取 xrun 计数打印）；若测到 xrun，commit 期间做 codec 静音或把提交挪到停流窗口。(4) 键盘字节序：console 加 `KBD RGB RGB <r> <g> <b>`（或 `KBD RGB PROBE`）发纯红/纯绿，配合屏上色块截图做人眼对照；或读回键盘 FW 的颜色缓冲寄存器（若协议支持回读）。 |
+| **触发条件** | (1)(2) P4-F 第一个涉及 USB host/MIDI 的任务开工前（新增内部 RAM 分配之前）；soak 的 `internal_min` 低于 ~62KB 时立即处理。(3)(4) 用户报告播放中调音量有爆音，或键盘灯颜色与屏上 accent 不一致。 |
+| **参考** | `firmware/main/sys_selftest.c`（`SYS_SELFTEST_STACK`、worker 循环）、`firmware/main/main.c`（`sys_selftest_start` 调用点）、`scripts/soak.py`（`HEAP_FLOOR`）、`docs/dev/verify/4-pe-2026-11-23/fix-soak-summary.txt`（min 65,536B）、ADR-007（音频任务栈的 L2MEM 分配）、DI-26（全量自检堆泄漏）、`firmware/components/sloop_hal_tab5/src/sys_settings.c`（`sloop_hal_settings_flush`）、`firmware/components/tab5_keyboard`（`tab5_keyboard_rgb_set`）、P4-E spec §5 D2/D9 |
+| **登记** | 2026-11-24（P4-E 整分支终审 I3；合并 triage 的 M10 余项与键盘字节序） |
