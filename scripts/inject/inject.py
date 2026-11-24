@@ -3220,6 +3220,8 @@ TR_CFG_TOKEN = ("quant", "mode", "start")
 TR_UNDO = (1048 + 42, 72 + 360 + 28)    # UNDO chip（84 宽）
 # STEP 页 EDIT 层步工具键（input_map.h / ADR-006）：Aa 0x31 按住 + k 0x39 / l 0x3A / 9 0x09
 KEY_AA, KEY_K, KEY_L, KEY_9 = 0x31, 0x39, 0x3A, 0x09
+INPUT_STACK_FLOOR = 2048         # 输入任务栈（8,192B）的最小余量门禁（R13）
+P_SLEN = 29                      # 上游 P_SLEN：LEN 之外的聚焦步不可锁/不可设条件（R12）
 
 
 def wait_playing(s: Session, want: int, label: str, timeout: float = 2.5) -> None:
@@ -3273,6 +3275,32 @@ def ensure_step_on(s: Session, track: int, col: int) -> dict:
     return e
 
 
+def ensure_step_on2(s: Session, track: int, col: int):
+    """ensure_step_on 的变体：返回 (ENG STEP 全字段, 是否由本次 TAP 新建)。"""
+    before = eng_step(s, track, col)
+    e = ensure_step_on(s, track, col)
+    return e, not (before["n"] > 0 and before["time"] == 0)
+
+
+def param_input_stack(s: Session) -> None:
+    """`KEY STATS` 的输入任务栈余量断言（R13）。**该读数只在物理按键走过深路径后才会下降**：
+    console 的 `KEY` 注入跑在 console 任务上，量不到 input 任务的栈。`phys` = input 任务自己
+    从键盘轮询派发的事件数；phys == 0 表示本轮没有任何物理按键，读数只说明轮询循环很浅——
+    此时显式跳过（记 note，不计 PASS），不得当作通过。"""
+    s.cmd("KEY STATS")
+    m = re.search(r"input_stack_free=(\d+) phys=(\d+)", s.last)
+    if m is None:
+        s.fail("KEY STATS 缺少 input_stack_free=/phys= 字段")
+        return
+    free, phys = int(m.group(1)), int(m.group(2))
+    if phys == 0:
+        s.ser.note(f"输入任务栈断言跳过：KEY STATS phys=0（本轮没有物理按键，input_stack_free="
+                   f"{free}B 只是轮询循环的读数；需人手按一次 Aa+k 等深路径后再读）")
+        return
+    (s.ok if free >= INPUT_STACK_FLOOR else s.fail)(
+        f"输入任务栈最小余量 input_stack_free={free}B（phys={phys} 个物理事件之后；≥{INPUT_STACK_FLOOR}）")
+
+
 def param_rec_config(s: Session) -> None:
     """TRANSPORT 的 REC 配置行：三格 TAP = 整份 CMD_REC_CONFIG（只翻转自己那一项）、
     文本/底色像素、格间缝 TAP miss、诊断冻结拒绝。三项在结束时回到起始值。"""
@@ -3321,7 +3349,9 @@ def param_rec_config(s: Session) -> None:
 
 def param_step_keys(s: Session) -> None:
     """STEP 页 EDIT 层步工具：MOD 页经 TAP 改参数 ⇒ last_param；Aa+k 锁到聚焦步、Aa+l 解锁、
-    Aa+9 循环 fill 条件；不可锁参数 ⇒ NOT LOCKABLE；空步 ⇒ NO STEP。"""
+    Aa+9 循环 fill 条件；不可锁参数 ⇒ NOT LOCKABLE；只有 TIE 的步同样可锁（R12）；本轨 LEN
+    之外的步 ⇒ NO STEP（R12）；诊断冻结下加锁/解锁都回 FROZEN（锁保持）。本段新建的音符在
+    收尾撤掉（只撤销自己建的）。"""
     s.ser.note("⑪ STEP 键盘参数锁 / fill 条件（Aa+k / Aa+l / Aa+9）")
     select_track(s, 0)
     ensure_window(s, 0, 16)
@@ -3347,7 +3377,7 @@ def param_step_keys(s: Session) -> None:
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "⑪ UI step")
     nav_set_focus(s, 0, 5)
-    ensure_step_on(s, 0, 5)
+    st5, created5 = ensure_step_on2(s, 0, 5)
     s.cmd(f"PARAM {pid}")
     lock_v = param_value(s)
     s.cmd("KEY 0x%02X down" % KEY_AA)
@@ -3397,19 +3427,86 @@ def param_step_keys(s: Session) -> None:
     s.expect(r"SEQ LOCK LIST track=0 count=0", "⑪ NOT LOCKABLE 不留锁")
     s.cmd("PARAM 28 %d" % trans)
     param_expect_value(s, "PARAM 28", trans, "⑪ P_TRANS 回基线")
+
+    def touch_atk():
+        """把 last_param 摸回可锁的 ATK（P_ATK=1）：上一段改 P_TRANS 之后 last_param 是它——
+        那次写能生效（有描述符），只是不可锁。"""
+        s.cmd("PARAM 1 5")
+        s.expect(r"PARAM track=0 id=1 value=5 applied=5 ", "⑪ 再改一次 ATK（last_param 回到可锁参数）")
+        s.cmd("PARAM 1 0")
+        param_expect_value(s, "PARAM 1", 0, "⑪ ATK 回基线")
+
+    # R12：只有 TIE 的步（n>0、time=TIE，不是 NOTE）同样在锁的范围内（上游 held-step 循环
+    # 只要求 idx < trk_len）：把步 8 的音拉成 3 步 TIE 链，聚焦到 TIE 步 9 再锁。
+    touch_atk()
+    _, created8 = ensure_step_on2(s, 0, 8)
+    s.cmd("SEQ EDIT SPAN 0 8 3")
+    s.expect(r"SEQ EDIT SPAN track=0 step=8 OK", "⑪ 步 8 拉成 3 步 TIE 链")
+    tie = eng_step(s, 0, 9)
+    # TIE 步的编码：time=TIE(1)、n=0（上游 note_set_len 对延续步 memset 后只置 time）
+    (s.ok if tie["n"] == 0 and tie["time"] == 1 else s.fail)(
+        f"⑪ 前提：步 9 是 TIE（n={tie['n']} time={tie['time']}）")
+    nav_set_focus(s, 0, 9)
+    s.cmd("KEY 0x%02X down" % KEY_K)
+    s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="LOCKED {re.escape(label)}"',
+             "⑪ 只有 TIE 的步也可以加锁（R12）")
+    s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(rf"SEQ LOCK step=9 param={pid} ", "⑪ TIE 步的锁在锁表里（step=9）")
+    s.cmd("KEY 0x%02X down" % KEY_L)
+    s.expect(rf'KEY 0x{KEY_L:02X} down l elapsed_us=\d+ step="UNLOCKED"', "⑪ TIE 步解锁")
+    s.cmd("KEY 0x%02X up" % KEY_L)
+    s.cmd("SEQ EDIT SPAN 0 8 1")
+    s.expect(r"SEQ EDIT SPAN track=0 step=8 OK", "⑪ TIE 链收回 1 步")
+
+    # 诊断冻结：加锁与解锁都回 FROZEN，且不查锁表（否则解锁会被误报成 NO LOCK）、锁保持
+    touch_atk()
+    nav_set_focus(s, 0, 5)
+    s.cmd("KEY 0x%02X down" % KEY_K)
+    s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="LOCKED {re.escape(label)}"', "⑪ 冻结前加锁")
+    s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("ENG FREEZE ON")
+    for key, name in ((KEY_L, "l"), (KEY_K, "k")):
+        s.cmd("KEY 0x%02X down" % key)
+        s.expect(rf'KEY 0x{key:02X} down {name} elapsed_us=\d+ step="FROZEN"', f"⑪ 冻结：Aa+{name} ⇒ FROZEN")
+        s.cmd("KEY 0x%02X up" % key)
+    s.cmd("ENG FREEZE OFF")
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(rf"SEQ LOCK step=5 param={pid} ", "⑪ 冻结期间锁没有被解锁（解冻后仍在）")
+    s.cmd("KEY 0x%02X down" % KEY_L)
+    s.expect(rf'KEY 0x{KEY_L:02X} down l elapsed_us=\d+ step="UNLOCKED"', "⑪ 解冻后解锁")
+    s.cmd("KEY 0x%02X up" % KEY_L)
+
+    # R12：本轨 LEN 之外的聚焦步 ⇒ NO STEP、不调引擎（不管该步有没有音）
+    s.cmd("PARAM %d" % P_SLEN)
+    slen = param_value(s)
+    s.cmd("PARAM %d 8" % P_SLEN)
+    s.expect(r"PARAM track=0 id=29 value=8 applied=8 ", "⑪ LEN 临时改为 8")
+    nav_set_focus(s, 0, 10)
+    s.cmd("KEY 0x%02X down" % KEY_K)
+    s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="NO STEP"', "⑪ LEN 之外的步 ⇒ NO STEP（R12）")
+    s.cmd("KEY 0x%02X up" % KEY_K)
+    s.cmd("KEY 0x%02X down" % KEY_9)
+    s.expect(rf'KEY 0x{KEY_9:02X} down 9 elapsed_us=\d+ step="NO STEP"', "⑪ LEN 之外的步 ⇒ FILL 也 NO STEP")
+    s.cmd("KEY 0x%02X up" % KEY_9)
+    s.cmd("PARAM %d %d" % (P_SLEN, slen))
+    param_expect_value(s, "PARAM %d" % P_SLEN, slen, "⑪ LEN 回基线")
+    s.cmd("SEQ LOCK LIST 0")
+    s.expect(r"SEQ LOCK LIST track=0 count=0", "⑪ 本段收尾：轨 0 无锁")
     # 空步：先找一个没音的列并把焦点移过去
-    empty = next((c for c in range(16)
-                  if not (eng_step(s, 0, c)["n"] > 0 and eng_step(s, 0, c)["time"] == 0)), None)
-    if empty is None:
-        s.fail("⑪ 找不到空步（前提不成立）")
-    else:
-        nav_set_focus(s, 0, empty)
-        s.cmd("KEY 0x%02X down" % KEY_K)
-        s.expect(rf'KEY 0x{KEY_K:02X} down k elapsed_us=\d+ step="NO STEP"', "⑪ 空步 ⇒ NO STEP")
-        s.cmd("KEY 0x%02X up" % KEY_K)
     s.cmd("KEY 0x%02X up" % KEY_AA)
     s.cmd("STATE SNAP")
     s.expect_int(r"layer_held=0x([0-9A-Fa-f]+)", 0, "⑪ Aa 松开后 layer_held=0")
+    # 撤掉本段自己建的音符（step 8 的 TIE 链已收回；只清「原本没有、由本段 TAP 建出」的步）
+    nav_set_focus(s, 0, 8)
+    if created8:
+        s.cmd("TAP %d %d" % step_cell_xy(8, 0))
+        s.expect(r"-> STEP track=0 step=8 CMD_TOGGLE_STEP", "⑪ 撤掉本段在步 8 建的音")
+    nav_set_focus(s, 0, 5)
+    if created5:
+        s.cmd("TAP %d %d" % step_cell_xy(5, 0))
+        s.expect(r"-> STEP track=0 step=5 CMD_TOGGLE_STEP", "⑪ 撤掉本段在步 5 建的音")
+    param_input_stack(s)
 
 
 def param_tools(s: Session) -> None:
@@ -3419,10 +3516,11 @@ def param_tools(s: Session) -> None:
     槽 3 是同一个存储槽，故在捕获 D 之前先 LOAD 回快照，收口以 SECTION ERASE 清空该槽、
     歌曲顺序回默认。"""
     s.ser.note("⑪ TOOLS 页：两段式确认 / 走带守卫 / NEW（工程快照 → 槽 3，结束还原）")
+    # 先停走带再快照：SAVE/LOAD 在走带中都被存储层拒绝（STOP BEFORE …）
+    ensure_stopped(s)
     s.cmd("STORE PROJ SAVE 3")
     s.expect(r"PROJ 3 SAVED hash=", "⑪ 工作工程快照 → 诊断槽 3")
     h0 = live_hash(s)
-    ensure_stopped(s)
     select_track(s, 0)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
