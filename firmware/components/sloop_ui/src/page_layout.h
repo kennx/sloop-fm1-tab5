@@ -54,8 +54,18 @@ typedef struct {
     const char *title;
     uint32_t est_bytes;
     uint8_t chip_count; /* 有名 chip 数；0 = 旧式整页（生效 chip = chips[0]） */
+    uint8_t features;   /* PARAM_FEAT_* 位掩码：页眉/底部的附加行 */
     param_chip_t chips[PARAM_PAGE_CHIPS];
 } param_page_t;
+
+/* 页的附加行（P4-F Task 5；位掩码。建控件、TAP 命中表与可见性规则都读这几位，
+ * page_params.c 不再按页 id 例外）。 */
+#define PARAM_FEAT_SOUND    0x01u /* SOUND 页：页眉 ENGINE/PRESET 行（鼓轨 = 单行 KIT），
+                                   * 主体 = 选中轨引擎的 8 槽（TRACK scope 的 P_E0..P_E7） */
+#define PARAM_FEAT_BANK_FM6 0x02u /* 底部 bank 存取行（B1..B27 / SAVE / ERASE）：**仅**选中轨
+                                   * 为 FM6 引擎的合成轨时显示（A10）；其余引擎整行隐藏、
+                                   * TAP 落在该带 ⇒ miss */
+#define PARAM_FEAT_SAMPLE   0x04u /* 底部采样槽管理行（SAMPLE 页，P4-D Task 8） */
 
 /* 参数页数（布局表条目数；页 id 不要求连续——MOD/SCALE/VOICE 追加在 app_page_t 末尾） */
 #define PARAM_PAGE_COUNT 8
@@ -131,6 +141,59 @@ static inline int page_layout_visible_chip_at(const param_page_t *pg, uint8_t n,
         n--;
     }
     return -1;
+}
+
+/* ---- SOUND 页（P4-F Task 5，spec §4 / A10）-------------------------------------------
+ * 页眉行是**三区对象**（同 DSYN 的 LANE / FM6P 的 BANK：左右各 SOUND_ROW_ZONE 像素是
+ * ∓1 区、中段是标签）。合成轨两行：row 0 = ENGINE、row 1 = PRESET；鼓轨一行：row 0 = KIT
+ * （写鼓轨的 P_E0，上游 DRUMS 屏 KNOB 1）。几何是纯数据：建控件、自绘与 TAP 命中同源。
+ * 中段的列：`−` 居中于左区；行名（ENGINE/PRESET/KIT）左对齐起于 SOUND_ROW_TEXT_X；名字
+ * 右对齐止于行右缘 − SOUND_ROW_ZONE − 12（page_layout_sound_name_x 起的列宽须放得下上游
+ * 最长的名字：引擎 7 / 预置 10 / kit 8 字符，按 11px/字符的保守上界，host 单测钉住）。 */
+#define SOUND_ROW_Y     4
+#define SOUND_ROW_H     32
+#define SOUND_ROW_ZONE  42
+#define SOUND_ROW_TEXT_X 54   /* = 区宽 42 + 12 */
+#define SOUND_ROW_NAME_R 54   /* 名字列右缘 = 行右缘 − 54（区宽 42 + 12） */
+static inline int16_t page_layout_sound_row_x(uint8_t row)
+{
+    return row == 0u ? 16 : 320;
+}
+static inline int16_t page_layout_sound_row_w(uint8_t row)
+{
+    return row == 0u ? 288 : 384;
+}
+/* 行名长度（`ENGINE` / `PRESET` / `KIT`）与名字列的左缘（对象内相对坐标） */
+static inline uint8_t page_layout_sound_row_label_len(uint8_t row, bool drum)
+{
+    return row == 0u ? (drum ? 3u : 6u) : 6u;
+}
+static inline int16_t page_layout_sound_name_x(uint8_t row, bool drum)
+{
+    return (int16_t)(SOUND_ROW_TEXT_X + 11 * page_layout_sound_row_label_len(row, drum) + 8);
+}
+/* 页眉行数：合成轨 2（ENGINE + PRESET）/ 鼓轨 1（KIT 取代两行）。 */
+static inline uint8_t page_layout_sound_rows(bool drum)
+{
+    return drum ? 1u : 2u;
+}
+/* 页眉上下文行（`SOUND · TRACK n`）的左缘 = 最后一行右侧 + 16。 */
+static inline int16_t page_layout_sound_header_x(bool drum)
+{
+    uint8_t last = (uint8_t)(page_layout_sound_rows(drum) - 1u);
+    return (int16_t)(page_layout_sound_row_x(last) + page_layout_sound_row_w(last) + 16);
+}
+static inline bool page_layout_is_sound(const param_page_t *pg)
+{
+    return pg != NULL && (pg->features & PARAM_FEAT_SOUND) != 0u;
+}
+/* 底部 bank 行是否显示：带该行的页 + 合成轨 + 引擎为 FM6（上游 engines.c ENGINES[9]）。
+ * 鼓轨与其余引擎 ⇒ 整行隐藏（对象常驻，零分配显隐）。 */
+#define PARAM_ENGINE_FM6 9u
+static inline bool page_layout_bank_row_visible(const param_page_t *pg, bool drum, uint8_t engine)
+{
+    return pg != NULL && (pg->features & PARAM_FEAT_BANK_FM6) != 0u && !drum &&
+           engine == PARAM_ENGINE_FM6;
 }
 
 /* 鼓轨逐槽规则（012 §3）：全局参数与标了 drum_ok 的槽在鼓轨上仍可编辑，其余槽锁定。 */

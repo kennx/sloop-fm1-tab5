@@ -485,9 +485,10 @@ static void case_layout_pages(void)
         APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
         APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
     };
-    static const char *const titles[PARAM_PAGE_COUNT] = {"GLOBAL", "FX",  "ANALOG", "FM6",
+    static const char *const titles[PARAM_PAGE_COUNT] = {"GLOBAL", "FX",  "SOUND",  "FM6",
                                                           "SAMPLE",  "MOD", "SCALE",  "VOICE"};
-    static const uint32_t ests[PARAM_PAGE_COUNT] = {3584, 3584, 3584, 6144, 6144, 0, 0, 0};
+    static const uint32_t ests[PARAM_PAGE_COUNT] = {3584, 3584, 6144, 6144, 6144, 0, 0, 0};
+    check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
     check_ll("MOD id", APP_PAGE_MOD, 15);
     check_ll("SCALE id", APP_PAGE_SCALE, 16);
     check_ll("VOICE id", APP_PAGE_VOICE, 17);
@@ -531,6 +532,8 @@ static void case_layout_integrity(void)
                  pg->chip_count == 0 || (pg->chip_count >= 2 && pg->chip_count <= PARAM_PAGE_CHIPS),
                  1);
         uint8_t named = page_layout_chip_count(pg);
+        check_ll("features 只用已定义的位",
+                 (pg->features & ~(uint8_t)(PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_SAMPLE)) == 0, 1);
         if (pg->chip_count == 0) {
             check_ll("旧式页 chips[0] 无名", pg->chips[0].name == NULL, 1);
             check_ll("旧式页生效 chip 数", named, 1);
@@ -559,7 +562,16 @@ static void case_layout_integrity(void)
                 check_ll("id 合法", sl->id < SLOOP_CORE_P_COUNT, 1);
                 switch (sl->scope) {
                 case SLOOP_DESC_TRACK:
-                    check_ll("TRACK id < P_E0", sl->id < tP_E0, 1);
+                    /* 轨道参数 id < P_E0；例外只有 SOUND 页的 8 个引擎槽 P_E0..P_E7
+                     * （经 sloop_core_desc_track_live 取选中轨引擎的描述符） */
+                    check_ll("TRACK id < P_E0（或 SOUND 页的引擎槽）",
+                             sl->id < tP_E0 ||
+                                 ((pg->features & PARAM_FEAT_SOUND) != 0 && sl->id <= tP_E7),
+                             1);
+                    if (sl->id >= tP_E0) {
+                        check_ll("引擎槽只在 SOUND 页", pg->page_id, APP_PAGE_ANALOG);
+                        check_ll("引擎槽鼓轨锁定（旋钮区锁，kit 走页眉 KIT 行）", sl->drum_ok, 0);
+                    }
                     break;
                 case SLOOP_DESC_GLOBAL:
                     check_ll("GLOBAL id < G_COUNT", sl->id < SLOOP_CORE_G_COUNT, 1);
@@ -614,6 +626,84 @@ static void case_layout_content(void)
             check_ll("GLOBAL scope", g->chips[0].slots[k].scope, SLOOP_DESC_GLOBAL);
         }
     }
+}
+
+/* SOUND 页（P4-F Task 5）：主体 = 选中轨引擎的 8 槽（TRACK scope 的 P_E0..P_E7，经
+ * sloop_core_desc_track_live 取引擎钩子）、页眉 ENGINE/PRESET（鼓轨 KIT）、底部 bank 行
+ * 只在 FM6 引擎时出现（A10）。 */
+static void case_layout_sound(void)
+{
+    const param_page_t *snd = page_layout_get(page_layout_index(APP_PAGE_ANALOG));
+    const param_page_t *fx = page_layout_get(page_layout_index(APP_PAGE_FX));
+    const param_page_t *smp = page_layout_get(page_layout_index(APP_PAGE_SAMPLE));
+    const param_page_t *fm6 = page_layout_get(page_layout_index(APP_PAGE_FM6));
+    CHECK(snd != NULL && fx != NULL && smp != NULL && fm6 != NULL);
+    if (!snd || !fx || !smp || !fm6) return;
+    check_ll("SOUND 标题", strcmp(snd->title, "SOUND") == 0, 1);
+    check_ll("SOUND 是整页（无 chip 行）", snd->chip_count, 0);
+    check_ll("SOUND features", snd->features, PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6);
+    check_ll("page_layout_is_sound", page_layout_is_sound(snd), 1);
+    check_ll("is_sound(FX)", page_layout_is_sound(fx), 0);
+    check_ll("is_sound(NULL)", page_layout_is_sound(NULL), 0);
+    /* 8 槽 = P_E0..P_E7、TRACK scope、鼓轨锁定（旋钮区锁） */
+    for (uint8_t k = 0; k < PARAM_PAGE_SLOTS; k++) {
+        const param_slot_t *sl = page_layout_slot(&snd->chips[0], k);
+        CHECK(sl != NULL);
+        if (!sl) continue;
+        check_ll("SOUND slot id", sl->id, tP_E0 + k);
+        check_ll("SOUND slot scope", sl->scope, SLOOP_DESC_TRACK);
+        check_ll("SOUND slot drum_ok", sl->drum_ok, 0);
+        check_ll("SOUND slot 鼓轨锁", page_layout_slot_locked(sl, true), 1);
+        check_ll("SOUND slot 合成轨不锁", page_layout_slot_locked(sl, false), 0);
+    }
+    check_ll("SOUND 槽数", snd->chips[0].slot_count, PARAM_PAGE_SLOTS);
+    /* 只有 SOUND 页带 bank 行；SAMPLE 页保留槽管理行；其余页无附加行 */
+    for (uint8_t i = 0; i < PARAM_PAGE_COUNT; i++) {
+        const param_page_t *pg = page_layout_get(i);
+        check_ll("bank 行在 SOUND 页与（过渡期的）独立 FM6 页", (pg->features & PARAM_FEAT_BANK_FM6) != 0,
+                 pg == snd || pg == fm6);
+        check_ll("SOUND 页眉只在 SOUND 页", (pg->features & PARAM_FEAT_SOUND) != 0, pg == snd);
+        check_ll("槽管理行只在 SAMPLE 页", (pg->features & PARAM_FEAT_SAMPLE) != 0, pg == smp);
+    }
+    /* bank 行可见性（A10）：仅合成轨 + 引擎 FM6（上游 ENGINES[9]）；鼓轨与其余 11 个引擎隐藏 */
+    for (uint8_t e = 0; e < SLOOP_CORE_NENGINES; e++) {
+        check_ll("bank 行 = 仅 FM6 引擎", page_layout_bank_row_visible(snd, false, e), e == 9);
+    }
+    check_ll("bank 行 FM6 引擎常量", PARAM_ENGINE_FM6, 9);
+    check_ll("bank 行：鼓轨隐藏", page_layout_bank_row_visible(snd, true, 9), 0);
+    check_ll("bank 行：非 SOUND 页恒隐藏（即使引擎 FM6）", page_layout_bank_row_visible(fx, false, 9), 0);
+    check_ll("bank 行：NULL 页隐藏", page_layout_bank_row_visible(NULL, false, 9), 0);
+    /* 页眉行数：合成轨 2（ENGINE + PRESET），鼓轨 1（KIT 取代两行） */
+    check_ll("合成轨页眉行数", page_layout_sound_rows(false), 2);
+    check_ll("鼓轨页眉行数", page_layout_sound_rows(true), 1);
+    /* 页眉几何：两行同在页眉带（y=4..36，与 ± 按钮不重叠）、互不相交、右端 < 1096 */
+    int16_t prev_x1 = -1;
+    for (uint8_t r = 0; r < page_layout_sound_rows(false); r++) {
+        int16_t x = page_layout_sound_row_x(r), w = page_layout_sound_row_w(r);
+        check_ll("行 x 单调", x > prev_x1, 1);
+        check_ll("行宽 > 2×区宽", w > 2 * SOUND_ROW_ZONE, 1);
+        check_ll("行右端 < ± 按钮", x + w <= 1096, 1);
+        prev_x1 = (int16_t)(x + w);
+    }
+    check_ll("行 y", SOUND_ROW_Y, 4);
+    check_ll("行高", SOUND_ROW_H, 32);
+    check_ll("区宽 = DSYN LANE / FM6P BANK 同款", SOUND_ROW_ZONE, 42);
+    /* KIT 行复用第 0 行的矩形；上下文行（`SOUND · TRACK n`）在最后一行右侧 */
+    check_ll("KIT 行 = 第 0 行", page_layout_sound_row_x(0), 16);
+    check_ll("合成轨上下文 x", page_layout_sound_header_x(false), 720);
+    check_ll("鼓轨上下文 x", page_layout_sound_header_x(true), 320);
+    /* 名字列宽 = 行宽 − 名字列左缘 − 右留白 ≥ 11px × 上游最长名字（引擎 7 / 预置 10 /
+     * kit 8 字符；scripts/synth-test.sh 钉住上游名字长度）——按保守上界不溢出 */
+    check_ll("ENGINE 名字列宽", page_layout_sound_row_w(0) - page_layout_sound_name_x(0, false) -
+                                    SOUND_ROW_NAME_R >= 11 * 7, 1);
+    check_ll("PRESET 名字列宽", page_layout_sound_row_w(1) - page_layout_sound_name_x(1, false) -
+                                    SOUND_ROW_NAME_R >= 11 * 10, 1);
+    check_ll("KIT 名字列宽", page_layout_sound_row_w(0) - page_layout_sound_name_x(0, true) -
+                                 SOUND_ROW_NAME_R >= 11 * 8, 1);
+    check_ll("行名不与名字列重叠（ENGINE，最长名）",
+             page_layout_sound_name_x(0, false) <= SOUND_ROW_TEXT_X + 11 * 6 + 8 + 1, 1);
+    check_ll("上下文行宽 > 0", UI_W - 16 - page_layout_sound_header_x(false) > 0, 1);
+    check_ll("上下文行不压 ± 按钮", page_layout_sound_header_x(false) < 1096, 1);
 }
 
 /* 纯规则：条件 chip 可见性与鼓轨逐槽锁定。 */
@@ -733,6 +823,7 @@ int main(void)
     run("参数页布局表：页数/页 id/est 与 EDIT→STEP 账面", case_layout_pages);
     run("参数页布局表：chip 完整性（槽数/id/唯一名/枚举）", case_layout_integrity);
     run("参数页布局表：MOD/SCALE/VOICE/FX 槽位 = 012 §3", case_layout_content);
+    run("SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）", case_layout_sound);
     run("条件 chip 可见性与鼓轨逐槽锁定规则", case_layout_rules);
     run("九组导航：组表顺序/成员/18 页扁平轮转/104px 组签", case_nav_groups);
 

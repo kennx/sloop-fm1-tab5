@@ -218,11 +218,21 @@ typedef enum {
                               * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
     SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
                               * 动作后 store_status 的变化再由状态行/console 回显体现 */
-    SLOOP_TAP_BANK_SLOT,     /* FM6 页 bank 目标槽 ±：a=页 id（FM6）b=新槽号(0..26)
+    SLOOP_TAP_SOUND_ENGINE,  /* SOUND 页眉 ENGINE 行 ±（P4-F Task 5）：a=**写后回读**的引擎
+                              * 下标(0..11) d=±1 err=sound_status（1 OK / 2 INVALID / 3 FROZEN）。
+                              * 一条 CMD_SET_ENGINE（引擎默认值 + 预置 0）；名字由
+                              * `sloop_ui_sound_status_text` 同源的 console 回显给出。 */
+    SLOOP_TAP_SOUND_PRESET,  /* SOUND 页眉 PRESET 行 ±：a=写后回读的预置下标 d=±1
+                              * err=sound_status。一条 CMD_SET_PRESET（预置的整份声音）。 */
+    SLOOP_TAP_SOUND_KIT,     /* SOUND 页在**鼓轨**上的 KIT 行 ±：a=写后回读的 kit 号
+                              * (P_E0) d=±1 err=0 已下发（CMD_SET_PARAM）/ 3 FROZEN。
+                              * 鼓轨没有 ENGINE/PRESET 行。 */
+    SLOOP_TAP_BANK_SLOT,     /* SOUND 页 bank 目标槽 ±（仅选中轨引擎为 FM6 时行可见，其余
+                              * 引擎整行隐藏 ⇒ TAP miss）：a=页 id（SOUND）b=新槽号(0..26)
                               * d=±1。只改目标槽，不写存储/引擎 */
-    SLOOP_TAP_BANK_STORE,    /* FM6 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
+    SLOOP_TAP_BANK_STORE,    /* SOUND 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
                               * 动作结果由状态行/console 回显体现） */
-    SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
+    SLOOP_TAP_BANK_ERASE,    /* SOUND 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
     SLOOP_TAP_SAMPLE_SLOT,   /* SAMPLE 页槽管理行 U1..U4（P4-D Task 8）：a=页 id b=槽号(0..3)。
                               * 命中即把该槽写成 SET 宏（P_E0 = base + b，base 由 SAMPLE 的
                               * SET 描述符派生）经 CMD_SET_PARAM 下发；锁定页（选中轨引擎
@@ -338,7 +348,7 @@ void sloop_ui_file_slot_move(int8_t delta); /* ←/→：±1 槽位（环绕） 
 void sloop_ui_file_load(void);              /* ENTER：LOAD 选中槽 */
 const char *sloop_ui_file_status_text(void);
 
-/* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/ANALOG…）
+/* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/SOUND…）
  * 时 ←/→ 选槽、↑/↓ 调值，不再驱动 STEP 焦点/轨焦点。
  * 三个函数都不取 LVGL 锁（可在输入任务调用）：焦点是 UI 局部态（临界区保护），
  * 调值走状态层 CMD_SET_PARAM/CMD_SET_GLOBAL，页面控件由 30ms UI 定时器刷新。
@@ -350,9 +360,9 @@ void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓ 与 ENTER(+1)：±1 原
 /* 参数页 chip 框架（P4-F Task 4；布局表 page_layout.c，ADR-008 §8.9）：MOD/SCALE/VOICE
  * 等页由多个 chip 复用同一组 8 个旋钮，选中 chip 是**页内 UI 局部态**（chip 行、键盘
  * 与 console `UI <page> CHIP <n>` 共用；切 chip 零分配重配，下一个 30ms 拍落地）。
- * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/ANALOG/FM6/SAMPLE/
+ * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/SOUND/FM6/SAMPLE/
  *   MOD/SCALE/VOICE）；未启动前即可调用（只查表）。
- * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 旧式整页，无 chip 行）。
+ * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 整页，无 chip 行：SOUND/FM6/SAMPLE）。
  * - sloop_ui_param_chip_set(page, chip)：写选中 chip；越界/非 chip 页 =
  *   ESP_ERR_INVALID_ARG，条件 chip 在当前上下文隐藏 = ESP_ERR_NOT_ALLOWED（不改选择），
  *   另有 INVALID_STATE（UI 未启动/诊断期静默）、TIMEOUT（LVGL 锁超时）。
