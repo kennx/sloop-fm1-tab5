@@ -29,6 +29,14 @@ static void sys_selftest_task(void *arg)
         ESP_LOGE(TAG, "停音频流失败: %s", esp_err_to_name(ret));
         ok = false;
     } else {
+        /* 停流之后、自检之前先落盘（终审 I1）：自检的 restore 把引擎回滚到工厂态，收尾的
+         * resume/reload 以 flash 为准——不先写，最后一次自动存档之后（≤20s gap）的编辑与
+         * 1.5s/5s 延迟写窗口内的设置修改就丢了。流已停 ⇒ 擦写不会让渲染 xrun；停止态由
+         * chip 的 STOP FIRST 守卫保证，这里再由存储层拒绝一次。失败不阻断自检，只记日志
+         * （没写下去的部分随自检丢弃）。 */
+        esp_err_t fr = sloop_store_flush_all();
+        if (fr != ESP_OK)
+            ESP_LOGE(TAG, "自检前落盘失败: %s（未落盘的编辑/设置将丢失）", esp_err_to_name(fr));
         int rc = sloop_core_selftest(NULL);
         sloop_core_selftest_stats(&ran, &failed);
         if (rc != 0) ok = false;

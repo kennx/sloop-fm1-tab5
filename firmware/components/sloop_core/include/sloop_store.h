@@ -414,7 +414,9 @@ typedef struct {
  * 应用范围：core 只把 lowcut/reso/REC 三项写进上游 static；`lights_lvl` 只在 RAM 副本里
  * （键盘 RGB 是 UI 侧按投影驱动，spec R4）；palette/zoom/theme 同理由 UI 消费副本。
  * 自检：`sloop_core_selftest` 跑用例前把 `fx_lowcut`/`flt_reso` 归零（golden 基线口径），
- * 收尾 reload 按 flash 重放。 */
+ * 收尾 reload 按 flash 重放——**还没落盘的修改随回滚丢弃**（console `ENG SELFTEST` 是
+ * 诊断命令，接受；SYSTEM 页的 SELFTEST chip 走 worker，先 `sloop_store_flush_all()` 再自检，
+ * 用户的修改不丢）。 */
 #define SLOOP_SETTINGS_PALETTES 5u
 typedef enum {
     SLOOP_SET_PALETTE,
@@ -438,6 +440,13 @@ const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未�
 esp_err_t sloop_store_settings_set(sloop_set_field_t field, uint32_t v);
 esp_err_t sloop_store_settings_save(void);   /* 停止态立即写；播放中 INVALID_STATE；成功清 dirty */
 esp_err_t sloop_store_settings_reload(void); /* 以 flash 为准重读 + apply；boot/自检收尾调用 */
+
+/* 自检前的强制落盘（终审 I1；SELFTEST chip 的 worker 在停流之后、自检之前调用，调用方
+ * 保证停止态）：不等时间门限，做一次安静窗口的全部写——autosave（hash 有变才写）、dirty 的
+ * live section、歌曲 + DSU + settings、平台设置的 NVS。捕获/快照在引擎锁内，擦/写 flash 与
+ * NVS 提交不持引擎锁。存储未就绪/冻结 → INVALID_STATE（不写）；走带中 → NOT_ALLOWED（不写）；
+ * 任一步写失败回第一个错误码（其余照写，dirty 保留）。 */
+esp_err_t sloop_store_flush_all(void);
 bool sloop_store_settings_dirty(void);
 void sloop_store_settings_dirty_mark(void);  /* REC 配置变更用（只置 dirty，不改值） */
 

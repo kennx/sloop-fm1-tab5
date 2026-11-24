@@ -170,9 +170,19 @@ song 写」）；`STORE SETTINGS SAVE` / UI 动作在停止态可立即写（播
 状态 + SONG_PANEL_DEF 同步」一并落（panel 恒 PANEL_DEFAULT 不变）。
 **D6 SELFTEST 入口 = 一次性任务 + 每 boot 一次**（取）。chip 不在 LVGL 回调里跑（自检要拿
 LVGL 锁 quiesce，会死锁）：置请求标志，由独立一次性任务（栈对齐 console 任务）执行。**完整
-序**（builder check 修订，补停流）：`STORE AUTO OFF` → 停音频流（与 `ENG AUDIO OFF` 同一
-内部入口；流式时自检会被拒）→ `sloop_core_selftest(NULL)` → 起流（`ENG AUDIO ON` 同义）→
-autosave resume 路径恢复工作工程（比脚本口径更强，见 DI-20）→ `AUTO ON`。第二次进入回
+序**（builder check 修订，补停流；终审 I1 修订，补自检前落盘）：`STORE AUTO OFF` → 停音频流
+（与 `ENG AUDIO OFF` 同一内部入口；流式时自检会被拒）→ **`sloop_store_flush_all()` 强制落盘**
+→ `sloop_core_selftest(NULL)` → 起流（`ENG AUDIO ON` 同义）→ autosave resume 路径恢复工作工程
+（比脚本口径更强，见 DI-20）→ `AUTO ON`。
+**worker 先落盘**（终审 I1）：自检的 restore 把引擎回滚到工厂态、收尾的 resume/reload 以 flash
+为准，而自动存档要等「无输入 2.5s + 距上次写 20s + 无发声」、settings/歌曲延迟写要等「空闲
+1.5s + 间隔 5s」——不先写，用户在上一次落盘后点 chip 就丢掉窗口内的步编辑/选轨/BPM 与设置
+修改。`sloop_store_flush_all()` 在停流之后、自检之前做**一次安静窗口的全部写**：autosave 对象
+（hash 有变才写，不看 `audio_quiet`——流已停，擦写不会 xrun）、dirty 的 live section、歌曲 +
+DSU + settings（同一个对象；DSYN-only 的 dirty 也写，因为自检会回滚 DSU）、平台设置的 NVS；
+**不等**时间门限。锁序不变（捕获/快照在引擎锁内，擦/写与 NVS 提交不持引擎锁），只在停止态
+（走带中 `NOT_ALLOWED`、不写）；任一步失败**不阻断自检**，worker 记日志（没写下去的部分随
+自检丢弃）。console `ENG SELFTEST` 不走这条路径，未落盘的修改照旧丢弃（诊断命令）。第二次进入回
 `RESET FIRST`（DI-26 排雷）。**console `ENG SELFTEST` 行为完全不变**（脚本管理、无自动恢复
 ——`device-selftest.py`/`store`/`sequence`/`soak` 的既有门禁与 DI-20 口径不受影响）。
 结果行显示 `SELFTEST <ran-failed>/<ran> PASS|FAIL`（计数来自 core 运行器，不写死全量 182）。

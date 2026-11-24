@@ -5,7 +5,8 @@
  *
  * `s_set` 是普通 `.bss`（不进 .noinit，与 song/dsu 的 RAM 状态同一口径）：`ENG SELFTEST`
  * 的 restore 把它回滚到 init 快照（全零），自检收尾的 settings_reload() 再以 flash 为准
- * 重读——自检那一刻还没落盘的 settings 修改随回滚丢弃（诊断命令不是用户路径，spec §5 D7）。
+ * 重读——自检那一刻还没落盘的 settings 修改随回滚丢弃（console `ENG SELFTEST` 是诊断命令；
+ * SYSTEM 页的 chip 走 worker，自检前先 `sloop_store_flush_all()` 把 dirty 落盘，spec §5 D6/D7）。
  * `dirty` 也在里面：restore 之后为 false，reload 再读 flash 的现状，两者一致。
  *
  * 锁序（ADR-009 §3）：写 RAM 与上游 static 在**引擎锁**内，不取存储锁、不写 flash；
