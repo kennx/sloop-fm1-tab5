@@ -761,6 +761,26 @@ void sloop_ui_zoom_knob(const knob_t *k)
 }
 
 /* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
+/* 已建页刷新：UI 拍里**唯一**的一份状态副本放在这个独立函数的帧里，不留在
+ * ui_timer_cb——后者还要调 state_sync_from_engine()（自带一份引擎快照 + 参数数组）与
+ * show_page()（自带一份状态副本，页面构建还可能再取）。LVGL 任务栈只有 7,168B，三份
+ * ~1.7KB 的副本叠起来后余量不足 0.5KB（P4-F Task 5 用高水位实测；再多一份即
+ * Stack protection fault）。 */
+static void ui_refresh_built(void)
+{
+    app_state_t st;
+    state_get_copy(&st);
+    apply_lights(&st);
+    update_layer_hint(st.layer_held);
+
+    /* 只刷新已建页：懒建页在 ensure_page_built 里已按最新状态刷过首帧 */
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (s_page_state[i] != SLOOP_UI_PAGE_BUILT) continue;
+        const ui_page_t *def = page_def(i);
+        if (def != NULL) def->update(&st);
+    }
+}
+
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
@@ -770,10 +790,6 @@ static void ui_timer_cb(lv_timer_t *timer)
         s_applied_theme_valid != settings->theme_valid) {
         sloop_ui_theme_apply(settings);
     }
-    app_state_t st;
-    state_get_copy(&st);
-    apply_lights(&st);
-    update_layer_hint(st.layer_held);
 
     bool flash = false;
     uint8_t note = 0;
@@ -793,12 +809,8 @@ static void ui_timer_cb(lv_timer_t *timer)
     portEXIT_CRITICAL(&s_page_mux);
     if (page < APP_STATE_PAGES && page != s_page) (void)show_page(page);
 
-    /* 只刷新已建页：懒建页在 ensure_page_built 里已按最新状态刷过首帧 */
-    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-        if (s_page_state[i] != SLOOP_UI_PAGE_BUILT) continue;
-        const ui_page_t *def = page_def(i);
-        if (def != NULL) def->update(&st);
-    }
+    /* 状态副本与切页/构建分属两个帧（见 ui_refresh_built 的注） */
+    ui_refresh_built();
 }
 
 esp_err_t sloop_ui_start(void)

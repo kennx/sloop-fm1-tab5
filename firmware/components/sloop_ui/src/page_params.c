@@ -1191,7 +1191,7 @@ static lv_obj_t *make_sample_slot_label(lv_obj_t *parent, uint8_t k, void *user)
 }
 
 /* 槽管理行（仅 SAMPLE 页）：选择状态归零 + 建 4 个槽 label（回调 ctx = index<<4|k）、
- * ERASE chip（ctx = index<<4|4）与状态行；建页时读一次槽信息（之后 update 至多 1s
+ * ERASE chip（ctx = index<<4|4）与状态行；槽信息由建页后的首个 update 读（之后至多 1s
  * 一次）。首帧文本由紧随的 update 渲染（s_sample_row_sig 强制失效）。 */
 static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
 {
@@ -1201,9 +1201,10 @@ static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
     s_sample_lock_refused = 0;
     s_sample_status = UI_SAMPLE_STATUS_NONE;
     s_sample_row_sig = 0xFFFFFFFFu;
-    app_state_t st;
-    state_get_copy(&st);
-    sample_info_poll(&st, true);
+    /* 槽信息由紧随的 update 首拍读（s_sample_info_valid=false ⇒ 立即轮询）。这里**不**在栈上
+     * 放 app_state_t：页面构建经 TAB 走 LVGL 任务（栈 7,168B），ui_timer_cb 已持一份状态
+     * 副本，再嵌一份会把该任务栈压穿（P4-F Task 5 的 nav ⑦ 实测：Stack protection fault）。 */
+    s_sample_info_valid = false;
 
     for (uint8_t k = 0; k < SLOOP_STORE_SAMPLES; k++) {
         ui->sample_label[k] = make_sample_slot_label(
@@ -1426,10 +1427,10 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
         header_x = (int16_t)(x - CHIP_GAP + 16);
         header_w = (int16_t)(BTN_DEC_X - 16 - header_x);
     } else if (sound) {
-        /* 上下文行在页眉最后一行右侧（鼓轨只有 KIT 一行 ⇒ 更靠左；update 随鼓轨挪） */
-        app_state_t st;
-        state_get_copy(&st);
-        header_x = page_layout_sound_header_x(st.sound.drum != 0u);
+        /* 上下文行在页眉最后一行右侧：先按合成轨的两行放，update 首拍按鼓轨（单行 KIT）
+         * 挪位。构建路径不取状态副本——本函数经 TAB 在 LVGL 任务里跑，栈上放不下
+         * app_state_t（见 build_sample_row 的注）。 */
+        header_x = page_layout_sound_header_x(false);
         header_w = (int16_t)(BTN_DEC_X - 16 - header_x);
     }
     lv_obj_set_pos(ui->header, header_x, HEADER_Y);
