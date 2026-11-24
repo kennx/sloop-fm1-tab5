@@ -52,6 +52,12 @@ bool tab5_keyboard_probe(void);
 /* 取走本地积压事件（至多 max 条），返回实际条数（0=无）*/
 int tab5_kb_poll(tab5_kb_event_t *out, int max);
 
+/* 板载 2 颗 RGB LED：level 0..3 ⇒ 0x03 亮度 0/20/60/100，两颗同色 (r,g,b)。写入会把
+ * RGB 切到自定义模式（0x11 = 1；键盘工作模式寄存器 0x10 不动）——此后第二颗灯不再显示
+ * 键盘模式指示色。level > 3 回 ESP_ERR_INVALID_ARG（不碰总线）；键盘不在位时回 I2C
+ * 错误码。与解码任务共用组件内互斥，可在任何任务调用。 */
+esp_err_t tab5_keyboard_rgb_set(uint8_t level, uint8_t r, uint8_t g, uint8_t b);
+
 /* 键名表查询（无映射返回 "??"）*/
 const char *tab5_kb_key_name(uint8_t code);
 

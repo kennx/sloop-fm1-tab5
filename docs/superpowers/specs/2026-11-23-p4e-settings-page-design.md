@@ -61,12 +61,18 @@ regress 的 `blk()` → `mix_block()`：输出级过 `master_pre`（**fx_lowcut*
   `bsp_display_backlight_on()` = 100%（display.c:313 现状）。
 - **音量**：`esp_codec_dev_set_out_vol(handle, 0..100)`，启动设 70（audio_stream.c:17,81），
   `sloop_hal_audio_codec()` 已暴露活句柄。
-- **输出路由**：扬声器 = NS4150B PA（LOUT2/ROUT2，PI4IOE5V6408 使能）；耳机孔 = HP_DET 检测
-  （docs/tab5-hardware.md §3）；audio_tone.c 的 `AUD L2`/`AUD MAX` 实验已验证寄存器路径。
-- **键盘 RGB**（I2C 协议 PDF，0x6D）：`0x05` 亮度 0..100（默认 20）、`0x10` RGB 模式
-  （0 绑定/1 自定义）、`0x60..0x65` = RGB1/RGB2 的 B/G/R。**完全可控，无需 spike。**
+- **输出通路**：官方原理图第 3 页显示，NS4150B 扬声器功放与耳机左声道同接 ES8388
+  **LOUT1**，ROUT1 只到耳机右声道，**LOUT2/ROUT2 悬空**；PI4IOE5V6408 的 SPK_EN 是另一
+  条可能的控制路径。仅靠 LOUT1/ROUT1 与 LOUT2/ROUT2 音量寄存器无法分离扬声器和耳机，
+  故 D10 已按 checkpoint 降级为 **speaker-only**（DI-39；docs/tab5-hardware.md §3.2）。
+- **键盘 RGB**（0x6D，M5Tab5-Keyboard-Internal-FW 的 `user_i2c_reg.h` /
+  `user_i2c_callback.c` / `user_rgb.c`）：`0x03` 全局亮度 0..100（默认 20）、独立 `0x11`
+  RGB 模式（0 绑定/1 自定义）、`0x60` 起每颗 LED 4 字节（B/G/R/保留），RGB1=`0x60..62`、
+  RGB2=`0x64..66`；键盘工作模式在另一个 `0x10`，与 RGB 模式无关。
 - LVGL 字体：Montserrat 14/16/20/28 已启用（28 为错误状态条在用）——ZOOM 大读数直接可用。
 - NVS：分区在（0x9000/0x6000），firmware 目前零使用。
+
+2026-11-23 修正（来源：官方原理图 + Internal-FW 源码，DI-39）。
 
 ## 3. 目标 / 非目标 / 反目标
 
@@ -98,7 +104,7 @@ regress 的 `blk()` → `mix_block()`：输出级过 `master_pre`（**fx_lowcut*
   ADR-009 §6 的字节兼容）。**特别裁决：屏幕亮度不挪用 lights_lvl**（那是 FM-1 按键背光，
   挪用会在 FM-1 备份互通时错误迁移）；键盘 LED 亮度用 lights_lvl 是同义映射（同一菜单行、
   同一枚举、同为「灯的亮度」），不算挪用。
-- 不新建持久化对象/分区；NVS 只放平台级四键（bright/vol/out/kbd），不承载任何 SLOOP 状态。
+- 不新建持久化对象/分区；NVS 只放平台级三键（bright/vol/out），不承载任何 SLOOP 状态；键盘 RGB 由 lights_lvl + accent 派生，不另存 kbd 键。
 - 不因设置页超 LVGL 预算而扩池（超了先改对象设计）。
 
 ## 4. 字段映射总表（上游项 → Tab5 落点 → 持久化）
@@ -122,7 +128,7 @@ regress 的 `blk()` → `mix_block()`：输出级过 `master_pre`（**fx_lowcut*
 | REC MODE/START/QUANT | bits9/10/31 | TRANSPORT 页 REC 配置改为**开机恢复 + 变更即置 settings dirty**（上游语义） | settings |
 | —（Tab5 原生） | — | 屏幕亮度 10..100（步进 10） | **NVS** |
 | —（Tab5 原生） | — | 音量 0..100（步进 5） | **NVS** |
-| —（Tab5 原生） | — | 输出 SPEAKER/HEADPHONE（checkpoint，§5 D10） | **NVS** |
+| —（Tab5 原生） | — | 输出 SPEAKER（D10 已降级；HEADPHONE 回 `N/A`，DI-39） | **NVS** |
 | —（Tab5 原生） | — | KBD RGB 颜色不单独存（= 当前 accent 派生） | — |
 
 ## 5. Approaches（取舍记录）
@@ -164,12 +170,22 @@ song 写」）；`STORE SETTINGS SAVE` / UI 动作在停止态可立即写（播
 状态 + SONG_PANEL_DEF 同步」一并落（panel 恒 PANEL_DEFAULT 不变）。
 **D6 SELFTEST 入口 = 一次性任务 + 每 boot 一次**（取）。chip 不在 LVGL 回调里跑（自检要拿
 LVGL 锁 quiesce，会死锁）：置请求标志，由独立一次性任务（栈对齐 console 任务）执行。**完整
-序**（builder check 修订，补停流）：`STORE AUTO OFF` → 停音频流（与 `ENG AUDIO OFF` 同一
-内部入口；流式时自检会被拒）→ `sloop_core_selftest(NULL)` → 起流（`ENG AUDIO ON` 同义）→
-autosave resume 路径恢复工作工程（比脚本口径更强，见 DI-20）→ `AUTO ON`。第二次进入回
+序**（builder check 修订，补停流；终审 I1 修订，补自检前落盘）：`STORE AUTO OFF` → 停音频流
+（与 `ENG AUDIO OFF` 同一内部入口；流式时自检会被拒）→ **`sloop_store_flush_all()` 强制落盘**
+→ `sloop_core_selftest(NULL)` → 起流（`ENG AUDIO ON` 同义）→ autosave resume 路径恢复工作工程
+（比脚本口径更强，见 DI-20）→ `AUTO ON`。
+**worker 先落盘**（终审 I1）：自检的 restore 把引擎回滚到工厂态、收尾的 resume/reload 以 flash
+为准，而自动存档要等「无输入 2.5s + 距上次写 20s + 无发声」、settings/歌曲延迟写要等「空闲
+1.5s + 间隔 5s」——不先写，用户在上一次落盘后点 chip 就丢掉窗口内的步编辑/选轨/BPM 与设置
+修改。`sloop_store_flush_all()` 在停流之后、自检之前做**一次安静窗口的全部写**：autosave 对象
+（hash 有变才写，不看 `audio_quiet`——流已停，擦写不会 xrun）、dirty 的 live section、歌曲 +
+DSU + settings（同一个对象；DSYN-only 的 dirty 也写，因为自检会回滚 DSU）、平台设置的 NVS；
+**不等**时间门限。锁序不变（捕获/快照在引擎锁内，擦/写与 NVS 提交不持引擎锁），只在停止态
+（走带中 `NOT_ALLOWED`、不写）；任一步失败**不阻断自检**，worker 记日志（没写下去的部分随
+自检丢弃）。console `ENG SELFTEST` 不走这条路径，未落盘的修改照旧丢弃（诊断命令）。第二次进入回
 `RESET FIRST`（DI-26 排雷）。**console `ENG SELFTEST` 行为完全不变**（脚本管理、无自动恢复
 ——`device-selftest.py`/`store`/`sequence`/`soak` 的既有门禁与 DI-20 口径不受影响）。
-结果行显示 `SELFTEST 182/182 PASS`（或 FAIL 例名）。
+结果行显示 `SELFTEST <ran-failed>/<ran> PASS|FAIL`（计数来自 core 运行器，不写死全量 182）。
 **D7 golden 确定性 = 运行期归零 + 结束重载**（取）。自检 setup 强制 `fx_lowcut=0/flt_reso=0`
 （golden 基线口径），收尾 reload 按 settings 重放（与 song/DSU 同批）。这是今天不可达、
 P4-E 起可达的正确性修复，不修则 lowcut ON 后 182 例必红。
@@ -178,12 +194,13 @@ P4-E 起可达的正确性修复，不修则 lowcut ON 后 182 例必红。
 页面区顶部）显示 `LABEL  VALUE`；无聚焦/zoom OFF 隐藏。覆盖全部 `knob_t` 页（参数五页 +
 DSYN + FM6P）。否决：逐页 label（FM6P 只剩 44B tripwire，7 页 est 抬升连锁改 ADR-008/
 inject 断言）；改旋钮本体字号（重建成本高、抖动大）。
-**D9 LIGHTS → 键盘 RGB 直映射**（取）。lights_lvl 四档 → `0x05` 亮度 0/20/60/100 +
-`0x10` RGB=自定义 + `0x60..0x65` 颜色 = accent 降额（可视门禁人测）。`tab5_keyboard` 组件
-新增 `tab5_keyboard_rgb_set()`（复用键盘总线既有互斥，避免与读键任务竞争）。
-**D10 输出路由 = checkpoint 项**。`AUD OUT speaker|headphone` 用 audio_tone.c 已验证的
-es8388 寄存器路径（LOUT1/R1 vs LOUT2/R2 + PA）；若与 esp_codec_dev 内部状态打架，降级为
-DI（VOLUME/LOWCUT 不受影响），不阻塞阶段。
+**D9 LIGHTS → 键盘 RGB 直映射**（取）。lights_lvl 四档 → `0x03` 亮度 0/20/60/100 +
+独立 `0x11` RGB=自定义 + `0x60` 起步长 4 的 B/G/R 颜色缓冲 = accent 降额（可视门禁人测）。
+`tab5_keyboard` 组件新增 `tab5_keyboard_rgb_set()`（复用键盘总线既有互斥，避免与读键任务竞争）。
+**D10 输出路由 = speaker-only（checkpoint 已降级）**。官方原理图证明扬声器功放与耳机 L
+共用 LOUT1、LOUT2/ROUT2 悬空，原「LOUT1/R1 vs LOUT2/R2」切换假设不成立。实现只接受
+speaker；`AUD OUT headphone` 回 `ESP_ERR_NOT_SUPPORTED` 且状态不变，SYSTEM 页显示 `N/A`。
+后续若实现耳机路由，须改走 SPK_EN 功放使能并另测副作用（DI-39；VOLUME/LOWCUT 不受影响）。
 
 ## 6. UI 设计（SYSTEM 页）
 
@@ -199,7 +216,7 @@ LIGHTS ────────────────────────�
   LIGHTS  −  OFF           +     (OFF/LOW/MID/HIGH；键盘 RGB)
 AUDIO ──────────────────────────
   VOLUME  −  70            +     (0..100 步进 5；NVS)
-  OUTPUT  −  SPEAKER       +     (SPEAKER/HEADPHONE；checkpoint D10)
+  OUTPUT  −  SPEAKER       +     (speaker-only；HEADPHONE 请求回 N/A，D10/DI-39)
   SPK LOWCUT  OFF (chip)
   FILTER RESO − OFF        +     (OFF/1..10)
 SYSTEM ─────────────────────────
@@ -271,7 +288,7 @@ abort-before-act 约定不变。
 ### 8.4 NVS 与平台应用
 
 - main 初始化 `nvs_flash_init()`；`sys_nvs_{get,set}` 三键（bright 默认 100 / vol 默认 70 /
-  out 默认 speaker；kbd 由 lights_lvl 派生不落 NVS；`tab5.out` 仅 D10 落地时使用）。
+  out 默认 speaker；kbd 由 lights_lvl 派生不落 NVS；`tab5.out` 保留平台输出状态，D10 降级后只接受 speaker）。
 - **提交时机**（builder check 修订）：`set` = RAM 值 + 平台副作用 + `nvs_dirty`，**不写
   flash**；`nvs_dirty` 由 1s tick 的同一静默窗口（停止+无发声+idle+gap）flush，`STORE
   SETTINGS SAVE` 一并 flush。播放中改音量/亮度零 flash 写（xrun 口径不受影响）。
@@ -328,15 +345,20 @@ abort-before-act 约定不变。
 
 ## 12. 风险与开放问题
 
-1. **D10 输出路由**与 esp_codec_dev 内部状态的相容性——checkpoint，允许降级 DI。
-2. flt_reso 无尾段时的构造分支——实现任务以 project.c 940..1010 原文定案，host 测试固定
-  该语义。
+1. **D10 输出路由已降级为 speaker-only**——原理图排除原寄存器切换方案；后续耳机路由须走 SPK_EN，见 DI-39。
+2. flt_reso 无尾段时的构造分支——**已定案**：追加上游 `midi_part_fill()` 的默认尾段（§8.1），host 测试固定
+  「RMW / 追加 / NULL 不追加」三语义。
 3. palette 变更的「销毁全部已建页」路径复用组切换的销毁序（先建后毁不变式）——需要在
   SYS 页内触发全局重建时走 `sloop_ui` 既有入口，不能绕过（防 DI-19 类回归；nav 场景复跑）。
 4. 键盘 RGB 写与读键任务的并发——组件内互斥覆盖；`KBD RGB` 回显是机读断言上限，颜色正确
    性靠人测。
 5. SELFTEST 一次性任务的栈/优先级取 console 任务同款（实现时对齐 main.c 注册值）。
 6. DI-26（自检堆泄漏）不在本阶段修（P4-F 前置），`RESET FIRST` 守卫是缓解不是修复。
+7. **全量自检后的音频重启异常（原 DI-40，2026-11-24 修复轮已关闭）**：根因不在 D6 的收尾序（停流 → 自检
+   → 起流）或 D7 的归零/重载，而是 DI-26 的堆泄漏之后 `xTaskCreate` 把音频任务的栈落到 P4 的 LP SRAM
+   （渲染慢 ~24 倍、每块 xrun）；修复在 HAL——首次启流用 `INTERNAL|DMA` 显式分配常驻 L2MEM 栈
+   （ADR-007 新节）。**D6 / D7 决策不变、仍然有效**；D6 的「第二次进入回 `RESET FIRST`」是产品行为，
+   取证用的 `SYS SELFTEST ARM`（R25）只是清每 boot 标记的测试注入，不改变它。
 
 ## 13. 交付物清单（供计划引用）
 

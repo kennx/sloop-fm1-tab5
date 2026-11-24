@@ -1,0 +1,64 @@
+# [smoke] clean-tree smoke: HEAD 86711a4, boot ~30s after flash (streaming since boot)
+# [smoke] $ ENG MEM
+ENG MEM
+ENG MEM internal_free=69123 internal_min=65536 psram_free=30094724 psram_min=30094724
+sloop>  # [smoke] $ STORE STATS
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401A0000 objects=1 faults=0 armed=0 autosave=1 autosave_hash=1DA7F20C autosave_writes=0 last_xrun=0 last_save_ms=0
+sloop>  # [smoke] $ ENG AUDIO ON
+ENG AUDIO ON
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  # [smoke] sleep 3s
+# [smoke] $ ENG PERF
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=5805 render_mean_us=538 render_max_us=2994 duty_mean=9.27% duty_max=51.59% min_free_since_boot_internal=65536 min_free_since_boot_psram=30094724
+sloop>  # [smoke] $ ENG PERF
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=5994 render_mean_us=538 render_max_us=2994 duty_mean=9.27% duty_max=51.59% min_free_since_boot_internal=65536 min_free_since_boot_psram=30094724
+sloop>  # [smoke] $ ENG MEM
+ENG MEM
+ENG MEM internal_free=68819 internal_min=65536 psram_free=30094724 psram_min=30094724
+sloop>  # [smoke] $ STORE SETTINGS INFO
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  # [smoke] $ UI system
+UI system
+I (43098) sloop_ui: 页面构建 page=SYSTEM(14) 池增量=5504B 预算=10240B 池剩余=43120B 耗时=8ms
+I (43098) sloop_ui: 切页 page=SYSTEM(14) 组=SYS 跨组耗时=12ms
+UI page=system (14)
+sloop>  # [smoke] $ UI
+UI
+UI page=system (14)
+sloop>  # [smoke] $ UI MEM
+UI MEM
+UI MEM pool_used=16880 pool_free=45684 pool_total=62564 registered=15 built=1 failed=0 sum_est=123392 reserve=-60828 group=SYS
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=1 sum_est=10240 sum_delta=5504 build_ms=12
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=built est=10240 delta=5504 build_ms=8
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  # [smoke] screenshot via scripts/screenshot.py (separate invocation, output appended below)
+  [fw] SCR
+  [fw] I (46538) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/p4e-final-smoke-20261124-095254.png
+screenshot exit=0
+PNG (1280, 720) RGB colors 99

@@ -806,12 +806,23 @@ void sloop_core_diag_quiesce_hook(bool (*hook)(bool on))
     s_quiesce_hook = hook;
 }
 
+static uint32_t s_selftest_ran;
+static uint32_t s_selftest_failed;
+
+void sloop_core_selftest_stats(uint32_t *ran, uint32_t *failed)
+{
+    if (ran != NULL) *ran = s_selftest_ran;
+    if (failed != NULL) *failed = s_selftest_failed;
+}
+
 int sloop_core_selftest(const char *case_name)
 {
     if (sloop_hal_audio_streaming() || ctl.results == NULL) {
         printf("ENG SELFTEST cases=0 result=FAIL reason=busy_or_uninitialized hint=ENG AUDIO OFF\n");
         return 1;
     }
+    s_selftest_ran = 0;
+    s_selftest_failed = 0;
     /* 诊断期（ADR-007）：静默 UI → 冻结引擎 → 跑用例 → 恢复，成对且只有一条出口。
      * 1) quiesce：暂停 30ms UI 定时器与 LVGL 定时器、input 任务阻塞等恢复通知；
      *    等 input 任务回到批次边界后才算静默生效——置标志时它可能正派发。
@@ -833,6 +844,12 @@ int sloop_core_selftest(const char *case_name)
     sloop_core_diag_freeze(true);
     engine_lock();
     selftest_restore();
+    /* golden 基线口径（P4-E Task 2，spec §5 D7）：LOWCUT / FILTER RESO 是用户设置，
+     * 进了上游 `fx_lowcut`/`flt_reso` 就改变每个用例的输出；golden 是在两者为 0 时采的，
+     * 故每次自检开头强制归零，收尾由 settings_reload 按 flash 重放。restore 的快照拍在
+     * sloop_store_init 之前，值本来是 0，这里显式写出来是不依赖那个先后关系。 */
+    fx_lowcut = 0;
+    flt_reso = 0;
     engine_unlock();
     ctl.selector = case_name;
     ctl.fork_count = 0;
@@ -902,8 +919,6 @@ int sloop_core_selftest(const char *case_name)
     selftest_restore();
     engine_unlock();
     nj = 0;
-    sloop_core_diag_freeze(false);
-    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     /* 歌曲从 settings 重载（P4-C Task 7，ADR-010 §4）：`arrangement` 是 arranger.c 的
      * static `.bss`，上面两次 selftest_restore() 把它回滚到 init 快照（默认/零）——不重载
      * 就会在自检后悄悄换成默认歌曲，形成「旧工程 + 新歌曲」的半旧视图。损坏/未就绪只
@@ -917,10 +932,22 @@ int sloop_core_selftest(const char *case_name)
     esp_err_t dsu_ret = sloop_store_dsu_reload();
     if (dsu_ret != ESP_OK && dsu_ret != ESP_ERR_NOT_FOUND && dsu_ret != ESP_ERR_INVALID_STATE)
         ESP_LOGW("sloop_core", "自检后 SYN kit 重载失败: %s", esp_err_to_name(dsu_ret));
+    /* settings 生效副本（P4-E Task 2，spec §5 D7）才是 D7 承重的一半：`s_set` 与
+     * `fx_lowcut`/`flt_reso`/`rec_tempo`/`rec_count`/`rec_quant_off` 都被 restore 回滚成 0
+     * （设备实测：去掉这一句，自检后 INFO 报 lowcut=0 reso=0，而 flash 里仍是用户的值）
+     * ——不重载，自检之后用户的 LOWCUT / FILTER RESO / REC 设置就悄悄变回 0。以 flash 为准
+     * （未落盘的修改随回滚丢弃）。 */
+    sloop_store_settings_reload(); /* 读不到时自己落默认并打日志；恒回 ESP_OK */
     /* 采样槽镜像同理（P4-D Task 4 的收尾，Task 5 接线）：PSRAM 镜像本身不随 restore 回滚，
      * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
      * `smp_user_scan`），槽内容因此与 flash 一致。 */
     for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
+    /* 解冻与恢复 UI 放在三次重载**之后**：重载之前 `s_set`/`arrangement`/`dsu` 还是 init
+     * 快照（palette 0 = GREEN），此时放 UI 拍进来会看到它——全页重建两次、闪一帧 GREEN。 */
+    sloop_core_diag_freeze(false);
+    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
+    s_selftest_ran = cases;
+    s_selftest_failed = pass ? 0u : (cases > identical ? cases - identical : 1u);
     return pass ? 0 : 1;
 }
 
@@ -930,3 +957,6 @@ int sloop_core_selftest(const char *case_name)
 #include "seq_tab5.c"
 /* P4-D Task 2：DSYN（SYN1..SYN4）适配，依赖上游 drum_synth.c 的 statics，必须在同一 TU 末尾。 */
 #include "sound_tab5.c"
+/* P4-E Task 2：settings 生效副本，依赖 store_tab5.c 的 st_load/song_write_locked（后者前向引用
+ * 这里的 s_set）与上游 fx.c/seq.c 的 statics，必须在 sound_tab5.c 之后。 */
+#include "settings_tab5.c"

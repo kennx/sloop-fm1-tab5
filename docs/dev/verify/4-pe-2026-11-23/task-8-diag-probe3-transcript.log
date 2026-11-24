@@ -1,0 +1,63 @@
+E (258579) task_wdt: Task watchdog got triggered. The following 
+sloop>  # [inject] probe3: 复位后对照
+# [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
+
+sloop>  I (4309) sloop_input: InputManager 就绪：60 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=1413 render_mean_us=553 render_max_us=2694 duty_mean=9.53% duty_max=46.42% min_free_since_boot_internal=66016 min_free_since_boot_psram=30094724
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=1776 render_mean_us=547 render_max_us=2694 duty_mean=9.42% duty_max=46.42% min_free_since_boot_internal=66016 min_free_since_boot_psram=30094724
+sloop>  STORE AUTO OFF
+STORE AUTO off
+sloop>  ENG AUDIO OFF
+I (14729) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG SELFTEST preset/ANALOG/00_808_BOOM
+I (14829) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+ENG SELFTEST BEGIN preset/ANALOG/00_808_BOOM
+regress: 182 golden renders (0 changed, 0 gone), 1 health failures, 7 voice / routing checks failed, 0 CPU entries over budget (0 notes), 339 crashes; 0.6 s
+preset/ANALOG/00_808_BOOM 0b447c66765e1780
+ENG SELFTEST cases=1 identical=1 mismatch=0 health_fail=0 checks=0 check_fail=0 deterministic=1 expected=1 expected_checks=0 main_rc=1 result=PASS
+I (15439) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+I (15439) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
+I (15439) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (15439) sloop_store: settings: flash palette=4 lowcut=0 zoom=0 lights=0 reso=0 rec=0/0/0 theme=P4E7
+sloop>  ENG AUDIO ON
+I (15549) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3312 render_blocks=22 render_mean_us=570 render_max_us=1526 duty_mean=9.82% duty_max=26.29% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=384 render_mean_us=527 render_max_us=1526 duty_mean=9.08% duty_max=26.29% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  KEY PANIC
+W (17849) sloop_input: PANIC 释放 0 个音符，层键/待切页已清
+KEY PANIC OK（音符/层键/待切页已清）
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=677 render_mean_us=525 render_max_us=1526 duty_mean=9.05% duty_max=26.29% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=953 render_mean_us=525 render_max_us=1526 duty_mean=9.05% duty_max=26.29% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  UI transport
+I (21159) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8664B 预算=9216B 池剩余=39960B 耗时=13ms
+I (21159) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3172 render_blocks=1651 render_mean_us=559 render_max_us=2843 duty_mean=9.63% duty_max=48.98% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  ENG AUDIO OFF
+I (25209) sloop_audio_stream: stream stopped, codec 保持打开
+ENG AUDIO streaming=0 xrun=0 OK
+sloop>  ENG AUDIO ON
+I (25299) sloop_audio_stream: stream started, half=256 frames
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3312 render_blocks=22 render_mean_us=523 render_max_us=566 duty_mean=9.01% duty_max=9.75% min_free_since_boot_internal=66016 min_free_since_boot_psram=30029184
+sloop>  STORE AUTO ON
+STORE AUTO on
+sloop>  UI play
+I (25609) sloop_ui: 页面构建 page=PLAY(0) 池增量=2384B 预算=3072B 池剩余=40276B 耗时=5ms
+I (25609) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  # [inject] probe3 结束

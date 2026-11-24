@@ -33,9 +33,9 @@
  * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
  * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）+ SONG 编排页（P4-C Task 11，
  * 独立顶层组）+ 2 SYNTH 页（DSYN/FM6P，P4-D Task 8 扩 id；SAMPLE 参数页随组表移入
- * SYNTH 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
+ * SYNTH 组）+ SYSTEM 设置页（P4-E Task 6，独立 SYS 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
  * 本宏与 console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 14u
+#define APP_STATE_PAGES 15u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -94,6 +94,11 @@ typedef enum {
     CMD_FM6_SET, CMD_SAMPLE_ERASE,
     /* P4-D Task 9 fix：kit 级 CRUSH（KIT 页可编辑；追加在末尾以保住既有命令编号） */
     CMD_DSYN_CRUSH,
+    /* P4-E Task 4：settings 单字段写与平台设置（spec §7；同样追加在末尾）。返回码映射
+     * app_state_t.settings_status。 */
+    CMD_SETTINGS_SET, CMD_SYS_BRIGHT, CMD_SYS_VOLUME, CMD_SYS_OUTPUT,
+    /* P4-E Task 7：SYSTEM 页自检请求（只排队，绝不在调用上下文跑自检） */
+    CMD_SELFTEST_RUN,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -146,8 +151,9 @@ typedef enum {
  *                    seq_status；仅 ESP_OK 时同拍重取详细窗口投影。
  *  CMD_REC_TOGGLE    （无参）：分发 sloop_seq_rec_toggle；成功后同拍重取录音快照
  *                    （armed/recording/off 立即可断言，不等下一拍 sync）。
- *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置，
- *                    不写 settings；越界不调引擎，seq_status = invalid。
+ *  CMD_REC_CONFIG    a=quant_off b=tempo_mode v=count_mode（各 0/1）：运行期配置；
+ *                    越界不调引擎，seq_status = invalid。**成功后置 settings dirty**
+ *                    （P4-E：REC 三项随 settings 落盘，上游语义；见下方 P4-E 段）。
  *  CMD_FILL_CONTROL  a=held(0/1) b=next_bar(0/1)：b=0 只写 FILL 保持电平（`-` 的
  *                    down/up）；b=1 是 NEXT BAR 的**脉冲**，只翻转 `fill_arm`、不读
  *                    不写 held（按住 FILL 时点 NEXT 不会清保持）。越界不调引擎。
@@ -225,6 +231,23 @@ typedef enum {
  *  NOT_ALLOWED → BLOCKED、INVALID_STATE 按 seq_frozen/存储就绪分成 FROZEN/BLOCKED/ERROR、
  *  其它 → ERROR。存储 API 用 INVALID_STATE 同时表示走带/冻结/未就绪，故必须借
  *  sloop_seq_frozen() 与 sloop_store_ready() 才能把三种状态行文案分开。
+ *
+ *  P4-E Task 4：设置与平台（spec §7）：
+ *  CMD_SETTINGS_SET  a=sloop_set_field_t v=值：值域**在状态层**钳位（palette 0..4、
+ *                    lowcut/zoom/theme_on 0|1、lights 0..3、reso 0..10）后下发
+ *                    sloop_store_settings_set（只改内存 + 应用上游 static + 置 settings
+ *                    dirty；落盘由 1s 任务的静默窗口完成，store/HAL 内部再钳一次）。
+ *                    字段越界 ⇒ 不调存储、settings_status = INVALID。成功同拍刷 settings
+ *                    投影（palette/theme 由 UI 据此重着色；theme_name 随同一投影刷新，
+ *                    供 SYSTEM 页的 COLOR 第 6 档显示）。
+ *  CMD_SYS_BRIGHT / CMD_SYS_VOLUME / CMD_SYS_OUTPUT v=值：值域在状态层钳位（bright
+ *                    10..100、vol 0..100、out 0 speaker|1 headphone）后下发 HAL——平台
+ *                    副作用即时生效、NVS 延迟提交（1s tick 的同一静默窗口），不取引擎锁、
+ *                    不受走带限制（播放中也可改）。out > 1 ⇒ INVALID 且不入 HAL。
+ *                    成功同拍刷 sys 投影（nvs_dirty 取 HAL）。
+ *  上述命令的返回码写 settings_status（app_settings_status_t）：ESP_OK → OK、
+ *  INVALID_ARG / NOT_SUPPORTED（headphone，本板 speaker-only）→ INVALID、
+ *  INVALID_STATE（诊断冻结 / 存储未就绪）→ BLOCKED、其它 → ERROR；失败不改投影。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -277,6 +300,18 @@ typedef enum {
     APP_SYNTH_STATUS_ERROR = 7,   /* 存储未就绪、擦写/校验失败等 */
 } app_synth_status_t;
 
+/* 最近一次设置 / 平台命令的结果（app_state_t.settings_status；P4-E spec §7）。
+ * INVALID 兼表「值非法」「字段越界」与 headphone 的 NOT_SUPPORTED（本板输出路由
+ * speaker-only，R19 不另设枚举值）；BLOCKED = 诊断冻结或存储未就绪（存储 API 的
+ * INVALID_STATE 两义，本阶段不拆 FROZEN）。 */
+typedef enum {
+    APP_SETTINGS_IDLE = 0,    /* 尚无设置/平台命令 */
+    APP_SETTINGS_OK = 1,      /* 成功（投影已同拍刷新） */
+    APP_SETTINGS_INVALID = 2, /* 字段/值越界、输出路由不支持（NOT_SUPPORTED） */
+    APP_SETTINGS_BLOCKED = 3, /* 诊断冻结或存储未就绪（ESP_ERR_INVALID_STATE） */
+    APP_SETTINGS_ERROR = 4,   /* 其它失败（平台调用失败等） */
+} app_settings_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -298,6 +333,24 @@ typedef struct {
     uint8_t synth_status;       /* 最近一次合成编辑命令的结果（app_synth_status_t） */
     sloop_dsyn_snapshot_t dsyn; /* DSYN 投影（按 kit/lane 选择；dirty = DSU 记账） */
     sloop_fm6_patch_snapshot_t fm6p; /* FM6 live patch 投影（选中轨；engine_ok=0 即锁定） */
+    /* P4-E Task 4：settings 生效副本投影（sloop_store_settings()；dirty = 待落盘）与平台
+     * 设置投影（HAL 的 RAM 三值 + nvs_dirty）。init / sync / 整份刷新各读一次，对应命令
+     * 成功时同拍重取；UI 不直接读 store/HAL。 */
+    struct {
+        uint8_t palette, lowcut, zoom, lights, theme_on, theme_valid, reso, dirty;
+        char theme_name[9];
+    } settings;
+    struct {
+        uint8_t bright, vol, out, nvs_dirty; /* bright 10..100 / vol 0..100 / out 0|1 */
+    } sys;
+    app_settings_status_t settings_status;   /* 最近一次设置/平台命令的结果 */
+    /* P4-E Task 7：SELFTEST chip 的请求与最近一次结果。req 是深度 1 的邮箱，由
+     * CMD_SELFTEST_RUN 置位、main 的一次性 worker 用 state_take_selftest_request()
+     * 消费；done=0 表示尚无结果或正在运行。ran/failed 是 core 运行器的实际计数，
+     * 不假定全量用例数；ran=0 表示没有可用结果。 */
+    uint8_t selftest_req, selftest_done;
+    uint8_t selftest_unavailable; /* main 的 worker 创建失败：请求立即 FAIL，不排队 */
+    uint32_t selftest_ran, selftest_failed;
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -318,8 +371,10 @@ typedef enum {
     /* SYNTH 组（P4-D Task 8：SAMPLE 参数页移入该组；DSYN/FM6P 是 P4-D 的合成编辑页，
      * Task 9/10 填实体，本任务先注册占位页） */
     APP_PAGE_DSYN, APP_PAGE_FM6P,
+    /* SYS 组（P4-E Task 6）：SYSTEM 设置页，id 追加在最后。 */
+    APP_PAGE_SYSTEM,
 } app_page_t;
-_Static_assert(APP_PAGE_FM6P + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_SYSTEM + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 _Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
                "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");
@@ -355,5 +410,11 @@ void state_set_focus(uint8_t track, uint8_t step);
  * src/dirty）——TAP 之后的 STATE SNAP/旋钮立即看到新选择，不等下一拍 sync。 */
 void state_set_dsyn_select(uint8_t kit, uint8_t lane);
 void state_set_layer(uint8_t mask);
+
+/* 取走一次 SELFTEST 请求（1 = 有请求，取后清零）；worker 完成后写回实际计数并置 done。 */
+bool state_take_selftest_request(void);
+void state_set_selftest_result(uint32_t ran, uint32_t failed);
+/* main 在 worker 创建后上报可用性；false 时 CMD_SELFTEST_RUN 立即写 0/0 FAIL。 */
+void state_set_selftest_available(bool available);
 
 #endif

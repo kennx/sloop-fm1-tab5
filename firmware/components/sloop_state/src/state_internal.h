@@ -30,4 +30,12 @@ void state_refresh_locked(void);
 void state_refresh_dsyn_locked(void);
 void state_refresh_fm6_locked(void);
 
+/* P4-E Task 4：settings 生效副本与平台设置的同拍刷新（调用方持 state_lock）。
+ * settings 取 sloop_store_settings()（不取锁的字对齐单次读；palette/lowcut/zoom/lights/
+ * theme_on/reso/theme_valid/dirty/theme_name）；sys 取 HAL 的 RAM 三值 + nvs_dirty。
+ * init / state_sync_from_engine / state_refresh_locked 各调一次，CMD_SETTINGS_SET /
+ * CMD_SYS_* 成功时再调对应的一个。 */
+void state_refresh_settings_locked(void);
+void state_refresh_sys_locked(void);
+
 #endif

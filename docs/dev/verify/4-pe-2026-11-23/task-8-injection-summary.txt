@@ -1,0 +1,36 @@
+P4-E Task 8 最终设备矩阵（2026-11-24）
+受测固件：8963fc8（SYSTEM PNG 的 APP 行）
+端口：/dev/ttyACM0
+
+烧录：scripts/flash.sh /dev/ttyACM0 ×3；每次均输出 3× Hash of data verified；exit 0。
+设备 golden：python3 scripts/device-selftest.py /dev/ttyACM0；exit 0；182/182，checks=7，deterministic=1。
+
+同一后台串行会话依次执行（除场景设计内复位外不重启）：
+transport                 bash scripts/inject/transport.sh /dev/ttyACM0   exit 0   312 PASS / 0 FAIL
+step_edit                 bash scripts/inject/step_edit.sh /dev/ttyACM0   exit 0   196 PASS / 0 FAIL
+tracks                    bash scripts/inject/tracks.sh /dev/ttyACM0      exit 0    11 PASS / 0 FAIL
+nav                       bash scripts/inject/nav.sh /dev/ttyACM0         exit 0   157 PASS / 0 FAIL
+params                    bash scripts/inject/params.sh /dev/ttyACM0      exit 0   197 PASS / 0 FAIL
+store                     bash scripts/inject/store.sh /dev/ttyACM0       exit 0   903 PASS / 0 FAIL
+song                      bash scripts/inject/song.sh /dev/ttyACM0        exit 0   354 PASS / 0 FAIL
+sequence                  bash scripts/inject/sequence.sh /dev/ttyACM0    exit 0   562 PASS / 0 FAIL
+synth                     bash scripts/inject/synth.sh /dev/ttyACM0       exit 0   790 PASS / 0 FAIL
+sys                       bash scripts/inject/sys.sh /dev/ttyACM0         exit 0   312 PASS / 0 FAIL
+sequence（复跑）          bash scripts/inject/sequence.sh /dev/ttyACM0    exit 0   562 PASS / 0 FAIL
+synth（复跑）             bash scripts/inject/synth.sh /dev/ttyACM0       exit 0   790 PASS / 0 FAIL
+sys（复跑）               bash scripts/inject/sys.sh /dev/ttyACM0         exit 0   312 PASS / 0 FAIL
+
+首轮十场景：3,794 PASS / 0 FAIL。
+三条复跑：1,664 PASS / 0 FAIL。
+十三次运行合计：5,458 PASS / 0 FAIL。
+
+每个场景的 stdout 为 task-8-inject-*.log；原始 transcript 只保留复跑后的最新一份（task-8-<场景>-transcript.log），PNG 同取该轮。host/flash/selftest 日志为 task-8-{build-*,host-*,flash-*,device-selftest}.log。
+
+关键读数：
+- SYS est=10,240B，最终首建 delta=5,464B、GROUP build_ms=10ms；8 组签各 122px。
+- 最终 sys 复跑：SEQ→SYS 池剩余 15,396B，SYS→STEP 23,140B（均 ≥4,096B）。
+- transport：SEQ→PRESETS 过渡峰值 pool_free=8,024B（≥4,096B）。
+- synth 复跑：SYNTH 全建→STEP 后 pool_free=28,428B；10 轮四组往返 46,736→46,712（Δ=-24B）。
+- lowcut=1/reso=6 下 device-selftest.py 182/182，随后 settings 恢复；D7 归零回归成立。
+- SELFTEST chip：182/182；工作工程/AUTO/流恢复；第二次请求 RESET FIRST；既有全量耗时约 163s。
+- STORE TEST PASS 6/6。

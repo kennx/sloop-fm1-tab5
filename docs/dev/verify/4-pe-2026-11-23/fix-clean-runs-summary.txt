@@ -1,0 +1,5 @@
+clean-tree re-runs on HEAD 86711a4 (86711a4), start 2026-11-24 09:57:36
+store exit=0 10:03:57 PASS=902 FAIL=0
+sys exit=0 10:14:38 PASS=328 FAIL=0
+soak exit=0 10:45:34 PASS=3223 FAIL=0
+ALL DONE 10:45:34

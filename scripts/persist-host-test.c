@@ -658,6 +658,310 @@ int main(void)
               memcmp(got + SONG_ARR_OFF, &next, SONG_ARR_LEN) == 0,
           "dsu: flash 88B 旧对象 → 1,552B（当前 dsu + 新 arrangement）");
 
+    /* ---------- 10. settings 字段 RMW + side theme 读取（P4-E Task 1，spec §8.1） ---------- */
+    /* `song_per_put_settings` 在 song_per_build/put_dsu **之后**调用（只动自己拥有的
+     * 字段/位：palette/lowcut/zoom 直写、lights word 的 5 个 owned 位、尾段 byte38 的
+     * bits 2..5）；其余字节（panel/arrangement/DSU/尾段别的字节）逐字节保留。 */
+    {
+        static uint8_t a_pay[4096], b_pay[4096];
+        uint8_t tdef[SONG_MIDI_MAX], tdef0[SONG_MIDI_MAX];
+        uint32_t a_len, b_len;
+        song_settings_t f, g;
+        fill(tdef, sizeof tdef, 0x77); /* 上游 midi_part_fill 默认尾段的替身（byte38 = 0x81：bits 2..5 = 0） */
+        memcpy(tdef0, tdef, sizeof tdef);
+
+        /* (a) canonical：无对象 → build → put_dsu → put_settings（reso ≠ 0 ⇒ 追加尾段） */
+        f.palette = 2, f.lowcut = 1, f.zoom = 1, f.lights_lvl = 3, f.theme_on = 1, f.rec_tempo = 1,
+        f.rec_count = 0, f.rec_quant_off = 1, f.flt_reso = 5;
+        len = 0;
+        kind = song_per_build(payload, &len, sizeof payload, &arr, side, false);
+        song_per_put_dsu(payload, len);
+        a_len = song_per_put_settings(payload, len, sizeof payload, &f, tdef);
+        check(kind == SONG_PER_NEW && a_len == SONG_PER_CANON + SONG_MIDI_MAX && a_len == 1592u,
+              "settings_canonical: 无尾段 + reso=5 → 追加 40B 尾段 = 1,592B");
+        check(word(payload + 4) == 2u && word(payload + 8) == 1u && word(payload + 12) == 1u,
+              "settings_canonical: palette/lowcut/zoom @4/8/12 = 2/1/1");
+        check(word(payload + SONG_LIGHTS_OFF) == 0xC0000203u,
+              "settings_canonical: lights @84 = lvl3 | rec_tempo | theme_on | rec_quant_off，其余位 0");
+        check((payload[a_len - 2u] & 0x3Cu) == (5u << 2) && payload[a_len - 2u] == ((tdef0[38] & ~0x3Cu) | (5u << 2)),
+              "settings_canonical: 尾段 byte38 bits 2..5 = 5，其余位保持");
+        check(memcmp(payload + SONG_PER_CANON, tdef0, 38u) == 0 && payload[a_len - 1u] == tdef0[39],
+              "settings_canonical: 尾段其余 39 字节 = fixture");
+        memcpy(a_pay, payload, a_len);
+
+        /* (b) 外部位保持：已有 word@84 = 全 1、byte38 = 0xFF，只改 owned 位 */
+        arr_config_t arr_b = arr_make(2, 0);
+        b_len = SONG_PER_CANON + SONG_MIDI_MAX;
+        mk_per3(payload, b_len, &arr_b);
+        memcpy(payload + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN);
+        put_word(payload + 4, 9u);
+        put_word(payload + SONG_LIGHTS_OFF, 0xFFFFFFFFu);
+        payload[b_len - 2u] = 0xFF;
+        memcpy(before, payload, b_len);
+        memset(&f, 0, sizeof f);
+        f.palette = 4;
+        check(song_per_put_settings(payload, b_len, sizeof payload, &f, tdef) == b_len,
+              "settings_foreign_bits: 已有尾段 ⇒ 长度不变 1,592B");
+        check(word(payload + 4) == 4u && word(payload + 8) == 0u && word(payload + 12) == 0u,
+              "settings_foreign_bits: palette/lowcut/zoom 直写");
+        check(word(payload + SONG_LIGHTS_OFF) == 0x3FFFF9F0u, /* = 0xFFFFFFFF & ~(0xF | 1<<9 | 1<<10 | 1<<30 | 1<<31) */
+              "settings_foreign_bits: word@84 == 0x3FFFF9F0（外部位 4..8/11..29 全保持）");
+        check(payload[b_len - 2u] == 0xC3u, "settings_foreign_bits: 尾段 byte38 == 0xC3（bits 2..5 清零、其余保持）");
+        check(memcmp(payload + SONG_ARR_OFF, before + SONG_ARR_OFF, SONG_ARR_LEN) == 0,
+              "settings_foreign_bits: 48..83 arrangement 逐字节不变");
+        {
+            int same = 1;
+            for (uint32_t i = 0; i < b_len; i++)
+                if ((i < 4u || i >= 16u) && (i < SONG_LIGHTS_OFF || i >= SONG_PER_BASE) && i != b_len - 2u &&
+                    payload[i] != before[i])
+                    same = 0;
+            check(same, "settings_foreign_bits: 除 4..15/84..87/尾 byte38 外逐字节不变");
+        }
+        memcpy(b_pay, payload, b_len);
+
+        /* (c) 无尾段：reso=0 不追加；reso≠0 追加 tail_def；tail_def=NULL 或 cap 不足不追加 */
+        memset(&f, 0, sizeof f);
+        f.palette = 4;
+        len = SONG_PER_CANON;
+        mk_per3(payload, len, &arr);
+        memcpy(before, payload, len);
+        memset(payload + len, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, len, sizeof payload, &f, tdef) == SONG_PER_CANON &&
+                  memcmp(payload + 16u, before + 16u, SONG_LIGHTS_OFF - 16u) == 0 &&
+                  memcmp(payload + SONG_PER_BASE, before + SONG_PER_BASE, len - SONG_PER_BASE) == 0 &&
+                  word(payload + SONG_LIGHTS_OFF) == (word(before + SONG_LIGHTS_OFF) & ~0xC000060Fu) &&
+                  payload[len] == 0xEEu,
+              "settings_reso_appends_tail: reso=0 ⇒ 长度仍 1,552B、不追加（lights 只清 owned 位）");
+        f.flt_reso = 7;
+        check(song_per_put_settings(payload, len, sizeof payload, &f, tdef) == SONG_PER_CANON + SONG_MIDI_MAX,
+              "settings_reso_appends_tail: reso=7 + tail_def ⇒ 1,592B");
+        check(memcmp(payload + SONG_PER_CANON, tdef0, 38u) == 0 && payload[len + 39u] == tdef0[39] &&
+                  (payload[len + 38u] & 0x3Cu) == (7u << 2) && payload[len + 38u] == ((tdef0[38] & ~0x3Cu) | (7u << 2)),
+              "settings_reso_appends_tail: 尾段 = fixture，byte38 bits 2..5 = 7");
+        mk_per3(payload, len, &arr);
+        memset(payload + len, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, len, sizeof payload, &f, 0) == SONG_PER_CANON &&
+                  payload[len] == 0xEEu,
+              "settings_reso_appends_tail: tail_def=NULL ⇒ 不追加、不报错");
+        check(song_per_put_settings(payload, len, SONG_PER_CANON + SONG_MIDI_MAX - 1u, &f, tdef) == SONG_PER_CANON &&
+                  payload[len] == 0xEEu,
+              "settings_reso_appends_tail: cap 不足 ⇒ 不追加");
+        /* 历史 32/36B 短尾段：reso ≠ 0 ⇒ 就地扩到 40B（已有字节保留、缺的后缀取 tail_def），
+         * nibble 落在新长度的 byte38；reso = 0 ⇒ 不扩。 */
+        for (uint32_t tail = SONG_MIDI_32; tail <= SONG_MIDI_36; tail += 4u) {
+            char what[96];
+            uint32_t slen = SONG_PER_CANON + tail;
+            snprintf(what, sizeof what, "settings_reso_appends_tail: %uB 短尾段 reso=7 + tail_def ⇒ 扩到 1,592B",
+                     (unsigned)tail);
+            mk_per3(payload, slen, &arr);
+            memcpy(before, payload, slen);
+            memset(&f, 0, sizeof f);
+            memset(payload + slen, 0xEE, SONG_MIDI_MAX);
+            check(song_per_put_settings(payload, slen, sizeof payload, &f, tdef) == slen &&
+                      memcmp(payload + 16u, before + 16u, SONG_LIGHTS_OFF - 16u) == 0 &&
+                      memcmp(payload + SONG_PER_BASE, before + SONG_PER_BASE, slen - SONG_PER_BASE) == 0 &&
+                      payload[slen] == 0xEEu,
+                  "settings_reso_appends_tail: 短尾段 reso=0 ⇒ 不扩（长度不变）");
+            f.flt_reso = 7;
+            uint32_t nlen = song_per_put_settings(payload, slen, sizeof payload, &f, tdef);
+            check(nlen == SONG_PER_CANON + SONG_MIDI_MAX, what);
+            check(memcmp(payload + SONG_PER_CANON, before + SONG_PER_CANON, tail) == 0,
+                  "settings_reso_appends_tail: 短尾段已有字节逐字节保留");
+            uint8_t suffix[SONG_MIDI_MAX];
+            memcpy(suffix, tdef0 + tail, SONG_MIDI_MAX - tail);
+            suffix[38u - tail] = (uint8_t)((tdef0[38] & ~0x3Cu) | (7u << 2)); /* 后缀含 byte38：已 RMW */
+            check(memcmp(payload + slen, suffix, SONG_MIDI_MAX - tail) == 0,
+                  "settings_reso_appends_tail: 缺的后缀 = tail_def[short_len..40)（byte38 已打点）");
+            check((payload[nlen - 2u] & 0x3Cu) == (7u << 2) &&
+                      payload[nlen - 2u] == ((tdef0[38] & ~0x3Cu) | (7u << 2)),
+                  "settings_reso_appends_tail: nibble 落在 byte38，其余位保持");
+            memset(&g, 0, sizeof g);
+            check(song_per_get_settings(payload, nlen, &g) && g.flt_reso == 7u,
+                  "settings_reso_appends_tail: 扩展后读回 reso=7");
+        }
+        mk_per3(payload, SONG_PER_CANON + SONG_MIDI_32, &arr);
+        memcpy(before, payload, SONG_PER_CANON + SONG_MIDI_32);
+#define SHORT_TAIL_UNCHANGED() \
+    (memcmp(payload + 16u, before + 16u, SONG_LIGHTS_OFF - 16u) == 0 && \
+     memcmp(payload + SONG_PER_BASE, before + SONG_PER_BASE, SONG_PER_CANON + SONG_MIDI_32 - SONG_PER_BASE) == 0 && \
+     payload[SONG_PER_CANON + SONG_MIDI_32] == 0xEEu)
+        memset(payload + SONG_PER_CANON + SONG_MIDI_32, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, SONG_PER_CANON + SONG_MIDI_32, sizeof payload, &f, 0) ==
+                  SONG_PER_CANON + SONG_MIDI_32 && SHORT_TAIL_UNCHANGED(),
+              "settings_reso_appends_tail: 短尾段 tail_def=NULL ⇒ 不扩");
+        check(song_per_put_settings(payload, SONG_PER_CANON + SONG_MIDI_32, SONG_PER_CANON + SONG_MIDI_MAX - 1u, &f, tdef) ==
+                  SONG_PER_CANON + SONG_MIDI_32 && SHORT_TAIL_UNCHANGED(),
+              "settings_reso_appends_tail: 短尾段 cap 不足 ⇒ 不扩");
+#undef SHORT_TAIL_UNCHANGED
+        mk_per3(payload, SONG_PER_BASE, &arr); /* 88B：没有 DSU，尾段无处可放 ⇒ 不扩、不写尾 */
+        memset(payload + SONG_PER_BASE, 0xEE, SONG_MIDI_MAX);
+        check(song_per_put_settings(payload, SONG_PER_BASE, sizeof payload, &f, tdef) == SONG_PER_BASE &&
+                  payload[SONG_PER_BASE] == 0xEEu && payload[SONG_PER_BASE + SONG_MIDI_MAX - 2u] == 0xEEu,
+              "settings_reso_appends_tail: 88B（无 DSU）⇒ 不扩");
+
+        /* (d) 往返：(a)(b)(c) 各读回，字段逐项相等 */
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(a_pay, a_len, &g) && g.palette == 2u && g.lowcut == 1u && g.zoom == 1u &&
+                  g.lights_lvl == 3u && g.theme_on == 1u && g.rec_tempo == 1u && g.rec_count == 0u &&
+                  g.rec_quant_off == 1u && g.flt_reso == 5u,
+              "settings_roundtrip: (a) 9 个字段逐项读回");
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(b_pay, b_len, &g) && g.palette == 4u && g.lowcut == 0u && g.zoom == 0u &&
+                  g.lights_lvl == 0u && g.theme_on == 0u && g.rec_tempo == 0u && g.rec_count == 0u &&
+                  g.rec_quant_off == 0u && g.flt_reso == 0u,
+              "settings_roundtrip: (b) owned 位已写、外部位不入投影");
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(a_pay, SONG_PER_CANON, &g) && g.palette == 2u && g.flt_reso == 0u &&
+                  g.lights_lvl == 3u,
+              "settings_roundtrip: (c) 无尾段 ⇒ reso 读回 0（其余字段照常）");
+        memcpy(payload, a_pay, a_len);
+        payload[a_len - 2u] = 0xFF; /* bits 2..5 = 15：上游读回钳到 10 */
+        memset(&g, 0, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.flt_reso == 10u, "settings_roundtrip: reso 读回 >10 钳到 10");
+        /* lights_lvl：RAW/外部对象可带 4..15（上游 lights_from_word：≥ LIGHTS_N(4) ⇒ OFF）；
+         * 低 4 位之外的位（keys 等）不进投影。 */
+        memcpy(payload, a_pay, a_len);
+        put_word(payload + SONG_LIGHTS_OFF, 4u | 1u << 9);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 0u && g.rec_tempo == 1u,
+              "settings_roundtrip: lights_lvl=4 ⇒ 读回 OFF(0)（上游 ≥ LIGHTS_N 归 OFF）");
+        put_word(payload + SONG_LIGHTS_OFF, 15u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 0u && g.rec_tempo == 0u,
+              "settings_roundtrip: lights_lvl=15 ⇒ 读回 OFF(0)");
+        put_word(payload + SONG_LIGHTS_OFF, 0xFFFFFFF0u | 3u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, a_len, &g) && g.lights_lvl == 3u && g.rec_tempo == 1u &&
+                  g.theme_on == 1u && g.rec_quant_off == 1u,
+              "settings_roundtrip: lights_lvl=3 照常读回，owned 位各自解出");
+        /* 历史格式/长度：PER1/PER2 只读 palette；<88B 没有 lights；32/36B 尾段没有 byte38 */
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, SONG_PER_V22, &g) && g.lights_lvl == 0u && g.rec_tempo == 0u &&
+                  g.theme_on == 0u && g.rec_quant_off == 0u && g.flt_reso == 0u,
+              "settings_roundtrip: 84B（2.2）⇒ lights word 读 0");
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(a_pay, SONG_PER_CANON + SONG_MIDI_32, &g) && g.flt_reso == 0u &&
+                  g.lights_lvl == 3u,
+              "settings_roundtrip: 32B 尾段（1,584B）没有 byte38 ⇒ reso 0");
+        memset(payload, 0, SONG_PER2_LEN);
+        put_word(payload, SONG_PER2_MAGIC);
+        put_word(payload + 4, 3u);
+        put_word(payload + 8, 1u);
+        put_word(payload + 12, 1u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, SONG_PER2_LEN, &g) && g.palette == 3u && g.lowcut == 1u && g.zoom == 1u &&
+                  g.lights_lvl == 0u && g.rec_tempo == 0u && g.theme_on == 0u && g.rec_quant_off == 0u && g.flt_reso == 0u,
+              "settings_roundtrip: PER2 读 palette/lowcut/zoom（没有 lights/尾段 ⇒ 0）");
+        memset(payload, 0, SONG_PER2_LEN);
+        put_word(payload, SONG_PER2_MAGIC);
+        put_word(payload + 4, 1u);
+        put_word(payload + 8, 1u);
+        put_word(payload + 12, 1u);
+        memset(&g, 0, sizeof g);
+        check(song_per_get_settings(payload, SONG_PER2_LEN, &g) && g.palette == 1u && g.lowcut == 1u && g.zoom == 1u,
+              "settings_roundtrip: PER2(48B) palette=1 lowcut=1 zoom=1 三个字段读回");
+        memset(payload, 0, SONG_PER1_LEN);
+        put_word(payload, SONG_PER1_MAGIC);
+        put_word(payload + 4, 5u);
+        memset(&g, 0xFF, sizeof g);
+        check(song_per_get_settings(payload, SONG_PER1_LEN, &g) && g.palette == 5u && g.lights_lvl == 0u,
+              "settings_roundtrip: PER1 只读 palette");
+        mk_per3(payload, SONG_PER_BASE, &arr);
+        len = 200; /* 损坏长度 */
+        memset(&g, 0x5A, sizeof g);
+        {
+            song_settings_t g0 = g;
+            check(!song_per_get_settings(payload, len, &g) && memcmp(&g, &g0, sizeof g) == 0,
+                  "settings_roundtrip: 损坏对象 → false 且 *out 不动");
+            memset(&g, 0x5A, sizeof g);
+            g0 = g;
+            check(!song_per_get_settings(a_pay, 0, &g) && memcmp(&g, &g0, sizeof g) == 0,
+                  "settings_roundtrip: 无对象（len 0）→ false 且 *out 不动");
+        }
+
+        /* (e) side theme：THM2 + CRC36；THM1/坏 CRC/全 0xFF ⇒ false */
+        static uint8_t srec[SONG_SIDE_LEN];
+        static const uint16_t c5[5] = {0xF800, 0x07E0, 0x001F, 0x8410, 0x4208};
+        static const uint16_t trk4[4] = {0xFFFF, 0x0000, 0x8410, 0x4208};
+        song_theme_view_t tv;
+        song_side_default(srec); /* FAVS 部分有效、theme 全 0 */
+        put_word(srec, 0x324D4854u);
+        memcpy(srec + 4, "MYTHEME\0", 8);
+        for (uint32_t i = 0; i < 5; i++) put_word(srec + 12u + 2u * i, c5[i]);
+        for (uint32_t i = 0; i < 4; i++) put_word(srec + 22u + 2u * i, trk4[i]);
+        put_word(srec + 30u, 0x0000u);
+        put_word(srec + 32u, 0xFFFFu);
+        put_word(srec + 36u, st_crc32(srec, 36u));
+        memset(&tv, 0xEE, sizeof tv);
+        check(song_per_side_theme(srec, &tv) && strcmp(tv.name, "MYTHEME") == 0,
+              "side_theme_read: THM2 + CRC36 → true、name NUL 结尾");
+        check(tv.c[0][0] == 255 && tv.c[0][1] == 0 && tv.c[0][2] == 0 && tv.c[1][0] == 0 &&
+                  tv.c[1][1] == 255 && tv.c[1][2] == 0 && tv.c[2][0] == 0 && tv.c[2][1] == 0 && tv.c[2][2] == 255,
+              "side_theme_read: RGB565 → RGB888 纯红/绿/蓝");
+        check(tv.c[3][0] == 131 && tv.c[3][1] == 129 && tv.c[3][2] == 131 && tv.c[4][0] == 65 &&
+                  tv.c[4][1] == 64 && tv.c[4][2] == 65,
+              "side_theme_read: RGB565 → RGB888 中间值 *255/31、*255/63");
+        check(tv.trk[0][0] == 255 && tv.trk[0][1] == 255 && tv.trk[0][2] == 255 && tv.trk[1][0] == 0 &&
+                  tv.trk[2][2] == 131 && tv.trk[3][1] == 64,
+              "side_theme_read: trk[4] 展开");
+        check(tv.bg[0] == 0 && tv.bg[1] == 0 && tv.bg[2] == 0 && tv.hi[0] == 255 && tv.hi[1] == 255 &&
+                  tv.hi[2] == 255,
+              "side_theme_read: bg/hi 展开");
+        memcpy(srec + 4, "ABCDEFGH", 8); /* 满 8 字符：上游不结尾 */
+        put_word(srec + 36u, st_crc32(srec, 36u));
+        memset(&tv, 0xEE, sizeof tv);
+        check(song_per_side_theme(srec, &tv) && strcmp(tv.name, "ABCDEFGH") == 0 && tv.name[8] == 0,
+              "side_theme_read: 8 字符名 → char[9] 补 NUL");
+        put_word(srec, 0x314D4854u); /* "THM1" */
+        memset(&tv, 0xEE, sizeof tv);
+        {
+            song_theme_view_t tv0 = tv;
+            check(!song_per_side_theme(srec, &tv) && memcmp(&tv, &tv0, sizeof tv) == 0,
+                  "side_theme_read: THM1 → false 且 *out 不动");
+        }
+        put_word(srec, 0x324D4854u);
+        srec[20] ^= 1u; /* 改 1 字节不更新 CRC */
+        check(!song_per_side_theme(srec, &tv), "side_theme_read: 坏 CRC → false");
+        srec[20] ^= 1u;
+        check(song_per_side_theme(srec, &tv), "side_theme_read: 改回后 CRC 再通过（对照）");
+        memset(srec, 0xFF, sizeof srec);
+        check(!song_per_side_theme(srec, &tv), "side_theme_read: 全 0xFF（从未写）→ false");
+
+        /* (f) (b) 的 payload 经真实 st_save3（含 side theme）往返：get 一致、panel 不变 */
+        flash_reset();
+        song_side_default(srec);
+        put_word(srec, 0x324D4854u);
+        memcpy(srec + 4, "MYTHEME\0", 8);
+        for (uint32_t i = 0; i < 5; i++) put_word(srec + 12u + 2u * i, c5[i]);
+        for (uint32_t i = 0; i < 4; i++) put_word(srec + 22u + 2u * i, trk4[i]);
+        put_word(srec + 30u, 0x0000u);
+        put_word(srec + 32u, 0xFFFFu);
+        put_word(srec + 36u, st_crc32(srec, 36u));
+        memcpy(payload, b_pay, b_len);
+        memset(&g, 0, sizeof g);
+        check(song_per_get_settings(payload, b_len, &g) && memcmp(payload + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN) == 0,
+              "settings_real_st_save3: 写前 get 与 panel = SONG_PANEL_DEF");
+        {
+            song_settings_t g0 = g;
+            st_side = srec;
+            st_side_len = SONG_SIDE_LEN;
+            rc = st_save3(OBJ_SETTINGS, payload, b_len, 0, 0, 0, 0);
+            st_side = 0;
+            st_side_len = 0;
+            n = st_load(OBJ_SETTINGS, got, sizeof got);
+            memset(&g, 0xFF, sizeof g);
+            check(rc == 0 && n == (int)b_len && song_per_get_settings(got, (uint32_t)n, &g) &&
+                      memcmp(&g, &g0, sizeof g) == 0,
+                  "settings_real_st_save3: 往返后 get_settings 与写前逐项一致");
+            check(memcmp(got + SONG_PANEL_OFF, SONG_PANEL_DEF, SONG_PANEL_LEN) == 0,
+                  "settings_real_st_save3: SONG_PANEL_DEF 16..47 逐字节不变");
+            check(st_side_load(OBJ_SETTINGS, side_got, SONG_SIDE_LEN) == 0 &&
+                      song_per_side_theme(side_got, &tv) && strcmp(tv.name, "MYTHEME") == 0 &&
+                      tv.c[3][0] == 131 && tv.trk[3][1] == 64,
+                  "settings_real_st_save3: side theme 随副本提交并可读回");
+        }
+    }
+
     printf("persist-host: %s (%d failure%s)\n", fails == 0 ? "PASS" : "FAIL", fails, fails == 1 ? "" : "s");
     return fails;
 }

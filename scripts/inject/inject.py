@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-九条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
-song.sh / sequence.sh / synth.sh）是本文的薄封装。每个场景：
+十条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
+song.sh / sequence.sh / synth.sh / sys.sh）是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -18,7 +18,7 @@ song.sh / sequence.sh / synth.sh）是本文的薄封装。每个场景：
 esptool 硬复位 → 等 console 提示符 → 重开串口 → 场景从头重跑（复位把页面/走带
 状态清回基线，重跑才能让断言与截图同源），默认最多 3 次。
 
-用法（一般经五条脚本调用）：
+用法（一般经各场景脚本调用）：
     python3 scripts/inject/inject.py --scenario transport --port /dev/ttyACM0 [--retry 3]
 产物（默认 $SLOOP_TAB5_PROJECT/build/verify/，可用 --out-dir 覆盖）：
     inject-<scenario>-<时间戳>.log        串口原始回显 + 工具注记
@@ -30,6 +30,8 @@ import argparse
 import importlib.util
 import os
 import re
+import struct
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -39,6 +41,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 import screenshot as shot  # noqa: E402
 import gen_project_fixtures as fixtures  # noqa: E402
+import gen_settings_fixture as settings_fixtures  # noqa: E402
 import store_raw  # noqa: E402
 
 BAUD = 115200
@@ -115,18 +118,11 @@ class LoggedSerial:
 # 提示符打印后仍可能紧跟一行日志；这种尾随日志不改变「命令已执行完、提示符已出现」，
 # 若按「尾部必须恰以 sloop> 结束」判定会把正常启动误报成超时（store 首个
 # `ENG AUDIO ON` 的现场：响应与提示符都已到达，只差尾部多一行 sloop_display 日志）。
-_ASYNC_LOG = re.compile(r"^[IWE] \(\d+\) \S")
-
 
 def _prompt_at(buf: bytearray) -> bool:
-    """console 提示符检测：缓冲区尾部是 "sloop>"（其后只允许空格），或 "sloop>" 后只
-    跟完整的固件异步日志行。（esp_console 实际输出为 "sloop>  "——尾部可能多一个
-    空格，不能按固定长度比较。）"""
-    i = buf.rfind(b"sloop>")
-    if i < 0:
-        return False
-    tail = buf[i + len(b"sloop>") :].decode(errors="replace")
-    return all(_ASYNC_LOG.match(line) for line in tail.strip().splitlines())
+    """提示符本身表示上一条命令已完成；其后可能立即跟任意异步输出（SELFTEST
+    的逐例哈希并不都是 ESP_LOG 格式），不能再要求尾部只含空白/日志行。"""
+    return buf.rfind(b"sloop>") >= 0
 
 
 def read_response(ser, timeout: float) -> str:
@@ -356,17 +352,17 @@ C_PANEL_SEL = (40, 52, 64)  # UI_PANEL_SEL 0x2C3540
 C_TEXT = (240, 244, 248)  # UI_TEXT 描边（3px 焦点框）/ 焦点旋钮的数值
 C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：非焦点旋钮文本
 # 页签条几何（ADR-005「导航决策」两行页签；theme.h UI_GROUP_*/UI_SUB_* 同源）：
-# 上行组签 y∈[4,36)、**142px** 宽、间距 8（7×142+6×8=1,042，右端 1,058 <
-# SLOOP 标题起点 ~1,191；P4-D Task 8 起 7 组，168→142 见 ADR-005 §5.1）；下行子签
+# 上行组签 y∈[4,36)、**122px** 宽、间距 8（8×122+7×8=1,032，右端 1,048 <
+# SLOOP 标题起点 ~1,191；P4-E Task 6 起 8 组，142→122 见 ADR-005 §5.2）；下行子签
 # y∈[38,68)、176px，只显示当前组已注册页（固定 5 槽复用，右端 928）。页面区起点
 # 仍是 y=72，页内几何全部不变。
 # 探针取页签**左上内缘**（x = 签左 + 20，y = 行顶 + 4）：避开 10px 圆角与 16pt
 # 文本行（组签文本 ≈10..30，子签 ≈43..63），命中填充色（选中 UI_ACCENT / 未选中
 # UI_PANEL_HI）而不是字形抗锯齿。
 UI_TAB_X0, UI_TAB_GAP = 16, 8
-UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 142, 32, 4
+UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 122, 32, 4
 UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
-UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SYNTH", "SEQ", "SONG", "FILE")
+UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "SYNTH", "SEQ", "SONG", "FILE", "SYS")
 
 
 def group_tab_xy(i: int) -> tuple:
@@ -385,7 +381,7 @@ def sub_tab_probe(i: int) -> tuple:
     return (UI_TAB_X0 + i * (UI_SUB_W + UI_TAB_GAP) + 20, UI_SUB_Y + 4)
 
 
-# 单页组（PLAY/TRACKS）的选中态在上行组签；多页组（EDIT/SYNTH/SEQ/FILE）的选中态在
+# 单页组（PLAY/TRACKS/SONG/SYS）的选中态在上行组签；多页组（EDIT/SYNTH/SEQ/FILE）的选中态在
 # 下行子签。注意 C_TAB_GLOBAL 与 C_TAB_STEP/C_TAB_SAMPLE（C_TAB_FX 与 C_TAB_TRANSPORT、
 # C_TAB_DSYN）坐标相同：都是「当前组第一/二张子签」，语义由当前组决定——探针只在对应组
 # 为当前组时使用。
@@ -396,6 +392,7 @@ C_TAB_SYNTH = group_tab_probe(3)   # P4-D Task 8：SAMPLE/DSYN/FM6P 组
 C_TAB_SEQ = group_tab_probe(4)
 C_TAB_SONG = group_tab_probe(5)
 C_TAB_FILE = group_tab_probe(6)
+C_TAB_SYS = group_tab_probe(7)
 C_TAB_STEP = sub_tab_probe(0)
 C_TAB_TRANSPORT = sub_tab_probe(1)
 C_TAB_GLOBAL = sub_tab_probe(0)
@@ -1789,11 +1786,11 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
-# TAB 扁平整轮顺序（ADR-005 §4/§5.1 的最终 14 页；SONG 独立组在 P4-C Task 11 落地，
-# SYNTH 组三页在 P4-D Task 8 落地）—— group 顺序 + 组内顺序，与 ui.c 的 k_groups[] 同源。
+# TAB 扁平整轮顺序（P4-E Task 6 的最终 15 页 / 8 组）——group 顺序 + 组内顺序，
+# 与 ui.c 的 k_groups[] 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (4, "global"), (5, "fx"), (6, "analog"), (7, "fm6"),
              (8, "sample"), (12, "dsyn"), (13, "fm6p"), (2, "step"), (3, "transport"),
-             (11, "song"), (9, "projects"), (10, "presets"))
+             (11, "song"), (9, "projects"), (10, "presets"), (14, "system"))
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
@@ -1963,7 +1960,7 @@ def run_nav(s: Session) -> None:
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
        FILE 组两页、SONG 单页组、**SYNTH 组三页**（P4-D Task 8：`UI TAB synth` /
        `UI SUB 0..2`、离开组 built=0）各走一遍；
-    ⑦ `TAB` 全 14 页轮转（最终顺序 …FM6→SAMPLE→DSYN→FM6P→STEP→…→PRESETS→PLAY），
+    ⑦ `TAB` 全 15 页轮转（最终顺序 …FM6→SAMPLE→DSYN→FM6P→STEP→…→PRESETS→SYSTEM→PLAY），
        异步切页用 STATE SNAP 轮询等落地、回卷到 PLAY；
     ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
        且无逐次递增（每页 `styles_init` 只跑一次）。
@@ -2369,12 +2366,12 @@ def run_nav(s: Session) -> None:
     else:
         s.fail(f"⑥d {NAV_ATTEMPTS} 次对齐都未能把 tab 与 UI TAB 压进同一拍（测试前提不成立）")
 
-    # ---------- ⑦ TAB 全 14 页轮转（最终顺序，ADR-005 §4/§5.1；SYNTH 组 Task 8 注册） ----------
-    # 一拍一页从 PLAY 走完 14 页并回卷到 PLAY：每个目标页都由**当前页**计算
+    # ---------- ⑦ TAB 全 15 页轮转（P4-E Task 6 追加 SYSTEM） ----------
+    # 一拍一页从 PLAY 走完 15 页并回卷到 PLAY：每个目标页都由**当前页**计算
     # （sloop_ui_page_order_next），任何「注册了但不在组表」或「组表与子签顺序不一致」
     # 都会让某一步偏离。异步切页用 STATE SNAP 轮询等落地（UI 会取消待执行请求）。
     s.ser.note("⑦ TAB 扁平整轮：PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→"
-               "STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY")
+               "STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY")
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑦ 起点 PLAY")
     for pid, name in NAV_ORDER[1:] + NAV_ORDER[:1]:
@@ -2830,8 +2827,8 @@ def run_params(s: Session) -> None:
                        f"归一 GLOBAL BPM={PARAM_BPM_DEF}（环顶探针的弧长前提）")
 
     mem0 = param_mem(s)
-    (s.ok if mem0["head"]["registered"] == 14 else s.fail)(
-        f"UI MEM registered=14（4 基础 + 4 EDIT 参数页 + 3 SYNTH + 2 FILE + SONG）实得 "
+    (s.ok if mem0["head"]["registered"] == 15 else s.fail)(
+        f"UI MEM registered=15（4 基础 + 4 EDIT + 3 SYNTH + 2 FILE + SONG + SYSTEM）实得 "
         f"{mem0['head']['registered']}")
 
     # ---------- GLOBAL 页：BPM/SWING 经 TAP ± 与键盘 ↑/↓ ----------
@@ -7900,6 +7897,691 @@ def run_synth(s: Session) -> None:
         s.expect(rf"^ENG SNAP trk k={k} engine=0 ", f"⑥ ENG SNAP 轨 {k} engine=0（无 FM6 泄漏）")
 
 
+# ---- sys 场景（P4-E 设置页）：存储/状态/SYSTEM 页/持久化/golden/池全矩阵 -----------
+SETTINGS_INFO_RE = (
+    r"^STORE SETTINGS INFO kind=(\w+) len=(\d+) side=([01]) "
+    r"palette=(\d+) lowcut=(\d+) zoom=(\d+) lights=(\d+) theme_on=(\d+) reso=(\d+) "
+    r"rec_tempo=(\d+) rec_count=(\d+) rec_quant=(\d+) dirty=([01]) "
+    r"theme=(\S+) theme_valid=([01])\r?$"
+)
+
+
+def settings_info(s: Session) -> dict:
+    """`STORE SETTINGS INFO` → dict：flash 对象的 kind/len/side + 九个生效字段 + dirty +
+    theme 名/有效位。INFO 读的是 flash 的事实与 RAM 生效副本，不写任何东西。"""
+    s.cmd("STORE SETTINGS INFO")
+    m = store_expect(s, SETTINGS_INFO_RE, "STORE SETTINGS INFO")
+    keys = ("kind", "len", "side", "palette", "lowcut", "zoom", "lights", "theme_on", "reso",
+            "rec_tempo", "rec_count", "rec_quant", "dirty", "theme", "theme_valid")
+    info = {k: m.group(i + 1) for i, k in enumerate(keys)}
+    for k in keys:
+        if k not in ("kind", "theme"):
+            info[k] = int(info[k])
+    return info
+
+
+def settings_set(s: Session, field: str, value: int, dirty: int = 1, label: str = "") -> None:
+    """`STORE SETTINGS SET <field> <v>`：回显写后值（钳位后）与 dirty。"""
+    s.cmd(f"STORE SETTINGS SET {field} {value}")
+    s.expect(rf"^STORE SETTINGS SET {field}={value} dirty={dirty}\r?$",
+             label or f"STORE SETTINGS SET {field} {value}")
+
+
+def settings_save(s: Session, label: str) -> int:
+    """`STORE SETTINGS SAVE`：回显提交的 payload 长度与 side 有效性，返回 len。"""
+    s.cmd("STORE SETTINGS SAVE")
+    m = store_expect(s, r"^STORE SETTINGS SAVED len=(\d+) side=([01])\r?$",
+                     label or "STORE SETTINGS SAVE")
+    return int(m.group(1))
+
+
+def settings_expect(s: Session, want: dict, label: str) -> None:
+    """逐字段比对 `STORE SETTINGS INFO`（want 里没有的键不断言）。"""
+    info = settings_info(s)
+    for key, value in want.items():
+        (s.ok if info[key] == value else s.fail)(
+            f"{label} {key}={info[key]}（期望 {value}）")
+
+
+def sys_palette_default(s: Session, label: str, info_palette: int) -> None:
+    """R13：settings 读不到（空/损坏/未就绪）⇒ 生效 palette = 4（MONO）。INFO 的 palette 是
+    生效副本（reload 之后），`STATE SNAP set_palette` 是 UI 消费的同一投影，两者都查。"""
+    (s.ok if info_palette == 4 else s.fail)(f"{label} INFO palette={info_palette}（期望 4 = MONO，R13）")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_palette=(\d+)", 4, f"{label} STATE SNAP set_palette=4")
+
+
+# 上游 arr_defaults（arranger.c:23）填 count 之外条目的方式：scene = i % 4、bars = 4。
+SYS_DEFAULT_BARS = 4
+# 上游 panel.c PANEL_DEFAULT = song_persist.h 的 SONG_PANEL_DEF（"PAN5" + 14 按钮 + 7 编码器 + 7 方向）
+SYS_PANEL_DEF = bytes([
+    0x35, 0x4E, 0x41, 0x50,
+    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1,
+    0, 1, 6, 2, 3, 4, 5,
+    1, 1, 1, 1, 1, 1, 1,
+])
+
+
+def sys_per3_88(palette: int, song: dict) -> bytes:
+    """88B 的合法 PER3（上游 persist_t：magic "PER3" / palette@4 / lowcut@8 / zoom@12 /
+    panel@16 / arrangement@48 / lights@84；没有 DSU 与 MIDI 尾段，kind=per3、len=88）。
+    48..83 是 arr_config_t（count / loop / reserved[2] / 16×(scene, bars)）：`song` 给出
+    count/loop 与 count 内的条目，count 之外按上游 arr_defaults 填。下一次保存会由固件补成
+    canonical 1,552B（当前 RAM 的 DSU）。"""
+    arr = bytearray(36)
+    arr[0], arr[1] = song["count"], song["loop"]
+    for i in range(16):
+        scene, bars = song["entry"].get(i, (i % 4, SYS_DEFAULT_BARS))
+        arr[4 + 2 * i], arr[5 + 2 * i] = scene, bars
+    lights = struct.pack("<I", 0)  # 84：上游默认 lights word（本固件拥有的位全 0）
+    return struct.pack("<IIII", 0x50455233, palette, 0, 0) + SYS_PANEL_DEF + bytes(arr) + lights
+
+
+# 与 page_system.c 的布局宏同源；坐标换成屏幕绝对坐标（页区 y + 72）。
+SYS_ROW_Y = (32, 76, 106, 174, 254, 298, 342, 372, 510)
+SYS_CHIP_ROWS = {1, 6}
+
+
+def sys_tap(s: Session, row: int, delta: int = 1) -> None:
+    if row in SYS_CHIP_ROWS:
+        x, y = 304 + 70, SYS_ROW_Y[row] + 15
+    elif row == 8:
+        x, y = 24 + 70, SYS_ROW_Y[row] + 22
+    else:
+        x = 24 + (21 if delta < 0 else 420 - 21)
+        y = SYS_ROW_Y[row] + 22
+    s.cmd(f"TAP {x} {y + 72}", timeout=10.0 if row == 8 else None)
+
+
+def sys_key(s: Session, code: int) -> None:
+    s.cmd(f"KEY 0x{code:02X} down")
+    s.cmd(f"KEY 0x{code:02X} up")
+
+
+def sys_wait_nvs(s: Session, want: int, label: str, timeout: float = 16.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"set_nvs=(\d+)") == want:
+            s.ok(f"{label} set_nvs={want}")
+            return
+        time.sleep(0.2)
+    s.fail(f"{label} 超时（set_nvs 未到 {want}）")
+
+
+def sys_wait_settings_dirty(s: Session, want: int, label: str, timeout: float = 16.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        info = settings_info(s)
+        if info["dirty"] == want:
+            s.ok(f"{label} dirty={want}")
+            return
+        time.sleep(0.2)
+    s.fail(f"{label} 超时（dirty 未到 {want}）")
+
+
+# soak 的流式占空比上限（2× 阶段 2 静默渲染基线 9.44%，AGENTS §5.5）；自检后的坏态实测 ≈220%。
+SYS_DUTY_MAX_PCT = 18.88
+
+
+def sys_perf_healthy(s: Session, label: str, window: float = 3.0) -> None:
+    """DI-40 回归：自检之后音频任务不得进入持续超预算态。流式 `ENG PERF` 的 duty_mean ≤ soak
+    上限、`window` 秒内 xrun 增量为 0（坏态：音频任务栈落进 LP SRAM ⇒ 每块 ≈13ms、
+    duty ≈220%、xrun == render_blocks，直到复位）。坏态下 console 还会被饿死（最长 >400s
+    无提示符）——那由 Session 的命令超时以 InjectError 判场景失败。"""
+    s.cmd("ENG PERF")
+    s.expect_int(r"streaming=(\d+) xrun=(\d+)", 1, f"{label} streaming=1")
+    xrun0 = s.snap_int(r"streaming=1 xrun=(\d+)")
+    m = re.search(r"render_mean_us=(\d+) render_max_us=(\d+) duty_mean=([\d.]+)%", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"{label}: ENG PERF 回显缺少 duty_mean：{s.last!r}")
+    duty = float(m.group(3))
+    (s.ok if duty <= SYS_DUTY_MAX_PCT else s.fail)(
+        f"{label} duty_mean={duty:.2f}% render_mean_us={m.group(1)}（≤ {SYS_DUTY_MAX_PCT}%）")
+    time.sleep(window)
+    s.cmd("ENG PERF")
+    xrun1 = s.snap_int(r"streaming=1 xrun=(\d+)")
+    (s.ok if xrun1 == xrun0 else s.fail)(
+        f"{label} {window:.0f}s 窗口 xrun {xrun0} → {xrun1}（期望增量 0）")
+
+
+def sys_wait_selftest(s: Session, timeout: float = 180.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        s.cmd("STATE SNAP")
+        if s.snap_int(r"selftest_done=(\d+)") == 1:
+            ran = s.snap_int(r"selftest_ran=(\d+)")
+            failed = s.snap_int(r"selftest_failed=(\d+)")
+            (s.ok if ran == 182 and failed == 0 else s.fail)(
+                f"⑧ SYSTEM 状态行数据 SELFTEST {ran - failed}/{ran} "
+                f"{'PASS' if ran > 0 and failed == 0 else 'FAIL'}")
+            return
+        time.sleep(0.5)
+    s.fail("⑧ SELFTEST chip 超时（180s 内无结果；既有全量实测约 157–165s）")
+
+
+def sys_device_selftest(s: Session) -> None:
+    """释放串口后运行真实 182 例设备 golden 门禁，再恢复原 Session。"""
+    s.ser.note("⑤ device-selftest.py（本 Session 暂时关闭串口；完整 182 例 golden 比对）")
+    s.ser.close()
+    try:
+        cp = subprocess.run([sys.executable, str(SCRIPTS_DIR / "device-selftest.py"), s.port],
+                            cwd=SCRIPTS_DIR.parent, capture_output=True, text=True, timeout=240)
+        print(cp.stdout, end="")
+        if cp.stderr:
+            print(cp.stderr, end="", file=sys.stderr)
+    finally:
+        s.ser = s._open()
+    # console 全量自检之后 device-selftest.py 已 `ENG AUDIO ON`：这是 DI-40 的原始路径
+    # （chip worker 走同一段起流），先断言音频没进入持续超预算态再复位避开 DI-26。
+    sys_perf_healthy(s, "⑤ console 全量自检后音频")
+    # 同一 boot 内读（复位之前）：自检的 restore 把 s_set/fx_lowcut/flt_reso 回滚成 0，收尾的
+    # settings_reload 以 flash 重放——INFO 读的是生效副本，这里才是 D7「收尾 reload」那一半的断言
+    # （复位后的读数只是开机 reload，证明不了它）。
+    settings_expect(s, {"lowcut": 1, "reso": 6, "dirty": 0}, "⑤ 同一 boot 自检后 settings（收尾 reload）")
+    s.reboot()
+    (s.ok if cp.returncode == 0 else s.fail)(f"⑤ device-selftest.py exit={cp.returncode}（期望 0）")
+
+
+def run_sys(s: Session) -> None:
+    """sys 场景（P4-E）：设置页的存储层 → 状态层 → SYSTEM 页的端到端矩阵。
+
+    ① settings 生效副本：`STORE SETTINGS INFO` 解析 → `SET palette 2` ⇒ `dirty=1` →
+       `SAVE` ⇒ `STORE SETTINGS SAVED len=<n> side=<0|1>`、`dirty=0` → esptool 硬复位 →
+       INFO 仍 `palette=2`（开机 reload 以 flash 为准）
+    ①b `STORE RAW END settings 0` 往返：上传 88B PER3（palette=1、歌曲 count=2 loop=1）⇒
+       INFO/SONG INFO 报上传的字节；RAM 的 `STORE SONG` 也是上传的歌（R15：歌曲/DSU/生效
+       副本按新对象重载）且随后一次 `STORE SONG SAVE` 不把它写回旧值；**工程槽 A 的 RAM
+       缓存逐位不变**（`STORE PROJ HASH 0` 前后相同——settings 与 project 的 slot 都是 0）
+    ② SYSTEM/SYS 注册、10,240B 预算、单页组导航与第 8 组签像素；
+    ③ 全部设置行 + THEME 第 6 档 + 键盘 + 播放中 20 次平台写（xrun 不增）；
+    ④ settings/NVS/REC 三项的延迟写与硬复位保持；⑤ lowcut=1/reso=6 下 182 例 golden；
+    ⑥ SEQ↔SYS 有序对过渡峰值；⑦ 归一 SAVE + AUTO ON；⑧ SELFTEST chip 的一次性 worker、
+    STOP/RESET 守卫与工作工程恢复（先 `SYS SELFTEST ARM`，worker 全路径必跑；DI-40：⑤/⑧ 自检后
+    `ENG PERF` duty ≤ soak 上限、xrun 增量 0；DI-42：①/①b-a 空/损坏对象 ⇒ palette 4）；
+    ⑨ RAW settings + SIDE theme 往返、硬复位与 STORE TEST。
+    ①b 收口先恢复槽 A 的空/非空状态，再恢复歌曲，避免 `arr_drop_scene` 截断待恢复歌曲。
+
+    **破坏性**（整份替换 OBJ_SETTINGS：上传的 88B 没有 SYN kit 银行 ⇒ 之后落工厂 SYN kit；
+    palette/歌曲顺序由收口恢复），自带归一、可重复；`STORE AUTO OFF` 防止 autosave 把
+    中途状态写进工作工程（不跨复位，复位后重新下发）。
+    """
+    s.ser.note("sys 场景开始：① 归一（AUTO OFF / 停走带 / ENG AUDIO ON）")
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① STORE AUTO OFF")
+    s.cmd("ENG AUDIO ON")
+    s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
+    ensure_stopped(s)
+    base = settings_info(s)
+    # R13 的默认 palette 只在 reload 那一刻成立（开机/RAW 之后）：起点 RAM 里的 palette 可能
+    # 是用户此后改过的，故空/损坏对象的断言放在 ①b-a（RAW 写入触发的 reload）而不是这里。
+    if base["kind"] == "invalid":
+        # 起点是损坏对象（上一轮在 ①b-a 之后异常终止）：SAVE 按设计被拒（`STORE ERR invalid`、
+        # 不覆盖），先用 RAW 写回一份合法的默认 PER3（palette=MONO、默认歌曲）再继续。
+        store_raw.upload_raw(s.cmd, sys_per3_88(4, {"count": 4, "loop": 0, "entry": {}}), "settings", 0)
+        base = settings_info(s)
+        (s.ok if base["kind"] == "per3" and base["palette"] == 4 else s.fail)(
+            f"① 损坏对象归一 kind={base['kind']} palette={base['palette']}（期望 per3 / 4）")
+    if base["dirty"] != 0:
+        settings_save(s, "① 起点 dirty=1：先 SAVE 归一（允许上次中断后续跑）")
+        base = settings_info(s)
+    (s.ok if base["kind"] in ("per3", "empty") and base["dirty"] == 0 else s.fail)(
+        f"① 起点 kind={base['kind']} dirty={base['dirty']}（期望 per3|empty / 0）")
+
+    s.ser.note("① settings 生效副本：SET → dirty → SAVE → 硬复位 → INFO")
+    settings_set(s, "palette", 2, label="① SET palette 2")
+    settings_expect(s, {"palette": 2, "dirty": 1}, "① SET 后 INFO")
+    before = settings_info(s)
+    len_saved = settings_save(s, "① SAVE")
+    settings_expect(s, {"palette": 2, "dirty": 0, "len": len_saved}, "① SAVE 后 INFO")
+    (s.ok if len_saved >= 1552 else s.fail)(
+        f"① SAVE 的 len={len_saved}（canonical PER3 ≥ 1,552）")
+    (s.ok if before["len"] in (0, len_saved) or len_saved >= before["len"] else s.fail)(
+        f"① SAVE 不缩短对象：{before['len']} → {len_saved}")
+
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① 复位后 STORE AUTO OFF")
+    settings_expect(s, {"palette": 2, "dirty": 0, "kind": "per3", "len": len_saved},
+                    "① 硬复位后 INFO")
+
+    # ---------- ①b STORE RAW END settings 0：原样落盘 + RAM 重载 + 不碰工程槽 A ----------
+    s.ser.note("①b RAW settings 往返：88B PER3 → 落盘 + 重载；工程槽 A 的 RAM 缓存不受影响")
+    ensure_stopped(s)
+    song0 = song_cfg(s)
+    side0 = settings_info(s)["side"]
+    s.cmd("STORE PROJ HASH 0")
+    created_slot0 = False
+    if re.search(r"^STORE ERR empty\r?$", s.last, re.MULTILINE):
+        created_slot0 = True
+        store_cmd(s, "STORE PROJ SAVE 0", r"^PROJ 0 SAVED hash=[0-9A-F]{8}\r?$",
+                  "①b 槽 A 为空：先 SAVE 0 造一个非空槽（HASH 往返的判别前提）")
+    else:
+        s.expect(r"^PROJ 0 HASH=[0-9A-F]{8}\r?$", "①b RAW 前 STORE PROJ HASH 0（槽 A 已在用）")
+    hash0 = store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=([0-9A-F]{8})\r?$", "①b RAW 前 HASH 0")
+    # 上传的歌：固定值；起点恰好就是它（上一轮在上传之后异常终止）时换一首，保证
+    # 「RAM 歌曲被重载」的断言有判别力。
+    up_song = {"count": 2, "loop": 1, "entry": {0: (1, 2), 1: (0, 3)}}
+    if (song0["count"], song0["loop"], song0["entry"]) == (up_song["count"], up_song["loop"], up_song["entry"]):
+        up_song = {"count": 3, "loop": 0, "entry": {0: (2, 1), 1: (3, 2), 2: (0, 1)}}
+    up_want = (up_song["count"], up_song["loop"])
+    s.ser.note(f"①b 上传歌曲 count={up_want[0]} loop={up_want[1]}（起点 count={song0['count']} loop={song0['loop']}）")
+    # R13：没有对象 / 对象损坏 / 存储未就绪 ⇒ 同一个 `!from_flash` 分支，生效 palette 必须是 4
+    # （MONO）。开发机上永远有对象，这里用 64B 垃圾对象走同一分支（INFO 报 invalid）；随后的
+    # 88B PER3 上传把它覆盖回合法对象。
+    store_raw.upload_raw(s.cmd, bytes([0xA5]) * 64, "settings", 0)
+    info = settings_info(s)
+    (s.ok if info["kind"] == "invalid" and info["len"] == 64 else s.fail)(
+        f"①b-a 损坏对象 kind={info['kind']} len={info['len']}（期望 invalid / 64）")
+    sys_palette_default(s, "①b-a 损坏对象", info["palette"])
+    store_raw.upload_raw(s.cmd, sys_per3_88(1, up_song), "settings", 0)
+    s.ok("①b STORE RAW END settings 0 saved len=88（88B PER3，palette=1）")
+    settings_expect(s, {"kind": "per3", "len": 88, "palette": 1, "dirty": 0, "side": side0},
+                    "①b RAW 后 INFO（上传的字节 + 现有 side 随新副本）")
+    s.cmd("STORE SONG INFO")
+    s.expect(rf"^STORE SONG INFO kind=per3 len=88 side=\d count={up_want[0]} loop={up_want[1]}\r?$",
+             f"①b RAW 后 STORE SONG INFO = 上传的歌曲 count={up_want[0]} loop={up_want[1]}")
+    s.cmd("STORE SONG")
+    s.expect(rf"^STORE SONG count={up_want[0]} loop={up_want[1]} dirty=0\r?$",
+             "①b RAW 后 RAM 歌曲已重载（R15）：count/loop")
+    for i, (sc, bars) in sorted(up_song["entry"].items()):
+        s.expect(rf"^SONG {i} scene={sc} bars={bars}\r?$", f"①b RAW 后 RAM 歌曲条目 {i}（R15）")
+    hash1 = store_hash(s, "STORE PROJ HASH 0", r"^PROJ 0 HASH=([0-9A-F]{8})\r?$", "①b RAW 后 HASH 0")
+    (s.ok if hash1 == hash0 else s.fail)(
+        f"①b 工程槽 A 的 RAM 缓存不受 RAW settings 影响：HASH 0 {hash1:08X}（期望 {hash0:08X}）")
+    s.cmd("STORE SONG SAVE")
+    m = store_expect(s, r"^STORE SONG SAVED len=(\d+) side=([01])\r?$", "①b RAW 之后 STORE SONG SAVE")
+    (s.ok if int(m.group(1)) >= 1552 else s.fail)(
+        f"①b 保存把 88B 补成 canonical：len={m.group(1)}（≥ 1,552）")
+    s.cmd("STORE SONG INFO")
+    s.expect(rf"^STORE SONG INFO kind=per3 len=\d+ side=\d count={up_want[0]} loop={up_want[1]}\r?$",
+             "①b 随后的保存写的是已重载的歌（不是上传前的旧 RAM）")
+
+    s.ser.note("收口：槽 A 先回起点状态，再恢复 palette/歌曲顺序 + SAVE；AUTO ON")
+    if created_slot0:
+        proj_erase(s, 0, "收口 先擦回起点为空的槽 A（避免 arr_drop_scene 截断待恢复歌曲）")
+    song_restore = " ".join(f"{song0['entry'][i][0]}:{song0['entry'][i][1]}" for i in range(song0["count"]))
+    store_cmd(s, f"STORE SONG SET {song0['count']} {song0['loop']} {song_restore}",
+              rf"^STORE SONG SET count={song0['count']} loop={song0['loop']} ", "收口 恢复起点歌曲顺序")
+    settings_set(s, "palette", base["palette"], label="收口 SET palette")
+    len_restored = settings_save(s, "收口 SAVE（歌曲 + settings 同一次提交）")
+    settings_expect(s, {"palette": base["palette"], "dirty": 0, "len": len_restored}, "收口后 INFO")
+    (s.ok if len_restored >= 1552 else s.fail)(f"收口后对象 len={len_restored}（≥ 1,552）")
+    s.cmd("STORE SONG")
+    s.expect(rf"^STORE SONG count={song0['count']} loop={song0['loop']} dirty=0\r?$",
+             "收口后 STORE SONG（dirty=0）")
+    for i in range(song0["count"]):
+        scene, bars = song0["entry"][i]
+        s.expect(rf"^SONG {i} scene={scene} bars={bars}\r?$", f"收口后 SONG {i}")
+
+    # ---------- ② SYSTEM 页 / SYS 单页组 / 8 组签 ----------
+    s.ser.note("② SYSTEM 页：UI system / UI MEM / UI TAB sys / UI SUB 0 / 截屏")
+    settings_set(s, "palette", 4, label="② 归一 MONO（组签像素锚点）")
+    settings_save(s, "② 归一 SAVE")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "② UI system → SYSTEM(14)")
+    mem = param_mem(s)
+    grp = mem["groups"].get("SYS", {})
+    (s.ok if grp.get("built") == 1 and grp.get("sum_est") == 10240 else s.fail)(
+        f"② GROUP SYS built={grp.get('built')} sum_est={grp.get('sum_est')}（期望 1 / 10,240）")
+    (s.ok if 0 < grp.get("build_ms", 0) <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"② GROUP SYS build_ms={grp.get('build_ms')}ms（0 < x ≤{NAV_BUILD_BUDGET_MS}）")
+    state, est, delta = mem["pages"].get(14, ("?", 0, 0))
+    (s.ok if state == "built" and est == 10240 and 0 < delta <= est else s.fail)(
+        f"② SYSTEM state={state} est={est} delta={delta}（期望 built / 10,240 / 0<delta≤est）")
+    s.cmd("UI TAB sys")
+    s.expect(r"^UI TAB SYS page=system \(14\)\r?$", "② UI TAB sys")
+    s.cmd("UI SUB 0")
+    s.expect(r"^UI ERR sub 0\r?$", "② SYS 单页组：UI SUB 0 回 ERR（子行为空）")
+    img = s.capture("system")
+    s.probe_region(img, "② 第 8 个组签 SYS 高亮", (926, 4, 1048, 36), C_YELLOW, 16, 500)
+
+    # ---------- ③ TAP / 键盘 / 走带中平台写 ----------
+    s.ser.note("③ SYSTEM 行编辑：COLOR/ZOOM/BRIGHT/LIGHTS/VOLUME/OUTPUT/LOWCUT/RESO + 键盘")
+    ensure_stopped(s)
+    settings_set(s, "palette", 4, label="③ 归一 palette=MONO")
+    settings_set(s, "theme_on", 1, label="③ 归一到 THEME 档（下一档才是 GREEN）")
+    settings_set(s, "zoom", 0, label="③ 归一 ZOOM OFF")
+    settings_set(s, "lights", 0, label="③ 归一 LIGHTS OFF")
+    settings_set(s, "lowcut", 0, label="③ 归一 LOWCUT OFF")
+    settings_set(s, "reso", 0, label="③ 归一 RESO OFF")
+    s.cmd("DISP BRIGHT 100")
+    s.expect(r"^DISP BRIGHT applied=100\r?$", "③ 归一 BRIGHT 100")
+    s.cmd("AUD VOL 70")
+    s.expect(r"^AUD VOL applied=70\r?$", "③ 归一 VOLUME 70")
+    s.cmd("AUD OUT speaker")
+    s.expect(r"^AUD OUT applied=speaker\r?$", "③ 归一 OUTPUT speaker")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "③ UI system")
+
+    palette_rgb = ((120, 255, 148), (255, 164, 40), (140, 220, 255),
+                   (255, 108, 92), C_YELLOW)
+    palette_names = ("GREEN", "AMBER", "CYAN", "RED", "MONO")
+    mono_accent = None
+    for palette in range(5):
+        sys_tap(s, 0, 1)
+        s.expect(rf"-> SYS COLOR value={palette_names[palette]} status=\"OK\"",
+                 f"③ COLOR + → {palette_names[palette]}")
+        settings_expect(s, {"palette": palette, "theme_on": 0}, f"③ COLOR {palette_names[palette]} INFO")
+        img = s.capture(f"color-{palette_names[palette].lower()}")
+        s.probe(img, f"③ {palette_names[palette]} accent", *C_TAB_SYS, palette_rgb[palette])
+        if palette == 4:
+            mono_accent = img.getpixel(C_TAB_SYS)
+        if palette == 2:
+            s.cmd("UI tracks")
+            s.expect(r"^UI page=tracks \(1\)\r?$", "③ CYAN 兄弟页 UI tracks")
+            img = s.capture("tracks-cyan")
+            s.probe(img, "③ TRACKS 兄弟页采用 CYAN accent", *C_TAB_TRACKS, palette_rgb[palette])
+            s.cmd("UI system")
+            s.expect(r"^UI page=system \(14\)\r?$", "③ 回 SYSTEM")
+
+    theme = settings_info(s)
+    if theme["theme_valid"]:
+        sys_tap(s, 0, 1)
+        s.expect(rf"-> SYS COLOR value={re.escape(theme['theme'])} status=\"OK\"",
+                 "③ COLOR 第 6 档 = side theme")
+        settings_expect(s, {"palette": 4, "theme_on": 1}, "③ THEME_ON=1 且 palette 保持 MONO")
+        img = s.capture("color-theme")
+        (s.ok if img.getpixel(C_TAB_SYS) != mono_accent else s.fail)(
+            "③ THEME accent 与 MONO 不同")
+        sys_tap(s, 0, 1)
+        s.expect(r"-> SYS COLOR value=GREEN status=\"OK\"",
+                 "③ THEME→GREEN：先 THEME_ON=0 再 PALETTE=0")
+        settings_expect(s, {"palette": 0, "theme_on": 0}, "③ 回内置 palette")
+
+    sys_tap(s, 2, -1)
+    s.expect(r"-> SYS BRIGHT value=90 status=\"OK\"", "③ BRIGHT − → 90")
+    sys_tap(s, 2, -1)
+    s.expect(r"-> SYS BRIGHT value=80 status=\"OK\"", "③ BRIGHT − → 80")
+    s.cmd("DISP BRIGHT")
+    s.expect(r"^DISP BRIGHT applied=80\r?$", "③ DISP BRIGHT 读回 80")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"sys_bright=(\d+)", 80, "③ STATE sys_bright")
+    s.expect_int(r"set_nvs=(\d+)", 1, "③ BRIGHT 置 NVS dirty")
+
+    sys_tap(s, 4, 1)
+    s.expect(r"-> SYS VOLUME value=75 status=\"OK\"", "③ VOLUME + → 75")
+    s.cmd("AUD VOL")
+    s.expect(r"^AUD VOL applied=75\r?$", "③ AUD VOL 读回 75")
+
+    sys_tap(s, 3, 1)
+    s.expect(r"-> SYS LIGHTS value=1 status=\"OK\"", "③ LIGHTS + → LOW")
+    time.sleep(0.1)
+    s.cmd("KBD RGB")
+    s.expect(r"^KBD RGB applied=low\r?$", "③ LIGHTS 经 30ms UI 拍驱动 KBD RGB low")
+
+    sys_tap(s, 5, 1)
+    s.expect(r"-> SYS OUTPUT value=0 status=\"N/A\"", "③ OUTPUT headphone 不支持：N/A")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"sys_out=(\d+)", 0, "③ OUTPUT 失败后 sys.out 不变")
+
+    sys_tap(s, 6)
+    s.expect(r"-> SYS LOWCUT value=ON status=\"OK\"", "③ LOWCUT chip ON")
+    settings_expect(s, {"lowcut": 1}, "③ LOWCUT INFO")
+    for reso in (1, 2, 3):
+        sys_tap(s, 7, 1)
+        s.expect(rf"-> SYS RESO value={reso} status=\"OK\"", f"③ RESO + → {reso}")
+    settings_expect(s, {"reso": 3}, "③ RESO INFO")
+
+    sys_tap(s, 1)
+    s.expect(r"-> SYS ZOOM value=ON status=\"OK\"", "③ ZOOM chip ON")
+    sys_key(s, 0x4B)  # ↓：ZOOM → BRIGHT
+    sys_key(s, 0x3B)  # ↑：BRIGHT → ZOOM
+    sys_key(s, 0x3D)  # ENTER：ZOOM toggle
+    settings_expect(s, {"zoom": 0}, "③ 键盘焦点环 + ENTER 将 ZOOM 切回 OFF")
+    sys_tap(s, 7, 1)  # 焦点落到 RESO，3→4
+    sys_key(s, 0x4A)  # ←：4→3
+    settings_expect(s, {"reso": 3}, "③ 键盘 ← 调 RESO")
+    sys_key(s, 0x3D)  # ENTER：3→4
+    sys_key(s, 0x4A)  # ←：回 3
+    settings_expect(s, {"reso": 3}, "③ 键盘 ENTER/← 往返")
+
+    s.ser.note("③ 走带中平台写：TRANSPORT PLAY + 20 次亮度交替，xrun 增量必须为 0")
+    s.cmd("UI transport")
+    s.cmd("TAP %d %d" % TRANSPORT_PLAY)
+    s.expect(r"-> TRANSPORT CMD_PLAY", "③ PLAY")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 1, "③ 走带中 playing=1")
+    s.cmd("ENG PERF")
+    xrun0 = s.snap_int(r"xrun=(\d+)")
+    for i in range(20):
+        value = 90 if i % 2 == 0 else 80
+        s.cmd(f"DISP BRIGHT {value}")
+        s.expect(rf"^DISP BRIGHT applied={value}\r?$", f"③ 播放中 DISP BRIGHT {value}")
+    s.cmd("ENG PERF")
+    s.expect_int(r"xrun=(\d+)", xrun0, "③ 20 次播放中亮度写 xrun 增量 0")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_nvs=(\d+)", 1, "③ 播放中 NVS dirty 持续置位")
+    s.cmd("TAP %d %d" % TRANSPORT_STOP)
+    s.expect(r"-> TRANSPORT CMD_STOP", "③ STOP")
+    sys_wait_nvs(s, 0, "③ 停止后静默窗口提交 NVS")
+    s.cmd("UI system")
+
+    # ---------- ④ settings/NVS 延迟写与硬复位保持；REC 三项 ----------
+    s.ser.note("④ 持久化：settings dirty 窗口、side 不变、硬复位、REC CONFIG")
+    ensure_stopped(s)
+    s.cmd("STORE SONG INFO")
+    side0 = s.snap_int(r"side=(\d+)")
+    settings_set(s, "palette", 3, label="④ SET palette=RED")
+    settings_expect(s, {"palette": 3, "dirty": 1}, "④ 改值后即时 INFO")
+    sys_wait_settings_dirty(s, 0, "④ 停止+空闲窗口落盘 settings")
+    s.cmd("STORE SONG INFO")
+    s.expect_int(r"side=(\d+)", side0, "④ settings 保存不改变 side")
+    expected = settings_info(s)
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "④ 复位后 AUTO OFF")
+    settings_expect(s, {k: expected[k] for k in
+                        ("palette", "lowcut", "zoom", "lights", "theme_on", "reso", "dirty")},
+                    "④ 硬复位保持 settings")
+    s.cmd("DISP BRIGHT")
+    s.expect(r"^DISP BRIGHT applied=80\r?$", "④ 硬复位保持 NVS bright=80")
+    s.cmd("AUD VOL")
+    s.expect(r"^AUD VOL applied=75\r?$", "④ 硬复位保持 NVS vol=75")
+
+    s.cmd("SEQ REC CONFIG 1 1 1")
+    s.expect(r"quant=off tempo=tempo count=count", "④ REC CONFIG 1 1 1 即时生效")
+    settings_expect(s, {"rec_tempo": 1, "rec_count": 1, "rec_quant": 1, "dirty": 1},
+                    "④ REC 三项置 settings dirty")
+    sys_wait_settings_dirty(s, 0, "④ REC 三项过静默窗口落盘")
+    s.reboot()
+    store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "④ REC 复位后 AUTO OFF")
+    s.cmd("SEQ REC")
+    s.expect(r"quant=off tempo=tempo count=count", "④ 硬复位保持 REC quant/tempo/count")
+    settings_expect(s, {"rec_tempo": 1, "rec_count": 1, "rec_quant": 1}, "④ REC settings INFO")
+
+    # ---------- ⑤ lowcut=1 / reso=6 下完整 golden 自检 ----------
+    s.ser.note("⑤ golden：lowcut=1 reso=6，自检运行期归零、结束后按 settings 重载")
+    settings_set(s, "lowcut", 1, label="⑤ SET lowcut=1")
+    settings_set(s, "reso", 6, label="⑤ SET reso=6")
+    settings_save(s, "⑤ 自检前 SAVE")
+    sys_device_selftest(s)
+    settings_expect(s, {"lowcut": 1, "reso": 6}, "⑤ 自检后 settings 保持")
+    # DI-26：sys_device_selftest 已硬复位，后续池与 chip 门禁不继承自检堆泄漏。
+
+    # ---------- ⑥ SEQ↔SYS 有序对过渡峰值 ----------
+    s.ser.note("⑥ 有序对：SEQ 两页全建→SYS、SYS→STEP，构建后池剩余 ≥4,096")
+    s.cmd("UI step")
+    s.expect(r"^UI page=step \(2\)\r?$", "⑥ UI step")
+    s.cmd("UI transport")
+    s.expect(r"^UI page=transport \(3\)\r?$", "⑥ UI transport（SEQ 两页全建）")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑥ SEQ→SYSTEM")
+    m = re.search(r"页面构建 page=SYSTEM\(14\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑥ SEQ→SYS 构建日志缺 SYSTEM 池剩余")
+    else:
+        (s.ok if int(m.group(3)) >= 4096 else s.fail)(
+            f"⑥ SEQ→SYS 过渡池剩余={m.group(3)}B（≥4,096）")
+    mem = param_mem(s)
+    (s.ok if mem["groups"]["SEQ"]["sum_est"] == 32256 else s.fail)(
+        f"⑥ GROUP SEQ sum_est={mem['groups']['SEQ']['sum_est']}（期望 32,256）")
+    s.cmd("UI step")
+    s.expect(r"^UI page=step \(2\)\r?$", "⑥ SYS→STEP")
+    m = re.search(r"页面构建 page=STEP\(2\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B", s.last)
+    if m is None:
+        s.fail("⑥ SYS→STEP 构建日志缺 STEP 池剩余")
+    else:
+        (s.ok if int(m.group(3)) >= 4096 else s.fail)(
+            f"⑥ SYS→STEP 过渡池剩余={m.group(3)}B（≥4,096）")
+
+    # ---------- ⑦ 收口 ----------
+    s.ser.note("⑦ 收口：palette 4 / zoom 0 / lights 0 / lowcut 0 / reso 0 / bright 100 / vol 70")
+    ensure_stopped(s)
+    for field, value in (("palette", 4), ("zoom", 0), ("lights", 0),
+                         ("lowcut", 0), ("reso", 0), ("theme_on", 0)):
+        settings_set(s, field, value, label=f"⑦ SET {field}={value}")
+    s.cmd("DISP BRIGHT 100")
+    s.expect(r"^DISP BRIGHT applied=100\r?$", "⑦ BRIGHT 100")
+    s.cmd("AUD VOL 70")
+    s.expect(r"^AUD VOL applied=70\r?$", "⑦ VOLUME 70")
+    s.cmd("AUD OUT speaker")
+    s.expect(r"^AUD OUT applied=speaker\r?$", "⑦ OUTPUT speaker")
+    s.cmd("SEQ REC CONFIG 0 0 0")
+    s.expect(r"quant=on tempo=free count=note", "⑦ REC 配置回默认")
+    settings_save(s, "⑦ STORE SETTINGS SAVE（含 NVS flush）")
+    settings_expect(s, {"palette": 4, "zoom": 0, "lights": 0, "lowcut": 0,
+                        "reso": 0, "theme_on": 0, "dirty": 0}, "⑦ 收口 INFO")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"set_nvs=(\d+)", 0, "⑦ NVS dirty 已清")
+    s.cmd("STORE AUTO ON")
+    s.expect(r"^STORE AUTO on", "⑦ STORE AUTO ON（恢复默认）")
+
+    # ---------- ⑧ SELFTEST chip：每 boot 一次，独立 worker 停流/恢复 ----------
+    # ⑤ 已跑过一次全量 console 自检；先复位避开 DI-26 的既有堆泄漏，再测产品 chip。
+    s.ser.note("⑧ SELFTEST chip：SYS SELFTEST ARM → 播放守卫 → 未落盘编辑+设置 → 完整 worker（先落盘）"
+               " → 工作工程/设置/流/AUTO 恢复 → PERF")
+    s.reboot()
+    ensure_stopped(s)
+    # R8 的「每 boot 一次」标记在 .noinit，跨 esptool 硬复位存活；R25 的诊断注入清掉它与结果
+    # 缓存，chip 才走完整 worker 路径（否则下面只会得到 RESET FIRST + 上一轮的缓存结果）。
+    s.cmd("SYS SELFTEST ARM")
+    s.expect(r"^SYS SELFTEST ARMED\r?$", "⑧ SYS SELFTEST ARM（R25：清每 boot 一次标记与结果缓存）")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ UI system")
+    auto = autosave_fields(s)
+    if auto["on"] == 0:
+        store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑧ 准备 autosave：AUTO ON")
+        auto = autosave_fields(s)
+    autosave_bump_bpm(s, 120)
+    autosave_wait_writes(s, auto["writes"] + 1, 25.0,
+                         "⑧ 先落一份当前工作工程（worker 的 resume 来源）")
+
+    seq_play(s, "⑧ 走带中守卫前提")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ 回 SYSTEM")
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"STOP FIRST\"", "⑧ 播放中 chip 预热（建立状态文本路径）")
+    s.cmd("ENG MEM")
+    mem_before = s.snap_int(r"internal_free=(\d+)")
+    mem_min_before = s.snap_int(r"internal_min=(\d+)")
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"STOP FIRST\"", "⑧ 播放中 chip → STOP FIRST")
+    s.cmd("ENG MEM")
+    mem_after = s.snap_int(r"internal_free=(\d+)")
+    mem_min_after = s.snap_int(r"internal_min=(\d+)")
+    (s.ok if abs(mem_after - mem_before) <= 64 and mem_min_after == mem_min_before else s.fail)(
+        f"⑧ STOP FIRST 未启动自检（free {mem_before}→{mem_after}，噪声 ≤64B；"
+        f"min {mem_min_before}→{mem_min_after} 不变）")
+    s.cmd("ENG AUDIO")
+    s.expect_int(r"streaming=(\d+)", 1, "⑧ STOP FIRST 后音频仍 ON")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selftest_req=(\d+)", 0, "⑧ STOP FIRST 未发 CMD_SELFTEST_RUN")
+    ensure_stopped(s)
+    # 终审 I1：chip 之前刻意**不等**落盘——改 BPM（工作工程，autosave 的 20s gap 未到）与 RESO
+    # （settings 的 1.5s/5s 延迟写窗口未到），随后立刻点 chip。没有 worker 的自检前落盘，
+    # 自检的 restore 会把这两处都丢掉（BPM 回到上一次 autosave、RESO 回到 0）。
+    autosave_bump_bpm(s, 124)
+    settings_set(s, "reso", 7, label="⑧ 自检前未落盘 RESO=7")
+    st0 = autosave_fields(s)
+    (s.ok if st0["writes"] == auto["writes"] + 1 else s.fail)(
+        f"⑧ chip 前 autosave_writes={st0['writes']}（期望仍 {auto['writes'] + 1}：编辑尚未自动存档）")
+    settings_expect(s, {"reso": 7, "dirty": 1}, "⑧ chip 前设置仍 dirty（延迟写窗口未到）")
+    hash_before = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                             "⑧ 自检前 LIVEHASH（含未存档的 BPM）")
+    (s.ok if hash_before != st0["hash"] else s.fail)(
+        f"⑧ 判别力：LIVEHASH {hash_before:08X} != autosave_hash {st0['hash']:08X}")
+    s.cmd("UI system")
+    sys_tap(s, 8)
+    chip_ran = "RESET FIRST" not in s.last
+    if chip_ran:
+        s.expect(r"-> SYS SELFTEST status=\"SELFTEST RUNNING\"", "⑧ 停止后 chip 只入队")
+        s.cmd("SYS SELFTEST ARM")
+        s.expect(r"^SYS SELFTEST ARM ERR busy\r?$", "⑧ 自检进行中 ARM 被拒（busy）")
+        sys_wait_selftest(s)
+        s.cmd("STORE STATS")
+        s.expect(r"^STORE STATS .*autosave=1 ", "⑧ worker 结束后 STORE AUTO 回 on")
+        hash_after = store_hash(s, "STORE LIVEHASH", r"^LIVEHASH " + STORE_HASH8,
+                                "⑧ 自检后 LIVEHASH")
+        (s.ok if hash_after == hash_before else s.fail)(
+            f"⑧ 工作工程恢复：LIVEHASH {hash_after:08X} == 自检前 {hash_before:08X}")
+        st1 = autosave_fields(s)
+        (s.ok if st1["hash"] == hash_after else s.fail)(
+            f"⑧ 未存档的编辑已由 worker 落盘：autosave_hash {st1['hash']:08X} == LIVEHASH（I1）")
+        (s.ok if store_bpm_settled(s, 124, 3.0) else s.fail)(
+            "⑧ 自检前未存档的 BPM 编辑保持（STATE SNAP bpm=124）")
+        s.cmd("ENG AUDIO")
+        s.expect_int(r"streaming=(\d+)", 1, "⑧ worker 恢复流式")
+        sys_perf_healthy(s, "⑧ worker 恢复流式后音频")
+        # settings：worker 自检前落盘 + 收尾 reload ⇒ chip 之前**没保存**的 RESO 原值回来、dirty 清。
+        settings_expect(s, {"reso": 7, "dirty": 0}, "⑧ 自检后 settings（chip 前未保存的 RESO 保持）")
+        autosave_bump_bpm(s, 120)  # ⑨ 的工作工程回到 120（下一次 autosave 窗口自会落盘）
+    else:
+        s.fail("⑧ ARM 之后 chip 仍回 RESET FIRST：worker 全路径未执行")
+    # 离开/重返不得再次清 R8 标记；PASS 或此前的 PASS 缓存都在重建后显示。
+    s.cmd("UI play")
+    s.expect(r"^UI page=play \(0\)\r?$", "⑧ 自检后离开 SYSTEM")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑧ 自检后重返 SYSTEM")
+    img = s.capture("selftest-pass")
+    (s.ok if img.size == (1280, 720) and img.mode == "RGB" else s.fail)(
+        f"⑧ SELFTEST PASS PNG 解码 size={img.size} mode={img.mode}（期望 1280×720 RGB）")
+    s.probe_region(img, "⑧ SELFTEST PASS 状态行（accent）", (24, 672, 700, 712),
+                   C_YELLOW, 16, 40)
+    sys_tap(s, 8)
+    s.expect(r"-> SYS SELFTEST status=\"RESET FIRST\"", "⑧ 第二次 chip → RESET FIRST")
+
+    # ---------- ⑨ RAW settings + SIDE theme：写后/复位/STORE TEST ----------
+    s.ser.note("⑨ RAW settings + SIDE：palette=3、THM2 theme、COLOR THEME、复位与 STORE TEST")
+    ensure_stopped(s)
+    s.cmd("STATE SNAP")
+    s.expect_int(r"playing=(\d+)", 0, "⑨ RAW settings 上传前走带已停")
+    if chip_ran:
+        s.expect_int(r"selftest_done=(\d+)", 1, "⑨ RAW settings 上传前 SELFTEST 已收尾")
+    theme_name = "P4E7"
+    per3 = settings_fixtures.build_per3()
+    side = settings_fixtures.build_side(theme_name)
+    settings_fixtures.validate(per3, side, theme_name)
+    store_raw.upload_raw(s.cmd, per3, "settings", 0)
+    s.ok("⑨ STORE RAW END settings 0 saved len=88")
+    store_cmd(s, "STORE RAW SIDE 00", r"^STORE ERR invalid\r?$", "⑨ SIDE 短记录 → invalid")
+    store_cmd(s, "STORE RAW SIDE " + "G" * 160, r"^STORE ERR invalid\r?$",
+              "⑨ SIDE 非 hex → invalid")
+    store_raw.upload_side(s.cmd, side)
+    s.ok("⑨ STORE RAW SIDE saved len=80")
+    settings_expect(s, {"kind": "per3", "len": 88, "palette": 3, "theme": theme_name,
+                        "theme_valid": 1, "theme_on": 0, "side": 1}, "⑨ RAW settings+SIDE 后 INFO")
+    s.cmd("UI system")
+    s.expect(r"^UI page=system \(14\)\r?$", "⑨ UI system（COLOR 有第 6 档）")
+    sys_tap(s, 0, 1)
+    s.expect(r"-> SYS COLOR value=MONO status=\"OK\"", "⑨ COLOR RED→MONO")
+    sys_tap(s, 0, 1)
+    s.expect(rf"-> SYS COLOR value={theme_name} status=\"OK\"", "⑨ COLOR MONO→THEME")
+    settings_expect(s, {"palette": 4, "theme": theme_name, "theme_valid": 1, "theme_on": 1},
+                    "⑨ 选中 THEME 后 INFO")
+    img = s.capture("raw-theme")
+    s.probe(img, "⑨ THEME accent == side.hi RGB565(0xF81F)", *C_TAB_SYS, (255, 0, 255))
+    s.reboot()
+    ensure_stopped(s)
+    settings_expect(s, {"palette": 4, "theme": theme_name, "theme_valid": 1, "theme_on": 1,
+                        "side": 1}, "⑨ 硬复位后 theme/palette 保持")
+    s.cmd("UI system")
+    img = s.capture("raw-theme-reset")
+    s.probe(img, "⑨ 复位后 THEME accent 仍 == side.hi", *C_TAB_SYS, (255, 0, 255))
+    store_cmd(s, "STORE TEST", r"^STORE TEST PASS 6/6\r?$", "⑨ STORE TEST PASS 6/6")
+    settings_set(s, "theme_on", 0, label="⑨ 收口 THEME_ON=0")
+    settings_set(s, "palette", 4, label="⑨ 收口 palette=MONO")
+    settings_save(s, "⑨ 收口 SAVE（保留有效 side，回内置 MONO）")
+    store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ 收口 AUTO ON")
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
@@ -7910,13 +8592,14 @@ SCENARIOS = {
     "song": run_song,
     "sequence": run_sequence,
     "synth": run_synth,
+    "sys": run_sys,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（九条 .sh 各对应一个）")
+                    help="注入场景（十条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")

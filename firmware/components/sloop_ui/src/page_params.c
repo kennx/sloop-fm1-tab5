@@ -719,7 +719,11 @@ static bool s_btn_style_ready;
 
 static void btn_style_init(void)
 {
-    if (s_btn_style_ready) return;
+    if (s_btn_style_ready) {
+        lv_style_set_text_color(&s_st_btn, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_btn, lv_color_hex(UI_PANEL_HI));
+        return;
+    }
     s_btn_style_ready = true;
     lv_style_init(&s_st_btn);
     lv_style_set_text_align(&s_st_btn, LV_TEXT_ALIGN_CENTER);
@@ -755,7 +759,13 @@ static lv_style_t s_st_bank_erase;
 static void bank_style_init(void)
 {
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_text_color(&s_st_bank, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_bank, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_bg_color(&s_st_bank_save, lv_color_hex(ui_track_color(1)));
+        lv_style_set_bg_color(&s_st_bank_erase, lv_color_hex(ui_track_color(3)));
+        return;
+    }
     done = true;
     lv_style_init(&s_st_bank);
     lv_style_set_text_align(&s_st_bank, LV_TEXT_ALIGN_CENTER);
@@ -1010,6 +1020,7 @@ void page_params_update(uint8_t index, const app_state_t *st)
         if (!slot_value(pg, slot, st, &v)) continue;
         if (!k->shown || k->locked || k->value != v) knob_show(k, v);
     }
+    sloop_ui_zoom_knob(ui->present[focus] ? &ui->knobs[focus] : NULL);
 
     /* bank 行（仅 FM6）：目标槽 `B<n+1>` + 状态行（最后一次 bank 动作 × store_status，
      * 与 FILE 页同一映射）。脏检查：槽号变化写槽文本，四元组

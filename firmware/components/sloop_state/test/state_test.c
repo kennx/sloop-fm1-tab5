@@ -1087,30 +1087,33 @@ static void case_store_bank(void)
     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
 }
 
-/* ⑮ 页 id 扩容（P4-B Task 10 Step 3 / P4-C Task 11 / P4-D Task 8）：FILE 组两页 +
- * SONG + SYNTH 组两页（DSYN/FM6P）追加在参数页之后，容量 14（SONG 是独立顶层组、
- * SYNTH 页随组表移入，但 id 都排在最后，既有页 id 不变）。 */
+/* ⑮ 页 id 扩容：FILE/SONG/SYNTH 之后，P4-E Task 6 再追加 SYSTEM，容量 15；
+ * 新 id 都排在最后，既有页 id 不变。 */
 static void case_page_ids(void)
 {
     stub_engine_reset();
     state_init();
     app_state_t s;
 
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 14);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 15);
     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
     check_ll("SONG id", APP_PAGE_SONG, 11);
     check_ll("DSYN id", APP_PAGE_DSYN, 12);
     check_ll("FM6P id", APP_PAGE_FM6P, 13);
+    check_ll("SYSTEM id", APP_PAGE_SYSTEM, 14);
     state_set_page(APP_PAGE_SONG);
     state_get_copy(&s);
     check_ll("新页可设", s.page, APP_PAGE_SONG);
     state_set_page(APP_PAGE_FM6P);
     state_get_copy(&s);
     check_ll("SYNTH 页可设", s.page, APP_PAGE_FM6P);
+    state_set_page(APP_PAGE_SYSTEM);
+    state_get_copy(&s);
+    check_ll("SYSTEM 页可设", s.page, APP_PAGE_SYSTEM);
     state_set_page(APP_STATE_PAGES);
     state_get_copy(&s);
-    check_ll("越界页仍被拒", s.page, APP_PAGE_FM6P);
+    check_ll("越界页仍被拒", s.page, APP_PAGE_SYSTEM);
 }
 
 static void apply_step_edit(const sloop_step_edit_t *edit)
@@ -1852,6 +1855,286 @@ static void case_fm6_and_sample(void)
     check_ll("鼓轨 sync 清空 patch", s.fm6p.patch[2], 0);
 }
 
+/* ---------------- P4-E Task 4：设置 / 平台命令 / REC 持久化 ----------------------- */
+
+/* ① CMD_SETTINGS_SET：六字段各一次 (a=field, v=值)，stub 记到 (field, v) 且只动该字段；
+ * 投影 settings.* 同拍回读（每次成功读一次生效副本），dirty 随生效副本。 */
+static void case_settings_set_routes_each_field(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    /* 顺序 = sloop_set_field_t：palette / lowcut / zoom / lights / reso / theme_on */
+    static const uint32_t vals[SLOOP_SET_FIELD_COUNT] = {2, 1, 1, 3, 7, 1};
+
+    for (uint32_t f = 0; f < SLOOP_SET_FIELD_COUNT; f++) {
+        uint32_t reads = g_stub.settings_read_calls;
+        apply(CMD_SETTINGS_SET, f, 0, (uint16_t)vals[f]);
+        check_ll("SET 透传 field", g_stub.settings_last_field, f);
+        check_ll("SET 透传 value", g_stub.settings_last_value, vals[f]);
+        check_ll("SET 调用次数（每字段一次）", g_stub.settings_set_calls, f + 1);
+        state_get_copy(&s);
+        check_ll("SET → ok", s.settings_status, APP_SETTINGS_OK);
+        check_ll("成功 SET 同拍读一次生效副本", g_stub.settings_read_calls - reads, 1);
+        uint8_t got[SLOOP_SET_FIELD_COUNT] = {
+            s.settings.palette, s.settings.lowcut, s.settings.zoom,
+            s.settings.lights, s.settings.reso, s.settings.theme_on,
+        };
+        for (uint32_t k = 0; k <= f; k++)
+            check_ll("已写字段保持（字段路由不越权）", got[k], vals[k]);
+    }
+    check_ll("投影 palette", s.settings.palette, 2);
+    check_ll("投影 lowcut", s.settings.lowcut, 1);
+    check_ll("投影 zoom", s.settings.zoom, 1);
+    check_ll("投影 lights", s.settings.lights, 3);
+    check_ll("投影 reso", s.settings.reso, 7);
+    check_ll("投影 theme_on", s.settings.theme_on, 1);
+    check_ll("投影 dirty 随生效副本", s.settings.dirty, 1);
+}
+
+/* ② 钳位在状态层（下发前）：palette ≥5 ⇒ 4、reso >10 ⇒ 10、lights >3 ⇒ 3、布尔 >1 ⇒ 1；
+ * 字段越界 ⇒ INVALID 且不调 store。 */
+static void case_settings_set_clamps_and_invalid(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SETTINGS_SET, SLOOP_SET_PALETTE, 0, 9);
+    check_ll("palette 9 ⇒ stub 收到 4", g_stub.settings_last_value, 4);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_RESO, 0, 99);
+    check_ll("reso 99 ⇒ stub 收到 10", g_stub.settings_last_value, 10);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_LIGHTS, 0, 7);
+    check_ll("lights 7 ⇒ stub 收到 3", g_stub.settings_last_value, 3);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_THEME_ON, 0, 2);
+    check_ll("theme_on 2 ⇒ stub 收到 1", g_stub.settings_last_value, 1);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_LOWCUT, 0, 5);
+    check_ll("lowcut 5 ⇒ stub 收到 1", g_stub.settings_last_value, 1);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_ZOOM, 0, 0xFFFFu);
+    check_ll("zoom 65535 ⇒ stub 收到 1", g_stub.settings_last_value, 1);
+    apply(CMD_SETTINGS_SET, SLOOP_SET_PALETTE, 0, SLOOP_SETTINGS_PALETTES - 1u);
+    check_ll("palette 上界 4 原样", g_stub.settings_last_value, 4);
+    check_ll("合法钳位写共 7 次", g_stub.settings_set_calls, 7);
+    state_get_copy(&s);
+    check_ll("钳位写 → ok", s.settings_status, APP_SETTINGS_OK);
+    check_ll("钳位后投影 palette", s.settings.palette, 4);
+    check_ll("钳位后投影 reso", s.settings.reso, 10);
+
+    uint32_t calls = g_stub.settings_set_calls;
+    apply(CMD_SETTINGS_SET, SLOOP_SET_FIELD_COUNT, 0, 1);
+    apply(CMD_SETTINGS_SET, 0xFFFFFFFFu, 0, 1);
+    check_ll("字段越界不调 store", g_stub.settings_set_calls - calls, 0);
+    state_get_copy(&s);
+    check_ll("字段越界 → invalid", s.settings_status, APP_SETTINGS_INVALID);
+    check_ll("字段越界投影不变", s.settings.palette, 4);
+}
+
+/* ③ store 拒绝的映射：INVALID_STATE（诊断冻结/存储未就绪）⇒ BLOCKED、INVALID_ARG ⇒
+ * INVALID、其它 ⇒ ERROR；失败不改投影、不重取、不动后端。 */
+static void case_settings_set_blocked_frozen(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.settings_ret = ESP_ERR_INVALID_STATE;
+    uint32_t reads = g_stub.settings_read_calls;
+    apply(CMD_SETTINGS_SET, SLOOP_SET_PALETTE, 0, 1);
+    state_get_copy(&s);
+    check_ll("INVALID_STATE → blocked", s.settings_status, APP_SETTINGS_BLOCKED);
+    check_ll("blocked 投影不变（默认 MONO）", s.settings.palette, SLOOP_SETTINGS_PALETTES - 1);
+    check_ll("blocked 后端不变", g_stub.settings.f.palette, SLOOP_SETTINGS_PALETTES - 1);
+
+    g_stub.settings_ret = ESP_ERR_INVALID_ARG;
+    apply(CMD_SETTINGS_SET, SLOOP_SET_PALETTE, 0, 1);
+    state_get_copy(&s);
+    check_ll("INVALID_ARG → invalid", s.settings_status, APP_SETTINGS_INVALID);
+
+    g_stub.settings_ret = ESP_FAIL;
+    apply(CMD_SETTINGS_SET, SLOOP_SET_PALETTE, 0, 1);
+    state_get_copy(&s);
+    check_ll("其它失败 → error", s.settings_status, APP_SETTINGS_ERROR);
+    check_ll("三次拒绝都到达 store（返回码由 store 说话）", g_stub.settings_set_calls, 3);
+    check_ll("失败不重取投影", g_stub.settings_read_calls - reads, 0);
+    check_ll("失败不置 dirty", g_stub.settings.dirty, 0);
+}
+
+/* ④ CMD_SYS_*：bright 10..100 / vol 0..100 / out 0|1 钳位在状态层；out > 1 不入 HAL；
+ * HAL 失败 ⇒ ERROR 且投影不变；headphone（HAL NOT_SUPPORTED）⇒ INVALID 且 sys.out 不变
+ * （R19）；nvs_dirty 取 HAL；init / sync / 整份刷新各读一次 HAL 三值与生效副本。 */
+static void case_sys_bright_volume_output(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    check_ll("init 读 HAL 一次（三值 + dirty）", g_stub.hal_get_calls, 4);
+    state_get_copy(&s);
+    check_ll("init 投影 bright", s.sys.bright, 100);
+    check_ll("init 投影 vol", s.sys.vol, 70);
+    check_ll("init 投影 out", s.sys.out, 0);
+    check_ll("init 投影 nvs_dirty", s.sys.nvs_dirty, 0);
+    check_ll("init 后 settings_status 仍 idle", s.settings_status, APP_SETTINGS_IDLE);
+
+    apply(CMD_SYS_BRIGHT, 0, 0, 0);
+    check_ll("bright 0 ⇒ HAL 收到 10", g_stub.hal_last_value, 10);
+    apply(CMD_SYS_BRIGHT, 0, 0, 200);
+    check_ll("bright 200 ⇒ HAL 收到 100", g_stub.hal_last_value, 100);
+    apply(CMD_SYS_BRIGHT, 0, 0, 77);
+    check_ll("bright 77 原样", g_stub.hal_last_value, 77);
+    check_ll("bright 调用 3 次", g_stub.hal_bright_calls, 3);
+    state_get_copy(&s);
+    check_ll("bright → ok", s.settings_status, APP_SETTINGS_OK);
+    check_ll("投影 bright 同拍", s.sys.bright, 77);
+    check_ll("投影 nvs_dirty 取 HAL", s.sys.nvs_dirty, 1);
+
+    apply(CMD_SYS_VOLUME, 0, 0, 0);
+    check_ll("vol 0 ⇒ HAL 收到 0", g_stub.hal_last_value, 0);
+    apply(CMD_SYS_VOLUME, 0, 0, 100);
+    check_ll("vol 100 ⇒ HAL 收到 100", g_stub.hal_last_value, 100);
+    apply(CMD_SYS_VOLUME, 0, 0, 300);
+    check_ll("vol 300 ⇒ HAL 收到 100", g_stub.hal_last_value, 100);
+    check_ll("vol 调用 3 次", g_stub.hal_vol_calls, 3);
+    state_get_copy(&s);
+    check_ll("投影 vol 同拍", s.sys.vol, 100);
+
+    uint32_t out_calls = g_stub.hal_out_calls;
+    apply(CMD_SYS_OUTPUT, 0, 0, 2);
+    check_ll("out 2 不入 HAL", g_stub.hal_out_calls - out_calls, 0);
+    state_get_copy(&s);
+    check_ll("out 2 → invalid", s.settings_status, APP_SETTINGS_INVALID);
+
+    apply(CMD_SYS_OUTPUT, 0, 0, 1);
+    check_ll("out 1（headphone）入 HAL", g_stub.hal_out_calls - out_calls, 1);
+    state_get_copy(&s);
+    check_ll("headphone（NOT_SUPPORTED）→ invalid（R19）", s.settings_status, APP_SETTINGS_INVALID);
+    check_ll("headphone 后 sys.out 不变", s.sys.out, 0);
+
+    g_stub.hal_ret = ESP_FAIL;
+    apply(CMD_SYS_BRIGHT, 0, 0, 50);
+    state_get_copy(&s);
+    check_ll("HAL 失败 → error", s.settings_status, APP_SETTINGS_ERROR);
+    check_ll("HAL 失败投影不变", s.sys.bright, 77);
+    g_stub.hal_ret = ESP_OK;
+
+    apply(CMD_SYS_OUTPUT, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("speaker → ok", s.settings_status, APP_SETTINGS_OK);
+
+    /* sync 与整份刷新各读一次：HAL / 生效副本侧的外部变化（开机默认、console 直调）被采纳 */
+    g_stub.hal_bright = 55;
+    g_stub.hal_dirty = false;
+    g_stub.settings.theme_valid = true;
+    uint32_t gets = g_stub.hal_get_calls, reads = g_stub.settings_read_calls;
+    state_sync_from_engine();
+    check_ll("sync 读 HAL 一次", g_stub.hal_get_calls - gets, 4);
+    check_ll("sync 读生效副本一次", g_stub.settings_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("sync 采纳 HAL bright", s.sys.bright, 55);
+    check_ll("sync 采纳 HAL nvs_dirty", s.sys.nvs_dirty, 0);
+    check_ll("sync 采纳 theme_valid", s.settings.theme_valid, 1);
+
+    g_stub.hal_vol = 33;
+    g_stub.store_ret = ESP_OK;
+    gets = g_stub.hal_get_calls;
+    reads = g_stub.settings_read_calls;
+    apply(CMD_PROJECT_SAVE, 0, 0, 0);
+    check_ll("整份刷新读 HAL 一次", g_stub.hal_get_calls - gets, 4);
+    check_ll("整份刷新读生效副本一次", g_stub.settings_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("整份刷新采纳 HAL vol", s.sys.vol, 33);
+}
+
+/* ⑤ CMD_REC_CONFIG 成功 ⇒ settings dirty_mark +1（REC 三项随 settings 落盘，spec §7）；
+ * 越界 / adapter 失败 / 冻结不变，且 REC 命令不碰 settings_status。 */
+static void case_rec_config_marks_settings_dirty(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_REC_CONFIG, 1, 0, 1);
+    check_ll("REC CONFIG 成功 → dirty_mark +1", g_stub.settings_dirty_mark_calls, 1);
+    state_get_copy(&s);
+    check_ll("REC CONFIG 仍写 seq_status（ok）", s.seq_status, SEQ_STATUS_OK);
+    check_ll("REC CONFIG 不碰 settings_status", s.settings_status, APP_SETTINGS_IDLE);
+
+    apply(CMD_REC_CONFIG, 2, 0, 0);
+    state_get_copy(&s);
+    check_ll("REC CONFIG 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    g_stub.seq_ret = ESP_FAIL;
+    apply(CMD_REC_CONFIG, 0, 1, 0);
+    state_get_copy(&s);
+    check_ll("REC CONFIG adapter 失败 → error", s.seq_status, SEQ_STATUS_ERROR);
+    g_stub.seq_ret = ESP_OK;
+    g_stub.seq_frozen = true;
+    apply(CMD_REC_CONFIG, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("REC CONFIG 冻结 → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    check_ll("越界/失败/冻结不置 dirty_mark", g_stub.settings_dirty_mark_calls, 1);
+
+    g_stub.seq_frozen = false;
+    apply(CMD_REC_CONFIG, 0, 0, 0);
+    check_ll("再次成功 → dirty_mark +1", g_stub.settings_dirty_mark_calls, 2);
+}
+
+static void case_selftest_run_sets_request(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_get_copy(&s);
+    check_ll("初始无自检请求", s.selftest_req, 0);
+    check_ll("初始无自检结果", s.selftest_done, 0);
+    check_ll("初始 ran=0", s.selftest_ran, 0);
+    check_ll("初始 failed=0", s.selftest_failed, 0);
+
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("CMD_SELFTEST_RUN 置请求", s.selftest_req, 1);
+    check_ll("请求后清上次结果", s.selftest_done, 0);
+    check_ll("请求是状态层动作", s.settings_status, APP_SETTINGS_OK);
+    check_ll("take 取走请求", state_take_selftest_request(), 1);
+    check_ll("请求深度 1：取走后为空", state_take_selftest_request(), 0);
+    state_get_copy(&s);
+    check_ll("take 清投影请求", s.selftest_req, 0);
+
+    state_set_selftest_result(182, 0);
+    state_get_copy(&s);
+    check_ll("结果 done", s.selftest_done, 1);
+    check_ll("结果 ran", s.selftest_ran, 182);
+    check_ll("结果 failed", s.selftest_failed, 0);
+    check_ll("结果状态 OK", s.settings_status, APP_SETTINGS_OK);
+
+    state_set_selftest_result(181, 1);
+    state_get_copy(&s);
+    check_ll("失败结果 ran", s.selftest_ran, 181);
+    check_ll("失败结果 failed", s.selftest_failed, 1);
+    check_ll("失败结果仍 done", s.selftest_done, 1);
+}
+
+static void case_selftest_worker_unavailable_fails_fast(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_set_selftest_available(false);
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("worker 不可用时请求不入队", s.selftest_req, 0);
+    check_ll("worker 不可用立即 done", s.selftest_done, 1);
+    check_ll("worker 不可用 ran=0", s.selftest_ran, 0);
+    check_ll("worker 不可用 failed>0", s.selftest_failed, 1);
+    check_ll("worker 不可用 settings_status=ERROR", s.settings_status, APP_SETTINGS_ERROR);
+
+    state_set_selftest_available(true);
+    apply(CMD_SELFTEST_RUN, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("worker 恢复后可重新入队", s.selftest_req, 1);
+    check_ll("恢复后清不可用失败结果", s.selftest_done, 0);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -1872,7 +2155,7 @@ int main(void)
     run("工程存储命令：返回码映射/刷新/越界", case_store_project);
     run("用户预置命令：鼓轨区分/轨号透传/越界", case_store_preset);
     run("FM6 银行命令：选中轨 patch/鼓轨/越界", case_store_bank);
-    run("页 id 扩容（11 页）", case_page_ids);
+    run("页 id 扩容（15 页）", case_page_ids);
     run("STEP_EDIT 完整 POD 与详细窗口同拍投影", case_seq_step_edit_projection);
     run("PATTERN/micro/fill 标量透传与投影", case_seq_pattern_micro_fill);
     run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);
@@ -1884,6 +2167,13 @@ int main(void)
     run("sections/chain/SONG 命令与歌曲投影", case_song_section_chain);
     run("DSYN 命令：越界不调引擎/写后回读/STORE/试听/CRUSH", case_dsyn_commands);
     run("FM6 patch 与采样擦除命令：锁定/回读/错误映射", case_fm6_and_sample);
+    run("SETTINGS_SET 六字段路由与同拍投影", case_settings_set_routes_each_field);
+    run("SETTINGS_SET 状态层钳位与字段越界", case_settings_set_clamps_and_invalid);
+    run("SETTINGS_SET 拒绝映射：blocked/invalid/error", case_settings_set_blocked_frozen);
+    run("SYS 亮度/音量/输出：钳位/HAL 失败/headphone/投影", case_sys_bright_volume_output);
+    run("REC CONFIG 成功置 settings dirty", case_rec_config_marks_settings_dirty);
+    run("SELFTEST_RUN 请求深度 1 与结果投影", case_selftest_run_sets_request);
+    run("SELFTEST worker 不可用立即 FAIL", case_selftest_worker_unavailable_fails_fast);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

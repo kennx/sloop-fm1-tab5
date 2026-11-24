@@ -274,12 +274,11 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   是 drum_synth.c 的 `.bss`，restore 会回滚；自检收尾同时逐槽 `sloop_store_sample_reload`），
   store = 停止态存储锁内 `song_write_locked()`（与歌曲同一次 A/B 提交）。DSYN-only 修改不触发
   1s 延迟写（上游同）。
-- **新建对象的默认值已固定**（本阶段不随设置变化）：palette/lowcut/zoom = 0、panel =
+- **新建对象的默认值（P4-E 前历史口径）**：palette/lowcut/zoom = 0、panel =
   `panel.c` 的 `PANEL_DEFAULT` 字面量、lights = 0、DSU = 当前 RAM 的 `dsu`（首次启动即
   `dsu_defaults()`；P4-D 起随每次保存写回）、MIDI 尾段省略、
-  默认歌曲 = `arr_defaults()`（count=4，A/B/C/D 各 4 小节）。P4-E 接完整设置 UI 时必须
-  把这些来源换成真实状态（并同步 `song_persist.h` 的 `SONG_PANEL_DEF`），在那之前它们是
-  硬编码的「上游首次启动」快照。
+  默认歌曲 = `arr_defaults()`（count=4，A/B/C/D 各 4 小节）。P4-E 已把设置字段的来源换成
+  真实生效副本并同步 `song_persist.h` 的 `SONG_PANEL_DEF`；panel 仍固定默认，详见 §6.4。
 - **启动即落默认歌曲**：`sloop_store_init()` 的第一行就是 `arr_defaults(&arrangement)`（上游
   `persist_boot` 的第一步）——本函数任何一步失败（互斥量/PSRAM/分区）都会提前返回，不能把
   `.bss` 的全零留在 `arrangement` 里（count=0 是非法歌曲，而日志会说「保持默认歌曲」）。
@@ -341,6 +340,48 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   kb=21` → 按住键 `voices≥1`；`SMP ERASE`/BEGIN-不-END/CRC 坏数据后 `voices` 恒 0 且
   `SMP INFO EMPTY`；CRC 坏数据 `SMP END` 回 `SMP ERR crc`（header 未提交）；走带中
   `SMP BEGIN`/`ERASE` 回 `SMP ERR playing`；硬复位后槽仍 USED（开机 reload）。
+
+#### 6.4 P4-E 设置页落地（2026-11-23，Task 1–7）
+
+- **真实状态源替换首启快照**：`song_write_locked()` 在同一引擎锁内调用
+  `song_per_put_settings()`，palette/lowcut/zoom、lights、REC 三项、theme_on 与 flt_reso 均来自
+  `settings_tab5.c` 的生效副本 `s_set.f`，不再使用 §6.1 的硬编码 0；panel 仍固定为
+  `SONG_PANEL_DEF == PANEL_DEFAULT`。`sloop_store_settings_set()` 只改 RAM、应用上游 static
+  并置 dirty，延迟写与 section/song 共用 1s tick 的同一静默窗口；只有提交成功且擦写期间没有
+  新修改才清 dirty。`CMD_REC_CONFIG` 成功后先把 REC 三项回填生效副本再置 dirty。
+- **owned-bits RMW**：palette@4、lowcut@8、zoom@12 直写；lights word@84 只改 bits
+  **0..3 / 9 / 10 / 30 / 31**（lights_lvl / rec_tempo / rec_count / theme_on / rec_quant_off），
+  其余位逐位保留。arrangement、panel、DSU、MIDI 尾段其它字段和 side 的既有保留规则不变。
+- **flt_reso 与短尾段**：完整 40B MIDI 尾段的 byte **38 bits 2..5** 做 RMW，其余位不变。
+  无尾段且 reso≠0 时追加 `settings_tail_fill()` 生成的 40B 上游默认尾段；已有 32/36B 短尾段
+  则保留原字节、只补默认后缀到 40B 再写 reso；reso=0 不追加。默认尾段镜像上游
+  `midi_part_fill()` 布局（本 TU 未编入该函数），不是另造对象格式。
+- **side theme 只读应用**：`song_per_side_theme()` 校验 THM2 magic + CRC36，读取名称和
+  RGB565 色阶并展开成 RGB888 供 UI 使用；本阶段不提供主题编辑器，side/FAVS 仍逐字节保留。
+- **NVS 平台三键**：`tab5.bright/vol/out` 默认 **100/70/speaker**，只承载 Tab5 平台状态。
+  setter 立即应用 LEDC/codec/输出状态并置 `nvs_dirty`，不写 flash；flush 在同一停止+无发声+
+  idle≥1.5s+gap≥5s 窗口末尾无锁执行，以代次守卫保留提交期间的新修改。D10 已按原理图降级
+  speaker-only，`out` 不接受 headphone（DI-39）。
+- **RAW settings / SIDE**：`STORE RAW END settings 0` 用独立 `s_raw_stage` 原样提交 payload，
+  保留现有 side（无则默认 80B）；`STORE RAW SIDE <160 hex>` 保留当前 payload 并提交 80B side。
+  两者成功后都按 song → DSU → settings 重载，避免 RAM 旧值在下次保存时覆盖上传内容；工程槽
+  RAM 缓存不受 settings 写入影响。
+- **D7 golden 与自检收尾**：每次 `ENG SELFTEST` 在跑例前强制 `fx_lowcut=0/flt_reso=0`，
+  保证 182 例 golden 不随用户 LOWCUT/FILTER RESO 改变；收尾在 song/DSU 重载后调用
+  `sloop_store_settings_reload()`，以 flash 恢复生效副本、DSP 与 REC 三项。SYSTEM chip 的
+  一次性 worker 另行完成停流、全量自检、起流、autosave resume 与 AUTO ON，console 路径不变。
+- **历史 palette 不迁移**：P4-E 之前的固件按 §6.1 的旧口径把 palette 硬编码写成 0（上游
+  GREEN），与用户真的选了 GREEN 无法区分，故不做迁移——这类设备升级后首次开机按字面读回
+  GREEN，用户可在 SYSTEM 页的 COLOR 行改回 MONO；`sys` 场景 ⑦ 的收口会把开发机归一到
+  palette 4（MONO）并 SAVE。
+- **R13：读不到设置时的默认 palette 是 4（MONO），不是 0**（2026-11-24 修复轮，原 DI-42）：
+  `sloop_store_settings_reload()` 的 `!from_flash` 分支（没有对象 / 对象损坏 / 存储未就绪——
+  `song_per_get_settings` 对三者是同一条返回 false 的路径）此前把结构体清零后只钳越界值，
+  palette 停在 0（GREEN），与同函数注释和裁决不符；设备实测写入 64B 垃圾对象并复位后
+  `STORE SETTINGS INFO kind=invalid … palette=0`、`STATE SNAP set_palette=0`。现在该分支显式写 `palette = SLOOP_SETTINGS_PALETTES - 1`
+  （上游 `settings_init()` 的 MONO=4），越界钳位保留。`sys` ①b-a 用损坏对象断言
+  `INFO kind=invalid palette=4` 与 `STATE SNAP set_palette=4`；损坏对象按设计仍拒绝
+  `STORE SETTINGS SAVE`（`STORE ERR invalid`，不覆盖）。
 
 ### 7. 内存：PSRAM 宏重定向与内部 SRAM 边界
 
@@ -444,16 +485,16 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   绝对地址**；OTA staging（`[0xE0000, 0xE5000)`）不属于 SLOOP 数据区，测试不得触碰。
 - 写失败（擦/写/回读不符）返回 `ESP_ERR_NOT_FINISHED`，RAM 槽与旧 flash 副本保持可读
   （与上游一致）；不静默报成功。
-- **旧格式 fixture 的入设备通道（Task 9）**：`STORE RAW BEGIN <len≤3,840> | <hex> | END
-  <obj> <slot> | ABORT` 把任意对象 payload 分块搬进 PSRAM 暂存（3,840 = `ST_PAYLOAD_MAX`，
-  即一个 flash 对象能写的 payload 上限；超限在 BEGIN 当场回 `size`，不会等到 END 才回
-  `save`），`END` 以 `st_save` 原样写入**请求的那一个对象**（`project` →
-  `OBJ_PROJECT0 + slot`；工程槽的 RAM 缓存随后按开机 fetch 的语义重新 `proj_import`）。
-  写操作持存储锁、不取引擎锁、播放中拒绝。**暂存与 `up_stage()`/`proj_tmp` 是同一块
-  4,096B**：任何其它 `STORE` 子命令入口都先 abort 未完成的上传（R27；穿插命令后 END 回
-  `invalid`、不落盘），`sloop_store_init` 也把 RAW 状态归零（`.noinit` 冷启动垃圾）。一行 ≤240 hex = 120B：
-  真正的上限是 **USB-Serial-JTAG 驱动 RX 环 256B**（整行须一次入环；设备忙时溢出会静默丢
-  字符，Task 9 实测 490 字符的行被截到 256），不是 console 行缓冲。
+- **旧格式 fixture 与 settings 的入设备通道（Task 9 / P4-E）**：`STORE RAW BEGIN
+  <len≤3,840> | <hex> | END <obj> <slot> | SIDE <160 hex> | ABORT` 把对象 payload 分块搬进
+  **RAW 专用 4,096B PSRAM `s_raw_stage`**（3,840 = `ST_PAYLOAD_MAX`；超限 BEGIN 当场回
+  `size`）。`END project <slot>` 原样写入 `OBJ_PROJECT0 + slot` 并按开机 fetch 重导入 RAM
+  缓存；`END settings 0` 保留现有 side 后提交，再按 song → DSU → settings 重载；`SIDE` 保留
+  当前 payload 并提交 80B side，随后同样重载。写操作持存储锁、flash 擦写期间不持引擎锁、
+  播放中拒绝。独立暂存不会被 settings/DSU/song 的读或 1s tick 覆盖；其它 `STORE` 子命令入口
+  仍先 abort 未完成上传（R27），init 亦归零。一行 ≤240 hex = 120B：真正上限是
+  **USB-Serial-JTAG 驱动 RX 环 256B**（整行须一次入环；设备忙时溢出会静默丢字符，Task 9
+  实测 490 字符的行被截到 256），不是 console 行缓冲。
 - `STORE PROJ FIELDS n` 是 `st_load` + `proj_import` 的**只读投影**（不动引擎/RAM 槽），按固定
   顺序打印 fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步，
   供 `scripts/gen_project_fixtures.py` 的 `expected.json` 逐项比对（FUN5/FUN4/FUN1 的设备侧

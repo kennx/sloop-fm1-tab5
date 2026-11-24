@@ -1,0 +1,27 @@
+== A. chip 探针
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+playing = 0 selftest_done = 0
+首按 chip: ['TAP 94,604 page=14 -> SYS SELFTEST status="RESET FIRST"']
+== B. 自检后音频重启探针
+对照 OFF: sloop>
+[对照：无自检] ENG AUDIO ON 响应 0.10s: sloop>
+对照 PERF: sloop>
+ENG SELFTEST 墙钟 157.7s: ['ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS']
+[自检后] ENG AUDIO ON 响应 5.61s: sloop>
+  t+  0.2s xrun=422 duty_mean=224.79% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  1.4s xrun=516 duty_mean=223.35% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  2.6s xrun=611 duty_mean=222.35% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  3.9s xrun=706 duty_mean=221.61% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  5.1s xrun=801 duty_mean=221.04% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  6.4s xrun=901 duty_mean=220.62% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  7.6s xrun=996 duty_mean=220.28% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+  8.8s xrun=1091 duty_mean=219.99% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 10.0s xrun=1186 duty_mean=219.73% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 11.2s xrun=1282 duty_mean=219.56% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 12.5s xrun=1376 duty_mean=219.37% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 13.7s xrun=1471 duty_mean=219.21% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 14.9s xrun=1566 duty_mean=219.07% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+  t+ 16.1s xrun=1661 duty_mean=218.97% voices=[('0', '0'), ('1', '0'), ('2', '0'), ('3', '0')]
+log: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/probe-postselftest-20261124-065447.log
+PROBE_EXIT=0

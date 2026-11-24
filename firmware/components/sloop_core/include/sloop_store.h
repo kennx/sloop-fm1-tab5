@@ -183,6 +183,9 @@ esp_err_t sloop_store_raw_begin(uint32_t len);
 esp_err_t sloop_store_raw_append(const uint8_t *data, uint32_t n);
 uint32_t sloop_store_raw_received(void);
 esp_err_t sloop_store_raw_end(const char *obj, uint32_t slot);
+/* 单独替换 OBJ_SETTINGS 的 80B side record，payload 原样随新副本提交；无 payload 时
+ * 按当前 RAM 构造 canonical。停止/冻结/存储锁纪律与 raw_end 相同，成功后按 R15 重载。 */
+esp_err_t sloop_store_raw_side(const uint8_t *side);
 void sloop_store_raw_abort(void);
 
 /* 用户预置 0..31（上游 upreset.c：32 槽 / 2 个银行对象，`UPB1` 记录布局原样）。
@@ -373,5 +376,78 @@ void sloop_store_section_dirty_mark_locked(uint32_t slot);
 bool sloop_store_sections_dirty(void);
 esp_err_t sloop_store_section_load(uint32_t slot);
 esp_err_t sloop_store_section_erase(uint32_t slot);
+
+/* ---- settings 字段（OBJ_SETTINGS 的 persist_t 头 + MIDI 尾段，P4-E Task 1，spec §8.1）----
+ * 上游 persist_t（88B）的 palette@4 / lowcut@8 / zoom@12、lights word@84 里本固件拥有的
+ * 5 个位（lights_lvl 0..3 / rec_tempo 9 / rec_count 10 / theme_on 30 / rec_quant_off 31）、
+ * 以及 MIDI 尾段 byte38 bits 2..5 的 flt_reso（0..10）。字节层的读写是 src/song_persist.h 的
+ * `song_per_put_settings` / `song_per_get_settings`（纯函数，host 同源）；
+ * `song_per_side_theme` 把 side record 的 theme_t（"THM2" + name[8] + RGB565 色表 + CRC）
+ * 校验并展开成下面的 RGB888 视图。字段取值即上游原值（lowcut/zoom 0|1，palette 是内置
+ * 调色板号）。 */
+typedef struct {
+    uint32_t palette, lowcut, zoom, lights_lvl, theme_on, rec_tempo, rec_count, rec_quant_off, flt_reso;
+} song_settings_t;
+typedef struct {
+    uint8_t c[5][3];   /* 屏幕五级色，RGB888 */
+    uint8_t trk[4][3]; /* 四轨色，RGB888 */
+    uint8_t bg[3];     /* 背景 */
+    uint8_t hi[3];     /* 强调色（触摸/光标/播放头） */
+    char name[9];      /* 上游 name[8] 补 NUL */
+} song_theme_view_t;
+
+/* ---- settings 生效副本（P4-E Task 2，spec §5 D4/D5/D7、§8.2）-------------------------
+ * 上游 panel.c 的 `settings`/`lights_*` 与 fx.c/seq.c 的 `fx_lowcut`/`flt_reso`/`rec_tempo`/
+ * `rec_count`/`rec_quant_off` 在本固件里由一份 RAM 副本 `s_set` 统一承载：
+ *   reload() —— 开机（`sloop_store_init`，歌曲/DSU 之后）与 `ENG SELFTEST` 收尾：从 flash
+ *               **以 flash 为准**重读（palette/lowcut/zoom/lights 五位/尾段 reso + side
+ *               theme）并应用；没有对象/对象损坏/存储未就绪 → 其余字段全零 + 默认
+ *               palette 4 = MONO（R13，上游 settings_init 同法）。
+ *   set()    —— 停止/播放皆可：只改内存 + 应用上游 static（引擎锁内）+ 置 dirty，**不写
+ *               flash**；冻结/未就绪 → ESP_ERR_INVALID_STATE。
+ *   save()   —— 停止态立即写（上游 settings_save 同义；与歌曲/DSU 同一次 A/B 提交）；
+ *               播放中 ESP_ERR_INVALID_STATE（`STOP BEFORE SAVE`）；成功才清 dirty，并同拍
+ *               flush 平台设置的 NVS dirty。
+ *   落盘还走 1s 任务的 `sections_tick`：settings dirty 与歌曲/段落同一门限（停止 + 无发声
+ *   + 输入空闲 ≥1.5s + 间隔 ≥5s）、同一次写；任何一次成功的 settings 保存都**顺带清 dirty
+ *   ——前提是刚提交的字节就是当前 RAM**（擦写窗口里又来的修改让 payload 过时，dirty 保留）。
+ * 应用范围：core 只把 lowcut/reso/REC 三项写进上游 static；`lights_lvl` 只在 RAM 副本里
+ * （键盘 RGB 是 UI 侧按投影驱动，spec R4）；palette/zoom/theme 同理由 UI 消费副本。
+ * 自检：`sloop_core_selftest` 跑用例前把 `fx_lowcut`/`flt_reso` 归零（golden 基线口径），
+ * 收尾 reload 按 flash 重放——**还没落盘的修改随回滚丢弃**（console `ENG SELFTEST` 是
+ * 诊断命令，接受；SYSTEM 页的 SELFTEST chip 走 worker，先 `sloop_store_flush_all()` 再自检，
+ * 用户的修改不丢）。 */
+#define SLOOP_SETTINGS_PALETTES 5u
+typedef enum {
+    SLOOP_SET_PALETTE,
+    SLOOP_SET_LOWCUT,
+    SLOOP_SET_ZOOM,
+    SLOOP_SET_LIGHTS,
+    SLOOP_SET_RESO,
+    SLOOP_SET_THEME_ON,
+    SLOOP_SET_FIELD_COUNT
+} sloop_set_field_t;
+typedef struct {
+    song_settings_t f;
+    bool theme_valid;
+    char theme_name[9];
+    song_theme_view_t theme; /* P4-E Task 5 R21：side theme 的 RGB888 生效副本 */
+    bool dirty;
+} sloop_settings_t;
+const sloop_settings_t *sloop_store_settings(void); /* 生效副本（存储未就绪 ⇒ 字段全零、palette=4、theme_valid=false） */
+/* 改内存 + apply + dirty；冻结回 INVALID_STATE；palette 钳 0..4、reso 钳 0..10、
+ * lights 钳 0..3、bool 钳 0/1；字段越界回 INVALID_ARG（不写）。 */
+esp_err_t sloop_store_settings_set(sloop_set_field_t field, uint32_t v);
+esp_err_t sloop_store_settings_save(void);   /* 停止态立即写；播放中 INVALID_STATE；成功清 dirty */
+esp_err_t sloop_store_settings_reload(void); /* 以 flash 为准重读 + apply；boot/自检收尾调用 */
+
+/* 自检前的强制落盘（终审 I1；SELFTEST chip 的 worker 在停流之后、自检之前调用，调用方
+ * 保证停止态）：不等时间门限，做一次安静窗口的全部写——autosave（hash 有变才写）、dirty 的
+ * live section、歌曲 + DSU + settings、平台设置的 NVS。捕获/快照在引擎锁内，擦/写 flash 与
+ * NVS 提交不持引擎锁。存储未就绪/冻结 → INVALID_STATE（不写）；走带中 → NOT_ALLOWED（不写）；
+ * 任一步写失败回第一个错误码（其余照写，dirty 保留）。 */
+esp_err_t sloop_store_flush_all(void);
+bool sloop_store_settings_dirty(void);
+void sloop_store_settings_dirty_mark(void);  /* REC 配置变更用（只置 dirty，不改值） */
 
 #endif

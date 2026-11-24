@@ -180,7 +180,7 @@ git commit  # feat(components/sloop_core): 增加 settings 生效副本、延迟
   void     sloop_hal_settings_flush(void);             /* nvs_dirty ⇒ nvs_set+commit（不持任何锁；由 1s tick 静默窗口调用） */
   void     sloop_hal_settings_erase(void);             /* 诊断：删三键（下一次 boot 落默认） */
   ```
-  `tab5_keyboard.h`: `esp_err_t tab5_keyboard_rgb_set(uint8_t level, uint8_t r, uint8_t g, uint8_t b); /* level 0..3 ⇒ 0x05 亮度 0/20/60/100；写 0x10 RGB=自定义（保留 Keyboard 模式位）、0x60..0x65 */`
+  `tab5_keyboard.h`: `esp_err_t tab5_keyboard_rgb_set(uint8_t level, uint8_t r, uint8_t g, uint8_t b); /* level 0..3 ⇒ 0x03 亮度 0/20/60/100；独立 0x11 RGB=自定义；0x60 起步长 4 的 B/G/R/保留颜色缓冲（2026-11-23 按 Internal-FW 修正） */`
 
 - [ ] **Step 1: console 失败断言**
 
@@ -192,7 +192,7 @@ Expected: 未知命令。
   - NVS namespace `tab5`，键 `bright`(u8)/`vol`(u8)/`out`(u8)；`nvs_flash_init` 失败 `ESP_ERR_NVS_NO_FREE_PAGES/_NEW_VERSION_FOUND` ⇒ erase+init 重试一次。
   - `display.c`：`bsp_display_backlight_on()` → `bsp_display_brightness_set(sloop_hal_settings_bright())`；`main.c` 把 `sloop_hal_settings_init()` 放在 display init **之前**。
   - `audio_stream.c`：`AUDIO_OUT_VOL` → `sloop_hal_settings_volume()`；`sloop_hal_settings_set_volume` 在 `codec != NULL` 时立即 `esp_codec_dev_set_out_vol`。
-  - 路由（D10）：speaker = LOUT2/ROUT2(0x30/0x31)=0x21 + LOUT1/ROUT1(0x2E/0x2F)=0x00；headphone 反之；经 `audio_tone.c` 已验证的 `i2c_master_transmit` 路径（抽成 `audio_tone.c` 内 `es8388_reg_write`，供 HAL 调用或把寄存器写移入 HAL）；寄存器地址以 ES8388 数据手册（`docs/tab5-hardware.md` §7 链接）核对一次并在代码注释标注来源。**Checkpoint**：若实测与 esp_codec_dev 状态冲突或耳机路径不可达 ⇒ 保持 speaker、返回 `ESP_ERR_NOT_SUPPORTED`、新增 DI 条目（背景/影响/可延迟理由/方向/触发）。
+  - 路由（D10，2026-11-23 按官方原理图修正并降级）：NS4150B 扬声器功放与耳机左声道共用 LOUT1，LOUT2/ROUT2 未连接，不能按原计划用 `0x2E..0x31` 分离两路。保持 speaker-only；`headphone` 回 `ESP_ERR_NOT_SUPPORTED` 且状态不变，DI-39 记录后续 SPK_EN 方向。HAL 仍用 `i2c_master_transmit` 裸读 `0x2E..0x31` 作 `AUD OUT applied` 的回读校验；不实现原 speaker/headphone 寄存器互斥写。
   - `tab5_keyboard_rgb_set`：与 `tab5_kb_poll` 同一执行上下文/互斥（若 poll 在另一任务且无锁，加 `s_bus_mutex` 包住 `kb_write_reg` 的所有调用者）。
   - console：`DISP BRIGHT [v]`、`AUD VOL [v]`、`AUD OUT [speaker|headphone]`、`KBD RGB [off|low|mid|high]`（无参读回，有参经 `sloop_hal_settings_set_*`/`tab5_keyboard_rgb_set`，回显 `applied=<v>`）；`SYS NVS ERASE`（诊断，删键，回 `SYS NVS ERASED`）。
   - `store_tab5.c` 的 `sloop_store_sections_tick`：每次静默窗口（无论是否写 settings）末尾调 `sloop_hal_settings_flush()`。

@@ -448,7 +448,15 @@ static void knob_focus_cb(knob_t *k)
 static void styles_init(void)
 {
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_bg_color(&s_st_chip, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_text_color(&s_st_chip, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip_on, lv_color_hex(UI_ACCENT));
+        lv_style_set_text_color(&s_st_chip_on, lv_color_hex(UI_BG));
+        lv_style_set_bg_color(&s_st_adj, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_text_color(&s_st_adj, lv_color_hex(UI_TEXT));
+        return;
+    }
     done = true;
     lv_style_init(&s_st_chip);
     lv_style_set_radius(&s_st_chip, 10);
@@ -662,6 +670,7 @@ void page_dsyn_update(const app_state_t *st)
         }
         s_focus_shown = focus;
     }
+    sloop_ui_zoom_knob(s_present[focus] ? &s_knobs[focus] : NULL);
 
     /* 状态行（单一映射：动作 × synth_status × dirty）。KIT 页没有动作结果时用状态行
      * 显示 kit 名称（`KIT <name>`，只读）：名称/来源在 spec 里属于 KIT 页的只读呈现，

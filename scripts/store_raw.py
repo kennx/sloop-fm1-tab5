@@ -15,6 +15,7 @@
 
 用法：
     python3 scripts/store_raw.py /dev/ttyACM0 fun5.bin --obj project --slot 3
+    python3 scripts/store_raw.py /dev/ttyACM0 per3.bin --obj settings --slot 0 --side side.bin
 """
 
 import argparse
@@ -62,6 +63,15 @@ def upload_raw(cmd, data: bytes, obj: str = "project", slot: int = 3, chunk: int
          "STORE RAW END")
 
 
+def upload_side(cmd, data: bytes) -> None:
+    """经 STORE RAW SIDE 提交一份 80B side record，并断言写后回显。"""
+    if len(data) != 80:
+        raise RawUploadError(f"side 长度 {len(data)} 越界（必须 80 字节）")
+    text = cmd(f"STORE RAW SIDE {data.hex().upper()}")
+    if re.search(r"^STORE RAW SIDE saved len=80\r?$", text, re.MULTILINE) is None:
+        raise RawUploadError(f"STORE RAW SIDE: 回显不符（{text.strip()[-200:]!r}）")
+
+
 class Console:
     """独立运行时的最小 console：写一行、读到提示符。"""
 
@@ -104,8 +114,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="经 STORE RAW 分块上传一个对象 payload")
     ap.add_argument("port", help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("file", help="payload 文件（如 gen_project_fixtures.py 的 fun5.bin）")
-    ap.add_argument("--obj", default="project", help="对象名（当前只支持 project）")
-    ap.add_argument("--slot", type=int, default=3, help="对象槽（project: 0..3；默认诊断槽 3）")
+    ap.add_argument("--obj", default="project", help="对象名（project | settings）")
+    ap.add_argument("--slot", type=int, default=3, help="对象槽（project: 0..3，默认诊断槽 3；settings: 只能 0）")
+    ap.add_argument("--side", help="可选的 80B side record；payload 上传后发送 STORE RAW SIDE")
     ap.add_argument("--timeout", type=float, default=5.0, help="单行回显超时秒数（默认 5）")
     args = ap.parse_args()
 
@@ -119,12 +130,19 @@ def main() -> int:
         con.wait_ready()
         upload_raw(con.cmd, data, args.obj, args.slot,
                    progress=lambda n, total: print(f"  {n}/{total} 字节", flush=True))
+        if args.side:
+            try:
+                side = open(args.side, "rb").read()
+            except OSError as e:
+                raise RawUploadError(f"读取 {args.side} 失败: {e}") from e
+            upload_side(con.cmd, side)
     except RawUploadError as e:
         con.cmd("STORE RAW ABORT")  # 尽力收口（旧固件无此命令也无害）
         sys.exit(f"[FAIL] {args.file}: {e}")
     finally:
         con.close()
-    print(f"[OK] {args.file} → {args.obj} {args.slot}（{len(data)} 字节）")
+    print(f"[OK] {args.file} → {args.obj} {args.slot}（{len(data)} 字节）"
+          + (f"；{args.side} → SIDE（80 字节）" if args.side else ""))
     return 0
 
 

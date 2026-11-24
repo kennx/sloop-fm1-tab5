@@ -1,14 +1,15 @@
 /*
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：分组页签 + 页面注册表）
  *
- * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 7 个组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE（无已注册页的组不显示），下行显示当前组的
+ * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 8 个组签
+ * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
  * 已注册子页；组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
  * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→PLAY）。
+ * PROJECTS→PRESETS→SYSTEM→PLAY）。
  * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
  * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
- * sloop_ui_start() 内立即构建，保证开机首帧非空白。池增量与构建耗时记入
+ * sloop_ui_start() 内立即构建，保证开机首帧非空白。SYSTEM 为最后的 SYS 单页组。
+ * 池增量与构建耗时记入
  * 日志/`UI MEM`（按页与按组两种口径）。
  * 构建失败（控件分配失败/预算不足）显示状态条错误文本 + ERROR 日志，
  * 同步切页返回 ESP_ERR_NO_MEM（console 打印 `UI ERR page_build <id>`）。
@@ -24,8 +25,9 @@
 #include "esp_err.h"
 #include "lvgl.h"
 #include "sloop_state.h"
+#include "sloop_store.h"
 
-#define SLOOP_UI_GROUPS 7 /* PLAY / TRACKS / EDIT / SYNTH / SEQ / SONG / FILE（ADR-005） */
+#define SLOOP_UI_GROUPS 8 /* PLAY / TRACKS / EDIT / SYNTH / SEQ / SONG / FILE / SYS（ADR-005） */
 
 /* 页面注册表条目（ADR-008）。注册顺序 = 子签顺序（组内），组顺序见
  * sloop_ui_page_order_next()。id 为 app_page_t（< APP_STATE_PAGES）。
@@ -42,7 +44,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 14 页 / 7 组）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 15 页 / 8 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -55,7 +57,7 @@ uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
  * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→PLAY，**跳过未注册页**。page 未注册/非法时返回
+ * PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
 
@@ -63,11 +65,11 @@ uint8_t sloop_ui_page_order_next(uint8_t page);
  * 页签点击走**同一**动作函数（`group_select_locked`/`sub_select_locked`），因此覆盖
  * 「点组进上次子页 / 点子签切页」的导航路径（TAP 对 y<72 一律 miss，无法覆盖它）。
  * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/SYNTH/SEQ/
- *   SONG/FILE），名字为静态生命周期；越界 name 返回 NULL。
+ *   SONG/FILE/SYS），名字为静态生命周期；越界 name 返回 NULL。
  * - group_select(group)：进入该组上次的子页（未记录/已未注册则首个已注册成员）；
  *   空组（没有已注册页的组）返回 ESP_ERR_INVALID_ARG。
  * - sub_select(index)：切到**当前组**第 index 张子签（0 起）；单页组（PLAY/TRACKS/
- *   SONG）子行为空 ⇒ 任何 index 都返回 ESP_ERR_INVALID_ARG（与视觉/命中一致），
+ *   SONG/SYS）子行为空 ⇒ 任何 index 都返回 ESP_ERR_INVALID_ARG（与视觉/命中一致），
  *   index ≥ 5（下行固定 5 个子签槽位，组内最多 5 页）同样。
  * 两者：ESP_ERR_INVALID_STATE（UI 未启动）、ESP_ERR_TIMEOUT（LVGL 锁超时，未派发）、
  * ESP_ERR_NO_MEM（目标页构建失败，页面已切到错误状态条）。切页内部分别经 show_page，
@@ -109,7 +111,7 @@ typedef struct {
     uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
     uint8_t registered, built, failed;
     sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
-    uint8_t group_count;                         /* 组数（当前 7） */
+    uint8_t group_count;                         /* 组数（当前 8） */
     uint8_t current_group;                       /* 当前页所属组下标；0xFF = 无 */
     sloop_ui_group_stat_t groups[SLOOP_UI_GROUPS];
 } sloop_ui_pool_stats_t;
@@ -135,8 +137,15 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on);
  * 错误状态条留在屏上，本函数仍返回 ESP_OK。 */
 esp_err_t sloop_ui_start(void);
 
+/* P4-E Task 5：palette/side theme 的运行时应用与 ZOOM 大读数条。主题应用复用组切换
+ * 销毁序；ZOOM 是屏幕层懒建的唯一 label，不计入任何页面 est。 */
+struct knob;
+void sloop_ui_theme_apply(const sloop_settings_t *s);
+void sloop_ui_rebuild_all(void);
+void sloop_ui_zoom_knob(const struct knob *k);
+
 /* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG 7=FM6 8=SAMPLE
- * 9=PROJECTS 10=PRESETS 11=SONG（同 app_page_t）；首次进入时构建该页。
+ * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM（同 app_page_t）；首次进入时构建该页。
  * 组作用域（ADR-005 §3）：目标页与当前页不同组时，顺序固定为「建目标页 →
  * 切到目标页 → 销毁源组全部已建页（含原当前页）」——因此离开组后源组 built=0；
  * 同组内切页只改显隐（已建页不重建）。快照里的组/子签选中态随页更新。
@@ -252,6 +261,7 @@ typedef enum {
                               * err=0 成功 / 1..7 = app_seq_status_t（映射见 console）；
                               * 页面守卫（未就绪/走带中 MODE 或配置）回 7/5 且不发命令。
                               * 动作结果文本由 `sloop_ui_song_status_text()` 与屏幕同源给出。 */
+    SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */
 } sloop_tap_kind_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作
@@ -454,6 +464,15 @@ void sloop_ui_song_entry_move(int8_t delta);    /* ←/→：±1 条目（在 co
 void sloop_ui_song_section_move(int8_t delta);  /* ↑/↓：±1 section（A–D 环绕） */
 void sloop_ui_song_load(void);                  /* ENTER：LOAD 选中 section */
 const char *sloop_ui_song_status_text(void);
+
+/* SYSTEM 页（P4-E Task 6）：↑/↓ 移焦点、←/→ 调值、ENTER=+1/切换；输入路径不碰 LVGL。 */
+bool sloop_ui_system_page_active(void);
+esp_err_t sloop_ui_system_key(uint32_t code);
+const char *sloop_ui_system_status_text(void);
+/* 诊断注入（console `SYS SELFTEST ARM`）：清 SYSTEM 页 SELFTEST chip 的「本 boot 已跑过」标记
+ * 与结果缓存（两者都在 .noinit，跨 esptool 硬复位存活），下一次 chip 走完整 worker 路径。
+ * 自检进行中返回 ESP_ERR_INVALID_STATE。不碰 LVGL。 */
+esp_err_t sloop_ui_system_selftest_arm(void);
 
 /* 调试注入（console `UI KNOB <slot> press|drag <dx> <dy>`，ADR-008 §8.2/§8.5）：
  * 向**当前**参数页第 slot 槽旋钮派发合成的 PRESSED/PRESSING 事件（dx/dy 相对旋钮

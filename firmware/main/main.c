@@ -27,6 +27,7 @@
 #include "sloop_hal.h"
 #include "sloop_state.h"
 #include "sloop_ui.h"
+#include "sys_selftest.h"
 #include "tab5_keyboard.h"
 
 static const char *TAG = "sloop_tab5";
@@ -55,7 +56,14 @@ void app_main(void)
     ESP_LOGI(TAG, "sloop-fm1-tab5 bootstrap (IDF %s)", esp_get_idf_version());
     log_hardware_summary();
 
-    esp_err_t ret = app_display_init();
+    /* 平台设置（NVS：亮度/音量/路由）先于显示与音频初始化——两者在各自 init 里取存值
+     * 应用；失败不阻断启动（RAM 默认值照常生效，只是不持久化）。 */
+    esp_err_t ret = sloop_hal_settings_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "平台设置初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    ret = app_display_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "显示初始化失败: %s", esp_err_to_name(ret));
     }
@@ -117,6 +125,12 @@ void app_main(void)
          * DI-10 的幽灵按压事件仍可能到达，不在本任务修 */
         app_display_touch_feedback_enable(false);
     }
+
+    /* SELFTEST chip 的唯一执行者：等状态层请求、跑完自删；在 UI 启动后创建，确保
+     * sloop_core_selftest 的 quiesce 钩子已注册。 */
+    ret = sys_selftest_start();
+    state_set_selftest_available(ret == ESP_OK);
+    if (ret != ESP_OK) ESP_LOGE(TAG, "SELFTEST 任务创建失败: %s", esp_err_to_name(ret));
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));

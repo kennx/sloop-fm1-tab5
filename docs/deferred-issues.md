@@ -41,17 +41,6 @@
 | **触发条件** | 下一次有人在 Tab5 + Tab5 Keyboard 硬件旁工作时执行；阶段 1 门禁 3 收口前必须完成。 |
 | **登记** | 2026-11-19（阶段 1 Task 6）；2026-11-21 阶段 3 收口：注入路径（`KEY` 与物理同入口）在 30min soak 中 150 组 note on/off（300 事件）全部回显正常、无丢键，仍不能替代物理逐键核对，条目保留 |
 
-## DI-6: ES8388 决定性输出寄存器未二分定位（阶段 2 音频调优）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | 阶段 1 无声修复（4278509）以「DAC 0dB + 四路输出音量全 0x21」的实证组合出声即收口；未二分定位：功放输入取自 LOUT1 还是 LOUT2、0x1E 与 0x21 的听感差、耳机通路是否独立可用。取证见 `docs/dev/device-notes.md` §5。 |
-| **影响面** | 阶段 2 sloop_hal_tab5 音频落地的音量/增益策略（当前全开为保守实证态，可能底噪偏大、动态余量受限）；DI-2 同款排查入口已备（`AUD REG/PA/L2/MAX` 命令）。 |
-| **为何可延迟** | 当前配置已出声且稳定；引擎移植阶段（P2-3/P2-4）不依赖音量精度，仅依赖通路可用。 |
-| **解决方向** | 阶段 2 音频任务内做二分实验（L1/L2 各自开闭 × 0x1E/0x21），定出功放输入通道与合理默认音量；复核 44.1kHz 音高（I2S 日志已证 44100/256×MCLK，缺人耳音高确认）；耳机通路单独人测。 |
-| **触发条件** | sloop_hal_tab5 音频组件立项（P2-3）时处理；DI-4 人测若发现键盘问题与此无关。 |
-| **登记** | 2026-11-19（听音人测排障会话） |
-
 ## DI-7: ENG TRIG 合成/鼓人耳听音待收尾
 
 | 项 | 内容 |
@@ -125,7 +114,7 @@
 |---|---|
 | **背景** | 机制（代码推导，非现场观测）：`ENG SELFTEST` 跑完会调 `selftest_restore()`，把本 TU 的 `.data/.bss`（`linker.lf` 的 `SURROUND(sloop_selftest_bss)` 窗口）与 DSP 状态**回滚到 init 快照**——自检本义就是「从工厂态重跑 golden」。于是自检结束时：①引擎的实时状态（`trk[].p[]/step[]`、`song.g[]`）= 工厂态；②自动存档的「上次写过的 hash」`s_auto_hash` 在 `.noinit`（ADR-009 §8，正是为了不被 restore 清零），仍是自检前那个用户工程的 hash。两者不同 ⇒ 自检结束后的第一个满足门限的窗口（idle 2.5s + gap 20s + 无发声）会把工厂态 `st_save` 进 `OBJ_AUTOSAVE`，覆盖用户上次的工作工程；下次上电 `autosave_resume` 恢复的就是工厂态。**同一回滚也清掉 FM6 银行的读取钩子**（Task 7 评审 R25）：`eng_fm6.c` 的 `fm6_bank_read` 指针与 `fm6_bank.c` 的 `fm6_bank_cur/used` 都在同一快照窗口内，只有 `fm6_bank_boot()` 会重新安装它们——而它只由 `sloop_store_init`（上电）与 bank 公共入口（`STORE BANK …` / `sloop_store_bank_*`，ADR-009 §8 的入口重扫）调用。故**自检之后、下一次 bank API 调用或重启之前**，PTCH ≥ 8 的轨载入的是 `FM6_INIT`（钩子为 NULL 时的兜底）而不是银行槽里的 patch；bank 对象本身与 flash 字节不受影响，入口重扫后即恢复（`store` 场景 ⑫d 已覆盖）。 |
 | **影响面** | 只有诊断入口 `ENG SELFTEST`（`device-selftest.py` 门禁也会跑它）。正常使用（上电/编辑/播放/切页）不触发。后果有两级：①「跑一次自检 = 用户工作工程被工厂态覆盖」，掉电重启后回到工厂态；②「跑一次自检 = 引用银行槽的音色改为播 init voice」，直到下一次 `STORE BANK …`（或任何 `sloop_store_bank_*` 调用）或重启。**门禁侧已防护**（Task 14 终审）：`device-selftest.py` 在自检前下发 `STORE AUTO OFF` 且**不恢复**，门禁会话的工作工程 autosave 不再被工厂态覆盖（bank 段断言本来就走 bank 入口）；用户手动跑 `ENG SELFTEST` 仍会踩到①的两级静默变化。 |
-| **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」），`device-selftest.py` 也已按 (b) 的变体在自检前关 AUTO 且不恢复。产品侧（用户手动自检）的语义仍待 P4-E 决策。修法牵涉一个产品判断（自检算不算一次会话语义上的「新状态」），与 P4-E 的设置/会话层同批做更合适；现在改会把「诊断命令」与「存储语义」两件事耦在一起。 |
+| **为何可延迟** | 自检是**诊断命令**、不在用户操作路径上；P4-B 的注入门禁都在脚本内显式 `STORE AUTO OFF`（并已改为「每次硬复位后重新下发」），`device-selftest.py` 也已按 (b) 的变体在自检前关 AUTO 且不恢复。P4-E Task 7 的 SYSTEM chip 已走独立 worker（自检后 autosave resume + AUTO ON），产品入口已恢复工作工程；本条目仅剩 **console `ENG SELFTEST`** 的既有诊断语义（按控制器裁决保持不变）。修法仍需区分诊断命令与存储语义，不宜顺带改变脚本门禁口径。 |
 | **解决方向** | 三选一（P4-E 决策时记入 ADR）：(a) `selftest_restore()` 尾部用 restore 后的引擎状态 `proj_capture` 并刷新 `s_auto_hash`（= 自检结果不进 autosave，最省事）；(b) 自检结束时把 `s_auto_on` 置 0 且**不**恢复（用户须显式 `STORE AUTO ON`）；(c) 自检前把 autosave 对象备份到暂存、结束时写回（成本高，不推荐）。优先 (a)，并在 `store.sh` 的 ⑨f' 之后加一条「自检后 `autosave_hash` 不变」的断言；②的修法同批：`selftest_restore()` 之后补一次 `fm6_bank_boot()`（重新安装 `fm6_bank_read` 并扫 used 位），或在 `sloop_core_selftest` 收尾处调 bank 入口的重扫钩子。 |
 | **触发条件** | 用户在设备上跑过 `ENG SELFTEST`（含 `device-selftest.py` 门禁）之后继续使用并掉电重启；或 P4-E 处理「自检/会话」语义时一并解决。 |
 | **参考** | ADR-009 §5（自动存档阈值与启动顺序）、ADR-009 §8（`.bss` 快照窗口与 bank 入口重扫、R24 裁决）、`docs/dev/verify/4-pb-2026-11-21/task-7-mutation-probe.txt`（变异探针：删掉入口重扫后 selftest 之后的写丢同银行其它槽）、`firmware/components/sloop_core/src/store_tab5.c` 的 `sloop_store_autosave_tick`/`sloop_store_autosave_resume`、`firmware/components/sloop_core/src/selftest.c` 的 `selftest_restore()` 与 `.noinit` 说明、`firmware/components/sloop_core/linker.lf`（SURROUND 窗口） |
@@ -155,17 +144,17 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB，音频重启超时）
+## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB；音频重启超时已修，堆泄漏仍在）
 
 | 项 | 内容 |
 |---|---|
 | **背景** | P4-B Task 14 收口矩阵（注入六场景 → `device-selftest` → soak 同一会话）暴露：**每次全量 `ENG SELFTEST`（182 例）净减 ~40KB 内部堆**，且不随重启前的其它命令出现。实测 2026-11-22（固件 `6167039-dirty`）：复位后 `internal_free=99,739` → 全量 #1 后 `59,443` → 全量 #2 后 `19,323`；两次后 `ENG AUDIO ON` 超时（收 14 字节无提示符），需重启恢复。单用例重复 20 次 `-4,612B`（≈230B/执行 job）；未知用例（0 job）每次 ~40B；音频 OFF/ON ×3 与普通命令（`ENG MEM`/`ENG PERF`/`ENG SNAP`）无此量级变化——泄漏只在 regress job 执行路径上。同一会话里紧随其后的 soak 因此跌破 60KB 门禁（59,355B）；**复位后同一 soak 命令 PASS**（99,211→99,263B）。测量留档：`docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、`task-14-soak-fail-after-selftest*.txt`。 |
-| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
+| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位（P4-B 实测；2026-11-24 定位到该「重启超时」的机理是泄漏后音频任务栈落到 LP SRAM，已由 `c62823e` 修复——栈改为开机首次启流即固定在 L2MEM 的常驻整块，音频不再依赖自检后的堆余量；**堆耗尽本身的风险未变**：P4-E 开机约 69KB、一次全量后约 29KB，第二次全量预计把内部堆耗尽，未实测）；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
 | **为何可延迟** | 不在用户操作路径上；根因未定位（本条目按实测登记，不做猜测性修法）。门禁已用「selftest 之后复位再 soak」的矩阵顺序规避（AGENTS §5.1/§5.5 已注明），证据完整。修法涉及 selftest 快照/恢复与堆所有权（P4-B 起 store TU 编入同一快照窗口），需要单独一轮带堆跟踪的排查，避免在收口任务里盲改。 |
 | **解决方向** | ① 先定位：对 `ENG SELFTEST` 单用例做堆跟踪（`heap_caps_get_info` 前后快照 / `esp_heap_trace` 或二分 job 名单），确认是 regress job 内的库调用（如 `snprintf("%.2f")` 的 newlib 缓冲）还是 `selftest_restore()` 回滚了某个堆相关的全局；② 若为恢复回滚：把「自检期间分配、恢复后仍被使用的指针」移出快照窗口（`.noinit` 或重扫），参照 Task 7 的 `fm6_bank_boot`/`up_boot` 入口重扫；③ 若为库缓冲：改为定长格式化或预热；④ 无论修法，补一条门禁断言：连续两次全量 `ENG SELFTEST` 后 `internal_free` 下降 ≤1KB。 |
-| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB、音频无法重启）。 |
-| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫） |
-| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS） |
+| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB——P4-B 读数；音频栈落点已修，剩余风险是堆耗尽）。 |
+| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫）、`docs/dev/device-notes.md` §9（栈落点的判别手法）、`docs/dev/verify/4-pe-2026-11-23/fix-probe-r{1-full,5-final}-*.log`（泄漏后 `internal_free=33,363` / `28,719` 的复现与修复对照） |
+| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS）；2026-11-24 P4-E 修复轮：定位到本泄漏的一条**可见后果**——泄漏后内部 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频任务的栈落到 LP SRAM（P4 上是 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆，该落点下渲染慢 ~24 倍，推断是 HP 核访问不经 L1 cache）、每块 xrun 直到复位（原 DI-40；据前任报告 P4-D 开机内部堆多 ~20KB 因而当时未暴露——推断，未在 P4-D 固件上复现）。音频任务栈已改为首次启流用 `INTERNAL\|DMA` 显式分配的常驻 L2MEM 整块，音频不再受泄漏影响；泄漏本身仍未定位（本次实测 P4-E 开机 68.9KB → 一次全量后 28.7KB；按此斜率同一 boot 内第二次全量会把内部堆耗尽，未实测）。新增的 `SYS SELFTEST ARM` 诊断让 chip 可在同一供电周期内重跑，使用时须「先复位再 ARM」 |
 
 ## DI-27: 一次性 take 结果（`take_bars`）在设备脚本里不可稳定观测
 
@@ -227,18 +216,6 @@
 | **参考** | `firmware/components/sloop_core/src/seq_tab5.c`（`SEQ_STEP_CLEAR` 分支）、`third_party/sloop-fm1/firmware/src/ui.c`（`step_clear`）、`scripts/inject/inject.py` 的 `run_transport_tools`（归一注释） |
 | **登记** | 2026-11-23（P4-C Task 11：中断复跑时发现；本轮只做脚本自愈，不改 CLEAR 语义）；2026-11-23 Task 12/13：`sequence` 的 ⓪ 归一与 DI-31 用例改用「开一步再清」，最终矩阵绿——CLEAR 语义本身仍未改，条目保留 |
 
-## DI-32: `STORE RAW` 只能写 project 对象，设置对象（PER1/2/3/side）无法从设备注入
-
-| 项 | 内容 |
-|---|---|
-| **背景** | `STORE RAW END <obj> <slot>` 的对象名解析只接受 `project`（`store_tab5.c` 的 raw 上传入口与 `scripts/store_raw.py --obj`）；`OBJ_SETTINGS`（PER1/PER2/PER3 + side）没有注入通道，故 P4-C 的 settings 迁移/损坏路径只有 host 覆盖（`scripts/persist-host-test.c`），设备侧无法上传旧设置 fixture、也无法用损坏设置验证「加载拒绝且原对象不覆盖」。 |
-| **影响面** | 仅门禁覆盖：PER1/2 迁移的设备侧证据缺失；产品路径（`song_set` → 延迟 `st_save3`）不受影响，`STORE SONG`/`STORE TEST` 已覆盖设备写入与 A/B+CRC。 |
-| **为何可延迟** | 迁移逻辑是纯字节函数（`src/song_persist.h`），host 侧真实 `storage.c` + 8KB 假 flash 已逐字节回归；设备侧缺的是「同一函数在真 flash 上跑」的冗余证明。Task 13 收口矩阵不依赖它。 |
-| **解决方向** | 给 `STORE RAW END` 增加 `settings` 对象名（映射 `OBJ_SETTINGS`，走 `st_save3` 的 A/B+CRC 路径），写后按 `song_reload` 语义重载；`scripts/store_raw.py --obj settings`；在 `store` 或 `sequence` 场景加一条「上传 PER2 → `STORE SONG INFO kind=per2` → `SAVE` → `INFO kind=per3`」与一条「上传截断 settings → `SAVE` 回 `invalid` 且 `INFO` 不变」。 |
-| **触发条件** | 需要设备级证明 settings 迁移/损坏路径时；或 P4-E 改动 `OBJ_SETTINGS` 布局（theme/lights/MIDI 尾段）后重跑 song 持久化门禁时。 |
-| **参考** | `firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_raw_*`）、`scripts/store_raw.py`、`scripts/persist-host-test.c`、`docs/design/009-storage-backend.md` §6.1 |
-| **登记** | 2026-11-23（P4-C Task 13 收口审计：Task 7 报告 §6.2 遗留） |
-
 ## DI-33: warm reset 后 live section 不保留（上游保留 live section 及其 dirty 延迟写语义）
 
 | 项 | 内容 |
@@ -298,3 +275,27 @@
 | **触发条件** | 用户报告「调好的鼓音色重启后没了」；或 P4-E 统一「会话/持久化」语义时。 |
 | **参考** | `firmware/components/sloop_core/src/song_persist.h`（`song_per_put_dsu`/`song_per_saved`）、`store_tab5.c` 的 `sloop_store_dsu_store`/`sloop_store_sections_tick`、ADR-011 §3、P4-D spec §3.4 |
 | **登记** | 2026-11-23（P4-D Task 12 收口审计） |
+
+## DI-39: 输出路由只能 speaker-only（扬声器功放与耳机左声道共用 ES8388 LOUT1）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-E Task 3（spec §5 D10）实现输出路由时按官方原理图（`Tab5_Schematics_PDF.pdf` 第 3 页，U14/C67/C68/U15）核对通路：ES8388 **LOUT1**(pin 12) 经 C68 22µF → 网络 `HPOUT_L`，**同时**接耳机左声道与 NS4150B 功放输入（100nF → R43 68K → INP；INN 经 R44 68K 接 AGND）；**ROUT1**(pin 11) 经 C67 → `HPOUT_R` 只到耳机右声道；**LOUT2/ROUT2(pin 15/14) 未连接**（真机 `AUD REG` 读回 `0x2E..0x31 = 0x21`）。扬声器与耳机左声道共用 LOUT1，不存在只靠 ES8388 音量寄存器把两者分开的组合——把 LOUT1/ROUT1 写 0（-33.5dB）是两者一起近静音——这是阶段 1 默认态人测无声的**最可能原因**（按原理图推断，未在设备上二分）。本条同时承接已关闭的 DI-6 的未决余项。 |
+| **影响面** | 输出路由设置降级为 speaker-only：`sloop_hal_settings_set_output` 只接受 speaker，`AUD OUT headphone` 回 `AUD OUT ERR not_supported` 且状态不变，SYSTEM 页的 OUTPUT 行给不出可用的 HEADPHONE。另：扬声器**只重放左声道**（功放取 LOUT1），右声道/声像在扬声器上丢失。 |
+| **为何可延迟** | 默认态（四路输出 0x21）扬声器与耳机都可用，是阶段 1 人测出声的实证态；缺的只是「切换」，不影响可听性。真正的路由要动功放使能（新的硬件副作用），不宜在设置页任务里顺手做。 |
+| **解决方向** | (a) 用 **SPK_EN**（PI4IOE5V6408-1 @0x43 的 E1.P1，`bsp_feature_enable(BSP_FEATURE_SPEAKER, …)`）做路由：headphone = 关功放（耳机仍由 LOUT1/ROUT1 驱动）、speaker = 开功放；实现前先核实 BSP 该开关的确切副作用（是否连带其它电源域/静音时序）。(b) 扬声器单声道：在 HAL 输出级做 L/R 混音，或由引擎提供 mono 合成（产品裁决）。(c) DI-6 余项的人测：输出电平 `0x21` 与 `0x1E` 的听感差、底噪与合理默认音量；耳机通路单独听音；44.1kHz 音高复核（I2S 日志已证 44100，缺人耳）。 |
+| **触发条件** | SYSTEM 页需要可用的 HEADPHONE 选项时；或人测报告扬声器底噪偏大 / 单声道不可接受时。(c) 在硬件旁做听音时顺手完成，完成后从本条删除。 |
+| **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定）。已封存的证据包（如 `docs/dev/verify/4-pc-2026-11-22/`、`1-bringup-2026-11-19/`）里的 `DI-6` 是历史编号（R18：证据包不可变），即指本条 |
+| **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |
+
+## DI-43: 内部堆余量仅 4KB（SELFTEST worker 16KB 栈常驻）+ 平台设置的两处未验证项
+
+| 项 | 内容 |
+|---|---|
+| **背景** | P4-E 修复轮固件（`86711a4`，终审时的 HEAD 固件同构）的 1800s soak `internal_min` = **65,536B**，§5.5 门限 61,440B（60KB）⇒ 余量恰 **4,096B**；P4-D 同口径为 83,780B。P4-D→P4-E 少的 ~18KB 里，**SELFTEST chip 的 worker 占 16KB**：`sys_selftest.c` 的 `SYS_SELFTEST_STACK 16384`，`main.c` 在 UI 启动后 `xTaskCreate` 一次、之后 forever `vTaskDelay` 等 `CMD_SELFTEST_RUN`（栈与 TCB 常驻内部堆；`.noinit` 标记让它每 boot 只真正跑一次）。**刻意**在开机创建（任何泄漏之前）：这样栈落在内部 L2MEM；放到请求时再创建，DI-26 泄漏之后可能落到 LP SRAM（DI-40 的同款坑）。其余差额按终审笔记归 NVS（平台设置三键；推断，未逐项量测）。**同条登记终审 triage 的两项平台设置遗留**：(a) 播放中写 xrun 的用例只测亮度（LEDC），**VOLUME**（codec 互斥 + I2C）与 **NVS commit** 在流式期间的 xrun 影响没有机读覆盖——1s 任务的静默窗口会让 NVS 提交避开发声，但窗口判定（`audio_quiet`）与提交之间没有 codec 静音；(b) 键盘 RGB 颜色缓冲 `0x60..` 的字节序 **B,G,R** 取自 M5Tab5-Keyboard-Internal-FW 的寄存器语义，console `KBD RGB` 只发白色 `0xFFFFFF`，字节序错了机器看不出来（accent 为黄/品红/青时才会显色差）。 |
+| **影响面** | 余量：任何新增的常驻内部 RAM（P4-F 的 USB host / USB-MIDI / 联动协议缓冲几乎必然要内部 DMA 内存）都可能把 soak 的 heap floor 顶穿；soak 门限本身不改。平台设置：(a) 只在「播放中调音量」这个用户路径上可能有可听的爆音/xrun，未观测到；(b) 只影响键盘灯颜色（亮度档位与开关已机读覆盖）。 |
+| **为何可延迟** | 当前固件 soak PASS（xrun 0、min 65,536B ≥ 门限），没有功能性缺陷；worker 栈的高水位需要真跑一次全量自检才能量到（本轮修复波已占用设备门禁窗口）。平台设置两项是人测可兜底的可见性问题。 |
+| **解决方向** | (1) worker 跑完后用 `uxTaskGetStackHighWaterMark(NULL)` 打印高水位并写进 `STATE SNAP`/worker 日志，按实测（预期远小于 16KB，console 任务栈的量级）下调 `SYS_SELFTEST_STACK`，或改成开机只占 TCB、栈在请求时用 `INTERNAL\|DMA` 显式分配（与 ADR-007 音频任务栈同法，避开 DI-26 的落点问题）。(2) **P4-F 动工前重估 soak floor**：按 USB host/MIDI 的实际常驻量重新定 60KB 门限或明确记为「联动模式下不适用」。(3) xrun：给 `sys` ③ 的播放中 20 次写加 VOLUME 变化（0↔70）+ `ENG PERF` 3s 窗口 xrun 增量 = 0 的断言，并在播放中制造一次 NVS dirty 后的提交（或直接在 `sloop_hal_settings_flush` 的 commit 前后取 xrun 计数打印）；若测到 xrun，commit 期间做 codec 静音或把提交挪到停流窗口。(4) 键盘字节序：console 加 `KBD RGB RGB <r> <g> <b>`（或 `KBD RGB PROBE`）发纯红/纯绿，配合屏上色块截图做人眼对照；或读回键盘 FW 的颜色缓冲寄存器（若协议支持回读）。 |
+| **触发条件** | (1)(2) P4-F 第一个涉及 USB host/MIDI 的任务开工前（新增内部 RAM 分配之前）；soak 的 `internal_min` 低于 ~62KB 时立即处理。(3)(4) 用户报告播放中调音量有爆音，或键盘灯颜色与屏上 accent 不一致。 |
+| **参考** | `firmware/main/sys_selftest.c`（`SYS_SELFTEST_STACK`、worker 循环）、`firmware/main/main.c`（`sys_selftest_start` 调用点）、`scripts/soak.py`（`HEAP_FLOOR`）、`docs/dev/verify/4-pe-2026-11-23/fix-soak-summary.txt`（min 65,536B）、ADR-007（音频任务栈的 L2MEM 分配）、DI-26（全量自检堆泄漏）、`firmware/components/sloop_hal_tab5/src/sys_settings.c`（`sloop_hal_settings_flush`）、`firmware/components/tab5_keyboard`（`tab5_keyboard_rgb_set`）、P4-E spec §5 D2/D9 |
+| **登记** | 2026-11-24（P4-E 整分支终审 I3；合并 triage 的 M10 余项与键盘字节序） |

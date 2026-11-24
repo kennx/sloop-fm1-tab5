@@ -1,0 +1,163 @@
+
+sloop>  # [inject] 场景 sys 开始
+# [inject] sys 场景开始：① 归一（AUTO OFF / 停走带 / ENG AUDIO ON）
+STORE AUTO OFF
+STORE AUTO off
+sloop>  ENG AUDIO ON
+ENG AUDIO streaming=1 xrun=0 OK
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  # [inject] ① settings 生效副本：SET → dirty → SAVE → 硬复位 → INFO
+STORE SETTINGS SET palette 2
+STORE SETTINGS SET palette=2 dirty=1
+sloop>  I (1123983) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5840B 预算=7168B 池剩余=40916B 耗时=8ms
+I (1123983) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (1123983) sloop_ui: 页面构建 page=PLAY(0) 池增量=2392B 预算=3072B 池剩余=40700B 耗时=3ms
+I (1123983) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=5ms
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=none theme_valid=0
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=none theme_valid=0
+sloop>  STORE SETTINGS SAVE
+I (1124333) sloop_store: 歌曲已保存 len=1552 来源=1
+STORE SETTINGS SAVED len=1552 side=1
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  # [inject] 复位设备（esptool flash_id --after hard_reset，不写 flash）
+
+sloop>  I (4307) sloop_input: InputManager 就绪：60 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+STORE AUTO OFF
+STORE AUTO off
+sloop>  I (4447) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  # [inject] ①b RAW settings 往返：88B PER3 → 落盘 + 重载；工程槽 A 的 RAM 缓存不受影响
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=2 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  STORE SONG
+STORE SONG count=4 loop=0 dirty=0
+SONG 0 scene=0 bars=4
+SONG 1 scene=1 bars=4
+SONG 2 scene=2 bars=4
+SONG 3 scene=3 bars=4
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  STORE PROJ HASH 0
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PROJ SAVE 0
+PROJ 0 SAVED hash=14F70B0F
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=14F70B0F
+sloop>  # [inject] ①b 上传歌曲 count=2 loop=1（起点 count=4 loop=0）
+STORE RAW BEGIN 88
+STORE RAW BEGIN len=88
+sloop>  STORE RAW 33524550010000000000000000000000354E415002030405060708090A0B0C0D0001000106020304050101010101010102010000010200030204030400040104020403040004010402040304000401040204030400000000
+STORE RAW received=88
+sloop>  STORE RAW END settings 0
+I (5507) sloop_store: 歌曲设置: 来源=1 count=2 loop=1
+I (5507) sloop_store: SYN kit: 工厂默认（settings len=88）
+I (5507) sloop_store: settings: flash palette=1 lowcut=0 zoom=0 lights=0 reso=0 rec=0/0/0 theme=none
+STORE RAW END settings 0 saved len=88
+sloop>  I (5547) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6072B 预算=7168B 池剩余=42880B 耗时=8ms
+I (5557) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (5557) sloop_ui: 页面构建 page=PLAY(0) 池增量=2436B 预算=3072B 池剩余=42676B 耗时=4ms
+I (5557) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=6ms
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=88 side=1 palette=1 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  STORE SONG INFO
+STORE SONG INFO kind=per3 len=88 side=1 count=2 loop=1
+sloop>  STORE SONG
+STORE SONG count=2 loop=1 dirty=0
+SONG 0 scene=1 bars=2
+SONG 1 scene=0 bars=3
+sloop>  STORE PROJ HASH 0
+PROJ 0 HASH=14F70B0F
+sloop>  STORE SONG SAVE
+I (6107) sloop_store: 歌曲已保存 len=1552 来源=1
+STORE SONG SAVED len=1552 side=1
+sloop>  STORE SONG INFO
+STORE SONG INFO kind=per3 len=1552 side=1 count=2 loop=1
+sloop>  # [inject] 收口：槽 A 先回起点状态，再恢复 palette/歌曲顺序 + SAVE；AUTO ON
+STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE SONG SET 4 0 0:4 1:4 2:4 3:4
+STORE SONG SET count=4 loop=0 dirty=1
+sloop>  STORE SETTINGS SET palette 4
+STORE SETTINGS SET palette=4 dirty=1
+sloop>  I (6487) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5800B 预算=7168B 池剩余=42836B 耗时=9ms
+I (6497) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+I (6497) sloop_ui: 页面构建 page=PLAY(0) 池增量=2420B 预算=3072B 池剩余=42628B 耗时=4ms
+I (6497) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=6ms
+STORE SETTINGS SAVE
+I (6677) sloop_store: 歌曲已保存 len=1552 来源=1
+STORE SETTINGS SAVED len=1552 side=1
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=none theme_valid=0
+sloop>  STORE SONG
+STORE SONG count=4 loop=0 dirty=0
+SONG 0 scene=0 bars=4
+SONG 1 scene=1 bars=4
+SONG 2 scene=2 bars=4
+SONG 3 scene=3 bars=4
+sloop>  # [inject] ② SYSTEM 页：UI system / UI MEM / UI TAB sys / UI SUB 0 / 截屏
+UI system
+用法: UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song> | UI MEM | UI WINDOW [<start> <len>] | UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | UI FM6P [OP <0..5> | PAGE <0..5>] | UI TOOL [<field=0..7>] | UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）
+WINDOW: start 向下对齐 16（bank = start/16，0..48），len 1..16；无参打印当前窗口
+LANE: STEP 页选中的鼓 lane（0..15，UI 局部态）；无参打印当前值
+TOOL: TRANSPORT 页的键盘工具焦点（0 lvl / 1 rat / 2 mic / 3 span / 4 slide / 5 rot / 6 len / 7 trans）；无参打印当前字段
+TAB/SUB: 与物理组签/子签点击同一路径（TAP 不路由页签；TAB 进上次子页，SUB 切当前组子签）
+FORCEFAIL: 已建当前页立即重建到失败态（回显 state=failed）；已建非当前页回到未建态（state=unbuilt，注入待命）；未建页下一次构建失败；off 只撤销未消费的注入
+LOCKHOLD: 辅助任务持 LVGL 锁 ms 毫秒，紧随的 ENG SELFTEST 应回 result=FAIL reason=quiesce
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI MEM
+UI MEM pool_used=14216 pool_free=48612 pool_total=62828 registered=14 built=1 failed=0 sum_est=113152 reserve=-50324 group=PLAY
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2420 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=12
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2420 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=ANALOG state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=7 title=FM6 state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>  UI TAB sys
+UI ERR group sys
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SUB 0
+UI ERR sub 0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  # [inject] SCR 截屏 -> inject-sys-20261123-204510-system.png
+SCR
+I (7557) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+STORE AUTO ON
+STORE AUTO on
+sloop>  # [inject] 场景 sys 结束 failures=6

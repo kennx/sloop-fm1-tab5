@@ -5,7 +5,12 @@
  *  - SCR：截屏命令。PC 发 "SCR\n" → 固件回 "SCR 1280 720 rgb565 1843200\n" → 1843200 字节
  *    裸帧（小端 rgb565）→ "SCR OK\n"（PC 侧对端 scripts/screenshot.py）。
  *  - KB：Tab5 Keyboard 排障入口（probe 结果/事件计数/解码日志开关）。
- *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端）。
+ *  - AUD：音频自检入口（AUD TONE 正弦播放，audio_tone.c 后端；AUD VOL [0..100] 与
+ *    AUD OUT [speaker|headphone] 是平台设置的音量/输出路由，经 HAL，P4-E Task 3）。
+ *  - DISP：DISP BRIGHT [0..100] 背光亮度（经 HAL：钳位 + 立即生效 + NVS 延迟提交）。
+ *  - KBD：KBD RGB [off|low|mid|high] 键盘 RGB 档位（白色，经 HAL → tab5_keyboard）。
+ *  - SYS：SYS NVS ERASE 删除平台设置三键（诊断；下一次 boot 落默认）；SYS SELFTEST ARM 清
+ *    SYSTEM 页 SELFTEST chip 的每 boot 一次标记（R25 诊断注入，让复位后的 chip 重走 worker）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
  *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
  *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
@@ -105,9 +110,18 @@
  *    打印固定顺序的 key=value 一行（fmt/sel/bpm/swing/dust/drdly + 4 轨 engine/preset/
  *    P_LEVEL/P_ATK/P_E0/P_E1 + 前 8 步 n:note），**不动引擎/RAM 槽**；空槽回 empty、
  *    对象存在但任何格式都不匹配（截断/损坏）回 invalid。
+ *    STORE SETTINGS [INFO|SET <field> <v>|SAVE] 是 settings 生效副本的诊断面（P4-E Task 2）：
+ *    INFO 一行报 flash 对象的 kind/len/side + 九个生效字段（palette/lowcut/zoom/lights/
+ *    theme_on/reso/rec_tempo/rec_count/rec_quant）+ dirty + theme 名/有效位；SET 直调
+ *    sloop_store_settings_set（只改内存 + 应用上游 static + 置 dirty，回显钳位后的写后值）；
+ *    SAVE 停止态立即写（与歌曲/DSU 同一次 A/B 提交，播放中回 "STORE ERR playing"）。
+ *    落盘的另一条路是 1s 任务的延迟写（settings dirty 与歌曲/段落同一门限）。
  *    STORE RAW BEGIN <len≤3840> | <hex> | END <project> <slot> | ABORT 是分块上传通道
  *    （旧格式 fixture 的唯一入设备通道；一行 ≤240 hex = 120B，受 USJ 驱动 RX 环 256B
- *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）。
+ *    约束）：END 以 st_save 原样写入请求的那一个对象（CRC/提交头由 storage.c 生成）；
+ *    `END settings 0` 写 OBJ_SETTINGS（现有 side 随新副本保留，随后 settings_reload 生效，
+ *    P4-E spec §8.3）。
+ *    `STORE RAW SIDE <160 hex>` 单独提交 80B side record（theme/FAVS），payload 不动。
  *    暂存与其它存储操作共用 ⇒ **任何其它 STORE 子命令入口都会 abort 未完成的上传**
  *    （R27；穿插命令后 END 回 invalid，不会把别人的字节写进 flash）。
  *    偏移是上游 flash-map 逻辑偏移，不是芯片绝对地址。
@@ -133,6 +147,9 @@
  *    `-> FM6P op=.. page=.. select` / `-> FM6P <field> value=<写后回读> status="…"` /
  *    `-> FM6P BANK slot=k select` / `-> FM6P SAVE status="…"`（P4-D Task 10）。
  *    STATE SNAP 行尾追加 dsyn_kit/dsyn_lane/dsyn_dirty 与 fm6p_slot/fm6p_engine_ok。
+ *  - P4-E Task 4：STATE SNAP 行尾再追加平台设置 sys_bright/sys_vol/sys_out 与 settings
+ *    投影 set_palette/set_lowcut/set_zoom/set_lights/set_theme（theme_on）/set_reso/
+ *    set_dirty，末尾 set_nvs（= HAL 的 nvs_dirty；停止过静默窗口后归 0）。
  *
  * 帧导出几何（与 display.c 的横屏组装互逆）：
  * DPI 帧缓冲物理为竖扫 720×1280（BSP_LCD_H/V_RES），LVGL 以
@@ -145,6 +162,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <strings.h>
 
@@ -288,10 +306,104 @@ static int kb_command(int argc, char **argv)
     return 0;
 }
 
+/* 平台设置诊断（P4-E Task 3，spec §9）：读写一律经 HAL（钳位 + 副作用立即 + NVS 延迟
+ * 提交），回显 applied= 为钳位后的 RAM 值。数值令牌接受任意整数（越界由 HAL 钳位，
+ * 口径同 PARAM），非整数令牌回 ERR invalid；HAL 调用失败回 ERR error。 */
+static bool parse_u8_clamped(const char *text, uint8_t *value)
+{
+    char *end = NULL;
+    long v = strtol(text, &end, 10);
+    if (end == text || *end != '\0') return false;
+    if (v < 0) v = 0;
+    if (v > UINT8_MAX) v = UINT8_MAX;
+    *value = (uint8_t)v;
+    return true;
+}
+
+static int disp_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "bright") == 0) {
+        printf("DISP BRIGHT applied=%u\n", (unsigned)sloop_hal_settings_bright());
+        return 0;
+    }
+    uint8_t v;
+    if (argc == 3 && strcasecmp(argv[1], "bright") == 0 && parse_u8_clamped(argv[2], &v)) {
+        if (sloop_hal_settings_set_bright(v) == ESP_OK) {
+            printf("DISP BRIGHT applied=%u\n", (unsigned)sloop_hal_settings_bright());
+            return 0;
+        }
+        printf("DISP BRIGHT ERR error\n");
+        return 1;
+    }
+    printf("DISP BRIGHT ERR invalid\n用法: DISP BRIGHT [0..100]\n");
+    return 1;
+}
+
+/* AUD OUT [speaker|headphone]：applied= 以裸 I2C 读回的输出音量寄存器为准——扬声器所在
+ * 通路（LOUT1/ROUT1，见 sys_settings.c）等于开机电平才回 applied，否则报 mismatch。 */
+static int aud_out(int argc, char **argv)
+{
+    if (argc == 3) {
+        esp_err_t ret;
+        if (strcasecmp(argv[2], "speaker") == 0) {
+            ret = sloop_hal_settings_set_output(0);
+        } else if (strcasecmp(argv[2], "headphone") == 0) {
+            ret = sloop_hal_settings_set_output(1);
+        } else {
+            printf("AUD OUT ERR invalid\n");
+            return 1;
+        }
+        if (ret == ESP_ERR_NOT_SUPPORTED) {
+            printf("AUD OUT ERR not_supported\n");
+            return 1;
+        }
+        if (ret != ESP_OK) {
+            printf("AUD OUT ERR error\n");
+            return 1;
+        }
+    } else if (argc != 2) {
+        printf("AUD OUT ERR invalid\n用法: AUD OUT [speaker|headphone]\n");
+        return 1;
+    }
+    uint8_t regs[4];
+    if (sloop_hal_settings_output_regs(regs) != ESP_OK) {
+        printf("AUD OUT ERR readback\n");
+        return 1;
+    }
+    if (regs[0] != SLOOP_HAL_ES8388_OUT_ON || regs[1] != SLOOP_HAL_ES8388_OUT_ON) {
+        printf("AUD OUT ERR mismatch l1=0x%02X r1=0x%02X l2=0x%02X r2=0x%02X\n", regs[0],
+               regs[1], regs[2], regs[3]);
+        return 1;
+    }
+    printf("AUD OUT applied=%s\n", sloop_hal_settings_output() == 0 ? "speaker" : "headphone");
+    return 0;
+}
+
+static int aud_vol(int argc, char **argv)
+{
+    if (argc == 2) {
+        printf("AUD VOL applied=%u\n", (unsigned)sloop_hal_settings_volume());
+        return 0;
+    }
+    uint8_t v;
+    if (argc == 3 && parse_u8_clamped(argv[2], &v)) {
+        if (sloop_hal_settings_set_volume(v) == ESP_OK) {
+            printf("AUD VOL applied=%u\n", (unsigned)sloop_hal_settings_volume());
+            return 0;
+        }
+        printf("AUD VOL ERR error\n");
+        return 1;
+    }
+    printf("AUD VOL ERR invalid\n用法: AUD VOL [0..100]\n");
+    return 1;
+}
+
 /* AUD 排障入口：AUD TONE <hz> [ms=2000] 阻塞播放正弦（hz 域 20..12000，ms 域 1..60000）；
- * AUD REG dump ES8388 寄存器（排障） */
+ * AUD REG dump ES8388 寄存器（排障）；AUD VOL / AUD OUT 平台设置的音量与输出路由 */
 static int aud_command(int argc, char **argv)
 {
+    if (argc >= 2 && strcasecmp(argv[1], "vol") == 0) return aud_vol(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "out") == 0) return aud_out(argc, argv);
     if (argc == 2 && strcasecmp(argv[1], "reg") == 0) {
         audio_tone_dump_regs();
         return 0;
@@ -341,6 +453,53 @@ static int aud_command(int argc, char **argv)
     }
     printf("AUD TONE 完成\n");
     return 0;
+}
+
+static const char *const k_kbd_rgb_names[4] = {"off", "low", "mid", "high"};
+
+/* KBD RGB [off|low|mid|high]：键盘 RGB 档位（白色 0xFFFFFF；UI 侧传主题 accent） */
+static int kbd_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "rgb") == 0) {
+        printf("KBD RGB applied=%s\n", k_kbd_rgb_names[sloop_hal_keyboard_rgb_level()]);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "rgb") == 0) {
+        for (int level = 0; level < 4; level++) {
+            if (strcasecmp(argv[2], k_kbd_rgb_names[level]) != 0) continue;
+            if (sloop_hal_keyboard_rgb((uint8_t)level, 0xFFFFFFu) != ESP_OK) {
+                printf("KBD RGB ERR error\n");
+                return 1;
+            }
+            printf("KBD RGB applied=%s\n", k_kbd_rgb_names[sloop_hal_keyboard_rgb_level()]);
+            return 0;
+        }
+    }
+    printf("KBD RGB ERR invalid\n用法: KBD RGB [off|low|mid|high]\n");
+    return 1;
+}
+
+/* SYS NVS ERASE：删除平台设置三键（诊断；RAM 值与硬件不变，下一次 boot 落默认）。
+ * SYS SELFTEST ARM：清 SYSTEM 页 SELFTEST chip 的每 boot 一次标记与结果缓存（R25 诊断注入；
+ * DI-26：同一 boot 内每跑一次全量自检泄漏 ~40KB 内部堆，本命令给复位后的重跑用）。 */
+static int sys_command(int argc, char **argv)
+{
+    if (argc == 3 && strcasecmp(argv[1], "nvs") == 0 && strcasecmp(argv[2], "erase") == 0) {
+        sloop_hal_settings_erase();
+        printf("SYS NVS ERASED\n");
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "selftest") == 0 && strcasecmp(argv[2], "arm") == 0) {
+        esp_err_t err = sloop_ui_system_selftest_arm();
+        if (err != ESP_OK) {
+            printf("SYS SELFTEST ARM ERR busy\n");
+            return 1;
+        }
+        printf("SYS SELFTEST ARMED\n");
+        return 0;
+    }
+    printf("用法: SYS NVS ERASE | SYS SELFTEST ARM\n");
+    return 1;
 }
 
 #define ENG_SMOKE_FRAMES 256u
@@ -675,7 +834,8 @@ enum {
  * 选轨/mute/solo 已是引擎真值，两处输出同源（sync 无状态层例外）；参数投影
  * p[]/g[] 抽样打印（P_LEVEL/P_ATK/P_DEC/P_SUS/P_REL/P_SLEN/P_MUTE + G_BPM/G_SWING）。
  * 既有行只在行尾追加 seq_status；`STATE SNAP FULL` 才另起 step/dstep 详细行，默认保持
- * 既有响应体量。 */
+ * 既有响应体量。P4-E 起行尾另带 settings/平台投影（set_* / sys_*；set_dirty=1 与
+ * set_nvs=1 表示等待 1s 任务的静默窗口落盘）。 */
 static int state_command(int argc, char **argv)
 {
     if ((argc == 2 && strcasecmp(argv[1], "snap") == 0) ||
@@ -685,7 +845,7 @@ static int state_command(int argc, char **argv)
         state_get_copy(&st);
         static const char *const REC_NAME[] = {"off", "armed", "recording", "count_in", "free_take"};
         const char *rec = st.rec.state <= SEQ_REC_FREE_TAKE ? REC_NAME[st.rec.state] : "?";
-        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u\n",
+        printf("STATE SNAP page=%u focus_track=%u focus_step=%u layer_held=0x%02X selected_track=%u last_note=%u bpm=%u playing=%u window_bank=%u window_start=%u window_len=%u seq_status=%u rec=%s rec_track=%u rec_quant=%u rec_tempo=%u rec_count=%u rec_bars=%u dsyn_kit=%u dsyn_lane=%u dsyn_dirty=%u fm6p_slot=%u fm6p_engine_ok=%u sys_bright=%u sys_vol=%u sys_out=%u set_palette=%u set_lowcut=%u set_zoom=%u set_lights=%u set_theme=%u set_reso=%u set_dirty=%u set_nvs=%u selftest_req=%u selftest_done=%u selftest_ran=%u selftest_failed=%u\n",
                (unsigned)st.page, (unsigned)st.focus_track, (unsigned)st.focus_step,
                (unsigned)st.layer_held, (unsigned)st.core.selected_track, (unsigned)st.last_note,
                (unsigned)st.core.bpm, (unsigned)st.core.playing, (unsigned)st.window.bank,
@@ -694,7 +854,14 @@ static int state_command(int argc, char **argv)
                (unsigned)st.rec.quant_off, (unsigned)st.rec.tempo_mode,
                (unsigned)st.rec.count_mode, (unsigned)st.rec.take_bars,
                (unsigned)st.dsyn.kit, (unsigned)st.dsyn.lane, (unsigned)st.dsyn.dirty,
-               (unsigned)st.fm6p.slot, (unsigned)st.fm6p.engine_ok);
+               (unsigned)st.fm6p.slot, (unsigned)st.fm6p.engine_ok,
+               (unsigned)st.sys.bright, (unsigned)st.sys.vol, (unsigned)st.sys.out,
+               (unsigned)st.settings.palette, (unsigned)st.settings.lowcut,
+               (unsigned)st.settings.zoom, (unsigned)st.settings.lights,
+               (unsigned)st.settings.theme_on, (unsigned)st.settings.reso,
+               (unsigned)st.settings.dirty, (unsigned)st.sys.nvs_dirty,
+               (unsigned)st.selftest_req, (unsigned)st.selftest_done,
+               (unsigned)st.selftest_ran, (unsigned)st.selftest_failed);
         for (uint32_t k = 0; k < 4; k++) {
             printf("STATE SNAP trk k=%u mute=%u solo=%u\n", (unsigned)k,
                    (unsigned)st.core.trk[k].mute, (unsigned)st.core.trk[k].solo);
@@ -889,7 +1056,7 @@ static int param_command(int argc, char **argv)
     return 1;
 }
 
-/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>；无参打印当前页。
+/* UI 切页（注入用）：UI <play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system>；无参打印当前页。
  * 切页本身在 sloop_ui 内部加 LVGL 锁；这里只做参数解析与回显。
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
@@ -905,7 +1072,7 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
     "projects", "presets", "song",
     /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
      * FM6P 由 Task 10 换成实体页） */
-    "dsyn", "fm6p",
+    "dsyn", "fm6p", "system",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");
@@ -1841,6 +2008,33 @@ static int tap_command(int argc, char **argv)
         }
         break;
     }
+    case SLOOP_TAP_SYSTEM: {
+        static const char *const rows[] = {
+            "COLOR", "ZOOM", "BRIGHT", "LIGHTS", "VOLUME", "OUTPUT", "LOWCUT", "RESO",
+            "SELFTEST",
+        };
+        const char *row = r.a < sizeof(rows) / sizeof(rows[0]) ? rows[r.a] : "?";
+        const char *text = sloop_ui_system_status_text();
+        if (r.a == 8u) {
+            printf("TAP %ld,%ld page=%u -> SYS SELFTEST status=\"%s\"\n", x, y, page,
+                   text != NULL ? text : "");
+        } else if (r.a == 1u || r.a == 6u) {
+            printf("TAP %ld,%ld page=%u -> SYS %s value=%s status=\"%s\"\n", x, y, page, row,
+                   r.v ? "ON" : "OFF", text != NULL ? text : "");
+        } else if (r.a == 0u) {
+            static const char *const palettes[] = {"GREEN", "AMBER", "CYAN", "RED", "MONO"};
+            app_state_t st;
+            state_get_copy(&st);
+            const char *value = r.v == 5 ? st.settings.theme_name
+                                         : (r.v >= 0 && r.v < 5 ? palettes[r.v] : "?");
+            printf("TAP %ld,%ld page=%u -> SYS COLOR value=%s status=\"%s\"\n", x, y, page, value,
+                   text != NULL ? text : "");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SYS %s value=%d status=\"%s\"\n", x, y, page, row,
+                   (int)r.v, text != NULL ? text : "");
+        }
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;
@@ -2316,6 +2510,93 @@ static int store_song(int argc, char **argv)
     return store_song_usage();
 }
 
+/* settings 生效副本（P4-E Task 2，spec §5 D4/D5/D7、§9）。console 是诊断执行器：直调
+ * sloop_store_settings_*（与 STORE SONG SET 同模式），只是能把 RAM 副本/flash 事实变成
+ * 脚本可断言的回显。
+ *   STORE SETTINGS [INFO] -> 一行：flash 对象的 kind/len/side（与 STORE SONG INFO 同源）+
+ *                            九个生效字段 + dirty + theme 名/有效位
+ *   STORE SETTINGS SET <field> <v> -> "STORE SETTINGS SET <field>=<钳位后的写后值> dirty=1"
+ *                            （field = palette|lowcut|zoom|lights|reso|theme_on；只改内存 +
+ *                            应用，不写 flash；播放中也允许）
+ *   STORE SETTINGS SAVE   -> "STORE SETTINGS SAVED len=<n> side=<0|1>"（停止态立即写，
+ *                            与歌曲/DSU 同一次 A/B 提交 + NVS flush；播放中回 "STORE ERR playing"）
+ * 错误令牌沿用 STORE ERR <no_storage|playing|invalid|save>（字段名不认识 = invalid）。 */
+static const struct {
+    const char *name;
+    sloop_set_field_t field;
+} STORE_SET_FIELDS[SLOOP_SET_FIELD_COUNT] = {
+    {"palette", SLOOP_SET_PALETTE}, {"lowcut", SLOOP_SET_LOWCUT}, {"zoom", SLOOP_SET_ZOOM},
+    {"lights", SLOOP_SET_LIGHTS},   {"reso", SLOOP_SET_RESO},     {"theme_on", SLOOP_SET_THEME_ON},
+};
+
+static uint32_t store_set_value(const sloop_settings_t *st, sloop_set_field_t field)
+{
+    switch (field) {
+    case SLOOP_SET_PALETTE: return st->f.palette;
+    case SLOOP_SET_LOWCUT: return st->f.lowcut;
+    case SLOOP_SET_ZOOM: return st->f.zoom;
+    case SLOOP_SET_LIGHTS: return st->f.lights_lvl;
+    case SLOOP_SET_RESO: return st->f.flt_reso;
+    case SLOOP_SET_THEME_ON: return st->f.theme_on;
+    default: return 0;
+    }
+}
+
+static int store_settings_usage(void)
+{
+    printf("用法: STORE SETTINGS [INFO] | SET <palette|lowcut|zoom|lights|reso|theme_on> <v> | SAVE\n");
+    return 1;
+}
+
+static int store_settings_info(void)
+{
+    sloop_store_song_info_t info;
+    esp_err_t err = sloop_store_song_info(&info);
+    if (err != ESP_OK) return store_err_print(err);
+    const sloop_settings_t *st = sloop_store_settings();
+    printf("STORE SETTINGS INFO kind=%s len=%u side=%u palette=%u lowcut=%u zoom=%u lights=%u "
+           "theme_on=%u reso=%u rec_tempo=%u rec_count=%u rec_quant=%u dirty=%u theme=%s theme_valid=%u\n",
+           STORE_SONG_KINDS[info.kind < 5u ? info.kind : 4u], (unsigned)info.len, (unsigned)info.side,
+           (unsigned)st->f.palette, (unsigned)st->f.lowcut, (unsigned)st->f.zoom,
+           (unsigned)st->f.lights_lvl, (unsigned)st->f.theme_on, (unsigned)st->f.flt_reso,
+           (unsigned)st->f.rec_tempo, (unsigned)st->f.rec_count, (unsigned)st->f.rec_quant_off,
+           sloop_store_settings_dirty() ? 1u : 0u, st->theme_valid ? st->theme_name : "none",
+           st->theme_valid ? 1u : 0u);
+    return 0;
+}
+
+static int store_settings(int argc, char **argv)
+{
+    esp_err_t err;
+    if (argc == 2 || (argc == 3 && strcasecmp(argv[2], "info") == 0)) return store_settings_info();
+    if (argc == 3 && strcasecmp(argv[2], "save") == 0) {
+        if ((err = sloop_store_settings_save()) != ESP_OK) return store_err_print(err);
+        sloop_store_song_info_t info;
+        if ((err = sloop_store_song_info(&info)) != ESP_OK) return store_err_print(err);
+        printf("STORE SETTINGS SAVED len=%u side=%u\n", (unsigned)info.len, (unsigned)info.side);
+        return 0;
+    }
+    if (argc == 5 && strcasecmp(argv[2], "set") == 0) {
+        sloop_set_field_t field = SLOOP_SET_FIELD_COUNT;
+        const char *name = NULL; /* 表里的规范名（输入不分大小写，回显不照抄 argv） */
+        uint32_t v;
+        for (uint32_t i = 0; i < SLOOP_SET_FIELD_COUNT; i++) {
+            if (strcasecmp(argv[3], STORE_SET_FIELDS[i].name) == 0) {
+                field = STORE_SET_FIELDS[i].field;
+                name = STORE_SET_FIELDS[i].name;
+            }
+        }
+        if (field == SLOOP_SET_FIELD_COUNT || !eng_uint(argv[4], 0xFFFFu, &v))
+            return store_err_print(ESP_ERR_INVALID_ARG);
+        if ((err = sloop_store_settings_set(field, v)) != ESP_OK) return store_err_print(err);
+        printf("STORE SETTINGS SET %s=%u dirty=%u\n", name,
+               (unsigned)store_set_value(sloop_store_settings(), field),
+               sloop_store_settings_dirty() ? 1u : 0u);
+        return 0;
+    }
+    return store_settings_usage();
+}
+
 /* 设备侧 torn-write 套件（ADR-009 §3，**破坏性**：占用 OBJ_SETTINGS，前后快照/恢复
  * **两个完整 4KB 副本扇区**并逐字节校验——settings 的 side record（扇区 64..255）与
  * payload 48..83 的歌曲顺序、DSU/MIDI 尾段都不丢；P4-C Task 7 起替换 payload-only 快照）。
@@ -2340,7 +2621,12 @@ static int store_test_cmd(void)
  *   BEGIN <len>        → "STORE RAW BEGIN len=<n>"（len 1..SLOOP_STORE_RAW_MAX = 3,840 =
  *                        一个 flash 对象的 payload 上限；超限当场回 size，不等到 END 的 save）
  *   <hex>（≤240 字符） → "STORE RAW received=<n>"（累计字节数；超过 BEGIN 的 len ⇒ size）
- *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj 目前只有 project）
+ *   END <obj> <slot>   → "STORE RAW END <obj> <slot> saved len=<n>"（obj = project
+ *                        <slot=0..3>，或 settings 0：原样写 OBJ_SETTINGS、现有 side 随新
+ *                        副本保留（没有则写默认 80B），随后 settings_reload 立即生效；
+ *                        其它槽号回 invalid）
+ *   SIDE <160 hex>     → 单独提交 OBJ_SETTINGS 的 80B side record，payload 原样保留，
+ *                        回 "STORE RAW SIDE saved len=80"，随后按 R15 重载歌曲/DSU/settings
  *   ABORT              → "STORE RAW ABORTED"
  * 其它 STORE 子命令入口会先 sloop_store_raw_abort()（R27 的会话互斥；RAW 已有独立
  * 暂存（P4-D 评审 I1），这条不再为缓冲安全所必需，保留为诊断面的确定性约定）。
@@ -2350,6 +2636,7 @@ static int store_test_cmd(void)
  * = 251B < 256B，故与调度时序无关。 */
 #define STORE_RAW_HEX_MAX 240u
 #define STORE_RAW_BUF (STORE_RAW_HEX_MAX / 2u)
+#define STORE_RAW_SIDE_LEN 80u
 
 static int store_hex_nibble(char c)
 {
@@ -2362,7 +2649,8 @@ static int store_hex_nibble(char c)
 static int store_raw_usage(void)
 {
     printf("用法: STORE RAW BEGIN <len=1..%u> | STORE RAW <hex≤%u> | "
-           "STORE RAW END <project> <slot=0..%u> | STORE RAW ABORT\n",
+           "STORE RAW END <project> <slot=0..%u> | STORE RAW END settings 0 | "
+           "STORE RAW SIDE <160 hex> | STORE RAW ABORT\n",
            (unsigned)SLOOP_STORE_RAW_MAX, (unsigned)STORE_RAW_HEX_MAX,
            (unsigned)(SLOOP_STORE_PROJECTS - 1u));
     return 1;
@@ -2378,6 +2666,21 @@ static int store_raw(int argc, char **argv)
         esp_err_t err = sloop_store_raw_begin(len);
         if (err != ESP_OK) return store_err_print(err);
         printf("STORE RAW BEGIN len=%u\n", (unsigned)len);
+        return 0;
+    }
+    if (argc >= 3 && strcasecmp(argv[2], "side") == 0) {
+        if (argc != 4) return store_raw_usage();
+        const char *hex = argv[3];
+        uint8_t side[STORE_RAW_SIDE_LEN];
+        if (strlen(hex) != 2u * sizeof side) return store_err_print(ESP_ERR_INVALID_ARG);
+        for (size_t i = 0; i < sizeof side; i++) {
+            int hi = store_hex_nibble(hex[2u * i]), lo = store_hex_nibble(hex[2u * i + 1u]);
+            if (hi < 0 || lo < 0) return store_err_print(ESP_ERR_INVALID_ARG);
+            side[i] = (uint8_t)((hi << 4) | lo);
+        }
+        esp_err_t err = sloop_store_raw_side(side);
+        if (err != ESP_OK) return store_err_print(err);
+        printf("STORE RAW SIDE saved len=%u\n", (unsigned)sizeof side);
         return 0;
     }
     if (argc >= 3 && strcasecmp(argv[2], "end") == 0) {
@@ -2435,6 +2738,7 @@ static int store_command(int argc, char **argv)
     if (argc >= 2 && strcasecmp(argv[1], "preset") == 0) return store_preset(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "bank") == 0) return store_bank(argc, argv);
     if (argc >= 2 && strcasecmp(argv[1], "song") == 0) return store_song(argc, argv);
+    if (argc >= 2 && strcasecmp(argv[1], "settings") == 0) return store_settings(argc, argv);
     if (argc == 3 && strcasecmp(argv[1], "auto") == 0) {
         bool on;
         if (strcasecmp(argv[2], "on") == 0) {
@@ -2452,8 +2756,9 @@ static int store_command(int argc, char **argv)
            "STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | "
            "STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | "
            "STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | "
+           "STORE SETTINGS [INFO|SET <field> <v>|SAVE] | "
            "STORE LIVEHASH | "
-           "STORE RAW BEGIN|hex|END|ABORT（分块上传对象 payload） | "
+           "STORE RAW BEGIN|hex|END|SIDE|ABORT（分块上传对象 payload / 80B side） | "
            "STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 "
            "完整 4KB 副本扇区） | "
            "STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR\n",
@@ -2767,8 +3072,14 @@ static int seq_command(int argc, char **argv)
             uint32_t q, t, c;
             if (!eng_uint(argv[3], 1, &q) || !eng_uint(argv[4], 1, &t) || !eng_uint(argv[5], 1, &c))
                 return seq_err_print(ESP_ERR_INVALID_ARG);
-            esp_err_t ret = sloop_seq_rec_config((uint8_t)q, (uint8_t)t, (uint8_t)c);
-            if (ret != ESP_OK) return seq_err_print(ret);
+            const edit_cmd_t cmd = {.type = CMD_REC_CONFIG, .a = q, .b = t, .v = c};
+            state_apply(&cmd); /* 与 UI 同路径：成功后置 settings dirty（P4-E） */
+            app_state_t st;
+            state_get_copy(&st);
+            if (st.seq_status != SEQ_STATUS_OK) {
+                return seq_err_print(st.seq_status == SEQ_STATUS_FROZEN ? ESP_ERR_INVALID_STATE
+                                                                      : ESP_ERR_INVALID_ARG);
+            }
             seq_rec_print();
             return 0;
         }
@@ -3520,16 +3831,54 @@ esp_err_t app_console_init(void)
         return ret;
     }
 
-    /* AUD（音频自检） */
+    /* AUD（音频自检；VOL/OUT = 平台设置） */
     const esp_console_cmd_t aud_cmd = {
         .command = "AUD",
-        .help = "音频自检；AUD TONE <20..12000> [ms=1..60000] 播放正弦纯音",
-        .hint = "TONE <hz> [ms]",
+        .help = "音频自检；AUD TONE <20..12000> [ms=1..60000] 播放正弦纯音；AUD VOL [0..100] 音量、"
+                "AUD OUT [speaker|headphone] 输出路由（经 HAL，NVS 延迟提交）",
+        .hint = "TONE <hz> [ms] | VOL [0..100] | OUT [speaker|headphone]",
         .func = &aud_command,
     };
     ret = esp_console_cmd_register(&aud_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 AUD 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t disp_cmd = {
+        .command = "DISP",
+        .help = "背光亮度读写：DISP BRIGHT [0..100]（钳位 10..100，经 HAL，NVS 延迟提交）",
+        .hint = "BRIGHT [0..100]",
+        .func = &disp_command,
+    };
+    ret = esp_console_cmd_register(&disp_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 DISP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t kbd_cmd = {
+        .command = "KBD",
+        .help = "键盘 RGB 档位：KBD RGB [off|low|mid|high]（白色，经 HAL → tab5_keyboard）",
+        .hint = "RGB [off|low|mid|high]",
+        .func = &kbd_command,
+    };
+    ret = esp_console_cmd_register(&kbd_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 KBD 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t sys_cmd = {
+        .command = "SYS",
+        .help = "平台诊断：SYS NVS ERASE 删除平台设置三键（亮度/音量/路由，下一次 boot 落默认）；"
+               "SYS SELFTEST ARM 清自检 chip 的一次性标记",
+        .hint = "NVS ERASE",
+        .func = &sys_command,
+    };
+    ret = esp_console_cmd_register(&sys_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 SYS 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
@@ -3671,8 +4020,10 @@ esp_err_t app_console_init(void)
                 "STORE TEST 设备 torn-write 套件（破坏性：占用 OBJ_SETTINGS，快照/恢复两个完整 4KB "
                 "副本扇区并逐字节校验，arrangement/DSU/尾段/side 都不丢；需停走带）；"
                 "STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] PER3 歌曲顺序（SET 只改内存、按门限落盘）；"
+                "STORE SETTINGS [INFO|SET <palette|lowcut|zoom|lights|reso|theme_on> <v>|SAVE] "
+                "settings 生效副本（SET 只改内存并应用、按门限落盘；INFO 报 flash 对象与九个字段）；"
                 "STORE AUTO on|off 自动存档开关（默认 on）；STORE FAULT <nth> [half]|CLEAR 故障注入",
-        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
+        .hint = "STATS|PROJ LIST|PROJ SAVE n|PROJ LOAD n|PROJ ERASE n|PROJ HASH n|PROJ SYNTH <fmt1|foreign>|BANK LIST|BANK PUT n|BANK GET n|BANK LIVE|BANK ERASE n|SONG [SET c l s:b…|SAVE|LOAD|INFO]|SETTINGS [INFO|SET <field> <v>|SAVE]|LIVEHASH|RAWTEST|TEST|AUTO on|off|FAULT <nth> [half]|FAULT CLEAR",
         .func = &store_command,
     };
     ret = esp_console_cmd_register(&store_cmd);

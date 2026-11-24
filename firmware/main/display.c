@@ -39,6 +39,7 @@
 #include "esp_lvgl_port.h"
 #include "bsp/m5stack_tab5.h"
 #include "bsp/touch.h"
+#include "sloop_hal.h"
 
 static const char *TAG = "sloop_display";
 
@@ -310,7 +311,8 @@ esp_err_t app_display_init(void)
     int32_t log_vres = lv_display_get_vertical_resolution(disp);
     bsp_display_unlock();
 
-    bsp_display_backlight_on();
+    /* 背光 = 平台设置的亮度（NVS 存值，默认 100；app_main 已先调 sloop_hal_settings_init） */
+    bsp_display_brightness_set(sloop_hal_settings_bright());
     ESP_LOGI(TAG, "显示就绪: %dx%d 横屏, bring-up 测试图已绘制", (int)log_hres, (int)log_vres);
 
     app_display_touch_feedback_start();

@@ -213,7 +213,26 @@ static void styles_init(void)
     /* 只初始化一次（ADR-008 §3 R34）：组作用域生命周期会反复销毁/重建本页，
      * lv_style_init 是 memzero——重跑会丢掉静态样式已分配的 props 数组。 */
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_bg_color(&s_st_big_play, lv_color_hex(ui_track_color(1)));
+        lv_style_set_text_color(&s_st_big_play, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_big_stop, lv_color_hex(ui_track_color(3)));
+        lv_style_set_text_color(&s_st_big_stop, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_big_bpm, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_text_color(&s_st_big_bpm, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_text_color(&s_st_chip, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip_accent, lv_color_hex(UI_ACCENT));
+        lv_style_set_text_color(&s_st_chip_accent, lv_color_hex(UI_BG));
+        lv_style_set_bg_color(&s_st_chip_rec, lv_color_hex(UI_ERROR));
+        lv_style_set_text_color(&s_st_chip_rec, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip_count, lv_color_hex(ui_track_color(3)));
+        lv_style_set_text_color(&s_st_chip_count, lv_color_hex(UI_TEXT));
+        lv_style_set_bg_color(&s_st_chip_free, lv_color_hex(ui_track_color(1)));
+        lv_style_set_text_color(&s_st_chip_free, lv_color_hex(UI_BG));
+        lv_style_set_outline_color(&s_st_chip_focus, lv_color_hex(UI_TEXT));
+        return;
+    }
     done = true;
 
     /* 大字按钮（PLAY/STOP/BPM ±）：圆角 16、28pt 居中（内边距把单行文本压到中心）。 */

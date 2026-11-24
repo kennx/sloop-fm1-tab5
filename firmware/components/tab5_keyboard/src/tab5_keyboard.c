@@ -20,6 +20,12 @@
  *   0x20 KEY_EVENT R    每读一次弹出 1 个事件字节；FIFO 空读回 0xFF
  *   0xFE FW_VER    R    固件版本（V1.0 固件返回 0x01）
  *   （0xFD 为 IAP 升级入口——项目非目标，永不触碰）
+ *   RGB（user_i2c_callback.c 读写副作用 + user_rgb.c）：
+ *   0x03 RGB_BRIGHTNESS R/W 全局亮度 0..100（上电默认 RGB_BRIGHTNESS_DEFAULT）
+ *   0x10 KEYBOARD_MODE  R/W 键盘工作模式（本驱动只用上电默认的 KEY 模式，从不写）
+ *   0x11 RGB_MODE       R/W 0 = 绑定（指示灯）/ 1 = 自定义
+ *   0x60..0x67 RGB_VALUE R/W 颜色缓冲 rgb_buf_reg[8]：LED i 取 [i*4]=B、[i*4+1]=G、
+ *                       [i*4+2]=R，第 4 字节保留（即 RGB1 = 0x60..0x62，RGB2 = 0x64..0x66）
  *
  * 事件字节（user_scan_handle.c keyboard_enqueue）：
  *   bit7=按压(1)/释放(0)，[6:4]=行(0~4)，[3:0]=列(0~13)；
@@ -51,6 +57,10 @@ static const char *TAG = "tab5_kb";
 #define KB_REG_EVENT_NUM 0x02
 #define KB_REG_KEY_EVENT 0x20
 #define KB_REG_FW_VERSION 0xFE
+#define KB_REG_RGB_BRIGHTNESS 0x03
+#define KB_REG_RGB_MODE 0x11
+#define KB_RGB_MODE_USER 1
+#define KB_REG_RGB_VALUE 0x60
 
 #define KB_I2C_TIMEOUT_MS 20
 #define KB_FIFO_DEPTH 32 /* 键盘侧事件 FIFO 深度（user_sys.h FIFO_DEPTH），本地缓冲同深 */
@@ -70,6 +80,10 @@ static const char *const k_key_names[5][14] = {
 
 static i2c_master_bus_handle_t s_bus;
 static i2c_master_dev_handle_t s_dev;
+/* 组件内唯一的 I2C 串行锁：解码任务（kb_service）与其它任务（console 的 RGB 写入、probe）
+ * 共用同一个设备句柄，kb_read_reg/kb_write_reg 的每次传输都在锁内。锁在首次建总线/
+ * 设备时创建（kb_bus_ensure）。 */
+static SemaphoreHandle_t s_i2c_mutex;
 static TaskHandle_t s_task;
 static bool s_present;
 static uint8_t s_fw_version;
@@ -101,6 +115,13 @@ static esp_err_t kb_bus_ensure(void)
     if (s_dev != NULL) {
         return ESP_OK;
     }
+    if (s_i2c_mutex == NULL) {
+        s_i2c_mutex = xSemaphoreCreateMutex();
+        if (s_i2c_mutex == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+    xSemaphoreTake(s_i2c_mutex, portMAX_DELAY);
 
     i2c_master_bus_config_t bus_cfg = {
         .i2c_port = -1,
@@ -115,6 +136,7 @@ static esp_err_t kb_bus_ensure(void)
     esp_err_t ret = i2c_new_master_bus(&bus_cfg, &s_bus);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "创建键盘 I2C 总线失败: %s", esp_err_to_name(ret));
+        xSemaphoreGive(s_i2c_mutex);
         return ret;
     }
 
@@ -128,18 +150,25 @@ static esp_err_t kb_bus_ensure(void)
         ESP_LOGE(TAG, "挂载键盘 I2C 设备 0x%02X 失败: %s", TAB5_KB_I2C_ADDR,
                  esp_err_to_name(ret));
     }
+    xSemaphoreGive(s_i2c_mutex);
     return ret;
 }
 
 static esp_err_t kb_read_reg(uint8_t reg, uint8_t *val)
 {
-    return i2c_master_transmit_receive(s_dev, &reg, 1, val, 1, KB_I2C_TIMEOUT_MS);
+    xSemaphoreTake(s_i2c_mutex, portMAX_DELAY);
+    esp_err_t ret = i2c_master_transmit_receive(s_dev, &reg, 1, val, 1, KB_I2C_TIMEOUT_MS);
+    xSemaphoreGive(s_i2c_mutex);
+    return ret;
 }
 
 static esp_err_t kb_write_reg(uint8_t reg, uint8_t val)
 {
     uint8_t buf[2] = {reg, val};
-    return i2c_master_transmit(s_dev, buf, sizeof(buf), KB_I2C_TIMEOUT_MS);
+    xSemaphoreTake(s_i2c_mutex, portMAX_DELAY);
+    esp_err_t ret = i2c_master_transmit(s_dev, buf, sizeof(buf), KB_I2C_TIMEOUT_MS);
+    xSemaphoreGive(s_i2c_mutex);
+    return ret;
 }
 
 static void kb_ring_push(const tab5_kb_event_t *ev)
@@ -304,6 +333,31 @@ int tab5_kb_poll(tab5_kb_event_t *out, int max)
     }
     portEXIT_CRITICAL(&s_ring_mux);
     return n;
+}
+
+/* 档位 → 0x03 全局亮度 */
+static const uint8_t k_rgb_brightness[4] = {0, 20, 60, 100};
+
+esp_err_t tab5_keyboard_rgb_set(uint8_t level, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (level > 3) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t ret = kb_bus_ensure();
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    /* 顺序：颜色缓冲 → 自定义模式 → 亮度。键盘侧任一字段变化都置 update_flag 并在
+     * rgb_update 里整帧重发；亮度与当前值相同时，模式切换仍会触发一次。 */
+    static const uint8_t regs[6] = {KB_REG_RGB_VALUE,     KB_REG_RGB_VALUE + 1, KB_REG_RGB_VALUE + 2,
+                                    KB_REG_RGB_VALUE + 4, KB_REG_RGB_VALUE + 5, KB_REG_RGB_VALUE + 6};
+    const uint8_t vals[6] = {b, g, r, b, g, r};
+    for (uint32_t i = 0; i < sizeof(regs); i++) {
+        ret |= kb_write_reg(regs[i], vals[i]);
+    }
+    ret |= kb_write_reg(KB_REG_RGB_MODE, KB_RGB_MODE_USER);
+    ret |= kb_write_reg(KB_REG_RGB_BRIGHTNESS, k_rgb_brightness[level]);
+    return ret;
 }
 
 void tab5_kb_set_log(bool enable)

@@ -3,7 +3,7 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE（y∈[4,36)，无已注册页的组不显示），下行当前
+ * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示），下行当前
  * 组的子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
@@ -13,7 +13,8 @@
  * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
- * page_presets.c，P4-B Task 12）都在组表 k_groups[] 里声明；组顺序 = 子签顺序 =
+ * page_presets.c，P4-B Task 12）/ SYSTEM（page_system.c，P4-E Task 6）都在组表
+ * k_groups[] 里声明；组顺序 = 子签顺序 =
  * `TAB` 扁平轮转顺序。P4-D Task 8 起 SAMPLE 随 SYNTH 组（SAMPLE/DSYN/FM6P），
  * Task 9/10 落两页实体页面。
  *
@@ -60,11 +61,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "knob.h"
 #include "page_dsyn.h"
 #include "page_fm6p.h"
 #include "page_layout.h"
 #include "page_params.h"
+#include "page_system.h"
 #include "sloop_core.h"
+#include "sloop_hal.h"
 #include "sloop_state.h"
 #include "sloop_store.h"
 #include "theme.h"
@@ -105,13 +109,14 @@ static const ui_page_t k_builtin_pages[] = {
      * 20–25 个对象）。DSYN/FM6P 实测 delta 见 ADR-008 §3 与各任务报告（≤ est）。 */
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
+    {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
  * 组内顺序 = 下行子签顺序。没有已注册成员的组 group_size()==0：组签不显示、
  * `TAB` 也跳过（注册表是可发现性的唯一来源）。
  * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，theme.h 有断言）；
- * SYS 组待 P4-E 有设置页时再加入。 */
+ * SYS 是 P4-E Task 6 的单页设置组。 */
 typedef struct {
     const char *name;
     uint8_t count;
@@ -128,6 +133,7 @@ static const ui_group_t k_groups[] = {
     {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
     {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
     {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
+    {"SYS", 1, {APP_PAGE_SYSTEM}},
 };
 
 #define GROUP_COUNT ((uint8_t)(sizeof(k_groups) / sizeof(k_groups[0])))
@@ -138,6 +144,18 @@ static const ui_page_t *s_registry[APP_STATE_PAGES];
 static uint8_t s_reg_count;
 
 static lv_obj_t *s_root;
+static lv_obj_t *s_tab_bar;
+static lv_obj_t *s_title;
+static lv_obj_t *s_zoom;
+static const knob_t *s_zoom_knob;
+static char s_zoom_text[64];
+static bool s_zoom_visible;
+static ui_theme_t s_theme;
+static uint8_t s_applied_palette = 0xFF;
+static uint8_t s_applied_theme_on;
+static uint8_t s_applied_theme_valid;
+static uint8_t s_applied_lights = 0xFF;
+static uint32_t s_applied_accent = 0xFFFFFFFFu;
 static lv_obj_t *s_group_tabs[GROUP_COUNT];  /* 上行组签（按组下标） */
 static lv_obj_t *s_group_labels[GROUP_COUNT];
 static lv_obj_t *s_sub_tabs[UI_GROUP_MAX];   /* 下行子签：固定槽复用，按组成员下标 */
@@ -159,6 +177,11 @@ static lv_timer_t *s_timer;
 static inline uint32_t now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+const ui_theme_t *ui_theme(void)
+{
+    return &s_theme;
 }
 
 /* 音符指示邮箱：输入层只写、30ms 定时器消费（见 sloop_ui_flash_note） */
@@ -234,6 +257,16 @@ static uint8_t group_member_at(uint8_t g, uint8_t idx)
 }
 
 static uint8_t sub_tab_count(uint8_t g);
+static void update_layer_hint(uint8_t layer);
+
+static void apply_lights(const app_state_t *st)
+{
+    if (s_applied_lights == st->settings.lights && s_applied_accent == UI_ACCENT) return;
+    if (sloop_hal_keyboard_rgb(st->settings.lights, UI_ACCENT) == ESP_OK) {
+        s_applied_lights = st->settings.lights;
+        s_applied_accent = UI_ACCENT;
+    }
+}
 
 /* 上行组签 + 下行子签的选中态与可见性（组签宽度按已注册组数排布）。页签对象固定
  * 创建，切换只改位置/文本/颜色。子行只显示**多页组**的成员（单页组留空，ADR-005
@@ -331,6 +364,7 @@ static esp_err_t ensure_page_built(uint8_t page)
         if (idx >= 0) page_params_forget((uint8_t)idx); /* 半成品控件已删：本页指针置空 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
         if (page == APP_PAGE_FM6P) page_fm6p_forget();
+        if (page == APP_PAGE_SYSTEM) page_system_forget();
         ESP_LOGE(TAG, "页面构建失败 page=%s(%u) 原因=%s 池剩余=%uB 预算=%uB 耗时=%ums"
                  "（UI ERR page_build %u）",
                  def->title, (unsigned)page, reason, (unsigned)mon_before.free_size,
@@ -381,6 +415,7 @@ static void destroy_group_pages(int g, uint8_t keep)
         if (idx >= 0) page_params_forget((uint8_t)idx);
         if (pid == APP_PAGE_DSYN) page_dsyn_forget();
         if (pid == APP_PAGE_FM6P) page_fm6p_forget();
+        if (pid == APP_PAGE_SYSTEM) page_system_forget();
     }
 }
 
@@ -395,6 +430,8 @@ static void destroy_group_pages(int g, uint8_t keep)
 static esp_err_t show_page(uint8_t page)
 {
     if (page >= APP_STATE_PAGES || page_def(page) == NULL) return ESP_ERR_INVALID_ARG;
+    sloop_ui_zoom_knob(NULL);
+    s_zoom_knob = NULL;
     /* 任何切页（含组签/子签回调）都作废同一 30ms 拍内排队的异步切页请求：tab 刚记下
      * 目标页、紧接着的手指点击必须赢（R30）。定时器路径上邮箱在调用前已被取走，
      * 这里是 no-op；同步 console 切页另有入口处的同一次清空（幂等）。 */
@@ -430,6 +467,46 @@ static esp_err_t show_page(uint8_t page)
                  cross ? "跨组" : "组内首建", (unsigned)dt);
     }
     return ret;
+}
+
+void sloop_ui_rebuild_all(void)
+{
+    if (!s_started || s_root == NULL) return;
+    uint8_t current = s_page;
+    uint8_t temporary = current == APP_PAGE_PLAY ? APP_PAGE_TRACKS : APP_PAGE_PLAY;
+    /* 与跨组切换完全同序：临时目标先建成活页，再销毁原组；返回时同理。 */
+    (void)show_page(temporary);
+    (void)show_page(current);
+}
+
+void sloop_ui_theme_apply(const sloop_settings_t *s)
+{
+    if (s == NULL) {
+        ui_theme_derive_mono(&s_theme);
+        return;
+    }
+    s_applied_palette = (uint8_t)s->f.palette;
+    s_applied_theme_on = (uint8_t)s->f.theme_on;
+    s_applied_theme_valid = (uint8_t)s->theme_valid;
+    if (s->theme_valid && s->f.theme_on) {
+        ui_theme_derive_theme(&s->theme, &s_theme);
+    } else if (s->f.palette == 4u) {
+        ui_theme_derive_mono(&s_theme);
+    } else {
+        ui_theme_derive_palette(ui_palette_ramps[s->f.palette < 4u ? s->f.palette : 0u], &s_theme);
+    }
+    if (s_root == NULL) return;
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(UI_BG), 0);
+    lv_obj_set_style_bg_color(s_root, lv_color_hex(UI_BG), 0);
+    lv_obj_set_style_bg_color(s_tab_bar, lv_color_hex(UI_PANEL), 0);
+    lv_obj_set_style_text_color(s_title, lv_color_hex(UI_TEXT_DIM), 0);
+    lv_obj_set_style_text_color(s_page_error, lv_color_hex(UI_ERROR), 0);
+    refresh_tabs();
+    uint8_t layer = s_layer_shown == 0xFF ? 0 : s_layer_shown;
+    s_layer_shown = 0xFF;
+    update_layer_hint(layer);
+    lv_obj_invalidate(s_root);
+    sloop_ui_rebuild_all();
 }
 
 /* 组签动作（物理点击与 console `UI TAB <group>` 共用，R32）：进入该组上次的子页
@@ -476,7 +553,7 @@ static void sub_clicked_cb(lv_event_t *e)
 }
 
 /* 页签用**单对象可点击 label**（P4-C Task 11）：`lv_button + 子 label` 每个签两个
- * 对象（7 组签 + 5 子签 = 12 个多余对象，实测基础占用 +900B 量级）；label 自己当
+ * 对象（8 组签 + 5 子签 = 13 个多余对象，实测基础占用 +900B 量级）；label 自己当
  * 按钮省掉子 label，仍用共享样式表达选中态（与 FILE/TRANSPORT/SONG 页同一纪律）。
  * 文本 16pt 单行：pad_top 把行高 (~20px) 压到签高中心。 */
 static lv_obj_t *make_tab_button(lv_obj_t *bar, int32_t w, int32_t h,
@@ -502,12 +579,13 @@ static bool create_tab_bar(void)
 {
     lv_obj_t *bar = make_plain(s_root);
     if (bar == NULL) return false;
+    s_tab_bar = bar;
     lv_obj_set_pos(bar, 0, 0);
     lv_obj_set_size(bar, UI_W, UI_TAB_BAR_H);
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 GROUP_COUNT 槽（7 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（8 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
@@ -531,9 +609,10 @@ static bool create_tab_bar(void)
         s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（7 个组签右端 1,058；标题从 ~1,191 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（8 个组签右端 1,048；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
+    s_title = title;
     lv_label_set_text(title, "SLOOP");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(title, lv_color_hex(UI_TEXT_DIM), 0);
@@ -639,13 +718,64 @@ static void update_layer_hint(uint8_t layer)
                                 lv_color_hex(layer != 0 ? UI_ACCENT : UI_TEXT_DIM), 0);
 }
 
+void sloop_ui_zoom_knob(const knob_t *k)
+{
+    const sloop_settings_t *settings = sloop_store_settings();
+    bool knob_page = page_layout_index(s_page) >= 0 || s_page == APP_PAGE_DSYN ||
+                     s_page == APP_PAGE_FM6P;
+    /* 同组兄弟页也会在 30ms 拍更新：非当前页的 knob 不得覆盖/隐藏当前页读数。 */
+    if (k != NULL && k->obj != NULL && lv_obj_get_parent(k->obj) != s_page_obj[s_page]) return;
+    if (k == NULL || !settings->f.zoom || !knob_page || !k->active || k->obj == NULL) {
+        if (s_zoom != NULL && s_zoom_visible) {
+            lv_obj_set_hidden(s_zoom, true);
+            s_zoom_visible = false;
+        }
+        return;
+    }
+    if (s_zoom == NULL) {
+        s_zoom = lv_label_create(lv_screen_active());
+        if (s_zoom == NULL) return;
+        s_zoom_visible = false;
+        lv_obj_set_pos(s_zoom, 0, UI_TAB_BAR_H);
+        lv_obj_set_size(s_zoom, UI_W, 40);
+        lv_obj_set_style_text_font(s_zoom, &lv_font_montserrat_28, 0);
+        lv_obj_set_style_text_align(s_zoom, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_pad_top(s_zoom, 2, 0);
+        lv_obj_set_style_bg_opa(s_zoom, LV_OPA_70, 0);
+    }
+    char value[24];
+    if (k->text_cb == NULL || k->text_cb(k, k->value, value, sizeof(value)) <= 0) {
+        knob_format_value(&k->desc, k->value, value, sizeof(value));
+    }
+    char text[64];
+    snprintf(text, sizeof(text), "%s  %s", k->desc.label != NULL ? k->desc.label : "?", value);
+    if (s_zoom_knob != k || strcmp(text, s_zoom_text) != 0) {
+        lv_label_set_text(s_zoom, text);
+        snprintf(s_zoom_text, sizeof(s_zoom_text), "%s", text);
+        s_zoom_knob = k;
+        lv_obj_set_style_text_color(s_zoom, lv_color_hex(UI_TEXT), 0);
+        lv_obj_set_style_bg_color(s_zoom, lv_color_hex(UI_PANEL), 0);
+    }
+    if (!s_zoom_visible) {
+        lv_obj_set_hidden(s_zoom, false);
+        lv_obj_move_foreground(s_zoom);
+        s_zoom_visible = true;
+    }
+}
+
 /* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
     state_sync_from_engine();
+    const sloop_settings_t *settings = sloop_store_settings();
+    if (s_applied_palette != settings->f.palette || s_applied_theme_on != settings->f.theme_on ||
+        s_applied_theme_valid != settings->theme_valid) {
+        sloop_ui_theme_apply(settings);
+    }
     app_state_t st;
     state_get_copy(&st);
+    apply_lights(&st);
     update_layer_hint(st.layer_held);
 
     bool flash = false;
@@ -704,6 +834,12 @@ esp_err_t sloop_ui_start(void)
     s_page = APP_PAGE_PLAY;
     s_page_error = NULL;
     s_layer_hint = NULL;
+    s_tab_bar = NULL;
+    s_title = NULL;
+    s_zoom = NULL;
+    s_zoom_knob = NULL;
+    s_zoom_visible = false;
+    sloop_ui_theme_apply(sloop_store_settings());
 
     lv_obj_t *scr = lv_screen_active();
     lv_obj_clean(scr); /* 移除 bring-up 测试图；失败回退由调用方重画 */
@@ -806,6 +942,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_SONG: return page_song_tap(x, py, out);
     case APP_PAGE_DSYN: return page_dsyn_tap(x, py, out);
     case APP_PAGE_FM6P: return page_fm6p_tap(x, py, out);
+    case APP_PAGE_SYSTEM: return page_system_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -1027,6 +1164,27 @@ const char *sloop_ui_song_status_text(void)
     return page_song_status_text();
 }
 
+bool sloop_ui_system_page_active(void)
+{
+    return s_started && s_page == APP_PAGE_SYSTEM;
+}
+
+esp_err_t sloop_ui_system_key(uint32_t code)
+{
+    if (!sloop_ui_system_page_active()) return ESP_ERR_INVALID_STATE;
+    return page_system_key(code);
+}
+
+const char *sloop_ui_system_status_text(void)
+{
+    return page_system_status_text();
+}
+
+esp_err_t sloop_ui_system_selftest_arm(void)
+{
+    return page_system_selftest_arm();
+}
+
 uint8_t sloop_ui_group_count(void)
 {
     return GROUP_COUNT;
@@ -1153,6 +1311,7 @@ esp_err_t sloop_ui_force_page_build_failure(uint8_t page, bool on)
          * 失败态重建由下面的 show_page 负责。 */
         if (page == APP_PAGE_DSYN) page_dsyn_forget();
         if (page == APP_PAGE_FM6P) page_fm6p_forget();
+        if (page == APP_PAGE_SYSTEM) page_system_forget();
         if (s_page == page) (void)show_page(page);
     }
     bsp_display_unlock();

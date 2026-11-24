@@ -66,4 +66,36 @@ uint32_t sloop_hal_storage_fault_taken(void); /* 自 arm/clear 起命中次数 *
 bool sloop_hal_storage_fault_armed(void);     /* 是否已 arm 且尚未命中（STORE STATS 报告） */
 void sloop_hal_storage_fault_clear(void);
 
+/* ------------------------------------------------ 平台设置（P4-E Task 3，spec §8.4） ---
+ * 背光亮度 / 输出音量 / 输出路由的 RAM 状态 + NVS 命名空间 `tab5` 的三个 u8 键
+ * （bright / vol / out）。NVS 只放平台级键，不承载任何 SLOOP 状态（ADR-009 §6）。
+ *
+ * 写路径两段式：set_* = 钳位 → 平台副作用立即生效（LEDC / codec）→ 记 RAM 值并置
+ * nvs_dirty，**不写 flash**；落盘只走 sloop_hal_settings_flush()（1s 存储任务的静默
+ * 窗口）。副作用调用不取引擎锁，走带中也可改。开机未等到窗口的改动会丢。 */
+esp_err_t sloop_hal_settings_init(void); /* nvs_flash_init + 读三键（缺失 ⇒ 默认 100/70/0）；
+                                          * 不应用任何东西，须在 display/audio init 之前调用 */
+uint8_t sloop_hal_settings_bright(void); /* 10..100 */
+uint8_t sloop_hal_settings_volume(void); /* 0..100 */
+uint8_t sloop_hal_settings_output(void); /* 0 speaker / 1 headphone */
+bool sloop_hal_settings_nvs_dirty(void);
+esp_err_t sloop_hal_settings_set_bright(uint8_t v);  /* 钳位 10..100 + LEDC 立即 + nvs_dirty */
+esp_err_t sloop_hal_settings_set_volume(uint8_t v);  /* 钳位 0..100 + 活句柄立即（未开流只存）+ nvs_dirty */
+/* 仅 speaker 可用：headphone 回 ESP_ERR_NOT_SUPPORTED 且状态不变（本板扬声器与耳机共用
+ * ES8388 LOUT1，无法按寄存器路由，见 sys_settings.c 文件头）。speaker 是开机态，无寄存器写。 */
+esp_err_t sloop_hal_settings_set_output(uint8_t v);
+void sloop_hal_settings_flush(void); /* nvs_dirty ⇒ nvs_set + commit 后清位；不持任何锁，写成功
+                                      * 且期间无新修改才清（失败保留下个窗口重试） */
+void sloop_hal_settings_erase(void); /* 诊断：删三键 + commit（下一次 boot 落默认） */
+
+/* 诊断读回：ES8388 的 LOUT1/ROUT1/LOUT2/ROUT2 音量寄存器（0x2E..0x31）。esp_codec_dev_read_reg
+ * 对 es8388 不透传，故走裸 I2C。codec/I2C 未就绪或读失败回错误码（out 不写）。 */
+#define SLOOP_HAL_ES8388_OUT_ON 0x21u /* 开机固定的输出电平（+4.5dB，阶段 1 人测出声态） */
+esp_err_t sloop_hal_settings_output_regs(uint8_t out[4]);
+
+/* 键盘 RGB：level 0..3 ⇒ 亮度 0/20/60/100，颜色 0xRRGGBB（tab5_keyboard_rgb_set 的薄封装，
+ * UI 传主题 accent）。rgb_level 是最近一次成功下发的档位（开机未下发前为 0）。 */
+esp_err_t sloop_hal_keyboard_rgb(uint8_t level, uint32_t rgb888);
+uint8_t sloop_hal_keyboard_rgb_level(void);
+
 #endif

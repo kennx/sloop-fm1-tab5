@@ -23,6 +23,9 @@ void stub_engine_reset(void)
     }
     g_stub.store_ready = true;      /* 存储就绪（INVALID_STATE 的 ERROR/BLOCKED 分流依据） */
     g_stub.dsyn_factory_count = 4;  /* DS_NKITS 的替身口径 */
+    g_stub.settings.f.palette = SLOOP_SETTINGS_PALETTES - 1u; /* 默认 MONO（上游 settings_init 同法） */
+    g_stub.hal_bright = 100;        /* 平台设置开机默认：bright 100 / vol 70 / speaker */
+    g_stub.hal_vol = 70;
 }
 
 void stub_engine_set_param(uint32_t track, uint32_t id, int16_t value)
@@ -682,4 +685,97 @@ esp_err_t sloop_store_sample_erase(uint32_t slot)
     g_stub.sample_erase_calls++;
     g_stub.last_sample_slot = slot;
     return g_stub.sample_erase_ret;
+}
+
+/* ---- P4-E Task 4：settings 生效副本 / 平台设置替身 --------------------------------
+ * set 只动请求的那个字段（「不越权改别的字段」的可观察证据）并置 dirty；返回码由测试经
+ * settings_ret / hal_ret 注入。真实头 sloop_hal.h 经 test/stub/esp_codec_dev.h 在 host 上
+ * 可包含，故替身签名与真声明由编译器核对。 */
+static uint32_t *stub_settings_field(uint32_t field)
+{
+    switch (field) {
+    case SLOOP_SET_PALETTE: return &g_stub.settings.f.palette;
+    case SLOOP_SET_LOWCUT: return &g_stub.settings.f.lowcut;
+    case SLOOP_SET_ZOOM: return &g_stub.settings.f.zoom;
+    case SLOOP_SET_LIGHTS: return &g_stub.settings.f.lights_lvl;
+    case SLOOP_SET_RESO: return &g_stub.settings.f.flt_reso;
+    default: return &g_stub.settings.f.theme_on;
+    }
+}
+
+const sloop_settings_t *sloop_store_settings(void)
+{
+    g_stub.settings_read_calls++;
+    return &g_stub.settings;
+}
+
+esp_err_t sloop_store_settings_set(sloop_set_field_t field, uint32_t v)
+{
+    g_stub.settings_set_calls++;
+    g_stub.settings_last_field = field;
+    g_stub.settings_last_value = v;
+    if (g_stub.settings_ret != ESP_OK) return g_stub.settings_ret;
+    *stub_settings_field(field) = v;
+    g_stub.settings.dirty = true;
+    return ESP_OK;
+}
+
+void sloop_store_settings_dirty_mark(void)
+{
+    g_stub.settings_dirty_mark_calls++;
+    g_stub.settings.dirty = true;
+}
+
+uint8_t sloop_hal_settings_bright(void)
+{
+    g_stub.hal_get_calls++;
+    return g_stub.hal_bright;
+}
+
+uint8_t sloop_hal_settings_volume(void)
+{
+    g_stub.hal_get_calls++;
+    return g_stub.hal_vol;
+}
+
+uint8_t sloop_hal_settings_output(void)
+{
+    g_stub.hal_get_calls++;
+    return g_stub.hal_out;
+}
+
+bool sloop_hal_settings_nvs_dirty(void)
+{
+    g_stub.hal_get_calls++;
+    return g_stub.hal_dirty;
+}
+
+esp_err_t sloop_hal_settings_set_bright(uint8_t v)
+{
+    g_stub.hal_bright_calls++;
+    g_stub.hal_last_value = v;
+    if (g_stub.hal_ret != ESP_OK) return g_stub.hal_ret;
+    g_stub.hal_bright = v;
+    g_stub.hal_dirty = true;
+    return ESP_OK;
+}
+
+esp_err_t sloop_hal_settings_set_volume(uint8_t v)
+{
+    g_stub.hal_vol_calls++;
+    g_stub.hal_last_value = v;
+    if (g_stub.hal_ret != ESP_OK) return g_stub.hal_ret;
+    g_stub.hal_vol = v;
+    g_stub.hal_dirty = true;
+    return ESP_OK;
+}
+
+/* speaker-only（R16）：非 speaker 回 NOT_SUPPORTED 且状态不变；speaker 是开机态，
+ * 成功也不置 nvs_dirty（与 HAL 同）。 */
+esp_err_t sloop_hal_settings_set_output(uint8_t v)
+{
+    g_stub.hal_out_calls++;
+    g_stub.hal_last_value = v;
+    if (v != 0u) return ESP_ERR_NOT_SUPPORTED;
+    return g_stub.hal_ret;
 }

@@ -792,4 +792,4 @@ git push origin dev
 - settings 对象 / sections / arranger（P4-C、P4-E；设置走 `OBJ_SETTINGS` 上游格式）；
 - FM6 patch 编辑面、DSYN、采样槽上传（P4-D；采样走上游 USR1–4 原始槽：USR1–3 `0xA0000..0xDC000`、USR4 `0xE7000..0xFB000`）；
 - 物理触摸按钮、听感（保存/加载后音色变化、换预置换声音）、视觉复检的人测项（AGENTS §5.4 外部门禁）；
-- 历史 DI：DI-2/4/6/7/10/12/13/15/16（见 `docs/deferred-issues.md`）。
+- 历史 DI：DI-2/4/7/10/12/13/15/16/39（DI-6 已于 2026-11-23 关闭并入 DI-39；见 `docs/deferred-issues.md`）。

@@ -63,6 +63,14 @@ Tab5 是一款双芯片架构的便携式智能物联网终端开发设备：
 |---|---|---|---|---|---|---|
 | ES8388 (0x10) | MCLK | SCLK | DSDIN | LRCK | SCL | SDA |
 
+输出通路（2026-11-23 按官方原理图 [Tab5_Schematics_PDF.pdf](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/Tab5_Schematics_PDF.pdf) 第 3 页核对，U14 / C67 / C68 / U15）：
+
+- **LOUT1（pin 12）** 经 C68 22µF → 网络 `HPOUT_L`，**同时**接耳机左声道与 NS4150B 功放输入（100nF → R43 68K → INP；INN 经 R44 68K 接 AGND，单端驱动）；
+- **ROUT1（pin 11）** 经 C67 22µF → 网络 `HPOUT_R`，只到耳机右声道；
+- **LOUT2 / ROUT2（pin 15 / 14）未连接**。
+
+推论：扬声器只重放左声道，且与耳机共用 LOUT1——不存在只靠 ES8388 音量寄存器（0x2E..0x31）就能把扬声器与耳机分开的组合（把 LOUT1/ROUT1 写 0 = 两者一起近静音，即阶段 1 默认态人测无声的原因，见 `docs/dev/device-notes.md` §5）。P4-E 的输出路由设置据此降级为 speaker-only（ADR 见 AGENTS.md §5.4.1 的 `AUD OUT`）。
+
 ### 3.3 音频：ES7210（AEC 前端，I2C 地址 0x40）
 
 | ESP32-P4 | G30 | G27 | G28 | G29 | G32 | G31 |
@@ -279,6 +287,7 @@ lib_deps =
 | ESP32-P4 数据手册 | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/esp32-p4_datasheet_cn.pdf |
 | ESP32-C6 数据手册 | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/505/esp32-c6_datasheet_cn.pdf |
 | ES8388 | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1141/ES8388.pdf |
+| Tab5 原理图（Altium 导出，5 页；音频通路在第 3 页） | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/Tab5_Schematics_PDF.pdf |
 | ES7210 | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/resource/docs/datasheet/core/K128%20CoreS3/ES7210.PDF |
 | NS4150B | https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/resource/docs/products/atom/Atomic%20Echo%20Base/NS4150B.pdf |
 | BMI270 | https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/products/app/Stamp%20Fly/BMI270.PDF |

@@ -117,6 +117,7 @@ void knob_set_active(knob_t *k, bool active)
     if (k == NULL || k->obj == NULL || k->active == active) return;
     k->active = active;
     lv_obj_invalidate(k->obj);
+    sloop_ui_zoom_knob(k);
 }
 
 /* 触点 → 相对旋钮中心的 (dx,dy)。 */

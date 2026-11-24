@@ -192,7 +192,21 @@ static void styles_init(void)
      * `lv_style_init` 是 memzero——重跑会丢掉静态样式已分配的 props 数组，每次跨组
      * 往返都漏进 LVGL 池（与 page_tracks.c 同一纪律）。 */
     static bool done;
-    if (done) return;
+    if (done) {
+        lv_style_set_bg_color(&s_st_cell_off, lv_color_hex(UI_PANEL_HI));
+        lv_style_set_bg_color(&s_st_cell_off_dim, lv_color_hex(dim_color(UI_PANEL_HI)));
+        for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
+            lv_style_set_bg_color(&s_st_cell_on[k], lv_color_hex(ui_track_color(k)));
+            lv_style_set_bg_color(&s_st_cell_on_dim[k], lv_color_hex(dim_color(ui_track_color(k))));
+            lv_style_set_text_color(&s_st_row[k], lv_color_hex(ui_track_color(k)));
+        }
+        lv_style_set_border_color(&s_st_hl_none, lv_color_hex(UI_BG));
+        lv_style_set_border_color(&s_st_hl_playhead, lv_color_hex(UI_ACCENT));
+        lv_style_set_border_color(&s_st_hl_focus, lv_color_hex(UI_TEXT));
+        lv_style_set_text_color(&s_st_num, lv_color_hex(UI_TEXT_DIM));
+        lv_style_set_text_color(&s_st_hint, lv_color_hex(UI_TEXT_DIM));
+        return;
+    }
     done = true;
 
     cell_shape_style(&s_st_cell_off, UI_PANEL_HI);

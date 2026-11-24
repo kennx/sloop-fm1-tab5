@@ -61,7 +61,16 @@ static void styles_init(void)
      * `lv_style_init` 是 memzero——重跑会丢掉静态样式已分配的 props 数组
      * （`lv_style_set_prop` 走 lv_realloc），每次跨组往返漏约 300B LVGL 池。 */
     static bool done;
-    if (done) return;
+    if (done) {
+        for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
+            lv_style_set_bg_color(&s_st_card[k], lv_color_hex(UI_PANEL));
+            lv_style_set_outline_color(&s_st_card[k], lv_color_hex(ui_track_color(k)));
+            lv_style_set_text_color(&s_st_title[k], lv_color_hex(ui_track_color(k)));
+        }
+        lv_style_set_bg_color(&s_st_card_sel, lv_color_hex(UI_PANEL_SEL));
+        lv_style_set_text_color(&s_st_value, lv_color_hex(UI_TEXT));
+        return;
+    }
     done = true;
 
     for (uint8_t k = 0; k < APP_STATE_TRACKS; k++) {
