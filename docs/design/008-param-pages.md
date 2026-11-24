@@ -789,18 +789,25 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   EDIT→STEP 账面 55,656、MIX→STEP 53,096、SEQ→MIX 55,184（目标页 3,584）；实测峰值
   `池剩余` EDIT→STEP **13,260B**、MIX→STEP **21,692B**、SEQ→MIX **17,140B**（均 ≥4,096）。
   GLOBAL/FX 20 次切 chip `pool_free` Δ **+0B**。
-- **LVGL 任务栈纪律（Task 5 实测出的约束）**：LVGL 任务栈只有 **7,168B**（esp_lvgl_port
-  默认），而 `app_state_t` ≈ 1.7KB。`ui_timer_cb` → `show_page()` → 页面构建这条路径上，
-  tick 的状态副本、`show_page` 的副本与构建函数里的副本会**叠帧**：Task 5 首版把
-  `app_state_t` 放进 `page_params_build`（SOUND 页眉定位）后，nav ⑦ 的 TAB FX→SAMPLE
-  （MIX→SYNTH）在 `build_sample_row` 的 `state_get_copy` 里压穿（Stack protection fault，
-  SP 低于栈底 12B）。修法两条：(1) 页面**构建**函数不在栈上放 `app_state_t`
-  （SOUND 页眉位置由 update 首拍落地；SAMPLE 槽信息由建页后的首个 update 读）；
-  (2) `ui_timer_cb` 的状态副本挪进独立的 `ui_refresh_built()`，不与
-  `state_sync_from_engine()`/`show_page()` 的帧重叠。高水位实测见 Task 5 报告
-  （`firmware/build/verify/p4f-task5-stack-hwm.txt`）；仍带副本的构建函数
-  （PROJECTS/PRESETS/SYSTEM/DSYN/FM6P/SONG…）是既有代码，余量见同一份证据——加页或加
-  副本前先量，不够时抬 `lvgl_cfg.task_stack`（内部 RAM）或继续拆帧。
+- **LVGL 任务栈纪律（Task 5 实测出的约束；评审 R10 收口）**：LVGL 任务栈原为 **7,168B**
+  （esp_lvgl_port 默认），而 `app_state_t` ≈ 1.7KB，且**定时器拍、切页构建与全部控件回调都跑在
+  这个任务里**。Task 5 首版把 `app_state_t` 放进 `page_params_build`（SOUND 页眉定位）后，
+  nav ⑦ 的 TAB FX→SAMPLE 在 `build_sample_row` 的 `state_get_copy` 里压穿（Stack protection
+  fault，SP 低于栈底 12B）。三步收口：
+  1. 页面**构建**函数不在栈上放 `app_state_t`（SOUND 页眉位置由 update 首拍落地；SAMPLE 槽
+     信息由建页后的首个 update 读）；`ui_timer_cb` 的状态副本挪进独立的 `ui_refresh_built()`，
+     不与 `state_sync_from_engine()`/`show_page()` 的帧重叠（定时器路径从 372B 余量回到 2,036B）。
+  2. **点击路径不持整份副本**：控件回调 → `sound_step`/`param_step` → `refresh` → `slot_desc`
+     原先是三份副本叠加，而注入的 TAP 在 console 任务执行、量不到。现在 `slot_desc` 经
+     `state_selected_track()` 窄读，`slot_write`/`param_step`/`sound_step` 用 `slot_locked_now`/
+     `slot_value_now`/`state_read_sound` 逐字段取（状态层的 6 个窄读访问器），点击路径与定时器
+     路径一样最多两份副本。
+  3. LVGL 任务栈抬到 **10,240B**（`display.c`，约 3KB 内部 RAM），余量经 `UI MEM` 的
+     `lvgl_stack_free=<字节>` 暴露（每拍在任务内取 `uxTaskGetStackHighWaterMark`；RISC-V 端口
+     的 `StackType_t` 是 uint8_t，乘 `sizeof` 即字节），`params.sh` 断言 ≥2,048。实测：在 LVGL
+     任务内每 37 拍走一遍 chip 点击路径的诊断固件上 params 全程 **5,900B**。
+  仍带副本的调用（`param_chip_select`/`sample_select`/`bank_action` 各一份、PROJECTS/PRESETS/
+  SYSTEM 等页的构建函数）是既有代码；加页或加副本前先看 `lvgl_stack_free`。
 - **验证入口**：`scripts/knob-test.sh`（SOUND 8 槽/页眉行几何/bank 行谓词、GLOBAL/FX 逐
   chip 槽位 = 012 §3、17 页扁平轮转与空位 id）；`scripts/state-test.sh`（两条命令的边界与
   同拍投影，40 例）；`scripts/synth-test.sh`（`sloop_core_sound_read` 对照上游表）；
