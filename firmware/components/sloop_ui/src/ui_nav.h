@@ -16,12 +16,13 @@
 /* 组表：X(名, 成员页 id…)，成员 ≤ UI_GROUP_MAX（宏体内不放注释：每行都要续行）。
  * EDIT（P4-F Task 4，R1）：每轨族页；GLOBAL/FX 在 MIX。P4-F Task 5：SOUND（页 id 沿用
  * APP_PAGE_ANALOG）取代 ANALOG + FM6 两页 ⇒ EDIT = SOUND / MOD / SCALE / VOICE（4 页；
- * 独立 FM6 页删除，APP_PAGE_FM6 是空位 id、不进组表）。Task 6 的 TOOLS 进 MIX。 */
+ * 独立 FM6 页删除，APP_PAGE_FM6 是空位 id、不进组表）。P4-F Task 6：TOOLS 进 MIX，成为
+ * 第 3 张子签（排在 GLOBAL/FX 之后，既有子签下标不变）。 */
 #define UI_GROUP_LIST(X)                                                                         \
     X(PLAY, APP_PAGE_PLAY)                                                                       \
     X(TRACKS, APP_PAGE_TRACKS)                                                                   \
     X(EDIT, APP_PAGE_ANALOG, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE)                       \
-    X(MIX, APP_PAGE_GLOBAL, APP_PAGE_FX)                                                         \
+    X(MIX, APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_TOOLS)                                         \
     X(SYNTH, APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P)                                     \
     X(SEQ, APP_PAGE_STEP, APP_PAGE_TRANSPORT)                                                   \
     X(SONG, APP_PAGE_SONG)                                                                       \

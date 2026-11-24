@@ -204,6 +204,52 @@ static inline uint32_t ui_file_status_color(uint8_t act, uint8_t status, bool re
     }
 }
 
+/* TOOLS 页状态行的单一映射（P4-F Task 6；屏幕文本与 console `TAP … status="…"` 回显都从
+ * 这里出）。act = 最近一次**执行**的动作（sloop_tool_t；其它 = 尚未执行）；armed = 该动作
+ * 正在预备（第一次点按，1.5s 内再点才执行）；status = app_state_t.tools_status；
+ * drum = 选中轨是鼓轨（BLOCKED 的两种原因按「动作 × 鼓轨」分开）。文案沿用上游
+ * （ui_input.c）：`PATTERN CLEARED` / `SOUND INIT` / `NEW LOOP, A-D KEPT` /
+ * `STOP THE SONG FIRST`；鼓轨的 INIT SOUND 与 FILE 页同一句 `DRUM TRACK: NO SOUND`。 */
+static inline const char *ui_tools_status_text(char *buf, size_t n, uint8_t act, bool armed,
+                                               uint8_t status, bool drum)
+{
+    static const char *const k_done[] = {"PATTERN CLEARED", "SOUND INIT", "NEW LOOP, A-D KEPT"};
+    static const char *const k_name[] = {"CLEAR SEQ", "INIT SOUND", "NEW"};
+    if (armed && act < 3u) {
+        snprintf(buf, n, "AGAIN TO CONFIRM");
+        return buf;
+    }
+    if (act > 2u) {
+        snprintf(buf, n, "READY");
+        return buf;
+    }
+    switch (status) {
+    case APP_TOOLS_STATUS_OK: snprintf(buf, n, "%s", k_done[act]); break;
+    case APP_TOOLS_STATUS_BLOCKED:
+        snprintf(buf, n, "%s", act == SLOOP_TOOL_NEWPRJ ? "STOP THE SONG FIRST"
+                          : drum                        ? "DRUM TRACK: NO SOUND"
+                                                        : "BLOCKED");
+        break;
+    case APP_TOOLS_STATUS_FROZEN: snprintf(buf, n, "FROZEN"); break;
+    case APP_TOOLS_STATUS_INVALID: snprintf(buf, n, "INVALID"); break;
+    case APP_TOOLS_STATUS_ERROR: snprintf(buf, n, "%s ERROR", k_name[act]); break;
+    default: snprintf(buf, n, "READY"); break;
+    }
+    return buf;
+}
+
+/* 状态行颜色（同一映射的视觉侧）：预备 = 强调黄 / 成功绿 / 拒绝与失败红 / 其余灰。 */
+static inline uint32_t ui_tools_status_color(uint8_t act, bool armed, uint8_t status)
+{
+    if (act > 2u) return UI_TEXT_DIM;
+    if (armed) return UI_ACCENT;
+    if (status == APP_TOOLS_STATUS_OK) return ui_track_color(1);
+    if (status == APP_TOOLS_STATUS_BLOCKED || status == APP_TOOLS_STATUS_FROZEN ||
+        status == APP_TOOLS_STATUS_ERROR || status == APP_TOOLS_STATUS_INVALID)
+        return UI_ERROR;
+    return UI_TEXT_DIM;
+}
+
 /* SAMPLE 页槽管理行的状态行（P4-D Task 8；单一口径——屏幕文本与 console `TAP`
  * 回显都从这里出）。状态是**页面本地**结果，不写 app_state_t（页面本地结果的同一
  * 口径；bank 行原来的 NOT FM6 拒绝态已随独立 FM6 页删除，行不出现即 TAP miss）：

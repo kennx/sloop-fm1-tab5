@@ -69,6 +69,7 @@
 #include "page_layout.h"
 #include "page_params.h"
 #include "page_system.h"
+#include "page_tools.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
@@ -112,6 +113,9 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
     {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
+    /* TOOLS（P4-F Task 6，MIX 组第 3 张子签）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
+     * label。est = 实测首次构建 delta 上取整到 512（ADR-008 预算表；控制器的 7,168 是上限）。 */
+    {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 2560},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
@@ -961,6 +965,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_DSYN: return page_dsyn_tap(x, py, out);
     case APP_PAGE_FM6P: return page_fm6p_tap(x, py, out);
     case APP_PAGE_SYSTEM: return page_system_tap(x, py, out);
+    case APP_PAGE_TOOLS: return page_tools_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -1205,6 +1210,12 @@ const char *sloop_ui_sample_status_text(void)
     if (!s_started || s_page != APP_PAGE_SAMPLE) return NULL;
     int idx = page_layout_index(s_page);
     return idx >= 0 ? page_params_sample_status_text((uint8_t)idx) : NULL;
+}
+
+const char *sloop_ui_tools_status_text(void)
+{
+    if (!s_started || s_page != APP_PAGE_TOOLS) return NULL;
+    return page_tools_status_text();
 }
 
 const char *sloop_ui_dsyn_status_text(void)

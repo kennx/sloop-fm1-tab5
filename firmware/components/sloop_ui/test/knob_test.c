@@ -523,7 +523,7 @@ static void case_layout_pages(void)
     check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
     check_ll("FM6 页 id 保留为空位", APP_PAGE_FM6, 7);
     check_ll("SAMPLE id 不移位", APP_PAGE_SAMPLE, 8);
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 18);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 19);
     uint32_t edit_est = 0, mix_est = 0, mix_max = 0;
     const param_page_t *mod = page_layout_get(page_layout_index(APP_PAGE_MOD));
     CHECK(mod != NULL);
@@ -813,8 +813,8 @@ static void case_layout_rules(void)
     check_ll("全局不锁（即使 drum_ok=0）", page_layout_slot_locked(&sl, true), 0);
 }
 
-/* 九组导航：组表顺序/成员/上限、TAB 扁平轮转 17 页（P4-F Task 5：SOUND 取代 ANALOG+FM6）、
- * 组签 104px 几何。 */
+/* 九组导航：组表顺序/成员/上限、TAB 扁平轮转 18 页（P4-F Task 5：SOUND 取代 ANALOG+FM6；
+ * Task 6：TOOLS 进 MIX 成为第 3 张子签）、组签 104px 几何。 */
 #define X_TEST_GROUP(NAME, ...) \
     {.n = (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)), \
      .pages = {__VA_ARGS__}, .name = #NAME},
@@ -830,11 +830,11 @@ static void case_nav_groups(void)
     check_ll("UI_GROUP_COUNT（由组表数出）", UI_GROUP_COUNT, 9);
     static const char *const names[9] = {"PLAY", "TRACKS", "EDIT", "MIX",
                                          "SYNTH", "SEQ",   "SONG", "FILE", "SYS"};
-    static const uint8_t counts[9] = {1, 1, 4, 2, 3, 2, 1, 2, 1};
+    static const uint8_t counts[9] = {1, 1, 4, 3, 3, 2, 1, 2, 1};
     static const uint8_t flat[] = {
         APP_PAGE_PLAY, APP_PAGE_TRACKS,
         APP_PAGE_ANALOG, APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
-        APP_PAGE_GLOBAL, APP_PAGE_FX,
+        APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_TOOLS,
         APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P,
         APP_PAGE_STEP, APP_PAGE_TRANSPORT,
         APP_PAGE_SONG, APP_PAGE_PROJECTS, APP_PAGE_PRESETS, APP_PAGE_SYSTEM,
@@ -853,13 +853,16 @@ static void case_nav_groups(void)
             if (pid < APP_STATE_PAGES) seen[pid]++;
         }
     }
-    check_ll("扁平页数 = 17", fi, 17);
+    check_ll("扁平页数 = 18", fi, 18);
     for (uint8_t p = 0; p < APP_STATE_PAGES; p++) {
-        /* APP_STATE_PAGES 仍是 18：APP_PAGE_FM6（7）是空位 id，不在任何组里 */
+        /* APP_STATE_PAGES 是 19：APP_PAGE_FM6（7）是空位 id，不在任何组里 */
         check_ll("每页恰在一个组里（页签/TAB 可达），FM6 空位除外", seen[p],
                  p == APP_PAGE_FM6 ? 0 : 1);
     }
     check_ll("EDIT 首子页 = SOUND", k_exp_groups[2].pages[0], APP_PAGE_ANALOG);
+    check_ll("MIX 末子页 = TOOLS（排在 GLOBAL/FX 之后，既有子签下标不变）",
+             k_exp_groups[3].pages[2], APP_PAGE_TOOLS);
+    check_ll("TOOLS 页 id", APP_PAGE_TOOLS, 18);
     check_ll("组表里没有 FM6 页 id", seen[APP_PAGE_FM6], 0);
     check_ll("UI_GROUP_W", UI_GROUP_W, 104);
     check_ll("UI_SUB_W", UI_SUB_W, 176);
@@ -891,7 +894,7 @@ int main(void)
     run("参数页布局表：MOD/SCALE/VOICE/FX/GLOBAL 槽位 = 012 §3", case_layout_content);
     run("SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）", case_layout_sound);
     run("条件 chip 可见性与鼓轨逐槽锁定规则", case_layout_rules);
-    run("九组导航：组表顺序/成员/17 页扁平轮转/104px 组签", case_nav_groups);
+    run("九组导航：组表顺序/成员/18 页扁平轮转/104px 组签", case_nav_groups);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

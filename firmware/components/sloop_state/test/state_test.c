@@ -1096,7 +1096,7 @@ static void case_page_ids(void)
     state_init();
     app_state_t s;
 
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 18);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 19);
     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
     check_ll("SONG id", APP_PAGE_SONG, 11);
@@ -1106,6 +1106,8 @@ static void case_page_ids(void)
     check_ll("MOD id", APP_PAGE_MOD, 15);
     check_ll("SCALE id", APP_PAGE_SCALE, 16);
     check_ll("VOICE id", APP_PAGE_VOICE, 17);
+    check_ll("TOOLS id", APP_PAGE_TOOLS, 18);
+    check_ll("末页 id + 1 = 页数", APP_PAGE_TOOLS + 1, APP_STATE_PAGES);
     check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
     check_ll("FM6 页 id 保留为空位（不注册；既有 id 不移位）", APP_PAGE_FM6, 7);
     check_ll("APP_PAGE_FM6 不是任何已注册页（≠ SOUND）", APP_PAGE_FM6 != APP_PAGE_ANALOG, 1);

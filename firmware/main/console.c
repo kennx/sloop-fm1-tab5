@@ -1097,6 +1097,8 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
     "dsyn", "fm6p", "system",
     /* EDIT 组的 chip 页（P4-F Task 4）：MOD / SCALE / VOICE，id 追加在最后 */
     "mod", "scale", "voice",
+    /* TOOLS（P4-F Task 6）：MIX 组第 3 张子签 */
+    "tools",
 };
 _Static_assert(sizeof(k_page_names) / sizeof(k_page_names[0]) == APP_STATE_PAGES,
                "console 页名表与 app_page_t/APP_STATE_PAGES 不同步");

@@ -5,7 +5,8 @@
  * PLAY|TRACKS|EDIT|MIX|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
  * 已注册子页；组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
  * （PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
- * SONG→PROJECTS→PRESETS→SYSTEM→PLAY；P4-F Task 5 起 17 页）。
+ * SONG→PROJECTS→PRESETS→SYSTEM→PLAY；P4-F Task 5 起 17 页，Task 6 加 TOOLS 后 GLOBAL→FX→
+ * TOOLS→SAMPLE…共 18 页）。
  * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
  * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
  * sloop_ui_start() 内立即构建，保证开机首帧非空白。SYSTEM 为最后的 SYS 单页组。
@@ -46,7 +47,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 17 页 / 9 组）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 18 页 / 9 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -58,7 +59,7 @@ esp_err_t ui_page_register(const ui_page_t *page);
 uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
- * PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→
+ * PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→TOOLS→SAMPLE→DSYN→FM6P→STEP→
  * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**（APP_PAGE_FM6 是空位）。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
@@ -149,7 +150,8 @@ void sloop_ui_rebuild_all(void);
 void sloop_ui_zoom_knob(const struct knob *k);
 
 /* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=SOUND 7=(空位，未注册) 8=SAMPLE
- * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM（同 app_page_t）；首次进入时构建该页。
+ * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM 15=MOD 16=SCALE 17=VOICE
+ * 18=TOOLS（同 app_page_t）；首次进入时构建该页。
  * 组作用域（ADR-005 §3）：目标页与当前页不同组时，顺序固定为「建目标页 →
  * 切到目标页 → 销毁源组全部已建页（含原当前页）」——因此离开组后源组 built=0；
  * 同组内切页只改显隐（已建页不重建）。快照里的组/子签选中态随页更新。
@@ -276,7 +278,11 @@ typedef enum {
                               * err=0 成功 / 1..7 = app_seq_status_t（映射见 console）；
                               * 页面守卫（未就绪/走带中 MODE 或配置）回 7/5 且不发命令。
                               * 动作结果文本由 `sloop_ui_song_status_text()` 与屏幕同源给出。 */
-    SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */
+    SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */    SLOOP_TAP_TOOLS,       /* TOOLS 页三张 chip（P4-F Task 6）：a=动作（0 CLRSEQ / 1 INITSOUND /
+                             * 2 NEWPRJ = sloop_tool_t）v=1 本次点按**只进入/保持预备态**
+                             * （未执行，1.5s 内再点同一 chip 才执行）/ 0 已执行（一条
+                             * CMD_TOOLS）。结果文本由 `ui_tools_status_text` 与屏幕同源给出
+                             * （`AGAIN TO CONFIRM` / `PATTERN CLEARED` / `STOP THE SONG FIRST`…）。 */
 } sloop_tap_kind_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作
@@ -417,6 +423,11 @@ void sloop_ui_transport_adjust(int8_t delta);     /* ↑/↓：+1 / -1 步进焦
  * 两处都读 page_transport.c 的同一缓冲，不各写一份词表）。非 TRANSPORT 页/UI 未启动
  * 返回 NULL；返回指针指向组件内静态缓冲（下一次调用覆盖），调用方负责当次使用。 */
 const char *sloop_ui_transport_status_text(void);
+
+/* TOOLS 页状态行文本（console `TAP` 回显与屏幕同源；P4-F Task 6）：预备态给出
+ * `AGAIN TO CONFIRM`，否则是最近一次执行动作的结果（theme.h 的 ui_tools_status_text
+ * 单一映射）。当前页不是 TOOLS、或页未建（已随 MIX 组销毁）时返回 NULL。不取 LVGL 锁。 */
+const char *sloop_ui_tools_status_text(void);
 
 /* SOUND 页 bank 存取行（P4-F Task 5 起随 FM6 引擎出现在 SOUND 页底部；原属 FM6 页）的
  * 状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：当前页不是 SOUND、
