@@ -126,8 +126,10 @@ bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
         out->drum = 1u;
         return true;
     }
-    e = ENGINES[t->eng_req % NENGINES];
+    /* eng_req 只读一次：本函数不取引擎锁，读两次可能在换引擎的中间读到两个不同的引擎
+     * （名字取自一个、下标取自另一个）。 */
     out->engine = t->eng_req % NENGINES;
+    e = ENGINES[out->engine];
     out->npresets = e->npresets;
     sound_copy_name(out->engine_name, sizeof(out->engine_name), e->name);
     if (e->npresets != 0u) {
