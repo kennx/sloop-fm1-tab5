@@ -8,7 +8,7 @@
 #include "sloop_state.h"
 #include "sloop_store.h"
 
-#define SYS_SELFTEST_STACK 16384u
+#define SYS_SELFTEST_STACK 5632u
 #define SYS_SELFTEST_PRIO 2u
 
 static const char *TAG = "sys_selftest";
@@ -59,13 +59,19 @@ static void sys_selftest_task(void *arg)
     if (!ok && failed == 0) failed = 1;
     state_set_selftest_result(ran, failed);
     ESP_LOGI(TAG, "结果 ran=%u failed=%u", (unsigned)ran, (unsigned)failed);
+    /* 栈高水位（DI-43(1)）：SYS_SELFTEST_STACK 按这里的实测收缩，留 1KB 余量。
+     * 内核 10.5.1 的 uxTaskGetStackHighWaterMark 实际返回**字**（头文件注释写的是字节，与实现
+     * 相反；16KB 栈实测返回 3,059），故乘 sizeof(StackType_t) 换成字节。 */
+    ESP_LOGI(TAG, "stack hwm=%u", (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
     vTaskDelete(NULL);
 }
 
 esp_err_t sys_selftest_start(void)
 {
+    TaskHandle_t task = NULL;
     if (xTaskCreate(sys_selftest_task, "sys_selftest", SYS_SELFTEST_STACK, NULL,
-                    SYS_SELFTEST_PRIO, NULL) != pdPASS)
+                    SYS_SELFTEST_PRIO, &task) != pdPASS)
         return ESP_ERR_NO_MEM;
+    ESP_LOGI(TAG, "stack=%p size=%u", pxTaskGetStackStart(task), (unsigned)SYS_SELFTEST_STACK);
     return ESP_OK;
 }
