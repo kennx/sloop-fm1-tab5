@@ -1087,21 +1087,25 @@ static void case_store_bank(void)
     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
 }
 
-/* ⑮ 页 id 扩容：FILE/SONG/SYNTH 之后，P4-E Task 6 再追加 SYSTEM，容量 15；
- * 新 id 都排在最后，既有页 id 不变。 */
+/* ⑮ 页 id 扩容：FILE/SONG/SYNTH 之后，P4-E Task 6 再追加 SYSTEM（14）；P4-F Task 4
+ * 把 EDIT 组的 chip 页 MOD/SCALE/VOICE 追加在末尾（15..17），容量 18——新 id 都排在
+ * 最后，既有页 id 不变；参数页 id 段（GLOBAL..SAMPLE）仍连续（越界写被拒的口径不变）。 */
 static void case_page_ids(void)
 {
     stub_engine_reset();
     state_init();
     app_state_t s;
 
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 15);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 18);
     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
     check_ll("SONG id", APP_PAGE_SONG, 11);
     check_ll("DSYN id", APP_PAGE_DSYN, 12);
     check_ll("FM6P id", APP_PAGE_FM6P, 13);
     check_ll("SYSTEM id", APP_PAGE_SYSTEM, 14);
+    check_ll("MOD id", APP_PAGE_MOD, 15);
+    check_ll("SCALE id", APP_PAGE_SCALE, 16);
+    check_ll("VOICE id", APP_PAGE_VOICE, 17);
     state_set_page(APP_PAGE_SONG);
     state_get_copy(&s);
     check_ll("新页可设", s.page, APP_PAGE_SONG);
@@ -1111,9 +1115,15 @@ static void case_page_ids(void)
     state_set_page(APP_PAGE_SYSTEM);
     state_get_copy(&s);
     check_ll("SYSTEM 页可设", s.page, APP_PAGE_SYSTEM);
+    state_set_page(APP_PAGE_MOD);
+    state_get_copy(&s);
+    check_ll("MOD 页可设", s.page, APP_PAGE_MOD);
+    state_set_page(APP_PAGE_VOICE);
+    state_get_copy(&s);
+    check_ll("VOICE 页可设（最后一个合法 id）", s.page, APP_PAGE_VOICE);
     state_set_page(APP_STATE_PAGES);
     state_get_copy(&s);
-    check_ll("越界页仍被拒", s.page, APP_PAGE_SYSTEM);
+    check_ll("越界页仍被拒", s.page, APP_PAGE_VOICE);
 }
 
 static void apply_step_edit(const sloop_step_edit_t *edit)
@@ -2155,7 +2165,7 @@ int main(void)
     run("工程存储命令：返回码映射/刷新/越界", case_store_project);
     run("用户预置命令：鼓轨区分/轨号透传/越界", case_store_preset);
     run("FM6 银行命令：选中轨 patch/鼓轨/越界", case_store_bank);
-    run("页 id 扩容（15 页）", case_page_ids);
+    run("页 id 扩容（18 页）", case_page_ids);
     run("STEP_EDIT 完整 POD 与详细窗口同拍投影", case_seq_step_edit_projection);
     run("PATTERN/micro/fill 标量透传与投影", case_seq_pattern_micro_fill);
     run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);

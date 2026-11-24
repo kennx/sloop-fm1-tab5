@@ -35,7 +35,7 @@
  * 独立顶层组）+ 2 SYNTH 页（DSYN/FM6P，P4-D Task 8 扩 id；SAMPLE 参数页随组表移入
  * SYNTH 组）+ SYSTEM 设置页（P4-E Task 6，独立 SYS 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
  * 本宏与 console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 15u
+#define APP_STATE_PAGES 18u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -371,13 +371,17 @@ typedef enum {
     /* SYNTH 组（P4-D Task 8：SAMPLE 参数页移入该组；DSYN/FM6P 是 P4-D 的合成编辑页，
      * Task 9/10 填实体，本任务先注册占位页） */
     APP_PAGE_DSYN, APP_PAGE_FM6P,
-    /* SYS 组（P4-E Task 6）：SYSTEM 设置页，id 追加在最后。 */
+    /* SYS 组（P4-E Task 6）：SYSTEM 设置页。 */
     APP_PAGE_SYSTEM,
+    /* 参数页 chip 框架（P4-F Task 4）：MOD / SCALE / VOICE 三页，属 EDIT 组；id 追加在
+     * 最后、不接在 GLOBAL..SAMPLE 的参数页段之后（既有页 id 不变；布局表按 id 查找，
+     * page_layout.c 不再依赖参数页连续）。 */
+    APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
 } app_page_t;
-_Static_assert(APP_PAGE_SYSTEM + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_VOICE + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 _Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
-               "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");
+               "既有参数页 id 段（GLOBAL..SAMPLE）连续；MOD/SCALE/VOICE 追加在段外末尾");
 
 /* 「有音」判定，与上游 seq.c 的 sp_on 同口径：n>0 且 time==NOTE（ST_NOTE=0）；
  * n>0 但 time 为 TIE/REST 的步算「空」。状态层的步切换与 STEP 网格渲染共用本
