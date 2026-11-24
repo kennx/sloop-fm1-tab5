@@ -919,8 +919,6 @@ int sloop_core_selftest(const char *case_name)
     selftest_restore();
     engine_unlock();
     nj = 0;
-    sloop_core_diag_freeze(false);
-    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     /* 歌曲从 settings 重载（P4-C Task 7，ADR-010 §4）：`arrangement` 是 arranger.c 的
      * static `.bss`，上面两次 selftest_restore() 把它回滚到 init 快照（默认/零）——不重载
      * 就会在自检后悄悄换成默认歌曲，形成「旧工程 + 新歌曲」的半旧视图。损坏/未就绪只
@@ -944,6 +942,10 @@ int sloop_core_selftest(const char *case_name)
      * 但 `usr_nz`/`usr_zone`（vendored `.bss`）会——重扫与开机装载同一路径（flash→镜像 +
      * `smp_user_scan`），槽内容因此与 flash 一致。 */
     for (uint32_t i = 0; i < SLOOP_STORE_SAMPLES; i++) sloop_store_sample_reload(i);
+    /* 解冻与恢复 UI 放在三次重载**之后**：重载之前 `s_set`/`arrangement`/`dsu` 还是 init
+     * 快照（palette 0 = GREEN），此时放 UI 拍进来会看到它——全页重建两次、闪一帧 GREEN。 */
+    sloop_core_diag_freeze(false);
+    if (s_quiesce_hook != NULL) s_quiesce_hook(false);
     s_selftest_ran = cases;
     s_selftest_failed = pass ? 0u : (cases > identical ? cases - identical : 1u);
     return pass ? 0 : 1;
