@@ -56,7 +56,7 @@ sloop-fm1-tab5/
 │                                     console-and-injection.md 命令与注入 · verification-gates.md 门禁判据；门禁证据入 dev/verify/
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（display / console / keyboard / audio bring-up + sloop_state / sloop_ui 启动；详见 `docs/dev/reference/firmware-map.md`）
-│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui / usb_fm1（逐组件现状见 `docs/dev/reference/firmware-map.md`）；【规划】editor_proto
+│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui / usb_fm1 / editor_proto（逐组件现状见 `docs/dev/reference/firmware-map.md`）
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + sloopstore 0x810000/0x68000 + FATFS storage 0x878000 + NVS，无 OTA A/B，回滚=重烧；ADR-009 §1）
