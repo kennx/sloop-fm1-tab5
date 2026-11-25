@@ -834,6 +834,11 @@ bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
         snprintf(out->preset_name, sizeof(out->preset_name), "PRE%u.%u", (unsigned)out->engine,
                  (unsigned)out->preset);
     }
+    /* 用户预置（终审 A1）：镜像上游 up_load_to 留下的字段——preset = 0、user = slot+1——
+     * 与 sloop_core_sound_read 的投影：preset_name = "USER nn"。 */
+    out->user = g_stub.sound_user[track];
+    if (out->user != 0u)
+        snprintf(out->preset_name, sizeof(out->preset_name), "USER %02u", (unsigned)out->user);
     return true;
 }
 
@@ -845,6 +850,7 @@ void sloop_core_set_engine(uint32_t track, uint32_t engine)
     if (track >= STUB_ENGINE_TRACKS || engine >= SLOOP_CORE_NENGINES || g_stub.seq_frozen) return;
     g_stub.sound_engine[track] = (uint8_t)engine;
     g_stub.sound_preset[track] = 0;
+    g_stub.sound_user[track] = 0; /* 换引擎/换工厂预置清 user（上游 apply_preset_to / set_engine_of） */
     g_stub.param[track][STUB_ENGINE_P_E0] = (int16_t)(engine + 1u);
     g_stub.snap.trk[track].engine = (uint8_t)engine;
     g_stub.snap.trk[track].preset = 0;
@@ -857,6 +863,7 @@ void sloop_core_apply_preset(uint32_t track, uint32_t preset)
     g_stub.last_preset = preset;
     if (track >= STUB_ENGINE_TRACKS || g_stub.seq_frozen) return;
     g_stub.sound_preset[track] = (uint8_t)preset;
+    g_stub.sound_user[track] = 0;
     g_stub.param[track][STUB_ENGINE_P_E0 + 1u] = (int16_t)(preset + 1u);
     g_stub.snap.trk[track].preset = (uint8_t)preset;
 }

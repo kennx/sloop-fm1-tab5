@@ -385,6 +385,13 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   FROZEN（否则解锁会被 `lock_list` 的 0 误报成 NO LOCK）；`last_param` 只在**能生效**的写之后
   记录（非焦点轨、冻结、该轨无描述符的 id 都不记）。键位、范围与栈纪律见 ADR-006「STEP 页
   步工具」。
+- **`last_param` 不覆盖 FM6P 页（终审 A3，记录在案的限制）**：FM6 的 155B patch 字段经
+  `CMD_FM6_SET` 写入，它们不是参数（没有 `P_*` id），所以不计入 `last_param`——只在 FM6P
+  页编辑过之后 Aa+k 回 `NO PARAM`。上游同样没有这条路径：patch 只在 web 编辑器里编辑
+  （`eng_fm6.c` 头注释），设备上能碰到的是 HOME 的四个宏旋钮 = `engine->macro[k]` =
+  `P_E0..P_E3`（`ui_input.c:1308`，可锁时才记 `ui.lock_par`）；这四个宏以及其余四个
+  （`P_E4..P_E7`）在 Tab5 的 SOUND 页（FM6 引擎轨的 8 槽）上都是 `CMD_SET_PARAM`，
+  已经照常计入。因此**不做 (op,field) → 参数 id 的映射**（上游没有可映射的先例）。
 - **空闲锁槽的规范化**（P4-F Task 6，`lock_del_canonical`）：上游 `lock_del` 只把槽标回
   `LOCK_FREE`、保留 param/val，而 `proj_capture` 原样拷贝 24 个锁槽、`proj_apply` 把空闲槽
   归一成 `(LOCK_FREE, 0, 0)`——解锁之后工程 SAVE→LOAD 的 live hash 必然不等（空闲槽里的

@@ -119,11 +119,11 @@ bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
          * 上游 drum_kit() 钳到 0..DRUM_KITS-1。 */
         int32_t kit = t->p[P_E0];
         uint8_t kits = desc_enum_count(&DRUM_KIT_DESC);
+        out->drum = 1u;
         if (kit < 0) kit = 0;
-        if (kits == 0u) return true;
+        if (kits == 0u) return true; /* 名表为空：仍是鼓轨，只是没有名字可给 */
         if (kit >= (int32_t)kits) kit = (int32_t)kits - 1;
         sound_copy_name(out->kit_name, sizeof(out->kit_name), DRUM_KIT_DESC.names[kit]);
-        out->drum = 1u;
         return true;
     }
     /* eng_req 只读一次：本函数不取引擎锁，读两次可能在换引擎的中间读到两个不同的引擎
@@ -132,11 +132,14 @@ bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
     e = ENGINES[out->engine];
     out->npresets = e->npresets;
     sound_copy_name(out->engine_name, sizeof(out->engine_name), e->name);
+    out->user = t->user;
     if (e->npresets != 0u) {
         out->preset = (uint8_t)(t->preset % e->npresets);
         sound_copy_name(out->preset_name, sizeof(out->preset_name),
                         e->presets[out->preset].name);
     }
+    if (out->user != 0u)
+        snprintf(out->preset_name, sizeof(out->preset_name), "USER %02u", (unsigned)out->user);
     return true;
 }
 

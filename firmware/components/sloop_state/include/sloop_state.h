@@ -287,6 +287,8 @@ typedef enum {
  *                    焦点轨上的最后一对（上游 ui.lock_par「最后碰过的参数」）：非焦点轨的写、
  *                    诊断冻结期间的写、该轨上没有描述符的 id（引擎静默丢弃）都不记；
  *                    id=0xFF = 还没有。它是 UI 局部态：sync/选轨/整份刷新都不改写。
+ *                    只覆盖参数写：FM6P 页的 155B patch 字段（CMD_FM6_SET）不是参数、不记
+ *                    （上游同样只有参数与 HOME 宏旋钮记 lock_par，ADR-010 §11）。
  *  LOCK_FOCUS / FILL_STEP 的前置（R12，上游 ui_layers.c 的 held-step 循环 `idx < trk_len`）：
  *                    聚焦步必须在本轨 LEN 之内——**不要求有音**（空步、只有 TIE 的步同样
  *                    可锁/可设条件）；LEN 之外回 NOT_FOUND（页面 `NO STEP`）且不调引擎。
@@ -420,7 +422,8 @@ typedef struct {
     uint8_t selftest_unavailable; /* main 的 worker 创建失败：请求立即 FAIL，不排队 */
     uint32_t selftest_ran, selftest_failed;
     /* P4-F Task 5：SOUND 页投影 = **选中轨**的引擎/预置下标、预置数与名字（鼓轨 = kit 名，
-     * drum=1）。init / sync / 整份刷新 / 选轨各读一次；换引擎/换预置命令成功后同拍重取。
+     * drum=1；声音来自用户预置时 user = slot+1、preset_name = "USER nn"）。init / sync /
+     * 整份刷新 / 选轨各读一次；换引擎/换预置命令成功后同拍重取（两者都清 user）。
      * UI 只读本块，不读上游 ENGINES[]。 */
     sloop_sound_snapshot_t sound;
     uint8_t sound_status; /* 最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */

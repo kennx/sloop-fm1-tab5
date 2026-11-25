@@ -122,7 +122,7 @@ typedef struct {
     /* P4-F Task 5：SOUND 页投影后端（sloop_core_sound_read：每轨的引擎/预置下标 + 假引擎表
      * 的名字与预置数）与换引擎/换预置命令替身。换引擎 ⇒ 预置回 0 且该轨 P_E0 写
      * engine+1；换预置 ⇒ P_E1 写 preset+1（「命令后 p[] 同拍刷新」的可观察证据）。 */
-    uint8_t sound_engine[4], sound_preset[4];
+    uint8_t sound_engine[4], sound_preset[4], sound_user[4]; /* sound_user = 上游 t->user（slot+1） */
     uint32_t sound_read_calls, set_engine_calls, apply_preset_calls;
     uint32_t last_set_engine_track, last_set_engine, last_preset_track, last_preset;
     /* P4-F Task 6：TOOLS 三动作替身（返回 tools_ret 并记录动作）。 */

@@ -236,10 +236,14 @@ bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out);
  * 预设下标按上游口径 `t->preset % npresets`；名字是上游 ENGINES[]/presets[]/DRUM_KIT_NAMES
  * 的静态串的拷贝（engine_name ≥ 12、preset_name/kit_name ≥ 16 字节放得下上游最长的名字
  * 「DIGITAL」7 字符 / 「PLUGG BASS」10 字符 / 「ACOUSTIC」8 字符；scripts/synth-test.sh
- * 钉住不截断）。鼓轨没有引擎与预置：drum=1、engine/npresets 为 0、kit_name = P_E0 钳位后
- * 的 kit 名（上游 drum_kit() 同法）。不取引擎锁、冻结态同样可读（与
- * sloop_core_desc_track_live 同口径：只读 trk[] 的整数字段与静态表）。越界 track 或
- * out == NULL 返回 false 且 *out 清零（若非 NULL）。 */
+ * 钉住不截断）。**用户预置**：up_load_to 把 t->preset 置 0、t->user 置 slot+1，本函数投影
+ * `user` 并让 preset_name 显示 `USER nn`（nn = slot+1，同 PRESETS 页的 U01..U32）——
+ * 上游页眉同样按 user_of(t) 优先显示用户预置（ui_draw.c:850）；槽名不在这里取：它在 flash
+ * 银行索引里，须经 sloop_store_preset_name（存储锁 + 重扫），而本函数在 30ms sync 里
+ * 无锁调用。换工厂预置/换引擎清 user（上游 apply_preset_to 同法）。鼓轨没有引擎与预置：
+ * drum=1、engine/npresets 为 0、kit_name = P_E0 钳位后的 kit 名（上游 drum_kit() 同法）。
+ * 不取引擎锁、冻结态同样可读（与 sloop_core_desc_track_live 同口径：只读 trk[] 的整数
+ * 字段与静态表）。越界 track 或 out == NULL 返回 false 且 *out 清零（若非 NULL）。 */
 #define SLOOP_ENGINE_NAME 12u
 #define SLOOP_PRESET_NAME 16u
 typedef struct {
@@ -247,6 +251,7 @@ typedef struct {
     uint8_t nengines;       /* SLOOP_CORE_NENGINES */
     uint8_t npresets;       /* 该引擎的工厂预置数（鼓轨 0） */
     uint8_t drum;           /* 1 = 鼓轨（没有引擎/预置；kit 名在 kit_name） */
+    uint8_t user;           /* 声音来自用户预置 slot+1（0 = 工厂预置；此时 preset_name = "USER nn"） */
     char engine_name[SLOOP_ENGINE_NAME];
     char preset_name[SLOOP_PRESET_NAME];
     char kit_name[SLOOP_PRESET_NAME]; /* 鼓轨的 kit 名；合成轨为空串 */

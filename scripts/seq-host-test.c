@@ -2011,6 +2011,27 @@ static void test_tools_new_guards(void)
 
 /* 解锁之后工程 SAVE→LOAD 必须无损：上游 lock_del 只把槽标回 LOCK_FREE、保留 param/val，
  * 而 proj_apply 把空闲槽归一成 (LOCK_FREE,0,0)——适配层在解锁后清零空闲槽的残留字节。 */
+/* 终审 A1：用户预置留下的 t->user（slot+1）在换工厂预置 / 换引擎时清 0（上游
+ * apply_preset_to ui.c:639 与 set_engine_of——后者经 apply_preset_to），SOUND 页眉因此
+ * 从 "USER nn" 回到工厂预置名。 */
+static void test_user_preset_cleared(void)
+{
+    reset();
+    trk[0].preset = 0;
+    trk[0].user = 3u;
+    preset_apply_locked(&trk[0], 2u);
+    check(trk[0].user == 0u && trk[0].preset == 2u, "factory preset applied on a user preset: user cleared");
+    trk[0].user = 3u;
+    set_engine_of_locked(&trk[0], 1u);
+    check(trk[0].user == 0u && trk[0].eng_req == 1u && trk[0].preset == 0u,
+          "engine changed on a user preset: user cleared");
+    trk[0].user = 3u;
+    preset_apply_locked(&trk[2], 2u);
+    check(trk[0].user == 3u, "a preset on another track leaves this track's user preset");
+    trk[0].user = 0u;
+    reset();
+}
+
 static void test_lock_del_canonical(void)
 {
     project_t p;
@@ -2092,6 +2113,7 @@ int main(void)
     test_tools_initsound();
     test_tools_new();
     test_tools_new_guards();
+    test_user_preset_cleared();
     test_lock_del_canonical();
     printf("SEQ HOST TEST %s (%d failure%s)\n", fails ? "FAILED" : "PASSED", fails, fails == 1 ? "" : "s");
     return fails ? 1 : 0;

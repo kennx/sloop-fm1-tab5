@@ -787,7 +787,13 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   42px 是 ∓1 区、中段是标签（TAP miss）；行名左对齐、名字右对齐成列（名字列宽 ≥ 11px ×
   上游最长名：引擎 7 / 预置 10 / kit 8 字符，host 单测钉住）。名字/下标/预置数全部读状态层
   投影 `app_state_t.sound`（`sloop_core_sound_read`：上游 `ENGINES[]`/`presets[]`/
-  `DRUM_KIT_NAMES` 的静态串拷贝；UI 不读上游全局）。
+  `DRUM_KIT_NAMES` 的静态串拷贝；UI 不读上游全局）。**用户预置**（终审 A1）：`up_load_to`
+  把 `t->preset` 置 0、`t->user` 置 slot+1，投影带 `user` 且 `preset_name` = `USER nn`
+  （nn = slot+1，同 PRESETS 页的 `U01..U32`；上游页眉同样按 `user_of(t)` 优先，ui_draw.c:850）
+  ——此前页眉显示预设下标 0 的工厂名。槽名不投影：它在 flash 银行索引里，取它要存储锁 +
+  重扫（`sloop_store_preset_name`），而投影在 30ms sync 里无锁读 `trk[]`。PRESET ± 与
+  换引擎都清 `user`（上游 `apply_preset_to` 同法）：从用户预置按 `+` 去工厂预置 1、按 `−`
+  环绕到末项（上游 PRESETS 页旋钮从下标 0 出发，同一行为）。
 - **动作 = 两条状态层命令**（`CMD_SET_ENGINE{a=track,v=engine}` → `sloop_core_set_engine`、
   `CMD_SET_PRESET{a=track,v=preset}` → `sloop_core_apply_preset`；越界/鼓轨/冻结在状态层
   拒且不调引擎，成功即整份刷新投影）。± 都是**环绕**（引擎 0..11、预置 0..npresets−1，

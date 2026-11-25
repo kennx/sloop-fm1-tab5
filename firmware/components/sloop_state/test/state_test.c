@@ -2404,6 +2404,66 @@ static void case_narrow_accessors(void)
 }
 
 /* P4-F Task 6：TOOLS 三动作的返回码映射（action 越界不调引擎；成功整份刷新）。 */
+/* ③ 用户预置（终审 A1）：上游 up_load_to 之后 t->preset = 0、t->user = slot+1——投影必须
+ * 带上 user 且 preset_name 是 "USER nn"，而不是预设下标 0 的工厂预置名。载入不经状态层
+ * 命令（PRESETS 页 TAP / console `STORE PRESET LOAD` 直调 sloop_store_preset_load），所以
+ * 投影由下一拍 sync 采纳；PRESET ± / 换引擎之后 user 清 0、名字回到工厂预置。 */
+static void case_sound_user_preset(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.sound_engine[0] = 0; /* 引擎 0：预置 0..3 */
+    g_stub.sound_preset[0] = 0;
+    g_stub.sound_user[0] = 3; /* 用户预置槽 2 = 页面的 U03 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("用户预置投影 user", s.sound.user, 3);
+    check_ll("用户预置投影 preset_name", strcmp(s.sound.preset_name, "USER 03") == 0, 1);
+    check_ll("用户预置投影 preset 下标（上游置 0）", s.sound.preset, 0);
+    check_ll("用户预置 engine 名仍是引擎名", strcmp(s.sound.engine_name, "ENG0") == 0, 1);
+
+    sloop_sound_snapshot_t snd;
+    state_read_sound(&snd);
+    check_ll("state_read_sound 同一投影", snd.user == 3u && strcmp(snd.preset_name, "USER 03") == 0, 1);
+
+    /* 换工厂预置（SOUND 页 PRESET ± 的路径）：user 清 0、名字回到工厂预置 */
+    apply(CMD_SET_PRESET, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("换工厂预置 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("换工厂预置清 user", s.sound.user, 0);
+    check_ll("换工厂预置后 preset_name", strcmp(s.sound.preset_name, "PRE0.1") == 0, 1);
+
+    /* 换引擎同样清 user */
+    g_stub.sound_user[0] = 32; /* 末槽 U32：两位数 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("末槽用户预置", s.sound.user == 32u && strcmp(s.sound.preset_name, "USER 32") == 0, 1);
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("换引擎清 user", s.sound.user, 0);
+
+    /* 投影恒为选中轨：非选中轨上的用户预置不改选中轨的页眉 */
+    g_stub.sound_user[2] = 5;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("非选中轨的用户预置不进页眉", s.sound.user, 0);
+
+    /* 冻结期间的 CMD_SET_PRESET 不调引擎 ⇒ user 与名字保持 */
+    g_stub.sound_user[0] = 7;
+    state_sync_from_engine();
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PRESET, 0, 0, 0); /* 引擎 1 只有预置 0/1：越界判定先于冻结，取合法值 */
+    state_get_copy(&s);
+    check_ll("冻结换预置 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结换预置投影保持 user", s.sound.user, 7);
+    check_ll("冻结换预置投影保持名字", strcmp(s.sound.preset_name, "USER 07") == 0, 1);
+    g_stub.seq_frozen = false;
+    g_stub.sound_user[0] = 0;
+    g_stub.sound_user[2] = 0;
+}
+
 static void case_tools_cmd(void)
 {
     stub_engine_reset();
@@ -2731,6 +2791,7 @@ int main(void)
     run("SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎", case_set_preset);
     run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
     run("窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0", case_narrow_accessors);
+    run("SOUND：用户预置投影 user / USER nn / 换预置·换引擎清 user", case_sound_user_preset);
     run("TOOLS：action 越界不调引擎/返回码映射/成功整份刷新", case_tools_cmd);
     run("LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、R12 范围（LEN 内含 TIE/空步）、UNLOCK 无锁、冻结、错误码映射",
         case_lock_focus_and_fill_step);

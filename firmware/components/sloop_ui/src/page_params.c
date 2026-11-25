@@ -800,7 +800,7 @@ static void sample_cb(lv_event_t *e)
 }
 
 /* ---------------------------------------------------------------- SOUND 页眉 --- */
-_Static_assert(sizeof(sloop_sound_snapshot_t) == 5u + SLOOP_ENGINE_NAME + 2u * SLOOP_PRESET_NAME,
+_Static_assert(sizeof(sloop_sound_snapshot_t) == 6u + SLOOP_ENGINE_NAME + 2u * SLOOP_PRESET_NAME,
                "sound 投影无填充：memcmp 脏检查依赖整字节比较");
 
 /* 页眉三区对象的自绘：圆角底 + `−`（左区居中）+ 行名（左对齐）+ 名字（右对齐）+ `+`

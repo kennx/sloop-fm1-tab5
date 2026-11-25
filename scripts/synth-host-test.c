@@ -1229,7 +1229,7 @@ static void test_desc_live(void)
 static void test_sound_read(void)
 {
     sloop_sound_snapshot_t sn;
-    uint8_t save_eng = trk[0].eng_req, save_preset = trk[0].preset;
+    uint8_t save_eng = trk[0].eng_req, save_preset = trk[0].preset, save_user = trk[0].user;
     int16_t save_kit = trk[TRK_DRUM].p[P_E0];
     uint32_t e, k, i;
     int ok;
@@ -1243,7 +1243,7 @@ static void test_sound_read(void)
             trk[0].preset = (uint8_t)k;
             memset(&sn, 0, sizeof(sn));
             ok = ok && sloop_core_sound_read(0, &sn);
-            ok = ok && sn.drum == 0u && sn.engine == e && sn.preset == k &&
+            ok = ok && sn.drum == 0u && sn.user == 0u && sn.engine == e && sn.preset == k &&
                  sn.nengines == NENGINES && sn.npresets == E->npresets && sn.kit_name[0] == '\0';
             ok = ok && strcmp(sn.engine_name, E->name) == 0;
             ok = ok && strcmp(sn.preset_name, E->presets[k].name) == 0;
@@ -1262,6 +1262,28 @@ static void test_sound_read(void)
     ok = ok && sloop_core_sound_read(0, &sn) && sn.preset == 255u % ENGINES[1]->npresets &&
          strcmp(sn.preset_name, ENGINES[1]->presets[255u % ENGINES[1]->npresets].name) == 0;
     check(ok, "sound read: preset index wraps modulo npresets (upstream convention)");
+
+    /* 用户预置（终审 A1）：up_load_to 之后 t->preset = 0、t->user = slot+1。本可执行文件没有
+     * 用户预置银行，按上游留下的字段直接置位；preset_name 必须是 "USER nn"，而不是预设
+     * 下标 0 的工厂名（本文件开头的上游锚点：ANALOG 预置 0 = "808 BOOM"）。 */
+    trk[0].eng_req = 0u;
+    trk[0].preset = 0u;
+    trk[0].user = 3u;
+    ok = sloop_core_sound_read(0, &sn) && sn.user == 3u && sn.drum == 0u && sn.preset == 0u &&
+         sn.npresets == ENGINES[0]->npresets && strcmp(sn.engine_name, ENGINES[0]->name) == 0 &&
+         strcmp(sn.preset_name, "USER 03") == 0;
+    trk[0].user = 32u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.user == 32u && strcmp(sn.preset_name, "USER 32") == 0;
+    trk[0].user = 0u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.user == 0u &&
+         strcmp(sn.preset_name, "808 BOOM") == 0;
+    check(ok, "sound read: a user preset (t->user = slot+1) shows USER nn, a factory one its name");
+    trk[0].user = 3u;
+    trk[TRK_DRUM].p[P_E0] = 0;
+    ok = sloop_core_sound_read(TRK_DRUM, &sn) && sn.drum == 1u && sn.user == 0u &&
+         strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    trk[0].user = 0u;
+    check(ok, "sound read: the drum track never reports a user preset");
 
     /* 鼓轨：没有引擎/预置，kit 名按 P_E0 钳位取 DRUM_KIT_NAMES */
     trk[TRK_DRUM].p[P_E0] = 0;
@@ -1289,6 +1311,7 @@ static void test_sound_read(void)
 
     trk[0].eng_req = save_eng;
     trk[0].preset = save_preset;
+    trk[0].user = save_user;
     trk[TRK_DRUM].p[P_E0] = save_kit;
 }
 
