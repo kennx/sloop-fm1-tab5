@@ -1,0 +1,653 @@
+  [fw] SCR
+  [fw] I (804943) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (827243) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (849263) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (873393) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (897333) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (919713) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (946703) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (985823) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1013843) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1035913) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1057963) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1080043) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1102143) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1124273) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1146333) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1168513) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1190703) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+== inject nav @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617.log
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] 基线：合成轨格 TAP（对照组）
+  [PASS] 基线：合成轨格再 TAP（落回原值）
+  [PASS] ① 组签缝 TAP miss
+  [PASS] ① 组签矩形内 TAP miss
+  [PASS] ① STATE SNAP 前后一致
+  [PASS] ① ENG SNAP 前后一致
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-01-tabbar.png  (1280x720 rgb565)
+  [PASS] ① 组签缝底（页签条 UI_PANEL）: (124,20) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ① 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签选中（SEQ）: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签未选中（PLAY）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ① 组签选中（SEQ）左内缘: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签选中（SEQ）右内缘（104px）: (672,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ① 组签缝（SEQ|SONG 8px）: (684,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ① 第 9 张组签（SYS）填充: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ① SYS 右内缘（右端 1,016）: (1008,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ① 组签行右端之外是页签条底色: (1020,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ① MIX 组签（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ② 选中 lane 归零
+  [PASS] 焦点轨归一 = 0 = 0
+  [PASS] 焦点列归一 = 2 = 2
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-02-drum-before.png  (1280x720 rgb565)
+  [PASS] ② 状态行基线：蓝字（合成轨 T1）211 / 橙字 0（期望蓝 ≥25、橙 0）
+  [PASS] ② 鼓轨 TAP 写原始位图回显
+  [PASS] ② 鼓步 3 on 位图 0x0000 -> 0x0020（只翻 lane 5 = 0x20）
+  [PASS] ② 焦点轨落到鼓轨 = 3
+  [PASS] ② 焦点列 = 窗口列 3 = 3
+  [PASS] ② STATE SNAP（除焦点外） 前后一致
+  [PASS] ② ENG SNAP 除鼓步 3 的 dstep 行外无变化（diff=['ENG SNAP dstep i=3 on=0 lvl=0 rat=0 -> ENG SNAP dstep i=3 on=1 lvl=0 rat=0']）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-03-drum-lane.png  (1280x720 rgb565)
+  [PASS] ② 鼓格像素区 (305, 526, 375, 634) 点击后变化（lane 位点亮）
+  [PASS] ② 状态行点击后：橙字（鼓轨）374 / 蓝字 0（期望 ≥25 / 0）
+  [PASS] ② 再 TAP 复位 lane 5 位
+  [PASS] ② 复位后鼓步 3 位图 = 0x0000
+  [PASS] ③ 起点 PLAY（对齐 1/5）
+  [PASS] ③ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ③ 前提成立：PANIC 执行时 tab 请求尚未被拍消费（批内 UI 仍 TRACKS）
+  [PASS] ③ 6 拍后仍 TRACKS（撤销待切页、无回跳）
+  [PASS] ③ 再 6 拍后仍 TRACKS
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-04-panic-final.png  (1280x720 rgb565)
+  [PASS] ③ 页签选中（TRACKS）: (148,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ③ PLAY 页签未选中: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ④ 起点 PLAY（对齐 1/5）
+  [PASS] ④ 锚点单按 tab 前进一页（对齐 1）
+  [PASS] ④ 前提成立：批内 UI 仍 TRACKS，3 次按下之间无拍执行（时序下界余量 -88.1ms，仅作参考）
+  [PASS] ④ 3 次 tab 只前进一页（TRACKS→SOUND，EDIT 组首个子页）
+  [PASS] ④ 再 6 拍无第二次前进
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-05-tab3-final.png  (1280x720 rgb565)
+  [PASS] ④ 子签选中（SOUND）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 组签选中（EDIT）: (260,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ④ 组签未选中（PLAY）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 起点 MIX 组 GLOBAL
+  [PASS] ⑤ 进入前 MIX built=1 / SEQ built=0（期望 1 / 0）
+  [PASS] ⑤ 跨组 MIX→SEQ
+  [PASS] ⑤ 离开 MIX 后 built=0 sum_delta=0（期望 0 / 0，源组页面含原当前页全部销毁）
+  [PASS] ⑤ 原当前页 GLOBAL state=unbuilt（期望 unbuilt）
+  [PASS] ⑤ SEQ built=1（期望 1 = 只建 STEP）
+  [PASS] ⑤ 跨组进入 SEQ build_ms=35ms（0 < x ≤100）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-06-groupscope.png  (1280x720 rgb565)
+  [PASS] ⑤ 组签选中（SEQ）: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑤ 组签未选中（MIX）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑤ 子签未选中（TRANSPORT）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑤ 同组 STEP→TRANSPORT
+  [PASS] ⑤ 同组切换后 SEQ built=2 STEP=built（期望 2 / built：同组切换只改显隐、不重建）
+  [PASS] ⑤ 回 PLAY（SEQ 组销毁）
+  [PASS] ⑤ 离开 SEQ 后 SEQ built=0 总 built=1（期望 0 / 1 = 仅 PLAY）
+  [PASS] ⑥ 起点 PLAY
+  [PASS] ⑥ UI TAB edit（进入 EDIT 的当前/首个子页）
+  [PASS] ⑥ 设 EDIT 上次子页 = MOD
+  [PASS] ⑥ UI TAB play（跨组回 PLAY）
+  [PASS] ⑥ 点组离开后 EDIT built=0（期望 0）
+  [PASS] ⑥ 点组回到上次子页（MOD，记忆跨往返）
+  [PASS] ⑥ 记忆入口只建 MOD：EDIT built=1 MOD=built（期望 1 / built）
+  [PASS] ⑥ 跨组 UI TAB tracks（目标首个子页）
+  [PASS] ⑥ 跨组点击后 EDIT built=0 / TRACKS built=1（期望 0 / 1）
+  [PASS] ⑥ 跨组点击 TRACKS build_ms=12ms（0 < x ≤100）
+  [PASS] ⑥ 回 EDIT（记忆仍是 MOD）
+  [PASS] ⑥ UI SUB 0 切 SOUND
+  [PASS] ⑥ 子签切换不重建兄弟页：EDIT built=2 MOD=built（期望 2 / built）
+  [PASS] ⑥ UI SUB 1 切 MOD
+  [PASS] ⑥ UI SUB 2 切 SCALE
+  [PASS] ⑥ UI SUB 3 切 VOICE（EDIT 第 4 张子签）
+  [PASS] ⑥ EDIT 组只有 4 张子签：UI SUB 4 越界（空位 id 7 不占子签）
+  [PASS] ⑥ UI SUB 5 超出下行槽位（0..4）→ 用法错误（不是组内越界的 UI ERR sub）
+  [PASS] ⑥ 越界注入不改页（仍 VOICE）
+  [PASS] ⑥ 回 PLAY（EDIT 四页销毁）
+  [PASS] ⑥ 离开 EDIT 后 built=0 6=unbuilt 15=unbuilt 16=unbuilt 17=unbuilt（期望 0 / unbuilt ×4）
+  [PASS] ⑥ 归一 MIX 上次子页 = GLOBAL
+  [PASS] ⑥ 离开 MIX（归一）
+  [PASS] ⑥ UI TAB MIX（→ 上次子页 GLOBAL）
+  [PASS] ⑥ MIX built=1 sum_est=10752（期望 1 / 10,752）
+  [PASS] ⑥ UI SUB 1 切 FX（同组不重建 GLOBAL）
+  [PASS] ⑥ UI SUB 2 切 TOOLS（MIX 第 3 张子签）
+  [PASS] ⑥ MIX 组只有 3 张子签：UI SUB 3 越界
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-06b-mix.png  (1280x720 rgb565)
+  [PASS] ⑥ MIX 组签选中: (372,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑥ MIX 子签选中（TOOLS）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑥ GLOBAL 子签未选中: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑥ 回 PLAY（MIX 三页销毁）
+  [PASS] ⑥ 离开 MIX 后 built=0 4=unbuilt 5=unbuilt 18=unbuilt（期望 0 / unbuilt ×3）
+  [PASS] ⑥ 单页组子行为空：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 单页组 SUB 注入不改页
+  [PASS] ⑥ UI projects（FILE 组页面已注册）
+  [PASS] ⑥ 离开 FILE 组（源组销毁）
+  [PASS] ⑥ 离开 FILE 后 built=0 PROJECTS=unbuilt PRESETS=unbuilt（期望 0 / unbuilt / unbuilt）
+  [PASS] ⑥ UI TAB FILE → 上次子页 PROJECTS
+  [PASS] ⑥ 点组只建目标页：FILE built=1（期望 1）
+  [PASS] ⑥ FILE sum_est=20992（两页 est 之和 > 0）
+  [PASS] ⑥ UI SUB 1 切 PRESETS（同组不重建 PROJECTS）
+  [PASS] ⑥ FILE built=2 PROJECTS=built（期望 2 / built）
+  [PASS] ⑥ FILE 组只有 2 张子签：UI SUB 2 越界
+  [PASS] ⑥ 回 PLAY（FILE 两页销毁）
+  [PASS] ⑥ UI TAB song（SONG 独立组）
+  [PASS] ⑥ SONG built=1 sum_est=12288 page=built（期望 1 / 12288 / built）
+  [PASS] ⑥ SONG build_ms=22ms（0 < x ≤100）
+  [PASS] ⑥ SONG 单页组：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 回 PLAY（SONG 页销毁）
+  [PASS] ⑥ 离开 SONG 后 built=0 page=unbuilt（期望 0 / unbuilt）
+  [PASS] ⑥ 归一 SYNTH 上次子页 = SAMPLE
+  [PASS] ⑥ 离开 SYNTH（归一）
+  [PASS] ⑥ UI TAB synth（SYNTH 组首个/上次子页）
+  [PASS] ⑥ SYNTH built=1 sum_est=20480 SAMPLE=built（期望 1 / 20480 / built）
+  [PASS] ⑥ SYNTH build_ms=13ms（0 < x ≤100）
+  [PASS] ⑥ UI SUB 1 切 DSYN（同组不重建 SAMPLE）
+  [PASS] ⑥ SYNTH built=2 SAMPLE=built（期望 2 / built）
+  [PASS] ⑥ UI SUB 2 切 FM6P
+  [PASS] ⑥ SYNTH 三页已建：built=3（期望 3）
+  [PASS] ⑥ SYNTH 组只有 3 张子签：UI SUB 3 越界
+  [PASS] ⑥ 越界注入不改页（仍 FM6P）
+  [PASS] ⑥ 点组回到上次子页（FM6P，记忆跨往返）
+  [PASS] ⑥ 回 PLAY（SYNTH 三页销毁）
+  [PASS] ⑥ 离开 SYNTH 后 built=0 8=unbuilt 12=unbuilt 13=unbuilt（期望 0 / unbuilt ×3）
+  [PASS] ⑥ UI TAB seq（→ 上次子页）
+  [PASS] ⑥ UI SUB 0 切 STEP
+  [PASS] ⑥ UI SUB 1 切 TRANSPORT
+  [PASS] ⑥ SEQ built=2 sum_est=32256（期望 2 / 32,256）
+  [PASS] ⑥ SEQ 组只有 2 张子签：UI SUB 2 越界
+  [PASS] ⑥ 越界注入不改页（仍 TRANSPORT）
+  [PASS] ⑥ 回 PLAY（SEQ 两页销毁）
+  [PASS] ⑥ 离开 SEQ 后 built=0 2=unbuilt 3=unbuilt（期望 0 / unbuilt ×2）
+  [PASS] ⑥ UI TAB sys（SYS 独立组）
+  [PASS] ⑥ SYS 单页组：UI SUB 0 → UI ERR sub
+  [PASS] ⑥ 回 PLAY（SYSTEM 页销毁）
+  [PASS] ⑥ 离开 SYS 后 built=0 page=unbuilt（期望 0 / unbuilt）
+  [PASS] ⑥ 未知组名 → UI ERR group
+  [PASS] ⑥d 起点 TRACKS（对齐 1/5）
+  [PASS] ⑥d 批内点击后页=0（期望 0 = PLAY；UI TAB 立即生效）
+  [PASS] ⑥d 同拍点击胜出：1s 后仍 PLAY（待切页已丢弃，R30）
+  [PASS] ⑥d 再 6 拍仍 PLAY（无 ANALOG 回跳）
+  [PASS] ⑦ 起点 PLAY
+  [PASS] ⑦ TAB → tracks (1)
+  [PASS] ⑦ TAB → sound (6)
+  [PASS] ⑦ TAB → mod (15)
+  [PASS] ⑦ TAB → scale (16)
+  [PASS] ⑦ TAB → voice (17)
+  [PASS] ⑦ TAB → global (4)
+  [PASS] ⑦ TAB → fx (5)
+  [PASS] ⑦ TAB → tools (18)
+  [PASS] ⑦ TAB → sample (8)
+  [PASS] ⑦ TAB → dsyn (12)
+  [PASS] ⑦ TAB → fm6p (13)
+  [PASS] ⑦ TAB → step (2)
+  [PASS] ⑦ TAB → transport (3)
+  [PASS] ⑦ TAB → song (11)
+  [PASS] ⑦ TAB → projects (9)
+  [PASS] ⑦ TAB → presets (10)
+  [PASS] ⑦ TAB → system (14)
+  [PASS] ⑦ TAB → play (0)
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-07-tab-cycle.png  (1280x720 rgb565)
+  [PASS] ⑦ 回卷到 PLAY（组签选中）: (36,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑧ 起点 PLAY
+  [PASS] ⑧ 预热：UI tracks
+  [PASS] ⑧ 预热：UI play
+  [PASS] ⑧ 往返 1/10：UI tracks
+  [PASS] ⑧ 往返 1/10：UI play
+  [PASS] ⑧ 往返 2/10：UI tracks
+  [PASS] ⑧ 往返 2/10：UI play
+  [PASS] ⑧ 往返 3/10：UI tracks
+  [PASS] ⑧ 往返 3/10：UI play
+  [PASS] ⑧ 往返 4/10：UI tracks
+  [PASS] ⑧ 往返 4/10：UI play
+  [PASS] ⑧ 往返 5/10：UI tracks
+  [PASS] ⑧ 往返 5/10：UI play
+  [PASS] ⑧ 往返 6/10：UI tracks
+  [PASS] ⑧ 往返 6/10：UI play
+  [PASS] ⑧ 往返 7/10：UI tracks
+  [PASS] ⑧ 往返 7/10：UI play
+  [PASS] ⑧ 往返 8/10：UI tracks
+  [PASS] ⑧ 往返 8/10：UI play
+  [PASS] ⑧ 往返 9/10：UI tracks
+  [PASS] ⑧ 往返 9/10：UI play
+  [PASS] ⑧ 往返 10/10：UI tracks
+  [PASS] ⑧ 往返 10/10：UI play
+  [PASS] ⑧ 10 次 PLAY↔TRACKS 往返后 pool_free 变化 45940 → 45920（Δ=-20B，允许 |Δ| ≤ 128B：styles_init 只跑一次）
+  [PASS] ⑧ 单次往返的最大池下降 32B ≤ 128B（无逐次增长）
+  [PASS] ⑨ UI TAB PLAY → play（0）是本组成员
+  [PASS] ⑨ PLAY 为当前组：已建组 ['PLAY']、总 built=1（期望仅 PLAY / 1 = 点组只建落地页）
+  [PASS] ⑨ PLAY 的成员页状态：play built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-play.png  (1280x720 rgb565)
+  [PASS] ⑨ PLAY：组签 PLAY（选中）: (36,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ PLAY：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ PLAY 组签右内缘（签宽 104px）: (112,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ PLAY 组签右缘之外（签缝/行尾）: (124,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ PLAY：子签槽 0（空）: (36,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ PLAY：子签槽 1（空）: (220,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ PLAY：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ PLAY：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ PLAY：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB TRACKS → tracks（1）是本组成员
+  [PASS] ⑨ TRACKS 为当前组：已建组 ['TRACKS']、总 built=1（期望仅 TRACKS / 1 = 点组只建落地页）
+  [PASS] ⑨ TRACKS 的成员页状态：tracks built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-tracks.png  (1280x720 rgb565)
+  [PASS] ⑨ TRACKS：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 TRACKS（选中）: (148,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ TRACKS：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ TRACKS 组签右内缘（签宽 104px）: (224,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ TRACKS 组签右缘之外（签缝/行尾）: (236,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ TRACKS：子签槽 0（空）: (36,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ TRACKS：子签槽 1（空）: (220,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ TRACKS：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ TRACKS：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ TRACKS：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB EDIT → voice（17）是本组成员
+  [PASS] ⑨ EDIT 为当前组：已建组 ['EDIT']、总 built=1（期望仅 EDIT / 1 = 点组只建落地页）
+  [PASS] ⑨ EDIT 的成员页状态：voice built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-edit.png  (1280x720 rgb565)
+  [PASS] ⑨ EDIT：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 EDIT（选中）: (260,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ EDIT：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT 组签右内缘（签宽 104px）: (336,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ EDIT 组签右缘之外（签缝/行尾）: (348,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ EDIT：子签槽 0（未选中）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：子签槽 1（未选中）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：子签槽 2（未选中）: (404,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ EDIT：子签槽 3（选中）: (588,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ EDIT：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB MIX → tools（18）是本组成员
+  [PASS] ⑨ MIX 为当前组：已建组 ['MIX']、总 built=1（期望仅 MIX / 1 = 点组只建落地页）
+  [PASS] ⑨ MIX 的成员页状态：tools built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-mix.png  (1280x720 rgb565)
+  [PASS] ⑨ MIX：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 MIX（选中）: (372,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ MIX：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX 组签右内缘（签宽 104px）: (448,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ MIX 组签右缘之外（签缝/行尾）: (460,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ MIX：子签槽 0（未选中）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：子签槽 1（未选中）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ MIX：子签槽 2（选中）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ MIX：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ MIX：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB SYNTH → fm6p（13）是本组成员
+  [PASS] ⑨ SYNTH 为当前组：已建组 ['SYNTH']、总 built=1（期望仅 SYNTH / 1 = 点组只建落地页）
+  [PASS] ⑨ SYNTH 的成员页状态：fm6p built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-synth.png  (1280x720 rgb565)
+  [PASS] ⑨ SYNTH：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 SYNTH（选中）: (484,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SYNTH：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH 组签右内缘（签宽 104px）: (560,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ SYNTH 组签右缘之外（签缝/行尾）: (572,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYNTH：子签槽 0（未选中）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：子签槽 1（未选中）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYNTH：子签槽 2（选中）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SYNTH：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYNTH：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB SEQ → transport（3）是本组成员
+  [PASS] ⑨ SEQ 为当前组：已建组 ['SEQ']、总 built=1（期望仅 SEQ / 1 = 点组只建落地页）
+  [PASS] ⑨ SEQ 的成员页状态：transport built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-seq.png  (1280x720 rgb565)
+  [PASS] ⑨ SEQ：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 SEQ（选中）: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SEQ：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ 组签右内缘（签宽 104px）: (672,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ SEQ 组签右缘之外（签缝/行尾）: (684,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SEQ：子签槽 0（未选中）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SEQ：子签槽 1（选中）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SEQ：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SEQ：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SEQ：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB SONG → song（11）是本组成员
+  [PASS] ⑨ SONG 为当前组：已建组 ['SONG']、总 built=1（期望仅 SONG / 1 = 点组只建落地页）
+  [PASS] ⑨ SONG 的成员页状态：song built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-song.png  (1280x720 rgb565)
+  [PASS] ⑨ SONG：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 SONG（选中）: (708,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SONG：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SONG 组签右内缘（签宽 104px）: (784,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ SONG 组签右缘之外（签缝/行尾）: (796,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SONG：子签槽 0（空）: (36,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SONG：子签槽 1（空）: (220,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SONG：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SONG：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SONG：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB FILE → presets（10）是本组成员
+  [PASS] ⑨ FILE 为当前组：已建组 ['FILE']、总 built=1（期望仅 FILE / 1 = 点组只建落地页）
+  [PASS] ⑨ FILE 的成员页状态：presets built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-file.png  (1280x720 rgb565)
+  [PASS] ⑨ FILE：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：组签 FILE（选中）: (820,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ FILE：组签 SYS（未选中）: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE 组签右内缘（签宽 104px）: (896,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ FILE 组签右缘之外（签缝/行尾）: (908,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ FILE：子签槽 0（未选中）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ FILE：子签槽 1（选中）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ FILE：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ FILE：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ FILE：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB SYS → system（14）是本组成员
+  [PASS] ⑨ SYS 为当前组：已建组 ['SYS']、总 built=1（期望仅 SYS / 1 = 点组只建落地页）
+  [PASS] ⑨ SYS 的成员页状态：system built、其余 unbuilt
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-nav-20261126-024617-nav-09-tab-sys.png  (1280x720 rgb565)
+  [PASS] ⑨ SYS：组签 PLAY（未选中）: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 TRACKS（未选中）: (148,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 EDIT（未选中）: (260,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 MIX（未选中）: (372,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 SYNTH（未选中）: (484,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 SEQ（未选中）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 SONG（未选中）: (708,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 FILE（未选中）: (820,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS：组签 SYS（选中）: (932,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ SYS 组签右内缘（签宽 104px）: (1008,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ SYS 组签右缘之外（签缝/行尾）: (1020,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYS：子签槽 0（空）: (36,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYS：子签槽 1（空）: (220,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYS：子签槽 2（空）: (404,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYS：子签槽 3（空）: (588,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ SYS：子签槽 4（空）: (772,42) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑩ PLAY 全建 → tracks（TRACKS）：池剩余=40180B（≥4,096）
+  [PASS] 有序对 PLAY→TRACKS：1/1 个目标页，最小池剩余 40180B（tracks）
+  [PASS] ⑩ PLAY 全建 → sound（EDIT）：池剩余=40440B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → mod（EDIT）：池剩余=42856B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → scale（EDIT）：池剩余=42872B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → voice（EDIT）：池剩余=42864B（≥4,096）
+  [PASS] 有序对 PLAY→EDIT：4/4 个目标页，最小池剩余 40440B（sound）
+  [PASS] ⑩ PLAY 全建 → global（MIX）：池剩余=42904B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → fx（MIX）：池剩余=42876B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → tools（MIX）：池剩余=43328B（≥4,096）
+  [PASS] 有序对 PLAY→MIX：3/3 个目标页，最小池剩余 42876B（fx）
+  [PASS] ⑩ PLAY 全建 → sample（SYNTH）：池剩余=41512B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → dsyn（SYNTH）：池剩余=39528B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → fm6p（SYNTH）：池剩余=38896B（≥4,096）
+  [PASS] 有序对 PLAY→SYNTH：3/3 个目标页，最小池剩余 38896B（fm6p）
+  [PASS] ⑩ PLAY 全建 → step（SEQ）：池剩余=24204B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → transport（SEQ）：池剩余=37276B（≥4,096）
+  [PASS] 有序对 PLAY→SEQ：2/2 个目标页，最小池剩余 24204B（step）
+  [PASS] ⑩ PLAY 全建 → song（SONG）：池剩余=34524B（≥4,096）
+  [PASS] 有序对 PLAY→SONG：1/1 个目标页，最小池剩余 34524B（song）
+  [PASS] ⑩ PLAY 全建 → projects（FILE）：池剩余=38292B（≥4,096）
+  [PASS] ⑩ PLAY 全建 → presets（FILE）：池剩余=33828B（≥4,096）
+  [PASS] 有序对 PLAY→FILE：2/2 个目标页，最小池剩余 33828B（presets）
+  [PASS] ⑩ PLAY 全建 → system（SYS）：池剩余=40584B（≥4,096）
+  [PASS] 有序对 PLAY→SYS：1/1 个目标页，最小池剩余 40584B（system）
+  [PASS] ⑩ TRACKS 全建 → play（PLAY）：池剩余=40160B（≥4,096）
+  [PASS] 有序对 TRACKS→PLAY：1/1 个目标页，最小池剩余 40160B（play）
+  [PASS] ⑩ TRACKS 全建 → sound（EDIT）：池剩余=37116B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → mod（EDIT）：池剩余=39516B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → scale（EDIT）：池剩余=39496B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → voice（EDIT）：池剩余=39508B（≥4,096）
+  [PASS] 有序对 TRACKS→EDIT：4/4 个目标页，最小池剩余 37116B（sound）
+  [PASS] ⑩ TRACKS 全建 → global（MIX）：池剩余=39512B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → fx（MIX）：池剩余=39476B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → tools（MIX）：池剩余=39972B（≥4,096）
+  [PASS] 有序对 TRACKS→MIX：3/3 个目标页，最小池剩余 39476B（fx）
+  [PASS] ⑩ TRACKS 全建 → sample（SYNTH）：池剩余=38228B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → dsyn（SYNTH）：池剩余=36176B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → fm6p（SYNTH）：池剩余=35528B（≥4,096）
+  [PASS] 有序对 TRACKS→SYNTH：3/3 个目标页，最小池剩余 35528B（fm6p）
+  [PASS] ⑩ TRACKS 全建 → step（SEQ）：池剩余=20676B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → transport（SEQ）：池剩余=33812B（≥4,096）
+  [PASS] 有序对 TRACKS→SEQ：2/2 个目标页，最小池剩余 20676B（step）
+  [PASS] ⑩ TRACKS 全建 → song（SONG）：池剩余=31044B（≥4,096）
+  [PASS] 有序对 TRACKS→SONG：1/1 个目标页，最小池剩余 31044B（song）
+  [PASS] ⑩ TRACKS 全建 → projects（FILE）：池剩余=34652B（≥4,096）
+  [PASS] ⑩ TRACKS 全建 → presets（FILE）：池剩余=30312B（≥4,096）
+  [PASS] 有序对 TRACKS→FILE：2/2 个目标页，最小池剩余 30312B（presets）
+  [PASS] ⑩ TRACKS 全建 → system（SYS）：池剩余=37052B（≥4,096）
+  [PASS] 有序对 TRACKS→SYS：1/1 个目标页，最小池剩余 37052B（system）
+  [PASS] ⑩ EDIT 全建 → play（PLAY）：池剩余=31236B（≥4,096）
+  [PASS] 有序对 EDIT→PLAY：1/1 个目标页，最小池剩余 31236B（play）
+  [PASS] ⑩ EDIT 全建 → tracks（TRACKS）：池剩余=28136B（≥4,096）
+  [PASS] 有序对 EDIT→TRACKS：1/1 个目标页，最小池剩余 28136B（tracks）
+  [PASS] ⑩ EDIT 全建 → global（MIX）：池剩余=30948B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → fx（MIX）：池剩余=30896B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → tools（MIX）：池剩余=31348B（≥4,096）
+  [PASS] 有序对 EDIT→MIX：3/3 个目标页，最小池剩余 30896B（fx）
+  [PASS] ⑩ EDIT 全建 → sample（SYNTH）：池剩余=29568B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → dsyn（SYNTH）：池剩余=27512B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → fm6p（SYNTH）：池剩余=26900B（≥4,096）
+  [PASS] 有序对 EDIT→SYNTH：3/3 个目标页，最小池剩余 26900B（fm6p）
+  [PASS] ⑩ EDIT 全建 → step（SEQ）：池剩余=12068B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → transport（SEQ）：池剩余=25168B（≥4,096）
+  [PASS] 有序对 EDIT→SEQ：2/2 个目标页，最小池剩余 12068B（step）
+  [PASS] ⑩ EDIT 全建 → song（SONG）：池剩余=22532B（≥4,096）
+  [PASS] 有序对 EDIT→SONG：1/1 个目标页，最小池剩余 22532B（song）
+  [PASS] ⑩ EDIT 全建 → projects（FILE）：池剩余=26100B（≥4,096）
+  [PASS] ⑩ EDIT 全建 → presets（FILE）：池剩余=21724B（≥4,096）
+  [PASS] 有序对 EDIT→FILE：2/2 个目标页，最小池剩余 21724B（presets）
+  [PASS] ⑩ EDIT 全建 → system（SYS）：池剩余=28388B（≥4,096）
+  [PASS] 有序对 EDIT→SYS：1/1 个目标页，最小池剩余 28388B（system）
+  [PASS] ⑩ MIX 全建 → play（PLAY）：池剩余=37280B（≥4,096）
+  [PASS] 有序对 MIX→PLAY：1/1 个目标页，最小池剩余 37280B（play）
+  [PASS] ⑩ MIX 全建 → tracks（TRACKS）：池剩余=33908B（≥4,096）
+  [PASS] 有序对 MIX→TRACKS：1/1 个目标页，最小池剩余 33908B（tracks）
+  [PASS] ⑩ MIX 全建 → sound（EDIT）：池剩余=34244B（≥4,096）
+  [PASS] ⑩ MIX 全建 → mod（EDIT）：池剩余=36756B（≥4,096）
+  [PASS] ⑩ MIX 全建 → scale（EDIT）：池剩余=36632B（≥4,096）
+  [PASS] ⑩ MIX 全建 → voice（EDIT）：池剩余=36700B（≥4,096）
+  [PASS] 有序对 MIX→EDIT：4/4 个目标页，最小池剩余 34244B（sound）
+  [PASS] ⑩ MIX 全建 → sample（SYNTH）：池剩余=35428B（≥4,096）
+  [PASS] ⑩ MIX 全建 → dsyn（SYNTH）：池剩余=33372B（≥4,096）
+  [PASS] ⑩ MIX 全建 → fm6p（SYNTH）：池剩余=32688B（≥4,096）
+  [PASS] 有序对 MIX→SYNTH：3/3 个目标页，最小池剩余 32688B（fm6p）
+  [PASS] ⑩ MIX 全建 → step（SEQ）：池剩余=17948B（≥4,096）
+  [PASS] ⑩ MIX 全建 → transport（SEQ）：池剩余=31044B（≥4,096）
+  [PASS] 有序对 MIX→SEQ：2/2 个目标页，最小池剩余 17948B（step）
+  [PASS] ⑩ MIX 全建 → song（SONG）：池剩余=28220B（≥4,096）
+  [PASS] 有序对 MIX→SONG：1/1 个目标页，最小池剩余 28220B（song）
+  [PASS] ⑩ MIX 全建 → projects（FILE）：池剩余=32100B（≥4,096）
+  [PASS] ⑩ MIX 全建 → presets（FILE）：池剩余=27516B（≥4,096）
+  [PASS] 有序对 MIX→FILE：2/2 个目标页，最小池剩余 27516B（presets）
+  [PASS] ⑩ MIX 全建 → system（SYS）：池剩余=34232B（≥4,096）
+  [PASS] 有序对 MIX→SYS：1/1 个目标页，最小池剩余 34232B（system）
+  [PASS] ⑩ SYNTH 全建 → play（PLAY）：池剩余=28684B（≥4,096）
+  [PASS] 有序对 SYNTH→PLAY：1/1 个目标页，最小池剩余 28684B（play）
+  [PASS] ⑩ SYNTH 全建 → tracks（TRACKS）：池剩余=25404B（≥4,096）
+  [PASS] 有序对 SYNTH→TRACKS：1/1 个目标页，最小池剩余 25404B（tracks）
+  [PASS] ⑩ SYNTH 全建 → sound（EDIT）：池剩余=25620B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → mod（EDIT）：池剩余=28200B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → scale（EDIT）：池剩余=28200B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → voice（EDIT）：池剩余=28236B（≥4,096）
+  [PASS] 有序对 SYNTH→EDIT：4/4 个目标页，最小池剩余 25620B（sound）
+  [PASS] ⑩ SYNTH 全建 → global（MIX）：池剩余=28132B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → fx（MIX）：池剩余=28228B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → tools（MIX）：池剩余=28600B（≥4,096）
+  [PASS] 有序对 SYNTH→MIX：3/3 个目标页，最小池剩余 28132B（global）
+  [PASS] ⑩ SYNTH 全建 → step（SEQ）：池剩余=9496B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → transport（SEQ）：池剩余=22564B（≥4,096）
+  [PASS] 有序对 SYNTH→SEQ：2/2 个目标页，最小池剩余 9496B（step）
+  [PASS] ⑩ SYNTH 全建 → song（SONG）：池剩余=19744B（≥4,096）
+  [PASS] 有序对 SYNTH→SONG：1/1 个目标页，最小池剩余 19744B（song）
+  [PASS] ⑩ SYNTH 全建 → projects（FILE）：池剩余=23408B（≥4,096）
+  [PASS] ⑩ SYNTH 全建 → presets（FILE）：池剩余=19100B（≥4,096）
+  [PASS] 有序对 SYNTH→FILE：2/2 个目标页，最小池剩余 19100B（presets）
+  [PASS] ⑩ SYNTH 全建 → system（SYS）：池剩余=25708B（≥4,096）
+  [PASS] 有序对 SYNTH→SYS：1/1 个目标页，最小池剩余 25708B（system）
+  [PASS] ⑩ SEQ 全建 → play（PLAY）：池剩余=16256B（≥4,096）
+  [PASS] 有序对 SEQ→PLAY：1/1 个目标页，最小池剩余 16256B（play）
+  [PASS] ⑩ SEQ 全建 → tracks（TRACKS）：池剩余=12980B（≥4,096）
+  [PASS] 有序对 SEQ→TRACKS：1/1 个目标页，最小池剩余 12980B（tracks）
+  [PASS] ⑩ SEQ 全建 → sound（EDIT）：池剩余=13256B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → mod（EDIT）：池剩余=15732B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → scale（EDIT）：池剩余=15724B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → voice（EDIT）：池剩余=15752B（≥4,096）
+  [PASS] 有序对 SEQ→EDIT：4/4 个目标页，最小池剩余 13256B（sound）
+  [PASS] ⑩ SEQ 全建 → global（MIX）：池剩余=15652B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → fx（MIX）：池剩余=15660B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → tools（MIX）：池剩余=16080B（≥4,096）
+  [PASS] 有序对 SEQ→MIX：3/3 个目标页，最小池剩余 15652B（global）
+  [PASS] ⑩ SEQ 全建 → sample（SYNTH）：池剩余=14392B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → dsyn（SYNTH）：池剩余=12384B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → fm6p（SYNTH）：池剩余=11636B（≥4,096）
+  [PASS] 有序对 SEQ→SYNTH：3/3 个目标页，最小池剩余 11636B（fm6p）
+  [PASS] ⑩ SEQ 全建 → song（SONG）：池剩余=7460B（≥4,096）
+  [PASS] 有序对 SEQ→SONG：1/1 个目标页，最小池剩余 7460B（song）
+  [PASS] ⑩ SEQ 全建 → projects（FILE）：池剩余=10972B（≥4,096）
+  [PASS] ⑩ SEQ 全建 → presets（FILE）：池剩余=6564B（≥4,096）
+  [PASS] 有序对 SEQ→FILE：2/2 个目标页，最小池剩余 6564B（presets）
+  [PASS] ⑩ SEQ 全建 → system（SYS）：池剩余=13208B（≥4,096）
+  [PASS] 有序对 SEQ→SYS：1/1 个目标页，最小池剩余 13208B（system）
+  [PASS] ⑩ SONG 全建 → play（PLAY）：池剩余=34776B（≥4,096）
+  [PASS] 有序对 SONG→PLAY：1/1 个目标页，最小池剩余 34776B（play）
+  [PASS] ⑩ SONG 全建 → tracks（TRACKS）：池剩余=31468B（≥4,096）
+  [PASS] 有序对 SONG→TRACKS：1/1 个目标页，最小池剩余 31468B（tracks）
+  [PASS] ⑩ SONG 全建 → sound（EDIT）：池剩余=31740B（≥4,096）
+  [PASS] ⑩ SONG 全建 → mod（EDIT）：池剩余=34088B（≥4,096）
+  [PASS] ⑩ SONG 全建 → scale（EDIT）：池剩余=34200B（≥4,096）
+  [PASS] ⑩ SONG 全建 → voice（EDIT）：池剩余=34184B（≥4,096）
+  [PASS] 有序对 SONG→EDIT：4/4 个目标页，最小池剩余 31740B（sound）
+  [PASS] ⑩ SONG 全建 → global（MIX）：池剩余=34292B（≥4,096）
+  [PASS] ⑩ SONG 全建 → fx（MIX）：池剩余=34168B（≥4,096）
+  [PASS] ⑩ SONG 全建 → tools（MIX）：池剩余=34564B（≥4,096）
+  [PASS] 有序对 SONG→MIX：3/3 个目标页，最小池剩余 34168B（fx）
+  [PASS] ⑩ SONG 全建 → sample（SYNTH）：池剩余=32884B（≥4,096）
+  [PASS] ⑩ SONG 全建 → dsyn（SYNTH）：池剩余=30828B（≥4,096）
+  [PASS] ⑩ SONG 全建 → fm6p（SYNTH）：池剩余=30052B（≥4,096）
+  [PASS] 有序对 SONG→SYNTH：3/3 个目标页，最小池剩余 30052B（fm6p）
+  [PASS] ⑩ SONG 全建 → step（SEQ）：池剩余=15320B（≥4,096）
+  [PASS] ⑩ SONG 全建 → transport（SEQ）：池剩余=28316B（≥4,096）
+  [PASS] 有序对 SONG→SEQ：2/2 个目标页，最小池剩余 15320B（step）
+  [PASS] ⑩ SONG 全建 → projects（FILE）：池剩余=29376B（≥4,096）
+  [PASS] ⑩ SONG 全建 → presets（FILE）：池剩余=24808B（≥4,096）
+  [PASS] 有序对 SONG→FILE：2/2 个目标页，最小池剩余 24808B（presets）
+  [PASS] ⑩ SONG 全建 → system（SYS）：池剩余=31532B（≥4,096）
+  [PASS] 有序对 SONG→SYS：1/1 个目标页，最小池剩余 31532B（system）
+  [PASS] ⑩ FILE 全建 → play（PLAY）：池剩余=26924B（≥4,096）
+  [PASS] 有序对 FILE→PLAY：1/1 个目标页，最小池剩余 26924B（play）
+  [PASS] ⑩ FILE 全建 → tracks（TRACKS）：池剩余=23860B（≥4,096）
+  [PASS] 有序对 FILE→TRACKS：1/1 个目标页，最小池剩余 23860B（tracks）
+  [PASS] ⑩ FILE 全建 → sound（EDIT）：池剩余=24188B（≥4,096）
+  [PASS] ⑩ FILE 全建 → mod（EDIT）：池剩余=26656B（≥4,096）
+  [PASS] ⑩ FILE 全建 → scale（EDIT）：池剩余=26684B（≥4,096）
+  [PASS] ⑩ FILE 全建 → voice（EDIT）：池剩余=26664B（≥4,096）
+  [PASS] 有序对 FILE→EDIT：4/4 个目标页，最小池剩余 24188B（sound）
+  [PASS] ⑩ FILE 全建 → global（MIX）：池剩余=26612B（≥4,096）
+  [PASS] ⑩ FILE 全建 → fx（MIX）：池剩余=26700B（≥4,096）
+  [PASS] ⑩ FILE 全建 → tools（MIX）：池剩余=27104B（≥4,096）
+  [PASS] 有序对 FILE→MIX：3/3 个目标页，最小池剩余 26612B（global）
+  [PASS] ⑩ FILE 全建 → sample（SYNTH）：池剩余=25356B（≥4,096）
+  [PASS] ⑩ FILE 全建 → dsyn（SYNTH）：池剩余=23232B（≥4,096）
+  [PASS] ⑩ FILE 全建 → fm6p（SYNTH）：池剩余=22648B（≥4,096）
+  [PASS] 有序对 FILE→SYNTH：3/3 个目标页，最小池剩余 22648B（fm6p）
+  [PASS] ⑩ FILE 全建 → step（SEQ）：池剩余=7904B（≥4,096）
+  [PASS] ⑩ FILE 全建 → transport（SEQ）：池剩余=20936B（≥4,096）
+  [PASS] 有序对 FILE→SEQ：2/2 个目标页，最小池剩余 7904B（step）
+  [PASS] ⑩ FILE 全建 → song（SONG）：池剩余=18136B（≥4,096）
+  [PASS] 有序对 FILE→SONG：1/1 个目标页，最小池剩余 18136B（song）
+  [PASS] ⑩ FILE 全建 → system（SYS）：池剩余=24076B（≥4,096）
+  [PASS] 有序对 FILE→SYS：1/1 个目标页，最小池剩余 24076B（system）
+  [PASS] ⑩ SYS 全建 → play（PLAY）：池剩余=40596B（≥4,096）
+  [PASS] 有序对 SYS→PLAY：1/1 个目标页，最小池剩余 40596B（play）
+  [PASS] ⑩ SYS 全建 → tracks（TRACKS）：池剩余=37316B（≥4,096）
+  [PASS] 有序对 SYS→TRACKS：1/1 个目标页，最小池剩余 37316B（tracks）
+  [PASS] ⑩ SYS 全建 → sound（EDIT）：池剩余=37640B（≥4,096）
+  [PASS] ⑩ SYS 全建 → mod（EDIT）：池剩余=39948B（≥4,096）
+  [PASS] ⑩ SYS 全建 → scale（EDIT）：池剩余=39964B（≥4,096）
+  [PASS] ⑩ SYS 全建 → voice（EDIT）：池剩余=40092B（≥4,096）
+  [PASS] 有序对 SYS→EDIT：4/4 个目标页，最小池剩余 37640B（sound）
+  [PASS] ⑩ SYS 全建 → global（MIX）：池剩余=40020B（≥4,096）
+  [PASS] ⑩ SYS 全建 → fx（MIX）：池剩余=40052B（≥4,096）
+  [PASS] ⑩ SYS 全建 → tools（MIX）：池剩余=40400B（≥4,096）
+  [PASS] 有序对 SYS→MIX：3/3 个目标页，最小池剩余 40020B（global）
+  [PASS] ⑩ SYS 全建 → sample（SYNTH）：池剩余=38776B（≥4,096）
+  [PASS] ⑩ SYS 全建 → dsyn（SYNTH）：池剩余=36688B（≥4,096）
+  [PASS] ⑩ SYS 全建 → fm6p（SYNTH）：池剩余=36032B（≥4,096）
+  [PASS] 有序对 SYS→SYNTH：3/3 个目标页，最小池剩余 36032B（fm6p）
+  [PASS] ⑩ SYS 全建 → step（SEQ）：池剩余=21256B（≥4,096）
+  [PASS] ⑩ SYS 全建 → transport（SEQ）：池剩余=34308B（≥4,096）
+  [PASS] 有序对 SYS→SEQ：2/2 个目标页，最小池剩余 21256B（step）
+  [PASS] ⑩ SYS 全建 → song（SONG）：池剩余=31440B（≥4,096）
+  [PASS] 有序对 SYS→SONG：1/1 个目标页，最小池剩余 31440B（song）
+  [PASS] ⑩ SYS 全建 → projects（FILE）：池剩余=35292B（≥4,096）
+  [PASS] ⑩ SYS 全建 → presets（FILE）：池剩余=30860B（≥4,096）
+  [PASS] 有序对 SYS→FILE：2/2 个目标页，最小池剩余 30860B（presets）
+  [PASS] LVGL 任务栈最小余量（nav 全场景）lvgl_stack_free=5116B（≥2048）
+  [PASS] 复位 UI play
+[PASS] nav: 全部断言与像素抽检通过

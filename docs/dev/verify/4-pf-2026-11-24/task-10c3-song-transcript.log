@@ -1,0 +1,1498 @@
+
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  # [inject] 场景 song 开始
+# [inject] song 场景开始：归一（停走带 / 窗口 / AUTO OFF / 清 A–D / 默认歌曲）
+STORE AUTO OFF
+STORE AUTO off
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  UI WINDOW 0 16
+UI WINDOW bank=0 start=0 len=16
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  SEQ SONG MODE loop
+SEQ SONG mode=loop
+sloop>  STORE PROJ ERASE 0
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PROJ ERASE 1
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PROJ ERASE 2
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE PROJ ERASE 3
+STORE ERR empty
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE SONG SET 4 0 0:4 1:4 2:4 3:4
+STORE SONG SET count=4 loop=0 dirty=1
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x00 live=- dirty=1 index=0 bar=0
+sloop>  UI song
+I (183333) sloop_ui: 页面构建 page=SONG(11) 池增量=11580B 预算=12288B 池剩余=34964B 耗时=17ms
+I (183333) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI TAB song
+UI TAB SONG page=song (11)
+sloop>  UI SUB 0
+UI ERR sub 0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI MEM
+UI MEM pool_used=23900 pool_free=37560 pool_total=61460 registered=18 built=1 failed=0 sum_est=134144 reserve=-72684 group=SONG lvgl_stack_free=5868
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=37
+UI MEM GROUP SONG built=1 sum_est=12288 sum_delta=11580 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=built est=12288 delta=11580 build_ms=17
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-empty.png
+SCR
+I (184063) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 776 220
+TAP 776,220 page=11 -> SONG card=C select
+sloop>  TAP 1080 220
+TAP 1080,220 page=11 -> SONG card=D select
+sloop>  TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  TAP 94 312
+TAP 94,312 page=11 -> SONG STORE section=A value=0 status="STORE A: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x01 live=A dirty=1 index=0 bar=0
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 94 312
+TAP 94,312 page=11 -> SONG STORE section=B value=0 status="STORE B: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  TAP 1169 472
+TAP 1169,472 page=11 -> SONG entry=15 select
+sloop>  TAP 98 402
+TAP 98,402 page=11 -> SONG entry=0 select scene=0 bars=4
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=3 status="COUNT 3"
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=2 status="COUNT 2"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=4
+SONG 1 scene=1 bars=4
+sloop>  TAP 404 402
+TAP 404,402 page=11 -> SONG entry=2 select
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=0 status="ENTRY 3: EMPTY"
+sloop>  TAP 98 402
+TAP 98,402 page=11 -> SONG entry=0 select scene=0 bars=4
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=3 status="ENTRY 1 BARS 3"
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=2 status="ENTRY 1 BARS 2"
+sloop>  TAP 251 402
+TAP 251,402 page=11 -> SONG entry=1 select scene=1 bars=4
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=3 status="ENTRY 2 BARS 3"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  TAP 834 554
+TAP 834,554 page=11 -> SONG LOOP value=1 status="LOOP ON"
+sloop>  STORE SONG
+STORE SONG count=2 loop=1 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  TAP 834 554
+TAP 834,554 page=11 -> SONG LOOP value=0 status="LOOP OFF"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  STORE SONG SET 16 0 0:4 1:4 2:4 3:4 0:4 1:4 2:4 3:4 0:4 1:4 2:4 3:4 0:4 1:4 2:4 3:4
+STORE SONG SET count=16 loop=0 dirty=1
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=16 status="COUNT 16"
+sloop>  STORE SONG SET 2 0 0:64 1:3
+STORE SONG SET count=2 loop=0 dirty=1
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 98 402
+TAP 98,402 page=11 -> SONG entry=0 select scene=0 bars=64
+sloop>  TAP 390 554
+TAP 390,554 page=11 -> SONG BARS+ value=64 status="ENTRY 1 BARS 64"
+sloop>  STORE SONG SET 2 0 0:2 1:3
+STORE SONG SET count=2 loop=0 dirty=1
+sloop>  UI song
+UI page=song (11)
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-edit.png
+SCR
+I (204403) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+STORE SONG SET 8 0 0:2 1:3 2:5 3:7 2:9 3:13 1:5 0:7
+STORE SONG SET count=8 loop=0 dirty=1
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 710 402
+TAP 710,402 page=11 -> SONG entry=4 select scene=2 bars=9
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=7 status="COUNT 7"
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=6 status="COUNT 6"
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=5 status="COUNT 5"
+sloop>  TAP 538 554
+TAP 538,554 page=11 -> SONG COUNT- value=4 status="COUNT 4"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=5 status="COUNT 5"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=6 status="COUNT 6"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=7 status="COUNT 7"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=8 status="COUNT 8"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=9 status="COUNT 9"
+sloop>  STORE SONG
+STORE SONG count=9 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+SONG 2 scene=2 bars=5
+SONG 3 scene=3 bars=7
+SONG 4 scene=2 bars=9
+SONG 5 scene=3 bars=13
+SONG 6 scene=1 bars=5
+SONG 7 scene=0 bars=7
+SONG 8 scene=0 bars=4
+sloop>  STORE SONG SET 2 0 0:2 1:3
+STORE SONG SET count=2 loop=0 dirty=1
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 390 312
+TAP 390,312 page=11 -> SONG ERASE section=B value=0 status="ERASE B: OK"
+sloop>  STORE SONG
+STORE SONG count=1 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x01 live=- dirty=1 index=0 bar=0
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 94 312
+TAP 94,312 page=11 -> SONG STORE section=B value=0 status="STORE B: OK"
+sloop>  TAP 98 402
+TAP 98,402 page=11 -> SONG entry=0 select scene=0 bars=2
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ value=2 status="COUNT 2"
+sloop>  TAP 251 402
+TAP 251,402 page=11 -> SONG entry=1 select scene=1 bars=4
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=3 status="ENTRY 2 BARS 3"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 98 402
+TAP 98,402 page=11 -> SONG entry=0 select scene=0 bars=2
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=206
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=88
+sloop>  TAP 390 554
+TAP 390,554 page=11 -> SONG BARS+ value=4 status="ENTRY 2 BARS 4"
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=3 status="ENTRY 2 BARS 3"
+sloop>  KEY 0x4A down
+KEY 0x4A down left elapsed_us=206
+sloop>  KEY 0x4A up
+KEY 0x4A up left elapsed_us=92
+sloop>  TAP 390 554
+TAP 390,554 page=11 -> SONG BARS+ value=3 status="ENTRY 1 BARS 3"
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- value=2 status="ENTRY 1 BARS 2"
+sloop>  TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=205
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=86
+sloop>  TAP 242 312
+TAP 242,312 page=11 -> SONG LOAD section=B value=0 status="LOAD B: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=205
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=113
+sloop>  TAP 242 312
+TAP 242,312 page=11 -> SONG LOAD section=A value=0 status="LOAD A: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=A dirty=1 index=0 bar=0
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  KEY 0x3D down
+KEY 0x3D down enter elapsed_us=941
+sloop>  KEY 0x3D up
+KEY 0x3D up enter elapsed_us=85
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  UI transport
+I (225863) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8572B 预算=9216B 池剩余=28972B 耗时=12ms
+I (225863) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
+UI page=transport (3)
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  UI song
+I (226323) sloop_ui: 页面构建 page=SONG(11) 池增量=11220B 预算=12288B 池剩余=29056B 耗时=18ms
+I (226323) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  TAP 242 554
+TAP 242,554 page=11 -> SONG BARS- ERR blocked value=0 status="STOP FIRST"
+sloop>  TAP 94 554
+TAP 94,554 page=11 -> SONG SCENE ERR blocked value=0 status="STOP FIRST"
+sloop>  TAP 686 554
+TAP 686,554 page=11 -> SONG COUNT+ ERR blocked value=0 status="STOP FIRST"
+sloop>  TAP 834 554
+TAP 834,554 page=11 -> SONG LOOP ERR blocked value=0 status="STOP FIRST"
+sloop>  TAP 710 312
+TAP 710,312 page=11 -> SONG SONG ERR blocked value=0 status="STOP FIRST"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=1 bars=3
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 538 312
+TAP 538,312 page=11 -> SONG JUMP section=B value=0 status="JUMP B: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-live-b.png
+SCR
+I (227733) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 776 220
+TAP 776,220 page=11 -> SONG card=C select
+sloop>  TAP 538 312
+TAP 538,312 page=11 -> SONG JUMP section=C ERR not_found value=0 status="JUMP C: EMPTY"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-empty-jump.png
+SCR
+I (244613) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 858 312
+TAP 858,312 page=11 -> SONG CHAIN value=1 status="CHAIN: B"
+sloop>  TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 858 312
+TAP 858,312 page=11 -> SONG CHAIN value=3 status="CHAIN: B A B"
+sloop>  SEQ CHAIN
+SEQ CHAIN count=3 index=0 bars=64
+SEQ CHAIN 0 scene=1
+SEQ CHAIN 1 scene=0
+SEQ CHAIN 2 scene=1
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-chain.png
+SCR
+I (261943) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 858 312
+TAP 858,312 page=11 -> SONG CHAIN value=1 status="CHAIN: B"
+sloop>  TAP 776 220
+TAP 776,220 page=11 -> SONG card=C select
+sloop>  TAP 858 312
+TAP 858,312 page=11 -> SONG CHAIN ERR not_found value=0 status="CHAIN: EMPTY"
+sloop>  SEQ CHAIN
+SEQ CHAIN count=0 index=0 bars=64
+sloop>  TAP 472 220
+TAP 472,220 page=11 -> SONG card=B select
+sloop>  TAP 858 312
+TAP 858,312 page=11 -> SONG CHAIN value=1 status="CHAIN: B"
+sloop>  TAP 1006 312
+TAP 1006,312 page=11 -> SONG CANCEL value=0 status="CHAIN: CANCEL"
+sloop>  SEQ CHAIN
+SEQ CHAIN count=0 index=0 bars=64
+sloop>  UI transport
+I (279583) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8516B 预算=9216B 池剩余=28936B 耗时=14ms
+I (279583) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=18ms
+UI page=transport (3)
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  UI song
+I (280043) sloop_ui: 页面构建 page=SONG(11) 池增量=11216B 预算=12288B 池剩余=28920B 耗时=17ms
+I (280053) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  TAP 710 312
+TAP 710,312 page=11 -> SONG SONG value=1 status="MODE: SONG"
+sloop>  SEQ SONG
+SEQ SONG mode=song running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=1 bars=3
+sloop>  TAP 251 402
+TAP 251,402 page=11 -> SONG entry=1 select scene=1 bars=3
+sloop>  TAP 94 554
+TAP 94,554 page=11 -> SONG SCENE value=2 status="ENTRY 2 SCENE C"
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=2 bars=3
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=B dirty=1 index=0 bar=0
+sloop>  UI transport
+I (280903) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8408B 预算=9216B 池剩余=28900B 耗时=13ms
+I (280903) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=17ms
+UI page=transport (3)
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  SEQ SONG
+SEQ SONG mode=song running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=2 bars=3
+sloop>  UI song
+I (282423) sloop_ui: 页面构建 page=SONG(11) 池增量=11232B 预算=12288B 池剩余=28880B 耗时=17ms
+I (282423) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-empty-scene.png
+SCR
+I (282823) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+TAP 251 402
+TAP 251,402 page=11 -> SONG entry=1 select scene=2 bars=3
+sloop>  TAP 94 554
+TAP 94,554 page=11 -> SONG SCENE value=3 status="ENTRY 2 SCENE D"
+sloop>  TAP 94 554
+TAP 94,554 page=11 -> SONG SCENE value=0 status="ENTRY 2 SCENE A"
+sloop>  TAP 94 554
+TAP 94,554 page=11 -> SONG SCENE value=1 status="ENTRY 2 SCENE B"
+sloop>  TAP 710 312
+TAP 710,312 page=11 -> SONG SONG value=0 status="MODE: LOOP"
+sloop>  SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x03 live=B dirty=1 chain=0 srec=off count=2 loop=0
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=1 bars=3
+sloop>  UI song
+UI page=song (11)
+sloop>  TAP 168 220
+TAP 168,220 page=11 -> SONG card=A select
+sloop>  TAP 242 312
+TAP 242,312 page=11 -> SONG LOAD section=A value=0 status="LOAD A: OK"
+sloop>  SEQ SECTION
+SEQ SECTION ready=0x03 live=A dirty=1 index=0 bar=0
+sloop>  TAP 1154 312
+TAP 1154,312 page=11 -> SONG REC value=1 status="REC: ARMED"
+sloop>  SEQ SREC
+SEQ SREC srec=armed last=none
+sloop>  UI transport
+I (300173) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8368B 预算=9216B 池剩余=28904B 耗时=13ms
+I (300173) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 跨组耗时=16ms
+UI page=transport (3)
+sloop>  TAP 208 210
+TAP 208,210 page=3 -> TRANSPORT CMD_PLAY
+sloop>  SEQ SREC
+SEQ SREC srec=recording last=none
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  SEQ SREC
+SEQ SREC srec=off last=no_song
+sloop>  STORE SONG
+STORE SONG count=2 loop=0 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  UI song
+I (301043) sloop_ui: 页面构建 page=SONG(11) 池增量=11180B 预算=12288B 池剩余=28880B 耗时=17ms
+I (301043) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-song-nosong.png
+SCR
+I (301453) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+I (317673) sloop_ui: 页面构建 page=PLAY(0) 池增量=2256B 预算=3072B 池剩余=34964B 耗时=5ms
+I (317673) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16072 pool_free=46316 pool_total=62388 registered=18 built=1 failed=0 sum_est=134144 reserve=-71756 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2256 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2256 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (318013) sloop_ui: 页面构建 page=SONG(11) 池增量=11488B 预算=12288B 池剩余=34828B 耗时=17ms
+I (318013) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI play
+I (318253) sloop_ui: 页面构建 page=PLAY(0) 池增量=2280B 预算=3072B 池剩余=35096B 耗时=4ms
+I (318253) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16080 pool_free=46332 pool_total=62412 registered=18 built=1 failed=0 sum_est=134144 reserve=-71732 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2280 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2280 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (318583) sloop_ui: 页面构建 page=SONG(11) 池增量=11340B 预算=12288B 池剩余=34992B 耗时=15ms
+I (318583) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=18ms
+UI page=song (11)
+sloop>  UI play
+I (318823) sloop_ui: 页面构建 page=PLAY(0) 池增量=2292B 预算=3072B 池剩余=35224B 耗时=6ms
+I (318823) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16092 pool_free=46300 pool_total=62392 registered=18 built=1 failed=0 sum_est=134144 reserve=-71752 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2292 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=18
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2292 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (319153) sloop_ui: 页面构建 page=SONG(11) 池增量=11340B 预算=12288B 池剩余=34960B 耗时=17ms
+I (319163) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (319403) sloop_ui: 页面构建 page=PLAY(0) 池增量=2292B 预算=3072B 池剩余=35224B 耗时=6ms
+I (319403) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16096 pool_free=46292 pool_total=62388 registered=18 built=1 failed=0 sum_est=134144 reserve=-71756 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2292 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2292 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (319723) sloop_ui: 页面构建 page=SONG(11) 池增量=11396B 预算=12288B 池剩余=34896B 耗时=16ms
+I (319733) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
+UI page=song (11)
+sloop>  UI play
+I (319973) sloop_ui: 页面构建 page=PLAY(0) 池增量=2288B 预算=3072B 池剩余=35136B 耗时=6ms
+I (319973) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16096 pool_free=46288 pool_total=62384 registered=18 built=1 failed=0 sum_est=134144 reserve=-71760 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2288 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2288 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (320293) sloop_ui: 页面构建 page=SONG(11) 池增量=11284B 预算=12288B 池剩余=35004B 耗时=17ms
+I (320303) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (320533) sloop_ui: 页面构建 page=PLAY(0) 池增量=2284B 预算=3072B 池剩余=35296B 耗时=5ms
+I (320543) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16088 pool_free=46280 pool_total=62368 registered=18 built=1 failed=0 sum_est=134144 reserve=-71776 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2284 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2284 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (320873) sloop_ui: 页面构建 page=SONG(11) 池增量=11356B 预算=12288B 池剩余=34924B 耗时=17ms
+I (320873) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (321113) sloop_ui: 页面构建 page=PLAY(0) 池增量=2288B 预算=3072B 池剩余=35216B 耗时=4ms
+I (321123) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16104 pool_free=46264 pool_total=62368 registered=18 built=1 failed=0 sum_est=134144 reserve=-71776 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2288 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2288 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (321433) sloop_ui: 页面构建 page=SONG(11) 池增量=11312B 预算=12288B 池剩余=34952B 耗时=17ms
+I (321433) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (321683) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=35192B 耗时=4ms
+I (321693) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16100 pool_free=46300 pool_total=62400 registered=18 built=1 failed=0 sum_est=134144 reserve=-71744 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (322003) sloop_ui: 页面构建 page=SONG(11) 池增量=11400B 预算=12288B 池剩余=34900B 耗时=17ms
+I (322013) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (322253) sloop_ui: 页面构建 page=PLAY(0) 池增量=2292B 预算=3072B 池剩余=35164B 耗时=5ms
+I (322253) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16108 pool_free=46300 pool_total=62408 registered=18 built=1 failed=0 sum_est=134144 reserve=-71736 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2292 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2292 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (322583) sloop_ui: 页面构建 page=SONG(11) 池增量=11336B 预算=12288B 池剩余=34964B 耗时=17ms
+I (322583) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=20ms
+UI page=song (11)
+sloop>  UI play
+I (322823) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=35236B 耗时=5ms
+I (322823) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16120 pool_free=46276 pool_total=62396 registered=18 built=1 failed=0 sum_est=134144 reserve=-71748 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=20
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI song
+I (323143) sloop_ui: 页面构建 page=SONG(11) 池增量=11408B 预算=12288B 池剩余=34868B 耗时=18ms
+I (323143) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI play
+I (323383) sloop_ui: 页面构建 page=PLAY(0) 池增量=2276B 预算=3072B 池剩余=35152B 耗时=6ms
+I (323393) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16092 pool_free=46308 pool_total=62400 registered=18 built=1 failed=0 sum_est=134144 reserve=-71744 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2276 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2276 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [inject] ⑩ SONG↔PLAY pool_free：46316 → 逐次 [46332, 46300, 46292, 46288, 46280, 46264, 46300, 46300, 46276, 46308]
+UI play
+UI page=play (0)
+sloop>  UI step
+I (323833) sloop_ui: 页面构建 page=STEP(2) 池增量=21644B 预算=23040B 池剩余=24664B 耗时=30ms
+I (323843) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+UI page=step (2)
+sloop>  UI transport
+I (324133) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8440B 预算=9216B 池剩余=18780B 耗时=14ms
+I (324133) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=17ms
+UI page=transport (3)
+sloop>  UI song
+I (324383) sloop_ui: 页面构建 page=SONG(11) 池增量=11328B 预算=12288B 池剩余=7776B 耗时=15ms
+I (324393) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=21ms
+UI page=song (11)
+sloop>  UI play
+I (324633) sloop_ui: 页面构建 page=PLAY(0) 池增量=2292B 预算=3072B 池剩余=35320B 耗时=4ms
+I (324633) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16060 pool_free=46416 pool_total=62476 registered=18 built=1 failed=0 sum_est=134144 reserve=-71668 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2292 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=17
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=21
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2292 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (324963) sloop_ui: 页面构建 page=STEP(2) 池增量=21808B 预算=23040B 池剩余=24608B 耗时=30ms
+I (324963) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+UI page=step (2)
+sloop>  UI transport
+I (325253) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8496B 预算=9216B 池剩余=18728B 耗时=13ms
+I (325263) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=17ms
+UI page=transport (3)
+sloop>  UI song
+I (325503) sloop_ui: 页面构建 page=SONG(11) 池增量=11328B 预算=12288B 池剩余=7752B 耗时=16ms
+I (325513) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI play
+I (325753) sloop_ui: 页面构建 page=PLAY(0) 池增量=2308B 预算=3072B 池剩余=35268B 耗时=6ms
+I (325753) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16064 pool_free=46380 pool_total=62444 registered=18 built=1 failed=0 sum_est=134144 reserve=-71700 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2308 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=17
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2308 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (326093) sloop_ui: 页面构建 page=STEP(2) 池增量=21780B 预算=23040B 池剩余=24600B 耗时=28ms
+I (326093) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  UI transport
+I (326383) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8460B 预算=9216B 池剩余=18760B 耗时=14ms
+I (326383) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=18ms
+UI page=transport (3)
+sloop>  UI song
+I (326633) sloop_ui: 页面构建 page=SONG(11) 池增量=11340B 预算=12288B 池剩余=7772B 耗时=16ms
+I (326643) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI play
+I (326873) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=35288B 耗时=6ms
+I (326873) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16072 pool_free=46388 pool_total=62460 registered=18 built=1 failed=0 sum_est=134144 reserve=-71684 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=18
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (327213) sloop_ui: 页面构建 page=STEP(2) 池增量=21772B 预算=23040B 池剩余=24616B 耗时=28ms
+I (327213) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  UI transport
+I (327503) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8500B 预算=9216B 池剩余=18720B 耗时=14ms
+I (327503) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=18ms
+UI page=transport (3)
+sloop>  UI song
+I (327753) sloop_ui: 页面构建 page=SONG(11) 池增量=11340B 预算=12288B 池剩余=7728B 耗时=17ms
+I (327753) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=23ms
+UI page=song (11)
+sloop>  UI play
+I (327993) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=35276B 耗时=5ms
+I (327993) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16076 pool_free=46396 pool_total=62472 registered=18 built=1 failed=0 sum_est=134144 reserve=-71672 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=18
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=23
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (328333) sloop_ui: 页面构建 page=STEP(2) 池增量=21792B 预算=23040B 池剩余=24604B 耗时=31ms
+I (328333) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+UI page=step (2)
+sloop>  UI transport
+I (328633) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8440B 预算=9216B 池剩余=18752B 耗时=14ms
+I (328633) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=18ms
+UI page=transport (3)
+sloop>  UI song
+I (328883) sloop_ui: 页面构建 page=SONG(11) 池增量=11328B 预算=12288B 池剩余=7756B 耗时=16ms
+I (328893) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=22ms
+UI page=song (11)
+sloop>  UI play
+I (329133) sloop_ui: 页面构建 page=PLAY(0) 池增量=2308B 预算=3072B 池剩余=35296B 耗时=6ms
+I (329133) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16080 pool_free=46396 pool_total=62476 registered=18 built=1 failed=0 sum_est=134144 reserve=-71668 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2308 build_ms=9
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=18
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=22
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2308 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (329473) sloop_ui: 页面构建 page=STEP(2) 池增量=21704B 预算=23040B 池剩余=24692B 耗时=31ms
+I (329473) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+UI page=step (2)
+sloop>  UI transport
+I (329763) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8368B 预算=9216B 池剩余=18904B 耗时=13ms
+I (329773) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=17ms
+UI page=transport (3)
+sloop>  UI song
+I (330023) sloop_ui: 页面构建 page=SONG(11) 池增量=11264B 预算=12288B 池剩余=7976B 耗时=18ms
+I (330033) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
+UI page=song (11)
+sloop>  UI play
+I (330263) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=35348B 耗时=4ms
+I (330273) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16068 pool_free=46384 pool_total=62452 registered=18 built=1 failed=0 sum_est=134144 reserve=-71692 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=17
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (330613) sloop_ui: 页面构建 page=STEP(2) 池增量=21816B 预算=23040B 池剩余=24568B 耗时=29ms
+I (330623) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=33ms
+UI page=step (2)
+sloop>  UI transport
+I (330913) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8444B 预算=9216B 池剩余=18724B 耗时=14ms
+I (330923) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=18ms
+UI page=transport (3)
+sloop>  UI song
+I (331173) sloop_ui: 页面构建 page=SONG(11) 池增量=11328B 预算=12288B 池剩余=7720B 耗时=19ms
+I (331183) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=26ms
+UI page=song (11)
+sloop>  UI play
+I (331413) sloop_ui: 页面构建 page=PLAY(0) 池增量=2316B 预算=3072B 池剩余=35280B 耗时=4ms
+I (331423) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16088 pool_free=46384 pool_total=62472 registered=18 built=1 failed=0 sum_est=134144 reserve=-71672 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2316 build_ms=8
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=18
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=26
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2316 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (331763) sloop_ui: 页面构建 page=STEP(2) 池增量=21696B 预算=23040B 池剩余=24688B 耗时=28ms
+I (331763) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  UI transport
+I (332053) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8476B 预算=9216B 池剩余=18812B 耗时=13ms
+I (332053) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=16ms
+UI page=transport (3)
+sloop>  UI song
+I (332303) sloop_ui: 页面构建 page=SONG(11) 池增量=11332B 预算=12288B 池剩余=7820B 耗时=19ms
+I (332313) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=26ms
+UI page=song (11)
+sloop>  UI play
+I (332553) sloop_ui: 页面构建 page=PLAY(0) 池增量=2296B 预算=3072B 池剩余=35292B 耗时=4ms
+I (332553) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16064 pool_free=46388 pool_total=62452 registered=18 built=1 failed=0 sum_est=134144 reserve=-71692 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2296 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=16
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=26
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2296 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (332903) sloop_ui: 页面构建 page=STEP(2) 池增量=21764B 预算=23040B 池剩余=24624B 耗时=30ms
+I (332903) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+UI page=step (2)
+sloop>  UI transport
+I (333193) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8472B 预算=9216B 池剩余=18744B 耗时=13ms
+I (333193) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=17ms
+UI page=transport (3)
+sloop>  UI song
+I (333453) sloop_ui: 页面构建 page=SONG(11) 池增量=11352B 预算=12288B 池剩余=7732B 耗时=19ms
+I (333463) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=26ms
+UI page=song (11)
+sloop>  UI play
+I (333703) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=35264B 耗时=4ms
+I (333713) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16076 pool_free=46380 pool_total=62456 registered=18 built=1 failed=0 sum_est=134144 reserve=-71688 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=7
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=17
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=26
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (334043) sloop_ui: 页面构建 page=STEP(2) 池增量=21756B 预算=23040B 池剩余=24624B 耗时=28ms
+I (334043) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=31ms
+UI page=step (2)
+sloop>  UI transport
+I (334333) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8464B 预算=9216B 池剩余=18772B 耗时=12ms
+I (334333) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=15ms
+UI page=transport (3)
+sloop>  UI song
+I (334583) sloop_ui: 页面构建 page=SONG(11) 池增量=11336B 预算=12288B 池剩余=7760B 耗时=18ms
+I (334593) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
+UI page=song (11)
+sloop>  UI play
+I (334833) sloop_ui: 页面构建 page=PLAY(0) 池增量=2300B 预算=3072B 池剩余=35312B 耗时=5ms
+I (334833) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16068 pool_free=46404 pool_total=62472 registered=18 built=1 failed=0 sum_est=134144 reserve=-71672 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2300 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=15
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2300 build_ms=5
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (335183) sloop_ui: 页面构建 page=STEP(2) 池增量=21700B 预算=23040B 池剩余=24704B 耗时=31ms
+I (335183) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+UI page=step (2)
+sloop>  UI transport
+I (335473) sloop_ui: 页面构建 page=TRANSPORT(3) 池增量=8448B 预算=9216B 池剩余=18836B 耗时=12ms
+I (335473) sloop_ui: 切页 page=TRANSPORT(3) 组=SEQ 组内首建耗时=15ms
+UI page=transport (3)
+sloop>  UI song
+I (335723) sloop_ui: 页面构建 page=SONG(11) 池增量=11332B 预算=12288B 池剩余=7824B 耗时=17ms
+I (335733) sloop_ui: 切页 page=SONG(11) 组=SONG 跨组耗时=24ms
+UI page=song (11)
+sloop>  UI play
+I (335983) sloop_ui: 页面构建 page=PLAY(0) 池增量=2304B 预算=3072B 池剩余=35300B 耗时=6ms
+I (335983) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=10ms
+UI page=play (0)
+sloop>  UI MEM
+UI MEM pool_used=16072 pool_free=46404 pool_total=62476 registered=18 built=1 failed=0 sum_est=134144 reserve=-71668 group=PLAY lvgl_stack_free=5868
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2304 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=15
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=34
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2304 build_ms=6
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [inject] ⑩ SEQ↔SONG pool_free：46416 → 逐次 [46380, 46388, 46396, 46396, 46384, 46384, 46388, 46380, 46404, 46404]
+UI TAB FILE
+I (336303) sloop_ui: 页面构建 page=PRESETS(10) 池增量=12116B 预算=12800B 池剩余=34288B 耗时=18ms
+I (336323) sloop_ui: 切页 page=PRESETS(10) 组=FILE 跨组耗时=34ms
+UI TAB FILE page=presets (10)
+sloop>  UI SUB 0
+I (336573) sloop_ui: 页面构建 page=PROJECTS(9) 池增量=7332B 预算=8192B 池剩余=29824B 耗时=11ms
+I (336583) sloop_ui: 切页 page=PROJECTS(9) 组=FILE 组内首建耗时=14ms
+UI SUB 0 page=projects (9)
+sloop>  UI SUB 1
+UI SUB 1 page=presets (10)
+sloop>  UI MEM
+UI MEM pool_used=30740 pool_free=30144 pool_total=60884 registered=18 built=2 failed=0 sum_est=134144 reserve=-73260 group=FILE lvgl_stack_free=5868
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=10
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=11
+UI MEM GROUP EDIT built=0 sum_est=16896 sum_delta=0 build_ms=12
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=15
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=24
+UI MEM GROUP FILE built=2 sum_est=20992 sum_delta=19448 build_ms=14
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=built est=8192 delta=7332 build_ms=11
+UI MEM page id=10 title=PRESETS state=built est=12800 delta=12116 build_ms=18
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  UI step
+I (337173) sloop_ui: 页面构建 page=STEP(2) 池增量=21664B 预算=23040B 池剩余=8480B 耗时=28ms
+I (337183) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=33ms
+UI page=step (2)
+sloop>  # [inject] ⑩ FILE→STEP 过渡实测：STEP delta=21664B、构建后 pool_free=8480B（账面 14000 + 20,992 + 23,040 + 4,096 = 62128B）
+UI TAB edit
+I (337463) sloop_ui: 页面构建 page=SOUND(6) 池增量=5356B 预算=6144B 池剩余=21980B 耗时=9ms
+I (337473) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=15ms
+UI TAB EDIT page=sound (6)
+sloop>  UI SUB 0
+UI SUB 0 page=sound (6)
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-tabs-edit.png
+SCR
+I (337973) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI TAB seq
+I (354813) sloop_ui: 页面构建 page=STEP(2) 池增量=21676B 预算=23040B 池剩余=21700B 耗时=30ms
+I (354813) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=34ms
+UI TAB SEQ page=step (2)
+sloop>  UI SUB 0
+UI SUB 0 page=step (2)
+sloop>  # [inject] SCR 截屏 -> inject-song-20261126-031158-task-11-tabs-seq.png
+SCR
+I (355353) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+I (371603) sloop_ui: 页面构建 page=PLAY(0) 池增量=2276B 预算=3072B 池剩余=24988B 耗时=5ms
+I (371613) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=9ms
+UI page=play (0)
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  STORE PROJ ERASE 0
+PROJ 0 ERASED
+sloop>  STORE PROJ ERASE 1
+PROJ 1 ERASED
+sloop>  STORE SONG SET 4 0 0:4 1:4 2:4 3:4
+STORE SONG SET count=4 loop=0 dirty=1
+sloop>  SEQ SONG MODE loop
+SEQ SONG mode=loop
+sloop>  UI play
+UI page=play (0)
+sloop>  STORE AUTO ON
+STORE AUTO on
+sloop>  # [inject] 场景 song 结束 failures=0

@@ -1,0 +1,20 @@
+>>> STORE SETTINGS INFO
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  >>> STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=2 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  >>> STORE AUTO
+STORE AUTO
+用法: STORE STATS | STORE RAWTEST（破坏：擦写空闲扇区 0xFB000） | STORE PROJ LIST|SAVE n|LOAD n|ERASE n|HASH n|FIELDS n|SYNTH <fmt1|foreign> | STORE PRESET LIST|SAVE n|LOAD n [track]|ERASE n | STORE BANK LIST|PUT n|GET n|LIVE|ERASE n | STORE SONG [SET c l s:b…|SAVE|LOAD|INFO] | STORE SETTINGS [INFO|SET <field> <v>|SAVE] | STORE LIVEHASH | STORE RAW BEGIN|hex|END|SIDE|ABORT（分块上传对象 payload / 80B side） | STORE AUTO <on|off> | STORE TEST（破坏：占用 OBJ_SETTINGS，快照/恢复两个 完整 4KB 副本扇区） | STORE FAULT <nth=1..9999> [half] | STORE FAULT CLEAR
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  >>> STORE STATS
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401B0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=B17A591C autosave_writes=1 last_xrun=1 last_save_ms=67
+sloop>  
