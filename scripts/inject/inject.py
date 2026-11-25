@@ -2123,8 +2123,8 @@ def run_tracks_keys(s: Session) -> None:
         s.expect_int(r"focus_track=(\d+)", track, f"Ctrl+{key - KEY_1 + 1} ⇒ focus_track")
     nav_same(s, "SEL 层不改混音", mix_both, trk_mix(s))
     # 层键松开后 layer_held 回 0：此刻的 4 键不再是选轨（若 SEL 仍生效，选轨会变 3；
-    # 当前选中轨 1 ≠ 3 ⇒ 有判别力。不按层的 4 在合成轨上是演奏键：会出声并改 last_note，
-    # 收口按入口值还原）
+    # 当前选中轨 1 ≠ 3 ⇒ 有判别力。K_4 在基础层**没有**绑定（高行黑键是 2/3/5/6/7），
+    # 不按层键时它既不出声也不改 last_note；收口仍按入口值还原 last_note）
     s.cmd("KEY 0x04 down")
     s.expect(r"KEY 0x04 down 4 elapsed_us=", "松开 Ctrl 后按 4（演奏键）")
     s.cmd("KEY 0x04 up")
@@ -2369,16 +2369,17 @@ def run_nav(s: Session) -> None:
 
     ① 组签缝与组签矩形内的 TAP 均 → `TAP miss`，STATE/ENG 快照逐字段不变；
     ② STEP 鼓轨行 TAP 编辑 lane：回显 `-> STEP drum … CMD_DRUM_STEP_WRITE`、焦点落到
-       鼓轨（T9 起鼓轨不再只读）、ENG SNAP 只有该步 dstep 行变化、鼓格像素变化；
+       鼓轨（T9 起鼓轨不再只读）、ENG SNAP 除该步的 dstep 行外逐字段不变（R9：聚合行在
+       起点位图已含该位时不变形，原始位图另由 `SEQ DSTEP` 断言）、鼓格像素变化；
        再 TAP 一次复位位图，状态行由合成轨（蓝）换成鼓轨（橙）；
     ③ 同一 30ms 拍内 KEY tab + KEY PANIC：批内 UI 自证请求尚未被消费，PANIC 后
        1s（≈33 个 30ms 拍）仍停在原页（撤销待切页，无回跳）；
     ④ 同一 30ms 拍内 3 组 KEY tab 按下/释放：1s 后只前进一页（ADR-006「一拍
        一页」），再 1s 无第二次前进；`TAB` 顺序 = 组顺序扁平轮转
-       PLAY→TRACKS→GLOBAL→…（FILE 组两页在 Task 12 注册后参与，见 ⑦）；
-    ⑤ 组作用域生命周期：MIX→SEQ 后 MIX 组 built=0（含原当前页；P4-F Task 4 起 GLOBAL/FX
-       属 MIX），同组切换
-       只改显隐（STEP 不重建），build_ms 0 < x ≤100ms（ADR-005 §3/§5）；
+       PLAY→TRACKS→SOUND→…（全序列见 ⑦）；
+    ⑤ 组作用域生命周期：MIX→SEQ 后 MIX 组 built=0（含原当前页；P4-F Task 6 起
+       GLOBAL/FX/TOOLS 属 MIX），同组切换只改显隐（STEP 不重建），build_ms 0 < x ≤100ms
+       （ADR-005 §3/§5）；
     ⑥ 手指导航（`UI TAB`/`UI SUB` 与物理组签/子签同一动作函数，R32）：点组进上次
        子页且记忆跨往返、跨组点组销毁源组并建目标首个子页、子签同组切换不重建；
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
