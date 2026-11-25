@@ -21,7 +21,7 @@
 | 1 | 平台 bring-up | Tab5 成为**可观测、可验证**的目标机：屏/触摸/键盘/音频/截屏/分区 | SCR 截屏视觉检查；按键触摸日志；听音 | 🔶 机器侧完成 + 听音✅；余 3 项人测（见下注） |
 | 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | 🔶 机器侧完成（设备/host 182/182 同源哈希 + PERF；人耳待办，见下注） |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | 🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）；人测 4 项（见下注） |
-| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **进行中**（2026-11-25，`feat/phase4f`：Task 0–9 完成、文档与证据已由 Task 10a 收口；最终设备矩阵与长时 soak 待 Task 10b；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
+| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **进行中**（2026-11-25，`feat/phase4f`：Task 0–9 完成、文档与证据已由 Task 10a 收口；最终设备矩阵已通过（Task 10b），3h soak 进行中、收口报告待 Task 10c；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
 | 5 | 联动模式 | FM-1 双机同步（编辑器协议双向 + UAC1 采集） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
 
 > 排序与门禁优先于日历估时（不设假精度的工期）：阶段 2 与阶段 4 体量最大（引擎对齐 / 功能对齐），阶段 1、3 次之，阶段 5 含 DI-1 驱动自研的不确定面。
@@ -48,9 +48,15 @@
 > 非目标处置）；参数族覆盖（chip 框架 + MOD/SCALE/VOICE、SOUND 通用引擎页含 ENGINE/PRESET 页眉与鼓轨
 > KIT 行、GLOBAL/FX chip 页、TOOLS 页、TRANSPORT REC 配置行、键盘参数锁/fill 条件）；导航重组为
 > **18 页 / 9 组**（MIX 组，组签 104px）；全页面截屏矩阵 `scripts/screenshot_matrix.py`（33 条目 /
-> 18 页，逐条目 `LIVEHASH` 幂等闸门）；`ENG POWER`（INA226 + 芯片温度）。**未完成（Task 10b/10c）**：
-> 同一固件上的最终设备全矩阵（十场景 + 182 例 + `selftest-heap.py` + 截屏矩阵 + 长时 soak）与收口报告
-> ——读数 `待 10b`。**硬件限制（裁决 R15）**：INA226 的测量点在电池侧（VBUS 引脚 = `SYS_BAT_PRE`），
+> 18 页，逐条目 `LIVEHASH` 幂等闸门）；`ENG POWER`（INA226 + 芯片温度）。**最终设备矩阵已在
+> `1e8587b` 上通过（Task 10b，2026-11-25）**：host 全绿（第二、三遍构建 0 warning、MANIFEST 233/233）、
+> 烧录 ×3、`ENG SELFTEST` 182/182、`selftest-heap.py` PASS（−260/−44B）、`desc-check` 10/10 + 2/2 + 7/7、
+> 十条注入场景首轮 **4,954 PASS / 0 FAIL**（transport 288 / step_edit 314 / tracks 84 / nav 583 / params 713 /
+> store 908 / song 354 / sequence 562 / synth 794 / sys 354），`sequence`/`synth`/`sys`/`nav` 复跑 2,293/0；
+> 截屏矩阵 run 3 **475/0**（33 条目 / 158 锚点 / 33 条 LIVEHASH 不变；run 1/2 各 468/1 是 `step-playing`
+> 锚点撞播放头的工具问题，裁决 R16，修正 `e488b75`）；有序对最紧 SEQ→PRESETS 6,436B、`lvgl_stack_free`
+> 最小 5,052B、开机 `internal_free` ≈70.3KB。**未完成（Task 10c）**：3h soak（已脱离会话起跑，读数 pending）
+> 与收口报告。证据 `docs/dev/verify/4-pf-2026-11-24/`（§6）。**硬件限制（裁决 R15）**：INA226 的测量点在电池侧（VBUS 引脚 = `SYS_BAT_PRE`），
 > USB-C 供电时读 ≈0.9V/0mA，**USB 输入功率不可观测**；soak 的功耗/温度列仅记录，装上 NP-F550 后才有
 > 意义（人测项）。**账目提示**：LVGL 池 base 重测 ≈14.0KB（原 11,624），最坏有序对 SEQ→PRESETS 的纸面
 > 账略超 63,120，实测 72/72 对全部 ≥4,096B（最紧 6,408–6,424B）——ADR-005 §5.5、DI-56。任务栈：
