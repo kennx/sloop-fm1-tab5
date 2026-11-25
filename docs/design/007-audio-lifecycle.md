@@ -133,8 +133,9 @@ TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不�
 **`power_sensor` 的只读契约**（`firmware/main/power_sensor.{c,h}`，spec A5；行为记录在
 `docs/dev/device-notes.md` §10）：
 
-- INA226（从地址 0x41）挂在 BSP 板载 I2C 总线（`bsp_i2c_get_handle()`，与 ES8388 / 触摸 /
-  键盘 RGB 同一条），只在该总线上**懒挂一个**设备句柄（400kHz），不建第二条总线、不另加锁
+- INA226（从地址 0x41）挂在 BSP 板载 I2C 总线（`bsp_i2c_get_handle()`，与 ES8388 / 触摸同
+  一条；**键盘及其 RGB 不在此总线上**——Tab5 Keyboard 走自己的 G0/G1 独立总线），只在该
+  总线上**懒挂一个**设备句柄（400kHz），不建第二条总线、不另加锁
   （总线自身的锁串行化各设备）。
 - 驱动**只读、不写 INA226 任何寄存器**：每次读三笔、每笔一个寄存器 2 字节——0xFE 厂商 ID
   （须为 0x5449）、0x01 分流电压（LSB 2.5µV，int16）、0x02 总线电压（LSB 1.25mV）。指针
@@ -162,12 +163,16 @@ TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不�
 | audio | 4,096B，`MALLOC_CAP_INTERNAL\|MALLOC_CAP_DMA` 分配 + 静态 TCB | 本节上文（必须整块在 L2MEM） |
 | LVGL（定时器拍/页面构建/全部控件回调） | **10,240B** | 裁决 R10：原 7,168B 被叠放的 `app_state_t` 副本压穿；余量经 `UI MEM lvgl_stack_free` 暴露，门禁 ≥2,048 |
 | input（键盘轮询与派发） | **8,192B** | 裁决 R13：原 4,096B，键盘路径同样会叠副本；`KEY STATS input_stack_free` 仅在 `phys>0` 时有意义 |
-| sys_selftest worker（SYSTEM 页 SELFTEST chip） | 5,632B | Task 2 由 16,384 收缩；高水位 1,484 字（峰值 ≈4.1KB），栈落在 L2MEM |
+| sys_selftest worker（SYSTEM 页 SELFTEST chip） | 5,632B | Task 2 由 16,384 收缩；高水位 1,484 字节（峰值 ≈4.1KB），栈落在 L2MEM |
 | console REPL | 16,384B | 既有；`TAP`/`KEY` 注入在这个任务上执行，**量不到** LVGL/input 任务的栈 |
 
 **规则**：点击路径（LVGL 控件回调）与输入路径（键盘派发）在栈上**至多持一份
 `app_state_t`**（约 1.7KB；`refresh`/`sloop_ui_step_tool` 的那一份原位刷新），需要单字段时
-用状态层的窄读访问器；页面**构建**函数不持整份副本。物理点击只能进 LVGL 任务，所以
+用状态层的窄读访问器；页面**构建**函数不持整份副本。**已知例外**：SONG 页配置类 chip 的
+LVGL 回调路径 `song_action → song_action_cfg → song_apply_cfg` 在栈上叠**三份**（Task 6 复审
+的静态调用图 `task-6-dispatch-copypaths-{before,after}.txt`；只在 LVGL 任务、10,240B 栈上
+执行，键盘 ENTER=LOAD 不走这条链）——未改，靠 `lvgl_stack_free` 的余量（实测最小 5,036B）
+兜着；再加一层嵌套前先把它压平。物理点击只能进 LVGL 任务，所以
 `TAP` 注入测不到这条栈——加页或加副本前先看 `lvgl_stack_free`，并留意仍未被机器验证的
 输入路径（ADR-008 §8.12、ADR-006）。
 

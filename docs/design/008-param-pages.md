@@ -147,14 +147,16 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
 
 | 页 | 实测 delta（`UI MEM`，跨快照 min–max） | est_bytes | 余量（对最大值） | 说明 |
 |---|---|---|---|---|
-| SOUND | **5,360–5,554 B** | 6,144 B | +10.6% | 8 旋钮（常驻，随选中轨引擎换标签）+ 页眉两个自绘三区对象（ENGINE/PRESET；鼓轨 = KIT 单行）+ 常驻隐藏的 FM6 bank 行（§8.10） |
-| MOD / SCALE / VOICE | **3,012–3,088 B**（各页） | 3,584 B | +16..19% | 8 旋钮 + 单对象自绘 chip 行（§8.9）；GLOBAL/FX 改 chip 页后同形 |
-| GLOBAL / FX | **2,916–3,080 B**（各页） | 3,584 B | +16..23% | 同上（§8.10）；est 仍是 P4-A 的 3,584，对象数不变 |
-| TOOLS | **2,568–2,732 B** | 3,584 B | +31..40% | 8 个单对象 label（§8.11）；est 取 chip 页同档 |
+| SOUND | **5,360–5,560 B** | 6,144 B | +10.5% | 8 旋钮（常驻，随选中轨引擎换标签）+ 页眉两个自绘三区对象（ENGINE/PRESET；鼓轨 = KIT 单行）+ 常驻隐藏的 FM6 bank 行（§8.10） |
+| MOD / SCALE / VOICE | **2,904–3,112 B** | 3,584 B | +15..23% | 8 旋钮 + 单对象自绘 chip 行（§8.9）；GLOBAL/FX 改 chip 页后同形 |
+| GLOBAL / FX | **2,904–3,100 B** | 3,584 B | +15..23% | 同上（§8.10）；est 仍是 P4-A 的 3,584，对象数不变 |
+| TOOLS | **2,520–2,732 B** | 3,584 B | +31..42% | 8 个单对象 label（§8.11）；est 取 chip 页同档 |
 | TRANSPORT | **8,464–8,876 B**（改前 8,248–8,716 B） | **9,216 B（未抬）** | +3.8..8.9% | 加 REC 配置行：三格是**一个**自绘可点击对象（§8.11）；est 被 SEQ→PRESETS 有序对锁死 |
 
 组 Σ est：EDIT 16,896（SOUND 6,144 + 3×3,584）、MIX 10,752（3×3,584）；有序对账面与
 Task 7 的 72 对实测矩阵见 ADR-005 §5.5。chip 页统一 3,584 是裁决 R7（spec 的 5,120 是上限）。
+
+实测范围的口径（`UI MEM` delta 的 min–max；来源 = Task 4–7 的任务报告读数 + 已晋升 transcript `docs/dev/verify/4-pf-2026-11-24/task-{6,7,10b}-*`，由脚本逐行汇总；三处文档引用同一组数，改一处须同步另两处——ADR-005 §5.5、ADR-008 §3 末表、AGENTS §3/§5.5）。
 
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
@@ -865,7 +867,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 
 ### 8.12 P4-F 终态索引与任务栈门禁（Task 4–7 收口）
 
-**参数页按结构分三类**（18 个注册页里占 9 个；布局表 `page_layout.{h,c}` 是唯一权威）：
+**参数页按结构分三类**（下表 7 页；SAMPLE/DSYN/FM6P 三页另见下文；布局表 `page_layout.{h,c}` 是唯一权威）：
 
 | 类 | 页 | 要点 | 出处 |
 |---|---|---|---|
@@ -881,7 +883,10 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   **`lvgl_stack_free=<字节>`** 是该任务的历史最小余量，`params.sh` 与 `nav.sh` 断言
   **≥2,048**（Task 7 同会话实测：params 5,036 / nav 5,116B；Task 6 时点 5,804B）。规则：
   页面构建函数与点击/输入路径在栈上至多持 **一份** `app_state_t`（`refresh` 那份），
-  需要单字段时用状态层窄读访问器；加页或加副本前先看 `lvgl_stack_free`。
+  需要单字段时用状态层窄读访问器；加页或加副本前先看 `lvgl_stack_free`。**已知例外**：SONG 页
+  配置类 chip 的 LVGL 回调路径（`song_action → song_action_cfg → song_apply_cfg`）叠**三份**
+  （Task 6 复审的静态调用图 `task-6-dispatch-copypaths-{before,after}.txt`），只在 LVGL 任务上
+  执行、未改，靠 `lvgl_stack_free` 的余量兜着；再加一层嵌套前先压平它。
 - **输入任务栈门禁**：`INPUT_TASK_STACK` **8,192B**（裁决 R13），键盘路径同样至多一份
   快照；`KEY STATS` 的 `input_stack_free`（input 任务循环内采样的历史最小值）断言
   ≥2,048 **仅当 `phys>0`**——console 的 `KEY` 注入量不到这条栈，`phys=0` 时场景显式跳过

@@ -196,8 +196,9 @@ InputManager 任务：优先级 4（低于音频 5），栈 **8,192B**（P4-F Ta
 输入路径不取 LVGL 锁，切页走 `sloop_ui_request_page()` 邮箱，由 30ms UI 定时器执行：
 
 - **一拍一页**：tab 的目标页按「当前页在组顺序扁平轮转里的下一张」计算
-  （`sloop_ui_page_order_next()`，最终 12 页 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→
-  SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY，跳过未注册页），邮箱只保留最后一次请求——同一 30ms
+  （`sloop_ui_page_order_next()`；P4-C 时点的 12 页序列 PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→
+  SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY，**P4-F 终态是 18 页**——序列见上面
+  键位表「页面」行，跳过未注册页），邮箱只保留最后一次请求——同一 30ms
   周期内的 N 次 tab 只前进一页（不是 N 页）。需要一次跨多页请用 console `UI`（同步切页）。
 - **esc = PLAY**：组与子页随页面复位（PLAY 组只有一页）；不改变「点组签记住组内
   上次子页」的记忆（那是组签/子签的触摸语义，不是 esc 的）。
