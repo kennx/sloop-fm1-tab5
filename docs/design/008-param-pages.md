@@ -781,6 +781,13 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   只翻转存在性变了的槽的显隐/描述符。页面上下文的脏键加入**选中轨引擎**
   （`shown_sel_engine`）：页声明引擎在 SOUND 页恒为 0xFF，换引擎时若不重解析，旋钮会留
   着上一个引擎的标签（设备探针抓到的缺陷）。
+  脏键另含**引擎槽值的哈希**（`shown_eng_key` = 选中轨 `p[P_E0..P_E7]` 折成的 32 位；
+  终审 B-I1）：上游 `track_desc()` 把 `id ≥ P_E0` 交给引擎钩子，钩子读该轨自己的 p[]
+  ——PHYS 的 MODEL（MODAL→SYMP：STRC/POS/BOW % → CHRD 枚举/SYMP/BUZZ）、NOISE 的 MODE
+  （LFSR/META 让槽 5/7 换名）、LOFI 的 CHIP/MODE（STEP 让槽 3 变 DCY）换档，以及页眉
+  PRESET ± 换预置（改 p[]、不改引擎）都会改标签/格式。此前键里没有槽值 ⇒ 旋钮留着旧
+  标签，直到换轨/换引擎/ESYNC/ITYPE 变化或离开 EDIT 组（同组切页只改显隐）。重解析 =
+  8 次无锁 `sloop_core_desc_track_live`，零分配。设备用例：`params.sh` ⑫。
 - **页眉两行 = 两个自绘三区对象**（同 DSYN LANE / FM6P BANK 的约定；几何是
   `page_layout.h` 的纯函数 `page_layout_sound_row_x/_w/_header_x/_name_x`，建控件、自绘与
   TAP 命中同源）：`ENGINE − 名 +`（x=16 w=288）与 `PRESET − 名 +`（x=320 w=384），左右各

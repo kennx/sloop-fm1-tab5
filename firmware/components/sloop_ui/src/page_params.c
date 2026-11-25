@@ -172,6 +172,7 @@ typedef struct {
     int8_t shown_locked;  /* -1 = 尚未渲染上下文 */
     int8_t shown_esync;   /* 选中轨 ENV SYNC 位（ATK/DEC/REL 槽描述符随它变） */
     uint8_t shown_itype; /* 选中轨 INSERT TYPE（INSERT A/B/C 槽描述符随它变，Task 5） */
+    uint32_t shown_eng_key; /* SOUND 页：选中轨 p[P_E0..P_E7] 的哈希（0 = 非 SOUND 页） */
     uint8_t focus_shown;  /* 最近渲染的焦点槽 */
     bool ctx_valid;
     /* bank 存取行（建在带 PARAM_FEAT_BANK_FM6 的页 = SOUND，仅 FM6 引擎时显示；其它页为 NULL） */
@@ -1249,7 +1250,7 @@ static lv_obj_t *build_sample_row(uint8_t index, lv_obj_t *parent)
     s_sample_status = UI_SAMPLE_STATUS_NONE;
     s_sample_row_sig = 0xFFFFFFFFu;
     /* 槽信息由紧随的 update 首拍读（s_sample_info_valid=false ⇒ 立即轮询）。这里**不**在栈上
-     * 放 app_state_t：页面构建经 TAB 走 LVGL 任务（栈 7,168B），ui_timer_cb 已持一份状态
+     * 放 app_state_t：页面构建经 TAB 走 LVGL 任务（栈 10,240B），ui_timer_cb 已持一份状态
      * 副本，再嵌一份会把该任务栈压穿（P4-F Task 5 的 nav ⑦ 实测：Stack protection fault）。 */
     s_sample_info_valid = false;
 
@@ -1607,10 +1608,21 @@ void page_params_update(uint8_t index, const app_state_t *st)
     uint8_t itype = (uint8_t)st->p[PARAM_TP_ITYPE];
     /* 上下文键含**选中轨引擎**：SOUND 页的槽描述符取该轨引擎（换引擎 = 全部标签换），
      * 页声明引擎（page_engine）在 SOUND 页恒为 0xFF、看不出换引擎。 */
+    /* SOUND 页另含**引擎槽值**：上游 track_desc() 把 id ≥ P_E0 转给引擎钩子，钩子读该轨
+     * 自己的 p[]——PHYS 的 MODEL、NOISE 的 MODE、LOFI 的 CHIP/MODE 换档后，其余槽的标签/
+     * 格式跟着换（STRC/POS/BOW % → CHRD 枚举/SYMP/BUZZ）；页眉 PRESET ± 换预置同样改 p[]。
+     * 这些都不在 track/引擎/ESYNC/ITYPE 键里 ⇒ 折一个 8 槽哈希进键（终审 B-I1）。 */
+    uint32_t eng_key = 0;
+    if (page_layout_is_sound(pg)) {
+        for (uint8_t slot = 0; slot < 8u; slot++)
+            eng_key = eng_key * 0x9E3779B1u + (uint32_t)(uint16_t)st->p[PARAM_ENGINE_BASE + slot];
+    }
     if (!ui->ctx_valid || ui->shown_track != track || ui->shown_engine != engine ||
         ui->shown_sel_engine != sel_engine || ui->shown_locked != (int8_t)locked ||
-        ui->shown_esync != (int8_t)esync || ui->shown_itype != itype) {
+        ui->shown_esync != (int8_t)esync || ui->shown_itype != itype ||
+        ui->shown_eng_key != eng_key) {
         ui->ctx_valid = true;
+        ui->shown_eng_key = eng_key;
         ui->shown_track = track;
         ui->shown_engine = engine;
         ui->shown_sel_engine = sel_engine;
@@ -1815,11 +1827,14 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
             if (!rect_hit(x, y, cx, CHIP_Y, page_layout_chip_width(pg->chips[c].name), CHIP_H)) {
                 continue;
             }
-            bool sel = param_chip_select(index, c);
+            /* 命中判定用的是最近一拍渲染的可见掩码：掩码之后上下文才变（选轨/换引擎）时该
+             * chip 此刻已隐藏 ⇒ param_chip_select 拒绝。按 miss 处理（不派发、回 TAP miss），
+             * 不回 255（终审 B）。 */
+            if (!param_chip_select(index, c)) return false;
             if (out != NULL) {
                 out->kind = SLOOP_TAP_PARAM_CHIP;
                 out->a = pg->page_id;
-                out->b = sel ? c : 0xFFu;
+                out->b = c;
             }
             return true;
         }

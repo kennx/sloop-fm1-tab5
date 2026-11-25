@@ -3747,6 +3747,92 @@ def param_chip_pages(s: Session) -> None:
     s.cmd("UI play")
 
 
+def param_sound_slot_labels(s: Session) -> None:
+    """SOUND 页在**引擎槽值**变化后重解析旋钮标签（终审 B-I1）。上游 `track_desc()` 把
+    id ≥ P_E0 交给引擎钩子，钩子读该轨自己的 p[]——PHYS 的 MODEL（P_E0）、NOISE 的 MODE
+    （P_E0）、LOFI 的 CHIP/MODE（P_E0/P_E1）换档，以及页眉 PRESET ± 换预置（改 p[]、不改
+    引擎），都会让其余槽的标签/格式跟着换（如 PHYS MODAL→SYMP：STRC/POS/BOW % → CHRD 枚举/
+    SYMP/BUZZ）。此前页面上下文键只含轨/引擎/锁定/ESYNC/ITYPE ⇒ 旋钮留着旧标签，直到换轨/
+    换引擎/离开 EDIT 组。判据：`UI SOUND CHIP` 的逐槽 label == `ENG DESC live <track> <id>`
+    （期望不取自被测的旋钮），同组内不切页。结束：轨 1 回 ANALOG 预置 0、选中轨 0。
+    **设备用例**：本函数在终审修复波写下，设备在 soak ⇒ 只做了语法检查，首次运行在 10c。"""
+    s.ser.note("⑫ SOUND 槽标签随引擎槽值变化（LOFI / PHYS / NOISE 的模式槽 + PRESET ±）")
+
+    def labels_ok(track: int, what: str) -> bool:
+        time.sleep(0.1)   # 重解析在下一个 30ms UI 拍落地：先等一拍再读旋钮正在显示的 label
+        s.cmd("UI SOUND CHIP")
+        slots = chip_slots(s, "sound")
+        bad = []
+        for k, (pid, label, locked) in sorted(slots.items()):
+            want = chip_label(s, "sound", pid, track)
+            if locked != 0 or want != label:
+                bad.append(f"slot{k}:id={pid} {label!r}/locked={locked} desc={want!r}")
+        (s.ok if sorted(slots) == list(range(8)) and not bad else s.fail)(
+            f"⑫ {what}：8 槽 label == ENG DESC live" + ("" if not bad else f" 不符 {bad}"))
+        return not bad
+
+    select_track(s, 1)
+    s.cmd("UI sound")
+    s.expect(r"UI page=sound \(6\)", "⑫ UI sound（轨 1）")
+    varied = None   # (engine, pid, value, labels_at_0) —— 一个会让标签变化的槽值，供预置用例用
+    for eng, name, pids in ((3, "LOFI", (63, 64)), (10, "PHYS", (63,)), (11, "NOISE", (63,))):
+        s.cmd(f"ENG TRACK 1 {eng} 0")
+        s.expect(rf"ENG TRACK k=1 engine={eng} preset=0 OK", f"⑫ 轨 1 = {name} 预置 0")
+        for pid in pids:
+            s.cmd(f"ENG DESC live 1 {pid}")
+            m = re.search(rf"id={pid} label=\"[^\"]*\" fmt=\d+ min=(-?\d+) max=(-?\d+)", s.last)
+            if m is None:
+                s.fail(f"⑫ {name} id={pid} 的描述符读不到（ENG DESC live）")
+                continue
+            vmax = int(m.group(2))
+            if vmax - int(m.group(1)) > 16:
+                s.fail(f"⑫ {name} id={pid} 范围 {m.group(1)}..{vmax} 过宽，本用例只扫 ≤16 档")
+                continue
+            base = None
+            for v in range(int(m.group(1)), vmax + 1):
+                s.cmd(f"PARAM {pid} {v}")
+                s.expect(rf"PARAM track=1 id={pid} value={v} applied={v}", f"⑫ {name} id={pid}={v}")
+                if not labels_ok(1, f"{name} id={pid}={v}"):
+                    continue
+                s.cmd("UI SOUND CHIP")
+                shown = chip_slots(s, "sound")
+                labs = tuple(shown[k][1] for k in sorted(shown))
+                if base is None:
+                    base = labs
+                elif labs != base and varied is None:
+                    varied = (eng, pid, v)
+            # 模式槽回 0，下一段从缺省起步
+            s.cmd(f"PARAM {pid} 0")
+    if varied is None:
+        s.ser.note("⑫ 三种引擎的模式槽都没让标签变化？（非判别——核对固件的引擎钩子）")
+
+    # 页眉 PRESET ±：换预置改 p[] 不改引擎——先回到那个会变标签的档，再经 TAP 换预置
+    if varied is not None:
+        eng, pid, v = varied
+        s.cmd(f"ENG TRACK 1 {eng} 0")
+        s.expect(rf"ENG TRACK k=1 engine={eng} preset=0 OK", "⑫ 回到有模式槽的引擎")
+        s.cmd(f"PARAM {pid} {v}")
+        s.expect(rf"PARAM track=1 id={pid} value={v} applied={v}", "⑫ 模式槽回到变标签的档")
+        if labels_ok(1, "预置换之前（模式槽已改）"):
+            discriminated = False
+            for step in range(3):
+                s.cmd("TAP %d %d" % sound_row_xy(1, +1))
+                s.expect(r'-> SOUND PRESET value=\d+ name="[^"]+" status="OK"', f"⑫ TAP PRESET +（{step + 1}）")
+                s.cmd(f"PARAM {pid}")
+                m = re.search(rf"PARAM track=1 id={pid} value=(-?\d+) applied=(-?\d+)", s.last)
+                if m is not None and int(m.group(2)) != v:
+                    discriminated = True
+                    break
+            (s.ok if discriminated else s.ser.note)(
+                "⑫ 换预置改了模式槽（下面的标签断言有判别力）" if discriminated else
+                "⑫ note：三张预置的模式槽都与手设值相同，本条的标签断言无判别力（仍须相等）")
+            labels_ok(1, "TAP PRESET + 之后（同组、同引擎、只改 p[]）")
+
+    s.cmd("ENG TRACK 1 0 0")
+    s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "⑫ 收口：轨 1 回 ANALOG 预置 0")
+    select_track(s, 0)
+
+
 # ---------------------------------------------------------------- TOOLS（P4-F Task 6）---
 # TOOLS 页三张 chip（page_tools.c 的 TOOLS_CHIP_*：x = 24 + i*384、y=120、360×140）⇒ 屏幕中心
 # （y + UI_TAB_BAR_H=72）。顺序 = sloop_tool_t：0 CLEAR SEQ / 1 INIT SOUND / 2 NEW。
@@ -4975,6 +5061,8 @@ def run_params(s: Session) -> None:
         f"LVGL 任务栈最小余量 lvgl_stack_free={lv}B（≥{LVGL_STACK_FLOOR}）")
 
     param_chip_pages(s)
+    # 终审 B-I1：SOUND 的槽标签随引擎槽值（模式槽 / 换预置）重解析
+    param_sound_slot_labels(s)
 
     # P4-F Task 6：TOOLS 页 / TRANSPORT 的 REC 配置行 / STEP 页键盘参数锁与 fill 条件
     param_rec_config(s)
