@@ -1,0 +1,14 @@
+  [PASS] finv UI tools
+  [PASS] finv 预备
+  [PASS] finv 窗口内第二击 ⇒ 执行
+  [PASS] finv UNDO
+  [PASS] finv UNDO 后 ENG STEP ×64 逐行 == 执行前（step/micro/LEN 已还原）
+finv: sel=0 非空步 64/64；LIVEHASH 执行前 18B30276 / 清空后 ADB603E8 / UNDO 后 18B30276
+finv: 执行前 lock list:
+SEQ LOCK LIST 0
+SEQ LOCK LIST track=0 count=0
+finv: UNDO 后 lock list:
+SEQ LOCK LIST 0
+SEQ LOCK LIST track=0 count=0
+finv: fill≠0 的步：执行前 0 / UNDO 后 0
+[PASS] probe finv: failures=0

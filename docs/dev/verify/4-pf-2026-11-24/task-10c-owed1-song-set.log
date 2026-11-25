@@ -1,0 +1,21 @@
+>>> SEQ SECTION
+SEQ SECTION
+SEQ SECTION ready=0x01 live=- dirty=1 index=0 bar=0
+sloop>  >>> SEQ SONG MODE loop
+SEQ SONG MODE loop
+SEQ SONG mode=loop
+sloop>  >>> STORE SONG SET 2 1 0:2 1:3
+STI (10313) sloop_store: 歌曲已保存 len=1552 来源=1
+ORE SONG SET 2 1 0:2 1:3
+STORE SONG SET count=2 loop=1 dirty=1
+sloop>  >>> STORE SONG
+STORE SONG
+STORE SONG count=2 loop=1 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  >>> SEQ SONG
+SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x01 live=- dirty=1 chain=0 srec=off count=2 loop=1
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=1 bars=3
+sloop>  

@@ -1,0 +1,21 @@
+>>> STORE SONG
+STORE SONG
+STORE SONG count=2 loop=1 dirty=1
+SONG 0 scene=0 bars=2
+SONG 1 scene=1 bars=3
+sloop>  I (544443) sloop_store: 歌曲已保存 len=1552 来源=1
+>>> SEQ SONG
+SEQ SONG
+SEQ SONG mode=loop running=0 index=0 bar=0 ready=0x01 live=- dirty=0 chain=0 srec=off count=2 loop=1
+SEQ SONG 0 scene=0 bars=2
+SEQ SONG 1 scene=1 bars=3
+sloop>  >>> STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  
