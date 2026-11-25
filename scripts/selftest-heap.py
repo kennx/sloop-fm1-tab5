@@ -150,9 +150,11 @@ def main():
             if readings["after2"] < HEAP_FLOOR:
                 ok = False
                 log.line(f"{NOTE} FAIL: 收尾 {readings['after2']}B < {HEAP_FLOOR}B")
-    except (RuntimeError, TimeoutError) as e:
+    except (OSError, serial.SerialException, RuntimeError, TimeoutError) as e:
+        # 串口掉线/被占（pyserial SerialException 是 OSError 子类）同样收口成 FAIL 行 + 非零退出，
+        # 不漏成 traceback（设备拔线、另一进程抢占端口时 transcript 里要留下判据）。
         ok = False
-        log.line(f"{NOTE} FAIL: {e}")
+        log.line(f"{NOTE} FAIL: {type(e).__name__}: {e}")
     finally:
         try:
             ds.set_streaming(ser, True)

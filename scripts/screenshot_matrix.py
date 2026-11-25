@@ -31,21 +31,31 @@
 顶边 4px 带内 accent 像素「播放 ≥ N / 停止 == 0」；TRANSPORT 的状态行在播放时是 UI_TEXT、
 停止时是 UI_TEXT_DIM（无工具结果时），取其 text 像素「播放 ≥ N / 停止 == 0」。
 
-幂等（可重复运行，全程不写 flash；SELFTEST 条目例外——chip worker 自检前会落盘一次）:
+幂等（可重复运行；**工作工程不写 flash，但不是「全程不写 flash」**）:
     前提：`STATE SNAP rec` 必须是 off（走带会录 take）——否则在改动任何状态之前拒绝运行。
+    前提（不归一，入口须满足）：轨 0 的引擎既不是 SAMPLE 也不是 FM6——`sample-default`（页眉
+    红字的锁定态）与 `fm6p-default`（状态行 `NOT FM6`）断言的就是锁定页；轨 0 已是这两种引擎时
+    这两个条目会红，不是脚本缺陷（`sample-usr` / `fm6p-engine` 自己经宏临时换引擎并还原）。
+    写 flash 的只有三处，都不碰工程对象：① 非 MONO 设备上强制 palette 4、theme-on 设备上先关
+    theme——各置一次 settings dirty，1s 存储任务的静默窗口把 `OBJ_SETTINGS` 写一次（收尾还原
+    palette/theme 时至多再一次）；② SELFTEST 条目——chip worker 自检前落盘一次；③ 上述之外的
+    路径不写（`STORE AUTO OFF` 包住全程，palette 已是 4 且 theme 已关的设备上一次都不写）。
     开头记录起点（页 / 选中轨 / 步窗 / palette·theme / autosave 开关 / 四轨引擎·预置 / LIVEHASH）→
     `STORE AUTO OFF` → 停走带 → `UI WINDOW 0 16` + 选轨 0；
     条目内 TAP 改过的参数逐个 `PARAM` 写回，换过引擎的轨 = `ENG TRACK` 回原引擎·预置 + 71 参数
     整份 `PARAM BATCH` 回写（读回核对）。
     **每个条目之后都核对 `LIVEHASH` == 归一起点**（先选回轨 0：song.sel 也是哈希的一部分；无例外）。
     截屏传输失败 ⇒ esptool 复位后整轮重跑；重跑**不重新拍快照**——复位后的 LIVEHASH 必须仍是首轮
-    起点，否则按漂移处理（复位会丢掉未落盘的改动）。
+    起点，否则终止并报告为 **reboot discarded unsaved edits**（与「漂移」分开：这里是复位把上一轮
+    未落盘的改动丢了，不是还原漏项；收口与漂移相同——不还原、autosave 保持 OFF）。
     **唯一的收口路径**（正常结束 / 命令失败 / 其它异常 / Ctrl-C 都走 close_bracket）：
       - 正常：还原选轨 / 步窗 / 页 / palette·theme，核对 LIVEHASH == 起点 ⇒ autosave 回到**原来的**开关；
       - 异常：尽力执行登记的还原，再同样核对；相等 ⇒ autosave 照常恢复；
       - **漂移**（某条目后或收尾核对 LIVEHASH ≠ 起点）：不再做任何还原、不碰 flash，
         打印 `ABORT: hash drift … — autosave left OFF; reboot the device to recover from flash` 并非零退出
         ——让 flash 里的 autosave 副本保持最后一次正确的写入，复位即从它恢复；
+      - **复位丢失**（重跑起点的 LIVEHASH ≠ 首轮起点）：不是漂移——上一轮在复位前的改动没落盘；
+        同样不还原、不碰 flash，打印 `ABORT: reboot discarded unsaved edits …` 并非零退出；
       - 核对不了（设备无响应）：同样留在 OFF。
     这是对「还原漏项」的闸门（首版曾因空参数向量把一条轨的参数重置成预置默认，靠读 flash 的 autosave
     旧副本才恢复）。`--inject-drift`（隐藏参数，**仅测试用**）在第一条目后不登记还原地改写轨 0 的
@@ -55,7 +65,7 @@
     python3 scripts/screenshot_matrix.py PORT [--out DIR] [--pages a,b,…] [--retry N]
     python3 scripts/screenshot_matrix.py --selftest       # 离线自测（无设备）
 退出码: 0 = 全部 PNG 解码为 1280×720 RGB、命令回显全部匹配、锚点全部命中、每条目后 LIVEHASH 不变、
-起点还原；1 = 任一断言/锚点未过、命令失败或哈希漂移；130 = Ctrl-C。
+起点还原；1 = 任一断言/锚点未过、命令失败、哈希漂移或复位丢失；130 = Ctrl-C。
 像素锚点只是抽检；**人眼复核联系表是外部门禁**。
 依赖: pyserial + Pillow。
 """
@@ -540,6 +550,12 @@ class HashDrift(Exception):
     （见 close_bracket；复位重跑时同样先清空还原动作）。"""
 
 
+class RebootLost(Exception):
+    """复位重跑起点的 LIVEHASH ≠ 首轮起点：**不是漂移**——复位把上一轮在复位前未落盘的改动
+    丢了（原因已知，不指向还原漏项）。收口与漂移相同：不还原、不碰 flash、autosave 保持 OFF
+    （flash 里的 autosave 副本是最后一次写入，复位即从它恢复）。"""
+
+
 class Refuse(Exception):
     """运行前提不满足（如录音未关）：在改动任何状态之前拒绝运行。"""
 
@@ -901,13 +917,12 @@ def _engines(s: inject.Session) -> dict:
 def bracket_begin(r: Runner) -> None:
     """进入归一括号。首轮：先记起点（什么都不改之前），再 AUTO OFF / 停走带 / 归一；
     复位重跑（Restart）之后：**不重新拍快照**——设备已从 flash 恢复，工程哈希必须仍是首轮
-    起点，否则按漂移处理（复位会丢掉未落盘的改动，或复位前已有改动）。"""
+    起点，否则按 RebootLost 终止（复位把上一轮未落盘的改动丢了；与漂移 HashDrift 分开报告）。"""
     s = r.s
     if r.snapshot:
         h = inject.live_hash(s)
         if h != r.snapshot["hash"]:
-            raise HashDrift(f"复位后 LIVEHASH {h:08X} ≠ 首轮起点 {r.snapshot['hash']:08X}"
-                            f"（复位丢失了未落盘的状态，或复位前已有改动）")
+            raise RebootLost(f"复位后 LIVEHASH {h:08X} ≠ 首轮起点 {r.snapshot['hash']:08X}")
         r.run("STORE AUTO OFF", r"STORE AUTO off")      # 开机默认 on
     else:
         r.snap()
@@ -938,7 +953,7 @@ def bracket_begin(r: Runner) -> None:
     select_track(r, 0)
     h0 = inject.live_hash(s)                 # 归一（选轨 0）后的基线：逐条目核对的参照
     if r.hash0 and h0 != r.hash0:
-        raise HashDrift(f"复位并归一后 LIVEHASH {h0:08X} ≠ 首轮归一起点 {r.hash0:08X}")
+        raise RebootLost(f"复位并归一后 LIVEHASH {h0:08X} ≠ 首轮归一起点 {r.hash0:08X}")
     r.hash0 = h0
 
 
@@ -956,13 +971,15 @@ def set_setting(r: Runner, field: str, value: int) -> None:
 DRIFT_MSG = "ABORT: hash drift ({why}) — autosave left OFF; reboot the device to recover from flash"
 UNVERIFIED_MSG = ("ABORT: cannot verify the working project ({why}) — autosave left OFF; "
                   "reboot the device to recover from flash")
+REBOOT_LOST_MSG = ("ABORT: reboot discarded unsaved edits ({why}) — 不是还原漏项：上一轮在复位前的"
+                   "改动未落盘，已随复位消失；autosave left OFF; reboot the device to recover from flash")
 
 
-def close_bracket(r: Runner, drift: str | None, error: str | None) -> tuple:
+def close_bracket(r: Runner, drift: str | None, error: str | None, lost: str | None = None) -> tuple:
     """**唯一的收口路径**：正常结束、InjectError、其它异常、Ctrl-C 都到这里。返回 (是否已核对还原, 结论行)。
 
-    已知漂移 ⇒ 不做任何还原（含还挂着的还原动作：可能把事情弄得更糟）、不碰 flash，
-    autosave 保持 OFF；否则：
+    已知漂移（drift）或复位丢失（lost）⇒ 不做任何还原（含还挂着的还原动作：可能把事情弄得更糟）、
+    不碰 flash，autosave 保持 OFF；否则：
     1. 还挂着的还原动作（条目中途异常时）尽力执行；
     2. 还原选轨 / 步窗 / 页 / palette·theme，再以 LIVEHASH 对照起点：
        相等 ⇒ autosave 回到**原来的**开关状态（不一定是 on）；不等 ⇒ 按漂移处理；
@@ -973,7 +990,7 @@ def close_bracket(r: Runner, drift: str | None, error: str | None) -> tuple:
     snap = r.snapshot
     s.ser.note(f"收尾：drift={drift!r} error={error!r}")
     unverified = None
-    if drift is None:
+    if drift is None and lost is None:
         while r.undo:
             try:
                 r.undo.pop()(r)
@@ -1004,12 +1021,14 @@ def close_bracket(r: Runner, drift: str | None, error: str | None) -> tuple:
             unverified = f"{e}"
             if error is None:
                 error = f"收尾还原/核对未完成：{e}"
-    if drift is not None or unverified is not None:
+    if lost is not None or drift is not None or unverified is not None:
         try:
             s.cmd("STORE AUTO OFF")           # 不写 flash
         except (inject.InjectError, OSError):
             pass
-        msg = (DRIFT_MSG if drift is not None else UNVERIFIED_MSG).format(why=drift or unverified)
+        template = (REBOOT_LOST_MSG if lost is not None else
+                    DRIFT_MSG if drift is not None else UNVERIFIED_MSG)
+        msg = template.format(why=lost or drift or unverified)
         s.ser.note(msg)
         return False, (msg + f"；选轨/步窗/页未还原（仍为归一值）；已出的 PNG 与 matrix.csv 在 {r.out_dir}")
     want_auto = "on" if snap["autosave"] else "off"
@@ -1040,7 +1059,7 @@ def run_matrix(port: str, out_root: Path, pages: set, retries: int, inject_drift
     print(f"== screenshot_matrix @ {port}")
     print(f"   产物目录: {out_dir}")
     r = Runner(s, out_dir, inject_drift)
-    drift = error = None
+    drift = lost = error = None
     interrupted = complete = False
     try:
         s.wait_ready()
@@ -1061,6 +1080,8 @@ def run_matrix(port: str, out_root: Path, pages: set, retries: int, inject_drift
                 print(f"  [RETRY] {e}（{run_no}/{retries}），矩阵从头重跑")
     except HashDrift as e:
         drift = str(e)
+    except RebootLost as e:
+        lost = str(e)
     except Refuse as e:
         error = str(e)
     except inject.InjectError as e:
@@ -1070,7 +1091,7 @@ def run_matrix(port: str, out_root: Path, pages: set, retries: int, inject_drift
     finally:
         # 每一种终止都走同一条收口路径；收尾自身出错也不能漏关串口
         try:
-            restored, closing = close_bracket(r, drift, error)
+            restored, closing = close_bracket(r, drift, error, lost)
         except Exception as e:  # noqa: BLE001
             restored, closing = False, f"收尾异常: {e!r}；autosave 可能仍是 OFF"
             error = error or f"收尾异常: {e!r}"
@@ -1103,7 +1124,7 @@ def run_matrix(port: str, out_root: Path, pages: set, retries: int, inject_drift
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Tab5 全页面截屏矩阵 + 联系表")
+    ap = argparse.ArgumentParser(description="Tab5 全页面截屏矩阵 + 联系表", allow_abbrev=False)
     ap.add_argument("port", nargs="?", default=None, help="串口设备，如 /dev/ttyACM0（--selftest 时省略）")
     ap.add_argument("--out", default=None, help="产物父目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
     ap.add_argument("--selftest", action="store_true", help="离线自测：矩阵完整性 + 占位 PNG 拼联系表，无需设备")
@@ -1363,6 +1384,48 @@ def _check_csv() -> None:
         assert list(got[0])[:3] == ["page", "state", "commands"], "CSV 列顺序"
 
 
+def _check_abort_messages() -> None:
+    """复位丢失（RebootLost）/ 漂移（HashDrift）两种终止的收口（终审 C6）：都不还原、都只发
+    `STORE AUTO OFF`、都回 False，只有文案不同——复位丢失不得被叫成「漂移」。"""
+    class _Ser:
+        def __init__(self):
+            self.notes = []
+
+        def note(self, text):
+            self.notes.append(text)
+
+    class _S:
+        def __init__(self):
+            self.ser = _Ser()
+            self.cmds = []
+            self.failures = 0
+
+        def cmd(self, c):
+            self.cmds.append(c)
+
+        def ok(self, text):
+            pass
+
+        def fail(self, text):
+            self.failures += 1
+
+    for kw, head, other in ((dict(lost="复位后 LIVEHASH 00000002 ≠ 首轮起点 00000001"),
+                             "ABORT: reboot discarded unsaved edits", "hash drift"),
+                            (dict(drift="x-default 条目后 LIVEHASH 00000002 ≠ 00000001"),
+                             "ABORT: hash drift", "reboot discarded")):
+        r = Runner.__new__(Runner)
+        r.s = _S()
+        r.undo = []
+        r.out_dir = Path(".")
+        r.snapshot = {"autosave": 1, "palette": 4, "theme_on": 0, "page": 0, "track": 0,
+                      "window": (0, 16), "eng": {}, "hash": 1}
+        restored, closing = close_bracket(r, kw.get("drift"), None, kw.get("lost"))
+        assert restored is False and r.s.cmds == ["STORE AUTO OFF"], (kw, restored, r.s.cmds)
+        assert closing.startswith(head) and other not in closing, closing
+        assert r.s.ser.notes and r.s.ser.notes[-1].startswith(head), r.s.ser.notes
+    print("自测：复位丢失 / 漂移两种终止的文案与收口动作                            ok")
+
+
 def run_selftest() -> None:
     _check_matrix()
     _check_theme()
@@ -1370,8 +1433,10 @@ def run_selftest() -> None:
     _check_state_contrast()
     _check_sheets()
     _check_csv()
+    _check_abort_messages()
     print(f"自测断言全部通过（MATRIX {len(MATRIX)} 条目 / {len(PAGES)} 页：唯一性、页名、宏名全部可解析、派单要求的状态齐全、锚点 ≥3 且在 1280×720 内、"
           f"每组 ≤{SHEET_COLS * 5} 格；MONO 主题色派生 = inject 实测常量；点/区域/ctx/ClassCount 锚点判定与播放态状态对照；"
+          f"复位丢失 / 漂移两种终止的文案与收口动作；"
           f"占位 PNG → {len(GROUP_PAGES) + 1} 张联系表；CSV 往返）")
 
 
