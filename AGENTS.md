@@ -64,7 +64,7 @@ sloop-fm1-tab5/
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
 │   ├── inject/                    #    十条注入场景 .sh + inject.py（场景逻辑都在 inject.py；逐脚本见 §5.1）
-│   ├── {knob,state,seq,synth}-test.sh / *-host-test.c   #    host 门禁与其用例源（§5.1）
+│   ├── {knob,state,seq,synth,editor-proto,usb-fm1}-test.sh / *-host-test.c   #    host 门禁与其用例源（§5.1）
 │   ├── (其余脚本)                  #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
 │                                     soak.py、soak-selftest.py、screenshot_matrix.py、gen_*_fixtures.py、fixture_host_check.c、
 │                                     store_raw.py、sample_upload.py——逐脚本摘要见 §5.1，全文见 reference/scripts.md
