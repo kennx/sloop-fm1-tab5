@@ -6,10 +6,13 @@
 > ESP-IDF 5.5.5，target `esp32p4`；门禁口径 AGENTS §5.5。
 > **状态**：Task 2–9 各自的门禁已通过并在此入库；**阶段收口的最终设备矩阵由 Task 10b 在同一固件
 > `1e8587b` 上重跑并通过（§6：host 全绿、烧录 ×3、182/182、`selftest-heap.py` PASS、十场景首轮
-> 4,954/0 + 复跑 2,293/0、截屏矩阵 run 3 475/0）；3h soak 的读数 pending（§6 末）**。
+> 4,954/0 + 复跑 2,293/0、截屏矩阵 run 3 475/0）；修复前固件上的 3h 信号 soak 已 PASS（§6 末）**。
 > **最终固件是 `d317a72`**（终审修复波之后）：Task 10c 在它上面重跑了全矩阵并全绿（§7：182/182、
-> heap PASS、十场景 5,007/0 + 复跑、截屏矩阵 481/0）；最终 3h soak **运行中**（§7 末）。
-> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10c-2 重算，586 项全 OK）。
+> heap PASS、十场景 5,007/0 + 复跑、截屏矩阵 481/0）；**最终 3h soak PASS**（§8）。
+> **收口（Task 10c-3，2026-11-26）**：R20/R23 两条脚本归一化已在设备上验证；最终固件上的 10c3 最终回归——
+> 十场景同一会话 **5,017 PASS / 0 FAIL**、截屏矩阵 33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL、`device-selftest.py` 182/182——
+> 与 3h soak 一起闭合了机器侧门禁（§8）。
+> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10c-3 重算，674 项全 OK）。
 
 ## 1. 门禁矩阵（门禁 → 命令 → 结论）
 
@@ -282,7 +285,7 @@ CYAN 是怎么来的：10c-1 的一次被误起又中止的 `sys` 复跑停在 �
 控制台断言不受影响。这一轮没有改脚本（范围外），收口报告 §4 记为已知限制；随后 `sys` 复跑按设计把设备归一回 MONO。
 10c-1 的矩阵批是在 MONO 上跑的，§7 的十场景读数不受影响。
 
-**CYAN 红的修复（裁决 R23，只改脚本 `93f8f96`，断言不变；设备验证欠给最终 soak 之后）**：
+**CYAN 红的修复（裁决 R23，只改脚本 `93f8f96`，断言不变；设备验证在 10c3 完成，见 §8）**：
 `inject.py` 的 `main()` 给十条场景（含 `sys`）套同一个调色板括号——每轮入口 `palette_normalise` 读
 `STORE SETTINGS INFO`，非 MONO（palette 4）或主题开着时 `SET palette 4` / `theme_on 0` 并立即
 `STORE SETTINGS SAVE`（SET 只改 RAM，场景开头的硬复位会赶在 1s 任务的静默窗口之前），`finally`
@@ -290,12 +293,10 @@ CYAN 是怎么来的：10c-1 的一次被误起又中止的 `sys` 复跑停在 �
 零写命令、断言计数不变；`sys` 的调色板轮换用例不变。离线证据：真实 `main()` + 假串口演练 10 例
 （MONO 零写 / CYAN 归一·还原 / 异常终止·断言未过仍还原 / ScenarioRestart 重跑 / SAVE 被拒后复位
 重新归一 / theme_on / 播放中入口 / init 未完重试），`soak-selftest.py` 与 `screenshot_matrix.py
---selftest` 通过。**尚未在设备上跑**：soak 结束后欠 (1) CYAN 入口的判别运行——先 `STORE SETTINGS SET
-palette 2` + `STORE SETTINGS SAVE`，跑 `step_edit.sh`，期望 rc=0、PASS/FAIL 与 MONO 入口同数（≈321/0），
-场景之后 `STORE SETTINGS INFO palette=2`；(2) MONO 入口回归：十场景各一遍，PASS/FAIL 计数与 §7 表相同
-（括号零断言）；(3) 任一非 MONO 入口（例如 CYAN 上的 `store`，开头就硬复位）证明归一跨复位成立。
-`screenshot_matrix.py` 的 `close_bracket` 经复核本就还原入口 palette/theme_on（漂移/复位丢失两条
-中止路径按设计不还原）；`soak.py` 没有像素探针，无 MONO 假设。
+--selftest` 通过。**设备验证（10c3，§8）**：(1) CYAN 入口的 `step_edit` 判别运行、(2) MONO 入口的十场景回归、
+(3) 非 MONO 入口上开头就硬复位的 `store`——三条都已跑过并全部通过。
+`theme_on=1` 的入口只有离线演练、没有上设备。`screenshot_matrix.py` 的 `close_bracket` 经复核本就还原入口
+palette/theme_on（漂移/复位丢失两条中止路径按设计不还原）；`soak.py` 没有像素探针，无 MONO 假设。
 
 **边界与需要知道的**：
 
@@ -307,8 +308,34 @@ palette 2` + `STORE SETTINGS SAVE`，跑 `step_edit.sh`，期望 rc=0、PASS/FAI
   不是用户的工程；开发机的工程槽自 P4-C 起就是场景测试态（收口报告 §7）。
 - 一次性探针与重启包装器入库为 `task-10c-probes.py` / `task-10c-restart_wrap.py` / `task-10c-tool-*.py`（没有固化进 `scripts/inject/`）。
 
-**最终 3h soak：运行中**。`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，PID 601697，
-起跑 2026-11-25 23:24:03（硬复位 + 30s 之后；`task-10c-presoak-boot.log`），stdout `/tmp/p4f_10c2/soak-3h-final.log`，
-transcript/摘要 `firmware/build/verify/soak{,-summary}-20261125-232403.{log,txt}`（gitignored，结果出来后晋升）。
-**在它出结果之前，阶段 4 的收口门禁是未闭合的**。语义同 §6 末的信号 soak（那一次跑在修复前固件 `1e8587b` 上：
-PASS，内部堆 Δ−20B、xrun 0、duty_mean ≤12.49%、池往返 Δ−24B；按裁决 R17 只作信号）。预计结束 ≈ 02:25。
+**最终 3h soak：PASS**（2026-11-26 02:24 结束；结果与证据见 §8）。
+
+## 8. 10c3 最终回归与 3h soak（2026-11-26）
+
+最终固件 `d317a72` 上的最后一轮设备验证。脚本 = HEAD `03798f1`（`d317a72` 之后只改 `scripts/inject/inject.py` 的 R20/R23
+两处归一化与文档；`git diff d317a72..HEAD --stat -- firmware third_party` 为空——受测固件与 `d317a72` 逐字节同一）。
+全部在同一个开机会话里自上而下跑（02:32 硬复位起；每条场景之间的设备态 = 上一条场景的收口态）。计数口径同
+`task-10c-matrix-summary.txt`（stdout 的 `[PASS]`/`[FAIL]` 行）。逐门禁的完整表在 `task-10c3-summary.txt`。
+
+| 门禁 → 命令 | 结果 | 证据 |
+|---|---|---|
+| **最终 3h soak**：`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`（2026-11-25 23:24:03 起跑，硬复位 + 30s 之后） | rc=0，`VERDICT: PASS`：实测 10801s / 181 采样 / 断言失败 0 / 判定问题无；内部堆 69,747→69,731B（Δ−16B）、`internal_min` 66,208B；streaming=1、xrun 0；`duty_mean` ≤12.78%；音频栈 3,120B、输入栈 7,852B；PLAY 稳态池往返 45,868→45,856B（Δ−12B，单次最小 −48B）；save 窗口 xrun 0→0、窗口后 streaming=1。功耗/温度仅记录：`ina=ok` 181/181、VBUS 925..945 mV、芯片温度 27.1..29.1 ℃ | `task-10c-soak-final-summary.txt`、`task-10c-soak-final-transcript.log`（6.5MB 原始回显） |
+| **R23 判别运行**：硬复位（`App version: d317a72`，fatal=0）→ `STORE SETTINGS SET palette 2` + `SAVE` → `step_edit.sh` | rc=0，**326 PASS / 0 FAIL**（248s）——R23 之前同一入口是 306/14（§7）；多出的 5 条全是括号自己的断言（归一 palette=4、归一已落盘、还原入口 palette=2、回到入口、还原已落盘），场景断言逐条与 MONO 入口相同；**场景之后 `STORE SETTINGS INFO palette=2`**（入口值被还原） | `task-10c3-cyan-step_edit-{stdout,transcript}.log`、`task-10c3-cyan-{entry-state,pre,post}.log`、`task-10c3-cyan-boot.log` |
+| R23 (3)：CYAN 入口上的 `store`（场景开头就硬复位 ⇒ 归一必须跨复位成立） | rc=0，**911 PASS / 0 FAIL**（382s）= MONO 入口同轮的 907 + 括号 5 条 − 1 条入口条件断言（「⑩e0 清空轨 1 步 5」：入口该步为空时不发）；场景之后 `palette=2`（入口值被还原）；随后手动回 palette 4 | `task-10c3-cyan-store-{stdout,transcript,pre,post}.log`、`task-10c3-mono-restore-2.log` |
+| 十条注入场景（MONO 入口，同一会话，顺序 transport → step_edit → tracks → nav → params → store → song → sequence → synth → sys） | transport 288 / step_edit 323 / tracks 84 / nav 583 / params 768 / store 907 / song 354 / sequence 562 / synth 794 / sys 354 —— **5,017 PASS / 0 FAIL**，全部 rc=0 | `task-10c3-<场景>-{stdout,transcript}.log` |
+| `screenshot_matrix.py` | rc=0：33 条目 / 166 锚点 / **481 PASS 行 / 0 FAIL 行**（10c-1 同口径 481/0）、逐条目后 `LIVEHASH` 不变、起点还原、截屏复位重试 0 次 | `task-10c3-matrix/`、`task-10c3-matrix-stdout.log` |
+| `device-selftest.py`（最后一条） | rc=0：182/182（`result=PASS`，163s） | `task-10c3-device-selftest-{stdout,transcript}.log` |
+| 收尾 | `STORE AUTO ON` → 硬复位（`App version: d317a72`，fatal=0）→ autosave=1 | `task-10c3-{chain,end-state,final-state,boot-final}.log` |
+
+与 10c-1 的计数对比（合计 5,007）：只有两条场景的行数不同，合计 5,017（差 +10），逐行 diff 后全部是入口相关的条件断言或
+已登记的基线变化，没有丢检查——`step_edit` 323 = 321（10c-2 修复 R20 之后的读数）+ 2 条**入口相关的条件断言**（入口工程的
+轨 0 步 2 已亮 ⇒ 先「TAP 点灭」+ `ENG STEP` 复核两条；10c-1 progress 记过同一机制）；`store` 907 = 10c-1 的 908 − 1
+（「TAP 步 (0,5) 建音」：步 5 已是期望音时幂等跳过；Task 5/10b 的读数同为 907）。MONO 入口上括号零写命令、零断言行；
+其余八场景的 PASS 行与 10c 的 stdout 逐条相同，只有时序读数不同（播放头列、build_ms、池水位）。
+
+读数：nav 有序对 72/72、最紧 SEQ→FILE 6,564B（10c-1：6,620B）、`lvgl_stack_free` 5,116B；`sys` 的 DI-40 回归 duty_mean
+12.70% / 9.51%（≤18.88%）。链日志（含每条场景的 transcript 文件名）`task-10c3-chain.log`。
+
+**边界**：无视觉检查（全部是像素探针/锚点结论；人眼材料 = `task-10c3-matrix/sheet-*.png`，与 10c-1 的 `task-10c-matrix/`
+同样没有人看过）；输入任务栈断言仍因 `phys=0` 跳过；`theme_on=1` 的入口只有离线演练、没有上设备；10c3 没有重跑
+`selftest-heap.py` 与 `desc-check.py`（固件未变，沿用 10c-1 的读数）。
