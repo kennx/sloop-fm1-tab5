@@ -3,7 +3,8 @@
 #   ① 归一（STORE AUTO OFF、停走带、ENG AUDIO ON）→ `STORE SETTINGS INFO` 解析 →
 #      `SET palette 2` ⇒ `dirty=1` → `SAVE` ⇒ `STORE SETTINGS SAVED len=<n> side=<0|1>`、
 #      `dirty=0` → esptool 硬复位 → INFO 仍 `palette=2` → 收口（palette 回起点值、AUTO ON）
-#   ①b RAW settings 往返；② SYSTEM/SYS 页与 8 组签；③ TAP/键盘/走带中 NVS；
+#   ①b RAW settings 往返；② SYSTEM/SYS 页与第 9 组签 + ABOUT 版本行（启动日志
+#      App version 与两行暗色文字的像素探针，P4-F Task 7）；③ TAP/键盘/走带中 NVS；
 #   ④ 硬复位持久化与 REC 三项；⑤ 182 例 golden（后立即复位取干净基线）；⑥ SEQ↔SYS 池峰值；⑦ 收口；
 #   ⑧ SELFTEST chip（STOP FIRST → worker/恢复 → RESET FIRST）；
 #   ⑨ RAW settings + SIDE theme（COLOR/像素/硬复位/STORE TEST）

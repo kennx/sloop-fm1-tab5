@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# tracks.sh — TRACKS 注入：点卡 2（选轨）→ 断言 selected/focus_track → 截屏
+# tracks.sh — TRACKS 注入：点卡 2（选轨）→ 断言 selected/focus_track → 截屏；
+#   键盘层键（P4-F Task 7）：Alt+1..4 静音 / Alt+5..8 独奏 / Ctrl+1..4 选轨（`KEY` 注入，
+#   `ENG SNAP trk` / `STATE SNAP` 真值 + TRACKS 卡像素区；两层同按取 GLO；收口还原）
 # 用法: bash scripts/inject/tracks.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 tracks 场景里；本脚本只是入口。

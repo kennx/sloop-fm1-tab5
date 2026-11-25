@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # step_edit.sh — STEP 注入：窗口列编辑（默认窗口两格）+ 分窗 bank1（绝对步号/隐藏列/
-# 播放头映射）→ 断言 STATE/ENG 真值 → 截屏
+# 播放头映射）→ 断言 STATE/ENG 真值 → 截屏；②e 深度步态、②f 鼓 lane 编辑、
+#   ②g EDIT 层 a–g 擦除（P4-F Task 7：Aa + 音名键 ⇒ 聚焦步的同名音消失，
+#   `ENG STEP` 真值；两音步只摘一根、跨八度、无匹配不变、鼓轨 no-op、冻结不写）
 # 用法: bash scripts/inject/step_edit.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 脚本可重复运行：先归一窗口到 {0,0,16}；目标格已亮先经同一 TAP 路径点灭再点亮；
