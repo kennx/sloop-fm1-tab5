@@ -1,0 +1,47 @@
+P4-F 最终回归摘要（Task 10c-3；2026-11-26）
+受测固件 = d317a72（boot `App version: d317a72`，两次硬复位 fatal=0）。脚本 = HEAD 0faa655；`git diff d317a72..HEAD --stat -- firmware third_party` 为空
+（d317a72 之后只改 scripts/inject/inject.py 的 R20/R23 归一化与文档）。计数口径：stdout 的 [PASS]/[FAIL] 行。
+链：02:32 硬复位 → CYAN 判别运行 → 回 MONO → 同一开机会话十场景 → 截屏矩阵 → CYAN 入口 store → 回 MONO → device-selftest → AUTO ON → 硬复位。
+
+== 最终 3h soak（2026-11-25 23:24:03 → 2026-11-26 02:24；固件 d317a72）==
+soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600
+  rc=0，VERDICT: PASS；实测 10801s / 181 采样 / 断言失败 0 / 判定问题无
+  internal_free 69747→69731B（Δ-16B）、internal_min 66208B；streaming=1、xrun 0；duty_mean ≤12.78%；audio_stack 3120B；input_stack 7852B；KEY 0→1800
+  池往返 45868→45856B（Δ-12B，单次最小 -48B）；save 窗口 xrun 0→0，窗口后 streaming=1
+  功耗/温度仅记录（R15）：ina=ok 181/181；vbus 925..945 mV；shunt -5..3 µV；cur -1..1 mA；temp 27.1..29.1 ℃
+  证据：task-10c-soak-final-summary.txt / task-10c-soak-final-transcript.log
+
+== R23 的设备验证（脚本归一化；断言不变）==
+(1) CYAN 入口 step_edit：硬复位 → STORE SETTINGS SET palette 2 + SAVE（INFO palette=2）→ step_edit.sh
+    rc=0，326 PASS / 0 FAIL（248s）——R23 前同一入口 306/14（task-10c-step_edit-rerun-cyan-stdout.log）
+    +5 = 括号自己的 5 条（归一 palette=4 / 归一已落盘 / 还原入口 palette=2 / 回到入口 / 还原已落盘）；场景之后 INFO palette=2、set_palette=2
+    证据：task-10c3-cyan-{entry-state,pre,post}.log、task-10c3-cyan-step_edit-{stdout,transcript}.log、task-10c3-cyan-boot.log、task-10c3-mono-restore.log
+(3) CYAN 入口 store（开头就硬复位）：rc=0，911 / 0（382s）= MONO 入口同轮的 907 + 括号 5 条 - 1 条入口条件断言
+    （「⑩e0 清空轨 1 步 5」：入口该步为空时不发）；之后 palette=2；手动回 palette 4
+    证据：task-10c3-cyan-store-{stdout,transcript,pre,post}.log、task-10c3-mono-restore-2.log
+(2) MONO 入口十场景回归：见下表（括号零写命令 ⇒ 计数不含括号行）
+
+== 十条注入场景（MONO 入口 = palette 4，同一开机会话，自上而下）==
+场景          10c3 PASS/FAIL  rc  耗时   10c-1 对照   stdout / transcript
+
+transport      288 / 0       0    163s   288 / 0   task-10c3-transport-stdout.log / task-10c3-transport-transcript.log（原始 inject-transport-20261126-023755.log）
+step_edit      323 / 0       0    247s   312 / 0  ← 差 +11   task-10c3-step_edit-stdout.log / task-10c3-step_edit-transcript.log（原始 inject-step_edit-20261126-024038.log）
+tracks          84 / 0       0     92s   84 / 0   task-10c3-tracks-stdout.log / task-10c3-tracks-transcript.log（原始 inject-tracks-20261126-024445.log）
+nav            583 / 0       0    512s   583 / 0   task-10c3-nav-stdout.log / task-10c3-nav-transcript.log（原始 inject-nav-20261126-024617.log）
+params         768 / 0       0    648s   768 / 0   task-10c3-params-stdout.log / task-10c3-params-transcript.log（原始 inject-params-20261126-025450.log）
+store          907 / 0       0    381s   908 / 0  ← 差 -1   task-10c3-store-stdout.log / task-10c3-store-transcript.log（原始 inject-store-20261126-030537.log）
+song           354 / 0       0    190s   354 / 0   task-10c3-song-stdout.log / task-10c3-song-transcript.log（原始 inject-song-20261126-031158.log）
+sequence       562 / 0       0    165s   562 / 0   task-10c3-sequence-stdout.log / task-10c3-sequence-transcript.log（原始 inject-sequence-20261126-031509.log）
+synth          794 / 0       0    173s   794 / 0   task-10c3-synth-stdout.log / task-10c3-synth-transcript.log（原始 inject-synth-20261126-031753.log）
+sys            354 / 0       0    639s   354 / 0   task-10c3-sys-stdout.log / task-10c3-sys-transcript.log（原始 inject-sys-20261126-032046.log）
+合计 5017 PASS / 0 FAIL（10c-1：5,007 / 0；差 +10）。逐行 diff（数字归一后）只有三处不同，全部是入口相关的条件断言或已登记的基线变化，没有丢检查：
+  step_edit +11 = +9（基线：R20 修复后 10c-2 的读数是 321，10c-1 的 312 是修复前）+ 2（入口轨 0 步 2 已亮 ⇒ 先「TAP 点灭」+「ENG STEP 复核」两条；10c-1 progress 记过同一机制）
+  store     -1（「TAP 步 (0,5) 建音」：步 5 已是期望音 note=60/vel=100 时幂等跳过；Task 5/10b 的读数同为 907）
+  其余八场景 PASS 行逐条相同，只有时序读数不同（播放头列、build_ms、池水位、哈希）。
+nav 有序对 72/72，最紧 SEQ→FILE 6564B（≥4,096）；lvgl_stack_free 最小 5116B。
+sys 的 DI-40 回归行：[PASS] ⑤ console 全量自检后音频 duty_mean=12.70% render_mean_us=737（≤ 18.88%） ; [PASS] ⑧ worker 恢复流式后音频 duty_mean=9.51% render_mean_us=552（≤ 18.88%）
+
+== 截屏矩阵 / 全量自检 / 收尾 ==
+screenshot_matrix.py /dev/ttyACM0    rc=0：33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL 行（771s）   task-10c3-matrix/、task-10c3-matrix-stdout.log
+device-selftest.py /dev/ttyACM0      rc=0：182/182，result=PASS（163s）                     task-10c3-device-selftest-{stdout,transcript}.log
+收尾：STORE AUTO ON；autosave=1；硬复位 boot rc=0 ver=d317a72 fatal=0     task-10c3-{chain,end-state,final-state,boot-final}.log

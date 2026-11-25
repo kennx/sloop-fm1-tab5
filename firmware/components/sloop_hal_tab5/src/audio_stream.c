@@ -32,7 +32,7 @@ static sloop_hal_render_fn_t render_fn;
 static int32_t render_buf[2][AUDIO_HALF_FRAMES * 2u];
 static int16_t output_buf[2][AUDIO_HALF_FRAMES * 2u];
 /* 音频任务的栈必须整块落在内部 L2MEM：P4 的 32KB LP SRAM 是 MALLOC_CAP_INTERNAL 的低优先级
- * 兜底堆，L2MEM 拿不出连续的整块栈时（全量 ENG SELFTEST 之后，DI-26 的堆泄漏）xTaskCreate
+ * 兜底堆，L2MEM 拿不出连续的整块栈时（当时的 DI-26 泄漏——全量 ENG SELFTEST 之后；该泄漏已修，见 sloop_core_init 快照前的预初始化）xTaskCreate
  * 会把栈落到那里——该落点下栈上局部变量密集的 DSP 渲染实测慢 ~24 倍（推断：HP 核访问 LP SRAM
  * 不经 L1 cache；落点→变慢的因果已由「换回 L2MEM 即恢复」的干预实验证实）
  * （每块 13ms > 5.8ms 预算，持续 xrun，直到复位）。故首次启流时用 INTERNAL|DMA（LP SRAM

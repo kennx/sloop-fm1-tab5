@@ -144,18 +144,6 @@
 | **参考** | `firmware/main/console.c` 的 `store_fault`/`store_rawtest`、`firmware/components/sloop_hal_tab5/src/storage_flash.c`（计数只由 erase/prog 递增）、`store_tab5.c` 的 `sloop_store_autosave_tick`（`store_trylock`/`s_busy`）、`scripts/inject/inject.py` 的 ⑬a |
 | **登记** | 2026-11-22（P4-B Task 8 评审 minor 4b） |
 
-## DI-26: `ENG SELFTEST` 每次全量运行泄漏 ~40KB 内部堆（重复自检后 19KB；音频重启超时已修，堆泄漏仍在）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | P4-B Task 14 收口矩阵（注入六场景 → `device-selftest` → soak 同一会话）暴露：**每次全量 `ENG SELFTEST`（182 例）净减 ~40KB 内部堆**，且不随重启前的其它命令出现。实测 2026-11-22（固件 `6167039-dirty`）：复位后 `internal_free=99,739` → 全量 #1 后 `59,443` → 全量 #2 后 `19,323`；两次后 `ENG AUDIO ON` 超时（收 14 字节无提示符），需重启恢复。单用例重复 20 次 `-4,612B`（≈230B/执行 job）；未知用例（0 job）每次 ~40B；音频 OFF/ON ×3 与普通命令（`ENG MEM`/`ENG PERF`/`ENG SNAP`）无此量级变化——泄漏只在 regress job 执行路径上。同一会话里紧随其后的 soak 因此跌破 60KB 门禁（59,355B）；**复位后同一 soak 命令 PASS**（99,211→99,263B）。测量留档：`docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、`task-14-soak-fail-after-selftest*.txt`。 |
-| **影响面** | 仅诊断入口 `ENG SELFTEST`（含 `scripts/device-selftest.py` 门禁）。正常使用（上电/编辑/播放/切页/存储）不触发。后果：①**门禁口径**——同一开机内「selftest → soak」不能连跑（soak 的 HEAP_FLOOR 会假红，除非复位）；②**设备可用性**——连续两次全量自检后内部堆 19KB，音频流无法重启（`ENG AUDIO ON` 超时），需断电/复位（P4-B 实测；2026-11-24 定位到该「重启超时」的机理是泄漏后音频任务栈落到 LP SRAM，已由 `c62823e` 修复——栈改为开机首次启流即固定在 L2MEM 的常驻整块，音频不再依赖自检后的堆余量；**堆耗尽本身的风险未变**：P4-E 开机约 69KB、一次全量后约 29KB，第二次全量预计把内部堆耗尽，未实测）；③单次自检后仍有 59KB，日常一次诊断不受功能影响，但已低于 60KB 门禁线。 |
-| **为何可延迟** | 不在用户操作路径上；根因未定位（本条目按实测登记，不做猜测性修法）。门禁已用「selftest 之后复位再 soak」的矩阵顺序规避（AGENTS §5.1/§5.5 已注明），证据完整。修法涉及 selftest 快照/恢复与堆所有权（P4-B 起 store TU 编入同一快照窗口），需要单独一轮带堆跟踪的排查，避免在收口任务里盲改。 |
-| **解决方向** | ① 先定位：对 `ENG SELFTEST` 单用例做堆跟踪（`heap_caps_get_info` 前后快照 / `esp_heap_trace` 或二分 job 名单），确认是 regress job 内的库调用（如 `snprintf("%.2f")` 的 newlib 缓冲）还是 `selftest_restore()` 回滚了某个堆相关的全局；② 若为恢复回滚：把「自检期间分配、恢复后仍被使用的指针」移出快照窗口（`.noinit` 或重扫），参照 Task 7 的 `fm6_bank_boot`/`up_boot` 入口重扫；③ 若为库缓冲：改为定长格式化或预热；④ 无论修法，补一条门禁断言：连续两次全量 `ENG SELFTEST` 后 `internal_free` 下降 ≤1KB。 |
-| **触发条件** | 任何「同一开机内先跑 `ENG SELFTEST` 再跑 soak/长时观测」的门禁或演示；或需要连续多次自检的排障会话。**P4-F 收口前必须处理**（否则每条矩阵都要额外复位，且连续自检会把内部堆降到 19KB——P4-B 读数；音频栈落点已修，剩余风险是堆耗尽）。 |
-| **参考** | 实测记录 `docs/dev/verify/4-pb-2026-11-21/task-14-selftest-heap-leak.txt`、失败 soak `task-14-soak-fail-after-selftest*.txt`、`firmware/components/sloop_core/src/selftest.c`（`selftest_restore`/快照窗口/`selftest_fork`）、`third_party/sloop-fm1/tests/regress.c`（job 的 `calloc/free` 与浮点 `snprintf`）、ADR-009 §8（`.bss` 快照窗口与入口重扫）、`docs/dev/device-notes.md` §9（栈落点的判别手法）、`docs/dev/verify/4-pe-2026-11-23/fix-probe-r{1-full,5-final}-*.log`（泄漏后 `internal_free=33,363` / `28,719` 的复现与修复对照） |
-| **登记** | 2026-11-22（P4-B Task 14 收口矩阵：同一会话 selftest → soak 的 heap floor 失败；复位后 soak PASS）；2026-11-24 P4-E 修复轮：定位到本泄漏的一条**可见后果**——泄漏后内部 L2MEM 拿不出连续的 4KB，`xTaskCreate` 把音频任务的栈落到 LP SRAM（P4 上是 `MALLOC_CAP_INTERNAL` 的低优先级兜底堆，该落点下渲染慢 ~24 倍，推断是 HP 核访问不经 L1 cache）、每块 xrun 直到复位（原 DI-40；据前任报告 P4-D 开机内部堆多 ~20KB 因而当时未暴露——推断，未在 P4-D 固件上复现）。音频任务栈已改为首次启流用 `INTERNAL\|DMA` 显式分配的常驻 L2MEM 整块，音频不再受泄漏影响；泄漏本身仍未定位（本次实测 P4-E 开机 68.9KB → 一次全量后 28.7KB；按此斜率同一 boot 内第二次全量会把内部堆耗尽，未实测）。新增的 `SYS SELFTEST ARM` 诊断让 chip 可在同一供电周期内重跑，使用时须「先复位再 ARM」 |
-
 ## DI-27: 一次性 take 结果（`take_bars`）在设备脚本里不可稳定观测
 
 | 项 | 内容 |
@@ -189,7 +177,7 @@
 | **为何可延迟** | 概率低（当前只在同一行写入窗口撞上 UI quiesce OFF 日志时发生），重跑即可恢复；修法要么改门禁脚本的读取/解析协议，要么改 console 输出原子性，二者都需要单独验证，不宜在 UI 任务里顺手改门禁工具。 |
 | **解决方向** | (a) 脚本命中 `SUMMARY` 前缀后继续读到 `sloop>` 提示符，把同一物理行的续行合并后再解析（并显式校验 `cases==expected`、`mismatch==0`、`deterministic=1`）；`result=` 缺失时按「计数一致 + 显式 WARN」处理而不是直接 FAIL。(b) 固件把汇总行放到没有并发 UI 日志的窗口（quiesce OFF 之前/之后若干拍），或用一次 `write()` 输出整行。(c) 给 console 输出加行锁/行缓冲（影响面最大）。优先 (a)+(b)，但门禁仍须保留 `result=PASS` 与 `identical==expected` 两条判据。 |
 | **触发条件** | 任何 `ENG SELFTEST` 门禁；UI 定时器恢复日志、存储 tick 等并发 `ESP_LOG` 恰好落在汇总 `printf` 写入中途。 |
-| **参考** | `scripts/device-selftest.py`（`SUMMARY`/`summary_fields`/`compare`）、`firmware/components/sloop_core/src/selftest.c`（汇总 printf）、`firmware/components/sloop_ui/src/ui.c`（quiesce OFF 日志）、DI-26（自检堆泄漏） |
+| **参考** | `scripts/device-selftest.py`（`SUMMARY`/`summary_fields`/`compare`）、`firmware/components/sloop_core/src/selftest.c`（汇总 printf）、`firmware/components/sloop_ui/src/ui.c`（quiesce OFF 日志）、`docs/dev/verify/4-pf-2026-11-24/task-2-root-cause-callstacks.txt`（原 DI-26 自检堆泄漏的根因；当时的泄漏让自检后的内部堆只剩 ~28KB） |
 | **登记** | 2026-11-22（P4-C Task 9 设备复验：同一固件两次自检一次假红） |
 
 ## DI-30: TRANSPORT 聚焦步字段没有「音符光标」与精确 span 读口
@@ -288,14 +276,182 @@
 | **参考** | `firmware/components/sloop_hal_tab5/src/sys_settings.c` 文件头、`docs/tab5-hardware.md` §3.2（含原理图链接）、`docs/dev/device-notes.md` §5、`.superpowers/sdd/2026-11-23-p4e-settings-page/task-3-report.md` §2.1、spec `2026-11-23-p4e-settings-page-design.md` §2.4/§5 D10（「扬声器 = LOUT2/ROUT2」的表述已被原理图否定）。已封存的证据包（如 `docs/dev/verify/4-pc-2026-11-22/`、`1-bringup-2026-11-19/`）里的 `DI-6` 是历史编号（R18：证据包不可变），即指本条 |
 | **登记** | 2026-11-23（P4-E Task 3 评审修复；关闭 DI-6 并承接其余项） |
 
-## DI-43: 内部堆余量仅 4KB（SELFTEST worker 16KB 栈常驻）+ 平台设置的两处未验证项
+## DI-43: 内部堆余量仅 4KB + 平台设置的两处未验证项（worker 栈收缩已收口）
 
 | 项 | 内容 |
 |---|---|
-| **背景** | P4-E 修复轮固件（`86711a4`，终审时的 HEAD 固件同构）的 1800s soak `internal_min` = **65,536B**，§5.5 门限 61,440B（60KB）⇒ 余量恰 **4,096B**；P4-D 同口径为 83,780B。P4-D→P4-E 少的 ~18KB 里，**SELFTEST chip 的 worker 占 16KB**：`sys_selftest.c` 的 `SYS_SELFTEST_STACK 16384`，`main.c` 在 UI 启动后 `xTaskCreate` 一次、之后 forever `vTaskDelay` 等 `CMD_SELFTEST_RUN`（栈与 TCB 常驻内部堆；`.noinit` 标记让它每 boot 只真正跑一次）。**刻意**在开机创建（任何泄漏之前）：这样栈落在内部 L2MEM；放到请求时再创建，DI-26 泄漏之后可能落到 LP SRAM（DI-40 的同款坑）。其余差额按终审笔记归 NVS（平台设置三键；推断，未逐项量测）。**同条登记终审 triage 的两项平台设置遗留**：(a) 播放中写 xrun 的用例只测亮度（LEDC），**VOLUME**（codec 互斥 + I2C）与 **NVS commit** 在流式期间的 xrun 影响没有机读覆盖——1s 任务的静默窗口会让 NVS 提交避开发声，但窗口判定（`audio_quiet`）与提交之间没有 codec 静音；(b) 键盘 RGB 颜色缓冲 `0x60..` 的字节序 **B,G,R** 取自 M5Tab5-Keyboard-Internal-FW 的寄存器语义，console `KBD RGB` 只发白色 `0xFFFFFF`，字节序错了机器看不出来（accent 为黄/品红/青时才会显色差）。 |
+| **背景** | P4-E 修复轮固件（`86711a4`，终审时的 HEAD 固件同构）的 1800s soak `internal_min` = **65,536B**，§5.5 门限 61,440B（60KB）⇒ 余量恰 **4,096B**；P4-D 同口径为 83,780B。P4-D→P4-E 少的 ~18KB 里，**SELFTEST chip 的 worker 当时占 16KB**（P4-E 时点；**此项已于 2026-11-24 收口**：栈 16,384→5,632，见「登记」）：当时 `sys_selftest.c` 的 `SYS_SELFTEST_STACK` 是 16384，`main.c` 在 UI 启动后 `xTaskCreate` 一次、之后 forever `vTaskDelay` 等 `CMD_SELFTEST_RUN`（栈与 TCB 常驻内部堆；`.noinit` 标记让它每 boot 只真正跑一次）。**刻意**在开机创建（任何泄漏之前）的理由**在当时成立**：这样栈落在内部 L2MEM；放到请求时再创建，DI-26 泄漏之后可能落到 LP SRAM（DI-40 的同款坑）。DI-26 已于 2026-11-24 修复，「开机创建」的做法保留——任务栈的落点不该依赖当时的堆形态。其余差额按终审笔记归 NVS（平台设置三键；推断，未逐项量测）。**同条登记终审 triage 的两项平台设置遗留**：(a) 播放中写 xrun 的用例只测亮度（LEDC），**VOLUME**（codec 互斥 + I2C）与 **NVS commit** 在流式期间的 xrun 影响没有机读覆盖——1s 任务的静默窗口会让 NVS 提交避开发声，但窗口判定（`audio_quiet`）与提交之间没有 codec 静音；(b) 键盘 RGB 颜色缓冲 `0x60..` 的字节序 **B,G,R** 取自 M5Tab5-Keyboard-Internal-FW 的寄存器语义，console `KBD RGB` 只发白色 `0xFFFFFF`，字节序错了机器看不出来（accent 为黄/品红/青时才会显色差）。 |
 | **影响面** | 余量：任何新增的常驻内部 RAM（P4-F 的 USB host / USB-MIDI / 联动协议缓冲几乎必然要内部 DMA 内存）都可能把 soak 的 heap floor 顶穿；soak 门限本身不改。平台设置：(a) 只在「播放中调音量」这个用户路径上可能有可听的爆音/xrun，未观测到；(b) 只影响键盘灯颜色（亮度档位与开关已机读覆盖）。 |
-| **为何可延迟** | 当前固件 soak PASS（xrun 0、min 65,536B ≥ 门限），没有功能性缺陷；worker 栈的高水位需要真跑一次全量自检才能量到（本轮修复波已占用设备门禁窗口）。平台设置两项是人测可兜底的可见性问题。 |
-| **解决方向** | (1) worker 跑完后用 `uxTaskGetStackHighWaterMark(NULL)` 打印高水位并写进 `STATE SNAP`/worker 日志，按实测（预期远小于 16KB，console 任务栈的量级）下调 `SYS_SELFTEST_STACK`，或改成开机只占 TCB、栈在请求时用 `INTERNAL\|DMA` 显式分配（与 ADR-007 音频任务栈同法，避开 DI-26 的落点问题）。(2) **P4-F 动工前重估 soak floor**：按 USB host/MIDI 的实际常驻量重新定 60KB 门限或明确记为「联动模式下不适用」。(3) xrun：给 `sys` ③ 的播放中 20 次写加 VOLUME 变化（0↔70）+ `ENG PERF` 3s 窗口 xrun 增量 = 0 的断言，并在播放中制造一次 NVS dirty 后的提交（或直接在 `sloop_hal_settings_flush` 的 commit 前后取 xrun 计数打印）；若测到 xrun，commit 期间做 codec 静音或把提交挪到停流窗口。(4) 键盘字节序：console 加 `KBD RGB RGB <r> <g> <b>`（或 `KBD RGB PROBE`）发纯红/纯绿，配合屏上色块截图做人眼对照；或读回键盘 FW 的颜色缓冲寄存器（若协议支持回读）。 |
-| **触发条件** | (1)(2) P4-F 第一个涉及 USB host/MIDI 的任务开工前（新增内部 RAM 分配之前）；soak 的 `internal_min` 低于 ~62KB 时立即处理。(3)(4) 用户报告播放中调音量有爆音，或键盘灯颜色与屏上 accent 不一致。 |
-| **参考** | `firmware/main/sys_selftest.c`（`SYS_SELFTEST_STACK`、worker 循环）、`firmware/main/main.c`（`sys_selftest_start` 调用点）、`scripts/soak.py`（`HEAP_FLOOR`）、`docs/dev/verify/4-pe-2026-11-23/fix-soak-summary.txt`（min 65,536B）、ADR-007（音频任务栈的 L2MEM 分配）、DI-26（全量自检堆泄漏）、`firmware/components/sloop_hal_tab5/src/sys_settings.c`（`sloop_hal_settings_flush`）、`firmware/components/tab5_keyboard`（`tab5_keyboard_rgb_set`）、P4-E spec §5 D2/D9 |
-| **登记** | 2026-11-24（P4-E 整分支终审 I3；合并 triage 的 M10 余项与键盘字节序） |
+| **为何可延迟** | 当前固件 soak PASS（xrun 0、min 65,536B ≥ 门限），没有功能性缺陷；worker 栈当时没有高水位读数（P4-E 修复波占用了设备门禁窗口）；2026-11-24 已实测峰值 4,148B、栈收到 5,632（见「解决方向」(1)）。平台设置两项是人测可兜底的可见性问题。 |
+| **解决方向** | (1) **已收口**（2026-11-24：worker 收尾打印 `sys_selftest: stack hwm=<bytes>`，实测 16KB 栈的 hwm=12,236 ⇒ 峰值 4,148B，栈取 4,148+1,024 向上对齐 512 = 5,632；收尾 hwm=1,484）。(2) **P4-F 动工前重估 soak floor**：按 USB host/MIDI 的实际常驻量重新定 60KB 门限或明确记为「联动模式下不适用」。(3) xrun：给 `sys` ③ 的播放中 20 次写加 VOLUME 变化（0↔70）+ `ENG PERF` 3s 窗口 xrun 增量 = 0 的断言，并在播放中制造一次 NVS dirty 后的提交（或直接在 `sloop_hal_settings_flush` 的 commit 前后取 xrun 计数打印）；若测到 xrun，commit 期间做 codec 静音或把提交挪到停流窗口。(4) 键盘字节序：console 加 `KBD RGB RGB <r> <g> <b>`（或 `KBD RGB PROBE`）发纯红/纯绿，配合屏上色块截图做人眼对照；或读回键盘 FW 的颜色缓冲寄存器（若协议支持回读）。 |
+| **触发条件** | (2) P4-F 第一个涉及 USB host/MIDI 的任务开工前（新增内部 RAM 分配之前）；soak 的 `internal_min` 低于 ~62KB 时立即处理。(3)(4) 用户报告播放中调音量有爆音，或键盘灯颜色与屏上 accent 不一致。 |
+| **参考** | `firmware/main/sys_selftest.c`（`SYS_SELFTEST_STACK`、worker 循环）、`firmware/main/main.c`（`sys_selftest_start` 调用点）、`scripts/soak.py`（`HEAP_FLOOR`）、`docs/dev/verify/4-pe-2026-11-23/fix-soak-summary.txt`（min 65,536B）、ADR-007（音频任务栈的 L2MEM 分配）、`firmware/components/sloop_hal_tab5/src/sys_settings.c`（`sloop_hal_settings_flush`）、`firmware/components/tab5_keyboard`（`tab5_keyboard_rgb_set`）、P4-E spec §5 D2/D9 |
+| **登记** | 2026-11-24（P4-E 整分支终审 I3；合并 triage 的 M10 余项与键盘字节序）；2026-11-24 P4-F Task 2：(1) 收口——开机 `internal_free` 79,799B（栈 5,632 固件的手工 chip 运行前读数；同一固件 `selftest-heap.py` 的 boot 读数为 79,863B，差为两次开机之间的噪声）对 69,111B（16KB 栈固件、`selftest-heap.py` 的 boot 读数）⇒ 约 +10.7KB，栈仍在 L2MEM（`sys_selftest: stack=0x4ff30a84`）；注意 worker 跑完 `vTaskDelete(NULL)` 自删，**chip 首次运行之后这 5,632B 会归还堆**（运行后实测 85,511B），16KB「常驻」只发生在 chip 的第一次运行之前。soak floor 的新读数由阶段收口 soak 重测；2026-11-25 P4-F Task 6：开机 `internal_free` **70,335B**（`UI sound` 后；Task 2 时 79,799B——LVGL 任务栈 7,168→10,240（R10）与输入任务栈 4,096→8,192（R13）共 +7KB）。按 P4-E 的经验（soak `internal_min ≈ boot − 3.5KB`）推算 ≈66.8KB；控制器备用的回缩方案：收口 soak `internal_min < 63KB` ⇒ LVGL 栈回 8,192、输入栈 6,144（R11/R14），门限不改——判定由 Task 10b 的长时 soak 给出 |
+
+## DI-44: PRESETS 收藏（fav 16）无 UI
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 2.7：PRESETS 页 KNOB 4 把当前声音加入/移除收藏（最多 16，置顶列表），随 settings 的 side record（FAVS 段）持久化。Tab5 PRESETS 页无此交互；side record 的 fav 字节逐字节保留。 |
+| **影响面** | PRESETS 页缺少「收藏置顶」浏览方式；数据无损。 |
+| **为何可延迟** | 非核心路径；P4-E 已保证 fav 字节不丢，随时可补。 |
+| **解决方向** | PRESETS 页加收藏切换（chip 或键盘键）+ `CMD_PRESET_FAV`；读 `fav[]`（同 TU 可达）并镜像上游 `fav_toggle` 语义。 |
+| **触发条件** | 用户在 32 用户预置 + 工厂预置间来回找同一个声音；或 P4-F 之后的 PRESETS 页改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-45: EDIT 层实时擦除（走带中 MPC 式）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 EDIT 层：按住 EDIT + 键 = 该音符/鼓声在走带中从播放头经过的每一步被擦除；另有 MUTE mode。Tab5 只有 STEP 格点切换与 `SEQ EDIT DEL`。 |
+| **影响面** | 实时演奏中无法「按着键擦掉某个音」；离线编辑不受影响。 |
+| **为何可延迟** | 需要新的输入层（修饰键 + 音符键 → 按拍调用擦除），涉及 InputManager 层模型与录音并发（DI-28 同类风险）。 |
+| **解决方向** | InputManager 增 EDIT 层：按住某键期间每个 30ms 拍/每步对选中轨调用 `SEQ_STEP_NOTE_DEL`（鼓：按 lane 清位）；人测手感。 |
+| **触发条件** | 用户提出现场擦除需求；或 P5 输入层改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-46: 鼓轨 MUTE mode（Sequencer 内静音某鼓声）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 2.6：EDIT 层 + 黑键进入 MUTE mode，白键静音/恢复 Sequencer 里对应的鼓声（live，不擦除）。Tab5 无。 |
+| **影响面** | 现场无法快速静音某个鼓 lane；可用 STEP 页逐格清代替（破坏性）。 |
+| **为何可延迟** | 同 DI-45 的输入层工作；非核心。 |
+| **解决方向** | 与 DI-45 一并实现：lane 级 live mute，复用上游 `drum_mute` 位掩码（`ui_layers.c:787`，同 TU 可达）。 |
+| **触发条件** | 用户提出需求；或与 DI-45 同批。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-47: ARP roll（note repeat 层）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 ARP 层：按住 ARP + 键 = 以 RATE（1/8…1/64）重复该音，锁定 tempo/swing；录音时写成 ratchet。Tab5 无。 |
+| **影响面** | 演奏表现力缺一项；ARP 参数页本阶段补齐（Task 4），但 roll 是输入层功能。 |
+| **为何可延迟** | 输入层 + 录音写入路径，和 DI-45/46 同类。 |
+| **解决方向** | InputManager 增 ARP 层：按住期间按 RATE 调度重复 note-on；录音中经 `sloop_seq_drum_hit`/note 写入。 |
+| **触发条件** | 用户提出需求。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-48: tap tempo 未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 GLO 层白键 16：连敲两次以上设 BPM。Tab5 只有 BPM±。 |
+| **影响面** | 排练时无法快速跟拍；BPM 旋钮可替代。 |
+| **为何可延迟** | 小功能但需输入层 + 时间窗逻辑。 |
+| **解决方向** | TRANSPORT 增 TAP chip / 键盘键：两次间隔 → BPM（40..240 钳位），经 `CMD_SET_BPM`。 |
+| **触发条件** | 用户提出需求；或 TRANSPORT 页下次改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-49: SEL 层键盘行为（CHORD / KEYS SNAP·WHITE）未映射到 Tab5 键盘
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 SEL 层：CHORD 模式下单指走和弦、黑键换和弦；KEYS = OFF/SNAP/WHITE 改变琴键行为。Tab5 键盘直接发原始音高；参数本身本阶段补齐（Task 4 SCALE 页）。 |
+| **影响面** | 参数能改，但 Tab5 键盘上听不到 CHORD/KEYS 的效果（若引擎在 note-on 前由 ui_input 做映射）。 |
+| **为何可延迟** | 需先核实上游是在 `ui_input.c` 做键位映射还是引擎内处理；属输入层。 |
+| **解决方向** | 读 `ui_input.c` 的 keys/chord 处理，移植到 InputManager 的 note-on 路径（纯函数，host 单测）。 |
+| **触发条件** | Task 4 落地 SCALE 页后若参数在 Tab5 键盘上无效，则升级为必修。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-50: 开机画面 / 开机音未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游有 splash 与开机音（`splash.c`、boot sound）。Tab5 开机直接进 PLAY 页。 |
+| **影响面** | 观感差异；无功能影响。 |
+| **为何可延迟** | 纯呈现；固件开机即启流，开机音需小心与流式启动顺序（不阻塞功能）。 |
+| **解决方向** | display 就绪后 1–2 帧标题画面；开机音经 `sloop_core` 触发一次 note（停流或混入流）。 |
+| **触发条件** | 产品化验收前。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-51: VIS 可视化（12 风格）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 VIS 屏读取 `vis_tap`（fx.c）画示波器等 12 种风格；Tab5 无。 |
+| **影响面** | 少一个页面；`vis_style` 位保留。 |
+| **为何可延迟** | PLAY 页是只读呈现，可视化需持续重绘（LVGL 池/帧预算）。 |
+| **解决方向** | PLAY 页叠加 canvas 读 `vis_tap`（需 HAL 导出），先做 1 种风格；LVGL 池预算另评。 |
+| **触发条件** | 用户提出需求；或 PLAY 页改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-52: Punch-in effects 层未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 FX 层：按住 FX + 键触发 punch-in 效果（滤波/dust/duck/轨滤波等 27 键），KNOB 调 master；`punch_process` 已在引擎 `mix_block` 内运行，Tab5 无 UI/输入层。 |
+| **影响面** | 现场效果缺一类；引擎能力已在。 |
+| **为何可延迟** | 输入层 + 效果映射；与 DI-45/47 同类。 |
+| **解决方向** | InputManager 增 FX 层：按住键 → `punch` 触发（经同 TU 适配 `sloop_core_punch_*`）。 |
+| **触发条件** | 用户提出需求；或 P5 输入层。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5 |
+| **登记** | 2026-11-24（P4-F Task 1 功能对齐审计） |
+
+## DI-53: 八度移位（OCT−/+）未移植
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 OCT−/+ 把合成轨的琴键上下移八度（同按回 0）；Tab5 键盘（ADR-006）把字母/数字行固定映射到固定音高，`firmware/` 内没有任何八度逻辑（审计复查发现）。 |
+| **影响面** | 70 键音域约两个八度，无法演奏更高/更低的音；鼓轨不受影响。 |
+| **为何可延迟** | 输入层功能，不涉及引擎；键位需在 ADR-006 的键表里找空闲键并避开音符/层键。 |
+| **解决方向** | InputManager 增八度键（如层内数字键或 PgUp/PgDn），在 `input_map` 的 note-on/off 路径统一加 `oct*12`（释放必须回按下时的八度，参照 `input_map_key_route`）；host 单测 + `KEY` 注入断言 `ENG SNAP` 的 note。 |
+| **触发条件** | 用户提出演奏音域需求；或 P4-F 之后的键盘映射改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5、ADR-006 |
+| **登记** | 2026-11-24（P4-F Task 1 评审复查） |
+
+## DI-54: 工厂预置无按名浏览列表
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 上游 PRESETS 页按名浏览全部工厂预置（KNOB 1 选、KNOB 2 换引擎）。P4-F Task 5 只在 SOUND 页眉提供 `ENGINE −/+` 与 `PRESET −/+` 步进选择（审计发现此前连步进都没有、只有 console `ENG TRACK`）。 |
+| **影响面** | 几百个工厂预置里找一个要靠步进；数据与换音功能本身已可达。 |
+| **为何可延迟** | 列表浏览需要名字列表投影 API 与一页可滚动 UI（池预算另评），不是「能不能换音」的问题。 |
+| **解决方向** | `sloop_core_preset_name(engine, k)` 投影上游名字表；PRESETS 页增「工厂」视图（按引擎分组的可滚动列表，est 另评）。 |
+| **触发条件** | 用户反馈步进选择太慢；或 PRESETS 页下次改版。 |
+| **参考** | `docs/design/012-feature-parity-checklist.md` §5、P4-F spec §4 SOUND 行 |
+| **登记** | 2026-11-24（P4-F Task 1 评审复查） |
+
+## DI-55: 诊断期静默（`UI QUIESCE on/off`）每次转换泄漏约 40B 内部堆
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 定位 DI-26（已修）时的副产物：`UI QUIESCE on` / `UI QUIESCE off` 各使 `ENG MEM internal_free` 减少约 36–44B（连续 4 轮 on/off：−40/−44/−36/−40/−44/−36/0/−8——多数转换一次掉一次，但并非严格每次、量级也有波动，是否恒久泄漏未做长时间观测），`ENG AUDIO ON` 同量级；与自检无关（不跑任何 job 也出现）。`ENG SELFTEST` 命令因此每次仍带 ~36B 的残余（修复后两次全量的第二次差值 = 36B，`scripts/selftest-heap.py` 门禁 ≤1,024B）。临时 `CONFIG_HEAP_TRACING_STANDALONE`（带调用栈）的记录里**没有**对应的分配——不是经 `malloc/calloc/pvPortMalloc/heap_caps_*` 的路径，来源未定位（可能是 FreeRTOS/驱动内部不经堆封装的簿记，或 `heap_caps_get_free_size` 口径下的块合并/拆分）。 |
+| **影响面** | 只在诊断期静默的进入/退出与启流路径：`ENG SELFTEST`（含 SYSTEM 页 chip）每次约 36B（修复 DI-26 后 `selftest-heap.py` 第二次全量前后差 = 36B）。正常播放/编辑/切页不触发。 |
+| **为何可延迟** | 量级 ~40B/次：soak 口径下每轮自检一次可忽略；DI-26 修复后同一 boot 连续全量自检不再威胁内部堆。 |
+| **解决方向** | 用 `heap_caps_get_info`（largest_free_block/free_blocks）与 `multi_heap` 块遍历对照前后差异，或对 `heap_caps_malloc_base` 之前的入口（`heap_caps_aligned_alloc`、`xTaskCreate` 的 TCB 等）逐项排除；定位后按根因修（不要在 quiesce 收尾做「堆整理」掩盖）。 |
+| **触发条件** | soak 的 `internal_min` 逼近门限（~62KB）；或需要在同一 boot 内高频进入/退出诊断期静默的排障会话。 |
+| **参考** | Task 2 进度记录 `.superpowers/sdd/2026-11-24-p4f-phase4-closeout/task-2-progress.md`（16:22–16:23 两次测量）、`firmware/components/sloop_ui/src/ui.c`（`sloop_ui_quiesce`）、`firmware/components/sloop_ui/src/input.c`（`input_quiesce_begin/end`）、`scripts/selftest-heap.py` |
+| **登记** | 2026-11-24（P4-F Task 2 定位 DI-26 时的副产物） |
+
+## DI-56: ADR-005 §5 的有序对纸面不变量在重测 base 下对最坏对不再成立（实测矩阵仍通过）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | ADR-005 §5 的不变式 `base + 源组 Σest + 目标页 est + 4,096 ≤ 63,120` 一直用 P4-C Task 11 的 **base = 11,624B**。P4-F Task 10a 用同一定义（`UI MEM` 的 `pool_used − Σdelta(已建页)`，只建 PLAY 的稳态）在 Task 7/9 的 transcript 上重测得 **13,95–14,25KB**（九组组签多 3 个对象、18 页注册表、ZOOM label，其余是会话内池历史）。最坏对 **SEQ→PRESETS 的账面因此是 63,104–63,404B——除最低点还余 16B 外都超过 63,120B，最多超 284B**；第二坏 SEQ→SONG 62,592–62,892 仍成立。实测（Task 7 `nav` ⑩，72/72 组对 × 144 目标页）全部 ≥4,096B，最紧 6,408–6,424B（Task 7 两轮：`task-7-nav-stdout.log` 6,408 / `task-7-nav-session1-stdout.log` 6,424）；Task 10b 在最终固件 `1e8587b` 上复测为 6,436 / 6,456B（`task-10b-nav-{stdout,rerun-stdout}.log`），即至今全部读数落在 6,408–6,456B——余量来自 est 表自身对实际页面占用的 ≈3KB 保守量。终审修复波之后的最终固件 `d317a72` 上最紧的一对换成 SEQ→FILE 6,620B（Task 10c），10c3 最终回归复测为 6,564B（`task-10c3-nav-stdout.log`，72/72 组对仍全部 ≥4,096B）——同一量级，账面结论不变。 |
+| **影响面** | 只是**账目**：真门禁（构建前 `free ≥ est`、构建后池剩余 ≥4,096B、`nav` ⑩ 的全矩阵）不受影响，当前固件没有功能缺陷。风险在于「照账面加页」：按旧 base 以为最坏对还有 2,344B 余量，实际纸面已是负的。 |
+| **为何可延迟** | 实测余量 2.3KB 在 4,096B 底线之上；阶段收口不新增页/组/签。 |
+| **解决方向** | 把 §5 的不等式改成**机读 base**：`UI MEM` 增一行 `base`（`pool_used − Σ GROUP sum_delta`），`nav` ⑩ 对每个有序对断言 `base_measured + 对值 + 4,096 ≤ 63,120`——现在这条断言对 SEQ→PRESETS 会红，届时须二选一：回收该对的 est 余量（PRESETS 12,800 / TRANSPORT 9,216 / STEP 23,040 对实测合计高 ≈3KB），或把 4,096 的 DI-19 余量按实测下调（弧线 mask 峰值 ≈2.6KB）。不要为了让账面好看而抬 est 或改门限。 |
+| **触发条件** | 任何新增页/组/页签行的任务开工前；或 `nav` ⑩ 的最小池剩余 < 6,144B；或 LVGL 池扩容/缩容时。 |
+| **参考** | `docs/design/005-ui-architecture.md` §5（base 定义）与 §5.5（终态账面 + 72 对实测表）；`docs/dev/verify/4-pf-2026-11-24/task-7-nav-stdout.log`、`task-7-nav-session1-stdout.log` 与对应 transcript；`scripts/inject/nav.sh` ⑩；`scripts/inject/inject.py`（`UI MEM` 解析）；ADR-008 §3（页级 est 与实测） |
+| **登记** | 2026-11-25（P4-F Task 10a 文档收口时发现） |
+
+## DI-57: SOUND 页眉对用户预置只显示 `USER nn`，不显示槽名（上游显示槽名）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 终审 A1 修复（`b7c915a`）后，`sloop_core_sound_read` 投影 `t->user`，SOUND 页 PRESET 行与 `TAP` 回显在载入用户预置后显示 `USER nn`（nn = 槽号+1，同 PRESETS 页 `U01..U32`），不再是工厂预置名。上游页眉显示的是该槽的**名字**（`ui_draw.c:850` `up_name(user_of(t))`，默认名 `<ENGINE> <槽号>`，可自定义）。槽名在 flash 银行索引里，唯一入口 `sloop_store_preset_name` = 存储锁 + `up_boot()` 重扫；而投影在 30ms sync（LVGL 任务）里无锁读 `trk[]`，每次都去抢存储锁会在 flash 擦写期间卡住 UI 任务，故未取。 |
+| **影响面** | 仅标签信息量：用户看到的是槽号而非自己起的名字；槽号可在 PRESETS 页对上名字。载入用户预置、PRESET ± 清 `user` 与上游一致；PRESET ± 只在当前引擎的工厂预置里步进是 Tab5 的按引擎设计（上游转的是跨引擎的单一列表，ADR-008 §8.10 / 终审 R19），跨引擎浏览列表见 DI-54。 |
+| **为何可延迟** | 不是错误标签（修复前才是——显示成工厂预置名）；阶段收口不新增依赖。 |
+| **解决方向** | 在 `sloop_core_sound_read` 之外做「user 变化时取一次」：页面侧（`page_params.c` 的 update）在 `sound.user` 变化时调 `sloop_store_preset_name(user-1, buf)` 填一个页内缓冲，取不到（存储未就绪/槽空）回退 `USER nn`；注意这会让 LVGL 任务在 flash 擦写期间等存储锁（≤ 一次写窗口，量级同 SAMPLE 页的同步擦除），需在 `params.sh` 里加一条断言 `xrun` 增量 0 并评估 `lvgl_stack_free`。`preset_name[16]` 放得下 `USER nn` 与 12 字符槽名之一，但放不下 `U01 <名字>`（需 17 字节）。 |
+| **触发条件** | 用户反馈想在 SOUND 页看到自定义预置名；或 PRESETS 页/页眉统一做「按名浏览」（DI-54）时一并处理。 |
+| **参考** | `firmware/components/sloop_core/src/desc_tab5.h`（`sloop_core_sound_read`）；`firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_preset_name`）；`third_party/sloop-fm1/firmware/src/ui_draw.c:845-856`；ADR-008 §8.10（SOUND 页眉）。 |
+| **登记** | 2026-11-25（P4-F 终审修复波） |

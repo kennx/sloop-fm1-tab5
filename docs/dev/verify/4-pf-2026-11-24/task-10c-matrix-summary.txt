@@ -1,0 +1,74 @@
+P4-F 最终固件设备矩阵摘要（Task 10c；固件 d317a72）
+受测固件 = 干净树 d317a72 的 clean 构建（boot `App version: d317a72`，无 `-dirty`；Compile time Nov 25 2026 21:05:45）。
+d317a72 之后的提交只改 scripts/ 与文档。10c-1 的运行 = 2026-11-25 21:09–22:55；10c-2 的复跑 = 23:00–23:21。
+计数口径：stdout 的 [PASS]/[FAIL] 行（每条场景末行另有 1 条汇总行，不计入下表 PASS 数时以脚本为准）。
+
+== 构建 / host / 烧录（10c-1）==
+门禁                                   命令                                            结果                                    证据
+build --clean                           scripts/build.sh --clean                        rc=0（168s；仅 §5.5 豁免的 kconfig 提示对）   task-10c-build-clean.log
+build ×2                                scripts/build.sh                                rc=0，第二、三遍 0 warning                 task-10c-build-2.log / -3.log
+host golden/DSP                         scripts/host-test.sh                            ALL HOST TESTS PASSED (subset)             task-10c-host-host-test.log
+host seq + persist                      scripts/seq-test.sh                             SEQ HOST TEST PASSED (0 failures) + persist PASS   task-10c-host-seq-test.log
+host state                              scripts/state-test.sh                           46/46                                     task-10c-host-state-test.log
+host knob                               scripts/knob-test.sh                            17/17                                     task-10c-host-knob-test.log
+host synth                              scripts/synth-test.sh                           SYNTH HOST TEST PASSED                     task-10c-host-synth-test.log
+--selftest ×4                           screenshot.py / soak-selftest.py / sample_upload.py / screenshot_matrix.py   全部 OK     task-10c-self-*.log
+MANIFEST                                tools/fetch_upstream.sh 校验                     233/233                                   task-10c-manifest.log
+flash ×3 + boot                         scripts/flash.sh ×3                             每次 3× Hash of data verified；boot d317a72；fatal/abort/backtrace 0   task-10c-flash-{1,2,3}.log / -boot-{1,2,3}.log
+
+== 设备门禁（同一开机会话，21:34:41 硬复位起）==
+device-selftest.py                     python3 scripts/device-selftest.py PORT          rc=0，182/182，result=PASS（163s）          task-10c-device-selftest-stdout.log / -transcript.log
+selftest-heap.py                       python3 scripts/selftest-heap.py PORT           rc=0 PASS：run1 −268B、run2 −36B、收尾 69,887B；两次 182/182   task-10c-selftest-heap-stdout.log / -transcript.log
+desc-check.py                          python3 scripts/desc-check.py PORT              rc=0：10/10 + live 2/2 + negative 7/7     task-10c-desc-check-stdout.log / -transcript.log
+
+== 终审修复波的欠账验证 a–f ==
+a  A1 用户预置页眉                     探针 probe-a1（/tmp 一次性，入库 task-10c-probes.py）   23/0；页眉 PRESET 名字区两帧 706 px 不同；`USER 01` 字面未 OCR（R22）   task-10c-owed2-probe-a1.log / -transcript.log、task-10c-owed1-a1-user-preset.png
+b  B-I1 SOUND 槽标签随引擎槽值重解析    bash scripts/inject/params.sh                    rc=0，768/0（534s；⑫ 段 47 PASS）；GREEN-only，未做修复前固件的 RED   task-10c-owed-params-stdout.log / -transcript.log
+c  播放头存在性锚点                     python3 scripts/screenshot_matrix.py PORT         rc=0：33 条目 / 166 锚点 / 481 PASS / 0 FAIL；逐条目 LIVEHASH 33/33；播放头锚点首次设备命中   task-10c-matrix-stdout.log、task-10c-matrix/
+d  C-I1 重启路径 pos                    restart_wrap.py + step_edit（SCR 行换成 SCRX）   [RETRY] 设备已复位（1/3）；重跑开括号沿用第一轮快照 8BF8E9CA（不再 SAVE）；rc=1 的原因是下面的红   task-10c-owed-step_edit-pos-stdout.log / -transcript.log
+d  C-I1 重启路径 neg（槽被覆盖 ⇒ 中止） 同上 + 快照后 SAVE 3 覆盖                        rc=1，开括号终止「诊断槽 3 不是工作工程快照（槽 5113D608，快照 691A19C8）」   task-10c-owed1-scn-owed-step_edit-neg-stdout.log、task-10c-owed-step_edit-neg-transcript.log
+e  C-I2 params ⑪ 的歌曲还原            入口 STORE SONG SET 2 1 0:2 1:3 + MODE loop       count=2 loop=1、0:2 / 1:3、mode=loop 逐项还原   task-10c-owed1-song-set.log / -song-after-params.log / -song-restore.log
+f  隐藏 chip / CHIP quiesced / TOOLS 过期   探针 probe-f / probe-finv                   30 PASS / 2 FAIL（两条是探针自身的错：SEQ DSTEP 是鼓轨 dump；UNDO 不换回 lock/fill 的假设）；`chip=255` 无回显，同批 console TAP 可回 `chip=3 select`（R21 已知边界）   task-10c-owed2-probe-f.log / -transcript.log、-probe-finv.*
+
+== 十条注入场景（首轮 m1 + 复跑）==
+场景            首轮（m1）   耗时   stdout                                   transcript                       复跑
+params          768 / 0      534s   task-10c-owed-params-stdout.log          task-10c-params-transcript.log    不需要（同一固件）
+step_edit        312 / 0      245s   task-10c-m1-step_edit-stdout.log         task-10c-step_edit-transcript.log    见下（10c-2）
+tracks           84 / 0       92s   task-10c-m1-tracks-stdout.log            task-10c-tracks-transcript.log      —
+nav             583 / 0      513s   task-10c-m1-nav-stdout.log               task-10c-nav-transcript.log         583 / 0   task-10c-nav-rerun-transcript.log
+transport       288 / 0      159s   task-10c-m1-transport-stdout.log         task-10c-transport-transcript.log   —
+store           908 / 0      383s   task-10c-m1-store-stdout.log             task-10c-store-transcript.log      —
+song            354 / 0      191s   task-10c-m1-song-stdout.log              task-10c-song-transcript.log        —
+sequence        562 / 0      164s   task-10c-m1-sequence-stdout.log          task-10c-sequence-transcript.log   562 / 0   task-10c-sequence-rerun-transcript.log
+synth           794 / 0      174s   task-10c-m1-synth-stdout.log             task-10c-synth-transcript.log       794 / 0   task-10c-synth-rerun-transcript.log
+sys             354 / 0      639s   task-10c-m1-sys-stdout.log               task-10c-sys-transcript.log         354 / 0（641s）  task-10c-sys-rerun-stdout.log / -transcript.log
+首轮合计 5,007 PASS / 0 FAIL（params 取 §3b/§3e 那一轮）。
+nav 有序对 72/72 组对，最紧 SEQ→FILE 6,620B（presets）、SEQ→SONG 7,152B（≥4,096）；lvgl_stack_free 5,116B。
+sys 的 DI-40 回归（复跑）：console 全量自检后 duty_mean=11.77%、worker 恢复流式后 9.27%（≤18.88%）。
+
+== step_edit 的红与 R20 修复（10c-2，脚本 inject.py；固件不变）==
+RED（10c-1，真实残留：入口工程轨 0 mute=1 level=1）：`[FAIL] ②g 无 Aa 按住 c：轨 0 voices 峰值 0（≥1 = 发声）`
+     —— task-10c-owed-step_edit-pos-stdout.log / task-10c-owed1-scn-owed-step_edit-neg-stdout.log
+修复：run_step_edit_erase 在 proj_snapshot_open 之后 erase_audible_norm（记入口选中轨 + 轨 0 的 P_MUTE/P_LEVEL →
+     PARAM 写 P_MUTE=0 / P_LEVEL=104），proj_snapshot_close 之后 erase_audible_restore 写回；②g 的 voices≥1 断言不变。
+23:01 硬复位后的入口态：轨 0 level=104 mute=0、autosave=1、autosave_hash=819215D9、四槽空 —— **mute=1 的残留已不在**
+     （10c-1 的矩阵批从 TOOLS NEWPRJ 默认工程起跑并把 autosave 副本写回）。
+① 默认入口、设备 palette=2 CYAN（10c-1 一次误起又中止的 sys 复跑留下的）：
+     rc=1，306 PASS / 14 FAIL —— 14 条全是像素探针配色不符（像素常量假定 MONO，step_edit 不归一 palette）；
+     R20 探针本身通过（归一 ×2、voices 峰值 1、还原 ×2、收口 LIVEHASH FCE9B26C == 入口）
+     task-10c-step_edit-rerun-cyan-stdout.log / -transcript.log
+② sys 复跑（开头归一 MONO、收口留在 MONO）：354 / 0
+③ 轨 0 mute=1 level=1 的入口（PARAM 复原残留；R20 的判别用例）：
+     rc=0，**321 PASS / 0 FAIL**（175s）；归一 P_MUTE=0 / P_LEVEL=104、voices 峰值 1、收口 LIVEHASH BFC04A64 == 入口、
+     还原 P_MUTE=1 / P_LEVEL=1；场景之后 ENG SNAP trk k=0 仍是 level=1 mute=1
+     task-10c-step_edit-rerun-muted-stdout.log / -transcript.log / -pre / -set / -post
+④ 写回 104/0（LIVEHASH FCE9B26C）后默认入口、MONO：
+     rc=0，**321 PASS / 0 FAIL**（176s）；LIVEHASH FCE9B26C 前后不变、autosave=1、internal_free 69,747 / min 66,232、xrun=0
+     task-10c-step_edit-rerun-stdout.log / -transcript.log / -pre、task-10c-rerun-final-state.log
+（312 → 321：+4 条归一/还原断言；其余差 = 入口态相关的条件断言与两条文案改动。）
+
+== 最终 3h soak ==
+soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600
+硬复位（task-10c-presoak-boot.log：App version d317a72，fatal=0）+ 30s 之后，2026-11-25 23:24:03 起跑，PID 601697。
+transcript firmware/build/verify/soak-20261125-232403.log（摘要 soak-summary-20261125-232403.txt；gitignored，跑完晋升）。
+状态：运行中 —— 结果未出，本表不替它下结论。

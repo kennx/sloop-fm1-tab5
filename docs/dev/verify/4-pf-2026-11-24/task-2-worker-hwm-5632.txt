@@ -1,0 +1,6 @@
+# worker 栈高水位：SYS_SELFTEST_STACK=5632（收缩后），chip 全路径一次（/tmp/p4f_t2/chip-20261124-165005.log 摘录）
+I (4442) sys_selftest: stack=0x4ff30a84 size=5632
+E (167542) task_wdt:  - IDLE0 (CPU 0)
+ENG SELFTEST cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
+I (168892) sys_selftest: 结果 ran=182 failed=0
+I (168892) sys_selftest: stack hwm=1484

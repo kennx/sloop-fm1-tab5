@@ -33,9 +33,10 @@
  * SAMPLE，由 sloop_ui 的策展布局表加入，见 ADR-008）+ 2 FILE 页（PROJECTS/PRESETS，
  * P4-B Task 10 扩 id、Task 12 注册页面并接 TAP/键盘）+ SONG 编排页（P4-C Task 11，
  * 独立顶层组）+ 2 SYNTH 页（DSYN/FM6P，P4-D Task 8 扩 id；SAMPLE 参数页随组表移入
- * SYNTH 组）+ SYSTEM 设置页（P4-E Task 6，独立 SYS 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
+ * SYNTH 组）+ SYSTEM 设置页（P4-E Task 6，独立 SYS 组）+ MOD/SCALE/VOICE（P4-F Task 4）
+ * + TOOLS（P4-F Task 6，MIX 组）。新页 id 一律排在最后以保持既有页 id 不变；加页时同步 app_page_t、
  * 本宏与 console 的页名表（后者有静态断言兜底）。 */
-#define APP_STATE_PAGES 15u
+#define APP_STATE_PAGES 19u
 #define APP_STATE_TRACKS 4u     /* 三条合成轨 + 鼓轨 */
 #define APP_STATE_STEPS 16u     /* 步窗列数 = 一 bank 的步数（引擎共 64 步 = 4 bank） */
 #define APP_STATE_NOTE_DEFAULT 60u
@@ -99,6 +100,12 @@ typedef enum {
     CMD_SETTINGS_SET, CMD_SYS_BRIGHT, CMD_SYS_VOLUME, CMD_SYS_OUTPUT,
     /* P4-E Task 7：SYSTEM 页自检请求（只排队，绝不在调用上下文跑自检） */
     CMD_SELFTEST_RUN,
+    /* P4-F Task 5：SOUND 页眉的换引擎 / 换预置（上游 PRESETS 页 KNOB 1/2）。返回码映射
+     * app_state_t.sound_status。 */
+    CMD_SET_ENGINE, CMD_SET_PRESET,
+    /* P4-F Task 6：TOOLS 三动作（返回码映射 app_state_t.tools_status）；STEP 页键盘的参数锁
+     * 与 fill 条件（作用于焦点步，返回码映射 seq_status）。同样追加在末尾。 */
+    CMD_TOOLS, CMD_LOCK_FOCUS, CMD_FILL_STEP,
 } edit_cmd_type_t;
 
 /* 字段约定（未列出的字段忽略；越界参数不调引擎；音序命令另写 SEQ_STATUS_INVALID）：
@@ -248,6 +255,46 @@ typedef enum {
  *  上述命令的返回码写 settings_status（app_settings_status_t）：ESP_OK → OK、
  *  INVALID_ARG / NOT_SUPPORTED（headphone，本板 speaker-only）→ INVALID、
  *  INVALID_STATE（诊断冻结 / 存储未就绪）→ BLOCKED、其它 → ERROR；失败不改投影。
+ *
+ *  P4-F Task 5：SOUND 页眉（上游 PRESETS 页 KNOB 1/2 的对应物）：
+ *  CMD_SET_ENGINE    a=track(0..2) v=engine(0..NENGINES-1)：分发 sloop_core_set_engine
+ *                    （上游 set_engine_of：引擎默认值 + 预置 0，混音/图案等 param_kept 保留）。
+ *  CMD_SET_PRESET    a=track(0..2) v=preset(0..npresets-1)：分发 sloop_core_apply_preset
+ *                    （预置的整份声音写 p[]）。npresets 按 **a 轨自己**的引擎取
+ *                    （sloop_core_sound_read），不是选中轨的。
+ *  两者：轨号 ≥ 4、目标是鼓轨（track 3：没有引擎与预置，kit 是 P_E0）、值越界 ⇒
+ *  sound_status = INVALID 且**不调引擎**（core 的写入口对这些输入静默丢弃，状态层
+ *  不先拒就无法把原因分开）；诊断冻结 ⇒ FROZEN、不调引擎；成功 ⇒ OK 并整份刷新投影
+ *  （sound 块与 p[] 各一次回读——换声音会改该轨全部参数）。不受走带限制（上游同）。
+ *  鼓轨的 kit 不走这两条命令：SOUND 页的 KIT 行经 CMD_SET_PARAM 写 P_E0。
+ *
+ *  P4-F Task 6（清单 012 §4；上游 ui_input.c:568-612 的 TOOLS 与 ui_layers.c 的 LOCK/条件）：
+ *  CMD_TOOLS         a=action（sloop_tool_t：0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ）：分发
+ *                    sloop_core_tools（选中轨；语义与守卫见 sloop_core.h）。a 越界 ⇒
+ *                    tools_status = INVALID 且**不调引擎**；其余按返回码映射
+ *                    app_tools_status_t（NOT_ALLOWED = 鼓轨的 INIT SOUND 或 SONG 播放中的
+ *                    NEW → BLOCKED；INVALID_STATE 只表示诊断冻结 → FROZEN）。成功 ⇒ OK 并
+ *                    整份刷新投影（NEW 会改四条轨的参数/步表与全局）。
+ *  CMD_LOCK_FOCUS    a=1 加锁 / 0 解锁：目标 = **焦点轨 × 聚焦步**（focus_track、
+ *                    focus_step 是窗口列 → 绝对步 window_start + focus_step）× 状态层记录的
+ *                    last_param。加锁 = CMD_LOCK_SET(track, step, id, 该轨当前 p[id])，可锁性
+ *                    与锁表容量由既有 sloop_seq_lock_set 判定（上游 p_lockable：NOT LOCKABLE
+ *                    → INVALID、NO LOCK LEFT → FULL）；解锁 = 该键有锁才 CMD_LOCK_DEL。
+ *                    诊断冻结时两者都直接回 FROZEN（先于查锁表：冻结时 lock_list 回 0）。
+ *  CMD_FILL_STEP     v=0..3：聚焦步的 fill 条件，= 同一 (track, step) 的 CMD_SET_FILL。
+ *                    v > 3 ⇒ INVALID 且不调引擎。
+ *  last_param{track,id}：每次 CMD_SET_PARAM / CMD_SET_PARAM_BATCH 之后记录**能生效**且写在
+ *                    焦点轨上的最后一对（上游 ui.lock_par「最后碰过的参数」）：非焦点轨的写、
+ *                    诊断冻结期间的写、该轨上没有描述符的 id（引擎静默丢弃）都不记；
+ *                    id=0xFF = 还没有。它是 UI 局部态：sync/选轨/整份刷新都不改写。
+ *                    只覆盖参数写：FM6P 页的 155B patch 字段（CMD_FM6_SET）不是参数、不记
+ *                    （上游同样只有参数与 HOME 宏旋钮记 lock_par，ADR-010 §11）。
+ *  LOCK_FOCUS / FILL_STEP 的前置（R12，上游 ui_layers.c 的 held-step 循环 `idx < trk_len`）：
+ *                    聚焦步必须在本轨 LEN 之内——**不要求有音**（空步、只有 TIE 的步同样
+ *                    可锁/可设条件）；LEN 之外回 NOT_FOUND（页面 `NO STEP`）且不调引擎。
+ *                    焦点轨没有已记录参数同样 NOT_FOUND（`NO PARAM`），解锁时该键无锁
+ *                    NOT_FOUND（`NO LOCK`）。a 越界 INVALID。
+ *  两者的成功/失败写 seq_status（成功同拍重取窗口投影，fill 立即可见）。
  */
 typedef struct {
     edit_cmd_type_t type;
@@ -312,6 +359,29 @@ typedef enum {
     APP_SETTINGS_ERROR = 4,   /* 其它失败（平台调用失败等） */
 } app_settings_status_t;
 
+/* 最近一次 SOUND 页眉命令（CMD_SET_ENGINE / CMD_SET_PRESET）的结果（app_state_t.sound_status）。
+ * INVALID 兼表「轨/引擎/预置越界」与「鼓轨没有引擎与预置」（都不调引擎）；FROZEN =
+ * 诊断冻结（core 的写入口对冻结静默丢弃，状态层先拒才能把原因分开）。 */
+typedef enum {
+    APP_SOUND_STATUS_IDLE = 0,
+    APP_SOUND_STATUS_OK = 1,      /* 成功（投影已整份刷新） */
+    APP_SOUND_STATUS_INVALID = 2, /* 轨号/引擎/预置越界，或目标是鼓轨 */
+    APP_SOUND_STATUS_FROZEN = 3,  /* 诊断冻结（ENG FREEZE / SELFTEST） */
+} app_sound_status_t;
+
+/* 最近一次 TOOLS 命令（CMD_TOOLS）的结果（app_state_t.tools_status）。INVALID 兼表
+ * 「action 越界」；BLOCKED = 选中鼓轨的 INIT SOUND（上游 page_desc 不给鼓轨这一项）或
+ * SONG 播放中（arrangement_enabled）的 NEW（"STOP THE SONG FIRST"）——两者都回
+ * ESP_ERR_NOT_ALLOWED，页面按「动作 × 选中轨是否鼓轨」选文案；FROZEN = 诊断冻结。 */
+typedef enum {
+    APP_TOOLS_STATUS_IDLE = 0,
+    APP_TOOLS_STATUS_OK = 1,      /* 成功（投影已整份刷新） */
+    APP_TOOLS_STATUS_INVALID = 2, /* action 越界（不调引擎）/ ESP_ERR_INVALID_ARG */
+    APP_TOOLS_STATUS_BLOCKED = 3, /* 鼓轨 INIT SOUND / SONG 播放中的 NEW（ESP_ERR_NOT_ALLOWED） */
+    APP_TOOLS_STATUS_FROZEN = 4,  /* 诊断冻结（ESP_ERR_INVALID_STATE） */
+    APP_TOOLS_STATUS_ERROR = 5,   /* 其它失败 */
+} app_tools_status_t;
+
 typedef struct {
     sloop_core_snapshot_t core; /* 引擎投影：step[k][c]/dstep[c] 为**步窗列**投影
                                  * （= 引擎步 window_start+c；见 step_window_t） */
@@ -351,6 +421,18 @@ typedef struct {
     uint8_t selftest_req, selftest_done;
     uint8_t selftest_unavailable; /* main 的 worker 创建失败：请求立即 FAIL，不排队 */
     uint32_t selftest_ran, selftest_failed;
+    /* P4-F Task 5：SOUND 页投影 = **选中轨**的引擎/预置下标、预置数与名字（鼓轨 = kit 名，
+     * drum=1；声音来自用户预置时 user = slot+1、preset_name = "USER nn"）。init / sync /
+     * 整份刷新 / 选轨各读一次；换引擎/换预置命令成功后同拍重取（两者都清 user）。
+     * UI 只读本块，不读上游 ENGINES[]。 */
+    sloop_sound_snapshot_t sound;
+    uint8_t sound_status; /* 最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
+    /* P4-F Task 6：TOOLS 的结果与「焦点轨上最后碰过的参数」（CMD_LOCK_FOCUS 的锁参数；
+     * id=0xFF = 还没有）。契约见上方 P4-F Task 6 段。 */
+    uint8_t tools_status; /* 最近一次 CMD_TOOLS 的结果（app_tools_status_t） */
+    struct {
+        uint8_t track, id;
+    } last_param;
 } app_state_t;
 
 /* layer_held 的位义（ADR-006 层键）：InputManager 维护，UI 显示提示用。 */
@@ -361,7 +443,12 @@ typedef struct {
 
 typedef enum {
     APP_PAGE_PLAY, APP_PAGE_TRACKS, APP_PAGE_STEP, APP_PAGE_TRANSPORT,
-    /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致） */
+    /* 参数页（sloop_ui 的策展布局表注册；id 与页签顺序一致）。
+     * APP_PAGE_ANALOG 自 P4-F Task 5 起是 **SOUND** 页（通用引擎页，取代原 ANALOG 与
+     * FM6 两页；页 id 与数值不变）。APP_PAGE_FM6（= 7）只是**空位常量**：独立 FM6 页
+     * 已删除、该 id 不再注册任何页面，保留枚举值是为了让 SAMPLE 及其后的既有页 id
+     * 不移位（工程/脚本/日志里的页号照旧）；它不是 SOUND 的别名——console 的
+     * `UI fm6` / `UI analog` 两个页名才是 SOUND 的别名。 */
     APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6, APP_PAGE_SAMPLE,
     /* FILE 组（P4-B：Task 10 扩 id、Task 11 组模型、Task 12 注册页面与页签） */
     APP_PAGE_PROJECTS, APP_PAGE_PRESETS,
@@ -371,13 +458,20 @@ typedef enum {
     /* SYNTH 组（P4-D Task 8：SAMPLE 参数页移入该组；DSYN/FM6P 是 P4-D 的合成编辑页，
      * Task 9/10 填实体，本任务先注册占位页） */
     APP_PAGE_DSYN, APP_PAGE_FM6P,
-    /* SYS 组（P4-E Task 6）：SYSTEM 设置页，id 追加在最后。 */
+    /* SYS 组（P4-E Task 6）：SYSTEM 设置页。 */
     APP_PAGE_SYSTEM,
+    /* 参数页 chip 框架（P4-F Task 4）：MOD / SCALE / VOICE 三页，属 EDIT 组；id 追加在
+     * 最后、不接在 GLOBAL..SAMPLE 的参数页段之后（既有页 id 不变；布局表按 id 查找，
+     * page_layout.c 不再依赖参数页连续）。 */
+    APP_PAGE_MOD, APP_PAGE_SCALE, APP_PAGE_VOICE,
+    /* TOOLS 页（P4-F Task 6）：MIX 组的第 3 张子签（CLEAR SEQ / INIT SOUND / NEW）；id 追加在
+     * 最后，既有页 id 不变。 */
+    APP_PAGE_TOOLS,
 } app_page_t;
-_Static_assert(APP_PAGE_SYSTEM + 1 == APP_STATE_PAGES,
+_Static_assert(APP_PAGE_TOOLS + 1 == APP_STATE_PAGES,
                "app_page_t 与 APP_STATE_PAGES 不同步（加页须同时更新两者）");
 _Static_assert(APP_PAGE_SAMPLE - APP_PAGE_GLOBAL + 1 == 5u,
-               "参数页 id 段必须连续（page_layout.c 的 PARAM_PAGE_COUNT 依赖它）");
+               "既有参数页 id 段（GLOBAL..SAMPLE）连续；MOD/SCALE/VOICE 追加在段外末尾");
 
 /* 「有音」判定，与上游 seq.c 的 sp_on 同口径：n>0 且 time==NOTE（ST_NOTE=0）；
  * n>0 但 time 为 TIE/REST 的步算「空」。状态层的步切换与 STEP 网格渲染共用本
@@ -410,6 +504,24 @@ void state_set_focus(uint8_t track, uint8_t step);
  * src/dirty）——TAP 之后的 STATE SNAP/旋钮立即看到新选择，不等下一拍 sync。 */
 void state_set_dsyn_select(uint8_t kit, uint8_t lane);
 void state_set_layer(uint8_t mask);
+
+/* 窄读访问器（P4-F Task 5 评审 R10）：UI 的点击/键盘回调在 LVGL 任务里跑（栈只有几 KB，
+ * app_state_t ≈1.7KB），为读一两个投影字段不值得在栈上放整份副本。取值与 state_get_copy
+ * 的副本同源（同一把状态锁内的字节/短读），行为不变；越界 id 回 0。
+ *  - state_selected_track：选中轨（0..3）
+ *  - state_selected_engine：选中合成轨的引擎号；鼓轨（轨 3）没有引擎，回 0
+ *  - state_read_p / state_read_g：选中轨的参数投影 p[id] / 全局投影 g[id]
+ *  - state_read_sound：sound 块（49B；选中轨的引擎/预置/kit 名）
+ *  - state_sound_status：最近一次 CMD_SET_ENGINE/PRESET 的结果（app_sound_status_t） */
+uint8_t state_selected_track(void);
+uint8_t state_selected_engine(void);
+/* layer_held（层键位掩码）：InputManager 每次按键都要读它来选层，用窄读而不是整份副本
+ * （输入任务栈上只留一份 app_state_t 给真正需要快照的动作，R13）。 */
+uint8_t state_read_layer_held(void);
+int16_t state_read_p(uint8_t id);
+int16_t state_read_g(uint8_t id);
+void state_read_sound(sloop_sound_snapshot_t *out);
+uint8_t state_sound_status(void);
 
 /* 取走一次 SELFTEST 请求（1 = 有请求，取后清零）；worker 完成后写回实际计数并置 done。 */
 bool state_take_selftest_request(void);

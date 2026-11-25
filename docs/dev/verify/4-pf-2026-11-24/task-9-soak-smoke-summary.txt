@@ -1,0 +1,20 @@
+# soak 20261125-135630 port=/dev/ttyACM0 requested=300s measured=301s interval=60s cycle=12s
+# t_s internal_free internal_min psram_free streaming xrun audio_stack_free render_blocks render_mean_us render_max_us duty_mean duty_max key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm vbus_mv shunt_uv cur_ma temp_c ina
+1  69819  66364  30094540  1  0  3120  46657  709  4794  12.22  82.6  0  0  0  7884  39824  3  120  925  0  0  28.1  ok
+61  69799  66320  30094540  1  0  3120  56993  736  4794  12.68  82.6  10  256  386  7884  39992  3  120  926  -5  -1  28.1  ok
+121  69799  66320  30094540  1  0  3120  67329  754  4794  12.99  82.6  20  259  395  7884  39852  3  120  930  0  0  28.1  ok
+181  69799  66320  30094540  1  0  3120  77665  767  4794  13.22  82.6  30  261  395  7852  39948  3  120  933  -3  -1  28.1  ok
+241  69807  66320  30094540  1  0  3120  88002  777  4794  13.39  82.6  40  258  395  7852  39932  3  120  933  -3  -1  28.1  ok
+301  69803  66316  30094540  1  0  3120  98338  786  4794  13.54  82.6  50  266  775  7852  39856  3  120  933  0  0  28.1  ok
+
+内存判定：HEAP_FLOOR=61440B（internal_free 与 internal_min），HEAP_NET_FLOOR=-8192B（首末差），HEAP_JITTER=2048B（连续 3 采样非增累计下滑容差）
+占空比判定：基线 9.44%（阶段 2 静默渲染），上限 2× = 18.88%（流式 render_mean_us / 块预算 5804µs）
+池检查：PLAY 稳态 ×10 轮（组:代表页 TRACKS:tracks→EDIT:sound→MIX:tools/global→SYNTH:dsyn→SEQ:transport→SONG:song→FILE:projects→SYS:system，按轮交替 →play）；pool_free 45820 -> 45864（Δ=44B，单次最小 -52B，容差 ±128B）
+逐轮 pool_free: 45820 45816 45836 45824 45840 45824 45880 45836 45784 45820 45864
+save 窗口：关闭（xrun 必须为 0）
+实测时长 301s / 请求 300s
+功耗记录（仅记录，不设门禁）：INA226 ina=ok 6/6 次；vbus_mv 925..933 mV（6/6 次有效）；shunt_uv -5..0 µV（6/6 次有效）；cur_ma -1..0 mA（6/6 次有效）
+温度记录（仅记录，不设门禁）：temp_c 28.1..28.1 ℃（6/6 次有效），首 28.1 → 末 28.1
+断言失败 0 项
+判定问题：无
+VERDICT: PASS

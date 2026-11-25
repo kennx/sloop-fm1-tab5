@@ -1,0 +1,8 @@
+soak launch 2026-11-25 17:54:38
+command: python3 scripts/soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600
+pid: 441876 (setsid nohup, own session id 441876, ppid 2049 = reparented; survives agent exit)
+stdout/stderr: /tmp/p4f_10b/soak-3h.log
+transcript + summary: firmware/build/verify/soak-<stamp>.log / soak-summary-<stamp>.txt
+pre-soak hard reset: 17:53:59 (esptool hard_reset via scripts/screenshot.py reset_device; App version 1e8587b), +30s before launch
+semantics: save window (3600s, transport STOPPED, STORE AUTO OFF, one PROJ SAVE 0 + LOAD 0) runs FIRST and counts toward --duration; playing/action loop = remaining ~7200s; total ~10800s => expected end ~20:55
+first sample line is printed at the end of the save window (~+3600s), then every 60s

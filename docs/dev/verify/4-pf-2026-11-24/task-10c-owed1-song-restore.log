@@ -1,0 +1,11 @@
+>>> STORE SONG SET 4 0 0:4 1:4 2:4 3:4
+STORE SONG SET 4 0 0:4 1:4 2:4 3:4
+STORE SONG SET count=4 loop=0 dirty=1
+sloop>  >>> STORE SONG
+STORE SONG
+STORE SONG count=4 loop=0 dirty=1
+SONG 0 scene=0 bars=4
+SONG 1 scene=1 bars=4
+SONG 2 scene=2 bars=4
+SONG 3 scene=3 bars=4
+sloop>  

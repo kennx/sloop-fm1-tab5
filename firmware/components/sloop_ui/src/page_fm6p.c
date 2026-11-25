@@ -294,44 +294,60 @@ typedef struct {
     int16_t applied; /* 写后回读（投影里的真值；失败 = 写前真值） */
 } fm6p_write_t;
 
-/* 单字段写（旋钮拖拽、键盘 ↑/↓、底部 ± 共用）：一条 `CMD_FM6_SET`。
- * render = 调用方是否在 LVGL 上下文（控件回调/TAP）：是则立即重绘本页；键盘路由在
- * 输入任务上下文，**不得**碰控件，只写状态层，由 30ms UI 定时器下一拍刷新
- * （与 page_params/page_dsyn 同一纪律）。 */
+/* 快照纪律（R13）：键盘路径 sloop_ui_fm6p_adjust → fm6p_step → fm6p_write 跑在输入任务
+ * （栈 8,192B）上，整条链**只持一份** app_state_t——由最外层持有、往下传同一个缓冲，命令后
+ * 原位刷新（不叠第二份）。LVGL 上下文（旋钮拖拽、TAP、底部 ±）用不带 `_st` 的薄封装，各自
+ * 持一份。 */
+static fm6p_write_t fm6p_write_st(uint8_t slot, int16_t value, bool render, app_state_t *st);
+
 static fm6p_write_t fm6p_write(uint8_t slot, int16_t value, bool render)
 {
-    fm6p_write_t r = {false, value};
-    if (slot >= FM6P_SLOTS || !s_present[slot]) return r;
     app_state_t st;
-    state_get_copy(&st);
-    r.applied = cell_value(&st, slot);
-    if (!st.fm6p.engine_ok) return r; /* 锁定态：不下发命令（防御；调用方已拒绝） */
-    s_act = UI_FM6P_ACT_FIELD;
-    const edit_cmd_t cmd = {.type = CMD_FM6_SET,
-                            .a = st.core.selected_track,
-                            .b = s_slot_op[slot],
-                            .n = s_slot_field[slot],
-                            .v = (uint16_t)value};
-    state_apply(&cmd);
-    state_get_copy(&st);
-    r.applied = cell_value(&st, slot);
-    r.ok = st.synth_status == APP_SYNTH_STATUS_OK;
-    if (render) refresh();
-    return r;
+    return fm6p_write_st(slot, value, render, &st);
 }
 
 /* 焦点槽 ±1（底部 ±、键盘 ↑/↓ 共用）：与旋钮拖拽走同一个 fm6p_write。 */
-static fm6p_write_t fm6p_step(int8_t delta, bool render)
+static fm6p_write_t fm6p_step_st(int8_t delta, bool render, app_state_t *st)
 {
     fm6p_write_t r = {false, 0};
     uint8_t slot = focus_get();
     if (slot >= FM6P_SLOTS || !s_present[slot]) return r;
-    app_state_t st;
-    state_get_copy(&st);
-    int16_t v = cell_value(&st, slot);
+    state_get_copy(st);
+    int16_t v = cell_value(st, slot);
     r.applied = v;
     if (delta == 0 || v == SLOOP_FM6_INVALID) return r;
-    return fm6p_write(slot, (int16_t)(v + delta), render);
+    return fm6p_write_st(slot, (int16_t)(v + delta), render, st);
+}
+
+static fm6p_write_t fm6p_step(int8_t delta, bool render)
+{
+    app_state_t st;
+    return fm6p_step_st(delta, render, &st);
+}
+
+/* 单字段写（旋钮拖拽、键盘 ↑/↓、底部 ± 共用）：一条 `CMD_FM6_SET`。
+ * render = 调用方是否在 LVGL 上下文（控件回调/TAP）：是则立即重绘本页；键盘路由在
+ * 输入任务上下文，**不得**碰控件，只写状态层，由 30ms UI 定时器下一拍刷新
+ * （与 page_params/page_dsyn 同一纪律）。st = 调用方的快照缓冲，入口与命令后各原位刷新一次。 */
+static fm6p_write_t fm6p_write_st(uint8_t slot, int16_t value, bool render, app_state_t *st)
+{
+    fm6p_write_t r = {false, value};
+    if (slot >= FM6P_SLOTS || !s_present[slot]) return r;
+    state_get_copy(st);
+    r.applied = cell_value(st, slot);
+    if (!st->fm6p.engine_ok) return r; /* 锁定态：不下发命令（防御；调用方已拒绝） */
+    s_act = UI_FM6P_ACT_FIELD;
+    const edit_cmd_t cmd = {.type = CMD_FM6_SET,
+                            .a = st->core.selected_track,
+                            .b = s_slot_op[slot],
+                            .n = s_slot_field[slot],
+                            .v = (uint16_t)value};
+    state_apply(&cmd);
+    state_get_copy(st);
+    r.applied = cell_value(st, slot);
+    r.ok = st->synth_status == APP_SYNTH_STATUS_OK;
+    if (render) refresh();
+    return r;
 }
 
 /* SAVE = 选中轨的 live patch 写入页内目标槽（CMD_BANK_PUT）。锁定页（选中轨不是
@@ -861,8 +877,8 @@ void sloop_ui_fm6p_focus_move(int8_t delta)
 void sloop_ui_fm6p_adjust(int8_t delta)
 {
     if (delta == 0) return;
-    app_state_t st;
+    app_state_t st; /* 输入任务路径上唯一的一份快照：往下传给 fm6p_step_st / fm6p_write_st */
     state_get_copy(&st);
     if (!st.fm6p.engine_ok) return; /* 锁定页：不下发命令 */
-    (void)fm6p_step(delta, false); /* 输入任务上下文：不碰控件，下一拍 UI 刷新 */
+    (void)fm6p_step_st(delta, false, &st); /* 输入任务上下文：不碰控件，下一拍 UI 刷新 */
 }

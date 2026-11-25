@@ -1,0 +1,3 @@
+paths with >=2 nested app_state_t copies: 2
+  3 copies: sloop_ui_song_load@song > song_action@song[copy] > song_action_cfg@song[copy] > song_apply_cfg@song[copy] > status_seq@song > status_store@song
+  2 copies: sloop_ui_song_load@song > song_action@song[copy] > song_action_cfg@song[copy] > status_store@song

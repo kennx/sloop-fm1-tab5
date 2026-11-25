@@ -1,0 +1,24 @@
+  [fw] SCR
+  [fw] I (1811533) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1833503) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1855413) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1877313) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1899233) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (1921113) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 0: SCR sent at +0.00s, done +21.67s playhead cols=[]
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 1: SCR sent at +21.96s, done +43.58s playhead cols=[]
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 2: SCR sent at +43.87s, done +65.47s playhead cols=[]
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 3: SCR sent at +65.76s, done +87.38s playhead cols=[]
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 4: SCR sent at +87.67s, done +109.28s playhead cols=[]
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+capture 5: SCR sent at +109.57s, done +131.19s playhead cols=[]

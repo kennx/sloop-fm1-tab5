@@ -250,6 +250,12 @@ esp_err_t app_display_init(void)
     };
 
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    /* LVGL 任务栈 7,168 → 10,240B：30ms UI 拍、切页时的页面构建与全部控件回调都跑在这个
+     * 任务里，而它们会在栈上放 app_state_t（≈1.7KB）的副本——定时器路径两份、点击路径
+     * （chip/±/页眉行/bank 的回调 → refresh）叠到第三份就压穿（P4-F Task 5 实测：
+     * 7,168B 时最小余量 372B）。余量由 console `UI MEM` 的 lvgl_stack_free 暴露，
+     * params 场景断言 ≥2,048。代价约 3KB 内部 RAM（ADR-008 §8.10）。 */
+    lvgl_cfg.task_stack = 10240;
     esp_err_t ret = lvgl_port_init(&lvgl_cfg);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "lvgl_port_init 失败: %s", esp_err_to_name(ret));

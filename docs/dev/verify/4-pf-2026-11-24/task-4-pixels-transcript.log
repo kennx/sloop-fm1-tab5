@@ -1,0 +1,159 @@
+
+sloop>  UI mod
+I (260109) sloop_ui: 页面构建 page=MOD(15) 池增量=2992B 预算=3584B 池剩余=45204B 耗时=6ms
+I (260109) sloop_ui: 切页 page=MOD(15) 组=EDIT 跨组耗时=9ms
+UI page=mod (15)
+sloop>  UI MOD CHIP 0
+UI mod chip=0
+UI mod slot=0 id=1 label="ATK" locked=0
+UI mod slot=1 id=2 label="DEC" locked=0
+UI mod slot=2 id=3 label="SUS" locked=0
+UI mod slot=3 id=4 label="REL" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-mod-chip0.png
+SCR
+I (260729) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MOD CHIP 1
+UI mod chip=1
+UI mod slot=0 id=5 label="FLT" locked=0
+UI mod slot=1 id=6 label="PIT" locked=0
+UI mod slot=2 id=7 label="SHP" locked=0
+UI mod slot=3 id=59 label="ESYNC" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-mod-chip1.png
+SCR
+I (277419) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MOD CHIP 2
+UI mod chip=2
+UI mod slot=0 id=9 label="RATE" locked=0
+UI mod slot=1 id=10 label="WAVE" locked=0
+UI mod slot=2 id=11 label="PHS" locked=0
+UI mod slot=3 id=12 label="FADE" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-mod-chip2.png
+SCR
+I (293939) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MOD CHIP 3
+UI mod chip=3
+UI mod slot=0 id=60 label="SYNC" locked=0
+UI mod slot=1 id=61 label="TRIG" locked=0
+UI mod slot=2 id=62 label="POL" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-mod-chip3.png
+SCR
+I (310889) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI MOD CHIP 4
+UI mod chip=4
+UI mod slot=0 id=13 label="PIT" locked=0
+UI mod slot=1 id=14 label="FLT" locked=0
+UI mod slot=2 id=15 label="SHP" locked=0
+UI mod slot=3 id=16 label="AMP" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-mod-chip4.png
+SCR
+I (328049) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI scale
+I (344819) sloop_ui: 页面构建 page=SCALE(16) 池增量=3080B 预算=3584B 池剩余=44540B 耗时=6ms
+I (344829) sloop_ui: 切页 page=SCALE(16) 组=EDIT 组内首建耗时=8ms
+UI page=scale (16)
+sloop>  UI SCALE CHIP 0
+UI scale chip=0
+UI scale slot=0 id=25 label="ROOT" locked=0
+UI scale slot=1 id=26 label="SCL" locked=0
+UI scale slot=2 id=27 label="QNT" locked=0
+UI scale slot=3 id=49 label="CHORD" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-scale-chip0.png
+SCR
+I (345439) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI SCALE CHIP 1
+UI scale chip=1
+UI scale slot=0 id=28 label="TRN" locked=0
+UI scale slot=1 id=51 label="STRUM" locked=0
+UI scale slot=2 id=52 label="VLEAD" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-scale-chip1.png
+SCR
+I (362059) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI SCALE CHIP 2
+UI scale chip=2
+UI scale slot=0 id=17 label="MODE" locked=0
+UI scale slot=1 id=18 label="RATE" locked=0
+UI scale slot=2 id=19 label="OCT" locked=0
+UI scale slot=3 id=20 label="GATE" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-scale-chip2.png
+SCR
+I (379009) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI SCALE CHIP 3
+UI scale chip=3
+UI scale slot=0 id=21 label="SWG" locked=0
+UI scale slot=1 id=22 label="PROB" locked=0
+UI scale slot=2 id=23 label="HOLD" locked=0
+UI scale slot=3 id=24 label="ORD" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-scale-chip3.png
+SCR
+I (395879) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI voice
+I (412549) sloop_ui: 页面构建 page=VOICE(17) 池增量=3064B 预算=3584B 池剩余=41532B 耗时=6ms
+I (412559) sloop_ui: 切页 page=VOICE(17) 组=EDIT 组内首建耗时=9ms
+UI page=voice (17)
+sloop>  UI VOICE CHIP 0
+UI voice chip=0
+UI voice slot=0 id=37 label="VCE" locked=0
+UI voice slot=1 id=38 label="GLD" locked=0
+UI voice slot=2 id=41 label="GLMOD" locked=0
+UI voice slot=3 id=42 label="PRIO" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-voice-chip0.png
+SCR
+I (413169) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI VOICE CHIP 1
+UI voice chip=1
+UI voice slot=0 id=43 label="ALLOC" locked=0
+UI voice slot=1 id=44 label="DTUNE" locked=0
+UI voice slot=2 id=39 label="PAN" locked=0
+UI voice slot=3 id=40 label="MUTE" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-voice-chip1.png
+SCR
+I (430009) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI VOICE CHIP 2
+UI voice chip=2
+UI voice slot=0 id=29 label="LEN" locked=0
+UI voice slot=1 id=30 label="DIV" locked=0
+UI voice slot=2 id=31 label="SWG" locked=0
+UI voice slot=3 id=32 label="GATE" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-voice-chip2.png
+SCR
+I (446569) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI VOICE CHIP 3
+UI voice chip=3
+UI voice slot=0 id=58 label="TYPE" locked=0
+UI voice slot=1 id=67 label="CUT" locked=0
+UI voice slot=2 id=68 label="RES" locked=0
+UI voice slot=3 id=70 label="KTR" locked=0
+sloop>  # [inject] SCR 截屏 -> inject-p4f-task4-pixels-20261124-190720-task4-voice-chip3.png
+SCR
+I (463099) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+SCR 1280 720 rgb565 1843200
+SCR OK
+UI play
+I (479689) sloop_ui: 页面构建 page=PLAY(0) 池增量=2512B 预算=3072B 池剩余=39064B 耗时=5ms
+I (479699) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=8ms
+UI page=play (0)
+sloop>  

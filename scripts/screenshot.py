@@ -258,11 +258,12 @@ def find_esptool() -> list[str] | None:
     return None
 
 
-def wait_boot(port: str, baud: int, timeout: float = BOOT_TIMEOUT) -> float:
+def wait_boot(port: str, baud: int, timeout: float = BOOT_TIMEOUT, on_chunk=None) -> float:
     """等待 console 提示符（sloop>）；返回等待秒数，超时抛 ResetError。
 
     复位后端口可能短暂重新枚举：打开/读写遇到 OSError 时回到打开循环重试，
-    直到 timeout 截止。
+    直到 timeout 截止。`on_chunk(bytes)`（可选）收到启动期间的每一段串口原始字节
+    （inject.py 用它把 boot 日志写进 transcript 并取 `App version:`）。
     """
     require("serial", "pyserial")
     import serial
@@ -283,6 +284,8 @@ def wait_boot(port: str, baud: int, timeout: float = BOOT_TIMEOUT) -> float:
                 chunk = ser.read(256)
                 if chunk:
                     buf.extend(chunk)
+                    if on_chunk is not None:
+                        on_chunk(chunk)
                 i = buf.rfind(CONSOLE_PROMPT)
                 if i >= 0 and buf[i + len(CONSOLE_PROMPT):].strip() == b"":
                     return time.monotonic() - started
@@ -319,7 +322,7 @@ def esptool_reset(port: str, baud: int) -> None:
         raise ResetError(f"esptool 复位失败（rc={proc.returncode}）: {' / '.join(tail)}")
 
 
-def reset_device(port: str, baud: int) -> None:
+def reset_device(port: str, baud: int, on_chunk=None) -> None:
     """esptool 硬复位设备并等 console 就绪（DI-5 恢复路径）。
 
     纯 pyserial 翻转 RTS 对 USB-Serial/JTAG 不生效（实测），须让 esptool 走
@@ -327,7 +330,7 @@ def reset_device(port: str, baud: int) -> None:
     `--after hard_reset` 再复位回应用。`flash_id` 只读，杜绝写 flash。
     """
     esptool_reset(port, baud)
-    elapsed = wait_boot(port, baud)
+    elapsed = wait_boot(port, baud, on_chunk=on_chunk)
     print(f"  设备已重启，console 就绪（{elapsed:.1f}s）")
 
 

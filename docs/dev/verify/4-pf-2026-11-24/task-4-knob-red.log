@@ -1,0 +1,1084 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:5: warning: braces around scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:56: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:56: note: (near initialization for ‘(anonymous)[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:64: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:64: note: (near initialization for ‘(anonymous)[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:72: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:72: note: (near initialization for ‘(anonymous)[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:5: warning: braces around scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:5: note: (near initialization for ‘k_exp_mod[0].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:56: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:56: note: (near initialization for ‘k_exp_mod[0].ids[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:64: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:64: note: (near initialization for ‘k_exp_mod[0].ids[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:72: warning: excess elements in scalar initializer
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:404:72: note: (near initialization for ‘k_exp_mod[0].ids[0]’)
+  404 |     EXP("ENV", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ATK, tP_DEC, tP_SUS, tP_REL}),
+      |                                                                        ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:5: warning: braces around scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:64: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:64: note: (near initialization for ‘(anonymous)[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:75: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:75: note: (near initialization for ‘(anonymous)[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:86: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:86: note: (near initialization for ‘(anonymous)[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:5: warning: braces around scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:5: note: (near initialization for ‘k_exp_mod[1].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:64: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:64: note: (near initialization for ‘k_exp_mod[1].ids[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:75: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:75: note: (near initialization for ‘k_exp_mod[1].ids[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:86: warning: excess elements in scalar initializer
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:405:86: note: (near initialization for ‘k_exp_mod[1].ids[0]’)
+  405 |     EXP("ENV DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ED_FLT, tP_ED_PIT, tP_ED_SHP, tP_ESYNC}),
+      |                                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:5: warning: braces around scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:58: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:58: note: (near initialization for ‘(anonymous)[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:68: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                    ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:68: note: (near initialization for ‘(anonymous)[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                    ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:79: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                               ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:79: note: (near initialization for ‘(anonymous)[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                               ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:5: warning: braces around scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:5: note: (near initialization for ‘k_exp_mod[2].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:58: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:58: note: (near initialization for ‘k_exp_mod[2].ids[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:68: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                    ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:68: note: (near initialization for ‘k_exp_mod[2].ids[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                    ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:79: warning: excess elements in scalar initializer
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                               ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:406:79: note: (near initialization for ‘k_exp_mod[2].ids[0]’)
+  406 |     EXP("LFO", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LRATE, tP_LWAVE, tP_LPHASE, tP_LFADE}),
+      |                                                                               ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:5: warning: braces around scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:60: warning: excess elements in scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:60: note: (near initialization for ‘(anonymous)[0]’)
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:70: warning: excess elements in scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                                      ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:70: note: (near initialization for ‘(anonymous)[0]’)
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                                      ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:5: warning: braces around scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:5: note: (near initialization for ‘k_exp_mod[3].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:60: warning: excess elements in scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:60: note: (near initialization for ‘k_exp_mod[3].ids[0]’)
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:70: warning: excess elements in scalar initializer
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                                      ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:407:70: note: (near initialization for ‘k_exp_mod[3].ids[0]’)
+  407 |     EXP("LFO 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LSYNC, tP_LTRIG, tP_LPOL}),
+      |                                                                      ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:5: warning: braces around scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:64: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:64: note: (near initialization for ‘(anonymous)[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:75: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:75: note: (near initialization for ‘(anonymous)[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:86: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:86: note: (near initialization for ‘(anonymous)[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:5: warning: braces around scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:5: note: (near initialization for ‘k_exp_mod[4].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:64: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:64: note: (near initialization for ‘k_exp_mod[4].ids[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:75: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:75: note: (near initialization for ‘k_exp_mod[4].ids[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                           ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:86: warning: excess elements in scalar initializer
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:408:86: note: (near initialization for ‘k_exp_mod[4].ids[0]’)
+  408 |     EXP("LFO DEST", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_LD_PIT, tP_LD_FLT, tP_LD_SHP, tP_LD_AMP}),
+      |                                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:5: warning: braces around scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:57: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                         ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:57: note: (near initialization for ‘(anonymous)[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                         ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:67: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                   ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:67: note: (near initialization for ‘(anonymous)[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                   ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:77: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:77: note: (near initialization for ‘(anonymous)[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:5: warning: braces around scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:5: note: (near initialization for ‘k_exp_scale[0].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:57: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                         ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:57: note: (near initialization for ‘k_exp_scale[0].ids[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                         ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:67: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                   ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:67: note: (near initialization for ‘k_exp_scale[0].ids[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                   ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:77: warning: excess elements in scalar initializer
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:411:77: note: (near initialization for ‘k_exp_scale[0].ids[0]’)
+  411 |     EXP("SEL", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ROOT, tP_SCALE, tP_QUANT, tP_CHORD}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:5: warning: braces around scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:60: warning: excess elements in scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:60: note: (near initialization for ‘(anonymous)[0]’)
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:70: warning: excess elements in scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:70: note: (near initialization for ‘(anonymous)[0]’)
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:5: warning: braces around scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:5: note: (near initialization for ‘k_exp_scale[1].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:60: warning: excess elements in scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:60: note: (near initialization for ‘k_exp_scale[1].ids[0]’)
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:70: warning: excess elements in scalar initializer
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:412:70: note: (near initialization for ‘k_exp_scale[1].ids[0]’)
+  412 |     EXP("SEL 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_TRANS, tP_STRUM, tP_VLEAD}),
+      |                                                                      ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:5: warning: braces around scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:58: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:58: note: (near initialization for ‘(anonymous)[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:68: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                    ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:68: note: (near initialization for ‘(anonymous)[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                    ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:77: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:77: note: (near initialization for ‘(anonymous)[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:5: warning: braces around scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:5: note: (near initialization for ‘k_exp_scale[2].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:58: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:58: note: (near initialization for ‘k_exp_scale[2].ids[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                          ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:68: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                    ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:68: note: (near initialization for ‘k_exp_scale[2].ids[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                    ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:77: warning: excess elements in scalar initializer
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:413:77: note: (near initialization for ‘k_exp_scale[2].ids[0]’)
+  413 |     EXP("ARP", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_AMODE, tP_ARATE, tP_AOCT, tP_AGATE}),
+      |                                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:5: warning: braces around scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:61: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:61: note: (near initialization for ‘(anonymous)[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:71: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:71: note: (near initialization for ‘(anonymous)[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:81: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                                 ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:81: note: (near initialization for ‘(anonymous)[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                                 ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:5: warning: braces around scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:5: note: (near initialization for ‘k_exp_scale[3].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:61: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:61: note: (near initialization for ‘k_exp_scale[3].ids[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                             ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:71: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:71: note: (near initialization for ‘k_exp_scale[3].ids[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:81: warning: excess elements in scalar initializer
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                                 ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:414:81: note: (near initialization for ‘k_exp_scale[3].ids[0]’)
+  414 |     EXP("ARP 2", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_ASWING, tP_APROB, tP_AHOLD, tP_AORDER}),
+      |                                                                                 ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:5: warning: braces around scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:60: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:60: note: (near initialization for ‘(anonymous)[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:70: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:70: note: (near initialization for ‘(anonymous)[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:81: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:81: note: (near initialization for ‘(anonymous)[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:5: warning: braces around scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:5: note: (near initialization for ‘k_exp_voice[0].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:60: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:60: note: (near initialization for ‘k_exp_voice[0].ids[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                            ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:70: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:70: note: (near initialization for ‘k_exp_voice[0].ids[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                      ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:81: warning: excess elements in scalar initializer
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:417:81: note: (near initialization for ‘k_exp_voice[0].ids[0]’)
+  417 |     EXP("VOICE", PARAM_CHIP_ALWAYS, 0x00, 0x00, {tP_VOICE, tP_GLIDE, tP_GLMODE, tP_PRIO}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:5: warning: braces around scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:62: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                              ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:62: note: (near initialization for ‘(anonymous)[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                              ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:73: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                         ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:73: note: (near initialization for ‘(anonymous)[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                         ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:81: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:81: note: (near initialization for ‘(anonymous)[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:5: warning: braces around scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:5: note: (near initialization for ‘k_exp_voice[1].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:62: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                              ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:62: note: (near initialization for ‘k_exp_voice[1].ids[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                              ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:73: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                         ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:73: note: (near initialization for ‘k_exp_voice[1].ids[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                         ^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:81: warning: excess elements in scalar initializer
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:418:81: note: (near initialization for ‘k_exp_voice[1].ids[0]’)
+  418 |     EXP("VOICE 2", PARAM_CHIP_ALWAYS, 0x04, 0x00, {tP_ALLOC, tP_DETUNE, tP_PAN, tP_MUTE}),
+      |                                                                                 ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:419:5: warning: braces around scalar initializer
+  419 |     EXP("PATTERN", PARAM_CHIP_ALWAYS, 0x0F, 0x00,
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:419:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:19: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                   ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:19: note: (near initialization for ‘(anonymous)[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                   ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:28: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                            ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:28: note: (near initialization for ‘(anonymous)[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                            ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:39: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:39: note: (near initialization for ‘(anonymous)[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:419:5: warning: braces around scalar initializer
+  419 |     EXP("PATTERN", PARAM_CHIP_ALWAYS, 0x0F, 0x00,
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:419:5: note: (near initialization for ‘k_exp_voice[2].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:19: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                   ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:19: note: (near initialization for ‘k_exp_voice[2].ids[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                   ^~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:28: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                            ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:28: note: (near initialization for ‘k_exp_voice[2].ids[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                            ^~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:39: warning: excess elements in scalar initializer
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:420:39: note: (near initialization for ‘k_exp_voice[2].ids[0]’)
+  420 |         {tP_SLEN, tP_SDIV, tP_SSWING, tP_SGATE}),
+      |                                       ^~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:5: warning: braces around scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:5: note: (near initialization for ‘(anonymous)[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:66: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                  ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:66: note: (near initialization for ‘(anonymous)[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                  ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:73: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                         ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:73: note: (near initialization for ‘(anonymous)[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                         ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:80: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                                ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:80: note: (near initialization for ‘(anonymous)[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                                ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:400:44: note: in definition of macro ‘EXP’
+  400 |     { nm, wh, (uint8_t)(sizeof((uint8_t[]){__VA_ARGS__}) / sizeof(uint8_t)),       \
+      |                                            ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:5: warning: braces around scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |     ^~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:5: note: (near initialization for ‘k_exp_voice[3].ids[0]’)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:66: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                  ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:66: note: (near initialization for ‘k_exp_voice[3].ids[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                  ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:73: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                         ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:73: note: (near initialization for ‘k_exp_voice[3].ids[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                         ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:80: warning: excess elements in scalar initializer
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                                ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:421:80: note: (near initialization for ‘k_exp_voice[3].ids[0]’)
+  421 |     EXP("FILTER", PARAM_CHIP_WHEN_ANALOG, 0x00, 0x0E, {tP_FTYPE, tP_E4, tP_E5, tP_E7}),
+      |                                                                                ^~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:401:8: note: in definition of macro ‘EXP’
+  401 |       {__VA_ARGS__}, drum, eng }
+      |        ^~~~~~~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c: In function ‘case_nav_groups’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:691:45: warning: iteration 8 invokes undefined behavior [-Waggressive-loop-optimizations]
+  691 |         check_ll("组成员数", k_exp_groups[g].n, counts[g]);
+      |                              ~~~~~~~~~~~~~~~^~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:689:27: note: within this loop
+  689 |     for (uint8_t g = 0; g < 9; g++) {
+      |                         ~~^~~
+In file included from /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:23:
+In function ‘page_layout_slot’,
+    inlined from ‘case_layout_integrity’ at /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:579:40:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/src/page_layout.h:87:64: warning: array subscript 8 is above array bounds of ‘const param_slot_t[8]’ [-Warray-bounds=]
+   87 |     if (chip == NULL || slot >= chip->slot_count || chip->slots[slot].id == 0xFF) return NULL;
+      |                                                     ~~~~~~~~~~~^~~~~~
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/src/page_layout.h: In function ‘case_layout_integrity’:
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/src/page_layout.h:49:18: note: while referencing ‘slots’
+   49 |     param_slot_t slots[PARAM_PAGE_SLOTS]; /* slot_count 之外零填充、不读 */
+      |                  ^~~~~
+== sloop_ui knob math host test
+PASS k=1 值 ↔ 弧线值往返与钳位
+PASS k=2 环带判定（55..95px）
+PASS k=3 角度差归一化（跨死区/负角）
+PASS k=4 相对拖拽换算与钳位
+PASS k=5 格式化表（上游生成表口径）
+PASS k=6 鼓演奏 16 lane 键位（不回落合成轨）
+PASS k=7 演奏键路由（释放永远回原轨）
+PASS k=8 MONO 色表恰等于现行常量
+PASS k=9 GREEN accent 与固定字段
+PASS k=10 自定义 theme 覆盖颜色
+  FAIL k=11 page id: got 0 want 15
+  FAIL k=11 title: got 0 want 1
+  FAIL k=11 page_id → 下标: got -1 want 5
+  FAIL k=11 case_layout_pages:508: pg->est_bytes > 0 && pg->est_bytes <= UI_CHIP_PAGE_EST_MAX
+  FAIL k=11 page id: got 0 want 16
+  FAIL k=11 title: got 0 want 1
+  FAIL k=11 page_id → 下标: got -1 want 6
+  FAIL k=11 case_layout_pages:508: pg->est_bytes > 0 && pg->est_bytes <= UI_CHIP_PAGE_EST_MAX
+  FAIL k=11 page id: got 0 want 17
+  FAIL k=11 title: got 0 want 1
+  FAIL k=11 page_id → 下标: got -1 want 7
+  FAIL k=11 case_layout_pages:508: pg->est_bytes > 0 && pg->est_bytes <= UI_CHIP_PAGE_EST_MAX
+  FAIL k=11 非参数页 → -1: got 5 want -1
+  FAIL k=11 EDIT→STEP 账面 ≤ 池: got 48488 want 63120
+FAIL k=11 参数页布局表：页数/页 id/est 与 EDIT→STEP 账面
+  FAIL k=12 id 合法: got 0 want 1
+  FAIL k=12 id 合法: got 0 want 1
+  FAIL k=12 slot_count 1..8: got 0 want 1
+  FAIL k=12 slot_count 1..8: got 0 want 1
+  FAIL k=12 slot_count 1..8: got 0 want 1
+FAIL k=12 参数页布局表：chip 完整性（槽数/id/唯一名/枚举）
+  FAIL k=13 case_layout_content:591: mod != NULL && scale != NULL && voice != NULL && fx != NULL
+FAIL k=13 参数页布局表：MOD/SCALE/VOICE/FX 槽位 = 012 §3
+  FAIL k=14 case_layout_rules:620: voice != NULL
+FAIL k=14 条件 chip 可见性与鼓轨逐槽锁定规则
+  FAIL k=15 组数: got 8 want 9
+  FAIL k=15 UI_GROUP_COUNT（由组表数出）: got 8 want 9
+  FAIL k=15 组成员数: got 4 want 5
+  FAIL k=15 扁平顺序: got 4 want 6
+  FAIL k=15 扁平顺序: got 5 want 7
+  FAIL k=15 扁平顺序: got 6 want 15
+  FAIL k=15 扁平顺序: got 7 want 16
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 3 want 2
+  FAIL k=15 扁平顺序: got 8 want 17
+  FAIL k=15 扁平顺序: got 12 want 4
+  FAIL k=15 扁平顺序: got 13 want 5
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 2 want 3
+  FAIL k=15 扁平顺序: got 2 want 8
+  FAIL k=15 扁平顺序: got 3 want 12
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 1 want 2
+  FAIL k=15 扁平顺序: got 11 want 13
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 2 want 1
+  FAIL k=15 扁平顺序: got 9 want 2
+  FAIL k=15 扁平顺序: got 10 want 3
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 1 want 2
+  FAIL k=15 扁平顺序: got 14 want 11
+  FAIL k=15 组名: got 0 want 1
+  FAIL k=15 组成员数: got 0 want 1
+  FAIL k=15 扁平页数 = 18: got 15 want 18
+  FAIL k=15 每页恰在一个组里（页签/TAB 可达）: got 0 want 1
+  FAIL k=15 每页恰在一个组里（页签/TAB 可达）: got 0 want 1
+  FAIL k=15 每页恰在一个组里（页签/TAB 可达）: got 0 want 1
+  FAIL k=15 UI_GROUP_W: got 122 want 104
+  FAIL k=15 组签行右端: got 1178 want 1016
+  FAIL k=15 组签行不越 reserve: got 0 want 1
+FAIL k=15 九组导航：组表顺序/成员/18 页扁平轮转/104px 组签
+
+10 passed, 5 failed
+KNOB TEST FAILED

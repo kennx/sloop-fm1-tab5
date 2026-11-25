@@ -1,0 +1,25 @@
+boot: App version='d8056e1-dirty'
+  [PASS] boot: 无 fatal/abort/backtrace（[]）
+  [PASS] 开机即流式: ENG AUDIO streaming=1 xrun=0
+  [PASS] ENG POWER #1: 单行 ENG POWER 格式
+ENG POWER #1: 'ENG POWER vbus_mv=918 shunt_uv=-5 cur_ma=-1 temp_c=27.1 ina=ok'
+  [PASS] #1: ina=ok
+  [INFO] #1: brief 预期 vbus 4750–5100mV / temp 35–70℃；实测 vbus_mv=918 temp_c=27.1（记录项，不判 PASS/FAIL：VBUS 引脚按原理图接电池侧 SYS_BAT_PRE）
+  [PASS] ENG POWER #2: 单行 ENG POWER 格式
+ENG POWER #2: 'ENG POWER vbus_mv=916 shunt_uv=0 cur_ma=0 temp_c=27.1 ina=ok'
+  [PASS] #2: ina=ok
+  [INFO] #2: brief 预期 vbus 4750–5100mV / temp 35–70℃；实测 vbus_mv=916 temp_c=27.1（记录项，不判 PASS/FAIL：VBUS 引脚按原理图接电池侧 SYS_BAT_PRE）
+  [PASS] ENG POWER #3: 单行 ENG POWER 格式
+ENG POWER #3: 'ENG POWER vbus_mv=915 shunt_uv=-3 cur_ma=-1 temp_c=27.1 ina=ok'
+  [PASS] #3: ina=ok
+  [INFO] #3: brief 预期 vbus 4750–5100mV / temp 35–70℃；实测 vbus_mv=915 temp_c=27.1（记录项，不判 PASS/FAIL：VBUS 引脚按原理图接电池侧 SYS_BAT_PRE）
+  [PASS] 三次读数稳定: vbus_mv 极差 3 mV（≤50）
+  [PASS] 三次读数稳定: temp_c 极差 0.0 ℃（≤5）
+窗 1: 20×ENG POWER 用时 2.01s；窗口前 ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=1484 render_mean_us=549 render_max_us=2752 duty_mean=9.46% duty_max=47.42% min_free_since_boot_internal=66648 min_free_since_boot_psram=30094540
+窗 1: 窗口后 ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=2021 render_mean_us=542 render_max_us=2752 duty_mean=9.34% duty_max=47.42% min_free_since_boot_internal=66604 min_free_since_boot_psram=30094540
+  [PASS] 窗 1: streaming=1 且 xrun 不变（0 → 0）
+窗 2: 20×ENG POWER 用时 2.02s；窗口前 ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=2038 render_mean_us=542 render_max_us=2752 duty_mean=9.34% duty_max=47.42% min_free_since_boot_internal=66604 min_free_since_boot_psram=30094540
+窗 2: 窗口后 ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=2576 render_mean_us=538 render_max_us=2752 duty_mean=9.27% duty_max=47.42% min_free_since_boot_internal=66572 min_free_since_boot_psram=30094540
+  [PASS] 窗 2: streaming=1 且 xrun 不变（0 → 0）
+  [PASS] 收尾: 流仍在
+RESULT: PASS failures=0

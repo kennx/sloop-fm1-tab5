@@ -1,0 +1,298 @@
+
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH 18B30276
+sloop>  SEQ LOCK LIST 0
+SEQ LOCK LIST track=0 count=0
+sloop>  ENG STEP 0 0
+ENG STEP k=0 i=0 n=0 note=36,38,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 1
+ENG STEP k=0 i=1 n=1 note=37,39,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=-2 fill=0
+sloop>  ENG STEP 0 3
+ENG STEP k=0 i=3 n=0 note=39,41,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 4
+ENG STEP k=0 i=4 n=1 note=40,42,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 5
+ENG STEP k=0 i=5 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 6
+ENG STEP k=0 i=6 n=0 note=42,39,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 7
+ENG STEP k=0 i=7 n=1 note=43,40,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 8
+ENG STEP k=0 i=8 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 9
+ENG STEP k=0 i=9 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 10
+ENG STEP k=0 i=10 n=1 note=46,38,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 11
+ENG STEP k=0 i=11 n=2 note=47,39,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 12
+ENG STEP k=0 i=12 n=0 note=48,40,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 13
+ENG STEP k=0 i=13 n=1 note=49,41,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 14
+ENG STEP k=0 i=14 n=2 note=50,42,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 15
+ENG STEP k=0 i=15 n=0 note=51,38,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 16
+ENG STEP k=0 i=16 n=1 note=52,39,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 17
+ENG STEP k=0 i=17 n=2 note=53,40,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 18
+ENG STEP k=0 i=18 n=0 note=54,41,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 19
+ENG STEP k=0 i=19 n=1 note=55,42,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 20
+ENG STEP k=0 i=20 n=2 note=56,38,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 21
+ENG STEP k=0 i=21 n=0 note=57,39,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 22
+ENG STEP k=0 i=22 n=1 note=58,40,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 23
+ENG STEP k=0 i=23 n=2 note=59,41,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 24
+ENG STEP k=0 i=24 n=0 note=60,42,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 25
+ENG STEP k=0 i=25 n=1 note=61,38,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 26
+ENG STEP k=0 i=26 n=2 note=62,39,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 27
+ENG STEP k=0 i=27 n=0 note=63,40,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 28
+ENG STEP k=0 i=28 n=1 note=64,41,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 29
+ENG STEP k=0 i=29 n=2 note=65,42,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 30
+ENG STEP k=0 i=30 n=0 note=66,38,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 31
+ENG STEP k=0 i=31 n=1 note=67,39,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 32
+ENG STEP k=0 i=32 n=2 note=68,40,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 33
+ENG STEP k=0 i=33 n=0 note=69,41,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 34
+ENG STEP k=0 i=34 n=1 note=70,42,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 35
+ENG STEP k=0 i=35 n=2 note=71,38,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 36
+ENG STEP k=0 i=36 n=0 note=72,39,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 37
+ENG STEP k=0 i=37 n=1 note=73,40,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 38
+ENG STEP k=0 i=38 n=2 note=74,41,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 39
+ENG STEP k=0 i=39 n=0 note=75,42,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 40
+ENG STEP k=0 i=40 n=1 note=36,38,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 41
+ENG STEP k=0 i=41 n=2 note=37,39,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 42
+ENG STEP k=0 i=42 n=0 note=38,40,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 43
+ENG STEP k=0 i=43 n=1 note=39,41,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 44
+ENG STEP k=0 i=44 n=2 note=40,42,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 45
+ENG STEP k=0 i=45 n=0 note=41,38,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 46
+ENG STEP k=0 i=46 n=1 note=42,39,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 47
+ENG STEP k=0 i=47 n=2 note=43,40,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 48
+ENG STEP k=0 i=48 n=0 note=44,41,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 49
+ENG STEP k=0 i=49 n=1 note=45,42,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 50
+ENG STEP k=0 i=50 n=2 note=46,38,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 51
+ENG STEP k=0 i=51 n=0 note=47,39,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 52
+ENG STEP k=0 i=52 n=1 note=48,40,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 53
+ENG STEP k=0 i=53 n=2 note=49,41,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 54
+ENG STEP k=0 i=54 n=0 note=50,42,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 55
+ENG STEP k=0 i=55 n=1 note=51,38,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 56
+ENG STEP k=0 i=56 n=2 note=52,39,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 57
+ENG STEP k=0 i=57 n=0 note=53,40,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 58
+ENG STEP k=0 i=58 n=1 note=54,41,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 59
+ENG STEP k=0 i=59 n=2 note=55,42,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 60
+ENG STEP k=0 i=60 n=0 note=56,38,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 61
+ENG STEP k=0 i=61 n=1 note=57,39,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 62
+ENG STEP k=0 i=62 n=2 note=58,40,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 63
+ENG STEP k=0 i=63 n=0 note=59,41,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  UI tools
+I (597933) sloop_ui: 页面构建 page=TOOLS(18) 池增量=2640B 预算=3584B 池剩余=43860B 耗时=5ms
+I (597933) sloop_ui: 切页 page=TOOLS(18) 组=MIX 跨组耗时=8ms
+UI page=tools (18)
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ armed status="AGAIN TO CONFIRM"
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ value=0 status="PATTERN CLEARED"
+sloop>  STORE LIVEHASH
+LIVEHASH ADB603E8
+sloop>  SEQ PATTERN UNDO 0
+SEQ PATTERN UNDO track=0 arg=0 OK
+sloop>  STORE LIVEHASH
+LIVEHASH 18B30276
+sloop>  ENG STEP 0 0
+ENG STEP k=0 i=0 n=0 note=36,38,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 1
+ENG STEP k=0 i=1 n=1 note=37,39,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 2
+ENG STEP k=0 i=2 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=-2 fill=0
+sloop>  ENG STEP 0 3
+ENG STEP k=0 i=3 n=0 note=39,41,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 4
+ENG STEP k=0 i=4 n=1 note=40,42,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 5
+ENG STEP k=0 i=5 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 6
+ENG STEP k=0 i=6 n=0 note=42,39,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 7
+ENG STEP k=0 i=7 n=1 note=43,40,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 8
+ENG STEP k=0 i=8 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 9
+ENG STEP k=0 i=9 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 10
+ENG STEP k=0 i=10 n=1 note=46,38,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 11
+ENG STEP k=0 i=11 n=2 note=47,39,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 12
+ENG STEP k=0 i=12 n=0 note=48,40,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 13
+ENG STEP k=0 i=13 n=1 note=49,41,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 14
+ENG STEP k=0 i=14 n=2 note=50,42,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 15
+ENG STEP k=0 i=15 n=0 note=51,38,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 16
+ENG STEP k=0 i=16 n=1 note=52,39,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 17
+ENG STEP k=0 i=17 n=2 note=53,40,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 18
+ENG STEP k=0 i=18 n=0 note=54,41,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 19
+ENG STEP k=0 i=19 n=1 note=55,42,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 20
+ENG STEP k=0 i=20 n=2 note=56,38,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 21
+ENG STEP k=0 i=21 n=0 note=57,39,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 22
+ENG STEP k=0 i=22 n=1 note=58,40,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 23
+ENG STEP k=0 i=23 n=2 note=59,41,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 24
+ENG STEP k=0 i=24 n=0 note=60,42,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 25
+ENG STEP k=0 i=25 n=1 note=61,38,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 26
+ENG STEP k=0 i=26 n=2 note=62,39,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 27
+ENG STEP k=0 i=27 n=0 note=63,40,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 28
+ENG STEP k=0 i=28 n=1 note=64,41,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 29
+ENG STEP k=0 i=29 n=2 note=65,42,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 30
+ENG STEP k=0 i=30 n=0 note=66,38,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 31
+ENG STEP k=0 i=31 n=1 note=67,39,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 32
+ENG STEP k=0 i=32 n=2 note=68,40,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 33
+ENG STEP k=0 i=33 n=0 note=69,41,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 34
+ENG STEP k=0 i=34 n=1 note=70,42,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 35
+ENG STEP k=0 i=35 n=2 note=71,38,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 36
+ENG STEP k=0 i=36 n=0 note=72,39,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 37
+ENG STEP k=0 i=37 n=1 note=73,40,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 38
+ENG STEP k=0 i=38 n=2 note=74,41,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 39
+ENG STEP k=0 i=39 n=0 note=75,42,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 40
+ENG STEP k=0 i=40 n=1 note=36,38,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 41
+ENG STEP k=0 i=41 n=2 note=37,39,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 42
+ENG STEP k=0 i=42 n=0 note=38,40,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 43
+ENG STEP k=0 i=43 n=1 note=39,41,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 44
+ENG STEP k=0 i=44 n=2 note=40,42,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 45
+ENG STEP k=0 i=45 n=0 note=41,38,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 46
+ENG STEP k=0 i=46 n=1 note=42,39,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 47
+ENG STEP k=0 i=47 n=2 note=43,40,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 48
+ENG STEP k=0 i=48 n=0 note=44,41,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 49
+ENG STEP k=0 i=49 n=1 note=45,42,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 50
+ENG STEP k=0 i=50 n=2 note=46,38,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 51
+ENG STEP k=0 i=51 n=0 note=47,39,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 52
+ENG STEP k=0 i=52 n=1 note=48,40,0,0 vel=64 time=1 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 53
+ENG STEP k=0 i=53 n=2 note=49,41,0,0 vel=64 time=2 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 54
+ENG STEP k=0 i=54 n=0 note=50,42,0,0 vel=64 time=0 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 55
+ENG STEP k=0 i=55 n=1 note=51,38,0,0 vel=64 time=1 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 56
+ENG STEP k=0 i=56 n=2 note=52,39,0,0 vel=64 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 57
+ENG STEP k=0 i=57 n=0 note=53,40,0,0 vel=64 time=0 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 58
+ENG STEP k=0 i=58 n=1 note=54,41,0,0 vel=64 time=1 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 59
+ENG STEP k=0 i=59 n=2 note=55,42,0,0 vel=64 time=2 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 60
+ENG STEP k=0 i=60 n=0 note=56,38,0,0 vel=64 time=0 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 61
+ENG STEP k=0 i=61 n=1 note=57,39,0,0 vel=64 time=1 flags=1 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 62
+ENG STEP k=0 i=62 n=2 note=58,40,0,0 vel=64 time=2 flags=2 lvl=0 rat=0 micro=0 fill=0
+sloop>  ENG STEP 0 63
+ENG STEP k=0 i=63 n=0 note=59,41,0,0 vel=64 time=0 flags=3 lvl=0 rat=0 micro=0 fill=0
+sloop>  SEQ LOCK LIST 0
+SEQ LOCK LIST track=0 count=0
+sloop>  UI play
+I (605183) sloop_ui: 页面构建 page=PLAY(0) 池增量=2412B 预算=3072B 池剩余=43868B 耗时=4ms
+I (605183) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  # [inject] probe finv 结束 failures=0

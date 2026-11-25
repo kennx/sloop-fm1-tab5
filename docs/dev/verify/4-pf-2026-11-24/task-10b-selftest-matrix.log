@@ -1,0 +1,2 @@
+自测断言全部通过（MATRIX 33 条目 / 18 页：唯一性、页名、宏名全部可解析、派单要求的状态齐全、锚点 ≥3 且在 1280×720 内、每组 ≤20 格；MONO 主题色派生 = inject 实测常量；点/区域/ctx 锚点判定；占位 PNG → 10 张联系表；CSV 往返）
+screenshot_matrix selftest OK

@@ -35,6 +35,7 @@ static const char *TAG = "sloop_state";
 #define STATE_SYS_BRIGHT_MIN 10u
 #define STATE_SYS_BRIGHT_MAX 100u
 #define STATE_SYS_VOL_MAX 100u
+#define STATE_P_E0 (SLOOP_CORE_P_COUNT - 8u) /* 上游 P_E0：鼓轨的 kit（SOUND 页 KIT 行） */
 
 static void cmd_note(app_state_t *s, uint32_t track, uint16_t note, bool on)
 {
@@ -67,6 +68,9 @@ static void cmd_select_track(app_state_t *s, uint32_t track)
      * 可能落在「标题=新轨、参数=旧轨」的一帧里（参数页读 p[]）。同锁内回读，
      * 与其它编辑写路径一样是 state 锁 → 引擎锁的顺序。 */
     state_refresh_params(s);
+    /* SOUND 页眉同理：sound 块是选中轨的引擎/预置名，等下一拍 sync 会有一帧「标题=新轨、
+     * 页眉=旧轨的声音」。 */
+    state_refresh_sound_locked();
 }
 
 static void state_seq_result(app_state_t *s, esp_err_t ret)
@@ -184,6 +188,20 @@ static void cmd_track_mix(app_state_t *s, edit_cmd_type_t type, uint32_t track)
     for (uint32_t k = 0; k < APP_STATE_TRACKS; k++) s->core.trk[k].solo = (mask >> k) & 1u;
 }
 
+/* 「最后碰过的参数」（P4-F Task 6；上游 ui.lock_par）：只记**能生效**且写在**焦点轨**上的
+ * 那一对，CMD_LOCK_FOCUS 据此决定锁哪个参数。引擎批量入口是 void、对冻结与「该轨上没有
+ * 描述符的 id」静默丢弃，状态层不先判就会把一次没落地的写记成锁的对象。UI 局部态，
+ * sync/刷新不改写。返回是否记录。 */
+static bool state_note_param(app_state_t *s, uint32_t track, uint8_t id)
+{
+    if (track != s->focus_track) return false;
+    if (sloop_seq_frozen()) return false;
+    if (!sloop_core_desc_track_live((uint8_t)track, id, NULL)) return false;
+    s->last_param.track = (uint8_t)track;
+    s->last_param.id = id;
+    return true;
+}
+
 /* 单值参数：以批量入口 N=1 下发（钳位与越界判定只在引擎一处）。v 是 uint16——
  * 双极参数按 16 位补码解读（见 sloop_state.h 的 CMD_SET_PARAM 契约）。 */
 static void cmd_set_param(app_state_t *s, uint32_t track, uint32_t id, uint16_t value)
@@ -197,6 +215,10 @@ static void cmd_set_param(app_state_t *s, uint32_t track, uint32_t id, uint16_t 
     int16_t v = (int16_t)value;
     sloop_core_set_params(track, &pid, &v, 1u);
     state_refresh_params(s);
+    state_note_param(s, track, pid);
+    /* 选中轨的 P_E0 决定 sound 块里鼓轨的 kit 名（SOUND 页 KIT 行）：同拍重取，
+     * 页眉与 TAP 回显不落后一拍。其它参数不改 sound 块，不读。 */
+    if (pid == STATE_P_E0 && track == s->core.selected_track) state_refresh_sound_locked();
 }
 
 /* 批量参数：解包 POD 到两个栈数组（引擎 API 是 ids/values 双数组），一次引擎调用
@@ -213,12 +235,19 @@ static void cmd_set_param_batch(app_state_t *s, uint32_t track, const void *p, u
     const sloop_param_pair_t *pairs = p;
     uint8_t ids[APP_STATE_PARAM_BATCH_MAX];
     int16_t values[APP_STATE_PARAM_BATCH_MAX];
+    bool writes_e0 = false; /* 批里含 P_E0：与单写同一规则（见 cmd_set_param） */
     for (uint32_t i = 0; i < n; i++) {
         ids[i] = pairs[i].id;
         values[i] = pairs[i].v;
+        writes_e0 = writes_e0 || ids[i] == STATE_P_E0;
     }
     sloop_core_set_params(track, ids, values, n);
     state_refresh_params(s);
+    /* 批量：最后一对**能生效**的（尾部若是无描述符的 id，不能把没落地的写记成锁的对象） */
+    for (uint32_t i = n; i > 0u; i--) {
+        if (state_note_param(s, track, ids[i - 1u])) break;
+    }
+    if (writes_e0 && track == s->core.selected_track) state_refresh_sound_locked();
 }
 
 /* 全局参数（GLOBAL 参数页的唯一写路径）：经引擎写入口按 GP[id] 钳位后立即回读
@@ -659,6 +688,137 @@ static void cmd_sys(app_state_t *s, edit_cmd_type_t type, uint16_t value)
     if (ret == ESP_OK) state_refresh_sys_locked();
 }
 
+/* ------------------------------------ P4-F Task 5: SOUND 页眉（换引擎/换预置） -------
+ * 边界在状态层判：core 的 set_engine/apply_preset 对越界、鼓轨与冻结都静默丢弃（void），
+ * 不先拒就把「值非法」与「成功」混成同一个结果。预置数按 a 轨自己的引擎取。
+ * 成功 = 一次整份刷新（换声音会改该轨全部参数；sound 块随同重取）。 */
+static void cmd_set_engine(app_state_t *s, uint32_t track, uint16_t engine)
+{
+    if (track >= STATE_SYNTH_TRACKS || engine >= SLOOP_CORE_NENGINES) {
+        s->sound_status = APP_SOUND_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->sound_status = APP_SOUND_STATUS_FROZEN;
+        return;
+    }
+    sloop_core_set_engine(track, engine);
+    s->sound_status = APP_SOUND_STATUS_OK;
+    state_refresh_locked();
+}
+
+static void cmd_set_preset(app_state_t *s, uint32_t track, uint16_t preset)
+{
+    sloop_sound_snapshot_t info;
+    if (track >= STATE_SYNTH_TRACKS || !sloop_core_sound_read((uint8_t)track, &info) ||
+        preset >= info.npresets) {
+        s->sound_status = APP_SOUND_STATUS_INVALID;
+        return;
+    }
+    if (sloop_seq_frozen()) {
+        s->sound_status = APP_SOUND_STATUS_FROZEN;
+        return;
+    }
+    sloop_core_apply_preset(track, preset);
+    s->sound_status = APP_SOUND_STATUS_OK;
+    state_refresh_locked();
+}
+
+/* ----------------------------------------- P4-F Task 6: TOOLS / 焦点步锁与 fill ---
+ * 状态层只做边界与返回码映射；三动作的语义/走带守卫在 sloop_core_tools（清单 012 §4），
+ * 键的可锁性与锁表容量在既有 sloop_seq_lock_set（上游 p_lockable）。成功整份刷新（NEW
+ * 会改四条轨的参数/步表与全局）。 */
+static void cmd_tools(app_state_t *s, uint32_t action)
+{
+    if (action > (uint32_t)SLOOP_TOOL_NEWPRJ) {
+        s->tools_status = APP_TOOLS_STATUS_INVALID; /* 越界不调引擎 */
+        return;
+    }
+    esp_err_t ret = sloop_core_tools(action);
+    switch (ret) {
+    case ESP_OK: s->tools_status = APP_TOOLS_STATUS_OK; break;
+    case ESP_ERR_INVALID_ARG: s->tools_status = APP_TOOLS_STATUS_INVALID; break;
+    case ESP_ERR_NOT_ALLOWED: s->tools_status = APP_TOOLS_STATUS_BLOCKED; break;
+    case ESP_ERR_INVALID_STATE: s->tools_status = APP_TOOLS_STATUS_FROZEN; break; /* 仅冻结 */
+    default: s->tools_status = APP_TOOLS_STATUS_ERROR; break;
+    }
+    if (ret == ESP_OK) state_refresh_locked();
+}
+
+/* 焦点步 → (焦点轨, 引擎绝对步)。焦点列是窗口列；窗口外/越界没有可作用的步。 */
+static bool focus_step_abs(const app_state_t *s, uint32_t *ft, uint32_t *abs)
+{
+    *ft = s->focus_track;
+    if (*ft >= APP_STATE_TRACKS || s->focus_step >= s->window.window_len) return false;
+    *abs = (uint32_t)s->window.window_start + s->focus_step;
+    return *abs < STATE_STEPS_MAX;
+}
+
+/* 锁与 fill 条件的范围 = 聚焦步在本轨 LEN 之内（R12：上游 ui_layers.c 的 held-step 循环
+ * `idx < trk_len(t)`）——不要求该步有音，空步与只有 TIE 的步同样可锁。 */
+static bool focus_step_in_len(const app_state_t *s, uint32_t ft, uint32_t abs)
+{
+    uint8_t len = s->core.trk[ft].len;
+    if (len < 1u) len = 1u;
+    return abs < len;
+}
+
+#define STATE_LOCK_LIST_MAX 32u /* ≥ 上游 NLOCK(24)：整条轨的锁一次取完 */
+
+static void cmd_lock_focus(app_state_t *s, uint32_t lock)
+{
+    uint32_t ft, abs;
+    if (lock > 1u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    /* 冻结要先于查锁表：冻结时 sloop_seq_lock_list 回 0，先查会把解锁误报成 NO LOCK。 */
+    if (sloop_seq_frozen()) {
+        s->seq_status = SEQ_STATUS_FROZEN;
+        return;
+    }
+    if (!focus_step_abs(s, &ft, &abs) || !focus_step_in_len(s, ft, abs)) {
+        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP：聚焦步在本轨 LEN 之外 */
+        return;
+    }
+    if (s->last_param.id == 0xFFu || s->last_param.track != ft) {
+        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO PARAM：这条轨上还没碰过参数 */
+        return;
+    }
+    /* 加锁与解锁互斥：共用一块栈缓冲（参数回读 142B / 锁表 128B 取其大）。 */
+    union {
+        int16_t value[SLOOP_CORE_P_COUNT];
+        sloop_lock_t locks[STATE_LOCK_LIST_MAX];
+    } buf;
+    if (lock != 0u) {
+        /* 锁值 = 该轨当前参数（上游 LOCK 旋钮从现值起；不是选中轨的 p[] 投影） */
+        sloop_core_read_params(ft, buf.value, NULL);
+        state_seq_result(s, sloop_seq_lock_set(ft, abs, s->last_param.id, buf.value[s->last_param.id]));
+        return;
+    }
+    uint32_t n = sloop_seq_lock_list(ft, buf.locks, STATE_LOCK_LIST_MAX);
+    for (uint32_t i = 0; i < n; i++) {
+        if (buf.locks[i].step != abs || buf.locks[i].param != s->last_param.id) continue;
+        state_seq_result(s, sloop_seq_lock_del(ft, abs, s->last_param.id));
+        return;
+    }
+    s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO LOCK：该键本来就没有锁 */
+}
+
+static void cmd_fill_step(app_state_t *s, uint16_t value)
+{
+    uint32_t ft, abs;
+    if (value > 3u) {
+        s->seq_status = SEQ_STATUS_INVALID;
+        return;
+    }
+    if (!focus_step_abs(s, &ft, &abs) || !focus_step_in_len(s, ft, abs)) {
+        s->seq_status = SEQ_STATUS_NOT_FOUND; /* NO STEP：聚焦步在本轨 LEN 之外 */
+        return;
+    }
+    state_seq_result(s, sloop_seq_set_fill(ft, abs, (uint8_t)value));
+}
+
 /* 存储命令（P4-B，spec §4.3）：槽号/轨号越界 ⇒ 不调存储 API、不改 store_status
  * （命令无效 ≠ 存储失败）。返回码按 app_store_status_t 映射；成功即整份刷新投影
  * （工程/预置载入会改引擎真值）。存储调用在状态锁内、flash 擦写由存储层在引擎锁外
@@ -815,6 +975,11 @@ void state_apply(const edit_cmd_t *cmd)
         s->selftest_failed = 0;
         s->settings_status = APP_SETTINGS_OK;
         break;
+    case CMD_SET_ENGINE: cmd_set_engine(s, cmd->a, cmd->v); break;
+    case CMD_SET_PRESET: cmd_set_preset(s, cmd->a, cmd->v); break;
+    case CMD_TOOLS: cmd_tools(s, cmd->a); break;
+    case CMD_LOCK_FOCUS: cmd_lock_focus(s, cmd->a); break;
+    case CMD_FILL_STEP: cmd_fill_step(s, cmd->v); break;
     default: break;
     }
     /* 自动存档的「无输入 ≥2.5s」计时（上游 ui_input_ms）：任何一次编辑命令都算活动，

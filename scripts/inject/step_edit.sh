@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # step_edit.sh — STEP 注入：窗口列编辑（默认窗口两格）+ 分窗 bank1（绝对步号/隐藏列/
-# 播放头映射）→ 断言 STATE/ENG 真值 → 截屏
+# 播放头映射）→ 断言 STATE/ENG 真值 → 截屏；②e 深度步态、②f 鼓 lane 编辑、
+#   ②g EDIT 层 a–g 擦除（P4-F Task 7：Aa + 音名键 ⇒ 聚焦步的同名音消失，
+#   `ENG STEP` 真值；两音步只摘一根、跨八度、无匹配不变、鼓轨 no-op、冻结不写）。
+#   ②g 整段包在 STORE PROJ SAVE 3 / LOAD 3 里——诊断槽 D（= 槽 3，与 section A–D
+#   共用同一组存储槽）先存工作工程快照，收口 LOAD 并以 LIVEHASH 逐位证明还原；入口时
+#   槽 D 已非空则被这份快照覆盖、不擦（transcript 有注记）。快照基线跨截屏复位重跑保持
+#   （proj_snapshot_open：重跑不再 SAVE，槽里不是快照即终止）——**破坏性**仅限该槽
 # 用法: bash scripts/inject/step_edit.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 脚本可重复运行：先归一窗口到 {0,0,16}；目标格已亮先经同一 TAP 路径点灭再点亮；

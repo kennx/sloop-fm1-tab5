@@ -1,0 +1,25 @@
+>>> ENG MEM
+ENG MEM
+ENG MEM internal_free=70251 internal_min=66700 psram_free=30094724 psram_min=30094724
+sloop>  >>> ENG PERF
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=927 render_mean_us=559 render_max_us=2832 duty_mean=9.63% duty_max=48.79% min_free_since_boot_internal=66676 min_free_since_boot_psram=30094724
+sloop>  >>> STORE PROJ LIST
+STORE PROJ LIST
+PROJ 0 USED hash=16FC5CB6
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  >>> STORE STATS
+STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401B0000 objects=1 faults=0 armed=0 autosave=1 autosave_hash=CDD3BAAE autosave_writes=0 last_xrun=0 last_save_ms=0
+sloop>  >>> STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
+STATE SNAP global bpm=90 swing=40
+sloop>  

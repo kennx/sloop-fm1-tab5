@@ -1,0 +1,7 @@
+STORE LIVEHASH
+LIVEHASH 949C124D
+sloop>  ENG MEM
+ENG MEM internal_free=69799 internal_min=66184 psram_free=30094724 psram_min=28226944
+sloop>  ENG AUDIO
+ENG AUDIO streaming=1 xrun=0
+sloop>  

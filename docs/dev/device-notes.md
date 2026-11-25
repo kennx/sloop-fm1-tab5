@@ -131,7 +131,7 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - **机制**：IDF `components/heap/port/esp32p4/memory_layout.c` 把 32KB LP SRAM 注册为
   `SOC_MEMORY_TYPE_RTCRAM`，它的**低优先级匹配**含 `MALLOC_CAP_INTERNAL`。按分配器的匹配顺序，
   `xTaskCreate` 的栈落到 LP SRAM 只会是 L2MEM 各堆都拿不出连续整块——全量自检的堆泄漏（DI-26，
-  P4-E 开机 68.9KB → 28.7KB）之后正是如此。该落点下渲染慢 ~24 倍（推断是 HP 核访问 LP SRAM 不经
+  P4-E 开机 68.9KB → 28.7KB；（DI-26 已于 2026-11-24 P4-F Task 2 修复：host 替身 `cpu1_host` 的懒初始化落在自检快照窗口内、每 job 回滚重建 mutex/cond，现改为快照前预初始化；`scripts/selftest-heap.py` 守住））之后正是如此。该落点下渲染慢 ~24 倍（推断是 HP 核访问 LP SRAM 不经
   L1 cache，未单独验证；`-Og` 下 DSP 的局部变量全在栈上）。`internal_free` 还有 28KB 也会发生：
   **看 largest free block，不看 free**。P4-D 开机内部堆多 ~20KB，所以当时没暴露。
 - **处置**：音频任务栈在首次启流时 `heap_caps_malloc(…, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA)`
@@ -143,3 +143,54 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 取证 transcript：`firmware/build/verify/probe-r{1-full,2-idle,3-diag,4-fix,5-final}-*.log`、
   `probe-di42-before-*.log`（原件 gitignored，不入库）；证据包 `docs/dev/verify/4-pe-2026-11-23/` 收录其中
   `fix-probe-r1-full-*.log`（复现）、`fix-probe-r5-final-*.log`（修复后同一流程）与 `fix-probe-di42-before-*.log`。
+
+## 10. INA226 电源监测：分流电阻查证与读数（2026-11-25，P4-F 阶段 4 Task 9）
+
+`ENG POWER`（`firmware/main/power_sensor.c`）读 INA226 与芯片温度。**结论：分流电阻查到了**——
+R39 = **0.005Ω（丝印值 `R005`，1%）**，电流 = 分流电压 / 5mΩ（`cur_ma = shunt_uv / 5`），不是臆造的校准值。
+
+- **来源（一手）**：官方原理图 <https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1132/Tab5_Schematics_PDF.pdf>
+  （`docs/tab5-hardware.md` §7 的链接；Altium 导出 5 页，CreationDate 2025-06-09；本次下载的 SHA256
+  `13cf3fd9954d39aa198e57b1bb94ec56af7d49107c80a245acc5bd90ac8ea329`；PDF 副本只在 gitignored 的
+  `firmware/build/verify/p4f-task9-Tab5_Schematics_PDF.pdf`，不入库）第 5 页 U31。
+- **查证手法**（文本层的词序不构成连线证据，故两步都做）：
+  1. `pdftotext -layout`：全图唯一的 `R005` 就是 `R39 R005/1%`，位于 `INA226`（U31）左下、网络标签
+     `SYS_BAT_PRE` 与 `SYS_BAT_2S` 之间。
+  2. `pdftocairo -svg` 取矢量连线（`docs/dev/verify/4-pf-2026-11-24/task-9-schematic-ina226.png` 是同一区域的位图）：
+     U31 右侧引脚热点 x=157.6，y=434.1 = pin 8 VBUS、441.3 = pin 10 IN+、448.5 = pin 9 IN−；R39 两个热点
+     (172.0, 419.7) 与 (186.5, 419.7)。导线 `(157.6,434.1)→(164.8,434.1)→(164.8,419.7)→(172.0,419.7)→(172.0,441.3)→(157.6,441.3)`
+     把 **VBUS、IN+、R39 pin1、`SYS_BAT_PRE`** 连成同一网络；导线 `(157.6,448.5)→(164.8,448.5)→(164.8,455.7)→(186.5,455.7)→(186.5,419.7)→(200.9,419.7)`
+     把 **IN−、R39 pin2、`SYS_BAT_2S`** 连成同一网络；C146 1µF/16V 跨接 (172.0, 441.3)–(172.0, 455.7)。
+  3. 地址脚：pin 1 A1 → GND、pin 2 A0 → `SOC_3.3V` ⇒ 7 位地址 **0x41**（与 §4 的地址表一致）。
+- **INA226 要点**（数据手册 = `docs/tab5-hardware.md` §7 的 INA226.pdf，ZHCS078A）：
+  - **寄存器指针不自动递增**（7.5.5.3）：想读下一个寄存器必须重新写指针。首版一笔 4 字节读 `0xFE/0xFF`
+    得到 `5449 FFFF`（厂商 ID 对、芯片 ID 错），就是这个坑；现在逐寄存器各一笔 2 字节读。
+  - 总线电压寄存器 0x02 LSB = **1.25mV**（全 16 位都是数据）；分流电压寄存器 0x01 是 **int16，LSB = 2.5µV**。
+  - 复位配置 0x4127 = 分流 + 总线**连续**转换；校准寄存器复位为 0 ⇒ 电流寄存器 0x04 恒读 0——所以固件
+    **不读 0x04、不写任何 INA226 寄存器**（校准留在复位值），电流由分流电压换算。
+- **⚠️ 实测点不在 USB 输入上**：VBUS 引脚接的是 `SYS_BAT_PRE`（电池侧节点），不是 USB-C 的 VBUS。
+  按原理图，被测通路是 `J120 pin1 → Q50（P-MOS）→ SYS_BAT_PRE → R39 → SYS_BAT_2S`（J120/Q50 的职能为按图推断），
+  即**电池充放电电流**；USB-C 供电时系统电流不经过 R39。2026-11-25 本机读数（主机 USB-C 供电，固件 8788d30）：
+  `ENG POWER vbus_mv=918 shunt_uv=-5 cur_ma=-1 temp_c=27.1 ina=ok`（三次 918/916/915mV，27.1℃；INA226 应答正常）。
+  `SYS_BAT_PRE ≈ 0.92V`、分流 ≈0 ⇒ 与「**未装电池**」一致（2S 电池不会低于 6V；物理上未开壳确认）。
+  - 因此 brief 里「USB 供电 vbus ≈ 4,750–5,100mV」的预期**不成立**：USB 输入功耗**不能由这颗 INA226 观测**，
+    soak 的 `vbus_mv`/`cur_ma` 列在 USB 供电下基本是平的（仅记录，本来就不设门禁）。
+  - 装上 NP-F550（2S）后：`vbus_mv` ≈ 电池经 Q50 后的电压，`cur_ma` 的正方向是 PRE → 2S（电池放电为正、
+    充电为负——**按图推断，未实测**，装电池后应先核对符号）。
+- **芯片温度**：IDF `temperature_sensor`，量程 −10..80℃（`soc/esp32p4/temperature_sensor_periph.c` 的档位表里
+  误差最小 1℃ 的一档）。轻载（duty ≈9–13%）读 27–28℃（探针 27.1℃、300s soak 六次采样均 28.1℃），低于 brief 的 35–70℃ 量级——是室温 + 低负载的正常读数，
+  不是故障；3h soak 的温度趋势才是有信息量的记录。
+- **对音频无扰**：`ENG POWER` 只做三笔 400kHz I2C 读（BSP 板载总线的锁串行化，不另加锁、不持引擎锁），
+  流式下两个 3s 窗口各连读 20 次，`ENG PERF` 的 `xrun 0 → 0`、`render_max_us` 不变
+  （`docs/dev/verify/4-pf-2026-11-24/task-9-power-readings.log`、`task-9-power-summary.txt`；探针 `task-9-power-probe.py`）。
+
+## 11. 设备当前状态（2026-11-25，P4-F Task 10b 会话之后；下次上设备前先读）
+
+- **工作工程**：`LIVEHASH 16FC5CB6`，且 flash 的 autosave 副本就是它（`autosave_hash == LIVEHASH`、
+  `autosave=1`；`docs/dev/verify/4-pf-2026-11-24/task-10b-device-end.log`）。它不是「干净」工程：
+  轨 0 是 `slen=64 / mute=1 / level=1`（`sequence` 的自由录音把 LEN 拉到 64，其余是场景归一留下的）。
+  同一会话的开机基线是 `D6962C61`，要回到它只能靠工程槽 A–D 里的存档。
+- **工程槽 A–D / section A–D**：自 P4-C 起就是注入场景的测试状态（section 与工程槽共用同一组存储槽，
+  `sequence`/`song`/`step_edit`/`store` 都拿槽 3 当诊断槽），**不要当作用户存档**。
+- 之后起跑的 3h soak（`soak.py --duration 10800 --save-window 3600`，17:54:38）会先 `STORE PROJ SAVE 0 + LOAD 0`
+  一次并把窗口内外的状态写回 autosave——soak 结束后的设备状态以 Task 10c 的读数为准。

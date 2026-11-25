@@ -1,0 +1,30 @@
+>>> STORE SETTINGS SET palette 2
+STORE SETTINGS SET palette 2
+STORE SETTINGS SET palette=2 dirty=1
+sloop>  I (29763) sloop_ui: 页面构建 page=TRACKS(1) 池增量=6064B 预算=7168B 池剩余=42192B 耗时=9ms
+I (29763) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=11ms
+I (29763) sloop_ui: 页面构建 page=PLAY(0) 池增量=2452B 预算=3072B 池剩余=41952B 耗时=4ms
+I (29763) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+>>> STORE SETTINGS SAVE
+STORE SETTINGS SAVE
+I (29963) sloop_store: 歌曲已保存 len=1552 来源=1
+STORE SETTINGS SAVED len=1552 side=1
+sloop>  >>> STORE SETTINGS INFO
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  >>> STATE SNAP
+STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=2 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  >>> ENG MEM
+ENG MEM
+ENG MEM internal_free=70107 internal_min=66556 psram_free=30094724 psram_min=30094724
+sloop>  >>> ENG PERF
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=4500 render_mean_us=537 render_max_us=2971 duty_mean=9.25% duty_max=51.19% min_free_since_boot_internal=66540 min_free_since_boot_psram=30094724
+sloop>  

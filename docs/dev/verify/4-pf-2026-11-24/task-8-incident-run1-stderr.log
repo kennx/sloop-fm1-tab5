@@ -1,0 +1,67 @@
+  [fw] SCR
+  [fw] I (5756182) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5778342) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5800692) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5823652) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5846312) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5876162) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5899222) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5922332) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5945372) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5968042) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (5991112) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6014052) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6037122) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6060082) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6083162) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6106082) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6129142) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6151442) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6173692) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6198332) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6221002) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6243192) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6265772) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6295572) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6319072) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6342462) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6368232) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6390652) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6416432) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6438552) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6460672) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6482902) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (6663402) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+[FAIL] screenshot_matrix: 7 项断言/锚点未通过（见上与 /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261125-112557）

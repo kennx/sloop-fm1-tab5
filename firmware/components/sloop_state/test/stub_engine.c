@@ -1,5 +1,6 @@
 #include "stub_engine.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "sloop_store.h" /* sloop_store_note_activity：host 单测的空实现（见文件末尾） */
@@ -13,6 +14,7 @@ void stub_engine_reset(void)
     g_stub_on_read_window = NULL;
     g_stub.snap.bpm = 90; /* 上游 GP[G_BPM].def */
     g_stub.param_g[0] = 90; /* G_BPM：参数投影与快照 bpm 同源 */
+    g_stub.no_desc_id = 0xFFFFFFFFu;
     for (uint32_t k = 0; k < 4; k++) {
         g_stub.snap.trk[k].len = 16;
         g_stub.snap.trk[k].div = 2;
@@ -61,6 +63,9 @@ static void stub_fill_window(sloop_core_snapshot_t *out, uint32_t start)
         out->dstep[i].on = g_stub.dstep[start + i].on;
         out->dstep[i].lvl = g_stub.dstep[start + i].lvl;
         out->dstep[i].rat = g_stub.dstep[start + i].rat;
+        /* 与真引擎同一契约：dstep_raw[] 是窗口列的原始 16 lane 位图（P4-F Task 6 的
+         * CMD_LOCK_FOCUS/CMD_FILL_STEP 据此判定鼓步有音）。 */
+        out->dstep_raw[i] = g_stub.raw_dstep[start + i];
     }
 }
 
@@ -334,7 +339,39 @@ esp_err_t sloop_seq_lock_set(uint32_t track, uint32_t step, uint32_t param, int1
     if (track >= 4u || step >= STUB_ENGINE_STEPS || param >= SLOOP_CORE_P_COUNT)
         return ESP_ERR_INVALID_ARG;
     g_stub.lock_present[track][step] = 1;
+    g_stub.lock_param[track][step] = (uint8_t)param;
     return ESP_OK;
+}
+
+/* 与真实适配层同一口径：按槽序列出该轨的锁（这里每步至多一把，见 lock_param）。 */
+uint32_t sloop_seq_lock_list(uint32_t track, sloop_lock_t *out, uint32_t cap)
+{
+    g_stub.lock_list_calls++;
+    if (track >= 4u || out == NULL || cap == 0u || g_stub.seq_frozen) return 0;
+    uint32_t n = 0;
+    for (uint32_t step = 0; step < STUB_ENGINE_STEPS && n < cap; step++) {
+        if (!g_stub.lock_present[track][step]) continue;
+        out[n].step = (uint8_t)step;
+        out[n].param = g_stub.lock_param[track][step];
+        out[n].value = 0;
+        n++;
+    }
+    return n;
+}
+
+/* 描述符有无（状态层据此决定一次参数写是否能生效）：越界/被标记的 id 回 false。 */
+bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out)
+{
+    if (track >= 4u || id >= SLOOP_CORE_P_COUNT || id == g_stub.no_desc_id) return false;
+    if (out != NULL) memset(out, 0, sizeof *out);
+    return true;
+}
+
+esp_err_t sloop_core_tools(uint32_t action)
+{
+    g_stub.tools_calls++;
+    g_stub.last_tools_action = action;
+    return g_stub.tools_ret;
 }
 
 esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
@@ -346,7 +383,8 @@ esp_err_t sloop_seq_lock_del(uint32_t track, uint32_t step, uint32_t param)
     if (g_stub.seq_ret != ESP_OK) return g_stub.seq_ret;
     if (track >= 4u || step >= STUB_ENGINE_STEPS || param > SLOOP_CORE_P_COUNT)
         return ESP_ERR_INVALID_ARG;
-    if (param == SLOOP_CORE_P_COUNT) g_stub.lock_present[track][step] = 0;
+    if (param == SLOOP_CORE_P_COUNT || param == g_stub.lock_param[track][step])
+        g_stub.lock_present[track][step] = 0;
     return ESP_OK;
 }
 
@@ -768,6 +806,66 @@ esp_err_t sloop_hal_settings_set_volume(uint8_t v)
     g_stub.hal_vol = v;
     g_stub.hal_dirty = true;
     return ESP_OK;
+}
+
+/* ---- P4-F Task 5：SOUND 页投影与换音命令替身 ----------------------------------------
+ * 假引擎表：引擎 0/1/2 各 4/2/0 个预置（0 = 「没有预置」的边界），其余 3 个；名字
+     * `ENG<e>` / `PRE<e>.<k>`，鼓轨 kit 名 `KIT<n>`（P_E0 钳到 0..45，上游 DRUM_KIT_DESC）。 */
+static const uint8_t k_stub_npresets[SLOOP_CORE_NENGINES] = {4, 2, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+
+bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
+{
+    g_stub.sound_read_calls++;
+    if (out == NULL) return false;
+    memset(out, 0, sizeof(*out));
+    out->nengines = (uint8_t)SLOOP_CORE_NENGINES;
+    if (track >= 4u) return false;
+    if (track == 3u) {
+        int32_t kit = g_stub.param[3][STUB_ENGINE_P_E0];
+        out->drum = 1u;
+        snprintf(out->kit_name, sizeof(out->kit_name), "KIT%d", kit < 0 ? 0 : kit > 45 ? 45 : kit);
+        return true;
+    }
+    out->engine = (uint8_t)(g_stub.sound_engine[track] % SLOOP_CORE_NENGINES);
+    out->npresets = k_stub_npresets[out->engine];
+    snprintf(out->engine_name, sizeof(out->engine_name), "ENG%u", (unsigned)out->engine);
+    if (out->npresets != 0u) {
+        out->preset = (uint8_t)(g_stub.sound_preset[track] % out->npresets);
+        snprintf(out->preset_name, sizeof(out->preset_name), "PRE%u.%u", (unsigned)out->engine,
+                 (unsigned)out->preset);
+    }
+    /* 用户预置（终审 A1）：镜像上游 up_load_to 留下的字段——preset = 0、user = slot+1——
+     * 与 sloop_core_sound_read 的投影：preset_name = "USER nn"。 */
+    out->user = g_stub.sound_user[track];
+    if (out->user != 0u)
+        snprintf(out->preset_name, sizeof(out->preset_name), "USER %02u", (unsigned)out->user);
+    return true;
+}
+
+void sloop_core_set_engine(uint32_t track, uint32_t engine)
+{
+    g_stub.set_engine_calls++;
+    g_stub.last_set_engine_track = track;
+    g_stub.last_set_engine = engine;
+    if (track >= STUB_ENGINE_TRACKS || engine >= SLOOP_CORE_NENGINES || g_stub.seq_frozen) return;
+    g_stub.sound_engine[track] = (uint8_t)engine;
+    g_stub.sound_preset[track] = 0;
+    g_stub.sound_user[track] = 0; /* 换引擎/换工厂预置清 user（上游 apply_preset_to / set_engine_of） */
+    g_stub.param[track][STUB_ENGINE_P_E0] = (int16_t)(engine + 1u);
+    g_stub.snap.trk[track].engine = (uint8_t)engine;
+    g_stub.snap.trk[track].preset = 0;
+}
+
+void sloop_core_apply_preset(uint32_t track, uint32_t preset)
+{
+    g_stub.apply_preset_calls++;
+    g_stub.last_preset_track = track;
+    g_stub.last_preset = preset;
+    if (track >= STUB_ENGINE_TRACKS || g_stub.seq_frozen) return;
+    g_stub.sound_preset[track] = (uint8_t)preset;
+    g_stub.sound_user[track] = 0;
+    g_stub.param[track][STUB_ENGINE_P_E0 + 1u] = (int16_t)(preset + 1u);
+    g_stub.snap.trk[track].preset = (uint8_t)preset;
 }
 
 /* speaker-only（R16）：非 speaker 回 NOT_SUPPORTED 且状态不变；speaker 是开机态，

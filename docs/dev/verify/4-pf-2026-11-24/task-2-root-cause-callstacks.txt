@@ -1,0 +1,21 @@
+# DI-26 根因定位：临时 CONFIG_HEAP_TRACING_STANDALONE（栈深 8 + 帧指针，诊断构建，未入库）
+# 固件：a6e6898 + 临时 HLOG/DIAG 插桩；单例 ENG SELFTEST preset/ANALOG/00_808_BOOM；源日志 /tmp/p4f_t2/exp-20261124-161550.log
+
+====== Heap Trace: 4 records (512 capacity) ======
+     8 bytes (@ 0x4ff2f2b0, Internal) allocated CPU 0 ccount 0x311b8d5c caller 0x4ff00f9c:0x4ff00ff2:0x4ff00902:0x4ff161c6:0x400093ec:0x40057584:0x4005a446:0x4005b2b8
+    84 bytes (@ 0x4ff32800, Internal) allocated CPU 0 ccount 0x311bad30 caller 0x4ff00f9c:0x4ff00ff2:0x4ff008b4:0x4ff0d4ae:0x4ff0c02c:0x4ff0c362:0x40009404:0x40057584
+    12 bytes (@ 0x4ff2f328, Internal) allocated CPU 0 ccount 0x311bd0b8 caller 0x4ff00f9c:0x4ff00ff2:0x4ff00902:0x4ff16216:0x4000958e:0x4005758e:0x4005a446:0x4005b2b8
+    84 bytes (@ 0x4ff32858, Internal) allocated CPU 0 ccount 0x311be218 caller 0x4ff00f9c:0x4ff00ff2:0x4ff008b4:0x4ff0d4ae:0x4ff0c02c:0x4ff0c362:0x4ff01bd8:0x4ff01d9c
+====== Heap Trace Summary ======
+Mode: Heap Trace Leaks
+
+# riscv32-esp-elf-addr2line -f -i -e build/sloop_fm1_tab5.elf（各分配点的调用栈，自顶向下）
+8B  : malloc (newlib/src/heap.c:25) <- heap_caps_malloc_default <- calloc <- _lock_init_recursive (newlib/src/locks.c:94)
+      <- pthread_mutex_init (pthread.c:641) <- pthread_cond_init (pthread_cond_var.c:226) <- cpu1_host_init (tests/cpu1_host.c:77)
+      <- cpu1_host_init (:59) <- cpu1_on (:80) <- mix_block (firmware/src/fx.c:1200) <- blk (tests/regress.c:95)
+      <- run_to (:121) <- phrase (:149)
+84B : pvPortMalloc <- heap_caps_malloc <- __wrap_heap_caps_malloc_base <- trace_malloc <- lock_init_generic (locks.c:76)
+      <- xQueueCreateMutex (queue.c:669) <- xQueueGenericCreate (queue.c:545) <- _lock_init_recursive ... 同上
+12B : calloc <- _lock_init_recursive <- pthread_mutex_init (:641/:650) <- pthread_cond_init ... 同上
+84B : xQueueGenericCreate <- _lock_init_recursive <- pthread_mutex_init <- pthread_cond_init ... 同上
+=> 四块都是 cpu1_host_init() 的 pthread_cond_init/pthread_mutex_init；合计 188B 载荷（含块头 208B），整条 job 路径 0 次 free。

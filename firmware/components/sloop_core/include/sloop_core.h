@@ -43,6 +43,27 @@ void sloop_core_set_engine(uint32_t track, uint32_t engine);
  * 同样不改值）。参数锁在生效时 set_engine_of 会先 locks_restore，此时预览只作参考。 */
 bool sloop_core_preset_preview(uint32_t track, uint32_t engine, uint32_t preset,
                                int16_t out[SLOOP_CORE_P_COUNT]);
+
+/* TOOLS 三动作（P4-F Task 6；上游 ui_input.c:568-612 的 GO 按钮，语义清单见
+ * docs/design/012-feature-parity-checklist.md §4）。作用于**选中轨**；一次动作一次引擎锁。
+ *  CLRSEQ   清选中轨的步表（先 undo_mark，再 steps_clear ⇒ TRANSPORT 的 UNDO 可撤销）。
+ *           走带中允许（上游同），playing 不变。
+ *  INITSOUND 引擎默认值 + 预设 0（= sloop_core_set_engine(选中轨, 当前引擎)，param_kept
+ *           的混音/图案参数保留）。走带中允许。选中鼓轨回 ESP_ERR_NOT_ALLOWED（上游
+ *           page_desc 不给鼓轨这一项）。
+ *  NEWPRJ   上游 project_new（ui_input.c:462-490 的逐行镜像，见 seq_tab5.c）：自行停走带、
+ *           panic、四轨参数回默认 + TRK_DEF 默认声音、鼓 kit/tune/decay/mute 复位、除
+ *           MIDI 类外全局回默认、清 solo/八度；A–D section 与 settings 对象不碰。
+ *           唯一守卫：SONG 播放中且 arrangement_enabled ⇒ ESP_ERR_NOT_ALLOWED
+ *           （"STOP THE SONG FIRST"，否则停止会把旧 loop 带回来）；其余走带状态自停后执行。
+ * 返回：ESP_OK；ESP_ERR_INVALID_ARG（action 越界）；ESP_ERR_NOT_ALLOWED（见上）；
+ * ESP_ERR_INVALID_STATE（诊断冻结，锁外/锁内各查一次）。不得在 ISR 调用。 */
+typedef enum {
+    SLOOP_TOOL_CLRSEQ = 0,
+    SLOOP_TOOL_INITSOUND = 1,
+    SLOOP_TOOL_NEWPRJ = 2,
+} sloop_tool_t;
+esp_err_t sloop_core_tools(uint32_t action);
 void sloop_core_note(uint32_t track, uint32_t note, bool on);
 void sloop_core_hit(uint32_t kit, uint32_t lane, uint32_t velocity);
 void sloop_core_play(bool on);
@@ -148,8 +169,8 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g);
  *  fmt 为上游 F_* 编码（core.h）；unit 原样投影上游可选单位（多数为 NULL——PCT/DB/
  *  TIME 等显示单位由 fmt 决定，见上游 param_format）。enums/enum_count 在 names
  *  非空时给出：F_ENUM 每个取值一个名字；F_INT + names 为 0 终止表（值域均分映射，
- *  同 param_format）。引擎的 `desc` 钩子（依赖轨道状态的动态描述符）不投影，只给
- *  基础 edit[] 表。 */
+ *  同 param_format）。引擎的 `desc` 钩子与 INSERT/ENV SYNC 这类依赖轨道状态的动态
+ *  描述符不投影（只给基础表）——需要它们时用 sloop_core_desc_track_live。 */
 typedef enum { SLOOP_DESC_TRACK, SLOOP_DESC_GLOBAL, SLOOP_DESC_ENGINE } sloop_desc_scope_t;
 /* desc.fmt 的公开镜像（上游 core.h 的 F_* 编码）。`sloop_core_desc` 原样投影上游值，
  * 这里给出名字以便 UI 按常量分支格式化；selftest.c 用静态断言保证两者一致
@@ -180,6 +201,62 @@ typedef struct {
     uint8_t enum_count;
 } sloop_desc_t;
 bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out);
+
+/* 随轨道状态取描述符（P4-F Task 3）：直接转调上游 params.c 的 track_desc()，不建任何
+ * 镜像/范围表。对轨 0..3（越界回 false）与 id < P_COUNT（越界回 false）应用、且只应用
+ * track_desc() 的规则：
+ *  1. 鼓轨（轨 3）的 id == P_E0 → DRUM_KIT_DESC（kit，= sloop_core_desc 的鼓轨哨兵）；
+ *  2. id == P_IA..P_IC → ins_desc(P_ITYPE)：TYPE 1..4 (SOFT..FUZZ) = DRIVE/TONE/LEVEL，
+ *     5 (CRUSH) = BITS/RATE(单位 Hz)/LPF，6..8 (PHASR..CHOR) = RATE/DEPTH/FDBK，
+ *     OFF 与越界 TYPE = TP[] 的 INS A/B/C；
+ *  3. P_ESYNC 开且 id == P_ATK/P_DEC/P_REL → ESYNC_DESC（F_INT + 音符名表 ESYNC_NAMES，
+ *     范围与默认值同 TP[]）；
+ *  4. id == P_E0..P_E7 → 该轨 eng_req 引擎的 desc 钩子（非 NULL 且命中时；LOFI/NOISE/PHYS
+ *     按模式换 label/names/unit），否则该引擎的 edit[k]。引擎取 t->eng_req（上游同一字段；
+ *     淡入淡出期间可能与 t->engine 短暂不同，与 sloop_core_set_params 的钳位表一致）；
+ *  5. 其余 id < P_E0 → TP[id]。
+ * 不应用上游 page_desc() 的页面规则（page_for_drum / SC_STEP、SC_TRK 作用域 / GLOBAL），
+ * 也不做 editor.c ed_tdesc 的静态化。
+ * 本函数在 1 与 4 之外对鼓轨的 P_E1..P_E7 回 false（上游 track_desc 对它们会落到引擎
+ * 分支）。本函数不建任何范围表：min/max/def/enums 全部取上游返回的那条描述符——动态
+ * 规则按上游现状只换 label/names/unit/fmt、范围与默认值同静态表（这是上游的事实，
+ * 不是本函数的保证；上游若让动态范围偏离静态表，这里如实跟随）。
+ * 上游 static 表与引擎钩子只读 t->p[]/eng_req 的整数值，**不取引擎锁**、可在任意任务
+ * 调用（与 sloop_core_desc 同口径）；冻结态同样可读。**冻结期间的错位**：诊断冻结时值投影
+ * 不再跟随引擎——`sloop_core_read`/`read_window` 回冻结时的快照、`read_params`/`read_step`
+ * 回全零——而本函数的标签仍取 live `trk[]`（冻结只挡写入口；`ENG SELFTEST` 期间 UI 同时
+ * 静默，手工 `ENG FREEZE ON` 时参数页可能显示「新标签 + 旧值/零值」）。
+ * out 为 NULL 时只判有无描述符。
+ * 未命中返回 false 且不改 out。`out` 的指针指向上游静态数据，调用方不得释放/改写。 */
+bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out);
+
+/* ---- SOUND 页投影（P4-F Task 5）：选中轨的引擎 / 预置 / 名字 -------------------------
+ * UI 不读上游全局：ENGINE/PRESET 页眉的文案、± 的环绕范围与 CMD_SET_PRESET 的越界判定
+ * 都读这份投影。引擎取 t->eng_req（与 sloop_core_desc_track_live 的引擎槽同一字段），
+ * 预设下标按上游口径 `t->preset % npresets`；名字是上游 ENGINES[]/presets[]/DRUM_KIT_NAMES
+ * 的静态串的拷贝（engine_name ≥ 12、preset_name/kit_name ≥ 16 字节放得下上游最长的名字
+ * 「DIGITAL」7 字符 / 「PLUGG BASS」10 字符 / 「ACOUSTIC」8 字符；scripts/synth-test.sh
+ * 钉住不截断）。**用户预置**：up_load_to 把 t->preset 置 0、t->user 置 slot+1，本函数投影
+ * `user` 并让 preset_name 显示 `USER nn`（nn = slot+1，同 PRESETS 页的 U01..U32）——
+ * 上游页眉同样按 user_of(t) 优先显示用户预置（ui_draw.c:850）；槽名不在这里取：它在 flash
+ * 银行索引里，须经 sloop_store_preset_name（存储锁 + 重扫），而本函数在 30ms sync 里
+ * 无锁调用。换工厂预置/换引擎清 user（上游 apply_preset_to 同法）。鼓轨没有引擎与预置：
+ * drum=1、engine/npresets 为 0、kit_name = P_E0 钳位后的 kit 名（上游 drum_kit() 同法）。
+ * 不取引擎锁、冻结态同样可读（与 sloop_core_desc_track_live 同口径：只读 trk[] 的整数
+ * 字段与静态表）。越界 track 或 out == NULL 返回 false 且 *out 清零（若非 NULL）。 */
+#define SLOOP_ENGINE_NAME 12u
+#define SLOOP_PRESET_NAME 16u
+typedef struct {
+    uint8_t engine, preset; /* 选中合成轨的引擎 / 预置下标（鼓轨为 0） */
+    uint8_t nengines;       /* SLOOP_CORE_NENGINES */
+    uint8_t npresets;       /* 该引擎的工厂预置数（鼓轨 0） */
+    uint8_t drum;           /* 1 = 鼓轨（没有引擎/预置；kit 名在 kit_name） */
+    uint8_t user;           /* 声音来自用户预置 slot+1（0 = 工厂预置；此时 preset_name = "USER nn"） */
+    char engine_name[SLOOP_ENGINE_NAME];
+    char preset_name[SLOOP_PRESET_NAME];
+    char kit_name[SLOOP_PRESET_NAME]; /* 鼓轨的 kit 名；合成轨为空串 */
+} sloop_sound_snapshot_t;
+bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out);
 
 /* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
  * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。

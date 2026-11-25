@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把阶段 4 收到 roadmap §6 的完成判据：修掉自检堆泄漏（DI-26）、落成功能对齐清单、补齐参数族覆盖（12 引擎 + 每轨/全局/FX 族 + TOOLS）、全页面截屏矩阵、3h soak（含 INA226/温度），证据入库；dev→main 合并须用户确认。
+**Goal:** 把阶段 4 收到 roadmap §6 的完成判据：修掉自检堆泄漏（DI-26）、落成功能对齐清单、补齐参数族覆盖（12 引擎 + 每轨/全局/FX 族 + TOOLS）、全页面截屏矩阵、3h soak（含 INA226/温度），证据入库；**不合并 main**（用户明示）。
 
 **Architecture:** 新增六张「族页」——SOUND（通用引擎页，取代 ANALOG/FM6）与五张 chip 页（MOD/SCALE/VOICE/FX/GLOBAL），全部由 `page_layout.c` 的 X 宏表驱动（每页 ≤4 chip、每 chip ≤8 槽，数据只来自 `sloop_core_desc`）；新增 MIX 组承载 GLOBAL/FX/TOOLS（9 组 / 18 页 / 组签 104px）。TOOLS 三动作走状态层命令 + 上游语义适配。DI-26 用二分优先的堆定位法。
 
@@ -20,7 +20,7 @@
 - `ENG SELFTEST` console 语义不变；DI-26 不得用掩盖性修法（自检后重建堆、放宽断言）。
 - 截屏/听感/触摸/LED：机器只做像素抽检与 PNG 解码校验，**人眼/人耳是外部门禁**，文档不得声称已目检。
 - 提交格式 AGENTS.md §7.2（`<type>(<模块>): 中文摘要` + 四标签；fix 加 `[Root_Cause]/[Blast_Radius]`）；按逻辑单元拆分；每任务 review clean 后 push。
-- **dev→main 合并不在任何任务里自动执行**：Task 10 产出收口报告后停，等用户确认。
+- **不合并 main**（用户 2026-11-24 明示）：Task 10 止于 `feat/phase4f` → `dev` 与收口报告；roadmap 的 dev→main 里程碑在报告里标为待办。
 
 ## Review Focus
 
@@ -101,37 +101,37 @@
 ### Task 5: SOUND 页（取代 ANALOG+FM6）+ GLOBAL/FX chip 页 + 导航重组
 
 **Files:**
-- Modify: `page_layout.c`（SOUND = 选中轨引擎 edit[0..7]；GLOBAL chips GLO/REV/DRUMS/TEXTURE；FX chips FX/SLICER/INSERT/INSERT 2）、`page_params.c`（SOUND 标题显示引擎名、FM6 底行条件化、SAMPLE 不重复槽行）、`ui.c`（删 FM6 页注册、`k_groups` 重组、`UI fm6`/`UI analog` 别名）、`theme.h`（`UI_GROUP_W 104`、断言）、`sloop_state.h`（追加 `APP_PAGE_SOUND`；`APP_PAGE_ANALOG/FM6` 保留为别名常量）、`console.c`、`scripts/inject/inject.py`（`PAGES`、`UI fm6`/`UI analog` 用例改指向 SOUND）、`scripts/soak.py`
+- Modify: `page_layout.c`（SOUND = 选中轨引擎 edit[0..7] + 页眉 ENGINE/PRESET 选择 + 鼓轨 KIT 行；GLOBAL chips GLO/REV/DRUMS/TEXTURE；FX chips FX/SLICER/INSERT/INSERT 2）、`page_params.c`（SOUND 标题显示引擎名、FM6 底行条件化、SAMPLE 不重复槽行）、`ui.c`（删 FM6 页注册、`k_groups` 重组、`UI fm6`/`UI analog` 别名）、`theme.h`（`UI_GROUP_W 104`、断言）、`sloop_state.h`（追加 `APP_PAGE_SOUND`；`APP_PAGE_ANALOG/FM6` 保留为别名常量）、`console.c`、`scripts/inject/inject.py`（`PAGES`、`UI fm6`/`UI analog` 用例改指向 SOUND）、`scripts/soak.py`
 - Test: `scripts/knob-test.sh`、`scripts/inject/{nav,params,store,synth}.sh`
 
 **Interfaces:**
 - Consumes: Task 3 `sloop_core_desc_track_live`、Task 4 chip 框架。
-- Produces: 9 组 / 18 页；`UI MEM GROUP MIX`；SOUND 底行规则（A10）；`UI fm6` → `UI page=sound (id)`；`store` ⓰ / `params` 的「NOT FM6」锁定用例改为「底行缺席 ⇒ TAP miss」。
+- Produces: 9 组 / 18 页；`UI MEM GROUP MIX`；`CMD_SET_ENGINE{a=track,v=engine}` / `CMD_SET_PRESET{a=track,v=preset}`（状态层包 `sloop_core_set_engine` / `sloop_core_apply_preset`，越界不调引擎）；SOUND 页眉回显 `-> SOUND ENGINE value=<写后回读>` / `-> SOUND PRESET …`；鼓轨 `-> SOUND KIT …`；SOUND 底行规则（A10）；`UI fm6` → `UI page=sound (id)`；`store` ⓰ / `params` 的「NOT FM6」锁定用例改为「底行缺席 ⇒ TAP miss」。
 
 - [ ] Step 1: 更新 `nav` 期望（18 页轮转、9 组签、`UI TAB mix`/`UI SUB 0..2`）与 `PAGES` 表；跑 `nav` 得 RED。
 - [ ] Step 2: 实现；构建 ×2；烧录；`UI MEM`：SOUND ≤6,144、FX/GLOBAL ≤7,168；12 引擎轮换（`ENG TRACK 0 <e> 0`）后 SOUND 8 槽 label 与 `ENG DESC` 一致、鼓轨锁定；FM6 轨底行 SAVE/ERASE 往返、非 FM6 轨底行 TAP miss；有序对 EDIT→STEP / MIX→STEP / SEQ→MIX `池剩余 ≥4,096`。
 - [ ] Step 3: 回归 `nav`/`params`/`store`/`synth` 全绿。
 - [ ] Step 4: 提交 `feat(components/sloop_ui): SOUND 通用引擎页、GLOBAL/FX chip 页与九组导航`。
 
-### Task 6: TOOLS 页与三动作
+### Task 6: TOOLS 页与三动作 + TRANSPORT REC 配置 chip + 键盘参数锁/fill 条件
 
 **Files:**
 - Create: `firmware/components/sloop_ui/src/page_tools.c/.h`
-- Modify: `firmware/components/sloop_core/src/seq_tab5.c` 或 `store_tab5.c`（上游 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 语义适配：`sloop_core_tools_*`，持引擎锁）、`include/sloop_core.h`、`sloop_state.{h,c}`（`CMD_TOOLS_CLRSEQ/INITSOUND/NEWPRJ` + `tools_status`）、`ui.c`（注册）、`console.c`（`TOOLS <act>` 诊断 + TAP 回显）、`page_layout.c`（TOOLS 条目）
+- Modify: `firmware/components/sloop_core/src/seq_tab5.c` 或 `store_tab5.c`（上游 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 语义适配：`sloop_core_tools_*`，持引擎锁；`project_new` 是 `ui_input.c:462-490` 的 static、不在 TU ⇒ 逐行镜像并引用行号，清单 012 §4）、`firmware/components/sloop_ui/src/page_transport.c`（REC 配置 chip ×3：QUANT/MODE/START → 已有 `CMD_REC_CONFIG`）、`firmware/components/sloop_ui/src/input.c` + `input_map.h`（EDIT 层键位：lock / unlock / fill 条件循环，作用于 STEP 页聚焦步 × 状态层记录的「最近编辑参数」；零新增 LVGL 对象）、`include/sloop_core.h`、`sloop_state.{h,c}`（`CMD_TOOLS_CLRSEQ/INITSOUND/NEWPRJ` + `tools_status`）、`ui.c`（注册）、`console.c`（`TOOLS <act>` 诊断 + TAP 回显）、`page_layout.c`（TOOLS 条目）
 
 **Interfaces:**
-- Produces: `esp_err_t sloop_core_tools(uint32_t action)`（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；走带中 `ESP_ERR_NOT_ALLOWED`；冻结 `ESP_ERR_INVALID_STATE`）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
+- Produces: `esp_err_t sloop_core_tools(uint32_t action)`；`CMD_LOCK_FOCUS{a=lock|unlock}`（状态层：取 STEP 焦点步 + `app_state_t.last_param{scope,id}` → 既有 `CMD_LOCK_SET/DEL`）、`CMD_FILL_STEP{v=0..3}`（→ 既有 `CMD_SET_FILL`）、状态层在每次成功 `CMD_SET_PARAM` 后记录 `last_param`；（action 0 CLRSEQ / 1 INITSOUND / 2 NEWPRJ；**走带守卫按上游**：0/1 走带中允许（引擎锁内完成），2 仅在 SONG 播放且 arrangement_enabled 时 `ESP_ERR_NOT_ALLOWED`（`STOP THE SONG FIRST`），其余情况自行停走带后执行；冻结 `ESP_ERR_INVALID_STATE`；鼓轨：1 拒绝（`page_desc` 排除）、0 允许）；`CMD_TOOLS{a=action}`；页面：三个 chip，第一次按 = 预备（chip 高亮 + 状态行 `AGAIN TO CONFIRM`，1.5s 内再按才执行，超时取消）；TAP 回显 `-> TOOLS <CLRSEQ|INITSOUND|NEWPRJ> armed|value=<a> status="…"`。
 
-- [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（步表清空 / 声音回默认 / 工程回默认的逐项断言，以 Task 1 审计出的上游语义为准）、走带中/冻结拒绝、state 映射。
-- [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；走带中 ⇒ `STOP FIRST`。
+- [ ] Step 1: host 失败测试（`seq-test`/`state-test`）：三动作效果（CLEAR SEQ 清选中轨步表且可 undo / INIT SOUND 回引擎默认+预置 0 / NEW 的逐项副作用，以清单 012 §4 为准）、守卫（冻结 ⇒ INVALID_STATE；NEW 在 SONG 播放且 arrangement_enabled ⇒ NOT_ALLOWED，其余自停走带；走带中 CLRSEQ/INITSOUND 允许且 playing 不变；鼓轨 INIT SOUND 拒绝）、state 映射。
+- [ ] Step 2: 实现；`UI MEM` TOOLS ≤7,168；`params` 场景：未确认 ⇒ 状态不变；确认 ⇒ 生效；SONG 播放中 NEW ⇒ `STOP THE SONG FIRST`；走带中 CLRSEQ/INITSOUND 允许且走带不中断；UNDO 可撤销 CLEAR SEQ。
 - [ ] Step 3: 提交（core / state / ui / console 拆分）。
 
 ### Task 7: `params.sh` 全扩展 + `nav` 定稿
 
-**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值）、`scripts/inject/params.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
+**Files:** Modify: `scripts/inject/inject.py`（`run_params`：SOUND 12 引擎轮换、六页各 chip 字段逐一对照 `ENG DESC`、写后回读、鼓轨逐 chip 规则、TOOLS 确认态、chip 切换池往返；`run_nav`：18 页/9 组/104px 组签像素抽检、新有序对峰值、`run_tracks` 的 GLO 层 1–8 键 mute/solo 与 SEL 层 1–4 键选轨 `KEY` 断言、`run_step_edit` 的 EDIT 层 a–g 擦除断言、`run_sys` 的 SYSTEM 版本行断言）、`scripts/inject/{params,nav,tracks,step_edit,sys}.sh`、`scripts/soak.py`（页表 + 组签表 + `POOL_RT_GROUPS`）
 
 - [ ] Step 1: 按本任务 Interfaces 写断言（先 RED 若功能缺失）。
-- [ ] Step 2: `bash scripts/inject/params.sh && bash scripts/inject/nav.sh` 全绿；`python3 scripts/soak-selftest.py`。
+- [ ] Step 2: `bash scripts/inject/params.sh && bash scripts/inject/nav.sh && bash scripts/inject/tracks.sh && bash scripts/inject/step_edit.sh && bash scripts/inject/sys.sh` 全绿；`python3 scripts/soak-selftest.py`。
 - [ ] Step 3: 提交 `test(scripts/inject): 参数族页与九组导航的注入矩阵`。
 
 ### Task 8: 全页面截屏矩阵 + 联系表
@@ -153,24 +153,27 @@
 - Modify: `firmware/main/console.c`（`ENG POWER` → `vbus_mv=.. shunt_uv=.. [cur_ma=..] temp_c=..`）、`scripts/soak.py`（采样列 + 摘要的 min/max）、`scripts/soak-selftest.py`
 
 - [ ] Step 1: 查分流电阻值（原理图/手册；查不到则按降级口径）；实现并读回合理值（USB 供电 ~5V；温度 35–60℃ 量级）。
+  > **更正（2026-11-25，实施后回填；原文保留作记录）**：括号里的预期是错的——INA226 的 VBUS 引脚接
+  > 电池侧节点 `SYS_BAT_PRE`，主机 USB-C 供电、未装电池时读 ≈0.9V 而不是 ~5V；温度实测 27–28℃。
+  > 分流电阻已查到（R39 = 5mΩ），电流可换算。见收口 spec A5「实施结果」、ADR-007 与 device-notes §10。
 - [ ] Step 2: soak.py 增列；`soak-selftest.py` 通过；短跑 `soak.py --duration 300 --interval 60` 验证列。
 - [ ] Step 3: 提交 `feat(firmware/main): ENG POWER 读数与 soak 的功耗温度采样`。
 
-### Task 10: 文档、证据、全矩阵、3h soak、收口报告（**不做 dev→main**）
+### Task 10: 文档、证据、全矩阵、3h soak、收口报告（**不合并 main**）
 
 **Files:**
 - Modify: `AGENTS.md`（§3/§5.1/§5.4.1/§5.5）、`docs/design/005-ui-architecture.md`（§1 组表 9 组、§2 组签 104px、§5.3 P4-F 预算与实测）、`docs/design/008-param-pages.md`（chip 页框架、SOUND）、`docs/design/012-feature-parity-checklist.md`（终态打勾）、`docs/design/002-port-roadmap.md`（P4-F 状态）、parity spec P4-F 行、`docs/dev/verification-log.md`
 - Create: `docs/dev/verify/4-pf-<日期>/`（readme + SHA256SUMS）、`docs/dev/closeout-phase4.md`（收口报告）
 
 **Interfaces:**
-- Produces: 收口报告（给用户）：门禁→结论、清单状态（✅/DI 开放项）、soak 数值（含功率/温度）、**人测待办清单**（联系表路径、DI-4/16/7/39、LED 颜色、亮度/音量）、**dev→main 合并提请**（含是否带开放 DI）。
+- Produces: 收口报告（给用户）：门禁→结论、清单状态（✅/DI 开放项）、soak 数值（含功率/温度）、**人测待办清单**（联系表路径、DI-4/16/7/39、LED 颜色、亮度/音量）、**dev→main 标为待办**（不在本阶段）与开放 DI 列表。
 
 - [ ] Step 1: host 全矩阵 + MANIFEST；烧录 ×3；182；十一条注入场景（含复跑）；`selftest-heap.py`。
 - [ ] Step 2: `screenshot_matrix.py`；联系表入库。
 - [ ] Step 3: 硬复位 → 后台 `soak.py --duration 10800 --interval 60 --save-window 900`（断连判失败重试一次），期间完成文档。
 - [ ] Step 4: 证据晋升 + SHA256SUMS + verification-log；提交 `docs(design)` / `docs(dev/verify)`。
 - [ ] Step 5: 整分支终审 → 修复波 → 合并 `feat/phase4f` → `dev` 并重跑合并后门禁 → push dev。
-- [ ] Step 6: **停**：输出收口报告，等待用户对 dev→main 与人测项的决定。
+- [ ] Step 6: **停**：输出收口报告（含人测待办清单与开放 DI）；不合并 main。
 
 ---
 

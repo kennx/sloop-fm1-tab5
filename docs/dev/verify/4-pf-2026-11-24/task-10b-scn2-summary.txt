@@ -1,0 +1,6 @@
+store rc=0 pass_lines=908 fail_lines=0 start=16:01:43 dur=382s
+song rc=0 pass_lines=354 fail_lines=0 start=16:08:05 dur=190s
+sequence rc=0 pass_lines=562 fail_lines=0 start=16:11:15 dur=165s
+synth rc=0 pass_lines=794 fail_lines=0 start=16:14:00 dur=173s
+sys rc=0 pass_lines=354 fail_lines=0 start=16:16:53 dur=640s
+DONE

@@ -1,0 +1,37 @@
+ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=1 mute=1 armed=0 solo=0 len=64 div=8 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+E
+PLAY ack after 0.053s: 'TAP 208,210 page=3 -> TRANSPORT CMD_PLAY'
++0.104s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,0,0,0'
++0.154s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,0,0,0'
++0.204s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,1,1,1'
++0.255s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,1,1,1'
++0.305s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,1,1,1'
++0.356s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,2,2,2'
++0.406s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,2,2,2'
++0.457s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,3,3,3'
++0.507s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,3,3,3'
++0.558s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,4,4,4'
++0.608s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,4,4,4'
++0.659s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,4,4,4'
++0.709s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,5,5,5'
++0.760s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,5,5,5'
++0.810s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,6,6,6'
++0.861s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,6,6,6'
++0.911s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,6,6,6'
++0.961s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,7,7,7'
++1.012s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,7,7,7'
++1.062s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,8,8,8'
++1.112s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,8,8,8'
++1.163s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,8,8,8'
++1.213s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,9,9,9'
++1.264s 'ENG SNAP playing=1 bpm=120 sel=0 pos=0,9,9,9'

@@ -8,7 +8,7 @@
 #include "sloop_state.h"
 #include "sloop_store.h"
 
-#define SYS_SELFTEST_STACK 16384u
+#define SYS_SELFTEST_STACK 5632u
 #define SYS_SELFTEST_PRIO 2u
 
 static const char *TAG = "sys_selftest";
@@ -59,13 +59,21 @@ static void sys_selftest_task(void *arg)
     if (!ok && failed == 0) failed = 1;
     state_set_selftest_result(ran, failed);
     ESP_LOGI(TAG, "结果 ran=%u failed=%u", (unsigned)ran, (unsigned)failed);
+    /* 栈高水位（DI-43(1)）：SYS_SELFTEST_STACK 按这里的实测收缩，留 1KB 余量。
+     * uxTaskGetStackHighWaterMark 的返回值单位 = sizeof(StackType_t)：内核（FreeRTOS-Kernel tasks.c
+     * 的 prvTaskCheckFreeStackSpace）数的是字节，再 `ulCount /= sizeof(StackType_t)`。本端口
+     * `portSTACK_TYPE` 是 uint8_t（portmacro.h）⇒ 返回的就是**字节**（16KB 栈实测 12,236）。
+     * 下面的 `* sizeof(StackType_t)` 是 ×1，只是保留与其它端口同一写法。 */
+    ESP_LOGI(TAG, "stack hwm=%u", (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
     vTaskDelete(NULL);
 }
 
 esp_err_t sys_selftest_start(void)
 {
+    TaskHandle_t task = NULL;
     if (xTaskCreate(sys_selftest_task, "sys_selftest", SYS_SELFTEST_STACK, NULL,
-                    SYS_SELFTEST_PRIO, NULL) != pdPASS)
+                    SYS_SELFTEST_PRIO, &task) != pdPASS)
         return ESP_ERR_NO_MEM;
+    ESP_LOGI(TAG, "stack=%p size=%u", pxTaskGetStackStart(task), (unsigned)SYS_SELFTEST_STACK);
     return ESP_OK;
 }

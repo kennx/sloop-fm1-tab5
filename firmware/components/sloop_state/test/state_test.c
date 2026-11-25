@@ -1087,21 +1087,30 @@ static void case_store_bank(void)
     check_ll("越界不改 status", s.store_status, APP_STORE_STATUS_DRUM);
 }
 
-/* ⑮ 页 id 扩容：FILE/SONG/SYNTH 之后，P4-E Task 6 再追加 SYSTEM，容量 15；
- * 新 id 都排在最后，既有页 id 不变。 */
+/* ⑮ 页 id 扩容：FILE/SONG/SYNTH 之后，P4-E Task 6 再追加 SYSTEM（14）；P4-F Task 4
+ * 把 EDIT 组的 chip 页 MOD/SCALE/VOICE 追加在末尾（15..17），容量 18——新 id 都排在
+ * 最后，既有页 id 不变；参数页 id 段（GLOBAL..SAMPLE）仍连续（越界写被拒的口径不变）。 */
 static void case_page_ids(void)
 {
     stub_engine_reset();
     state_init();
     app_state_t s;
 
-    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 15);
+    check_ll("APP_STATE_PAGES", APP_STATE_PAGES, 19);
     check_ll("PROJECTS id", APP_PAGE_PROJECTS, 9);
     check_ll("PRESETS id", APP_PAGE_PRESETS, 10);
     check_ll("SONG id", APP_PAGE_SONG, 11);
     check_ll("DSYN id", APP_PAGE_DSYN, 12);
     check_ll("FM6P id", APP_PAGE_FM6P, 13);
     check_ll("SYSTEM id", APP_PAGE_SYSTEM, 14);
+    check_ll("MOD id", APP_PAGE_MOD, 15);
+    check_ll("SCALE id", APP_PAGE_SCALE, 16);
+    check_ll("VOICE id", APP_PAGE_VOICE, 17);
+    check_ll("TOOLS id", APP_PAGE_TOOLS, 18);
+    check_ll("末页 id + 1 = 页数", APP_PAGE_TOOLS + 1, APP_STATE_PAGES);
+    check_ll("SOUND 页沿用 ANALOG 的 id", APP_PAGE_ANALOG, 6);
+    check_ll("FM6 页 id 保留为空位（不注册；既有 id 不移位）", APP_PAGE_FM6, 7);
+    check_ll("APP_PAGE_FM6 不是任何已注册页（≠ SOUND）", APP_PAGE_FM6 != APP_PAGE_ANALOG, 1);
     state_set_page(APP_PAGE_SONG);
     state_get_copy(&s);
     check_ll("新页可设", s.page, APP_PAGE_SONG);
@@ -1111,9 +1120,15 @@ static void case_page_ids(void)
     state_set_page(APP_PAGE_SYSTEM);
     state_get_copy(&s);
     check_ll("SYSTEM 页可设", s.page, APP_PAGE_SYSTEM);
+    state_set_page(APP_PAGE_MOD);
+    state_get_copy(&s);
+    check_ll("MOD 页可设", s.page, APP_PAGE_MOD);
+    state_set_page(APP_PAGE_VOICE);
+    state_get_copy(&s);
+    check_ll("VOICE 页可设（最后一个合法 id）", s.page, APP_PAGE_VOICE);
     state_set_page(APP_STATE_PAGES);
     state_get_copy(&s);
-    check_ll("越界页仍被拒", s.page, APP_PAGE_SYSTEM);
+    check_ll("越界页仍被拒", s.page, APP_PAGE_VOICE);
 }
 
 static void apply_step_edit(const sloop_step_edit_t *edit)
@@ -2135,6 +2150,604 @@ static void case_selftest_worker_unavailable_fails_fast(void)
     check_ll("恢复后清不可用失败结果", s.selftest_done, 0);
 }
 
+/* ---------------- P4-F Task 5：SOUND 页眉（ENGINE / PRESET）与 sound 投影 ---------------- */
+
+/* ① CMD_SET_ENGINE：合法 → 引擎入口一次 (a=轨, v=引擎)、预置回 0、sound 投影与 p[] 同拍
+ * 刷新（各一次回读）；越界引擎 / 鼓轨 / 越界轨 → INVALID，冻结 → FROZEN，都不调引擎、
+ * 投影不动。对**非选中轨**下发时投影仍是选中轨的声音（投影恒为选中轨）。 */
+static void case_set_engine(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_ENGINE, 0, 0, 5);
+    check_ll("换引擎调用一次", g_stub.set_engine_calls, 1);
+    check_ll("换引擎透传轨", g_stub.last_set_engine_track, 0);
+    check_ll("换引擎透传引擎", g_stub.last_set_engine, 5);
+    state_get_copy(&s);
+    check_ll("换引擎 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("投影 engine", s.sound.engine, 5);
+    check_ll("投影 engine_name", strcmp(s.sound.engine_name, "ENG5") == 0, 1);
+    check_ll("投影 nengines", s.sound.nengines, SLOOP_CORE_NENGINES);
+    check_ll("换引擎预置回 0", s.sound.preset, 0);
+    check_ll("投影 npresets", s.sound.npresets, 3);
+    check_ll("p[] 同拍刷新（引擎槽）", s.p[SLOOP_CORE_P_COUNT - 8u], 6);
+
+    /* 成功 = 一次整份刷新：参数与 sound 各回读一次（每命令一次，不重复） */
+    uint32_t reads = g_stub.read_params_calls, sreads = g_stub.sound_read_calls;
+    apply(CMD_SET_ENGINE, 2, 0, 3);
+    check_ll("非选中轨换引擎", g_stub.set_engine_calls, 2);
+    check_ll("成功后参数回读一次", g_stub.read_params_calls - reads, 1);
+    check_ll("成功后 sound 回读一次", g_stub.sound_read_calls - sreads, 1);
+    state_get_copy(&s);
+    check_ll("投影恒为选中轨（engine 不变）", s.sound.engine, 5);
+
+    uint32_t calls = g_stub.set_engine_calls;
+    apply(CMD_SET_ENGINE, 0, 0, SLOOP_CORE_NENGINES);
+    state_get_copy(&s);
+    check_ll("引擎越界不调引擎", g_stub.set_engine_calls, calls);
+    check_ll("引擎越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 0, 0, 0xFFFFu);
+    state_get_copy(&s);
+    check_ll("引擎 0xFFFF → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 3, 0, 1);
+    state_get_copy(&s);
+    check_ll("鼓轨换引擎 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_ENGINE, 4, 0, 1);
+    state_get_copy(&s);
+    check_ll("轨号越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("四条拒绝都不调引擎", g_stub.set_engine_calls, calls);
+    check_ll("拒绝后投影不动", s.sound.engine, 5);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("冻结 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结不调引擎", g_stub.set_engine_calls, calls);
+    g_stub.seq_frozen = false;
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("解冻后同一命令成功", s.sound_status, APP_SOUND_STATUS_OK);
+}
+
+/* ② CMD_SET_PRESET：合法 → apply_preset 一次；preset ≥ **该轨引擎**的 npresets → INVALID
+ * 不调引擎（越界判定按 a 轨自己的引擎，不是选中轨的）；鼓轨/越界轨 → INVALID；
+ * 冻结 → FROZEN；npresets == 0 的引擎任何预置都越界。 */
+static void case_set_preset(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    apply(CMD_SET_ENGINE, 0, 0, 1); /* 引擎 1：2 个预置 */
+    apply(CMD_SET_PRESET, 0, 0, 1);
+    check_ll("换预置调用一次", g_stub.apply_preset_calls, 1);
+    check_ll("换预置透传轨", g_stub.last_preset_track, 0);
+    check_ll("换预置透传预置", g_stub.last_preset, 1);
+    state_get_copy(&s);
+    check_ll("换预置 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("投影 preset", s.sound.preset, 1);
+    check_ll("投影 preset_name", strcmp(s.sound.preset_name, "PRE1.1") == 0, 1);
+    check_ll("p[] 同拍刷新（预置写值）", s.p[SLOOP_CORE_P_COUNT - 7u], 2);
+
+    uint32_t calls = g_stub.apply_preset_calls;
+    apply(CMD_SET_PRESET, 0, 0, 2);
+    state_get_copy(&s);
+    check_ll("preset == npresets 不调引擎", g_stub.apply_preset_calls, calls);
+    check_ll("preset == npresets → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_PRESET, 0, 0, 0xFFFFu);
+    state_get_copy(&s);
+    check_ll("preset 0xFFFF → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("拒绝后投影不动", s.sound.preset, 1);
+
+    /* 越界判定按 a 轨自己的引擎：轨 1 = 引擎 0（4 个预置，选中轨是引擎 1 的 2 个） */
+    apply(CMD_SET_PRESET, 1, 0, 3);
+    state_get_copy(&s);
+    check_ll("别的轨：preset 3 < 该轨 npresets 4 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("别的轨换预置调用", g_stub.apply_preset_calls, calls + 1);
+    apply(CMD_SET_PRESET, 1, 0, 4);
+    state_get_copy(&s);
+    check_ll("别的轨：preset 4 ≥ npresets 4 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("投影恒为选中轨（preset 不变）", s.sound.preset, 1);
+
+    calls = g_stub.apply_preset_calls;
+    apply(CMD_SET_PRESET, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨换预置 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    apply(CMD_SET_PRESET, 4, 0, 0);
+    state_get_copy(&s);
+    check_ll("轨号越界 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("两条拒绝都不调引擎", g_stub.apply_preset_calls, calls);
+
+    /* npresets == 0 的引擎：预置 0 也越界 */
+    apply(CMD_SET_ENGINE, 2, 0, 2);
+    apply(CMD_SET_PRESET, 2, 0, 0);
+    state_get_copy(&s);
+    check_ll("无预置引擎：preset 0 → invalid", s.sound_status, APP_SOUND_STATUS_INVALID);
+    check_ll("无预置引擎不调引擎", g_stub.apply_preset_calls, calls);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PRESET, 0, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结不调引擎", g_stub.apply_preset_calls, calls);
+    g_stub.seq_frozen = false;
+}
+
+/* ③ sound 投影：init / sync / 选轨 / 整份刷新各读一次；随选中轨切换（鼓轨 → drum=1 +
+ * kit 名、无引擎/预置）。 */
+static void case_sound_projection(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    check_ll("init 读 sound 一次", g_stub.sound_read_calls, 1);
+
+    /* 引擎侧外部改动（console `ENG TRACK`、工程载入）：下一拍 sync 采纳 */
+    g_stub.sound_engine[1] = 7;
+    g_stub.sound_preset[1] = 2;
+    uint32_t reads = g_stub.sound_read_calls;
+    state_sync_from_engine();
+    check_ll("sync 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("sync 后仍是选中轨（轨 0）的引擎", s.sound.engine, 0);
+
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_TRACK, 1, 0, 0);
+    check_ll("选轨读 sound 一次（不等下一拍 sync）", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("选轨后 engine", s.sound.engine, 7);
+    check_ll("选轨后 preset", s.sound.preset, 2);
+    check_ll("选轨后 preset_name", strcmp(s.sound.preset_name, "PRE7.2") == 0, 1);
+    check_ll("选轨后非鼓轨", s.sound.drum, 0);
+
+    g_stub.param[3][SLOOP_CORE_P_COUNT - 8u] = 12;
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("鼓轨 drum=1", s.sound.drum, 1);
+    check_ll("鼓轨 kit 名", strcmp(s.sound.kit_name, "KIT12") == 0, 1);
+    check_ll("鼓轨 engine_name 空", s.sound.engine_name[0], 0);
+    check_ll("鼓轨 preset_name 空", s.sound.preset_name[0], 0);
+
+    /* 批量写命中 (选中轨, P_E0) 同理（评审 R10 minor：与单写同一规则） */
+    reads = g_stub.sound_read_calls;
+    {
+        const sloop_param_pair_t no_e0[2] = {{5, 7}, {6, 8}};
+        const sloop_param_pair_t with_e0[2] = {{5, 7}, {SLOOP_CORE_P_COUNT - 8u, 4}};
+        apply_param_batch(3, no_e0, 2);
+        check_ll("批量不含 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+        apply_param_batch(3, with_e0, 2);
+        check_ll("批量含 P_E0 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+        state_get_copy(&s);
+        check_ll("批量写 P_E0 后 kit 名同拍更新", strcmp(s.sound.kit_name, "KIT4") == 0, 1);
+        reads = g_stub.sound_read_calls;
+        apply_param_batch(1, with_e0, 2);
+        check_ll("非选中轨的批量 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+    }
+
+    /* 存储命令成功后的整份刷新同样带 sound（工程载入会换引擎/预置） */
+    g_stub.sound_preset[3] = 0;
+    g_stub.sound_engine[3] = 0;
+    reads = g_stub.sound_read_calls;
+    apply(CMD_PROJECT_SAVE, 0, 0, 0);
+    check_ll("整份刷新读 sound 一次", g_stub.sound_read_calls - reads, 1);
+
+    /* 鼓轨的 P_E0 就是 kit：CMD_SET_PARAM 写**选中轨**的 P_E0 时 sound 块同拍重取
+     * （SOUND 页眉 KIT 名与 TAP 回显不落后一拍）；其它 id / 非选中轨不额外读。 */
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_PARAM, 3, SLOOP_CORE_P_COUNT - 8u, 7);
+    check_ll("写选中鼓轨 P_E0 读 sound 一次", g_stub.sound_read_calls - reads, 1);
+    state_get_copy(&s);
+    check_ll("kit 名同拍更新", strcmp(s.sound.kit_name, "KIT7") == 0, 1);
+    reads = g_stub.sound_read_calls;
+    apply(CMD_SET_PARAM, 3, 5, 7);
+    check_ll("其它 id 不读 sound", g_stub.sound_read_calls - reads, 0);
+    apply(CMD_SET_PARAM, 1, SLOOP_CORE_P_COUNT - 8u, 9);
+    check_ll("非选中轨的 P_E0 不读 sound", g_stub.sound_read_calls - reads, 0);
+}
+
+/* ④ 窄读访问器（Task 5 评审 R10）：UI 的点击/键盘路径在 LVGL 任务里跑，不为读一两个投影字段
+ * 在栈上放整份 app_state_t（≈1.7KB）。取值必须与 state_get_copy 的副本同源；越界回 0。 */
+static void case_narrow_accessors(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    sloop_sound_snapshot_t snd;
+
+    state_get_copy(&s);
+    check_ll("selected_track", state_selected_track(), s.core.selected_track);
+    check_ll("selected_engine（轨 0）", state_selected_engine(), s.core.trk[0].engine);
+    check_ll("read_p(5)", state_read_p(5), s.p[5]);
+    check_ll("read_g(0)", state_read_g(0), s.g[0]);
+
+    /* 外部改动经 sync 采纳：访问器读的是同一份投影 */
+    g_stub.snap.trk[0].engine = 9;
+    g_stub.param[0][5] = 42;
+    state_sync_from_engine();
+    check_ll("sync 后 selected_engine", state_selected_engine(), 9);
+    check_ll("sync 后 read_p(5)", state_read_p(5), 42);
+    state_get_copy(&s);
+    check_ll("与副本同源", state_read_p(5) == s.p[5] && state_selected_engine() == s.core.trk[0].engine, 1);
+
+    /* 越界 id 回 0；鼓轨没有引擎（回 0），p[] 仍是该轨的投影 */
+    check_ll("read_p 越界", state_read_p(SLOOP_CORE_P_COUNT), 0);
+    check_ll("read_p 0xFF", state_read_p(0xFFu), 0);
+    check_ll("read_g 越界", state_read_g(SLOOP_CORE_G_COUNT), 0);
+    g_stub.param[3][SLOOP_CORE_P_COUNT - 8u] = 7;
+    g_stub.snap.trk[3].engine = 9; /* 快照对鼓轨保留上游原值（不置零）：访问器必须自己判鼓轨 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("前提：投影里鼓轨的 engine 原值 = 9", s.core.trk[3].engine, 9);
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    check_ll("鼓轨 selected_engine = 0", state_selected_engine(), 0);
+    check_ll("鼓轨 read_p(P_E0)", state_read_p(SLOOP_CORE_P_COUNT - 8u), 7);
+
+    /* sound 块：读回与 sound_status */
+    g_stub.sound_engine[2] = 5;
+    g_stub.sound_preset[2] = 2; /* 引擎 5 在替身表里有 3 个预置 */
+    apply(CMD_SET_TRACK, 2, 0, 0);
+    memset(&snd, 0, sizeof(snd));
+    state_read_sound(&snd);
+    state_get_copy(&s);
+    check_ll("read_sound engine", snd.engine, 5);
+    check_ll("read_sound engine_name", strcmp(snd.engine_name, "ENG5") == 0, 1);
+    check_ll("read_sound preset", snd.preset, 2);
+    check_ll("read_sound preset_name", strcmp(snd.preset_name, "PRE5.2") == 0, 1);
+    check_ll("read_sound 与副本同源", snd.engine == s.sound.engine && snd.preset == s.sound.preset, 1);
+    check_ll("sound_status 初值 idle", state_sound_status(), APP_SOUND_STATUS_IDLE);
+    apply(CMD_SET_ENGINE, 2, 0, 6);
+    check_ll("sound_status ok", state_sound_status(), APP_SOUND_STATUS_OK);
+    apply(CMD_SET_ENGINE, 2, 0, 99);
+    check_ll("sound_status invalid", state_sound_status(), APP_SOUND_STATUS_INVALID);
+}
+
+/* P4-F Task 6：TOOLS 三动作的返回码映射（action 越界不调引擎；成功整份刷新）。 */
+/* ③ 用户预置（终审 A1）：上游 up_load_to 之后 t->preset = 0、t->user = slot+1——投影必须
+ * 带上 user 且 preset_name 是 "USER nn"，而不是预设下标 0 的工厂预置名。载入不经状态层
+ * 命令（PRESETS 页 TAP / console `STORE PRESET LOAD` 直调 sloop_store_preset_load），所以
+ * 投影由下一拍 sync 采纳；PRESET ± / 换引擎之后 user 清 0、名字回到工厂预置。 */
+static void case_sound_user_preset(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    g_stub.sound_engine[0] = 0; /* 引擎 0：预置 0..3 */
+    g_stub.sound_preset[0] = 0;
+    g_stub.sound_user[0] = 3; /* 用户预置槽 2 = 页面的 U03 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("用户预置投影 user", s.sound.user, 3);
+    check_ll("用户预置投影 preset_name", strcmp(s.sound.preset_name, "USER 03") == 0, 1);
+    check_ll("用户预置投影 preset 下标（上游置 0）", s.sound.preset, 0);
+    check_ll("用户预置 engine 名仍是引擎名", strcmp(s.sound.engine_name, "ENG0") == 0, 1);
+
+    sloop_sound_snapshot_t snd;
+    state_read_sound(&snd);
+    check_ll("state_read_sound 同一投影", snd.user == 3u && strcmp(snd.preset_name, "USER 03") == 0, 1);
+
+    /* 换工厂预置（SOUND 页 PRESET ± 的路径）：user 清 0、名字回到工厂预置 */
+    apply(CMD_SET_PRESET, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("换工厂预置 → ok", s.sound_status, APP_SOUND_STATUS_OK);
+    check_ll("换工厂预置清 user", s.sound.user, 0);
+    check_ll("换工厂预置后 preset_name", strcmp(s.sound.preset_name, "PRE0.1") == 0, 1);
+
+    /* 换引擎同样清 user */
+    g_stub.sound_user[0] = 32; /* 末槽 U32：两位数 */
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("末槽用户预置", s.sound.user == 32u && strcmp(s.sound.preset_name, "USER 32") == 0, 1);
+    apply(CMD_SET_ENGINE, 0, 0, 1);
+    state_get_copy(&s);
+    check_ll("换引擎清 user", s.sound.user, 0);
+
+    /* 投影恒为选中轨：非选中轨上的用户预置不改选中轨的页眉 */
+    g_stub.sound_user[2] = 5;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("非选中轨的用户预置不进页眉", s.sound.user, 0);
+
+    /* 冻结期间的 CMD_SET_PRESET 不调引擎 ⇒ user 与名字保持 */
+    g_stub.sound_user[0] = 7;
+    state_sync_from_engine();
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PRESET, 0, 0, 0); /* 引擎 1 只有预置 0/1：越界判定先于冻结，取合法值 */
+    state_get_copy(&s);
+    check_ll("冻结换预置 → frozen", s.sound_status, APP_SOUND_STATUS_FROZEN);
+    check_ll("冻结换预置投影保持 user", s.sound.user, 7);
+    check_ll("冻结换预置投影保持名字", strcmp(s.sound.preset_name, "USER 07") == 0, 1);
+    g_stub.seq_frozen = false;
+    g_stub.sound_user[0] = 0;
+    g_stub.sound_user[2] = 0;
+}
+
+static void case_tools_cmd(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+
+    state_get_copy(&s);
+    check_ll("tools_status 初值 idle", s.tools_status, APP_TOOLS_STATUS_IDLE);
+    apply(CMD_TOOLS, 3, 0, 0);
+    check_ll("action 越界不调引擎", g_stub.tools_calls, 0);
+    state_get_copy(&s);
+    check_ll("action 越界 → invalid", s.tools_status, APP_TOOLS_STATUS_INVALID);
+
+    const struct { esp_err_t ret; uint8_t status; } results[] = {
+        { ESP_ERR_INVALID_ARG, APP_TOOLS_STATUS_INVALID },
+        { ESP_ERR_NOT_ALLOWED, APP_TOOLS_STATUS_BLOCKED },
+        { ESP_ERR_INVALID_STATE, APP_TOOLS_STATUS_FROZEN },
+        { ESP_FAIL, APP_TOOLS_STATUS_ERROR },
+    };
+    for (uint32_t i = 0; i < sizeof(results) / sizeof(results[0]); i++) {
+        g_stub.tools_ret = results[i].ret;
+        uint32_t reads0 = g_stub.read_window_calls;
+        apply(CMD_TOOLS, i % 3u, 0, 0);
+        state_get_copy(&s);
+        check_ll("TOOLS 错误码逐项映射", s.tools_status, results[i].status);
+        check_ll("TOOLS 失败不刷新投影", g_stub.read_window_calls - reads0, 0);
+    }
+    g_stub.tools_ret = ESP_OK;
+    for (uint32_t a = 0; a < 3u; a++) {
+        uint32_t reads0 = g_stub.read_window_calls;
+        apply(CMD_TOOLS, a, 0, 0);
+        check_ll("TOOLS action 透传", g_stub.last_tools_action, a);
+        state_get_copy(&s);
+        check_ll("TOOLS 成功 → ok", s.tools_status, APP_TOOLS_STATUS_OK);
+        check_ll("TOOLS 成功整份刷新（窗口快照一次）", g_stub.read_window_calls - reads0, 1);
+    }
+    check_ll("TOOLS 调用次数 = 4 次错误映射 + 3 次成功", g_stub.tools_calls, 7);
+    check_ll("TOOLS 不改 seq_status", s.seq_status, SEQ_STATUS_IDLE);
+}
+
+/* 焦点步 = 焦点轨 × 窗口列 → 引擎绝对步；锁的参数 = 状态层在**焦点轨**上记录的最近
+ * 一次参数写（单写与批量），值 = 该轨当前参数。 */
+static void case_lock_focus_and_fill_step(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    const uint32_t P29 = 29, P30 = 30, P31 = 31;
+
+    apply(CMD_SET_TRACK, 0, 0, 0); /* 选中轨 0（≠ 焦点轨）：p[] 投影是轨 0 的 */
+    state_set_focus(2, 3);
+    apply(CMD_SET_WINDOW, 0, 16, 16); /* 焦点列 3 → 绝对步 19 */
+    g_stub.snap.trk[2].len = 32;      /* R12：聚焦步须在本轨 LEN 内（bank1 的步要 LEN>16） */
+    g_stub.snap.trk[3].len = 32;
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 60, 0, 0, 0 }, .time = 0, .fill = 0 };
+    state_sync_from_engine();
+
+    state_get_copy(&s);
+    check_ll("last_param 初值 = 无", s.last_param.id, 0xFF);
+    apply(CMD_SET_PARAM, 0, P30, 0);
+    state_get_copy(&s);
+    check_ll("非焦点轨的参数写不记录", s.last_param.id, 0xFF);
+    apply(CMD_SET_PARAM, 2, P29, 11);
+    state_get_copy(&s);
+    check_ll("焦点轨单写记录 (track,id)", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 29);
+    apply(CMD_SET_PARAM, 0, P30, 0);
+    state_get_copy(&s);
+    check_ll("随后的非焦点轨写不改记录", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 29);
+
+    /* LOCK：track 2 / 绝对步 19 / last_param / 值 = 轨 2 当前参数 */
+    uint32_t locks0 = g_stub.seq_lock_set_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("LOCK_FOCUS 调 lock_set", g_stub.seq_lock_set_calls - locks0, 1);
+    check_ll("LOCK_FOCUS track = 焦点轨", g_stub.last_seq_track, 2);
+    check_ll("LOCK_FOCUS step = 窗口绝对步", g_stub.last_seq_step, 19);
+    check_ll("LOCK_FOCUS param = last_param", g_stub.last_seq_param, 29);
+    check_ll("LOCK_FOCUS value = 该轨当前参数（不是选中轨的 p[]）", g_stub.last_seq_value, 11);
+    state_get_copy(&s);
+    check_ll("LOCK_FOCUS → seq ok", s.seq_status, SEQ_STATUS_OK);
+    check_ll("LOCK_FOCUS 不改 tools_status", s.tools_status, APP_TOOLS_STATUS_IDLE);
+
+    /* UNLOCK：有锁 → lock_del 同键；批量写的最后一对成为 last_param */
+    const sloop_param_pair_t batch[] = { { 5, 1 }, { 31, 2 } };
+    apply_param_batch(2, batch, 2);
+    state_get_copy(&s);
+    check_ll("批量写记录最后一对（单写之前）", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    apply(CMD_SET_PARAM, 2, P31, 0); /* 批量后同 id 再写：值取引擎 */
+    g_stub.param[2][P31] = 9;
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("批量后 last_param 保持", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    const sloop_param_pair_t other[] = { { 6, 1 }, { 7, 2 } };
+    apply_param_batch(0, other, 2);
+    state_get_copy(&s);
+    check_ll("非焦点轨的批量写不记录", (s.last_param.track << 8) | s.last_param.id, (2 << 8) | 31);
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("LOCK_FOCUS 批量后的 param", g_stub.last_seq_param, 31);
+    check_ll("LOCK_FOCUS 值取引擎回读", g_stub.last_seq_value, 9);
+    uint32_t dels0 = g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("UNLOCK 调 lock_del", g_stub.seq_lock_del_calls - dels0, 1);
+    check_ll("UNLOCK 同键", (g_stub.last_seq_track << 16) | (g_stub.last_seq_step << 8) | g_stub.last_seq_param,
+             (2 << 16) | (19 << 8) | 31);
+    state_get_copy(&s);
+    check_ll("UNLOCK → seq ok", s.seq_status, SEQ_STATUS_OK);
+
+    /* UNLOCK 没有对应的锁：not_found、不调 lock_del */
+    dels0 = g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("无锁 UNLOCK 不调 lock_del", g_stub.seq_lock_del_calls - dels0, 0);
+    state_get_copy(&s);
+    check_ll("无锁 UNLOCK → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+
+    /* a 越界：invalid、不调引擎 */
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 2, 0, 0);
+    check_ll("LOCK_FOCUS a 越界不调引擎", g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("LOCK_FOCUS a 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+
+    /* R12：锁/fill 的范围 = 聚焦步 < 本轨 LEN（上游 ui_layers.c 的 held-step 循环），不要求有音 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 0, .time = 2 };
+    state_sync_from_engine();
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("LEN 内的空步可以加锁（R12）", s.seq_status, SEQ_STATUS_OK);
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 1 }; /* TIE */
+    state_sync_from_engine();
+    uint32_t fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("TIE 步的 FILL 透传（R12）", g_stub.seq_fill_calls - fills0, 1);
+    /* 超出本轨 LEN 的步：not_found、不调引擎 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 0 };
+    g_stub.snap.trk[2].len = 10; /* 聚焦步 = 16 + 3 = 19 ≥ LEN */
+    state_sync_from_engine();
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls;
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    apply(CMD_FILL_STEP, 0, 0, 1);
+    check_ll("LEN 之外的步：LOCK/FILL 不调引擎",
+             g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls + g_stub.lock_list_calls - locks0 +
+                 g_stub.seq_fill_calls - fills0, 0);
+    state_get_copy(&s);
+    check_ll("LEN 之外的步 → not_found（页面 NO STEP）", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    g_stub.snap.trk[2].len = 32;
+    state_sync_from_engine();
+
+    /* FILL：v 透传到焦点轨的绝对步；越界 invalid；鼓轨按 lane 位图判定有音 */
+    g_stub.step[2][19] = (sloop_step_t){ .n = 1, .note = { 62, 0, 0, 0 }, .time = 0 };
+    state_sync_from_engine();
+    for (uint32_t v = 0; v < 4u; v++) {
+        apply(CMD_FILL_STEP, 0, 0, (uint16_t)v);
+        check_ll("FILL_STEP v 透传", g_stub.last_seq_value, (int32_t)v);
+        check_ll("FILL_STEP track/step", (g_stub.last_seq_track << 8) | g_stub.last_seq_step, (2 << 8) | 19);
+    }
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 4);
+    apply(CMD_FILL_STEP, 0, 0, 0xFFFF);
+    check_ll("FILL_STEP v 越界不调引擎", g_stub.seq_fill_calls - fills0, 0);
+    state_get_copy(&s);
+    check_ll("FILL_STEP v 越界 → invalid", s.seq_status, SEQ_STATUS_INVALID);
+    state_set_focus(3, 3);
+    g_stub.raw_dstep[19].on[0] = 0x10;
+    state_sync_from_engine();
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("鼓轨 FILL 透传", g_stub.seq_fill_calls - fills0, 1);
+    check_ll("鼓轨 FILL track = 3", g_stub.last_seq_track, 3);
+    g_stub.snap.trk[3].len = 10;
+    state_sync_from_engine();
+    fills0 = g_stub.seq_fill_calls;
+    apply(CMD_FILL_STEP, 0, 0, 2);
+    check_ll("鼓轨 LEN 之外的步：FILL 不调引擎", g_stub.seq_fill_calls - fills0, 0);
+    g_stub.snap.trk[3].len = 32;
+    state_sync_from_engine();
+
+    /* 没有可锁的参数：焦点轨从未写过参数 → not_found、不调引擎 */
+    stub_engine_reset();
+    state_init();
+    g_stub.step[1][4] = (sloop_step_t){ .n = 1, .note = { 60, 0, 0, 0 }, .time = 0 };
+    state_set_focus(1, 4);
+    state_sync_from_engine();
+    apply(CMD_SET_PARAM, 0, P29, 0); /* 只写过轨 0 */
+    locks0 = g_stub.seq_lock_set_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    check_ll("焦点轨没有已记录参数：不调引擎", g_stub.seq_lock_set_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("没有已记录参数 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+
+    /* 引擎拒绝逐项映射：不可锁（INVALID_ARG）/ 锁表满（NO_MEM）/ 冻结 */
+    apply(CMD_SET_PARAM, 1, P29, 0);
+    const struct { esp_err_t ret; uint8_t status; } results[] = {
+        { ESP_ERR_INVALID_ARG, SEQ_STATUS_INVALID },
+        { ESP_ERR_NO_MEM, SEQ_STATUS_FULL },
+        { ESP_ERR_INVALID_STATE, SEQ_STATUS_FROZEN },
+    };
+    for (uint32_t i = 0; i < sizeof(results) / sizeof(results[0]); i++) {
+        g_stub.seq_ret = results[i].ret;
+        apply(CMD_LOCK_FOCUS, 1, 0, 0);
+        state_get_copy(&s);
+        check_ll("LOCK_FOCUS 错误码映射", s.seq_status, results[i].status);
+    }
+    g_stub.seq_ret = ESP_OK;
+    /* 诊断冻结：加锁与解锁都回 FROZEN，且不查锁表（冻结时 lock_list 回 0，会误报 NO LOCK）、不调引擎 */
+    g_stub.seq_frozen = true;
+    uint32_t lists0 = g_stub.lock_list_calls;
+    locks0 = g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls;
+    apply(CMD_LOCK_FOCUS, 0, 0, 0);
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    state_get_copy(&s);
+    check_ll("冻结：UNLOCK → frozen", s.seq_status, SEQ_STATUS_FROZEN);
+    check_ll("冻结：LOCK/UNLOCK 不查锁表、不调引擎",
+             g_stub.lock_list_calls - lists0 + g_stub.seq_lock_set_calls + g_stub.seq_lock_del_calls - locks0, 0);
+    g_stub.seq_frozen = false;
+
+    /* 记录属于轨 1；焦点移到从未写过参数的轨 2（有音的步）⇒ 不拿轨 1 的参数去锁轨 2 */
+    g_stub.step[2][5] = (sloop_step_t){ .n = 1, .note = { 64, 0, 0, 0 }, .time = 0 };
+    state_set_focus(2, 5);
+    state_sync_from_engine();
+    state_get_copy(&s);
+    check_ll("前提：last_param 仍属于轨 1", (s.last_param.track << 8) | s.last_param.id, (1 << 8) | 29);
+    locks0 = g_stub.seq_lock_set_calls + g_stub.lock_list_calls;
+    apply(CMD_LOCK_FOCUS, 1, 0, 0);
+    check_ll("焦点换轨后不调引擎", g_stub.seq_lock_set_calls + g_stub.lock_list_calls - locks0, 0);
+    state_get_copy(&s);
+    check_ll("焦点换轨 → not_found", s.seq_status, SEQ_STATUS_NOT_FOUND);
+    state_set_focus(1, 4);
+    state_sync_from_engine();
+
+}
+
+/* last_param 不被 sync 覆盖
+/* last_param 不被 sync 覆盖（UI 局部态同类），选轨/整份刷新也不清。 */
+static void case_last_param_survives_sync(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    state_set_focus(1, 0);
+    apply(CMD_SET_PARAM, 1, 29, 0);
+    state_sync_from_engine();
+    apply(CMD_SET_TRACK, 3, 0, 0);
+    state_get_copy(&s);
+    check_ll("sync/选轨后 last_param 保持", (s.last_param.track << 8) | s.last_param.id, (1 << 8) | 29);
+    state_init();
+    state_get_copy(&s);
+    check_ll("state_init 清 last_param", s.last_param.id, 0xFF);
+}
+
+/* last_param 只记**能生效**的写：诊断冻结、或该 id 在这条轨上没有描述符（引擎会丢弃）时不记录。 */
+static void case_last_param_only_effective_writes(void)
+{
+    stub_engine_reset();
+    state_init();
+    app_state_t s;
+    state_set_focus(1, 0);
+    apply(CMD_SET_PARAM, 1, 29, 0);
+    state_get_copy(&s);
+    check_ll("前提：生效的写被记录", s.last_param.id, 29);
+
+    g_stub.seq_frozen = true;
+    apply(CMD_SET_PARAM, 1, 30, 0);
+    state_get_copy(&s);
+    check_ll("冻结期间的参数写不记录", s.last_param.id, 29);
+    g_stub.seq_frozen = false;
+
+    g_stub.no_desc_id = 30;
+    apply(CMD_SET_PARAM, 1, 30, 0);
+    state_get_copy(&s);
+    check_ll("该轨无描述符的 id 不记录", s.last_param.id, 29);
+    g_stub.no_desc_id = 0xFFFFFFFFu;
+
+    const sloop_param_pair_t batch[] = { { 30, 1 }, { 31, 2 } };
+    g_stub.no_desc_id = 31;
+    apply_param_batch(1, batch, 2);
+    state_get_copy(&s);
+    check_ll("批量：最后一对无描述符 ⇒ 记前一对生效的", s.last_param.id, 30);
+    g_stub.no_desc_id = 0xFFFFFFFFu;
+    apply(CMD_SET_PARAM, 1, 31, 0);
+    state_get_copy(&s);
+    check_ll("有描述符的 id 恢复记录", s.last_param.id, 31);
+}
+
 int main(void)
 {
     run("SET_BPM 钳位 40..240 并落引擎", case_set_bpm);
@@ -2155,7 +2768,7 @@ int main(void)
     run("工程存储命令：返回码映射/刷新/越界", case_store_project);
     run("用户预置命令：鼓轨区分/轨号透传/越界", case_store_preset);
     run("FM6 银行命令：选中轨 patch/鼓轨/越界", case_store_bank);
-    run("页 id 扩容（15 页）", case_page_ids);
+    run("页 id 扩容（18 页）", case_page_ids);
     run("STEP_EDIT 完整 POD 与详细窗口同拍投影", case_seq_step_edit_projection);
     run("PATTERN/micro/fill 标量透传与投影", case_seq_pattern_micro_fill);
     run("LOCK 命令与 seq_status 全返回码", case_seq_lock_and_status);
@@ -2174,6 +2787,16 @@ int main(void)
     run("REC CONFIG 成功置 settings dirty", case_rec_config_marks_settings_dirty);
     run("SELFTEST_RUN 请求深度 1 与结果投影", case_selftest_run_sets_request);
     run("SELFTEST worker 不可用立即 FAIL", case_selftest_worker_unavailable_fails_fast);
+    run("SET_ENGINE：换引擎调用/同拍投影/越界·鼓轨·冻结不调引擎", case_set_engine);
+    run("SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎", case_set_preset);
+    run("sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名", case_sound_projection);
+    run("窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0", case_narrow_accessors);
+    run("SOUND：用户预置投影 user / USER nn / 换预置·换引擎清 user", case_sound_user_preset);
+    run("TOOLS：action 越界不调引擎/返回码映射/成功整份刷新", case_tools_cmd);
+    run("LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、R12 范围（LEN 内含 TIE/空步）、UNLOCK 无锁、冻结、错误码映射",
+        case_lock_focus_and_fill_step);
+    run("last_param 跨 sync/选轨保持", case_last_param_survives_sync);
+    run("last_param 只记生效写（冻结/无描述符不记）", case_last_param_only_effective_writes);
 
     printf("\n%d passed, %d failed\n", g_passed, g_failures);
     return g_failures == 0 ? 0 : 1;

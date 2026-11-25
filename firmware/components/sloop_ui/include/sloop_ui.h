@@ -1,11 +1,12 @@
 /*
  * sloop-fm1-tab5 — sloop_ui 公共接口（LVGL 页面框架：分组页签 + 页面注册表）
  *
- * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 8 个组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
+ * 单容器屏 + 顶部两行页签（ADR-005「导航决策」）：上行 9 个组签
+ * PLAY|TRACKS|EDIT|MIX|SYNTH|SEQ|SONG|FILE|SYS（无已注册页的组不显示），下行显示当前组的
  * 已注册子页；组内顺序 = 子页顺序，`TAB` 按组顺序扁平轮转
- * （PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→SYSTEM→PLAY）。
+ * （PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+ * SONG→PROJECTS→PRESETS→SYSTEM→PLAY；P4-F Task 5 起 17 页，Task 6 加 TOOLS 后 GLOBAL→FX→
+ * TOOLS→SAMPLE…共 18 页）。
  * 页面**首次访问时构建**，离开组时销毁该组全部已建页（组作用域生命周期：跨组
  * 切换峰值 = 源组已建 Σ + 目标页 est，见 ADR-005 §3/§5）；PLAY 在
  * sloop_ui_start() 内立即构建，保证开机首帧非空白。SYSTEM 为最后的 SYS 单页组。
@@ -27,7 +28,9 @@
 #include "sloop_state.h"
 #include "sloop_store.h"
 
-#define SLOOP_UI_GROUPS 8 /* PLAY / TRACKS / EDIT / SYNTH / SEQ / SONG / FILE / SYS（ADR-005） */
+/* 组数（与 ui_nav.h 的组表 UI_GROUP_LIST 静态比对）：PLAY / TRACKS / EDIT / MIX / SYNTH /
+ * SEQ / SONG / FILE / SYS（ADR-005；P4-F Task 4 起 9 组——MIX 承接 GLOBAL/FX，EDIT 留给每轨族） */
+#define SLOOP_UI_GROUPS 9
 
 /* 页面注册表条目（ADR-008）。注册顺序 = 子签顺序（组内），组顺序见
  * sloop_ui_page_order_next()。id 为 app_page_t（< APP_STATE_PAGES）。
@@ -44,7 +47,7 @@ typedef struct {
     uint32_t est_bytes;
 } ui_page_t;
 
-/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 15 页 / 8 组）。
+/* 注册一页（须在 sloop_ui_start() 之前调用；sloop_ui_start 内置注册现有 18 页 / 9 组）。
  * 注册表只增不删：先注册的外部页在内置页注册之后仍保留（内置注册幂等）。
  * 注册表只保存指针：ui_page_t 与 title 必须是静态生命周期（不得指向栈/临时内存）。
  * 返回：ESP_OK；ESP_ERR_INVALID_ARG（参数/页 id 非法或重复）；ESP_ERR_NO_MEM
@@ -56,15 +59,15 @@ esp_err_t ui_page_register(const ui_page_t *page);
 uint8_t sloop_ui_page_count(void);
 
 /* `TAB` 的下一张页（ADR-005 §4）：按组顺序扁平轮转
- * PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→
- * PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**。page 未注册/非法时返回
+ * PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→TOOLS→SAMPLE→DSYN→FM6P→STEP→
+ * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，**跳过未注册页**（APP_PAGE_FM6 是空位）。page 未注册/非法时返回
  * 第一个已注册页；无任何已注册页返回 0xFF。页序号只依赖注册表（start 前可调用）。 */
 uint8_t sloop_ui_page_order_next(uint8_t page);
 
 /* 组签/子签的程序化入口（console `UI TAB <group>` / `UI SUB <index>`，R32）：与物理
  * 页签点击走**同一**动作函数（`group_select_locked`/`sub_select_locked`），因此覆盖
  * 「点组进上次子页 / 点子签切页」的导航路径（TAP 对 y<72 一律 miss，无法覆盖它）。
- * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/SYNTH/SEQ/
+ * - sloop_ui_group_count()/sloop_ui_group_name(g)：组表（PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/
  *   SONG/FILE/SYS），名字为静态生命周期；越界 name 返回 NULL。
  * - group_select(group)：进入该组上次的子页（未记录/已未注册则首个已注册成员）；
  *   空组（没有已注册页的组）返回 ESP_ERR_INVALID_ARG。
@@ -109,9 +112,11 @@ typedef struct {
 
 typedef struct {
     uint32_t pool_total, pool_free, pool_used; /* LVGL 池（lv_mem_monitor） */
+    uint32_t lvgl_stack_free; /* LVGL 任务栈的历史最小余量（字节；每拍在任务内取高水位，
+                               * 含 30ms 拍/切页构建/控件回调/渲染。门禁 ≥2,048，ADR-008 §8.10） */
     uint8_t registered, built, failed;
     sloop_ui_page_stat_t pages[APP_STATE_PAGES]; /* 按注册（页签）顺序 */
-    uint8_t group_count;                         /* 组数（当前 8） */
+    uint8_t group_count;                         /* 组数（当前 9） */
     uint8_t current_group;                       /* 当前页所属组下标；0xFF = 无 */
     sloop_ui_group_stat_t groups[SLOOP_UI_GROUPS];
 } sloop_ui_pool_stats_t;
@@ -144,8 +149,9 @@ void sloop_ui_theme_apply(const sloop_settings_t *s);
 void sloop_ui_rebuild_all(void);
 void sloop_ui_zoom_knob(const struct knob *k);
 
-/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=ANALOG 7=FM6 8=SAMPLE
- * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM（同 app_page_t）；首次进入时构建该页。
+/* 切页：0=PLAY 1=TRACKS 2=STEP 3=TRANSPORT 4=GLOBAL 5=FX 6=SOUND 7=(空位，未注册) 8=SAMPLE
+ * 9=PROJECTS 10=PRESETS 11=SONG 12=DSYN 13=FM6P 14=SYSTEM 15=MOD 16=SCALE 17=VOICE
+ * 18=TOOLS（同 app_page_t）；首次进入时构建该页。
  * 组作用域（ADR-005 §3）：目标页与当前页不同组时，顺序固定为「建目标页 →
  * 切到目标页 → 销毁源组全部已建页（含原当前页）」——因此离开组后源组 built=0；
  * 同组内切页只改显隐（已建页不重建）。快照里的组/子签选中态随页更新。
@@ -210,16 +216,27 @@ typedef enum {
                                * （鼓轨上的 span/slide：**未下发命令**，v 为写前真值） */
     SLOOP_TAP_PARAM_STEP,    /* 参数页 ± ：a=槽位 b=参数绝对 id v=落地后的值 d=±1（console 回显） */
     SLOOP_TAP_PARAM_FOCUS,   /* 参数页弧线/数值文本：a=槽位（只设焦点，不改值） */
-    SLOOP_TAP_PARAM_LOCKED,  /* 参数页不可编辑（引擎页与所选轨引擎不符）：a=槽位 */
+    SLOOP_TAP_PARAM_LOCKED,  /* 参数页槽位不可编辑（引擎页不适用/鼓轨逐槽规则）：a=槽位 */
+    SLOOP_TAP_PARAM_CHIP,    /* chip 页的 chip 行：a=页 id b=chip 下标（选中即生效） */
     SLOOP_TAP_FILE_SLOT,     /* FILE 页槽位（PROJECTS 卡 A–D / PRESETS 格）：
                               * a=页 id（PROJECTS/PRESETS）b=槽号（0..3 / 0..31） */
     SLOOP_TAP_FILE_ACTION,   /* FILE 页动作按钮：a=页 id b=槽号 v=0 SAVE/1 LOAD/2 ERASE。
                               * 动作后 store_status 的变化再由状态行/console 回显体现 */
-    SLOOP_TAP_BANK_SLOT,     /* FM6 页 bank 目标槽 ±：a=页 id（FM6）b=新槽号(0..26)
+    SLOOP_TAP_SOUND_ENGINE,  /* SOUND 页眉 ENGINE 行 ±（P4-F Task 5）：a=**写后回读**的引擎
+                              * 下标(0..11) d=±1 err=sound_status（1 OK / 2 INVALID / 3 FROZEN）。
+                              * 一条 CMD_SET_ENGINE（引擎默认值 + 预置 0）；名字由
+                              * `sloop_ui_sound_status_text` 同源的 console 回显给出。 */
+    SLOOP_TAP_SOUND_PRESET,  /* SOUND 页眉 PRESET 行 ±：a=写后回读的预置下标 d=±1
+                              * err=sound_status。一条 CMD_SET_PRESET（预置的整份声音）。 */
+    SLOOP_TAP_SOUND_KIT,     /* SOUND 页在**鼓轨**上的 KIT 行 ±：a=写后回读的 kit 号
+                              * (P_E0) d=±1 err=0 已下发（CMD_SET_PARAM）/ 3 FROZEN。
+                              * 鼓轨没有 ENGINE/PRESET 行。 */
+    SLOOP_TAP_BANK_SLOT,     /* SOUND 页 bank 目标槽 ±（仅选中轨引擎为 FM6 时行可见，其余
+                              * 引擎整行隐藏 ⇒ TAP miss）：a=页 id（SOUND）b=新槽号(0..26)
                               * d=±1。只改目标槽，不写存储/引擎 */
-    SLOOP_TAP_BANK_STORE,    /* FM6 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
+    SLOOP_TAP_BANK_STORE,    /* SOUND 页 BANK SAVE：a=页 id b=目标槽 v=0（CMD_BANK_PUT；
                               * 动作结果由状态行/console 回显体现） */
-    SLOOP_TAP_BANK_ERASE,    /* FM6 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
+    SLOOP_TAP_BANK_ERASE,    /* SOUND 页 BANK ERASE：a=页 id b=目标槽 v=2（CMD_BANK_ERASE） */
     SLOOP_TAP_SAMPLE_SLOT,   /* SAMPLE 页槽管理行 U1..U4（P4-D Task 8）：a=页 id b=槽号(0..3)。
                               * 命中即把该槽写成 SET 宏（P_E0 = base + b，base 由 SAMPLE 的
                               * SET 描述符派生）经 CMD_SET_PARAM 下发；锁定页（选中轨引擎
@@ -262,6 +279,11 @@ typedef enum {
                               * 页面守卫（未就绪/走带中 MODE 或配置）回 7/5 且不发命令。
                               * 动作结果文本由 `sloop_ui_song_status_text()` 与屏幕同源给出。 */
     SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */
+    SLOOP_TAP_TOOLS,         /* TOOLS 页三张 chip（P4-F Task 6）：a=动作（0 CLRSEQ / 1 INITSOUND /
+                             * 2 NEWPRJ = sloop_tool_t）v=1 本次点按**只进入/保持预备态**
+                             * （未执行，1.5s 内再点同一 chip 才执行）/ 0 已执行（一条
+                             * CMD_TOOLS）。结果文本由 `ui_tools_status_text` 与屏幕同源给出
+                             * （`AGAIN TO CONFIRM` / `PATTERN CLEARED` / `STOP THE SONG FIRST`…）。 */
 } sloop_tap_kind_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作
@@ -294,6 +316,11 @@ typedef enum {
     SLOOP_TR_LEN_X2, SLOOP_TR_LEN_D2,   /* CMD_PATTERN length（×2 / ÷2） */
     SLOOP_TR_TRANS_DN, SLOOP_TR_TRANS_UP, /* CMD_PATTERN transpose */
     SLOOP_TR_CLEAR, SLOOP_TR_UNDO, SLOOP_TR_REDO, /* CMD_PATTERN clear/undo/redo */
+    /* REC 配置三 chip（P4-F Task 6；上游 REC 屏的 QUANT / MODE / START）：每条 = 一条
+     * CMD_REC_CONFIG（整份三元组下发，只翻转自己那一项；其余两项取 rec 投影）。 */
+    SLOOP_TR_REC_QNT,     /* quant_off 取反 */
+    SLOOP_TR_REC_MODE,    /* tempo_mode 取反（FREE / TEMPO） */
+    SLOOP_TR_REC_START,   /* count_mode 取反（NOTE / COUNT） */
     SLOOP_TR_ACT_COUNT,
 } sloop_transport_act_t;
 
@@ -335,14 +362,36 @@ void sloop_ui_file_slot_move(int8_t delta); /* ←/→：±1 槽位（环绕） 
 void sloop_ui_file_load(void);              /* ENTER：LOAD 选中槽 */
 const char *sloop_ui_file_status_text(void);
 
-/* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/ANALOG…）
+/* 参数页上下文（InputManager 路由，ADR-008）：当前页是参数页（GLOBAL/FX/SOUND…）
  * 时 ←/→ 选槽、↑/↓ 调值，不再驱动 STEP 焦点/轨焦点。
  * 三个函数都不取 LVGL 锁（可在输入任务调用）：焦点是 UI 局部态（临界区保护），
  * 调值走状态层 CMD_SET_PARAM/CMD_SET_GLOBAL，页面控件由 30ms UI 定时器刷新。
  * 非参数页/UI 未启动时为空操作；不可编辑的引擎页（所选轨引擎与页不符）忽略调值。 */
 bool sloop_ui_param_page_active(void);
-void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽，环绕） */
-void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓：±1 原始步进（钳位在引擎） */
+void sloop_ui_param_focus_move(int8_t delta); /* ←/→：±1 槽位（跳过空槽/隐藏槽，环绕） */
+void sloop_ui_param_adjust(int8_t delta);     /* ↑/↓ 与 ENTER(+1)：±1 原始步进（钳位在引擎） */
+
+/* 参数页 chip 框架（P4-F Task 4/5；布局表 page_layout.c，ADR-008 §8.9）：MOD/SCALE/VOICE/
+ * GLOBAL/FX 页由多个 chip 复用同一组 8 个旋钮，选中 chip 是**页内 UI 局部态**（chip 行、键盘
+ * 与 console `UI <page> CHIP <n>` 共用；切 chip 零分配重配，下一个 30ms 拍落地）。
+ * - sloop_ui_param_page(page)：该页 id 在参数页布局表里（GLOBAL/FX/SOUND/SAMPLE/
+ *   MOD/SCALE/VOICE；APP_PAGE_FM6 是空位 id ⇒ false）；未启动前即可调用（只查表）。
+ * - sloop_ui_param_chip_count(page)：页的有名 chip 数（0 = 整页，无 chip 行：SOUND/SAMPLE）。
+ * - sloop_ui_param_chip_set(page, chip)：写选中 chip；越界/非 chip 页 =
+ *   ESP_ERR_INVALID_ARG，条件 chip 在当前上下文隐藏 = ESP_ERR_NOT_ALLOWED（不改选择），
+ *   另有 INVALID_STATE（UI 未启动/诊断期静默）、TIMEOUT（LVGL 锁超时）。
+ * - sloop_ui_param_chip_get(page)：生效 chip（隐藏时 = 夹后的首个可见 chip）；非参数页 0。
+ * - sloop_ui_param_slot_locked(page, chip, slot)：槽位是否锁定（显示 -- 且拒绝编辑：
+ *   引擎页不适用、鼓轨逐槽规则、槽不存在）。只读状态层快照与布局表，不取 LVGL 锁。 */
+bool sloop_ui_param_page(uint8_t page);
+uint8_t sloop_ui_param_chip_count(uint8_t page);
+esp_err_t sloop_ui_param_chip_set(uint8_t page, uint8_t chip);
+uint8_t sloop_ui_param_chip_get(uint8_t page);
+bool sloop_ui_param_slot_locked(uint8_t page, uint8_t chip, uint8_t slot);
+/* 槽位诊断（console `UI <page> CHIP` 的逐槽行）：id = 状态层命令里的绝对 id，label =
+ * 旋钮正在显示的名称（"-" = 无控件），locked = 显示 -- 且拒绝编辑。槽不存在回 false。 */
+bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t *id,
+                              const char **label, bool *locked);
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、
@@ -357,6 +406,25 @@ uint8_t sloop_ui_step_lane_get(void);
 void sloop_ui_step_lane_set(uint8_t lane);
 void sloop_ui_step_focus_vertical(int8_t delta); /* ↑=-1 / ↓=+1（含进/出鼓轨） */
 void sloop_ui_step_drum_toggle(void);            /* ENTER：聚焦步的选中 lane 位取反 */
+
+/* EDIT 层步工具（P4-F Task 6；InputManager 的 Aa+k / Aa+l / Aa+9（或 Aa+;）与 console `KEY`
+ * 注入共用）：作用于 **STEP 页**的聚焦步（非 STEP 页为空操作）。
+ *  - LOCK：把状态层记录的 last_param（焦点轨上最后碰过的参数）以该轨当前值锁到聚焦步
+ *    （CMD_LOCK_FOCUS{a=1}）；UNLOCK：删除该键的锁（CMD_LOCK_FOCUS{a=0}）；FILL：聚焦步的
+ *    fill 条件循环 NORMAL → FILL ONLY → NO FILL → NORMAL（CMD_FILL_STEP，值取快照里的当前
+ *    条件 +1）。可锁性、锁表容量、空步与冻结的判定都在状态层/引擎，本层只回读 seq_status。
+ *  - 结果文本进页内邮箱：STEP 页状态行顶替显示 ≈2.4s；sloop_ui_step_tool_text 取同一份
+ *    文本（`LOCKED <参数名>` / `UNLOCKED` / `FILL <模式>` / `NO STEP` / `NO PARAM` /
+ *    `NO LOCK` / `NOT LOCKABLE` / `LOCK TABLE FULL` / `FROZEN`）。*seq 是结果代号（0 = 还
+ *    没有结果；每次工具动作 +1），console `KEY` 据此只在有新结果时追加回显。返回指针指向
+ *    组件内静态缓冲（下一次调用覆盖）。不取 LVGL 锁。 */
+typedef enum {
+    SLOOP_STEP_TOOL_LOCK = 0,
+    SLOOP_STEP_TOOL_UNLOCK,
+    SLOOP_STEP_TOOL_FILL,
+} sloop_step_tool_t;
+void sloop_ui_step_tool(uint8_t tool);
+const char *sloop_ui_step_tool_text(uint32_t *seq);
 
 /* TRANSPORT 页工具焦点（P4-C Task 10；InputManager 与 console `UI TOOL` 共用）：
  *  - 焦点字段 = LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS（0..7）：←/→ 在环上移动、
@@ -381,10 +449,16 @@ void sloop_ui_transport_adjust(int8_t delta);     /* ↑/↓：+1 / -1 步进焦
  * 返回 NULL；返回指针指向组件内静态缓冲（下一次调用覆盖），调用方负责当次使用。 */
 const char *sloop_ui_transport_status_text(void);
 
-/* FM6 页 bank 存取行的状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：
- * 当前页不是 FM6、或 bank 行尚未构建（页未建/已随源组销毁）时返回 NULL。锁定页
- * （选中轨引擎 ≠ FM6，含鼓轨）的本地拒绝返回 `NOT FM6`（红字，不进 store_status）；
- * 其余映射复用 theme.h 的 ui_file_status_text（act 0 SAVE / 2 ERASE，与 FILE 页同一套
+/* TOOLS 页状态行文本（console `TAP` 回显与屏幕同源；P4-F Task 6）：预备态给出
+ * `AGAIN TO CONFIRM`，否则是最近一次执行动作的结果（theme.h 的 ui_tools_status_text
+ * 单一映射）。当前页不是 TOOLS、或页未建（已随 MIX 组销毁）时返回 NULL。不取 LVGL 锁。 */
+const char *sloop_ui_tools_status_text(void);
+
+/* SOUND 页 bank 存取行（P4-F Task 5 起随 FM6 引擎出现在 SOUND 页底部；原属 FM6 页）的
+ * 状态行文本（console `TAP` 回显与屏幕文本同源；P4-B Task 13）：当前页不是 SOUND、
+ * bank 行尚未构建（页未建/已随源组销毁）、或行隐藏（选中轨不是 FM6 引擎的合成轨——
+ * 那时 TAP 不命中）时返回 NULL。映射复用 theme.h 的 ui_file_status_text（act 0 SAVE /
+ * 2 ERASE，与 FILE 页同一套
  * 文案：`SAVE OK` / `ERASE OK` / `STOP BEFORE SAVE` / `NO STORAGE` /
  * `DRUM TRACK: NO SOUND`）。不取 LVGL 锁（只读 UI 局部态 + 状态层快照），可在
  * console/任意任务调用。 */
@@ -487,8 +561,12 @@ esp_err_t sloop_ui_system_selftest_arm(void);
  * `UI ERR quiesced` 由调用方区分）。 */
 esp_err_t sloop_ui_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press, int16_t *value);
 
-/* 输入任务栈余量（高水位，字节；未启动返回 0）。诊断/门禁用。 */
+/* 输入任务栈余量（高水位，字节；未启动返回 0）：input 任务在自己的轮询循环里采样的
+ * 历史最小值（R13）。它只在**物理按键**派发过深路径后才会下降——console 的 `KEY` 注入跑在
+ * console 任务上，量不到输入任务的栈；`sloop_ui_input_physical_events` 给出物理事件数，
+ * 场景据此区分「量过」与「本轮没有物理按键」（后者不得当作通过）。诊断/门禁用。 */
 uint32_t sloop_ui_input_stack_free(void);
+uint32_t sloop_ui_input_physical_events(void);
 
 /* 诊断期静默（`ENG SELFTEST` 全量运行期间；sloop_core_selftest 经
  * sloop_core_diag_quiesce_hook 调用，console `UI QUIESCE <on|off>` 可用于复验）：

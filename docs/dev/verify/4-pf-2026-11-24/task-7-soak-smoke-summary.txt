@@ -1,0 +1,17 @@
+# soak 20261125-095042 port=/dev/ttyACM0 requested=90s measured=97s interval=30s cycle=12s
+# t_s internal_free internal_min psram_free streaming xrun audio_stack_free render_blocks render_mean_us render_max_us duty_mean duty_max key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm
+1  70115  66260  30094724  1  0  3120  11856  1197  4795  20.62  82.62  0  0  0  7884  39896  3  120
+37  69891  66132  30094724  1  0  3120  18058  1072  4795  18.47  82.62  6  280  382  7852  39984  3  120
+61  69895  66120  30094724  1  0  3120  22192  1026  4795  17.68  82.62  10  337  756  7852  40016  3  120
+97  69887  66120  30094724  1  0  3120  28394  983  4795  16.94  82.62  16  322  756  7852  39924  3  120
+
+内存判定：HEAP_FLOOR=61440B（internal_free 与 internal_min），HEAP_NET_FLOOR=-8192B（首末差），HEAP_JITTER=2048B（连续 3 采样非增累计下滑容差）
+占空比判定：基线 9.44%（阶段 2 静默渲染），上限 2× = 18.88%（流式 render_mean_us / 块预算 5804µs）
+池检查：PLAY 稳态 ×10 轮（每轮 tracks→sound→tools→dsyn→transport→song→projects→system →play）；pool_free 45852 -> 45884（Δ=32B，单次最小 -56B，容差 ±128B）
+逐轮 pool_free: 45852 45852 45808 45908 45884 45828 45844 45888 45880 45864 45884
+save 窗口：关闭（xrun 必须为 0）
+实测时长 97s / 请求 90s
+断言失败 0 项
+判定问题：
+- t=1s 占空比 duty_mean=20.62% > 2×基线 18.88%
+VERDICT: FAIL

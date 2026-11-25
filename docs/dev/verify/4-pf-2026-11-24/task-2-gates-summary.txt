@@ -1,0 +1,63 @@
+# P4-F Task 2 门禁摘要（/tmp/p4f_task2_*.log 的退出码与尾部；命令按执行顺序）
+
+## gates.sh 退出码
+build1 rc=0
+build2 rc=0 warnings=0
+flash rc=0 verified=3
+selftest-heap rc=0
+device-selftest rc=0
+sys.sh rc=0
+seq-test rc=0
+state-test rc=0
+DONE
+
+## tail: build1
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x2000 firmware/build/bootloader/bootloader.bin 0x
+or from the "/home/kenn/projects/sloop-fm1-tab5/firmware/build" directory
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash "@flash_args"
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+
+## tail: build2
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x2000 firmware/build/bootloader/bootloader.bin 0x
+or from the "/home/kenn/projects/sloop-fm1-tab5/firmware/build" directory
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash "@flash_args"
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+
+## tail: flash
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+Done
+==> 烧录完成（如需看日志: scripts/flash.sh /dev/ttyACM0 --monitor）
+
+## tail: selftest182
+I (494042) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+sloop>  ENG AUDIO ON
+I (494052) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2dd80
+ENG AUDIO streaming=1 xrun=0 OK
+SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS
+DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS
+
+## tail: seq
+persist-host: side_theme_read: 全 0xFF（从未写）→ false                          ok
+persist-host: settings_real_st_save3: 写前 get 与 panel = SONG_PANEL_DEF              ok
+persist-host: settings_real_st_save3: 往返后 get_settings 与写前逐项一致       ok
+persist-host: settings_real_st_save3: SONG_PANEL_DEF 16..47 逐字节不变              ok
+persist-host: settings_real_st_save3: side theme 随副本提交并可读回             ok
+persist-host: PASS (0 failures)
+
+## tail: state
+PASS k=35 REC CONFIG 成功置 settings dirty
+PASS k=36 SELFTEST_RUN 请求深度 1 与结果投影
+PASS k=37 SELFTEST worker 不可用立即 FAIL
+
+37 passed, 0 failed
+STATE TEST PASSED
+
+## warning 计数: build1=0 build2=0; flash verified=3
+## inject/sys.sh: PASS=348 FAIL=0

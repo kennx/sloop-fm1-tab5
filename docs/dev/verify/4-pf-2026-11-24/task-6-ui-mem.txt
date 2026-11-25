@@ -1,0 +1,32 @@
+Task 6 — UI MEM / 内存读数（设备实测；Tab5 /dev/ttyACM0）
+=====================================================================
+
+[最终固件 4d6825b（评审修复轮 + C1：FM6P/DSYN 键盘路径压平；输入任务栈 8,192）]
+  params ⑪               UI MEM TOOLS state=built est=3584 delta=2652 / MIX built=3
+                          sum_est=10752 build_ms=9
+  params 有序对            SEQ→MIX(TOOLS) 池剩余=16,492B（≥4,096）；lvgl_stack_free=5,804B
+  transport ⑩（e3c262e）  UI MEM TRANSPORT state=built delta=8520 est=9216
+                          （4d6825b 只改 FM6P/DSYN 的键盘调值路径，TRANSPORT 未重跑）
+  开机 ENG MEM（e3c262e）  internal_free=70379；`UI sound` 之后 70335
+                          （Task 5 基线 74,831 ⇒ −4,496B ≈ 输入任务栈 +4,096 + 页面/代码增长；
+                           4d6825b 的栈配置与 e3c262e 相同，未重测）
+  KEY STATS（开机）        input_stack_free=7884 phys=0
+                          （phys=0：本轮没有物理按键，该读数只是轮询循环的深度；console 的 KEY
+                           注入跑在 console 任务上，量不到输入任务的栈 —— params 显式跳过断言）
+  输入路径的快照份数       见 task-6-dispatch-copypaths-{before,after}.txt（静态调用图）：
+                          修前 fm6p_adjust>fm6p_step>fm6p_write 3 份、dsyn 2 份 ⇒ 修后各 1 份
+
+[首次矩阵 v2：固件 8f0ecd7（输入任务栈 4,096）]
+  TOOLS delta              2,588–2,732（场景内 2,628）
+  TRANSPORT delta          8,464（场景内；探针 8,636–8,876）
+  MIX Σ est                10,752（3,584 × 3）
+  SEQ→MIX 峰值（池剩余）   GLOBAL 16,476 / FX 16,428 / TOOLS 16,812
+  MIX 全建→STEP / EDIT→STEP  18,764 / 13,148
+  lvgl_stack_free          5,804
+
+[A/B：REC 配置行的对象设计（同一棵树，只换 page_transport.c 为 987c7c3 版）]
+  TRANSPORT 改前 8,392–8,660B → 三个单对象 label 9,348–9,628B（> est 9,216）
+  → 单对象自绘 8,636–8,876B
+
+[soak 风险] 按 R11 的经验「soak internal_min ≈ boot − 9KB」推算 ≈61.3KB，低于 61,440 门限 ——
+阶段收口 soak 前需考虑 R11 备用（LVGL 任务栈降回 8,192）或另议，未在本任务验证。

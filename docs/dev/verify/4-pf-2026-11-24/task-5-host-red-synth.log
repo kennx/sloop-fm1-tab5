@@ -1,0 +1,8 @@
+ 1274 |     ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "808") == 0;
+      |                                                                 ^
+/home/kenn/projects/sloop-fm1-tab5/scripts/synth-host-test.c:1276:65: error: request for member ‘kit_name’ in something not a structure or union
+ 1276 |     ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "SYN4") == 0;
+      |                                                                 ^
+/home/kenn/projects/sloop-fm1-tab5/scripts/synth-host-test.c:1278:65: error: request for member ‘kit_name’ in something not a structure or union
+ 1278 |     ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "ACOUSTIC") == 0;
+      |                                                                 ^

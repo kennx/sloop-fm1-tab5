@@ -1,0 +1,10 @@
+host-host-test rc=0 
+host-seq-test rc=0 
+host-state-test rc=0 
+host-knob-test rc=0 
+host-synth-test rc=0 
+host-self-screenshot rc=0 
+host-self-soak rc=0 
+host-self-sample rc=126 
+host-self-matrix rc=126 
+manifest rc=0 ok=233 nonok=0

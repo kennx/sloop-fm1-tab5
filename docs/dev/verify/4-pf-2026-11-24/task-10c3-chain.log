@@ -1,0 +1,20 @@
+02:37:54 CHAIN START
+02:37:54 entry: STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+02:40:38 scenario[10c3] transport rc=0 PASS=288 FAIL-lines=0 (163s) | [PASS] transport: 全部断言与像素抽检通过 | transcript=inject-transport-20261126-023755.log
+02:44:45 scenario[10c3] step_edit rc=0 PASS=323 FAIL-lines=0 (247s) | [PASS] step_edit: 全部断言与像素抽检通过 | transcript=inject-step_edit-20261126-024038.log
+02:46:17 scenario[10c3] tracks rc=0 PASS=84 FAIL-lines=0 (92s) | [PASS] tracks: 全部断言与像素抽检通过 | transcript=inject-tracks-20261126-024445.log
+02:54:49 scenario[10c3] nav rc=0 PASS=583 FAIL-lines=0 (512s) | [PASS] nav: 全部断言与像素抽检通过 | transcript=inject-nav-20261126-024617.log
+03:05:37 scenario[10c3] params rc=0 PASS=768 FAIL-lines=0 (648s) | [PASS] params: 全部断言与像素抽检通过 | transcript=inject-params-20261126-025450.log
+03:11:58 scenario[10c3] store rc=0 PASS=907 FAIL-lines=0 (381s) | [PASS] store: 全部断言与像素抽检通过 | transcript=inject-store-20261126-030537.log
+03:15:08 scenario[10c3] song rc=0 PASS=354 FAIL-lines=0 (190s) | [PASS] song: 全部断言与像素抽检通过 | transcript=inject-song-20261126-031158.log
+03:17:53 scenario[10c3] sequence rc=0 PASS=562 FAIL-lines=0 (165s) | [PASS] sequence: 全部断言与像素抽检通过 | transcript=inject-sequence-20261126-031509.log
+03:20:46 scenario[10c3] synth rc=0 PASS=794 FAIL-lines=0 (173s) | [PASS] synth: 全部断言与像素抽检通过 | transcript=inject-synth-20261126-031753.log
+03:31:25 scenario[10c3] sys rc=0 PASS=354 FAIL-lines=0 (639s) | [PASS] sys: 全部断言与像素抽检通过 | transcript=inject-sys-20261126-032046.log
+03:44:16 screenshot_matrix rc=0 (771s) PASS-lines=481 FAIL-lines=0 dir=firmware/build/verify/matrix-20261126-033125/
+03:50:39 scenario[cyan-store] store rc=0 PASS=911 FAIL-lines=0 (382s) | transcript=inject-store-20261126-034417.log
+03:50:43 cyan-store post: STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=2 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+03:50:43 mono restore: STORE SETTINGS SET palette=4 dirty=1
+03:53:26 device-selftest rc=0 (163s) | SELFTEST COMPARE identical=182 mismatch=0 missing=0 extra=0 result=PASS DEVICE SUMMARY cases=182 identical=182 mismatch=0 health_fail=0 checks=7 check_fail=0 deterministic=1 expected=182 expected_checks=7 main_rc=1 result=PASS 
+03:53:27 end: STORE AUTO ON autosave=1 palette=4
+03:53:57 final hard reset: boot rc=0 ver=d317a72 fatal=0 STORE AUTO autosave=1
+03:53:57 CHAIN DONE

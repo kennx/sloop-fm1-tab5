@@ -44,6 +44,14 @@
  * 间移动、ENTER = LOAD 选中 section（与页面 LOAD chip 同一条 CMD_SECTION_LOAD）。
  * 选中项是 UI 局部态（page_song.c 静态字节），状态改写只走状态层命令。
  *
+ * 键码 / 动作枚举 / 绑定表 k_bindings / 查表 input_map_find_binding 在 input_map.h（P4-F Task 6 起：
+ * 纯数据，host 单测 scripts/knob-test.sh 同源编译，校验「同层同键至多一条」与 EDIT 层
+ * 步工具键的独占性）；本文件只留任务、层状态与派发。
+ *
+ * EDIT 层步工具（P4-F Task 6，ADR-006）：Aa+k / Aa+l 把「焦点轨上最后碰过的参数」锁到
+ * STEP 页聚焦步 / 解锁，Aa+9（或 Aa+;）循环该步的 fill 条件——都经 sloop_ui_step_tool
+ * → CMD_LOCK_FOCUS / CMD_FILL_STEP；结果文本显示在 STEP 页状态行（零新增 LVGL 对象）。
+ *
  * 锁纪律：输入路径不调用任何 LVGL 入口（音符指示与切页都是无锁邮箱，由 30ms
  * UI 定时器消费），只取 input 互斥 → state 互斥 → 引擎互斥；console 注入与
  * input 任务并发时由本地互斥串行。
@@ -65,7 +73,12 @@
 
 static const char *TAG = "sloop_input";
 
-#define INPUT_TASK_STACK 4096
+/* 8,192B（R13；原 4,096）：一次按键派发在最深处只放**一份** app_state_t 快照（host
+ * sizeof ≈1.66KB：STEP 步工具 / 擦除 / 焦点 / 音符路由），其上是 state_apply → 状态层命令
+ * 函数体（锁命令另有一块 142B 的共用缓冲）→ 引擎锁与 sloop_core 写入口的帧；console 的
+ * `KEY` 注入跑在 console 任务上，量不到这条路径，所以按最坏链路留余量。高水位见
+ * `KEY STATS input_stack_free`（在 input 任务自己的循环里采样）。 */
+#define INPUT_TASK_STACK 8192
 #define INPUT_TASK_PRIO  4 /* 低于音频任务（5），与键盘解码任务同级 */
 #define INPUT_POLL_MS    5
 /* tick 下限 1：CONFIG_FREERTOS_HZ=100 时 pdMS_TO_TICKS(5) 取整成 0，vTaskDelay(0)
@@ -78,130 +91,6 @@ static const char *TAG = "sloop_input";
 /* 演奏基音：低八度行（z 排）= C3，高八度行（q 排）= +12 半音（C4=60） */
 #define INPUT_BASE_NOTE 48u
 #define INPUT_NOTE_MAX  127u
-
-/* 键码（tab5_keyboard.c 的 k_key_names，row<<4|col） */
-#define K_ESC   0x00
-#define K_1     0x01
-#define K_2     0x02
-#define K_3     0x03
-#define K_4     0x04
-#define K_5     0x05
-#define K_6     0x06
-#define K_7     0x07
-#define K_8     0x08
-#define K_0     0x0A
-#define K_MINUS 0x0B
-#define K_PLUS  0x0C
-#define K_TAB   0x20
-#define K_Q     0x21
-#define K_W     0x22
-#define K_E     0x23
-#define K_R     0x24
-#define K_T     0x25
-#define K_Y     0x26
-#define K_U     0x27
-#define K_I     0x28
-#define K_SYM   0x30
-#define K_AA    0x31
-#define K_A     0x32
-#define K_S     0x33
-#define K_D     0x34
-#define K_F     0x35
-#define K_G     0x36
-#define K_H     0x37
-#define K_J     0x38
-#define K_K     0x39
-#define K_L     0x3A
-#define K_UP    0x3B
-#define K_CTRL  0x40
-#define K_ALT   0x41
-#define K_Z     0x42
-#define K_X     0x43
-#define K_C     0x44
-#define K_V     0x45
-#define K_B     0x46
-#define K_N     0x47
-#define K_M     0x48
-#define K_COMMA 0x49 /* 键名表印 "."，DAW 低八度末键 */
-#define K_LEFT  0x4A
-#define K_DOWN  0x4B
-#define K_RIGHT 0x4C
-#define K_SPACE 0x4D
-#define K_ENTER 0x3D /* 键名表第 3 行第 13 列（"enter"）：FILE 页 = LOAD */
-
-typedef enum {
-    ACT_LAYER,       /* param=APP_LAYER_*，按住置位/松开清位 */
-    ACT_NOTE,        /* param=相对 INPUT_BASE_NOTE 的半音偏移（鼓轨走 lane 表） */
-    ACT_PLAY_TOGGLE, /* space：物理 PLAY 键（free take drop；升/降两沿） */
-    ACT_REC,         /* 0：REC 切换（上游 rec_toggle） */
-    ACT_FILL_HOLD,   /* -：FILL 保持（按下/松开两沿） */
-    ACT_FILL_NEXT,   /* +：FILL NEXT BAR（按下翻转一次） */
-    ACT_PAGE_PLAY,   /* esc */
-    ACT_PAGE_NEXT,   /* tab */
-    ACT_FOCUS_STEP,  /* 左右：param=±1（FILE 页改为选槽，见 ACT_FILE 路由） */
-    ACT_FOCUS_TRACK, /* 上下：param=±1（只走三条合成轨） */
-    ACT_FILE_LOAD,   /* enter：FILE 页 = LOAD 选中槽（其它页无动作） */
-    ACT_SELECT,      /* SEL 层 1–4：param=轨号 */
-    ACT_MUTE,        /* GLO 层 1–4：param=轨号 */
-    ACT_SOLO,        /* GLO 层 5–8：param=轨号 */
-    ACT_ERASE,       /* EDIT 层 a–g：param=音级（0..11） */
-} input_action_t;
-
-typedef struct {
-    uint8_t code;
-    uint8_t layer; /* 所需层位（APP_LAYER_*）；0 = 基础层 */
-    uint8_t action;
-    int8_t param;
-} key_binding_t;
-
-static const key_binding_t k_bindings[] = {
-    /* ---- 层内功能（优先于基础层）---- */
-    {K_1, APP_LAYER_GLO, ACT_MUTE, 0},  {K_2, APP_LAYER_GLO, ACT_MUTE, 1},
-    {K_3, APP_LAYER_GLO, ACT_MUTE, 2},  {K_4, APP_LAYER_GLO, ACT_MUTE, 3},
-    {K_5, APP_LAYER_GLO, ACT_SOLO, 0},  {K_6, APP_LAYER_GLO, ACT_SOLO, 1},
-    {K_7, APP_LAYER_GLO, ACT_SOLO, 2},  {K_8, APP_LAYER_GLO, ACT_SOLO, 3},
-    {K_1, APP_LAYER_SEL, ACT_SELECT, 0}, {K_2, APP_LAYER_SEL, ACT_SELECT, 1},
-    {K_3, APP_LAYER_SEL, ACT_SELECT, 2}, {K_4, APP_LAYER_SEL, ACT_SELECT, 3},
-    /* EDIT 层 a–g = 音名（A/B/C/D/E/F/G），按音级擦除聚焦步里的同名音 */
-    {K_A, APP_LAYER_EDIT, ACT_ERASE, 9},  {K_B, APP_LAYER_EDIT, ACT_ERASE, 11},
-    {K_C, APP_LAYER_EDIT, ACT_ERASE, 0},  {K_D, APP_LAYER_EDIT, ACT_ERASE, 2},
-    {K_E, APP_LAYER_EDIT, ACT_ERASE, 4},  {K_F, APP_LAYER_EDIT, ACT_ERASE, 5},
-    {K_G, APP_LAYER_EDIT, ACT_ERASE, 7},
-
-    /* ---- 层键（任何层下都可叠加/释放）---- */
-    {K_SYM, 0, ACT_LAYER, APP_LAYER_FX},
-    {K_AA, 0, ACT_LAYER, APP_LAYER_EDIT},
-    {K_CTRL, 0, ACT_LAYER, APP_LAYER_SEL},
-    {K_ALT, 0, ACT_LAYER, APP_LAYER_GLO},
-
-    /* ---- 演奏：低八度行 C3..C4 ---- */
-    {K_Z, 0, ACT_NOTE, 0},      {K_S, 0, ACT_NOTE, 1},  {K_X, 0, ACT_NOTE, 2},
-    {K_D, 0, ACT_NOTE, 3},      {K_C, 0, ACT_NOTE, 4},  {K_V, 0, ACT_NOTE, 5},
-    {K_G, 0, ACT_NOTE, 6},      {K_B, 0, ACT_NOTE, 7},  {K_H, 0, ACT_NOTE, 8},
-    {K_N, 0, ACT_NOTE, 9},      {K_J, 0, ACT_NOTE, 10}, {K_M, 0, ACT_NOTE, 11},
-    {K_COMMA, 0, ACT_NOTE, 12},
-    /* ---- 演奏：高八度行 C4..B4 ---- */
-    {K_Q, 0, ACT_NOTE, 12},     {K_2, 0, ACT_NOTE, 13}, {K_W, 0, ACT_NOTE, 14},
-    {K_3, 0, ACT_NOTE, 15},     {K_E, 0, ACT_NOTE, 16}, {K_R, 0, ACT_NOTE, 17},
-    {K_5, 0, ACT_NOTE, 18},     {K_T, 0, ACT_NOTE, 19}, {K_6, 0, ACT_NOTE, 20},
-    {K_Y, 0, ACT_NOTE, 21},     {K_7, 0, ACT_NOTE, 22}, {K_U, 0, ACT_NOTE, 23},
-    {K_I, 0, ACT_NOTE, 24},
-
-    /* ---- 走带 / 页面 / 焦点 ---- */
-    {K_SPACE, 0, ACT_PLAY_TOGGLE, 0},
-    {K_0, 0, ACT_REC, 0},
-    {K_MINUS, 0, ACT_FILL_HOLD, 0},
-    {K_PLUS, 0, ACT_FILL_NEXT, 0},
-    {K_ESC, 0, ACT_PAGE_PLAY, 0},
-    {K_TAB, 0, ACT_PAGE_NEXT, 0},
-    {K_LEFT, 0, ACT_FOCUS_STEP, -1},
-    {K_RIGHT, 0, ACT_FOCUS_STEP, 1},
-    {K_UP, 0, ACT_FOCUS_TRACK, -1},
-    {K_DOWN, 0, ACT_FOCUS_TRACK, 1},
-    {K_ENTER, 0, ACT_FILE_LOAD, 0},
-};
-
-#define BINDING_COUNT (sizeof(k_bindings) / sizeof(k_bindings[0]))
 
 static SemaphoreHandle_t s_mutex;
 static TaskHandle_t s_task;
@@ -224,6 +113,11 @@ static uint8_t s_note_val[128];
 static uint8_t s_note_track[128];
 static bool s_drum_on[128];
 static bool s_play_down;
+/* 输入任务自己的观测量（都在 input 任务里写）：phys = 由键盘轮询派发的事件数（物理按键；
+ * console 的 `KEY` 注入不计——注入跑在 console 任务上，量不到输入任务的栈）；
+ * s_stack_free = 循环里采样的任务栈高水位的**历史最小值**。 */
+static volatile uint32_t s_phys_events;
+static volatile uint32_t s_stack_free = 0xFFFFFFFFu;
 
 static void input_lock(void)
 {
@@ -238,6 +132,10 @@ static void input_unlock(void)
 /* 演奏键：选中合成轨 = 24 音半音矩阵；选中鼓轨 = 16 lane 鼓键表（ADR-006），其它
  * 演奏键在鼓轨上忽略——**不回退 track 0**。释放**永远**按按下时记录的轨号收尾
  * （s_note_on/s_note_track），即使期间切到鼓轨也不进鼓分支（否则音符挂住）。 */
+/* 快照纪律（R13）：本文件的每个动作函数至多在栈上放**一份** app_state_t（host sizeof
+ * ≈1.66KB），动作之间不嵌套；sloop_ui_input_key 自己不再持有副本（层键位用
+ * state_read_layer_held 窄读）——此前它持有一份、被调动作再持有一份，Aa+k 这类
+ * 「外层查表 + 动作快照 + 命令体」的链路按估算会压穿 4KB 的任务栈。 */
 static void act_note(uint8_t code, int8_t offset, bool down)
 {
     if (!down) {
@@ -351,10 +249,9 @@ static void act_erase(int8_t pitch_class)
 
 static void act_layer(uint8_t bit, bool down)
 {
-    app_state_t st;
-    state_get_copy(&st);
-    uint8_t mask = down ? (uint8_t)(st.layer_held | bit) : (uint8_t)(st.layer_held & ~bit);
-    if (mask == st.layer_held) return;
+    const uint8_t held = state_read_layer_held();
+    uint8_t mask = down ? (uint8_t)(held | bit) : (uint8_t)(held & ~bit);
+    if (mask == held) return;
     state_set_layer(mask);
     ESP_LOGD(TAG, "layer %s 0x%02X", down ? "down" : "up", (unsigned)mask);
 }
@@ -396,9 +293,9 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
-         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 15 页顺序：PLAY→TRACKS→
-         * GLOBAL→FX→ANALOG→FM6→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→
-         * PRESETS→SYSTEM→PLAY，跳过未注册页）。
+         * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 18 页顺序，P4-F Task 6 起：
+         * PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→TOOLS→SAMPLE→DSYN→FM6P→STEP→
+         * TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY，跳过未注册页）。
          * 「一拍一页」：目标页按**当前页**计算、邮箱只保留最后请求——同一 tick 内
          * 连按 N 次 tab 只前进一页（不是 N 页），多页跳转请用 console `UI`。 */
         uint8_t next = sloop_ui_page_order_next(sloop_ui_current_page());
@@ -430,7 +327,8 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_FILE_LOAD:
         /* enter：SYSTEM 页 = 焦点行 +1/切换；STEP 页 = 切换聚焦步的选中 drum lane 位；
          * FILE 页 = LOAD 选中槽；TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；
-         * SONG 页 = LOAD 选中 section。其它页保持无动作。 */
+         * SONG 页 = LOAD 选中 section；参数页 = 焦点槽 +1（P4-F Task 4；锁定槽无动作）。
+         * 其它页保持无动作。 */
         if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_step_page_active()) {
@@ -441,6 +339,8 @@ static void dispatch(const key_binding_t *b, bool down)
             sloop_ui_transport_adjust(1);
         } else if (sloop_ui_song_page_active()) {
             sloop_ui_song_load();
+        } else if (sloop_ui_param_page_active()) {
+            sloop_ui_param_adjust(1);
         }
         break;
     case ACT_FOCUS_TRACK:
@@ -481,21 +381,12 @@ static void dispatch(const key_binding_t *b, bool down)
         break;
     }
     case ACT_ERASE: act_erase(b->param); break;
+    /* EDIT 层步工具（STEP 页聚焦步的参数锁 / fill 条件；非 STEP 页为空操作） */
+    case ACT_STEP_LOCK: sloop_ui_step_tool(SLOOP_STEP_TOOL_LOCK); break;
+    case ACT_STEP_UNLOCK: sloop_ui_step_tool(SLOOP_STEP_TOOL_UNLOCK); break;
+    case ACT_STEP_FILL: sloop_ui_step_tool(SLOOP_STEP_TOOL_FILL); break;
     default: break;
     }
-}
-
-static const key_binding_t *find_binding(uint8_t code, uint8_t layers)
-{
-    for (size_t i = 0; i < BINDING_COUNT; i++) {
-        const key_binding_t *b = &k_bindings[i];
-        if (b->code == code && b->layer != 0 && (layers & b->layer) != 0) return b;
-    }
-    for (size_t i = 0; i < BINDING_COUNT; i++) {
-        const key_binding_t *b = &k_bindings[i];
-        if (b->code == code && b->layer == 0) return b;
-    }
-    return NULL;
 }
 
 void sloop_ui_input_key(uint8_t code, bool down)
@@ -529,13 +420,13 @@ void sloop_ui_input_key(uint8_t code, bool down)
         input_unlock();
         return;
     }
-    app_state_t st;
-    state_get_copy(&st);
-    const key_binding_t *b = find_binding(code, st.layer_held);
+    /* 层键位窄读：这里不持整份快照（见文件头的快照纪律），快照留给真正需要的动作函数。 */
+    const uint8_t layer_held = state_read_layer_held();
+    const key_binding_t *b = input_map_find_binding(code, layer_held);
     /* EDIT/SEL/GLO 按住时演奏键不发声：否则 Aa+c（擦除 C）与 Aa+z（弹 C）行为不一致，
      * 且层内的误触会带出音符。FX 是 MVP 无功能层，保持演奏透明。 */
     if (b != NULL && b->action == ACT_NOTE && b->layer == 0 &&
-        (st.layer_held & (APP_LAYER_EDIT | APP_LAYER_SEL | APP_LAYER_GLO)) != 0) {
+        (layer_held & (APP_LAYER_EDIT | APP_LAYER_SEL | APP_LAYER_GLO)) != 0) {
         b = NULL;
     }
     if (b != NULL) {
@@ -590,6 +481,13 @@ static void input_task(void *arg)
         for (int i = 0; i < n; i++) {
             sloop_ui_input_key(ev[i].code, ev[i].pressed);
         }
+        /* 批次之后在任务自身上下文采样栈高水位（R13）：`KEY STATS` 报的是这里的最小值。 */
+        {
+            uint32_t free_words = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
+            uint32_t free_bytes = free_words * sizeof(StackType_t);
+            if (free_bytes < s_stack_free) s_stack_free = free_bytes;
+        }
+        s_phys_events += (uint32_t)n;
         vTaskDelay(INPUT_POLL_TICKS);
     }
 }
@@ -614,14 +512,22 @@ esp_err_t input_start(void)
      * 1 tick = 10ms，请求的 5ms 表达不出来（INPUT_POLL_MS 只是意图） */
     const unsigned period_ms = (unsigned)(INPUT_POLL_TICKS * portTICK_PERIOD_MS);
     ESP_LOGI(TAG, "InputManager 就绪：%u 条映射，轮询 %ums（%u tick @%uHz），任务优先级 %u",
-             (unsigned)BINDING_COUNT, period_ms, (unsigned)INPUT_POLL_TICKS,
+             (unsigned)INPUT_MAP_BINDING_COUNT, period_ms, (unsigned)INPUT_POLL_TICKS,
              (unsigned)configTICK_RATE_HZ, (unsigned)INPUT_TASK_PRIO);
     return ESP_OK;
 }
 
 uint32_t sloop_ui_input_stack_free(void)
 {
-    return s_task != NULL ? (uint32_t)uxTaskGetStackHighWaterMark(s_task) : 0;
+    if (s_task == NULL) return 0;
+    /* 优先报 input 任务自己循环里采到的最小值；首个批次之前用内核的高水位（同一个量）。 */
+    if (s_stack_free != 0xFFFFFFFFu) return s_stack_free;
+    return (uint32_t)uxTaskGetStackHighWaterMark(s_task) * sizeof(StackType_t);
+}
+
+uint32_t sloop_ui_input_physical_events(void)
+{
+    return s_phys_events;
 }
 
 bool input_quiesce_begin(uint32_t timeout_ms)

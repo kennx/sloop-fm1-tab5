@@ -143,6 +143,21 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   （`sloop_store_sample_erase` 不走 `store_note_write`）。走带中由存储层拒绝，故不会
   在播放中触发。
 
+**P4-F 新增/改版的页（Task 4–6 落地、Task 7 同会话复测，2026-11-25；结构见 §8.9–§8.12）**：
+
+| 页 | 实测 delta（`UI MEM`，跨快照 min–max） | est_bytes | 余量（对最大值） | 说明 |
+|---|---|---|---|---|
+| SOUND | **5,360–5,560 B** | 6,144 B | +10.5% | 8 旋钮（常驻，随选中轨引擎换标签）+ 页眉两个自绘三区对象（ENGINE/PRESET；鼓轨 = KIT 单行）+ 常驻隐藏的 FM6 bank 行（§8.10） |
+| MOD / SCALE / VOICE | **2,904–3,112 B** | 3,584 B | +15..23% | 8 旋钮 + 单对象自绘 chip 行（§8.9）；GLOBAL/FX 改 chip 页后同形 |
+| GLOBAL / FX | **2,904–3,100 B** | 3,584 B | +15..23% | 同上（§8.10）；est 仍是 P4-A 的 3,584，对象数不变 |
+| TOOLS | **2,520–2,732 B** | 3,584 B | +31..42% | 8 个单对象 label（§8.11）；est 取 chip 页同档 |
+| TRANSPORT | **8,464–8,876 B**（改前 8,248–8,716 B） | **9,216 B（未抬）** | +3.8..8.9% | 加 REC 配置行：三格是**一个**自绘可点击对象（§8.11）；est 被 SEQ→PRESETS 有序对锁死 |
+
+组 Σ est：EDIT 16,896（SOUND 6,144 + 3×3,584）、MIX 10,752（3×3,584）；有序对账面与
+Task 7 的 72 对实测矩阵见 ADR-005 §5.5。chip 页统一 3,584 是裁决 R7（spec 的 5,120 是上限）。
+
+实测范围的口径（`UI MEM` delta 的 min–max；来源 = Task 4–7 的任务报告读数 + 已晋升 transcript `docs/dev/verify/4-pf-2026-11-24/task-{6,7,10b}-*`，由脚本逐行汇总；三处文档引用同一组数，改一处须同步另两处——ADR-005 §5.5、ADR-008 §3 末表、AGENTS §3/§5.5）。
+
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
 > 重跑 `lv_style_init` 会丢掉静态样式已分配的 props 数组（实测 PLAY↔TRACKS 每往返漏 ~300B）；
@@ -379,9 +394,16 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）；
   `PARAM RAW <id> <value>` 跳过 desc 预判，用于复验引擎对无描述符 id 的忽略路径。
 
-### 8. 参数页框架（P4-A Task 10 落地）
+### 8. 参数页框架（P4-A Task 10 落地；P4-F 起的结构见 §8.9–§8.12）
 
-#### 8.1 页与布局表
+> **历史范围**：§8.1–§8.8 是 P4-A…P4-D 的落地记录，写的是当时的「五页」（GLOBAL / FX /
+> ANALOG / FM6 / SAMPLE）。P4-F 之后这五页里只剩 GLOBAL / FX / SAMPLE（GLOBAL/FX 已改 chip
+> 页，SAMPLE 保持整页结构），ANALOG + FM6 合并为 SOUND，另有 MOD / SCALE / VOICE 三张 chip
+> 页与 MIX 组的 TOOLS。**现行结构以 §8.9（chip 框架）、§8.10（SOUND / GLOBAL / FX）、§8.11
+> （TOOLS / REC 配置行）、§8.12（终态索引与任务栈门禁）为准**；本节的「五页」「九页」字样
+> 只描述当时。
+
+#### 8.1 页与布局表（P4-A 时点）
 
 - **布局表**（`sloop_ui/src/page_layout.c`）：GLOBAL / FX / ANALOG / FM6 / SAMPLE
   五页，每页 8 槽 `{scope, engine, id}`（`0xFF` = 空槽）。页元数据（id/title/est）
@@ -506,10 +528,13 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - 当前固件所有轨默认 ANALOG（engine=0），该路径需 `ENG TRACK <k> <engine> <preset>`
   触发；一次性探针（`ENG TRACK 1 1 0` → 选轨 1 → ANALOG 页）证据见
   `docs/dev/verify/4-p0-2026-11-21/task-10-*`。
+  **P4-F 起**：独立 ANALOG / FM6 页已删，SOUND 页的标签随选中轨引擎换（§8.10），不再有
+  「页声明引擎 ≠ 选中轨引擎」的整页锁定；整页锁定只剩 SAMPLE 页（选中轨不是 SAMPLE 引擎
+  时页眉红字 `… — N/A`、旋钮 `--`）。选中鼓轨时逐槽规则取而代之（§8.9）。
 
 #### 8.5 预算与验证
 
-- 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
+- （P4-D 时点；P4-F 终态见 §3 末表与 §8.12）九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
   行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
   6,344–6,452B）、FM6P 7,168B（Task 10 首测 → Task 11/12 归档 6,980–7,124B））；P4-B 起按组核算：P4-D Task 8 起
   SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
@@ -523,6 +548,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `UI FORCEFAIL global` 复验参数页的失败可见性与重建（重建后引擎真值不变）。
 
 #### 8.6 FM6 页 bank 存取行（P4-B Task 13）
+
+> **P4-F Task 5 起**：独立 FM6 页删除，本节的 bank 行搬进 SOUND 页底部、只在选中轨为 FM6
+> 引擎时显示（§8.10、A10）；「锁定页拒绝 `NOT FM6`」被「行缺席 ⇒ TAP miss」取代。
 
 - **几何**：页面区相对 `y=552..596`（高 44）。旋钮盒底边 = `52 + 298 + 26 + 160 =
   536`，行与旋钮之间留 16px，页面区高 648 ⇒ **不压缩旋钮区**，也不需要改网格宏；
@@ -683,7 +711,220 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `NOT FM6`、ALG 宏提示、BANK SAVE→`STORE BANK GET` 往返）+ 键盘 ←/→/↑ + `UI MEM` +
   三张截屏与像素抽检（Task 10 探针；任务 11/12 的 `synth` 场景固化）。
 
+### 8.9 参数页 chip 框架（P4-F Task 4：MOD / SCALE / VOICE）
+
+- **布局表升为 chip 结构**（`page_layout.{h,c}`，**不含 LVGL**、host 单测
+  `scripts/knob-test.sh` 同源编译）：`param_page_t{page_id,title,est_bytes,chip_count,
+  chips[5]}`，`param_chip_t{name,when,slot_count,slots[8]}`，`param_slot_t{scope,engine,id,
+  drum_ok}`。页 id/title/est/chip/槽来自同一张 X-macro 表；`ui_page_t` 注册条目在
+  `page_params.c` 注册时由表填出（`page_layout_register` 迁到那里——它需要 LVGL）。
+  **权威槽表 = `docs/design/012-feature-parity-checklist.md` §3**；host 测试用上游
+  `core.h:48-75` 的枚举顺序独立复刻 `tP_*`，逐槽比对 MOD/SCALE/VOICE/FX（布局表写的是
+  `L_P_*` 数字，抄错即 FAIL）。
+> P4-F Task 5 起：GLOBAL/FX 也是 chip 页（§8.10），`chip_count == 0` 的整页只剩 SOUND 与
+> SAMPLE；TRACK scope 另有一类「引擎槽」（SOUND 的 `P_E0..P_E7`，经 live 描述符）。
+
+- **两类页**：`chip_count == 0` 的旧式整页（GLOBAL/FX/ANALOG/FM6/SAMPLE：一个无名单 chip、
+  不画 chip 行、对象与行为不变）；`chip_count ≥ 2` 的 chip 页（MOD 5 chip、SCALE 4、
+  VOICE 4）——8 个旋钮对象常驻，切 chip **零分配**重配：只换 `desc`（label/fmt/范围）、
+  显隐与焦点，不新建/删除对象、不改样式。选中 chip 是**页内 UI 局部态**（跨组页面重建
+  保留），chip 行、TAP、键盘与 console `UI <page> CHIP <n>` 共用。
+- **chip 行 = 一个自绘可点击对象**（页眉行 y=4..36；chip 宽 `11×字符数+16`、间距 8、
+  x0=16；`LV_EVENT_DRAW_MAIN` 画圆角底 + 居中 16pt 名字，`CLICKED` 按指针 x 选 chip；
+  标题「`<页> · TRACK n`」挪到行右侧）。取舍：首版每 chip 一个可点击 label 实测
+  **336B/chip**（MOD 5 chip ⇒ delta 4,544B，est 须 5,120，EDIT→STEP 账面 63,848 >
+  63,120）；单对象后 **3,012–3,088B**，**est 3,584**（+16..19%、512 对齐，与旧式参数页
+  同值）。EDIT Σ 20,480、MIX Σ 7,168（ADR-005 §5.3）。
+- **描述符来源**：TRACK scope 一律 `sloop_core_desc_track_live(选中轨, id)`（Task 3；
+  ENV SYNC 的 ATK/DEC/REL 音符名、INSERT A/B/C、引擎钩子的动态标签，范围同静态表）——
+  FX 页原来的 `ATK/ESYNC` 手工标注因此删除；GLOBAL/ENGINE scope 仍取静态
+  `sloop_core_desc`。页面上下文键加入 `P_ESYNC`/`P_ITYPE`，两者翻转即重解析已建槽的
+  描述符并重绘。
+- **鼓轨规则逐槽**（布局表 `drum_ok`，012 §3「鼓」列）：选中鼓轨时未标 `drum_ok` 的
+  TRACK/ENGINE 槽显示 `--` 且拒绝编辑（`TAP ±` 回 `-> PARAM slot=n locked (page or slot
+  N/A)`、`UI KNOB` 回 `ignored (locked)`、键盘无动作，**不发命令**）；标了的照常
+  （FX：TFLT/LEVEL/PAN；VOICE：PAN；PATTERN 四槽）；全局参数不受影响。旧式引擎页
+  （ANALOG/FM6/SAMPLE）的整页锁不变；逐槽规则页在鼓轨上的页眉是
+  `… · TRACK 4 (DRUM)`（不是红字 N/A）。
+- **条件 chip**：`when` 谓词按选中轨上下文求值——`CHIP_WHEN_ANALOG`（VOICE·FILTER =
+  `P_FTYPE` + ANALOG 的 E4/E5/E7，上游 `page_shown`：仅 ANALOG 合成轨出现）。隐藏的
+  chip 那一格留空（下标不塌陷、可见 chip 位置恒定），TAP miss、`UI VOICE CHIP 3` 回
+  `UI ERR chip (hidden)`；选中的 chip 变隐藏时生效 chip 落到首个可见并回写选择。
+- **键盘**：←/→ 在当前 chip 的存在槽间环绕（跳过空/隐藏槽）、↑/↓ 调焦点槽 ±1、
+  **ENTER = 焦点槽 +1**（全部参数页生效；锁定槽无动作）。chip 只经触摸与 console。
+- **console**：`UI <参数页名> CHIP [<n>]`——写选中 chip（LVGL 锁内立即重配；越界/
+  非法 `UI ERR chip`、隐藏 `UI ERR chip (hidden)`、旧式整页不可写）；回显
+  `UI <page> chip=<n>` + 生效 chip 的逐槽行 `UI <page> slot=<k> id=<绝对 id>
+  label="<旋钮正在显示的名称>" locked=<0|1>`（旧式整页也可读——鼓轨逐槽规则的机读口；
+  脚本把 label 与 `ENG DESC live <track> <id>` 逐槽对照）。TAP 回显
+  `-> PARAMS <page> chip=<n> select`（`SLOOP_TAP_PARAM_CHIP`）。
+- **验证入口**：`scripts/knob-test.sh`（表完整性 + 槽位 = 012 §3 + 可见性/锁定规则 +
+  九组导航）；`scripts/inject/params.sh` ⑩（三页 est/构建、每 chip 逐槽 label ==
+  `ENG DESC live`、首槽 ± 回读、chip 行 TAP、键盘、20 次切 chip 零分配、鼓轨逐槽、
+  FILTER 条件 chip；六页全面矩阵由 Task 7 完成——`params` 713 PASS / 0 FAIL、`nav`
+  583 / 0，证据 `docs/dev/verify/4-pf-2026-11-24/task-7-*`）。FX/GLOBAL 的 chip 化
+  （SLICER/INSERT/REV/DRUMS/TEXTURE）见 §8.10。
+
+### 8.10 SOUND 通用引擎页 + GLOBAL/FX chip 页（P4-F Task 5）
+
+> 上位：spec `2026-11-24-p4f-phase4-closeout-design.md` §3/§4 与 A9/A10；槽表权威 =
+> `docs/design/012-feature-parity-checklist.md` §3。
+
+- **SOUND 取代 ANALOG + FM6 两页**（页 id 沿用 `APP_PAGE_ANALOG` = 6；`APP_PAGE_FM6` = 7
+  保留为**空位常量**——不注册任何页面，只为让 SAMPLE 及其后的既有页 id 不移位；console
+  的 `UI analog` / `UI fm6` 是 SOUND 的**页名别名**，`UI unused` / 数字 7 回
+  `not_registered`）。页数 18 → **17**，EDIT = SOUND / MOD / SCALE / VOICE（4 子签）。
+- **主体 = 选中轨引擎的 8 槽**：布局表里是 TRACK scope 的 `P_E0..P_E7`（`drum_ok=0`），
+  描述符经 `sloop_core_desc_track_live` 的规则 4 取该轨引擎的 `desc` 钩子（LOFI/NOISE/PHYS
+  随模式换标签），值/写路径都是 `p[P_E0+i]`——不建任何镜像表（A9）。8 个旋钮对象**常驻**
+  （同 chip 页）：槽的存在性随选中轨变（鼓轨只有 `P_E0` = KIT 描述符），`sound_sync_slots`
+  只翻转存在性变了的槽的显隐/描述符。页面上下文的脏键加入**选中轨引擎**
+  （`shown_sel_engine`）：页声明引擎在 SOUND 页恒为 0xFF，换引擎时若不重解析，旋钮会留
+  着上一个引擎的标签（设备探针抓到的缺陷）。
+  脏键另含**引擎槽值的哈希**（`shown_eng_key` = 选中轨 `p[P_E0..P_E7]` 折成的 32 位；
+  终审 B-I1）：上游 `track_desc()` 把 `id ≥ P_E0` 交给引擎钩子，钩子读该轨自己的 p[]
+  ——PHYS 的 MODEL（MODAL→SYMP：STRC/POS/BOW % → CHRD 枚举/SYMP/BUZZ）、NOISE 的 MODE
+  （LFSR/META 让槽 5/7 换名）、LOFI 的 CHIP/MODE（STEP 让槽 3 变 DCY）换档，以及页眉
+  PRESET ± 换预置（改 p[]、不改引擎）都会改标签/格式。此前键里没有槽值 ⇒ 旋钮留着旧
+  标签，直到换轨/换引擎/ESYNC/ITYPE 变化或离开 EDIT 组（同组切页只改显隐）。重解析 =
+  8 次无锁 `sloop_core_desc_track_live`，零分配。设备用例：`params.sh` ⑫。
+- **页眉两行 = 两个自绘三区对象**（同 DSYN LANE / FM6P BANK 的约定；几何是
+  `page_layout.h` 的纯函数 `page_layout_sound_row_x/_w/_header_x/_name_x`，建控件、自绘与
+  TAP 命中同源）：`ENGINE − 名 +`（x=16 w=288）与 `PRESET − 名 +`（x=320 w=384），左右各
+  42px 是 ∓1 区、中段是标签（TAP miss）；行名左对齐、名字右对齐成列（名字列宽 ≥ 11px ×
+  上游最长名：引擎 7 / 预置 10 / kit 8 字符，host 单测钉住）。名字/下标/预置数全部读状态层
+  投影 `app_state_t.sound`（`sloop_core_sound_read`：上游 `ENGINES[]`/`presets[]`/
+  `DRUM_KIT_NAMES` 的静态串拷贝；UI 不读上游全局）。**用户预置**（终审 A1）：`up_load_to`
+  把 `t->preset` 置 0、`t->user` 置 slot+1，投影带 `user` 且 `preset_name` = `USER nn`
+  （nn = slot+1，同 PRESETS 页的 `U01..U32`；上游页眉同样按 `user_of(t)` 优先，ui_draw.c:850）
+  ——此前页眉显示预设下标 0 的工厂名。槽名不投影：它在 flash 银行索引里，取它要存储锁 +
+  重扫（`sloop_store_preset_name`），而投影在 30ms sync 里无锁读 `trk[]`。PRESET ± 与
+  换引擎都清 `user`（上游 `apply_preset_to` 同法）。**PRESET ± 按引擎步进是 Tab5 的刻意
+  设计（终审 R19），与上游不同**：`CMD_SET_PRESET{v=preset}` 的值域是该轨当前引擎的工厂
+  预置 0..npresets−1（环绕），用户预置不在值域里——载入用户预置后（`t->preset` = 0）按
+  `+` 去该引擎的工厂预置 1、按 `−` 环绕到该引擎的最后一个工厂预置，引擎不变。上游
+  PRESETS 页的 KNOB 2 转的是**一条单一列表**（收藏 → 全部工厂音色，跨引擎 → 用户预置，
+  整表环绕；`ui.c:781-793`、`ui.c:916-927`、`ui_input.c:1272-1277`），转动会跨引擎换
+  音色。跨引擎的浏览列表在 Tab5 尚未提供（DI-54）。
+- **动作 = 两条状态层命令**（`CMD_SET_ENGINE{a=track,v=engine}` → `sloop_core_set_engine`、
+  `CMD_SET_PRESET{a=track,v=preset}` → `sloop_core_apply_preset`；越界/鼓轨/冻结在状态层
+  拒且不调引擎，成功即整份刷新投影）。± 都是**环绕**（引擎 0..11、预置 0..npresets−1，
+  npresets 随引擎）。选中**鼓轨**时两行换成单行 `KIT − 名 +`：经既有 `CMD_SET_PARAM` 写
+  鼓轨的 `P_E0`（`DRUM_KIT_DESC`，上游 DRUMS 屏 KNOB 1；旋钮槽在鼓轨上仍是锁定的 `--`，
+  kit 只经这一行编辑），页眉上下文行显示 `SOUND · TRACK 4 (DRUM) — NO SOUND`。
+- **底部 bank 行只在 FM6 引擎时出现**（A10）：对象随页**常驻、按引擎显隐**（零分配；不在
+  30ms 拍里建/删对象），可见性谓词 `page_layout_bank_row_visible(pg, drum, engine)` 是纯
+  数据（`PARAM_FEAT_BANK_FM6` + 合成轨 + `PARAM_ENGINE_FM6` = 9）。其余引擎/鼓轨整行隐藏，
+  TAP 落在该带 = miss——比原 FM6 页的「锁定页 `NOT FM6`」页面拒绝更强，该本地拒绝态
+  （`s_bank_refused`）随之删除；鼓轨 PUT 的状态层拒绝不变。
+- **布局表加 `features` 位掩码**（`PARAM_FEAT_SOUND` / `PARAM_FEAT_BANK_FM6` /
+  `PARAM_FEAT_SAMPLE`）：页眉/底部的附加行由表声明，`page_params.c` 不再按页 id 或页声明
+  引擎例外（原 `bank_row_present = page_engine == 9`、`sample_row_present = page_id ==
+  SAMPLE`）。
+- **GLOBAL / FX 改为 chip 页**（同一框架，只加表行）：GLOBAL = `GLO`（原 8 槽）/ `REV` /
+  `DRUMS` / `TEXTURE`，FX = `FX`（原 8 槽）/ `SLICER` / `INSERT` / `INSERT 2`。全局参数在
+  鼓轨上全部可编辑（含 `G_DRCH`），FX chip 内**逐槽**混锁（TFLT/LEVEL/PAN 可编辑），
+  SLICER/INSERT/INSERT 2 全可编辑（012 §3）。est 沿用 chip 页的 **3,584**（对象设计与
+  MOD/SCALE/VOICE 相同；brief 的 7,168 是上限）。
+- **容量（实测，`firmware/build/verify/p4f-task5-peaks.txt`）**：SOUND **5,360–5,554B**
+  （est **6,144**，+10.8% 对最大；= 8 旋钮 + 页眉两行 + 常驻隐藏的 bank 行），GLOBAL
+  **2,936–3,080B**、FX **2,916–3,080B**（est 3,584），`build_ms` 4–10ms。EDIT Σ est
+  **16,896**（原 20,480）、MIX Σ est **7,168**（不变）。有序对（base 11,624 口径，
+  ADR-005 §5.4；终态 18 页的账面与重测 base 见 ADR-005 §5.5）：EDIT→STEP 账面 55,656、
+  MIX→STEP 45,928、SEQ→MIX 51,560（目标页 3,584）；实测峰值
+  `池剩余` EDIT→STEP **13,260B**、MIX→STEP **21,692B**、SEQ→MIX **17,140B**（均 ≥4,096）。
+  GLOBAL/FX 20 次切 chip `pool_free` Δ **+0B**。
+- **LVGL 任务栈纪律（Task 5 实测出的约束；评审 R10 收口）**：LVGL 任务栈原为 **7,168B**
+  （esp_lvgl_port 默认），而 `app_state_t` ≈ 1.7KB，且**定时器拍、切页构建与全部控件回调都跑在
+  这个任务里**。Task 5 首版把 `app_state_t` 放进 `page_params_build`（SOUND 页眉定位）后，
+  nav ⑦ 的 TAB FX→SAMPLE 在 `build_sample_row` 的 `state_get_copy` 里压穿（Stack protection
+  fault，SP 低于栈底 12B）。三步收口：
+  1. 页面**构建**函数不在栈上放 `app_state_t`（SOUND 页眉位置由 update 首拍落地；SAMPLE 槽
+     信息由建页后的首个 update 读）；`ui_timer_cb` 的状态副本挪进独立的 `ui_refresh_built()`，
+     不与 `state_sync_from_engine()`/`show_page()` 的帧重叠（定时器路径从 372B 余量回到 2,036B）。
+  2. **点击路径不持整份副本**：控件回调 → `sound_step`/`param_step` → `refresh` → `slot_desc`
+     原先是三份副本叠加，而注入的 TAP 在 console 任务执行、量不到。现在 `slot_desc` 经
+     `state_selected_track()` 窄读，`slot_write`/`param_step`/`sound_step` 用 `slot_locked_now`/
+     `slot_value_now`/`state_read_sound` 逐字段取（状态层的 6 个窄读访问器），点击路径与定时器
+     路径一样最多两份副本。
+  3. LVGL 任务栈抬到 **10,240B**（`display.c`，约 3KB 内部 RAM），余量经 `UI MEM` 的
+     `lvgl_stack_free=<字节>` 暴露（每拍在任务内取 `uxTaskGetStackHighWaterMark`；RISC-V 端口
+     的 `StackType_t` 是 uint8_t，乘 `sizeof` 即字节），`params.sh` 断言 ≥2,048。实测：在 LVGL
+     任务内每 37 拍走一遍 chip 点击路径的诊断固件上 params 全程 **5,900B**。
+  仍带副本的调用（`param_chip_select`/`sample_select`/`bank_action` 各一份、PROJECTS/PRESETS/
+  SYSTEM 等页的构建函数）是既有代码；加页或加副本前先看 `lvgl_stack_free`。
+- **验证入口**：`scripts/knob-test.sh`（SOUND 8 槽/页眉行几何/bank 行谓词、GLOBAL/FX 逐
+  chip 槽位 = 012 §3、17 页扁平轮转与空位 id）；`scripts/state-test.sh`（两条命令的边界与
+  同拍投影，40 例）；`scripts/synth-test.sh`（`sloop_core_sound_read` 对照上游表）；
+  `scripts/inject/params.sh`（12 引擎轮换、ENGINE/PRESET/KIT 行、bank 行出现/缺席、五张
+  chip 页、有序对峰值）与 `store.sh` ⓰（bank 行缺席 ⇒ TAP miss）。
+
+### 8.11 TOOLS 页与 TRANSPORT 的 REC 配置行（P4-F Task 6）
+
+- **TOOLS 页**（`page_tools.c`，MIX 组第 3 张子签，页 id `APP_PAGE_TOOLS` = 18）：状态行 +
+  三张单对象 chip（CLEAR SEQ / INIT SOUND / NEW）+ 三行说明 + 提示，共 8 个 label；
+  实测 delta **2,568–2,732B**（≈320B/对象），est **3,584**（控制器的 7,168 是上限）。
+  MIX Σ est = GLOBAL 3,584 + FX 3,584 + TOOLS 3,584 = **10,752**；MIX→STEP 有序对
+  11,624 + 10,752 + 23,040 + 4,096 = 49,512 ≤ 63,120。
+- **两段式确认**（上游 `ui.arm` / `ui.arm_t = 90` ≈ 1.5s）：第一次点 chip = 预备（chip 换
+  `UI_ACCENT` 底、状态行 `AGAIN TO CONFIRM`），窗口内再点同一 chip 才执行（一条
+  `CMD_TOOLS`），超时自动取消；预备期间点另一张 = 改为预备那一张。时钟用 esp_timer 毫秒、
+  在 30ms UI 拍里比较；预备态是页内 UI 局部态，跨组页面重建即取消。动作语义与守卫全在
+  状态层/`sloop_core_tools`（清单 012 §4、ADR-010 §11），本页只做确认态与文案。
+- **REC 配置行**（TRANSPORT，上游 REC 屏的 QUANT / MODE / START）：与录音/fill 行同高
+  y=384，三格落在 NEXT 右侧到 pattern 区之前的空带（x=456/564/672）。**三格是同一个自绘
+  可点击对象**（§8.9 chip 行的同一做法：`DRAW_MAIN` 画圆角底 + 居中 16pt 文本，CLICKED 按
+  指针落点分格）——首版用三个单对象 label，实测把 TRANSPORT 顶到 9,348–9,628B（改前
+  8,392–8,660B，est 9,216 是 SEQ→PRESETS 有序对锁死的上限，不得抬）；单对象后回到
+  **8,636–8,876B**。每格点一次翻转自己那一项并发**整份** `CMD_REC_CONFIG`（另两项取 rec
+  投影）；文本读 `app_state_t.rec`。格间 8px 缝 TAP miss（与其它 chip 的间距一致）。
+- **MIX 组三张子签**：`UI SUB 2` 自本任务起是 TOOLS（`UI SUB 3` 越界）；TAB 轮转 18 页。
+- **验证入口**：`scripts/knob-test.sh`（18 页轮转、MIX 三成员、TOOLS 页 id）；
+  `scripts/inject/params.sh` ⑪ 段（TOOLS est/delta、MIX Σ est、SEQ→MIX(TOOLS) 有序对、
+  预备/超时/改预备的像素与回显、REC 配置行的三格像素与三项往返、格间缝 miss）。
+
+### 8.12 P4-F 终态索引与任务栈门禁（Task 4–7 收口）
+
+**参数页按结构分三类**（下表 7 页；SAMPLE/DSYN/FM6P 三页另见下文；布局表 `page_layout.{h,c}` 是唯一权威）：
+
+| 类 | 页 | 要点 | 出处 |
+|---|---|---|---|
+| chip 页（`chip_count ≥ 2`） | MOD 5 / SCALE 4 / VOICE 4 / GLOBAL 4 / FX 4 | 每页 `chips[5]`（`PARAM_PAGE_CHIPS`）、每 chip `slots[8]`；单对象自绘 chip 行；切 chip 零分配；条件 chip（`CHIP_WHEN_ANALOG`）；逐槽 `drum_ok`（012 §3）；TRACK scope 一律 live 描述符 | §8.9 |
+| 引擎页（`features = SOUND`） | SOUND | 页 id 6；主体 = 选中轨引擎的 `P_E0..P_E7`；页眉 ENGINE/PRESET 两个三区对象（鼓轨 = KIT 行）；FM6 bank 行按引擎显隐（A10）；`analog`/`fm6` 是 console 别名，`APP_PAGE_FM6` = 7 是不注册的空位 id | §8.10 |
+| 工具页 | TOOLS | 两段式确认（预备 → 1.5s 内再点 → 一条 `CMD_TOOLS`） | §8.11 |
+
+SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 的 REC 配置行是 §8.11
+的单对象三格。进阶约束（都不是 est 能表达的）：
+
+- **LVGL 任务栈门禁**：任务栈 **10,240B**（`display.c`，裁决 R10），定时器拍、切页构建与
+  全部控件回调都在这个任务里，`app_state_t` ≈ 1.7KB。`UI MEM` 行尾的
+  **`lvgl_stack_free=<字节>`** 是该任务的历史最小余量，`params.sh` 与 `nav.sh` 断言
+  **≥2,048**（Task 7 同会话实测：params 5,036 / nav 5,116B；Task 6 时点 5,804B）。规则：
+  页面构建函数与点击/输入路径在栈上至多持 **一份** `app_state_t`（`refresh` 那份），
+  需要单字段时用状态层窄读访问器；加页或加副本前先看 `lvgl_stack_free`。**已知例外**：SONG 页
+  配置类 chip 的 LVGL 回调路径（`song_action → song_action_cfg → song_apply_cfg`）叠**三份**
+  （Task 6 复审的静态调用图 `task-6-dispatch-copypaths-{before,after}.txt`），只在 LVGL 任务上
+  执行、未改，靠 `lvgl_stack_free` 的余量兜着；再加一层嵌套前先压平它。
+- **输入任务栈门禁**：`INPUT_TASK_STACK` **8,192B**（裁决 R13），键盘路径同样至多一份
+  快照；`KEY STATS` 的 `input_stack_free`（input 任务循环内采样的历史最小值）断言
+  ≥2,048 **仅当 `phys>0`**——console 的 `KEY` 注入量不到这条栈，`phys=0` 时场景显式跳过
+  （见 ADR-006）。输入路径的余量因此**尚未被机器验证**（人测项）。
+- **已知边界（裁决 R21，10c 设备实测）**：chip 行的命中判定读的是状态层投影。换引擎
+  （`ENG TRACK`）之后 **30ms 同步拍到来之前**，投影里还是旧引擎 ⇒ 刚被隐藏的条件 chip
+  （如 `CHIP_WHEN_ANALOG` 的 FILTER）在这一拍内仍按「可见」处理，`TAP` 回 `chip=3 select`
+  而不是 `TAP miss`（只选中、不写参数）；一拍之后回 `TAP miss`。**只有同批次的 console
+  `TAP` 注入能落进这个窗口**——物理触摸走 LVGL indev，与 sync 同拍且在其后。接受为投影模型
+  的固有延迟（≤1 拍），不改判定逻辑；`UI QUIESCE` 期间的 `UI <page> CHIP` 回
+  `UI ERR quiesced`。
+- **「超预算先改对象设计，不抬 est」**的三次应用：chip 行（336B/chip 的 label 方案 →
+  单对象）、TRANSPORT REC 配置行（3 label → 单对象，守住 est 9,216）、SOUND bank 行
+  （按引擎显隐而不是每引擎建行）。
+- **验证入口**：`scripts/knob-test.sh`（17 例：布局表/chip/槽位 = 012 §3、条件可见性、
+  鼓轨逐槽、18 页轮转、键表）、`scripts/state-test.sh`（45 例）、`scripts/inject/params.sh`
+  （Task 7：713 / 0）与 `nav.sh`（583 / 0，含 72 对有序对与 `lvgl_stack_free`）。
+
 ### 9. 描述符契约的定稿决定（Task 8/10）
+
 
 - **不做新描述符表**：`sloop_core_desc` 直接投影上游 `param_desc_t`（`label/unit/fmt/
   min/max/def/names`），指针指向上游静态数据，调用方不得释放/改写。
@@ -699,8 +940,10 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `TP[P_ATK]` 是 `F_TIME`（ms）——min/max（0..127）相同，但「这个数字是什么意思」
   完全不同。因此本投影的前提只是 **min/max 相同**（钳位安全）；fmt/unit 的差异
   必须由使用方处理：
-  - 现状（P4-A）：FX 页在选中轨 `P_ESYNC != 0` 时把 ATK 槽标注为 `ATK/ESYNC` 并按
-    `F_INT` 原始值 0..127 显示（无 ms 后缀，`page_params.c` 的 `slot_desc`），
+  - 现状（P4-A；**P4-F Task 3/4 起已改**：TRACK scope 一律走
+    `sloop_core_desc_track_live`，ATK/DEC/REL 直接显示上游音符名，下面的手工标注与
+    route a 复核项都已落地，见 §8.9）：FX 页在选中轨 `P_ESYNC != 0` 时把 ATK 槽标注为
+    `ATK/ESYNC` 并按 `F_INT` 原始值 0..127 显示（无 ms 后缀，`page_params.c` 的 `slot_desc`），
     绝不把音符值显示成毫秒。**运行中翻转**（console `PARAM 59` 注入或后续 FM-1
     同步）：`page_params_update` 把 `P_ESYNC` 纳入页面上下文键，位变化时重新解析
     已建槽的描述符并按 label/fmt/unit 差异重绘，不要求重进页面（P4-A 无 ENV 编辑页，

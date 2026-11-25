@@ -1,0 +1,7 @@
+  尝试复位设备以恢复状态（best effort）
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.2s）
+ENG MEM
+ENG MEM internal_free=74831 internal_min=74384 psram_free=30094724 psram_min=30094724
+UI page=sound (6)
+UI MEM pool_used=17240 pool_free=45248 pool_total=62488 registered=17 built=1 failed=0 sum_est=130560 reserve=-68072 group=EDIT lvgl_stack_free=6132

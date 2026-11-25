@@ -99,6 +99,11 @@ void state_refresh_settings_locked(void)
     memcpy(s_state.settings.theme_name, st->theme_name, sizeof s_state.settings.theme_name);
 }
 
+void state_refresh_sound_locked(void)
+{
+    sloop_core_sound_read(s_state.core.selected_track, &s_state.sound);
+}
+
 void state_refresh_sys_locked(void)
 {
     s_state.sys.bright = sloop_hal_settings_bright();
@@ -117,6 +122,7 @@ void state_init(void)
     /* host 单测每个用例都要一份干净的 AppState，重复调用等价于重置。 */
 #endif
     memset(&s_state, 0, sizeof(s_state));
+    s_state.last_param.id = 0xFF; /* 0 是合法参数 id：必须显式表示「还没碰过参数」 */
     sloop_core_read(&s_state.core);
     s_state.focus_track = s_state.core.selected_track;
     /* 参数投影与 core 同拍初化（p = 选中轨，g = 全局） */
@@ -131,6 +137,8 @@ void state_init(void)
     /* settings 生效副本 / 平台设置投影（开机默认或上一次落盘的值） */
     state_refresh_settings_locked();
     state_refresh_sys_locked();
+    /* SOUND 页投影（选中轨的引擎/预置/kit 名） */
+    state_refresh_sound_locked();
     /* 步窗默认 {0,0,16}：memset 后 len 为 0，必须显式给出（否则窗口为空） */
     s_state.window.bank = 0;
     s_state.window.window_start = 0;
@@ -192,6 +200,8 @@ void state_sync_from_engine(void)
         bool dsu_dirty = sloop_store_dsu_dirty();
         sloop_fm6_patch_snapshot_t fm6_snap;
         esp_err_t fm6_ret = sloop_core_fm6_patch(snap.selected_track, &fm6_snap);
+        sloop_sound_snapshot_t sound;
+        sloop_core_sound_read(snap.selected_track, &sound);
 
         state_lock();
         if (s_state.window.window_start == win.window_start &&
@@ -216,6 +226,7 @@ void state_sync_from_engine(void)
             } else {
                 memset(&s_state.fm6p, 0, sizeof s_state.fm6p);
             }
+            s_state.sound = sound;
             /* 录音快照只在写回成功的这一拍读一次：take 结果是一次性的（读即消费），
              * 重试循环里读会把结果丢在第一次 attempt 上。 */
             sloop_seq_rec_read(&s_state.rec);
@@ -268,6 +279,64 @@ void state_set_dsyn_select(uint8_t kit, uint8_t lane)
     state_unlock();
 }
 
+/* 窄读访问器（契约见 sloop_state.h）：各自在状态锁内读一个字段/一小块，不拷整份 AppState。 */
+uint8_t state_read_layer_held(void)
+{
+    state_lock();
+    uint8_t mask = s_state.layer_held;
+    state_unlock();
+    return mask;
+}
+
+uint8_t state_selected_track(void)
+{
+    state_lock();
+    uint8_t track = s_state.core.selected_track;
+    state_unlock();
+    return track;
+}
+
+uint8_t state_selected_engine(void)
+{
+    state_lock();
+    uint8_t track = s_state.core.selected_track;
+    uint8_t engine = track < APP_STATE_TRACKS - 1u ? s_state.core.trk[track].engine : 0u;
+    state_unlock();
+    return engine;
+}
+
+int16_t state_read_p(uint8_t id)
+{
+    state_lock();
+    int16_t v = id < SLOOP_CORE_P_COUNT ? s_state.p[id] : 0;
+    state_unlock();
+    return v;
+}
+
+int16_t state_read_g(uint8_t id)
+{
+    state_lock();
+    int16_t v = id < SLOOP_CORE_G_COUNT ? s_state.g[id] : 0;
+    state_unlock();
+    return v;
+}
+
+void state_read_sound(sloop_sound_snapshot_t *out)
+{
+    if (out == NULL) return;
+    state_lock();
+    *out = s_state.sound;
+    state_unlock();
+}
+
+uint8_t state_sound_status(void)
+{
+    state_lock();
+    uint8_t st = s_state.sound_status;
+    state_unlock();
+    return st;
+}
+
 bool state_take_selftest_request(void)
 {
     state_lock();
@@ -315,4 +384,5 @@ void state_refresh_locked(void)
     sloop_seq_song_read(&s_state.song);
     state_refresh_settings_locked();
     state_refresh_sys_locked();
+    state_refresh_sound_locked();
 }

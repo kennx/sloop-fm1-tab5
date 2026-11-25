@@ -187,22 +187,35 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 #### 1. 组与子页
 
-顶层 8 组（P4-C Task 11 起含 SONG、P4-D Task 8 起含 SYNTH、P4-E Task 6 起含 SYS）：
+顶层 **9 组**（P4-F Task 6 终态，18 个注册页；组表的一处定义在纯数据头 `ui_nav.h` 的
+`UI_GROUP_LIST`，ui.c 生成 `k_groups[]`，`scripts/knob-test.sh` 校验顺序/成员/每页可达）：
 
-| 组 | 子页 |
-|---|---|
-| PLAY | PLAY |
-| TRACKS | TRACKS |
-| EDIT | GLOBAL / FX / ANALOG / FM6 |
-| SYNTH | SAMPLE / DSYN / FM6P（P4-D Task 8：SAMPLE 从 EDIT 移入；DSYN 实体页在 Task 9、FM6P 在 Task 10） |
-| SEQ | STEP / TRANSPORT |
-| SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） |
-| FILE | PROJECTS / PRESETS |
-| SYS | SYSTEM（P4-E Task 6：独立组单页） |
+| 组 | 子页 | Σ est（B） |
+|---|---|---|
+| PLAY | PLAY | 3,072 |
+| TRACKS | TRACKS | 7,168 |
+| EDIT | SOUND / MOD / SCALE / VOICE | 16,896 |
+| MIX | GLOBAL / FX / TOOLS | 10,752 |
+| SYNTH | SAMPLE / DSYN / FM6P | 20,480 |
+| SEQ | STEP / TRANSPORT | 32,256 |
+| SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） | 12,288 |
+| FILE | PROJECTS / PRESETS | 20,992 |
+| SYS | SYSTEM（P4-E Task 6：独立组单页） | 10,240 |
+
+> **P4-F 的三次重组（2026-11-24/25）**：此前是 8 组（PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE/
+> SYS，EDIT = GLOBAL/FX/ANALOG/FM6）。① **Task 4（裁决 R1）**：参数页 chip 框架给 EDIT 加
+> MOD/SCALE/VOICE 后 EDIT 将有 7 个子签，超过 `UI_GROUP_MAX` 5 ⇒ 新增 MIX 组承接 GLOBAL/FX，
+> 组顺序改为 `PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/SONG/FILE/SYS`（MIX 插在 EDIT 与 SYNTH 之间，
+> 中间态 18 页见 §5.3）；组表的一处定义同时移到 `ui_nav.h`，几何常量与静态断言随之迁入
+> theme.h。② **Task 5**：SOUND 页取代 ANALOG + FM6 两页（ADR-008 §8.10），EDIT 缩为 4 子签
+> （17 页，§5.4）。③ **Task 6**：MIX 加第 3 张子签 TOOLS ⇒ 18 页终态（§5.5）。页签宽度
+> 随组数 142→122→**104px**（§2）。
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
   `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`，P4-E Task 6 追加
-  `APP_PAGE_SYSTEM`；`APP_STATE_PAGES` 9→11→12→14→**15**。SONG/SYNTH/SYSTEM 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
+  `APP_PAGE_SYSTEM`，P4-F Task 4 在**末尾**追加 `APP_PAGE_MOD=15/SCALE=16/VOICE=17`、Task 6
+  追加 `APP_PAGE_TOOLS=18`（`APP_PAGE_FM6`=7 自 Task 5 起是不注册的空位常量，既有 id 全部不变）；
+  `APP_STATE_PAGES` 9→11→12→14→15→**19**（18 个注册页 + 1 个空位 id）。SONG/SYNTH/SYSTEM 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
   （SYNTH 在 EDIT 与 SEQ 之间）。console `UI` 页名表、`UI MEM` 的组字段、注册表顺序同源。
 - 页签 = 组签（上行）+ 组内子签（下行）；注册顺序 = 组顺序，组内顺序 = 子页顺序。
 
@@ -217,7 +230,10 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
   5×8)/6) = 171.5 → **168px**（6×168+5×8=1,048，右端 1,064 = 1,280−**216** reserve）；
   P4-D Task 8 增至 7 组后取 **142px**（7×142+6×8=1,042，右端 16+1,042=**1,058** ≤
   1,064，theme.h 有静态断言；SLOOP 标题起点 ~1,191 仍有 133px）；P4-E Task 6 增至 8 组后取
-  **122px**（8×122+7×8=1,032，右端 16+1,032=**1,048** ≤1,064）。子行仍是 176px（5 个
+  **122px**（8×122+7×8=1,032，右端 16+1,032=**1,048** ≤1,064）；**P4-F Task 4 增至 9 组**
+  后取 `min(176,(1280−32−216−8×8)/9)=107.5 → 104px`（9×104+8×8=1,000，右端
+  16+1,000=**1,016** ≤1,064；`ui_nav.h` 有静态断言；最长标签 `TRACKS` ≈66px 仍放得下，
+  `nav` ① 对选中签左右内缘与第 9 张右缘做像素抽检）。子行仍是 176px（5 个
   复用槽，右端 928），**不受组数影响**。**不再受 N=10 时 95px < `TRANSPORT` 101.6px 的
   宽度墙约束**。
 
@@ -240,10 +256,12 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 `TAB` = 按组顺序的扁平轮转，组内最后一页的下一张 = 下一组第一页：
 
 ```
-PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE → DSYN → FM6P → STEP → TRANSPORT
-     → SONG → PROJECTS → PRESETS → SYSTEM → PLAY
+PLAY → TRACKS → SOUND → MOD → SCALE → VOICE → GLOBAL → FX → TOOLS → SAMPLE → DSYN
+     → FM6P → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → SYSTEM → PLAY
 ```
-（P4-E Task 6 起 15 页 / 8 组；SYSTEM 属最后的 SYS 单页组。）
+（P4-F Task 6 起 18 页 / 9 组；SOUND 的页 id 沿用 6、不按 id 数值排序，SYSTEM 属最后的 SYS
+单页组。P4-E 及之前的 15 页序列 `PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE →
+DSYN → FM6P → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → SYSTEM → PLAY` 已作废。）
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
   轮转到最后一个已注册页即回 PLAY。
@@ -266,8 +284,10 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   **单对象可点击 label**（§7.2），基础占用降 **2,176B**。九页平铺页签同法为 13,196B。
   「UI 就绪」那一拍的瞬时值比稳态高 0.3KB 量级，保守上界取 **11,936B**（11,624 +
   312）。本节的旧值 7,016B（= `pool_used 55,064 − Σdelta 48,048`）用 `pool_used` 会
-  漏计 TLSF 块头，是低估，已作废。
-- 组 est（P4-C 12 页口径；P4-D Task 8 起 SAMPLE 移入 SYNTH，新表见 §5.1）：PLAY 3,072 /
+  漏计 TLSF 块头，是低估，已作废。**P4-F 终态重测 ≈14.0KB**（九组组签/18 页注册表/ZOOM
+  label 之后；`UI MEM` 的 `pool_used − Σdelta` 在只建 PLAY 的稳态读数 13,95–14,25KB，随会话
+  内的池历史浮动），对账面的影响见 §5.5。
+- 组 est（P4-C 12 页口径；P4-D Task 8 起 SAMPLE 移入 SYNTH，新表见 §5.1；**P4-F 终态见 §5.5**）：PLAY 3,072 /
   TRACKS 7,168 / EDIT `3×3,584 + 6,144 + 3,072 = 19,968`
   （FM6 自 P4-B Task 13 起含 bank 存取行，est 3,584 → 6,144，实测 delta 4,956–5,100B）/ SEQ
   `STEP 23,040 + TRANSPORT 9,216 = 32,256`（TRANSPORT 自 P4-C Task 10 起含录音/fill/
@@ -400,6 +420,124 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 - **ZOOM 大读数条**（Task 5，ui.c 全局单对象、首次使用时懒建）不计页 est，按上限 **768B**
   计入 zoom ON 的瞬时占用；最坏对账面 `60,776+768=61,544B`，余 **1,576B ≥0**。默认 zoom OFF
   无此开销，FM6P 的 44B tripwire 与各页 est 不变。
+
+#### 5.3 P4-F Task 4 中间态 18 页/9 组预算（2026-11-24）
+
+- 组顺序 `PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/SONG/FILE/SYS`；组签 122→**104px**（见 §2）。
+  `APP_STATE_PAGES` 15→**18**：`APP_PAGE_MOD=15`、`APP_PAGE_SCALE=16`、`APP_PAGE_VOICE=17`
+  追加在 `app_page_t` **末尾**（不接在 GLOBAL..SAMPLE 的参数页 id 段之后——既有 id 不变；
+  布局表按 id 查找，`page_layout.c` 不再依赖参数页连续）。`TAB` 变 18 页扁平轮转：
+  `PLAY→TRACKS→ANALOG→FM6→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+  SONG→PROJECTS→PRESETS→SYSTEM→PLAY`。
+- 组 est：**EDIT** `ANALOG 3,584 + FM6 6,144 + MOD/SCALE/VOICE 3×3,584 = 20,480`；
+  **MIX** `GLOBAL 3,584 + FX 3,584 = 7,168`（本任务只是搬组，两页对象不变）；其余组不变。
+  chip 页 est 的来历见 ADR-008 §8.9（首版「每 chip 一个 label」实测 MOD 4,544B，会把
+  EDIT→STEP 账面顶到 63,848 > 63,120；chip 行收成单对象后 3,012–3,088B，est 3,584）。
+- 有序对（base 11,624 + 对值 + 4,096 ≤ 63,120）：最坏仍是 **SEQ→PRESETS 60,776**（余
+  2,344B，不变）。受影响的对：**EDIT→STEP** `20,480 + 23,040 = 43,520` ⇒ 账面 **59,240**
+  （余 3,880B；原 16,896 时是 55,656）；**MIX→STEP** `7,168 + 23,040 = 30,208` ⇒ 45,928；
+  **SEQ→MIX** `32,256 + 3,584 = 35,840` ⇒ 51,560（原 SEQ→EDIT 同值）；EDIT/MIX→PRESETS
+  33,280 / 19,968 ⇒ 49,000 / 35,688。`free ≥ est`、构建后池剩余 ≥4,096B、跨组往返
+  ≤128B 的门禁不变。
+- **实测（P4-F Task 4 设备探针，`firmware/build/verify/p4f-task4-*`）**：MOD **3,032B**、
+  SCALE **3,076B**、VOICE **3,064B**（`UI MEM` delta；跨 boot 另见 3,012–3,088），
+  `build_ms` 5–7ms；EDIT 五页全建 → 首建 STEP 的过渡峰值 **`pool_free 11,160B`**、
+  MIX 两页全建 → STEP **22,380B**、SEQ 两页全建 → MIX 首建 GLOBAL **25,624B**（均
+  ≥4,096B）；20 次切 chip `pool_free` 首末差 **+0B**（MOD/SCALE/VOICE 各 20 次）。
+
+#### 5.4 P4-F Task 5 中间态 17 页/9 组预算（2026-11-24）
+
+- **SOUND 取代 ANALOG + FM6**（ADR-008 §8.10）：页 id 沿用 `APP_PAGE_ANALOG`（6），
+  `APP_PAGE_FM6`（7）成为**空位常量**（不注册、不进组表；`APP_STATE_PAGES` 仍为 18）。
+  注册页数 18 → **17**，EDIT = SOUND / MOD / SCALE / VOICE（4 子签），MIX 不变。`TAB` 扁平
+  轮转：`PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→
+  SONG→PROJECTS→PRESETS→SYSTEM→PLAY`。
+- 组 est：**EDIT** `SOUND 6,144 + MOD/SCALE/VOICE 3×3,584 = 16,896`（原 20,480；两页并一页
+  且 SOUND 带 FM6 的 bank 行）；**MIX** `GLOBAL 3,584 + FX 3,584 = 7,168`（两页改为 chip
+  页，est 不变）。
+- 有序对（base 11,624 + 对值 + 4,096 ≤ 63,120）：最坏仍是 **SEQ→PRESETS 60,776**（余
+  2,344B，不变）。受影响/新增的对：**EDIT→STEP** `16,896 + 23,040 = 39,936` ⇒ 账面
+  **55,656**（原 59,240）；**MIX→STEP** `14,336 + 23,040 = 37,376` ⇒ **53,096**（14,336 是
+  当时按 TOOLS 上限 7,168 预估的 MIX Σ；终态 TOOLS 取 3,584，见 §5.5）；
+  **SEQ→MIX** `32,256 + 3,584（目标页）= 35,840` ⇒ **51,560**（与 Task 4 同值：跨组峰值 =
+  源组已建 Σ + 目标页 est，MIX 两页 est 未变）。`free ≥ est`、构建后池剩余 ≥4,096B 的门禁
+  不变。
+- **实测（P4-F Task 5 设备探针 `p4f-task5-verify` run3，`firmware/build/verify/
+  p4f-task5-peaks.txt`）**：SOUND 池增量 **5,360–5,554B**（est 6,144）、GLOBAL
+  **2,936–3,080B**、FX **2,916–3,080B**（est 3,584），`build_ms` 4–10ms；EDIT 四页全建 →
+  首建 STEP 的过渡峰值 **`池剩余 13,260B`**（Task 4 五页时 11,160B）、MIX 两页全建 → STEP
+  **21,692B**、SEQ 两页全建 → MIX 首建 GLOBAL/FX **17,140 / 17,092B**（Task 4 时 25,624B：
+  目标页从 3,584 的首建口径不变，差异来自 STEP/TRANSPORT 重建后的池历史），均 ≥4,096B。
+  GLOBAL/FX 20 次切 chip `pool_free` 首末差 **+0B**。
+
+#### 5.5 P4-F 终态 18 页/9 组预算（Task 6；Task 7 有序对全矩阵实测，2026-11-25）
+
+§5.3/§5.4 是 Task 4/5 的中间态，本节是阶段终态（取代 §5 的 12 页口径表）。
+
+- **终态** = §5.4 的 17 页 + MIX 的第 3 张子签 TOOLS（`APP_PAGE_TOOLS=18`、`APP_STATE_PAGES=19`）。
+  TAB 序见 §4，组表见 §1。
+- **组 est**：PLAY `3,072` / TRACKS `7,168` / **EDIT** `SOUND 6,144 + MOD/SCALE/VOICE
+  3×3,584 = 16,896` / **MIX** `GLOBAL/FX/TOOLS 3×3,584 = 10,752` / SYNTH `20,480` / SEQ
+  `32,256` / SONG `12,288` / FILE `20,992` / SYS `10,240`。页级 est 与实测 delta 见 ADR-008
+  §3 与 §8.9–§8.11：chip 页统一 **3,584**（裁决 R7；MOD/SCALE/VOICE 实测 2,904–3,112B、
+  GLOBAL/FX 2,904–3,100B、TOOLS 2,520–2,732B）；SOUND 6,144（实测 5,360–5,560B）；TRANSPORT
+  的 est 9,216 未抬（REC 配置行改单对象自绘后 8,464–8,876B）。范围口径与来源见 ADR-008 §3 末表。
+- **有序对账面**（每条 = 源组全建 Σest + 目标组**最贵目标页** est；`base + 对值 + 4,096 ≤
+  63,120`）。下表是对值（B），对角线无此有序对：
+
+| 源＼目标 | PLAY | TRACKS | EDIT | MIX | SYNTH | SEQ | SONG | FILE | SYS |
+|---|---|---|---|---|---|---|---|---|---|
+| **PLAY** | — | 10,240 | 9,216 | 6,656 | 10,240 | 26,112 | 15,360 | 15,872 | 13,312 |
+| **TRACKS** | 10,240 | — | 13,312 | 10,752 | 14,336 | 30,208 | 19,456 | 19,968 | 17,408 |
+| **EDIT** | 19,968 | 24,064 | — | 20,480 | 24,064 | 39,936 | 29,184 | 29,696 | 27,136 |
+| **MIX** | 13,824 | 17,920 | 16,896 | — | 17,920 | 33,792 | 23,040 | 23,552 | 20,992 |
+| **SYNTH** | 23,552 | 27,648 | 26,624 | 24,064 | — | 43,520 | 32,768 | 33,280 | 30,720 |
+| **SEQ** | 35,328 | 39,424 | 38,400 | 35,840 | 39,424 | — | 44,544 | 45,056 | 42,496 |
+| **SONG** | 15,360 | 19,456 | 18,432 | 15,872 | 19,456 | 35,328 | — | 25,088 | 22,528 |
+| **FILE** | 24,064 | 28,160 | 27,136 | 24,576 | 28,160 | 44,032 | 33,280 | — | 31,232 |
+| **SYS** | 13,312 | 17,408 | 16,384 | 13,824 | 17,408 | 33,280 | 22,528 | 23,040 | — |
+
+  SYNTH 作目标列取 DSYN/FM6P 的 **7,168**（组内最贵页；终审 C-M1 之前误取 SAMPLE 的 6,144，
+  8 格各少记 1,024B）。重算后最坏五条**不变**——SYNTH 作目标的最大一条是 SEQ→SYNTH 39,424
+  （账面 55,144），低于第五条 SEQ→SYS 42,496。
+  最坏五条按 **P4-C 的 base 11,624** 记账：① SEQ→PRESETS `45,056` ⇒ **60,776**（余 2,344B）；
+  ② SEQ→SONG 44,544 ⇒ 60,264（余 2,856B）；③ FILE→STEP 44,032 ⇒ 59,752（余 3,368B）；
+  ④ SYNTH→STEP 43,520 ⇒ 59,240（余 3,880B）；⑤ SEQ→SYS 42,496 ⇒ 58,216。EDIT→STEP 39,936
+  ⇒ 55,656，MIX→STEP 33,792 ⇒ 49,512，MIX→PRESETS 23,552 ⇒ 39,272。
+- **base 重测（P4-F）**：同一定义（`pool_used − Σdelta(已建页)`）在只建 PLAY 的稳态读数为
+  **13,95–14,25KB**（固件 `e481469`，Task 7 nav/params/soak 冒烟与 Task 9 soak 冒烟的
+  transcript；`docs/dev/verify/4-pf-2026-11-24/task-7-*`、`task-9-*`），比 P4-C Task 11 的
+  11,624 高 ≈2.4KB（上行组签 6 → 9 张、18 页注册表、ZOOM label，其余是会话内池历史）。
+  取 14,000 记账时，① 变成 **63,152 > 63,120（超 32B）**；按读数区间是 63,104–63,404——只有最低点还余
+  16B，其余都超，最多超 284B。② 62,640、
+  ③ 62,128、④ 61,616、⑤ 60,592。**即纸面不等式只在最坏的一条上不再成立**；
+  实测下条证明实际余量来自 est 表自身的保守量：SEQ Σ + PRESETS 的 est 45,056 对峰值点的
+  实际页面占用 ≈41.9KB（`pool_used − base`）有 ≈3KB 余量，抵掉 base 的 ≈2.4KB 增量后仍剩
+  2.3KB。加页/加签前必须同时看下条的实测矩阵与这一条，见 DI-56。
+- **实测（Task 7 `nav` ⑩ 有序对全矩阵，72/72 组对、144/144 目标页，每个目标页之前把源组
+  重新全建，取构建日志「池剩余」= 销毁源组之前的 `pool_free`，门禁 ≥4,096B）**。下表是
+  **后一次**运行（评审修复轮的复跑，`task-7-nav-stdout.log`，2026-11-25 10:28）的最小值，
+  括号内是**更早**的首轮会话（`task-7-nav-session1-stdout.log`，09:27）的读数——同一固件
+  `e481469`，两次逐对差 ≤204B（池历史），全部 ≥4,096B：
+
+| 源＼目标 | PLAY | TRACKS | EDIT | MIX | SYNTH | SEQ | SONG | FILE | SYS |
+|---|---|---|---|---|---|---|---|---|---|
+| **PLAY** | — | 40,092（40,000） | 40,412（40,416） | 42,896（42,804） | 38,912（38,844） | 24,292（24,088） | 34,444（34,512） | 33,812（33,756） | 40,544（40,504） |
+| **TRACKS** | 40,220（40,080） | — | 37,212（37,148） | 39,488（39,516） | 35,464（35,600） | 20,696（20,732） | 30,992（31,104） | 30,272（30,356） | 37,016（37,036） |
+| **EDIT** | 31,168（31,276） | 28,096（28,072） | — | 30,828（30,752） | 26,856（26,784） | 12,084（12,092） | 22,492（22,432） | 21,684（21,568） | 28,468（28,400） |
+| **MIX** | 37,224（37,164） | 33,996（33,840） | 34,316（34,204） | — | 32,692（32,620） | 17,980（17,832） | 28,248（28,200） | 27,476（27,528） | 34,168（34,248） |
+| **SYNTH** | 28,760（28,628） | 25,396（25,352） | 25,612（25,548） | 28,132（28,060） | — | 9,476（9,420） | 19,700（19,548） | 19,124（18,988） | 25,620（25,684） |
+| **SEQ** | 16,216（16,128） | 12,780（12,752） | 13,164（13,100） | 15,596（15,612） | 11,636（11,468） | — | 7,212（7,136） | **6,408（6,424）** | 13,160（13,168） |
+| **SONG** | 34,788（34,752） | 31,432（31,488） | 31,672（31,716） | 34,148（34,100） | 29,912（30,000） | 15,276（15,236） | — | 24,740（24,760） | 31,404（31,344） |
+| **FILE** | 26,952（26,888） | 23,820（23,728） | 24,112（24,096） | 26,620 | 22,512（22,556） | 7,896（7,864） | 18,124（18,144） | — | 24,072（23,996） |
+| **SYS** | 40,624（40,596） | 37,368 | 37,660（37,536） | 40,012（39,984） | 35,928（35,976） | 21,224（21,192） | 31,564（31,560） | 30,900（30,840） | — |
+
+  - 最紧四条：**SEQ→PRESETS 6,424 / 6,408B**、EDIT→STEP 12,092 / 12,084B、MIX→STEP
+    17,832 / 17,980B、SEQ→MIX 15,612B（fx）/ 15,596B（global）；全矩阵最小值即 6,408B，
+    比 4,096B 门禁多 **2.3KB**。实测的紧度排序（SEQ→PRESETS < SEQ→SONG 7,212 < FILE→STEP
+    7,896 < SYNTH→STEP 9,476）与账面不同——账面是 est 之和，实测里各页的 est 余量不同。
+  - `lvgl_stack_free`（nav 全场景收尾）5,036 / 5,116B（门禁 ≥2,048）。
+  - 复现入口：`bash scripts/inject/nav.sh` 的 ⑩；阶段收口矩阵按同一口径重跑。
 
 #### 6. 验证入口
 

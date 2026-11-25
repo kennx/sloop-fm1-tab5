@@ -1,0 +1,32 @@
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] f1 轨 0 = ANALOG
+  [PASS] f1 UI voice
+  [PASS] f1 选中 FILTER chip
+  [PASS] f1 换引擎后同批 TAP 刚隐藏的 FILTER chip ⇒ TAP miss
+  [PASS] f1 回显不含 chip=255
+  [PASS] f1 一拍之后再 TAP 隐藏 chip ⇒ TAP miss
+  [PASS] f1 回 ANALOG
+  [PASS] f1 FILTER chip 重新可选
+  [PASS] f1 生效 chip 回 0
+  [PASS] f2 UI mod
+  [PASS] f2 QUIESCE on
+  [PASS] f2 静默期 UI MOD CHIP 1 ⇒ UI ERR quiesced
+  [PASS] f2 选中 chip 未变
+  [PASS] f2 QUIESCE off
+  [PASS] f2 解除静默后 UI MOD CHIP 1 生效
+  [PASS] f3 UI tools
+  [PASS] f3 第一击 = 预备
+  [PASS] f3 等待 2.0s（>1.5s 窗口）后第二击 ⇒ 重新预备
+  [PASS] f3 第二击未执行（回显无 value=）
+  [PASS] f3 第二击后 LIVEHASH DF4255D4 == DF4255D4（未清步表）
+  [PASS] f3 预备期间 QUIESCE on（没有 UI 拍）
+  [PASS] f3 QUIESCE off
+  [PASS] f3 静默 2.0s（无 UI 拍）后第二击 ⇒ 重新预备（按下时也判过期）
+  [PASS] f3 第三击后 LIVEHASH DF4255D4 == DF4255D4（未清步表）
+  [PASS] f3 判别力：窗口内紧接着第三击 ⇒ 执行
+  [PASS] f3 UNDO 还原步表
+  [FAIL] f3 UNDO 后 LIVEHASH 6DB1FD94 == DF4255D4
+  [PASS] f3 收口 UI play
+[FAIL] probe f: failures=1 transcript=/tmp/p4f_10c/probes/probe-f-20261125-211200.log

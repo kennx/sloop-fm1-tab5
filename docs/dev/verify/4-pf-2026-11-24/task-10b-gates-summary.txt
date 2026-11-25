@@ -1,0 +1,92 @@
+Task 10b — P4-F 阶段收口设备矩阵：门禁表（2026-11-25）
+=====================================================================
+分支 feat/phase4f；受测固件 1e8587b（干净树，boot `App version: 1e8587b`，无 -dirty）；
+矩阵锚点修正 = e488b75（仅 scripts/screenshot_matrix.py，固件不变）；设备 Tab5 /dev/ttyACM0。
+PASS 计数口径同证据 readme：`[PASS]` 行数（含末尾场景汇总行）/ `[FAIL]` 行数 + transcript 末尾 failures=。
+
+1. Host（全部 exit 0）
+---------------------------------------------------------------------
+scripts/build.sh --clean                 rc=0   1m44s；仅 §5.5 豁免的 kconfig CMake 提示对（build.cmake:631 / project.cmake:765）
+scripts/build.sh（第 2 遍）              rc=0   0 warning
+scripts/build.sh（第 3 遍）              rc=0   0 warning
+scripts/host-test.sh                     rc=0   ALL HOST TESTS PASSED (subset)
+scripts/seq-test.sh                      rc=0   SEQ HOST TEST PASSED (0 failures) + persist-host: PASS (0 failures)
+scripts/state-test.sh                    rc=0   45 passed / 0 failed
+scripts/knob-test.sh                     rc=0   17 passed / 0 failed
+scripts/synth-test.sh                    rc=0   SYNTH HOST TEST PASSED
+python3 scripts/screenshot.py --selftest         selftest OK
+python3 scripts/soak-selftest.py                 结果: PASS
+python3 scripts/sample_upload.py --selftest       SAMPLE SELFTEST OK
+python3 scripts/screenshot_matrix.py --selftest   screenshot_matrix selftest OK（锚点修正后再跑一次，同样 OK）
+third_party MANIFEST (sha256sum -c)       233 OK / 0 non-OK
+
+2. 设备（同一开机会话，esptool 硬复位之后）
+---------------------------------------------------------------------
+scripts/flash.sh ×3                       rc=0；每次 3× `Hash of data verified`；boot `App version: 1e8587b`；
+                                                 0 fatal/abort()/backtrace/Guru Meditation/panic（boot-1..3.log）
+开机基线                                 LIVEHASH D6962C61；ENG MEM internal_free=70299 internal_min=66748
+python3 scripts/device-selftest.py        rc=0   cases=182 identical=182 mismatch=0 health_fail=0 deterministic=1 result=PASS
+python3 scripts/selftest-heap.py          rc=0   PASS：boot 70319；run1 70259→69999（−260B）182/182；
+                                                 run2 69999→69955（−44B，门限 ≤1024）182/182；收尾 69,955B（门限 ≥61440）
+python3 scripts/desc-check.py             rc=0   passed=10/10 live=2/2 negative=7/7 result=PASS
+
+3. 注入场景（首轮，同一会话按序；全部 rc=0、transcript failures=0）
+---------------------------------------------------------------------
+transport     288 PASS / 0 FAIL   159s
+step_edit     314 / 0            245s
+tracks         84 / 0             92s
+nav           583 / 0            512s   有序对 144 目标页全过；最紧 SEQ→PRESETS 6436B；
+                                       EDIT→STEP 12148 / MIX→STEP 17940 / SEQ→MIX 15592（min, global）；lvgl_stack_free 5116B
+params        713 / 0            619s
+store         908 / 0            382s
+song          354 / 0            190s
+sequence      562 / 0            165s
+synth         794 / 0            173s
+sys           354 / 0            640s
+合计首轮     4,954 PASS / 0 FAIL
+
+4. 复跑（证明可重复）
+---------------------------------------------------------------------
+sequence      562 / 0            181s
+synth         794 / 0            173s
+sys           354 / 0            641s   （第一次复跑在 agent 2h 超时时被杀、无结束标记，保留为 sys-rerun-killed-stdout.log；
+                                       表内是重跑的一次）
+nav           583 / 0            421s   SEQ→PRESETS 6456 / EDIT→STEP 12060 / MIX→STEP 17832 / SEQ→MIX 15460；lvgl_stack_free 5052B
+合计复跑     2,293 PASS / 0 FAIL；四条场景两轮同数
+
+5. 全页面截屏矩阵（screenshot_matrix.py，33 条目 / 18 页）
+---------------------------------------------------------------------
+run 1（固件 1e8587b，锚点修正前）  rc=1   468 PASS / 1 FAIL   目录 task-10b-matrix-run1-fail/
+run 2（同上）                     rc=1   468 PASS / 1 FAIL   目录 task-10b-matrix-run2-fail/
+  FAIL = step-playing.png (89,208) text 实测 (224,176,40) 期望 (240,244,248)
+  根因（R16）：锚点 `_step_focus_frame` 取焦点格左边框（3px 白）；播放头落到该列时 5px accent 框盖过它
+  （page_step.c）。矩阵不归一焦点轨的 LEN/DIV：当时工作工程轨 0 = len=64/div=8 ⇒ 起播后约 1s 播放头
+  停在列 0，截屏在起播后约 1.1s（与 Task 8 同延迟）⇒ 确定性撞上。Task 8 的工程轨 0 为 div=2 ⇒
+  播放头在列 6 ⇒ 同一锚点通过。传输本身正常（probe-transport.log：轨 1–3 的 pos 0→6 用 0.9s）。
+  两轮其余 467 条全过、33/33 条目 LIVEHASH 不变。
+  修正 e488b75：step-playing 的网格内锚点换成网格外四个区域（顶栏焦点轨色 / 行标签 T1 / 列号 /
+  底部提示）+ 原状态行锚点；step-default 仍保留焦点格描边锚点。离线复判（anchor-fix-check.log）：
+  旧锚点在 run1/run2 的帧上 FAIL、新锚点 4/4 PASS；新锚点套在 transport-playing 帧上 4/4 FAIL。
+run 3（锚点修正后）                rc=0   475 PASS / 0 FAIL；33 张全部解码 1280×720、158 个锚点全中、
+                                         33/33 条目后 LIVEHASH == 归一起点 B17A591C、起点还原   目录 task-10b-matrix/
+
+6. 页面池水位（params + nav transcript 的 `UI MEM`，最新一次构建；delta ≤ est 全部成立）
+---------------------------------------------------------------------
+PLAY 2440/3072  TRACKS 5796/7168  SOUND 5532/6144  MOD 2992  SCALE 3056  VOICE 3052（/3584）
+GLOBAL 2976  FX 3032  TOOLS 2640（/3584）  SAMPLE 4368/6144  DSYN 6380  FM6P 7008（/7168）
+STEP 21712/23040  TRANSPORT 8740/9216  SONG 11616/12288  PROJECTS 7608/8192  PRESETS 11936/12800  SYSTEM 5576/10240
+组 Σ est：EDIT 16,896 / MIX 10,752 / SYNTH 20,480 / SEQ 32,256 / SONG 12,288 / FILE 20,992 / SYS 10,240
+lvgl_stack_free：全矩阵最小 5,116B（nav 首轮）/ 5,052B（nav 复跑），门限 ≥2,048。
+
+7. 工作工程与收尾
+---------------------------------------------------------------------
+矩阵结束（复跑之后、soak 复位之前）：LIVEHASH 16FC5CB6，autosave=on 且 autosave_hash==LIVEHASH
+（flash 的 autosave 副本 = 该状态），xrun=0（sys 复跑复位之后），duty_mean 14.44%。
+矩阵三轮回合内工作工程逐条目不变（B17A591C ×3）；它与开机基线 D6962C61 不同——注入场景按设计是
+破坏性/自归一的（sequence 的自由录音把轨 0 留成 len=64、mute/level 改动，sys 的归一 SAVE 落盘）。
+
+8. 3h soak —— pending（脱离会话运行中，结果由 Task 10c 登记）
+---------------------------------------------------------------------
+PID 441876，起跑 2026-11-25 17:54:38，soak.py --duration 10800 --interval 60 --save-window 3600；
+stdout /tmp/p4f_10b/soak-3h.log（块缓冲）；transcript firmware/build/verify/soak-20261125-175438.log、
+摘要 soak-summary-20261125-175438.txt。预期结束 ≈ 20:55。

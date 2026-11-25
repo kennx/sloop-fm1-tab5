@@ -151,7 +151,9 @@ Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后�
 - `sloop_seq_read_dstep/write_dstep` 原样读写鼓步的 16 lane `on/lvl/rat` 打包字节；
   `sloop_seq_set_micro` 接受 -32..31；`sloop_seq_set_fill` 接受 0..3，其中 3 由上游
   `step_plays()` 按 normal 处理。
-- `sloop_seq_lock_set/del/list` 直接调用上游 `lock_set/lock_del` 或枚举其 `plock_t` 存储。
+- `sloop_seq_lock_set/del/list` 直接调用上游 `lock_set/lock_del` 或枚举其 `plock_t` 存储
+  （`del` 之后另把空闲槽的残留 param/val 清零，使解锁后的捕获 hash 与 LOAD 之后一致——
+  P4-F Task 6，见 §11「空闲锁槽的规范化」）。
   每轨 24 槽，同键覆写不占新槽，第 25 项返回 `ESP_ERR_NO_MEM`；不可锁参数（含 P_SLEN）和
   越界输入返回 `ESP_ERR_INVALID_ARG`；`lock_del(param=P_COUNT)` 清除该步全部锁。
 - 所有公共写入口先检查 `s_frozen`，再在 `s_engine_lock` 内复核并写入；host 的空
@@ -351,6 +353,59 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   section hash 逐字节不变；`SECTION C ERASE` 把歌曲项同步移除；最终镜像复验 live STORE
   与 dirty 落盘。证据：`docs/dev/verify/4-pc-2026-11-22/task-8-device-smoke.log`
   （阶段收口时按 AGENTS §5.4 入库；当前在任务目录暂存）。
+
+### 11. TOOLS 三动作与键盘参数锁 / fill 条件（P4-F Task 6）
+
+- **`sloop_core_tools(action)`**（`seq_tab5.c`，一次动作一次引擎锁）= 上游 TOOLS 页三个 GO
+  按钮（`ui_input.c:568-612`；清单 012 §4）：
+  - CLEAR SEQ：`undo_mark(选中轨)` → `steps_clear`——只清选中轨的步表（含锁/micro/fill），
+    TRANSPORT 的 UNDO 可撤销；走带中允许。
+  - INIT SOUND：`set_engine_of_locked(选中轨, 当前引擎)` = 引擎默认值 + 预置 0（与
+    `sloop_core_set_engine` 同一实现）；走带中允许；选中鼓轨回 `ESP_ERR_NOT_ALLOWED`
+    （上游 `page_desc` 不给鼓轨这一项）。
+  - NEW：`project_new_tab5`——上游 `project_new`（`ui_input.c:462-490`，`UI_SMALL static`、
+    不在 sloop_core TU）的**逐行镜像**（R5；同 `SONG_PANEL_DEF`/`TRK_DEF` 的先例）：停走带
+    请求、panic、四轨逐轨 `undo_mark` + 参数回 TP 默认 + 清步表、合成轨套 `TRK_DEF` 声音、
+    鼓 kit/tune/decay/live mute 复位、除 MIDI 类（`G_SLOT/G_DRCH/G_SYNC/G_MIDI/G_ROUTE/
+    G_CH1..G_CHOTH/G_BEND/G_FXCH/G_DRMAP/G_RMCH/G_CLKOUT/G_FXFADE`）外全局回默认、清
+    solo/八度、置 `sync_reload`。A–D section、arrangement 与 settings 对象**不碰**。
+  - **走带守卫按上游（R4）**：NEW 唯一的守卫是「SONG 播放中且 `arrangement_enabled`」⇒
+    `ESP_ERR_NOT_ALLOWED`（停止会把旧 loop 带回来，`STOP THE SONG FIRST`）；其余走带状态
+    由 `transport_req = 2` 自停后执行。冻结 ⇒ `ESP_ERR_INVALID_STATE`。
+- **可测性**：「载入声音」机制（`TRK_DEF/param_kept/arp_is_sounds/preset_values/
+  preset_apply_locked/set_engine_of_locked`）从 `store_tab5.c` **原样抽到 `preset_tab5.h`**
+  （固件仍是同一 TU；`scripts/seq-host-test.c` 同源编译），host 门禁才能把 INIT SOUND /
+  NEW 与 `set_engine_of` 的结果逐参数比对、把 NEW 的每条副作用逐项断言
+  （`test_tools_*`：四轨默认声音与参数、鼓 kit/tune/decay/mute、solo/八度、非 MIDI 全局、
+  MIDI 类保留、section/arrangement 字节不变、SONG 守卫、走带中 CLRSEQ/INITSOUND、UNDO）。
+- **状态层**：`CMD_TOOLS{a}` → `tools_status`（INVALID/BLOCKED/FROZEN/ERROR/OK；BLOCKED 兼表
+  鼓轨 INIT SOUND 与 SONG 播放中的 NEW，页面按「动作 × 鼓轨」选文案）；`CMD_LOCK_FOCUS{a}` /
+  `CMD_FILL_STEP{v}`（契约见 `sloop_state.h`）作用于焦点轨 × 聚焦步，范围 = 聚焦步在本轨
+  LEN 之内（R12，不要求有音），前置与返回码写 `seq_status`；冻结时锁命令先于查锁表直接回
+  FROZEN（否则解锁会被 `lock_list` 的 0 误报成 NO LOCK）；`last_param` 只在**能生效**的写之后
+  记录（非焦点轨、冻结、该轨无描述符的 id 都不记）。键位、范围与栈纪律见 ADR-006「STEP 页
+  步工具」。
+- **`last_param` 不覆盖 FM6P 页（终审 A3，记录在案的限制）**：FM6 的 155B patch 字段经
+  `CMD_FM6_SET` 写入，它们不是参数（没有 `P_*` id），所以不计入 `last_param`——只在 FM6P
+  页编辑过之后 Aa+k 回 `NO PARAM`。上游同样没有这条路径：patch 只在 web 编辑器里编辑
+  （`eng_fm6.c` 头注释），设备上能碰到的是 HOME 的四个宏旋钮 = `engine->macro[k]` =
+  `P_E0..P_E3`（`ui_input.c:1308`，可锁时才记 `ui.lock_par`）；这四个宏以及其余四个
+  （`P_E4..P_E7`）在 Tab5 的 SOUND 页（FM6 引擎轨的 8 槽）上都是 `CMD_SET_PARAM`，
+  已经照常计入。因此**不做 (op,field) → 参数 id 的映射**（上游没有可映射的先例）。
+- **空闲锁槽的规范化**（P4-F Task 6，`lock_del_canonical`）：上游 `lock_del` 只把槽标回
+  `LOCK_FREE`、保留 param/val，而 `proj_capture` 原样拷贝 24 个锁槽、`proj_apply` 把空闲槽
+  归一成 `(LOCK_FREE, 0, 0)`——解锁之后工程 SAVE→LOAD 的 live hash 必然不等（空闲槽里的
+  残留字节，无数据丢失；`SEQ LOCK DEL` 这条既有路径同样如此）。适配层在
+  `sloop_seq_lock_del` 与 `sloop_seq_step_edit(SEQ_STEP_CLEAR)` 里于上游 `lock_del` 之后把全部
+  空闲槽的 param/val 清零，live 状态与 LOAD 之后的形态一致（`test_lock_del_canonical`）。
+  **字节兼容**：改动只在 RAM。工程序列化只写 `step < NSTEP` 的有效锁（上游 `project.c`
+  的导出循环，先计数再逐项写 step/param/val），空闲槽的残留从不落盘——所以落盘字节、
+  格式版本与长度都不变，旧固件写下的工程对象照常可读；唯一可观测的差别是解锁之后
+  `proj_capture` 的捕获 hash（`STORE LIVEHASH` / `STORE PROJ HASH`）等于 LOAD 之后的值，
+  以及同样基于有效锁的上游 `ed_step_sig` 不受影响。`lock_set` 覆写同键时不经过这里
+  （槽仍是有效的）。
+- **与 §7 的边界**：CLEAR SEQ 的 undo 走上游单槽 undo（`undo_mark` 与上游同序），锁/fill
+  的编辑本身不在 undo 里（上游边界不变）。
 
 ## 后果
 

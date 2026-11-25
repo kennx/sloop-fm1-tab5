@@ -100,6 +100,8 @@ static bool store_playing(void) { return song.playing || transport_req; }
 bool sloop_store_ready(void) { return h_store_ready; }
 
 #include "../firmware/components/sloop_core/src/sound_tab5.c"
+/* 参数描述符投影（sloop_core_desc / sloop_core_desc_track_live）：与固件 selftest.c 同一实现。 */
+#include "../firmware/components/sloop_core/src/desc_tab5.h"
 
 static int fails;
 
@@ -1004,11 +1006,322 @@ static void test_sample_slot(void)
     sample_env_reset();
 }
 
+/* ---------------------------------------------------------- 描述符（P4-F Task 3）---
+ * sloop_core_desc_track_live：随轨道状态取上游描述符。期望值逐项硬编码自上游源码
+ * （params.c 的 INS_DESC/ESYNC_DESC、eng_lofi.c 的 LOFI_WAVNUM/LOFI_DCY、eng_noise.c 的
+ * NOISE_LONG/NOISE_META/NOISE_CLK、eng_phys.c 的 PHYS_D_*），不取自被测函数的输出。 */
+
+static int desc_is(const sloop_desc_t *d, const char *label, int fmt, int min, int max, int def,
+                   const char *unit, unsigned enums, const char *first, const char *last)
+{
+    static const char dash[] = "-";
+    const char *u = d->unit != NULL ? d->unit : dash;
+    const char *f = d->enum_count > 0u ? d->enums[0] : dash;
+    const char *l = d->enum_count > 0u ? d->enums[d->enum_count - 1u] : dash;
+    return d->label != NULL && strcmp(d->label, label) == 0 && (int)d->fmt == fmt &&
+           d->min == min && d->max == max && d->def == def && strcmp(u, unit) == 0 &&
+           d->enum_count == enums && strcmp(f, first) == 0 && strcmp(l, last) == 0;
+}
+
+/* 与静态表投影逐字段相等（live 在无状态依赖时不得偏离 sloop_core_desc） */
+static int desc_same_as_base(const sloop_desc_t *d, sloop_desc_scope_t scope, uint32_t engine, uint32_t id)
+{
+    sloop_desc_t b;
+    return sloop_core_desc(scope, engine, id, &b) && d->label == b.label && d->unit == b.unit &&
+           d->fmt == b.fmt && d->min == b.min && d->max == b.max && d->def == b.def &&
+           d->enums == b.enums && d->enum_count == b.enum_count;
+}
+
+/* 拒绝：返回 false 且 out 逐字节不动（0xA5 哨兵） */
+static int desc_rejects(uint8_t track, uint32_t id)
+{
+    sloop_desc_t d;
+    memset(&d, 0xA5, sizeof(d));
+    if (sloop_core_desc_track_live(track, id, &d)) return 0;
+    for (uint32_t i = 0; i < sizeof(d); i++)
+        if (((const uint8_t *)&d)[i] != 0xA5u) return 0;
+    return 1;
+}
+
+static int live_is(uint8_t track, uint32_t id, const char *label, int fmt, int min, int max, int def,
+                   const char *unit, unsigned enums, const char *first, const char *last)
+{
+    sloop_desc_t d;
+    memset(&d, 0, sizeof(d));
+    return sloop_core_desc_track_live(track, id, &d) &&
+           desc_is(&d, label, fmt, min, max, def, unit, enums, first, last);
+}
+
+static void test_desc_live(void)
+{
+    /* engines.c ENGINES[] 的序（eng_lofi.c 是第 4 个引擎；ENGI_PHYS/ENGI_NOISE 见 core.h） */
+    enum { ENG_ANALOG_ = 0, ENG_LOFI_ = 3, ENG_PHYS_ = ENGI_PHYS, ENG_NOISE_ = ENGI_NOISE };
+    const int F_INT_ = SLOOP_DESC_FMT_INT, F_PCT_ = SLOOP_DESC_FMT_PCT, F_TIME_ = SLOOP_DESC_FMT_TIME,
+              F_LFOHZ_ = SLOOP_DESC_FMT_LFOHZ, F_CUTOFF_ = SLOOP_DESC_FMT_CUTOFF,
+              F_DB_ = SLOOP_DESC_FMT_DB, F_ENUM_ = SLOOP_DESC_FMT_ENUM;
+    const char dash[] = "-";
+    sloop_desc_t d;
+    uint8_t save_req = trk[0].eng_req;
+    int16_t save_itype = trk[0].p[P_ITYPE], save_esync = trk[0].p[P_ESYNC], save_e0 = trk[0].p[P_E0],
+            save_e1 = trk[0].p[P_E1];
+    uint32_t k, type;
+    int ok;
+
+    /* 无状态依赖的轨参数与引擎槽 = 静态表（sloop_core_desc 的 TRACK/ENGINE 投影） */
+    ok = 1;
+    trk[0].eng_req = (uint8_t)ENG_ANALOG_;
+    trk[0].p[P_ITYPE] = 0;
+    trk[0].p[P_ESYNC] = 0;
+    for (k = 0; k < P_E0; k++)
+        ok = ok && sloop_core_desc_track_live(0, k, &d) && desc_same_as_base(&d, SLOOP_DESC_TRACK, 0, k);
+    for (k = 0; k < 8u; k++)
+        ok = ok && sloop_core_desc_track_live(0, P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_ANALOG_, k);
+    check(ok, "desc live: ANALOG track 0, every id == static TP[]/edit[] projection");
+    check(sloop_core_desc_track_live(0, 0, NULL), "desc live: out == NULL is allowed (true, nothing written)");
+
+    /* (a) 引擎钩子：LOFI——WAVE=WRAM(4) 时 edit[2] DUTY→WAV#（16 个 wave RAM 名），
+     * CHIP=STEP(4) 时 edit[3] CRSH→DCY（32 个包络名）；其余槽与不命中时落回 edit[] */
+    trk[0].eng_req = (uint8_t)ENG_LOFI_;
+    trk[0].p[P_E0] = 0;
+    trk[0].p[P_E0 + 1u] = 0;
+    check(live_is(0, P_E0 + 2u, "DUTY", F_INT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 0u, "CHIP", F_ENUM_, 0, 4, 0, dash, 5, "4BIT", "STEP"),
+          "desc live: LOFI default mode keeps edit[] (DUTY/CRSH/CHIP)");
+    trk[0].p[P_E0 + 1u] = 4; /* RW_WRAM */
+    check(live_is(0, P_E0 + 2u, "WAV#", F_INT_, 0, 127, 64, dash, 16, "SQ50", "STAIR") &&
+              live_is(0, P_E0 + 3u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+          "desc live: LOFI WAVE=WRAM: edit[2] DUTY -> WAV# (N_WRAM), edit[3] untouched");
+    trk[0].p[P_E0] = 4; /* CHIP_STEP */
+    check(live_is(0, P_E0 + 3u, "DCY", F_INT_, 0, 127, 0, dash, 32, "CONST", "L15"),
+          "desc live: LOFI CHIP=STEP: edit[3] CRSH -> DCY (N_DCY)");
+
+    /* (a) NOISE——MODE>=LFSR(2)：edit[5] DENS→LEN（LFSR 8 个寄存器长 / META 8 个序列），
+     * edit[7] CRSH→CLK（单位 st）；ANLG/DUST 落回 edit[] */
+    trk[0].eng_req = (uint8_t)ENG_NOISE_;
+    trk[0].p[P_E0] = 0;
+    check(live_is(0, P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 7u, "CRSH", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+          "desc live: NOISE ANLG keeps edit[] (DENS/CRSH)");
+    trk[0].p[P_E0] = 1; /* DUST */
+    check(live_is(0, P_E0 + 5u, "DENS", F_PCT_, 0, 127, 0, dash, 0, dash, dash),
+          "desc live: NOISE DUST keeps edit[] (DENS)");
+    trk[0].p[P_E0] = 2; /* LFSR */
+    check(live_is(0, P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "L23", "L7") &&
+              live_is(0, P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
+          "desc live: NOISE LFSR: DENS -> LEN (N_NOISE_LONG), CRSH -> CLK (unit st)");
+    trk[0].p[P_E0] = 3; /* META */
+    check(live_is(0, P_E0 + 5u, "LEN", F_INT_, 0, 127, 0, dash, 8, "127", "7") &&
+              live_is(0, P_E0 + 7u, "CLK", F_INT_, 0, 127, 0, "st", 0, dash, dash),
+          "desc live: NOISE META: DENS -> LEN (N_NOISE_META), CRSH -> CLK");
+
+    /* (a) PHYS——edit[] = MODEL/STRC/BRIT/DAMP/POS/ACC/BOW/EXC；PHYS_DESC[SYMP(3)] 把槽 1/4/6
+     * 换成 CHRD/SYMP/BUZZ（其余落回 edit[]），[MEMB(2)] 把槽 1/6 换成 HARM/BEND；
+     * MODAL(0)：全部 edit[]。范围与默认值同 edit[] */
+    trk[0].eng_req = (uint8_t)ENG_PHYS_;
+    trk[0].p[P_E0] = 3; /* PM_SYMP */
+    check(live_is(0, P_E0 + 1u, "CHRD", F_INT_, 0, 127, 64, dash, 8, "OCT", "ROOT") &&
+              live_is(0, P_E0 + 4u, "SYMP", F_PCT_, 0, 127, 20, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 6u, "BUZZ", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 2u, "BRIT", F_PCT_, 0, 127, 80, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 0u, "MODEL", F_ENUM_, 0, 3, 0, dash, 4, "MODAL", "SYMP"),
+          "desc live: PHYS SYMP: slot1->CHRD, slot4->SYMP, slot6->BUZZ (BRIT/MODEL from edit[])");
+    trk[0].p[P_E0] = 2; /* PM_MEMB */
+    check(live_is(0, P_E0 + 1u, "HARM", F_PCT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 6u, "BEND", F_PCT_, 0, 127, 0, dash, 0, dash, dash) &&
+              live_is(0, P_E0 + 4u, "POS", F_PCT_, 0, 127, 20, dash, 0, dash, dash),
+          "desc live: PHYS MEMB: slot1->HARM, slot6->BEND (POS from edit[])");
+    trk[0].p[P_E0] = 0; /* PM_MODAL */
+    ok = 1;
+    for (k = 0; k < 8u; k++)
+        ok = ok && sloop_core_desc_track_live(0, P_E0 + k, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_PHYS_, k);
+    check(ok, "desc live: PHYS MODAL: every slot == edit[]");
+
+    /* (b) INSERT：P_IA/P_IB/P_IC 的标签/格式随 P_ITYPE；min/max 恒等于 TP[P_IA..P_IC]（0..127） */
+    trk[0].eng_req = (uint8_t)ENG_ANALOG_;
+    ok = 1;
+    for (type = 0; type <= 9u; type++) { /* 0..8 = N_P_ITYPE，9 = 越界类型（上游落回 TP） */
+        trk[0].p[P_ITYPE] = (int16_t)type;
+        for (k = 0; k < 3u; k++) {
+            if (!sloop_core_desc_track_live(0, P_IA + k, &d)) { ok = 0; continue; }
+            ok = ok && d.min == TP[P_IA + k].min && d.max == TP[P_IA + k].max;
+        }
+    }
+    check(ok, "desc live: INSERT A/B/C min/max == TP[] for every P_ITYPE (incl. out-of-range)");
+    trk[0].p[P_ITYPE] = 0; /* OFF */
+    check(live_is(0, P_IA, "INS A", F_PCT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_IB, "INS B", F_PCT_, 0, 127, 96, dash, 0, dash, dash) &&
+              live_is(0, P_IC, "INS C", F_PCT_, 0, 127, 96, dash, 0, dash, dash),
+          "desc live: INSERT OFF keeps TP[] (INS A/B/C)");
+    trk[0].p[P_ITYPE] = 1; /* SOFT */
+    check(live_is(0, P_IA, "DRIVE", F_PCT_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_IB, "TONE", F_CUTOFF_, 0, 127, 96, dash, 0, dash, dash) &&
+              live_is(0, P_IC, "LEVEL", F_DB_, 0, 127, 96, dash, 0, dash, dash),
+          "desc live: INSERT SOFT: DRIVE/TONE/LEVEL");
+    trk[0].p[P_ITYPE] = 4; /* FUZZ：同一张表 */
+    check(live_is(0, P_IA, "DRIVE", F_PCT_, 0, 127, 64, dash, 0, dash, dash),
+          "desc live: INSERT FUZZ: same table as SOFT (DRIVE)");
+    trk[0].p[P_ITYPE] = 5; /* CRUSH */
+    check(live_is(0, P_IA, "BITS", F_INT_, 0, 127, 64, dash, 16, "1", "16") &&
+              live_is(0, P_IB, "RATE", F_INT_, 0, 127, 96, "Hz", 16, "689", "44k") &&
+              live_is(0, P_IC, "LPF", F_CUTOFF_, 0, 127, 96, dash, 0, dash, dash),
+          "desc live: INSERT CRUSH: BITS/RATE(Hz)/LPF");
+    trk[0].p[P_ITYPE] = 6; /* PHASR */
+    check(live_is(0, P_IA, "RATE", F_LFOHZ_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_IB, "DEPTH", F_PCT_, 0, 127, 96, dash, 0, dash, dash) &&
+              live_is(0, P_IC, "FDBK", F_PCT_, 0, 127, 96, dash, 0, dash, dash),
+          "desc live: INSERT PHASR: RATE/DEPTH/FDBK");
+    trk[0].p[P_ITYPE] = 8; /* CHOR */
+    check(live_is(0, P_IA, "RATE", F_LFOHZ_, 0, 127, 64, dash, 0, dash, dash) &&
+              live_is(0, P_IC, "FDBK", F_PCT_, 0, 127, 96, dash, 0, dash, dash),
+          "desc live: INSERT CHOR: same table as PHASR (RATE/FDBK)");
+
+    /* (c) ENV SYNC：P_ESYNC 开 ⇒ ATK/DEC/REL 换成音符名表（F_INT，25 名，范围/默认值不变）；
+     * SUS 与其它参数不受影响；静态 sloop_core_desc 不随状态变 */
+    trk[0].p[P_ITYPE] = 0;
+    trk[0].p[P_ESYNC] = 0;
+    check(live_is(0, P_ATK, "ATK", F_TIME_, 0, 127, 10, dash, 0, dash, dash) &&
+              live_is(0, P_DEC, "DEC", F_TIME_, 0, 127, 70, dash, 0, dash, dash) &&
+              live_is(0, P_REL, "REL", F_TIME_, 0, 127, 60, dash, 0, dash, dash),
+          "desc live: ENV SYNC off: ATK/DEC/REL == TP[] (F_TIME)");
+    trk[0].p[P_ESYNC] = 1;
+    check(live_is(0, P_ATK, "ATK", F_INT_, 0, 127, 10, dash, 25, "0", "4BAR") &&
+              live_is(0, P_DEC, "DEC", F_INT_, 0, 127, 70, dash, 25, "0", "4BAR") &&
+              live_is(0, P_REL, "REL", F_INT_, 0, 127, 60, dash, 25, "0", "4BAR"),
+          "desc live: ENV SYNC on: ATK/DEC/REL -> F_INT + ESYNC_NAMES, range/def as TP[]");
+    ok = sloop_core_desc_track_live(0, P_SUS, &d) && desc_same_as_base(&d, SLOOP_DESC_TRACK, 0, P_SUS) &&
+         sloop_core_desc_track_live(0, 0, &d) && desc_same_as_base(&d, SLOOP_DESC_TRACK, 0, 0);
+    check(ok, "desc live: ENV SYNC on leaves SUS/LEVEL on TP[]");
+    ok = sloop_core_desc(SLOOP_DESC_TRACK, 0, P_ATK, &d) && d.fmt == SLOOP_DESC_FMT_TIME && d.enum_count == 0u &&
+         d.min == TP[P_ATK].min && d.max == TP[P_ATK].max;
+    check(ok, "desc live: static sloop_core_desc stays F_TIME while ENV SYNC on");
+    trk[0].p[P_ESYNC] = 0;
+
+    /* (d) 鼓轨：P_E0 = kit 描述符（= ENGINE 哨兵 12 id 0），P_E1..P_E7 无描述符 */
+    check(sloop_core_desc_track_live(3, P_E0, &d) && desc_same_as_base(&d, SLOOP_DESC_ENGINE, SLOOP_CORE_NENGINES, 0) &&
+              desc_is(&d, "KIT", F_ENUM_, 0, 45, 0, dash, 46, "ACOUSTIC", "SYN4"),
+          "desc live: drum track P_E0 == DRUM_KIT_DESC (KIT, 46 kits)");
+    ok = 1;
+    for (k = 1; k < 8u; k++)
+        ok = ok && desc_rejects(3, P_E0 + k);
+    check(ok, "desc live: drum track P_E1..P_E7 rejected, out untouched");
+
+    /* (e) 越界：轨号 ≥ 4、id ≥ P_COUNT 回 false 且 out 不动；合法 id P_E7 可读 */
+    ok = desc_rejects(4, 0) && desc_rejects(4, P_E0) && desc_rejects(255, P_ATK) &&
+         desc_rejects(0, SLOOP_CORE_P_COUNT) && desc_rejects(0, 255) && desc_rejects(3, SLOOP_CORE_P_COUNT);
+    check(ok, "desc live: track >= 4 / id >= P_COUNT rejected, out untouched");
+    check(sloop_core_desc_track_live(0, SLOOP_CORE_P_COUNT - 1u, &d) &&
+              desc_same_as_base(&d, SLOOP_DESC_ENGINE, ENG_ANALOG_, 7),
+          "desc live: id P_E7 (last) readable on a synth track");
+
+    trk[0].eng_req = save_req;
+    trk[0].p[P_ITYPE] = save_itype;
+    trk[0].p[P_ESYNC] = save_esync;
+    trk[0].p[P_E0] = save_e0;
+    trk[0].p[P_E1] = save_e1;
+}
+
+/* ---------------------------------------------------- SOUND 页投影（P4-F Task 5）---
+ * sloop_core_sound_read：选中轨的引擎/预置/名字（UI 不读上游全局）。期望 = 上游表本身
+ * （ENGINES[e]->name / npresets / presets[k].name 直接比对，不经被测函数的输出）；预设下标
+ * 按上游口径 `% npresets`；鼓轨 = kit 名（drums.c 的 DRUM_KIT_NAMES：0 ACOUSTIC、5 808、
+ * 末项 SYN4），值按 drum_kit() 同法钳到 0..DRUM_KITS-1。 */
+static void test_sound_read(void)
+{
+    sloop_sound_snapshot_t sn;
+    uint8_t save_eng = trk[0].eng_req, save_preset = trk[0].preset, save_user = trk[0].user;
+    int16_t save_kit = trk[TRK_DRUM].p[P_E0];
+    uint32_t e, k, i;
+    int ok;
+
+    /* 全部引擎 × 全部预置：名字逐字节等于上游静态串（不截断）、npresets/nengines 如实 */
+    ok = 1;
+    for (e = 0; e < NENGINES; e++) {
+        const engine_t *E = ENGINES[e];
+        trk[0].eng_req = (uint8_t)e;
+        for (k = 0; k < E->npresets; k++) {
+            trk[0].preset = (uint8_t)k;
+            memset(&sn, 0, sizeof(sn));
+            ok = ok && sloop_core_sound_read(0, &sn);
+            ok = ok && sn.drum == 0u && sn.user == 0u && sn.engine == e && sn.preset == k &&
+                 sn.nengines == NENGINES && sn.npresets == E->npresets && sn.kit_name[0] == '\0';
+            ok = ok && strcmp(sn.engine_name, E->name) == 0;
+            ok = ok && strcmp(sn.preset_name, E->presets[k].name) == 0;
+        }
+    }
+    check(ok, "sound read: every engine/preset name equals the upstream table (no truncation)");
+    check(strlen(ENGINES[0]->presets[0].name) == 8 && strcmp(ENGINES[0]->presets[0].name, "808 BOOM") == 0,
+          "sound read: upstream anchor (ANALOG preset 0 = 808 BOOM) unchanged");
+
+    /* 预设下标越界：按上游口径取模（ui.c: `t->preset % e->npresets`） */
+    trk[0].eng_req = 1u; /* DIGITAL：22 个预置 */
+    trk[0].preset = 25u;
+    ok = sloop_core_sound_read(0, &sn) && sn.preset == 3u &&
+         strcmp(sn.preset_name, ENGINES[1]->presets[3].name) == 0;
+    trk[0].preset = 255u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.preset == 255u % ENGINES[1]->npresets &&
+         strcmp(sn.preset_name, ENGINES[1]->presets[255u % ENGINES[1]->npresets].name) == 0;
+    check(ok, "sound read: preset index wraps modulo npresets (upstream convention)");
+
+    /* 用户预置（终审 A1）：up_load_to 之后 t->preset = 0、t->user = slot+1。本可执行文件没有
+     * 用户预置银行，按上游留下的字段直接置位；preset_name 必须是 "USER nn"，而不是预设
+     * 下标 0 的工厂名（本文件开头的上游锚点：ANALOG 预置 0 = "808 BOOM"）。 */
+    trk[0].eng_req = 0u;
+    trk[0].preset = 0u;
+    trk[0].user = 3u;
+    ok = sloop_core_sound_read(0, &sn) && sn.user == 3u && sn.drum == 0u && sn.preset == 0u &&
+         sn.npresets == ENGINES[0]->npresets && strcmp(sn.engine_name, ENGINES[0]->name) == 0 &&
+         strcmp(sn.preset_name, "USER 03") == 0;
+    trk[0].user = 32u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.user == 32u && strcmp(sn.preset_name, "USER 32") == 0;
+    trk[0].user = 0u;
+    ok = ok && sloop_core_sound_read(0, &sn) && sn.user == 0u &&
+         strcmp(sn.preset_name, "808 BOOM") == 0;
+    check(ok, "sound read: a user preset (t->user = slot+1) shows USER nn, a factory one its name");
+    trk[0].user = 3u;
+    trk[TRK_DRUM].p[P_E0] = 0;
+    ok = sloop_core_sound_read(TRK_DRUM, &sn) && sn.drum == 1u && sn.user == 0u &&
+         strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    trk[0].user = 0u;
+    check(ok, "sound read: the drum track never reports a user preset");
+
+    /* 鼓轨：没有引擎/预置，kit 名按 P_E0 钳位取 DRUM_KIT_NAMES */
+    trk[TRK_DRUM].p[P_E0] = 0;
+    memset(&sn, 0, sizeof(sn));
+    ok = sloop_core_sound_read(TRK_DRUM, &sn) && sn.drum == 1u && sn.engine == 0u &&
+         sn.preset == 0u && sn.npresets == 0u && sn.nengines == NENGINES &&
+         sn.engine_name[0] == '\0' && sn.preset_name[0] == '\0' &&
+         strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    trk[TRK_DRUM].p[P_E0] = 5;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "808") == 0;
+    trk[TRK_DRUM].p[P_E0] = 1000;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "SYN4") == 0;
+    trk[TRK_DRUM].p[P_E0] = -7;
+    ok = ok && sloop_core_sound_read(TRK_DRUM, &sn) && strcmp(sn.kit_name, "ACOUSTIC") == 0;
+    check(ok, "sound read: drum track reports the kit name (P_E0 clamped), no engine/preset");
+
+    /* 越界 / NULL：返回 false；out 清零（没有可显示的声音）——nengines 是常量，照常给出 */
+    memset(&sn, 0xA5, sizeof(sn));
+    ok = !sloop_core_sound_read(4u, &sn);
+    for (i = 0; i < sizeof(sn); i++)
+        ok = ok && (((const uint8_t *)&sn)[i] == 0u ||
+                    (const uint8_t *)&sn + i == (const uint8_t *)&sn.nengines);
+    ok = ok && sn.nengines == NENGINES && !sloop_core_sound_read(0, NULL);
+    check(ok, "sound read: track >= 4 / out == NULL rejected (out zeroed)");
+
+    trk[0].eng_req = save_eng;
+    trk[0].preset = save_preset;
+    trk[0].user = save_user;
+    trk[TRK_DRUM].p[P_E0] = save_kit;
+}
+
 int main(void)
 {
     test_dsyn_fields();
     test_fm6_fields();
     test_sample_slot();
+    test_desc_live();
+    test_sound_read();
     if (fails) {
         printf("SYNTH HOST TEST FAILED (%d failure%s)\n", fails, fails == 1 ? "" : "s");
         return 1;

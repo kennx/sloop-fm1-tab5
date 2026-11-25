@@ -303,11 +303,21 @@ typedef struct {
  * render = 调用方是否在 LVGL 上下文（控件回调/TAP）：是则立即重绘本页；键盘路由在
  * 输入任务上下文，**不得**碰控件，只写状态层，由 30ms UI 定时器下一拍刷新
  * （与 page_params 的 sloop_ui_param_adjust 同一纪律）。 */
+static dsyn_write_t dsyn_write_st(uint8_t field, int16_t value, bool render, app_state_t *st);
+
 static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
 {
-    dsyn_write_t r = {false, value};
     app_state_t st;
-    state_get_copy(&st);
+    return dsyn_write_st(field, value, render, &st);
+}
+
+/* 快照纪律（R13）：键盘路径 sloop_ui_dsyn_adjust → dsyn_step → dsyn_write 跑在输入任务
+ * （栈 8,192B）上，整条链**只持一份** app_state_t——由最外层持有、往下传同一个缓冲，命令后
+ * 原位刷新。LVGL 上下文（± chip、TAP）用不带 `_st` 的薄封装，各自持一份。 */
+static dsyn_write_t dsyn_write_st(uint8_t field, int16_t value, bool render, app_state_t *st)
+{
+    dsyn_write_t r = {false, value};
+    state_get_copy(st);
     edit_cmd_t cmd = {0};
     if (field == DSYN_FIELD_KITSRC) {
         int32_t src = value;
@@ -315,7 +325,7 @@ static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
         if (src >= (int32_t)SLOOP_DSYN_FACTORY_KITS) src = (int32_t)SLOOP_DSYN_FACTORY_KITS - 1;
         s_act = UI_DSYN_ACT_KIT;
         cmd.type = CMD_DSYN_LOAD_KIT;
-        cmd.a = st.dsyn.kit;
+        cmd.a = st->dsyn.kit;
         cmd.b = (uint32_t)src;
     } else if (field == DSYN_FIELD_CRUSH) {
         /* kit 级 CRUSH：状态层校验 0..255、core 钳位并过 dsu_fix_kit；与声音字段同一
@@ -325,36 +335,41 @@ static dsyn_write_t dsyn_write(uint8_t field, int16_t value, bool render)
         if (crush > 255) crush = 255;
         s_act = UI_DSYN_ACT_SET;
         cmd.type = CMD_DSYN_CRUSH;
-        cmd.a = st.dsyn.kit;
+        cmd.a = st->dsyn.kit;
         cmd.v = (uint16_t)crush;
     } else {
         s_act = UI_DSYN_ACT_SET;
         cmd.type = CMD_DSYN_SET;
-        cmd.a = st.dsyn.kit;   /* 命令显式携带选择（不隐式读状态层的 kit/lane） */
-        cmd.b = st.dsyn.lane;
+        cmd.a = st->dsyn.kit;   /* 命令显式携带选择（不隐式读状态层的 kit/lane） */
+        cmd.b = st->dsyn.lane;
         cmd.n = field;
         cmd.v = (uint16_t)value;
     }
     state_apply(&cmd);
-    state_get_copy(&st);
-    r.applied = field_value(&st, field);
-    r.ok = st.synth_status == APP_SYNTH_STATUS_OK;
+    state_get_copy(st);
+    r.applied = field_value(st, field);
+    r.ok = st->synth_status == APP_SYNTH_STATUS_OK;
     if (render) refresh();
     return r;
 }
 
 /* 焦点槽 ±1（± chip、键盘 ↑/↓ 共用）：与旋钮拖拽走同一个 dsyn_write。 */
-static dsyn_write_t dsyn_step(int8_t delta, bool render)
+static dsyn_write_t dsyn_step_st(int8_t delta, bool render, app_state_t *st)
 {
     dsyn_write_t r = {false, 0};
-    app_state_t st;
-    state_get_copy(&st);
+    state_get_copy(st);
     uint8_t slot = focus_get();
     uint8_t field = k_fields[page_get()][slot];
     if (field == DSYN_FIELD_NONE) return r;
-    r.applied = field_value(&st, field);
+    r.applied = field_value(st, field);
     if (delta == 0) return r;
-    return dsyn_write(field, (int16_t)(r.applied + delta), render);
+    return dsyn_write_st(field, (int16_t)(r.applied + delta), render, st);
+}
+
+static dsyn_write_t dsyn_step(int8_t delta, bool render)
+{
+    app_state_t st;
+    return dsyn_step_st(delta, render, &st);
 }
 
 static void dsyn_audition(void)
@@ -843,5 +858,7 @@ void sloop_ui_dsyn_focus_move(int8_t delta)
 void sloop_ui_dsyn_adjust(int8_t delta)
 {
     if (delta == 0) return;
-    (void)dsyn_step(delta, false); /* 输入任务上下文：不碰控件，下一拍 UI 刷新 */
+    app_state_t st; /* 输入任务路径上唯一的一份快照：往下传给 dsyn_step_st / dsyn_write_st */
+    state_get_copy(&st);
+    (void)dsyn_step_st(delta, false, &st); /* 输入任务上下文：不碰控件，下一拍 UI 刷新 */
 }

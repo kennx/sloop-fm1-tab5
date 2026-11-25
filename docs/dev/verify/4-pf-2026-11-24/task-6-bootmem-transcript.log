@@ -1,0 +1,14 @@
+does not support escape sequences.
+
+Line editing and history f
+sloop>  ENG MEM
+ENG MEM internal_free=70379 internal_min=66544 psram_free=30094724 psram_min=30094724
+sloop>  UI sound
+I (6657) sloop_ui: 页面构建 page=SOUND(6) 池增量=5544B 预算=6144B 池剩余=42748B 耗时=9ms
+I (6657) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=13ms
+UI page=sound (6)
+sloop>  ENG MEM
+ENG MEM internal_free=70335 internal_min=66500 psram_free=30094724 psram_min=30094724
+sloop>  KEY STATS
+KEY STATS count=0 mean_us=0 max_us=0 input_stack_free=7884 phys=0 quiesce_dropped=0
+sloop>  

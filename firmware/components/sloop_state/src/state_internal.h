@@ -38,4 +38,9 @@ void state_refresh_fm6_locked(void);
 void state_refresh_settings_locked(void);
 void state_refresh_sys_locked(void);
 
+/* P4-F Task 5：SOUND 页投影的同拍刷新（调用方持 state_lock）：按**选中轨**读
+ * sloop_core_sound_read（引擎/预置/名字；鼓轨 = kit 名）。init / sync /
+ * state_refresh_locked 各调一次，CMD_SET_TRACK 与 CMD_SET_ENGINE/PRESET 成功时再调。 */
+void state_refresh_sound_locked(void);
+
 #endif

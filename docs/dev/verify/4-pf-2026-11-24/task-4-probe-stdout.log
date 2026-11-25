@@ -1,0 +1,205 @@
+  [fw] SCR
+  [fw] I (498649) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (515199) sloop_console: SCR: 传输完成，PSRAM 剩余 30094724 字节
+  [fw] sloop>  SCR
+  [fw] I (515459) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (547609) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (565699) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (583549) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] SCR
+  [fw] I (600479) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+== P4-F Task 4 device verify @ 20261124-191100
+  [PASS] ⓪ 工作工程存诊断槽 3（收口还原）
+  [PASS] 选轨 0（STATE SNAP selected_track=0）
+  [PASS] ① UI analog
+  [PASS] ① UI fm6
+  [PASS] ① UI mod
+  [PASS] ① UI scale
+  [PASS] ① UI voice
+  [PASS] ① registered=18 实得 18
+  [PASS] ① MOD state=built est=3584 delta=3032（≤ 3584）
+  [PASS] ① SCALE state=built est=3584 delta=3076（≤ 3584）
+  [PASS] ① VOICE state=built est=3584 delta=3064（≤ 3584）
+  [PASS] ① MOD build_ms=6（≤100）
+  [PASS] ① SCALE build_ms=6（≤100）
+  [PASS] ① VOICE build_ms=7（≤100）
+  [PASS] ① 九组顺序 ['PLAY', 'TRACKS', 'EDIT', 'MIX', 'SYNTH', 'SEQ', 'SONG', 'FILE', 'SYS']
+  [PASS] ① GROUP EDIT built/sum_est=(5, 20480)（期望 (5, 20480)）
+  [PASS] ② EDIT 五页全建 → UI step
+  [PASS] ② EDIT→STEP 过渡峰值 pool_free=11160B（≥4,096）
+  [PASS] ③ UI mod
+  [PASS] ③ MOD CHIP 0（ENV）
+  [PASS] ③ MOD·ENV 槽数 4（期望 4）
+  [PASS] ③ MOD·ENV 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ MOD·ENV TAP 旋钮（焦点 slot=0）
+  [PASS] ③ MOD·ENV TAP +（写后回读 21）
+  [PASS] ③ MOD·ENV 引擎回读: PARAM 1 → 21（期望 21）
+  [PASS] ③ MOD·ENV 回基线: PARAM 1 → 20（期望 20）
+  [PASS] ③ MOD CHIP 1（ENV DEST）
+  [PASS] ③ MOD·ENV DEST 槽数 4（期望 4）
+  [PASS] ③ MOD·ENV DEST 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ MOD·ENV DEST TAP 旋钮（焦点 slot=0）
+  [PASS] ③ MOD·ENV DEST TAP +（写后回读 -9）
+  [PASS] ③ MOD·ENV DEST 引擎回读: PARAM 5 → -9（期望 -9）
+  [PASS] ③ MOD·ENV DEST 回基线: PARAM 5 → -10（期望 -10）
+  [PASS] ③ MOD CHIP 2（LFO）
+  [PASS] ③ MOD·LFO 槽数 4（期望 4）
+  [PASS] ③ MOD·LFO 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ MOD·LFO TAP 旋钮（焦点 slot=0）
+  [PASS] ③ MOD·LFO TAP +（写后回读 61）
+  [PASS] ③ MOD·LFO 引擎回读: PARAM 9 → 61（期望 61）
+  [PASS] ③ MOD·LFO 回基线: PARAM 9 → 60（期望 60）
+  [PASS] ③ MOD CHIP 3（LFO 2）
+  [PASS] ③ MOD·LFO 2 槽数 3（期望 3）
+  [PASS] ③ MOD·LFO 2 逐槽 label == ENG DESC live（3 槽）
+  [PASS] ③ MOD·LFO 2 TAP 旋钮（焦点 slot=0）
+  [PASS] ③ MOD·LFO 2 TAP +（写后回读 1）
+  [PASS] ③ MOD·LFO 2 引擎回读: PARAM 60 → 1（期望 1）
+  [PASS] ③ MOD·LFO 2 回基线: PARAM 60 → 0（期望 0）
+  [PASS] ③ MOD CHIP 4（LFO DEST）
+  [PASS] ③ MOD·LFO DEST 槽数 4（期望 4）
+  [PASS] ③ MOD·LFO DEST 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ MOD·LFO DEST TAP 旋钮（焦点 slot=0）
+  [PASS] ③ MOD·LFO DEST TAP +（写后回读 1）
+  [PASS] ③ MOD·LFO DEST 引擎回读: PARAM 13 → 1（期望 1）
+  [PASS] ③ MOD·LFO DEST 回基线: PARAM 13 → 0（期望 0）
+  [PASS] ③ UI scale
+  [PASS] ③ SCALE CHIP 0（SEL）
+  [PASS] ③ SCALE·SEL 槽数 4（期望 4）
+  [PASS] ③ SCALE·SEL 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ SCALE·SEL TAP 旋钮（焦点 slot=0）
+  [PASS] ③ SCALE·SEL TAP −（写后回读 10）
+  [PASS] ③ SCALE·SEL 引擎回读: PARAM 25 → 10（期望 10）
+  [PASS] ③ SCALE·SEL 回基线: PARAM 25 → 11（期望 11）
+  [PASS] ③ SCALE CHIP 1（SEL 2）
+  [PASS] ③ SCALE·SEL 2 槽数 3（期望 3）
+  [PASS] ③ SCALE·SEL 2 逐槽 label == ENG DESC live（3 槽）
+  [PASS] ③ SCALE·SEL 2 TAP 旋钮（焦点 slot=0）
+  [PASS] ③ SCALE·SEL 2 TAP +（写后回读 1）
+  [PASS] ③ SCALE·SEL 2 引擎回读: PARAM 28 → 1（期望 1）
+  [PASS] ③ SCALE·SEL 2 回基线: PARAM 28 → 0（期望 0）
+  [PASS] ③ SCALE CHIP 2（ARP）
+  [PASS] ③ SCALE·ARP 槽数 4（期望 4）
+  [PASS] ③ SCALE·ARP 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ SCALE·ARP TAP 旋钮（焦点 slot=0）
+  [PASS] ③ SCALE·ARP TAP +（写后回读 1）
+  [PASS] ③ SCALE·ARP 引擎回读: PARAM 17 → 1（期望 1）
+  [PASS] ③ SCALE·ARP 回基线: PARAM 17 → 0（期望 0）
+  [PASS] ③ SCALE CHIP 3（ARP 2）
+  [PASS] ③ SCALE·ARP 2 槽数 4（期望 4）
+  [PASS] ③ SCALE·ARP 2 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ SCALE·ARP 2 TAP 旋钮（焦点 slot=0）
+  [PASS] ③ SCALE·ARP 2 TAP +（写后回读 1）
+  [PASS] ③ SCALE·ARP 2 引擎回读: PARAM 21 → 1（期望 1）
+  [PASS] ③ SCALE·ARP 2 回基线: PARAM 21 → 0（期望 0）
+  [PASS] ③ UI voice
+  [PASS] ③ VOICE CHIP 0（VOICE）
+  [PASS] ③ VOICE·VOICE 槽数 4（期望 4）
+  [PASS] ③ VOICE·VOICE 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ VOICE·VOICE TAP 旋钮（焦点 slot=0）
+  [PASS] ③ VOICE·VOICE TAP +（写后回读 1）
+  [PASS] ③ VOICE·VOICE 引擎回读: PARAM 37 → 1（期望 1）
+  [PASS] ③ VOICE·VOICE 回基线: PARAM 37 → 0（期望 0）
+  [PASS] ③ VOICE CHIP 1（VOICE 2）
+  [PASS] ③ VOICE·VOICE 2 槽数 4（期望 4）
+  [PASS] ③ VOICE·VOICE 2 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ VOICE·VOICE 2 TAP 旋钮（焦点 slot=0）
+  [PASS] ③ VOICE·VOICE 2 TAP +（写后回读 1）
+  [PASS] ③ VOICE·VOICE 2 引擎回读: PARAM 43 → 1（期望 1）
+  [PASS] ③ VOICE·VOICE 2 回基线: PARAM 43 → 0（期望 0）
+  [PASS] ③ VOICE CHIP 2（PATTERN）
+  [PASS] ③ VOICE·PATTERN 槽数 4（期望 4）
+  [PASS] ③ VOICE·PATTERN 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ VOICE·PATTERN TAP 旋钮（焦点 slot=0）
+  [PASS] ③ VOICE·PATTERN TAP −（写后回读 63）
+  [PASS] ③ VOICE·PATTERN 引擎回读: PARAM 29 → 63（期望 63）
+  [PASS] ③ VOICE·PATTERN 回基线: PARAM 29 → 64（期望 64）
+  [PASS] ③ VOICE CHIP 3（FILTER）
+  [PASS] ③ VOICE·FILTER 槽数 4（期望 4）
+  [PASS] ③ VOICE·FILTER 逐槽 label == ENG DESC live（4 槽）
+  [PASS] ③ VOICE·FILTER TAP 旋钮（焦点 slot=0）
+  [PASS] ③ VOICE·FILTER TAP +（写后回读 1）
+  [PASS] ③ VOICE·FILTER 引擎回读: PARAM 58 → 1（期望 1）
+  [PASS] ③ VOICE·FILTER 回基线: PARAM 58 → 0（期望 0）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-mod.png  (1280x720 rgb565)
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-voice.png  (1280x720 rgb565)
+  [PASS] ④ TAP chip「ENV」
+  [PASS] ④ console 读回 chip=0
+  [PASS] ④ TAP chip「ENV DEST」
+  [PASS] ④ console 读回 chip=1
+  [PASS] ④ TAP chip「LFO」
+  [PASS] ④ console 读回 chip=2
+  [PASS] ④ TAP chip「LFO 2」
+  [PASS] ④ console 读回 chip=3
+  [PASS] ④ TAP chip「LFO DEST」
+  [PASS] ④ console 读回 chip=4
+  [PASS] ④ CHIP 5 越界 → UI ERR chip
+  [PASS] ⑤ LFO 2：焦点 slot 2
+  [PASS] ⑤ → 后 ↑ 调的是 slot 0（环绕且跳过隐藏槽）: PARAM 60 → 2（期望 2）
+  [PASS] ⑤ ↓ 回基线: PARAM 60 → 1（期望 1）
+  [PASS] ⑤ ENTER = 焦点槽 +1: PARAM 60 → 2（期望 2）
+  [PASS] ⑤ 回基线: PARAM 60 → 1（期望 1）
+  [PASS] ⑥ MOD 20 次切 chip pool_free 40652 → 40652（Δ=+0B，|Δ| ≤128）
+  [PASS] ⑥ SCALE 20 次切 chip pool_free 40652 → 40652（Δ=+0B，|Δ| ≤128）
+  [PASS] ⑥ VOICE 20 次切 chip pool_free 40652 → 40652（Δ=+0B，|Δ| ≤128）
+  [PASS] 选轨 3（STATE SNAP selected_track=3）
+  [PASS] ⑦ 鼓轨 VOICE·VOICE locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 VOICE·VOICE 2 locked=[1, 1, 0, 1]（期望 [1, 1, 0, 1]）
+  [PASS] ⑦ 鼓轨 VOICE·PATTERN locked=[0, 0, 0, 0]（期望 [0, 0, 0, 0]）
+  [PASS] ⑦ 鼓轨 MOD·ENV locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 MOD·ENV DEST locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 MOD·LFO locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 MOD·LFO 2 locked=[1, 1, 1]（期望 [1, 1, 1]）
+  [PASS] ⑦ 鼓轨 MOD·LFO DEST locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 SCALE·SEL locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 SCALE·SEL 2 locked=[1, 1, 1]（期望 [1, 1, 1]）
+  [PASS] ⑦ 鼓轨 SCALE·ARP locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 SCALE·ARP 2 locked=[1, 1, 1, 1]（期望 [1, 1, 1, 1]）
+  [PASS] ⑦ 鼓轨 FX 逐槽 locked=[1, 1, 1, 1, 0, 0, 0, 1]（期望 TFLT/LEVEL/PAN 可编辑）
+  [PASS] ⑦ GLOBAL（旧式整页）逐槽行
+  [PASS] ⑦ 鼓轨 GLOBAL 全局参数不锁 locked={0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+  [PASS] ⑦ 旧式整页没有 chip 行：CHIP 1 → UI ERR chip
+  [PASS] ⑦ 鼓轨 VOICE·FILTER 隐藏：CHIP 3 → UI ERR chip (hidden)
+  [PASS] ⑦ 鼓轨 FILTER 那一格 TAP miss
+  [PASS] ⑦ 鼓轨 PAN TAP +（可编辑）
+  [PASS] ⑦ 鼓轨 PAN 回基线: PARAM 39 → 0（期望 0）
+  [PASS] ⑦ 鼓轨 ALLOC（锁定槽）TAP + → locked
+  [PASS] ⑦ 锁定槽值不变: PARAM 43 → 0（期望 0）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-voice-drum.png  (1280x720 rgb565)
+  [PASS] 选轨 0（STATE SNAP selected_track=0）
+  [PASS] ⑧ ANALOG 轨：FILTER 可选
+  [PASS] ⑧ FILTER 槽 {0: (58, 'TYPE', 0), 1: (67, 'CUT', 0), 2: (68, 'RES', 0), 3: (70, 'KTR', 0)}（期望 FTYPE + E4/E5/E7，id 58/67/68/70）
+  [PASS] ⑧ DIGITAL 轨：FILTER 隐藏
+  [PASS] ⑧ FILTER 选中时换到 DIGITAL ⇒ 生效 chip 回落到首个可见
+  [PASS] ⑧ DIGITAL 轨 FILTER 那一格 TAP miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-voice-digital.png  (1280x720 rgb565)
+  [PASS] ⑧ 回 ANALOG：FILTER 再出现
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-voice-filter.png  (1280x720 rgb565)
+  [PASS] ⑨ UI global（MIX 组）
+  [PASS] ⑨ UI TAB SEQ
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-p4f-task4-verify-20261124-191100-task4-tabs-seq.png  (1280x720 rgb565)
+  [PASS] ⑨ 组签选中（SEQ）左缘: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ 组签选中（SEQ）右缘（104px 宽）: (672,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] ⑨ 组签缝（SEQ|SONG）是页签条底色: (684,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ 第 9 张组签（SYS）未选中填充: (932,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ SYS 右缘仍是填充: (1008,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ 组签行右端之外（1,016+）是页签条底色: (1020,16) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑨ UI TAB MIX → 上次子页 GLOBAL
+  [PASS] ⑨ UI SUB 1 → FX
+  [PASS] ⑨ MIX 组只有 2 张子签
+  [PASS] ⑨ GROUP MIX built/sum_est=(2, 7168)、EDIT built=0（期望 (2, 7168) / 0）
+  [PASS] ⑨ MIX→STEP 过渡峰值 pool_free=22380B（≥4,096）
+  [PASS] ⑨ SEQ 两页全建 → MIX 首建 GLOBAL 过渡峰值 pool_free=25624B（≥4,096）
+  [PASS] ⑨ SEQ 两页全建 → MIX 首建后 pool_free=46872B（≥4,096）
+  [PASS] 选轨 0（STATE SNAP selected_track=0）
+  [PASS] 收口：还原工作工程
+[PASS] p4f-task4-verify: failures=0

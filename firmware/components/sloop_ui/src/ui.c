@@ -3,14 +3,16 @@
  *            + 30ms 状态同步/页面刷新
  *
  * 布局：页签条 y∈[0,72) 内两行（ADR-005「导航决策」）——上行组签
- * PLAY|TRACKS|EDIT|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示），下行当前
- * 组的子签（y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
+ * PLAY|TRACKS|EDIT|MIX|SYNTH|SEQ|SONG|FILE|SYS（y∈[4,36)，无已注册页的组不显示；组表
+ * = ui_nav.h 的 UI_GROUP_LIST，P4-F Task 4 起 9 组 104px），下行当前组的子签
+ * （y∈[38,68)，固定 5 槽复用）；页面区仍是 y∈[72,720)。每页控件在**首次
  * 进入时构建**（PLAY 在 start 内构建，保证开机首帧非空白），同组内之后只改
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
  * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
- * GLOBAL|FX|ANALOG|FM6|SAMPLE（page_params.c + knob.c，布局表 page_layout.c）/
+ * SOUND|MOD|SCALE|VOICE（EDIT 组）与 MIX 组的 GLOBAL|FX（page_params.c + knob.c，
+ * 布局表 page_layout.c；MOD/SCALE/VOICE 是 chip 页，P4-F Task 4）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
  * page_presets.c，P4-B Task 12）/ SYSTEM（page_system.c，P4-E Task 6）都在组表
@@ -67,6 +69,7 @@
 #include "page_layout.h"
 #include "page_params.h"
 #include "page_system.h"
+#include "page_tools.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
@@ -110,12 +113,16 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
     {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
+    /* TOOLS（P4-F Task 6，MIX 组第 3 张子签）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
+     * label，实测 delta 2,568–2,732B（≈320B/对象）。est = 实测 +10% 上取整到 512 的常规档
+     * 3,584（ADR-008 预算表；控制器的 7,168 是上限）。 */
+    {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 3584},
 };
 
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
  * 组内顺序 = 下行子签顺序。没有已注册成员的组 group_size()==0：组签不显示、
  * `TAB` 也跳过（注册表是可发现性的唯一来源）。
- * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，theme.h 有断言）；
+ * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，ui_nav.h 有静态断言）；
  * SYS 是 P4-E Task 6 的单页设置组。 */
 typedef struct {
     const char *name;
@@ -123,22 +130,17 @@ typedef struct {
     uint8_t pages[UI_GROUP_MAX];
 } ui_group_t;
 
-static const ui_group_t k_groups[] = {
-    {"PLAY", 1, {APP_PAGE_PLAY}},
-    {"TRACKS", 1, {APP_PAGE_TRACKS}},
-    {"EDIT", 4, {APP_PAGE_GLOBAL, APP_PAGE_FX, APP_PAGE_ANALOG, APP_PAGE_FM6}},
-    /* SYNTH（P4-D Task 8）：SAMPLE 参数页从 EDIT 移入，与 DSYN/FM6P 同组；
-     * EDIT 因此缩为 4 页（Σest 16,896），SYNTH Σest 20,480（ADR-005 §5）。 */
-    {"SYNTH", 3, {APP_PAGE_SAMPLE, APP_PAGE_DSYN, APP_PAGE_FM6P}},
-    {"SEQ", 2, {APP_PAGE_STEP, APP_PAGE_TRANSPORT}},
-    {"SONG", 1, {APP_PAGE_SONG}},   /* P4-C Task 11：独立组，不占 SEQ 稳态 */
-    {"FILE", 2, {APP_PAGE_PROJECTS, APP_PAGE_PRESETS}},
-    {"SYS", 1, {APP_PAGE_SYSTEM}},
-};
+/* 组表由 ui_nav.h 的 UI_GROUP_LIST 生成（一处定义；host 单测校验顺序/成员/每页可达）：
+ * X(名, 成员页 id…)，成员数 = 实参数。 */
+#define UI_NAV_NARG(...) UI_NAV_NARG_(__VA_ARGS__, 5, 4, 3, 2, 1, 0)
+#define UI_NAV_NARG_(a, b, c, d, e, n, ...) n
+#define X_GROUP(NAME, ...) \
+    {.name = #NAME, .count = (uint8_t)UI_NAV_NARG(__VA_ARGS__), .pages = {__VA_ARGS__}},
+static const ui_group_t k_groups[] = {UI_GROUP_LIST(X_GROUP)};
 
 #define GROUP_COUNT ((uint8_t)(sizeof(k_groups) / sizeof(k_groups[0])))
-_Static_assert(sizeof(k_groups) / sizeof(k_groups[0]) == SLOOP_UI_GROUPS,
-               "组表与 SLOOP_UI_GROUPS 不同步");
+_Static_assert(GROUP_COUNT == SLOOP_UI_GROUPS, "组表与 SLOOP_UI_GROUPS 不同步");
+_Static_assert(GROUP_COUNT == UI_GROUP_COUNT, "组表与 UI_GROUP_COUNT 不同步");
 
 static const ui_page_t *s_registry[APP_STATE_PAGES];
 static uint8_t s_reg_count;
@@ -585,7 +587,7 @@ static bool create_tab_bar(void)
     lv_obj_set_style_bg_color(bar, lv_color_hex(UI_PANEL), 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
 
-    /* 上行组签：固定 GROUP_COUNT 槽（8 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
+    /* 上行组签：固定 GROUP_COUNT 槽（9 个；无已注册页的组由 refresh_tabs 隐藏并压缩排布） */
     for (uint8_t g = 0; g < GROUP_COUNT; g++) {
         lv_obj_t *btn = make_tab_button(bar, UI_GROUP_W, UI_GROUP_H, group_clicked_cb,
                                         (void *)(uintptr_t)g);
@@ -597,8 +599,8 @@ static bool create_tab_bar(void)
         s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
-    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 4 页，
-     * SYNTH 3 页） */
+    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大的组 EDIT 4 页，
+     * MIX/SYNTH 3 页） */
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_t *btn = make_tab_button(bar, UI_SUB_W, UI_SUB_H, sub_clicked_cb,
                                         (void *)(uintptr_t)i);
@@ -609,7 +611,7 @@ static bool create_tab_bar(void)
         s_sub_labels[i] = btn; /* 单对象（同上） */
     }
 
-    /* SLOOP 标题留在上行右侧（8 个组签右端 1,048；标题从 ~1,191 起，不重叠） */
+    /* SLOOP 标题留在上行右侧（9 个组签右端 1,016；标题从 ~1,191 起，不重叠） */
     lv_obj_t *title = lv_label_create(bar);
     if (title == NULL) return false;
     s_title = title;
@@ -667,9 +669,9 @@ static void register_builtin_pages(void)
                      esp_err_to_name(ret));
         }
     }
-    /* 参数页（GLOBAL/FX/ANALOG/FM6/SAMPLE…）：布局表与注册表条目同源（page_layout.c
-     * 的 X 宏表）。注册顺序只决定 `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[]
-     * 决定（EDIT 组的子签顺序 = GLOBAL|FX|ANALOG|FM6|SAMPLE） */
+    /* 参数页（GLOBAL/FX/SOUND/SAMPLE + chip 页 MOD/SCALE/VOICE）：布局表与注册表
+     * 条目同源（page_layout.c 的 X 宏表，注册胶水在 page_params.c）。注册顺序只决定
+     * `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[] 决定 */
     esp_err_t ret = page_layout_register();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "参数页注册失败: %s", esp_err_to_name(ret));
@@ -763,20 +765,45 @@ void sloop_ui_zoom_knob(const knob_t *k)
     }
 }
 
-/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示，最后刷新已建页 */
+/* 已建页刷新：UI 拍里**唯一**的一份状态副本放在这个独立函数的帧里，不留在
+ * ui_timer_cb——后者还要调 state_sync_from_engine()（自带一份引擎快照 + 参数数组）与
+ * show_page()（自带一份状态副本，页面构建还可能再取）。当时 LVGL 任务栈是 7,168B，三份
+ * ~1.7KB 的副本叠起来后余量不足 0.5KB（P4-F Task 5 用高水位实测；再多一份即
+ * Stack protection fault）——评审 R10 之后栈是 10,240B，副本份数的限制不变。 */
+static uint32_t s_lvgl_stack_free; /* LVGL 任务栈的历史最小余量（字节；0 = 尚未跑过 UI 拍） */
+
+static void ui_refresh_built(void)
+{
+    app_state_t st;
+    state_get_copy(&st);
+    apply_lights(&st);
+    update_layer_hint(st.layer_held);
+
+    /* 只刷新已建页：懒建页在 ensure_page_built 里已按最新状态刷过首帧 */
+    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
+        if (s_page_state[i] != SLOOP_UI_PAGE_BUILT) continue;
+        const ui_page_t *def = page_def(i);
+        if (def != NULL) def->update(&st);
+    }
+}
+
+/* LVGL 任务上下文（持锁）：先同步引擎真值，再消费音符指示/待切页，最后经
+ * ui_refresh_built() 刷新已建页。 */
 static void ui_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
+    /* LVGL 任务栈余量（console `UI MEM` 的 lvgl_stack_free）：本回调恒在 LVGL 任务里跑，
+     * 每拍在任务内取高水位。内核按 StackType_t 计数；ESP-IDF 的 RISC-V 端口里它是
+     * uint8_t（portmacro.h），乘 sizeof(StackType_t) 即字节。点击路径
+     * （页眉行/±/chip/bank 的控件回调）也跑在本任务里，app_state_t ≈1.7KB 的副本叠到
+     * 第三份就压穿——ADR-008 §8.10。 */
+    s_lvgl_stack_free = (uint32_t)uxTaskGetStackHighWaterMark(NULL) * (uint32_t)sizeof(StackType_t);
     state_sync_from_engine();
     const sloop_settings_t *settings = sloop_store_settings();
     if (s_applied_palette != settings->f.palette || s_applied_theme_on != settings->f.theme_on ||
         s_applied_theme_valid != settings->theme_valid) {
         sloop_ui_theme_apply(settings);
     }
-    app_state_t st;
-    state_get_copy(&st);
-    apply_lights(&st);
-    update_layer_hint(st.layer_held);
 
     bool flash = false;
     uint8_t note = 0;
@@ -796,12 +823,8 @@ static void ui_timer_cb(lv_timer_t *timer)
     portEXIT_CRITICAL(&s_page_mux);
     if (page < APP_STATE_PAGES && page != s_page) (void)show_page(page);
 
-    /* 只刷新已建页：懒建页在 ensure_page_built 里已按最新状态刷过首帧 */
-    for (uint8_t i = 0; i < APP_STATE_PAGES; i++) {
-        if (s_page_state[i] != SLOOP_UI_PAGE_BUILT) continue;
-        const ui_page_t *def = page_def(i);
-        if (def != NULL) def->update(&st);
-    }
+    /* 状态副本与切页/构建分属两个帧（见 ui_refresh_built 的注） */
+    ui_refresh_built();
 }
 
 esp_err_t sloop_ui_start(void)
@@ -943,6 +966,7 @@ static bool page_tap(uint8_t page, int16_t x, int16_t y, sloop_tap_result_t *out
     case APP_PAGE_DSYN: return page_dsyn_tap(x, py, out);
     case APP_PAGE_FM6P: return page_fm6p_tap(x, py, out);
     case APP_PAGE_SYSTEM: return page_system_tap(x, py, out);
+    case APP_PAGE_TOOLS: return page_tools_tap(x, py, out);
     default: {
         int idx = page_layout_index(page);
         return idx >= 0 && page_params_tap((uint8_t)idx, x, py, out);
@@ -1103,6 +1127,49 @@ uint8_t sloop_ui_current_page(void)
     return s_started ? s_page : 0xFF;
 }
 
+/* 参数页 chip 框架（P4-F Task 4）：页 id → 布局表下标的薄外壳；逻辑都在 page_params.c。 */
+bool sloop_ui_param_page(uint8_t page)
+{
+    return page < APP_STATE_PAGES && page_layout_index(page) >= 0;
+}
+
+uint8_t sloop_ui_param_chip_count(uint8_t page)
+{
+    int idx = page_layout_index(page);
+    const param_page_t *pg = idx >= 0 ? page_layout_get((uint8_t)idx) : NULL;
+    return pg != NULL ? pg->chip_count : 0u;
+}
+
+esp_err_t sloop_ui_param_chip_set(uint8_t page, uint8_t chip)
+{
+    int idx = page_layout_index(page);
+    if (idx < 0) return ESP_ERR_INVALID_ARG;
+    if (!s_started || s_quiesced) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_params_chip_set((uint8_t)idx, chip);
+    bsp_display_unlock();
+    return ret;
+}
+
+uint8_t sloop_ui_param_chip_get(uint8_t page)
+{
+    int idx = page_layout_index(page);
+    return idx >= 0 ? page_params_chip_get((uint8_t)idx) : 0u;
+}
+
+bool sloop_ui_param_slot_locked(uint8_t page, uint8_t chip, uint8_t slot)
+{
+    int idx = page_layout_index(page);
+    return idx < 0 || page_params_slot_locked((uint8_t)idx, chip, slot);
+}
+
+bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t *id,
+                              const char **label, bool *locked)
+{
+    int idx = page_layout_index(page);
+    return idx >= 0 && page_params_slot_info((uint8_t)idx, chip, slot, id, label, locked);
+}
+
 /* FILE 页路由（InputManager 调用，不取 LVGL 锁）：只读单字节 s_page（与
  * sloop_ui_current_page 同一纪律）+ 改页内局部态；控件由 30ms 定时器刷新。 */
 bool sloop_ui_file_page_active(void)
@@ -1144,6 +1211,12 @@ const char *sloop_ui_sample_status_text(void)
     if (!s_started || s_page != APP_PAGE_SAMPLE) return NULL;
     int idx = page_layout_index(s_page);
     return idx >= 0 ? page_params_sample_status_text((uint8_t)idx) : NULL;
+}
+
+const char *sloop_ui_tools_status_text(void)
+{
+    if (!s_started || s_page != APP_PAGE_TOOLS) return NULL;
+    return page_tools_status_text();
 }
 
 const char *sloop_ui_dsyn_status_text(void)
@@ -1237,6 +1310,7 @@ esp_err_t sloop_ui_page_pool_stats(sloop_ui_pool_stats_t *out)
     out->pool_total = (uint32_t)mon.total_size;
     out->pool_free = (uint32_t)mon.free_size;
     out->pool_used = (uint32_t)(mon.total_size - mon.free_size);
+    out->lvgl_stack_free = s_lvgl_stack_free;
     out->registered = s_reg_count;
     for (uint8_t i = 0; i < s_reg_count; i++) {
         const ui_page_t *def = s_registry[i];

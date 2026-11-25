@@ -1,0 +1,2 @@
+# DI-55：UI QUIESCE on/off ×4 的 internal_free 差（诊断构建，无自检；/tmp/p4f_t2/exp-20261124-162301.log 的工具侧读数）
+q_on1 -40 / q_off1 -44 / q_on2 -36 / q_off2 -40 / q_on3 -44 / q_off3 -36 / q_on4 0 / q_off4 -8

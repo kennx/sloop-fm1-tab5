@@ -1,0 +1,3 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2342:32: error: implicit declaration of function ‘state_selected_track’ [-Wimplicit-function-declaration]
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2343:41: error: implicit declaration of function ‘state_selected_engine’ [-Wimplicit-function-declaration]
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2344:27: error: implicit declaration of function ‘state_read_p’ [-Wimplicit-function-declaration]

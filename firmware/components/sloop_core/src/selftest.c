@@ -391,6 +391,14 @@ esp_err_t sloop_core_init(void)
             return core_status;
         }
     }
+    /* host 替身 tests/cpu1_host.c（hostsim.c 无条件编入）在第一次 cpu1_on()——mix_block 每块都调——
+     * 里懒初始化：pthread_mutex_init / pthread_cond_init 在内部堆上创建互斥与条件量，句柄与 `init`
+     * 标志都在它的 static `c1h` 里，而 c1h 是本 TU 的 .bss，落在下面的快照窗口内。不先初始化一次，
+     * 快照里的 c1h 就是「未初始化」，selftest_restore() 在每个 job 前把它回滚 ⇒ 每个 job 的第一块
+     * 重新创建一对 mutex/cond、丢掉旧的：每执行一个 job 泄漏 208B 内部堆（182 例 ≈ 40KB，原 DI-26）。
+     * 快照之前跑一次，窗口里留下的就是已初始化状态与仍然有效的句柄。设备上 CORES 恒为 1
+     * （getenv 替身只认 JOBS）：job 在 cpu1_wait 内联执行，这两个对象创建后不再被使用。 */
+    cpu1_on();
     core_status = selftest_snapshot_init();
     if (core_status != ESP_OK) return core_status;
     /* 存储（P4-B，ADR-009 §5 启动顺序）：**工厂态快照之后**才做 PSRAM 槽/暂存 + 分区
@@ -646,7 +654,8 @@ void sloop_core_set_global(uint32_t id, int16_t value)
  * mode 依赖 label/names）处替换静态表。这里**不**投影动态钩子，直接取 TP[]/edit[]：
  * 前提是这些动态描述符的 min/max 与静态表相同（上游现状如此，只换 label/names/unit）。
  * 若上游某次改动让动态范围不同于静态范围，本函数的钳位会与 UI 显示范围不一致——
- * 届时须把动态钩子纳入（需要 track 上下文，sloop_core_desc 已登记同一限制）。 */
+ * 届时须把动态钩子纳入——带轨道上下文的读取入口已存在：sloop_core_desc_track_live()
+ * （上游 track_desc()，desc_tab5.h）；本函数仍是钳位表，与上游 lock_desc() 同取静态表。 */
 static const param_desc_t *param_desc_at(const track_t *t, uint32_t id)
 {
     if (id < P_E0) return &TP[id];
@@ -690,68 +699,9 @@ void sloop_core_read_params(uint32_t track, int16_t *p, int16_t *g)
 }
 
 /* ------------------------------------------------- 描述符投影 --- */
-/* 公开 fmt 镜像（sloop_core.h 的 sloop_desc_fmt_t）↔ 上游 core.h 的 F_*：换上游版本
- * 时编译期暴露，显示层（参数页）按镜像常量分支格式化。 */
-_Static_assert((int)SLOOP_DESC_FMT_INT == (int)F_INT && (int)SLOOP_DESC_FMT_PCT == (int)F_PCT &&
-                   (int)SLOOP_DESC_FMT_BIPCT == (int)F_BIPCT && (int)SLOOP_DESC_FMT_TIME == (int)F_TIME &&
-                   (int)SLOOP_DESC_FMT_LFOHZ == (int)F_LFOHZ && (int)SLOOP_DESC_FMT_CUTOFF == (int)F_CUTOFF &&
-                   (int)SLOOP_DESC_FMT_DB == (int)F_DB && (int)SLOOP_DESC_FMT_SEMI == (int)F_SEMI &&
-                   (int)SLOOP_DESC_FMT_ENUM == (int)F_ENUM && (int)SLOOP_DESC_FMT_BPM == (int)F_BPM &&
-                   (int)SLOOP_DESC_FMT_NOTE == (int)F_NOTE && (int)SLOOP_DESC_FMT_ONOFF == (int)F_ONOFF &&
-                   (int)SLOOP_DESC_FMT_OCT == (int)F_OCT && (int)SLOOP_DESC_FMT_STEPS == (int)F_STEPS &&
-                   (int)SLOOP_DESC_FMT_SWING == (int)F_SWING && (int)SLOOP_DESC_FMT_FILT == (int)F_FILT,
-               "sloop_desc_fmt_t 与上游 core.h 的 F_* 编码不同步");
-
-/* 上游 param_desc_t → 公开 sloop_desc_t（契约见 sloop_core.h）。names 的非 F_ENUM 表
- * 以 0 终止（上游 param_format 同口径），F_ENUM 表按 PE() 约定「每值一名」=
- * max-min+1，不依赖终止符。 */
-static uint8_t desc_enum_count(const param_desc_t *d)
-{
-    if (d->names == NULL) return 0;
-    if (d->fmt == F_ENUM) return (uint8_t)(d->max - d->min + 1);
-    uint32_t n = 0;
-    while (n < 64u && d->names[n] != NULL) n++;
-    return (uint8_t)n;
-}
-
-bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, sloop_desc_t *out)
-{
-    const param_desc_t *d;
-    switch (scope) {
-    case SLOOP_DESC_TRACK:
-        if (id >= P_E0) return false; /* P_E0..P_E7 无轨道上下文，走 ENGINE */
-        d = &TP[id];
-        break;
-    case SLOOP_DESC_GLOBAL:
-        if (id >= G_COUNT) return false;
-        d = &GP[id];
-        break;
-    case SLOOP_DESC_ENGINE:
-        if (id >= 8u) return false;
-        if (engine == SLOOP_CORE_NENGINES) { /* 鼓轨哨兵（上游 ed_eng 对鼓轨报 NENGINES） */
-            if (id != 0u) return false;      /* 鼓轨只有 P_E0 = kit */
-            d = &DRUM_KIT_DESC;
-        } else if (engine < NENGINES) {
-            d = &ENGINES[engine]->edit[id];
-        } else {
-            return false;
-        }
-        break;
-    default:
-        return false;
-    }
-    if (out != NULL) {
-        out->label = d->label;
-        out->unit = d->unit;
-        out->fmt = d->fmt;
-        out->min = d->min;
-        out->max = d->max;
-        out->def = d->def;
-        out->enums = d->names;
-        out->enum_count = desc_enum_count(d);
-    }
-    return true;
-}
+/* sloop_core_desc（静态基础表）与 sloop_core_desc_track_live（上游 track_desc，随轨道状态）：
+ * 与 scripts/synth-host-test.c 同源编译，见 desc_tab5.h。 */
+#include "desc_tab5.h"
 
 void sloop_core_set_mute(uint32_t k, bool mute)
 {

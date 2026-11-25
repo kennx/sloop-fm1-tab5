@@ -25,6 +25,8 @@ typedef struct {
     struct { uint8_t on, lvl, rat; } dstep[STUB_ENGINE_STEPS]; /* 鼓轨聚合后端（窗口读） */
     sloop_dstep_t raw_dstep[STUB_ENGINE_STEPS];
     uint8_t lock_present[4][STUB_ENGINE_STEPS];
+    uint8_t lock_param[4][STUB_ENGINE_STEPS];      /* lock_set 写入的参数 id（lock_list 据此回读）*/
+    uint32_t lock_list_calls;
     esp_err_t seq_ret;
     bool seq_frozen;
     uint32_t seq_step_edit_calls, seq_pattern_calls, seq_micro_calls, seq_fill_calls;
@@ -117,6 +119,17 @@ typedef struct {
     uint32_t hal_bright_calls, hal_vol_calls, hal_out_calls;
     uint8_t hal_last_value;
     esp_err_t hal_ret;              /* set_bright/set_volume/set_output(speaker) 的返回 */
+    /* P4-F Task 5：SOUND 页投影后端（sloop_core_sound_read：每轨的引擎/预置下标 + 假引擎表
+     * 的名字与预置数）与换引擎/换预置命令替身。换引擎 ⇒ 预置回 0 且该轨 P_E0 写
+     * engine+1；换预置 ⇒ P_E1 写 preset+1（「命令后 p[] 同拍刷新」的可观察证据）。 */
+    uint8_t sound_engine[4], sound_preset[4], sound_user[4]; /* sound_user = 上游 t->user（slot+1） */
+    uint32_t sound_read_calls, set_engine_calls, apply_preset_calls;
+    uint32_t last_set_engine_track, last_set_engine, last_preset_track, last_preset;
+    /* P4-F Task 6：TOOLS 三动作替身（返回 tools_ret 并记录动作）。 */
+    uint32_t tools_calls, last_tools_action;
+    esp_err_t tools_ret;
+    uint32_t no_desc_id;            /* sloop_core_desc_track_live 替身：该 id 在任何轨上都「无描述符」；
+                                       0xFFFFFFFF = 全部有（默认） */
 } stub_engine_t;
 
 extern stub_engine_t g_stub;
