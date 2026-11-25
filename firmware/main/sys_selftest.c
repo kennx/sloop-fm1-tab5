@@ -60,10 +60,10 @@ static void sys_selftest_task(void *arg)
     state_set_selftest_result(ran, failed);
     ESP_LOGI(TAG, "结果 ran=%u failed=%u", (unsigned)ran, (unsigned)failed);
     /* 栈高水位（DI-43(1)）：SYS_SELFTEST_STACK 按这里的实测收缩，留 1KB 余量。
-     * 内核 10.5.1 的 uxTaskGetStackHighWaterMark 实际返回**字**（FreeRTOS-Kernel tasks.c 的
-     * prvTaskCheckFreeStackSpace：`ulCount /= sizeof(StackType_t)`；头文件注释写的是字节，与实现
-     * 相反；16KB 栈实测返回 3,059），故乘 sizeof(StackType_t) 换成字节。终审 B 曾按头文件注释
-     * 判为字节——按实现是字，本文件与 ui.c/input.c/store_tab5.c 的同一换算不变。 */
+     * uxTaskGetStackHighWaterMark 的返回值单位 = sizeof(StackType_t)：内核（FreeRTOS-Kernel tasks.c
+     * 的 prvTaskCheckFreeStackSpace）数的是字节，再 `ulCount /= sizeof(StackType_t)`。本端口
+     * `portSTACK_TYPE` 是 uint8_t（portmacro.h）⇒ 返回的就是**字节**（16KB 栈实测 12,236）。
+     * 下面的 `* sizeof(StackType_t)` 是 ×1，只是保留与其它端口同一写法。 */
     ESP_LOGI(TAG, "stack hwm=%u", (unsigned)(uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t)));
     vTaskDelete(NULL);
 }
