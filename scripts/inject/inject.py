@@ -1523,6 +1523,39 @@ def erase_tap_note(s: Session, col: int, key: int, note: int) -> None:
         f"②g 步 {col} = NOTE {note}（实得 n={st['n']} note={st['note0']} time={st['time']}）")
 
 
+def erase_audible_norm(s: Session) -> tuple:
+    """②g 发声探针的前提（R20）：轨 0 未静音且 LEVEL = 默认 104。入口工程可能带着静音/极低
+    音量的轨 0（autosave 恢复的场景残留）⇒ 记原值、经 PARAM 归一，`erase_audible_restore`
+    写回。必须在 `proj_snapshot_open` **之后**调用：快照里是入口值，收口 LOAD 还原的也是
+    入口值（选中轨同理：收口后回到入口选中轨）。"""
+    s.cmd("STATE SNAP")
+    sel0 = s.snap_int(r"selected_track=(\d+)")
+    select_track(s, 0)
+    s.cmd(f"PARAM {ENG_P_MUTE}")
+    mute0 = param_value(s)
+    s.cmd(f"PARAM {ENG_P_LEVEL}")
+    level0 = param_value(s)
+    s.cmd(f"PARAM {ENG_P_MUTE} 0")
+    s.expect(rf"PARAM track=0 id={ENG_P_MUTE} value=0 applied=0", "②g 归一 P_MUTE=0（发声探针前提）")
+    s.cmd(f"PARAM {ENG_P_LEVEL} {ENG_LEVEL_DEF}")
+    s.expect(rf"PARAM track=0 id={ENG_P_LEVEL} value={ENG_LEVEL_DEF} applied={ENG_LEVEL_DEF}",
+             f"②g 归一 P_LEVEL={ENG_LEVEL_DEF}（发声探针前提）")
+    return sel0, mute0, level0
+
+
+def erase_audible_restore(s: Session, orig: tuple) -> None:
+    sel0, mute0, level0 = orig
+    select_track(s, 0)
+    s.cmd(f"PARAM {ENG_P_MUTE} {mute0}")
+    s.expect(rf"PARAM track=0 id={ENG_P_MUTE} value={mute0} applied={mute0}",
+             f"②g 还原 P_MUTE={mute0}")
+    s.cmd(f"PARAM {ENG_P_LEVEL} {level0}")
+    s.expect(rf"PARAM track=0 id={ENG_P_LEVEL} value={level0} applied={level0}",
+             f"②g 还原 P_LEVEL={level0}")
+    if sel0 != 0:
+        select_track(s, sel0)
+
+
 def run_step_edit_erase(s: Session) -> None:
     """②g EDIT 层 a–g：Aa + 音名键删除聚焦步里**所有该音级**的音符（跨八度；按精确音高下发
     `CMD_ERASE_NOTE`，`input.c` 的 act_erase）。断言引擎真值 `ENG STEP`：命中的音消失、
@@ -1539,7 +1572,7 @@ def run_step_edit_erase(s: Session) -> None:
     # 收口 LOAD 还原。入口槽 D 若非空，其内容被本快照覆盖（注记）；入口为空则收口擦回空。
     # 基线跨截屏复位重跑保持（proj_snapshot_open，终审 C-I1）。
     proj_snapshot_open(s, "step_edit.erase", 3, "②g")
-    select_track(s, 0)
+    audible0 = erase_audible_norm(s)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
     s.expect(r"UI page=step \(2\)", "②g UI step")
@@ -1673,6 +1706,7 @@ def run_step_edit_erase(s: Session) -> None:
     # 收口：LOAD 入口快照还原工作工程（本段造/擦的音随之消失），LIVEHASH 逐位证明；
     # last_note 回 60、焦点回 T1 入口列。槽 D 入口为空则擦回空。
     proj_snapshot_close(s, "step_edit.erase", 3, "②g")
+    erase_audible_restore(s, audible0)
     s.cmd("KEY 0x%02X down" % KEY_NOTE_C4)
     s.expect(rf"KEY 0x{KEY_NOTE_C4:02X} down", "②g 收口 last_note = 60")
     s.cmd("KEY 0x%02X up" % KEY_NOTE_C4)
