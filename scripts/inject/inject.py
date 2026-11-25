@@ -2126,7 +2126,7 @@ def run_tracks_keys(s: Session) -> None:
     # 当前选中轨 1 ≠ 3 ⇒ 有判别力。K_4 在基础层**没有**绑定（高行黑键是 2/3/5/6/7），
     # 不按层键时它既不出声也不改 last_note；收口仍按入口值还原 last_note）
     s.cmd("KEY 0x04 down")
-    s.expect(r"KEY 0x04 down 4 elapsed_us=", "松开 Ctrl 后按 4（演奏键）")
+    s.expect(r"KEY 0x04 down 4 elapsed_us=", "松开 Ctrl 后按 4（基础层无绑定：不出声）")
     s.cmd("KEY 0x04 up")
     s.cmd("STATE SNAP")
     s.expect_int(r"layer_held=0x([0-9A-F]{2})", 0, "松开 Ctrl 后 layer_held = 0")
