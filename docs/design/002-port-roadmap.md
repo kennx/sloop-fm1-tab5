@@ -21,7 +21,7 @@
 | 1 | 平台 bring-up | Tab5 成为**可观测、可验证**的目标机：屏/触摸/键盘/音频/截屏/分区 | SCR 截屏视觉检查；按键触摸日志；听音 | 🔶 机器侧完成 + 听音✅；余 3 项人测（见下注） |
 | 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | 🔶 机器侧完成（设备/host 182/182 同源哈希 + PERF；人耳待办，见下注） |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | 🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）；人测 4 项（见下注） |
-| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **进行中**（2026-11-25，`feat/phase4f`：Task 0–9 完成、文档与证据已由 Task 10a 收口；最终设备矩阵已在终审后的固件 `d317a72` 上通过（Task 10b/10c），最终 3h soak 运行中、收口报告为草稿（`docs/dev/closeout-phase4.md`）；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
+| 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **机器侧完成**（2026-11-26，`feat/phase4f`：Task 0–10 完成；最终设备矩阵在终审后的固件 `d317a72` 上通过——十场景 5,007/0、10c3 最终回归 **5,017/0**、截屏矩阵 481/0、最终 3h soak PASS；人测项待办、dev→main 不在本阶段；收口报告 `docs/dev/closeout-phase4.md`；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
 | 5 | 联动模式 | FM-1 双机同步（编辑器协议双向 + UAC1 采集） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
 
 > 排序与门禁优先于日历估时（不设假精度的工期）：阶段 2 与阶段 4 体量最大（引擎对齐 / 功能对齐），阶段 1、3 次之，阶段 5 含 DI-1 驱动自研的不确定面。
@@ -41,7 +41,7 @@
 > **P4-D 完成（2026-11-23，`feat/phase4d` Task 12 收口；机器侧）**：声音设计面落地——USR1–4 采样槽（flash 原始槽 + PSRAM 镜像、串口 `SMP` 上传、CRC/zone 校验、开机/上传收尾/自检收尾同步）、DSYN 4 kit × 16 lane × 22B 编辑面（24 虚拟字段、工厂 kit、试听、DSU 随 PER3 持久化）、FM6 155B 深度 patch（6×21+29 字段、ALG 同锁清宏、bank 27 槽持久化），新增 **SYNTH 组**（SAMPLE/DSYN/FM6P，14 页/7 组）。证据包 `docs/dev/verify/4-pd-2026-11-23/`（`readme.md` 门禁→命令→结论、`SHA256SUMS`）：构建 clean+增量 **0 警告**、烧录三段 `Hash of data verified`、设备 `ENG SELFTEST` **182/182**、九条注入场景同会话 **3,455 PASS / 0 FAIL**（transport 286 / step_edit 196 / tracks 11 / nav 156 / params 197 / store 903 / song 354 / sequence 562 / synth 790）、复位后 `soak.py --duration 1800 --interval 60 --save-window 900` **PASS**（详细数值见证据包 readme）。SYNTH 组 Σ est 20,480B（实测 `sum_delta` 17,696–17,936B），SYNTH→STEP 峰值 `pool_free 11,244B`，最终矩阵最低跨组余量 `song` ⑩ FILE→STEP **8,924B**（≥4,096B）。人测项延续（键盘 DI-4、触摸 DI-10/16、目检、听感 DI-7/39）；新增遗留 DI-34（WAV/SD 导入）、DI-38（DSYN-only 延迟写）、DI-36（FM6 live patch 掉电语义）、DI-37（名称文本输入）；DI-26（自检堆泄漏）仍须 P4-F 前处理。**P4-E 入口**：设置页（SCREEN/AUDIO/SYSTEM/LIGHTS，`OBJ_SETTINGS` 上游格式）。
 
 > **P4-E 完成（2026-11-24，`feat/phase4e` Task 8 收口；机器侧）**：设置面落地——SYS 组 / SYSTEM 页（COLOR 内置 5 档 + side theme、ZOOM、BRIGHT、LIGHTS、VOLUME、OUTPUT、LOWCUT、FILTER RESO、SELFTEST chip；15 页/8 组，组签 122px）、settings 生效副本随 PER3 持久化（palette/lowcut/zoom/lights/reso/theme_on/REC 三项，owned-bits RMW、尾段 byte38 RMW）、NVS 平台三键延迟提交、键盘 RGB（lights_lvl + accent）、运行时 palette/theme 与 ZOOM 大读数、D7 golden 归零与自检收尾重载、`STORE SETTINGS` / `DISP` / `AUD VOL|OUT` / `KBD RGB` / `SYS NVS` 诊断面；输出路由按原理图降级 speaker-only（DI-39）。证据包 `docs/dev/verify/4-pe-2026-11-23/`（`readme.md` 门禁→命令→结论、`SHA256SUMS` 141 项）：构建 clean+增量 **0 警告**、烧录 ×3 各三段 `Hash of data verified`、设备 `ENG SELFTEST` **182/182**、十条注入场景同会话 **3,794 PASS / 0 FAIL**（transport 312 / step_edit 196 / tracks 11 / nav 157 / params 197 / store 903 / song 354 / sequence 562 / synth 790 / sys 312；sequence/synth/sys 复跑 1,664/0，合计 5,458/0）、复位后 `soak.py --duration 1800 --interval 60 --save-window 900` **PASS**（内部堆 Δ−16B、min 66,016B、xrun 0、duty_mean ≤12.41%、池往返 Δ+32B、save 窗口 xrun 增量 0）。SYSTEM est 10,240 / delta 5,464B，SEQ→SYS/SYS→STEP 池余量 15,396/23,140B，最低跨组 8,024B。**复核缺口已在修复轮关闭（2026-11-24，干净树 `86711a4` 重跑 store 902/0、sys 328/0、182/182、soak PASS）**：DI-40 根因 = 全量自检泄漏 ~40KB（DI-26）后音频任务 4KB 栈被 `xTaskCreate` 落到 P4 LP SRAM（DSP 慢 ~24×），修复为显式 `INTERNAL|DMA` 常驻 L2MEM 栈 + 静态 TCB（`c62823e`，ADR-007）；DI-42 属实并修复（默认 palette 归 4，`f67e58c`）；DI-41 由诊断 `SYS SELFTEST ARM` 补齐 chip 全路径证据（`7e386ca`）。人测项延续（键盘 DI-4、触摸 DI-10/16、目检、听感 DI-7/39、亮度/音量/RGB 可视可听）；DI-26 仍须 P4-F 前处理。
-> **P4-F 进行中（2026-11-25，`feat/phase4f`；Task 0–9 完成，Task 10 收口中）**：已落地——DI-26 定位并修复
+> **P4-F 机器侧完成（2026-11-26，`feat/phase4f`；Task 0–10 完成，人测项与 dev→main 除外）**：已落地——DI-26 定位并修复
 > （Task 2：host 替身 `cpu1_host` 的懒初始化落在自检快照窗口内；`scripts/selftest-heap.py` 守「第二次全量前后
 > 差 ≤1KB」，实测 −268/−36B；DI-43(1) worker 栈 16,384→5,632B）；功能对齐清单落成（`docs/design/
 > 012-feature-parity-checklist.md`，64 行：✅42 / ◐5 / ○9 / 非目标 8，**无未处置行**，余项全部有 DI 或
@@ -61,8 +61,13 @@
 > transport 288 / store 908 / song 354 / sequence 562 / synth 794 / sys 354）、复跑 sequence 562 / synth 794 /
 > nav 583 / sys 354、截屏矩阵 **481/0**（33 条目 / 166 锚点，播放头存在性锚点首次在设备上命中）、有序对最紧
 > 6,620B、`lvgl_stack_free` 5,116B；终审修复波的欠账验证 a–f 通过；`step_edit` ②g 的发声前提自归一（裁决 R20，
-> 只改脚本：轨 0 静音的入口上 321/0）。**仍未闭合**：最终固件上的 3h soak（2026-11-25 23:24 起跑，读数 pending）
-> 与全部人测项；收口报告草稿 `docs/dev/closeout-phase4.md`。证据 `docs/dev/verify/4-pf-2026-11-24/`（§6 = 10b、§7 = 10c）。**硬件限制（裁决 R15）**：INA226 的测量点在电池侧（VBUS 引脚 = `SYS_BAT_PRE`），
+> 只改脚本：轨 0 静音的入口上 321/0）、CYAN 入口红按裁决 R23 修（只改脚本：场景入口归一 MONO 并在收尾还原）。
+> **最终 3h soak PASS**（2026-11-26，固件 `d317a72`：实测 10801s / 181 采样 / 断言失败 0；内部堆 69,747→69,731B、
+> xrun 0、duty_mean ≤12.78%、池往返 Δ−12B、save 窗口 xrun 增量 0）。**10c3 最终回归（2026-11-26，HEAD `03798f1`，固件与 `d317a72`
+> 逐字节同一）**：R23 的 CYAN 入口判别运行 `step_edit` 326/0 且入口 palette 被还原、CYAN 入口的 `store` 911/0、十场景同一会话
+> **5,017 PASS / 0 FAIL**（transport 288 / step_edit 323 / tracks 84 / nav 583 / params 768 / store 907 / song 354 / sequence 562 / synth 794 / sys 354）、截屏矩阵 33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL、
+> `device-selftest.py` 182/182。**仍未做的只有人测项**（收口报告 §5）与 dev→main（用户 2026-11-24 明示不在本阶段）；
+> 收口报告 `docs/dev/closeout-phase4.md`。证据 `docs/dev/verify/4-pf-2026-11-24/`（§6 = 10b、§7 = 10c）。**硬件限制（裁决 R15）**：INA226 的测量点在电池侧（VBUS 引脚 = `SYS_BAT_PRE`），
 > USB-C 供电时读 ≈0.9V/0mA，**USB 输入功率不可观测**；soak 的功耗/温度列仅记录，装上 NP-F550 后才有
 > 意义（人测项）。**账目提示**：LVGL 池 base 重测 ≈14.0KB（原 11,624），最坏有序对 SEQ→PRESETS 的纸面
 > 账略超 63,120，实测 72/72 对全部 ≥4,096B（最紧 6,408–6,424B）——ADR-005 §5.5、DI-56。任务栈：
