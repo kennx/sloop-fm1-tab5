@@ -22,7 +22,7 @@
 | 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | 🔶 机器侧完成（设备/host 182/182 同源哈希 + PERF；人耳待办，见下注） |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | 🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）；人测 4 项（见下注） |
 | 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **机器侧完成**（2026-11-26，`feat/phase4f`：Task 0–10 完成；最终设备矩阵在终审后的固件 `d317a72` 上通过——十场景 5,007/0、10c3 最终回归 **5,017/0**、截屏矩阵 481/0、最终 3h soak PASS；人测项待办、dev→main 不在本阶段；收口报告 `docs/dev/closeout-phase4.md`；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
-| 5 | 联动模式 | FM-1 双机同步（编辑器协议双向 + UAC1 采集） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
+| 5 | 联动模式 | 对齐 Sloop Go（界面重构 + 联动模式） | 真机协议冒烟 + 前后截屏 diff | ⬜ |
 
 > 排序与门禁优先于日历估时（不设假精度的工期）：阶段 2 与阶段 4 体量最大（引擎对齐 / 功能对齐），阶段 1、3 次之，阶段 5 含 DI-1 驱动自研的不确定面。
 >
@@ -166,20 +166,24 @@
 
 **目标**：刷 SLOOP 的 FM-1 经 USB 接入后，达到 Sloop Go 级别的双机同步体验（AGENTS §1.2）。
 
-| 任务 | 内容 | 验证 |
-|---|---|---|
-| P5-0 前置 | FM-1 真机接入（device-notes 登记，SLOOP 版本经 INFO 回读）；使能 USB-A VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`，不开则总线无电、表现为静默无设备，tab5-hardware §3.11）；**双模式调度与共存策略 ADR**（FM-1 接入时本地会话处置：切换/并行/双音频源；对应 AGENTS §3 `main/`「待：双模式调度」预留课题）；**解决 DI-1**：ADR-002 选型并实现 USB-MIDI host 类驱动 | 设备枚举 1209:0001，MIDI 端口 "Felucca"；调度 ADR 落档 |
-| P5-1 usb_fm1 组件 | MIDI bulk IN/OUT + 4 字节事件包 + SysEx 重组（参考 fm1-cartridge 先例） | 环回 + 真机收发 |
-| P5-2 editor_proto 组件 | 帧编解码（以上游 `EDITOR_PROTOCOL.md` 为权威，⚠️ 版本开工复核）、INFO 协商、GET/SET、WATCH/PING、push 解析、one-in-flight 队列、LIVE 遥控 | codec round-trip 单测 + mock 对端冒烟 |
-| P5-3 同步层 | DeviceController（FIFO + 瞬时 SET 合并）/ DeviceState（不可变快照）语义移植自 Sloop Go；断连丢弃队列/草稿 | 同步场景测试 |
-| P5-4 Companion UI | 连接状态页、编辑页（直驱 FM-1）、LIVE 遥控面板；复用 P3-4 状态抽象 | 截屏 + **前后截图 diff 证明双向同步**（FM-1 操作 → Tab5 SCR 变化；Tab5 操作 → FM-1 屏幕人工确认） |
-| P5-5 音频采集 | usb_host_uac 采集 FM-1 UAC1 → 混音/监听出 ES8388。⚠️ FM-1 的 UAC1 速率由其固件设置决定（44.1/48k），与本地 44.1k 混音存在双时钟/SRC 问题（重采样或时钟主从方案届时定） | 听音（无可闻漂移/爆音）+ 采集统计日志 |
+阶段 5 同时把界面对齐 Sloop Go（设计规格 `docs/superpowers/specs/2026-11-26-phase5-sloop-go-alignment-design.md`，子阶段划分见其 §6）。原 P5-0…P5-5 任务表拆成 5A–5E 五个子阶段，连接先行：
+
+| 子阶段 | 目标 | 对应原任务 | 状态 |
+|---|---|---|---|
+| **5A 连接打通** | FM-1 插入 USB-A → Tab5 识别设备 → INFO 版本协商 → WATCH/PING 保活，设备上的旋钮改动以 CHANGED 推送到 Tab5；全部状态经 console 命令可读、可脚本断言。不做 UI 页面 | P5-0、P5-1、P5-2 的编解码/INFO 子集 | 🔶 进行中（2026-11-26，`feat/phase5-sloop-go`） |
+| **5B 新壳 + Sound + Mixer + Device 页** | 按 Sloop Go 换壳（左上固定簇 + 下拉页菜单 + 每页页眉）；Sound 页（单轨编辑）、Mixer、Device 页；旧 SOUND/MOD/SCALE/VOICE/GLOBAL/FX 与 TRACKS 页退役 | P5-4 的连接状态页；其余为新增的界面重构 | ⬜ |
+| **5C 同步层 + 双模式** | DeviceController / DeviceState 语义移植（请求队列、瞬时 SET 合并、断连丢弃）；双模式调度 ADR；编辑页直驱 FM-1；LIVE 轮询 | P5-2 的 one-in-flight 队列与 LIVE 遥控、P5-3、P5-4 | ⬜ |
+| **5D Sequencer + Live + Song** | 音序页（鼓格 / 钢琴卷帘）、Live 页（punch-in 垫、混音卡）、Song 页；旧 STEP / TRANSPORT / PLAY / TOOLS 页退役；吸收阶段 4 的大部分 DI | LIVE 遥控的 Now/Late 与 SEND 随音序页落地；其余为新增的界面重构 | ⬜ |
+| **5E 声音设计页 + Pattern 库 + Recorder** | Drum synth / FM6 / Samples（含 Chop）页、MIDI patterns、Recorder（UAC1 采集 → WAV，FLAC 可选） | P5-5 | ⬜ |
+
+> 阶段 5 的决策登记：**ADR-002** USB-MIDI host 选型（`docs/design/013-usb-midi-host.md`，5A Task 0 落档，关闭 DI-1 的选型部分）；双模式调度 ADR 随 5C 落档。硬件前置不变：USB-A 口须先使能 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`，不开则总线无电、表现为静默无设备，tab5-hardware §3.11）；FM-1 接入状态登记在 `docs/dev/device-notes.md` §3。
 
 **完成判据**：
 1. §5.5「联动协议」门禁生效并全绿（连接 → INFO 版本协商 → WATCH push 可达，冒烟脚本化）；
 2. 双向同步场景清单全过（编辑下发 / 推送上行 / LIVE 遥控 / 断连恢复）；
 3. 音频采集可听；
-4. DI-1 条目删除（ADR-002 已沉淀）；**强制里程碑：dev → main 合并**。
+4. DI-1 条目删除（ADR-002 已沉淀）；**强制里程碑：dev → main 合并**；
+5. 新界面的人眼对照目检通过（对照 `third_party/sloop-fm1-go/screenshots/`，由用户目检）。
 
 ## 8. 横切事项（全阶段）
 
@@ -197,3 +201,4 @@
 | 2026-11-19 | 首版：阶段 0–5 划分、任务编号（P1-x…P5-x）与各阶段完成判据 |
 | 2026-11-19 | 评审修订（1 Critical + 3 Important + 7 Minor）：证据入库策略（§8/P1-7/阶段 4，配套 AGENTS §5.4 与 verification-log）；浮点等价可执行化（FP contraction 对策 + 误差度量容差通道）；分区 OTA 姿态定稿（单 factory app，算术自洽）；资产再分发许可核查；44.1kHz 对齐（P1-6/P2-3）；USB-A VBUS 使能（P5-0）；双模式调度 ADR（P5-0）；soak 判据量化；70 键全矩阵核对；阶段 4 补 P4-x 编号约定 |
 | 2026-11-21 | 阶段 3 收口：§1 阶段 3 → 🔶 机器侧完成（四屏截屏矩阵 + 三条注入脚本 + 30min soak），列人测 4 项；P3-5 记录 `SCR <page>` 已评估未采纳；soak 工具落地为 `scripts/soak.py`（AGENTS §5.1/§5.5） |
+| 2026-11-26 | 阶段 5 规划改写（设计规格 `2026-11-26-phase5-sloop-go-alignment-design.md`）：§1 阶段 5 目标改为「对齐 Sloop Go（界面重构 + 联动模式）」；§7 的 P5-0…P5-5 任务表改为 5A–5E 子阶段表（5A 连接打通开工）；完成判据追加「新界面的人眼对照目检通过」；ADR-002 USB-MIDI host 选型落档（`013-usb-midi-host.md`） |

@@ -71,9 +71,11 @@ sloop-fm1-tab5/
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
 ├── third_party/                   # 第三方源码与完整性清单
 │   ├── sloop-fm1/                 #    vendored 上游 SLOOP 2.8.5（bac9c05）精简子树，只读
+│   ├── sloop-fm1-go/              #    Sloop Go 参考副本（UI 源码 + screenshots，只读）
 │   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
 └── tools/                         # 其他辅助脚本
     ├── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
+    ├── fetch_sloop_go.sh          #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
     └── move_regress_tables.py     #    构建后把 regress 簿记表（512 项 job/golden/CPU）从内部 RAM 移到 PSRAM
 ```
 
