@@ -584,3 +584,5 @@ a246f7e621fd81277f9bdb0c617cf76554d8d63bfd60013e3ef11b4b9b4a2d4a  ./task-9-soak-
 0bd04cd6b1da84d3fa8140f39ad0ce233948946b178892b766d863427b9c055b  ./task-9-soak-smoke-stdout.log
 33f5095257d22e29afd8e0536dc906c631cadafc74a0bc28698cd51f76b47ea3  ./task-9-soak-smoke-summary.txt
 7815fe4457d7cc4a2beaaaac3bb426a19f381d10d812706780736ea2260267c3  ./task-9-soak-smoke-transcript.log
+0811640eff16de9a6e33e309d9572327feabed51979bd18a2b6370b648f1b587  ./task-10c-soak-final-summary.txt
+0e91e8565d8c6294b0218edb3e378f13e55cc0b3d728cc785165e5e90fd29e07  ./task-10c-soak-final-transcript.log
