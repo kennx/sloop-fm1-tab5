@@ -9837,6 +9837,96 @@ def settings_expect(s: Session, want: dict, label: str) -> None:
             f"{label} {key}={info[key]}（期望 {value}）")
 
 
+MONO_PALETTE = 4
+
+
+def palette_read(s: Session, timeout: float = 5.0) -> tuple:
+    """生效的 (palette, theme_on)（`STORE SETTINGS INFO`，只读、不打印断言）。存储未就绪
+    （console 先于存储 init 起来，复位/上电刚见提示符）在 timeout 内重试；仍读不到抛
+    InjectError。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        s.cmd("STORE SETTINGS INFO")
+        m = re.search(SETTINGS_INFO_RE, s.last, re.MULTILINE)
+        if m:
+            return int(m.group(4)), int(m.group(8))    # SETTINGS_INFO_RE：palette / theme_on
+        if not re.search(r"^STORE ERR no_storage\r?$", s.last, re.MULTILINE) or \
+                time.monotonic() >= deadline:
+            raise InjectError(f"STORE SETTINGS INFO: 回显缺少 palette/theme_on"
+                              f"（响应 {s.last.strip()!r}）")
+        time.sleep(0.25)
+
+
+def palette_persist(s: Session, what: str) -> None:
+    """把生效副本立即落盘（`STORE SETTINGS SAVE`，需要停止态；播放中先停走带）。SAVE 只改
+    settings 对象与 NVS，不动 autosave/工程对象。被拒（停流时挂着的走带请求、损坏对象按
+    设计拒写）只记 transcript 注记——RAM 副本照常生效，1s 任务的静默窗口会再写。"""
+    s.cmd("STATE SNAP")
+    if s.snap_int(r"playing=(\d)") != 0:
+        ensure_stopped(s)
+    s.cmd("STORE SETTINGS SAVE")
+    if re.search(r"^STORE SETTINGS SAVED len=\d+ side=[01]\r?$", s.last, re.MULTILINE):
+        s.ok(f"R23 {what}：settings 已落盘")
+    else:
+        s.ser.note(f"R23 {what}：STORE SETTINGS SAVE 被拒（{s.last.strip()!r}）——调色板只在 "
+                   f"RAM 生效，1s 任务的静默窗口落盘；此前的硬复位会回到 flash 里的调色板")
+
+
+def palette_normalise(s: Session) -> tuple:
+    """像素探针场景的**入口归一**（R23，与 R20 同类）：场景的颜色常量（`C_*` 与页签/轨色）
+    全部是 MONO 主题的 rgb565 实测值；设备停在别的调色板/主题时（上一轮 `sys` 中断、用户
+    改过），像素探针会成片假红（实测 `palette=2 CYAN` 上 `step_edit` 306/14）。归一为 MONO
+    （palette 4）+ 主题开关关，返回入口的 (palette, theme_on)，由 `palette_restore` 闭括号。
+
+    - 入口值**跨 ScenarioRestart 只读一次**（session_once）；重跑时读设备当前值——复位 ⇒
+      flash 里的调色板，未落盘时可能又是入口调色板，所以每一轮都重新核对并归一。
+    - 已是 MONO 且主题关 ⇒ 不发任何写命令（默认入口零副作用，断言计数不变）。
+    - 归一之后立即落盘：SET 只改 RAM 副本，落盘本由 1s 任务的静默窗口完成（idle ≥1.5s +
+      gap ≥5s）；场景开头/中途的硬复位（`store` ⓪、`sys` ① …）赶在它之前，调色板就随复位
+      回到入口值。入口值记在 `s.snapshots["palette_entry"]`：归一途中异常时 main 的
+      finally 仍拿得到它。"""
+    first = "palette_entry" not in s.snapshots
+    entry = session_once(s, "palette_entry", lambda: palette_read(s), "R23 调色板入口")
+    cur = entry if first else palette_read(s)
+    if cur == (MONO_PALETTE, 0):
+        return entry
+    s.ser.note(f"R23 调色板归一：入口 palette={entry[0]} theme_on={entry[1]} → MONO（像素探针前提）")
+    if cur[0] != MONO_PALETTE:
+        settings_set(s, "palette", MONO_PALETTE, label=f"R23 归一 palette=4（入口 {cur[0]}）")
+    if cur[1] != 0:
+        settings_set(s, "theme_on", 0, label=f"R23 归一 theme_on=0（入口 {cur[1]}）")
+    palette_persist(s, "归一")
+    return entry
+
+
+def palette_restore(s: Session, entry) -> None:
+    """`palette_normalise` 的**闭括号**（main 的 finally：正常结束、断言未过、InjectError
+    异常终止都走到）：写回入口调色板/主题开关并落盘——不落盘则紧接着的下一条场景开头的硬
+    复位会把还原丢掉。入口本就是 MONO、或归一从没发生过（entry 为 None）⇒ 不发任何命令。
+    还原失败只记 FAIL + 注记，不抛：不盖掉场景自己的结果/异常。"""
+    if entry is None or entry == (MONO_PALETTE, 0):
+        return
+    try:
+        cur = palette_read(s)
+        if cur[0] != entry[0]:
+            settings_set(s, "palette", entry[0], label=f"R23 还原入口 palette={entry[0]}")
+        if cur[1] != entry[1]:
+            settings_set(s, "theme_on", entry[1], label=f"R23 还原入口 theme_on={entry[1]}")
+        deadline = time.monotonic() + 2.0            # console 直调的 SET 由下一拍 sync 采纳
+        while True:
+            s.cmd("STATE SNAP")
+            got = (s.snap_int(r"set_palette=(\d+)"), s.snap_int(r"set_theme=(\d+)"))
+            if got == tuple(entry) or time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        (s.ok if got == tuple(entry) else s.fail)(
+            f"R23 调色板回到入口：palette={got[0]} theme_on={got[1]}（期望 {entry[0]}/{entry[1]}）")
+        palette_persist(s, "还原")
+    except (InjectError, OSError) as e:
+        s.ser.note(f"R23 调色板还原未完成：{e}")
+        s.fail(f"R23 调色板还原未完成：{e}")
+
+
 def sys_palette_default(s: Session, label: str, info_palette: int) -> None:
     """R13：settings 读不到（空/损坏/未就绪）⇒ 生效 palette = 4（MONO）。INFO 的 palette 是
     生效副本（reload 之后），`STATE SNAP set_palette` 是 UI 消费的同一投影，两者都查。"""
@@ -10568,6 +10658,8 @@ def main() -> None:
         s.wait_ready()
         run = 0
         while True:
+            # R23：像素探针假定 MONO。每一轮（含截屏复位后的重跑）入口归一，finally 还原。
+            palette_normalise(s)
             retry_note = "" if run == 0 else f"（第 {run + 1} 轮：复位后重跑）"
             s.ser.note(f"场景 {args.scenario} 开始{retry_note}")
             try:
@@ -10582,7 +10674,12 @@ def main() -> None:
         s.ser.note(f"场景 {args.scenario} 异常终止: {e}")
         sys.exit(f"[FAIL] {args.scenario}: {e}")
     finally:
-        s.ser.close()
+        # R23 闭括号：正常结束 / 断言未过 / 异常终止都还原入口调色板（入口值跨重跑存活；
+        # 归一从没发生时不发命令）。还原自身出错也不能漏关串口。
+        try:
+            palette_restore(s, s.snapshots.get("palette_entry"))
+        finally:
+            s.ser.close()
 
     if s.failures:
         sys.exit(f"[FAIL] {args.scenario}: {s.failures} 项断言/抽检未通过（见上）")
