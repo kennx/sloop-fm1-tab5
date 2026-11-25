@@ -1,0 +1,29 @@
+# P4-F Task 10a gates (docs/ADR closeout + comment sweep); host = x86_64, HEAD before the docs(dev) commit = cd10eb2
+
+== scripts/build.sh (pass 1; after comment edits) ==
+warning lines: 2
+36:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+50:CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+build rc=0
+== scripts/build.sh (pass 2, no-op) ==
+warning lines: 0
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+
+== scripts/knob-test.sh ==
+17 passed, 0 failed
+KNOB TEST PASSED
+== scripts/state-test.sh ==
+45 passed, 0 failed
+STATE TEST PASSED
+== scripts/seq-test.sh ==
+SEQ HOST TEST PASSED (0 failures)
+persist-host: PASS (0 failures)
+== scripts/synth-test.sh ==
+SYNTH HOST TEST PASSED
+== python3 scripts/soak-selftest.py ==
+结果: PASS
+== python3 scripts/screenshot_matrix.py --selftest ==
+screenshot_matrix selftest OK
+
+No device run in Task 10a (no flash): the only non-comment change is the page_step.c hint string;
+its on-device visual check is left to the Task 10b screenshot matrix.
