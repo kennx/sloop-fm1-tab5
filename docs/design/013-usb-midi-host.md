@@ -100,6 +100,6 @@ USB-A 口的 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`）从未驱动——「插上 FM
 
 ## 实测登记
 
-- ⏳ host 安装后 internal_min / internal_free（Task 1）
-- ⏳ 控制台与 host 共存（Task 1）
+- ✅ host 安装后 internal_min / internal_free（Task 1，2026-11-26 真机）：`usb_fm1_start()` 内部读数 `internal_free 83099 -> 80559`（安装本体 **−2,540B**，含 `usb_lib`/`fm1_cli` 两个落内部 RAM 的 TCB；此时还没有设备被枚举）；开机稳态连读三次 `ENG MEM` 均为 `internal_free=64695 internal_min=63476`（改动前 ≈69,7xx / 66,208 ⇒ 空闲 −5.0KB、开机最低点 −2.7KB），满足 `internal_min ≥ 61,440`、`internal_free ≥ 63,488`（`internal_free` 余量 1,207B）；`scripts/selftest-heap.py` 退出码 0（两次全量 182/182）。**读数口径：USB-A 口当时接着一台 FM-1 且已被枚举**（与计划「不接设备」的口径不同），按「稳态差值 − 安装本体」估算其中约 2.5KB 是设备对象与描述符缓存，不插设备的稳态读数未采到；无设备时的固定占用以安装本体 2,540B 为准。未改任何 sdkconfig：IDF v5.5.5 的 `usb` Kconfig 没有 `USB_HOST_ENABLED` 符号，P4 上 host 库恒编译（上文背景「未使能 `CONFIG_USB_HOST_ENABLED`」不成立）
+- ✅ 控制台与 host 共存（Task 1，2026-11-26 真机）：`usb_host_install(skip_phy_setup=false)` 之后，USB-C 的 USB-Serial/JTAG 控制台全程可用——启动日志无 fatal/abort/backtrace，复位后 `ENG MEM`/`FM1 STATUS` 照常应答，`SCR` 截屏成功（1280×720 rgb565），两次全量 `ENG SELFTEST`（182/182）与 `selftest-heap.py` 均在 host 常驻下跑完；上文「代价与风险」里的共存风险关闭
 - ⏳ FM-1 枚举读数（Task 4）

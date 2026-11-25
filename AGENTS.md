@@ -49,14 +49,14 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist、013-usb-midi-host.md）
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       #    开发日志/环境/设备档案（device-notes.md、verification-log.md、closeout-phase4.md）
 │       └── reference/             #    AGENTS.md 拆出的全文参考（本文件只留索引）：firmware-map.md 组件现状 · scripts.md 脚本逐条 ·
 │                                     console-and-injection.md 命令与注入 · verification-gates.md 门禁判据；门禁证据入 dev/verify/
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（display / console / keyboard / audio bring-up + sloop_state / sloop_ui 启动；详见 `docs/dev/reference/firmware-map.md`）
-│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui（逐组件现状见 `docs/dev/reference/firmware-map.md`）；【规划】editor_proto / usb_fm1
+│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui / usb_fm1（逐组件现状见 `docs/dev/reference/firmware-map.md`）；【规划】editor_proto
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + sloopstore 0x810000/0x68000 + FATFS storage 0x878000 + NVS，无 OTA A/B，回滚=重烧；ADR-009 §1）
@@ -75,7 +75,7 @@ sloop-fm1-tab5/
 │   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
 └── tools/                         # 其他辅助脚本
     ├── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
-    ├── fetch_sloop_go.sh          #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
+    ├── fetch_sloop_go.sh         #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
     └── move_regress_tables.py     #    构建后把 regress 簿记表（512 项 job/golden/CPU）从内部 RAM 移到 PSRAM
 ```
 
