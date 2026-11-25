@@ -11,6 +11,8 @@
     UI MEM   pool_used / pool_free（组作用域：采样时只驻留当前组的 LVGL 池水位，
              另打印分组行 `built`/`sum_delta`；ADR-005 §5）
     STATE SNAP 页面/播放/选轨（行为回归）
+    ENG POWER vbus_mv / shunt_uv / cur_ma / temp_c / ina（INA226 + 芯片温度，**仅记录**：
+             入采样表与摘要的 min/max，不设门禁；P4-F Task 9，spec A5）
 判定（全部满足才退出码 0）：
     1. 内部堆：全程 internal_free ≥ 60KB（HEAP_FLOOR，AGENTS §5.5 内存门禁）；
        首末差 ≥ HEAP_NET_FLOOR（-8KB）；任一连续 3 个采样窗口「非增且累计下滑
@@ -130,6 +132,26 @@ def kv_float(raw: dict, key: str) -> float:
     return float(str(raw.get(key, "nan")).rstrip("%"))
 
 
+POWER_LINE = re.compile(r"^ENG POWER vbus_mv=(-?\d+|na) shunt_uv=(-?\d+|na) cur_ma=(-?\d+|na) "
+                        r"temp_c=(-?\d+\.\d|na) ina=(ok|err)\r?$", re.MULTILINE)
+
+
+def parse_power(text: str) -> dict:
+    """`ENG POWER` 行 → 采样列（na / 行缺失或畸形 ⇒ None；只记录，不判失败）。"""
+    m = POWER_LINE.search(text)
+    if m is None:
+        return {"vbus_mv": None, "shunt_uv": None, "cur_ma": None, "temp_c": None, "ina": None}
+
+    def num(v, cast):
+        return None if v == "na" else cast(v)
+    return {"vbus_mv": num(m.group(1), int), "shunt_uv": num(m.group(2), int),
+            "cur_ma": num(m.group(3), int), "temp_c": num(m.group(4), float), "ina": m.group(5)}
+
+
+def fmt_power(v) -> str:
+    return "na" if v is None else str(v)
+
+
 def sample(s) -> dict:
     """一次水位采样（同时是行为回归探针：STATE 页面/播放状态必须符合预期）。"""
     s.cmd("ENG MEM")
@@ -140,6 +162,9 @@ def sample(s) -> dict:
     stats = kv_int(s.last)
     s.cmd("UI MEM")
     ui_mem = kv_int(s.last)
+    # ENG POWER 放在 STATE SNAP 之前：playing 的断言读的是 s.last，必须还是 STATE 的回显
+    s.cmd("ENG POWER")
+    power = parse_power(s.last)
     s.cmd("STATE SNAP")
     state = kv_int(s.last)
     s.expect_int(r"playing=(\d)", 1, "soak STATE playing")
@@ -164,6 +189,7 @@ def sample(s) -> dict:
         "ui_pool_free": ui_mem.get("pool_free", -1),
         "page": state.get("page", -1),
         "bpm": state.get("bpm", -1),
+        **power,
     }
 
 
@@ -408,6 +434,24 @@ def cycle(s, n: int, section_capture: bool = False) -> None:
     switch(s, "transport")
 
 
+POWER_COLS = ("vbus_mv", "shunt_uv", "cur_ma", "temp_c", "ina")
+
+
+def power_record(rows: list) -> list:
+    """功耗/温度的记录行（仅记录，不设门禁；spec A5）。na = 该次读数无效或行缺失。"""
+    def span(key: str, unit: str) -> str:
+        vals = [r.get(key) for r in rows if r.get(key) is not None]
+        if not vals:
+            return f"{key} na（0/{len(rows)} 次有效）"
+        return f"{key} {min(vals)}..{max(vals)} {unit}（{len(vals)}/{len(rows)} 次有效）"
+    ina = [r.get("ina") for r in rows]
+    temps = [r["temp_c"] for r in rows if r.get("temp_c") is not None]
+    trend = f"，首 {temps[0]} → 末 {temps[-1]}" if temps else ""
+    return [f"功耗记录（仅记录，不设门禁）：INA226 ina=ok {ina.count('ok')}/{len(rows)} 次；"
+            + "；".join(span(k, u) for k, u in (("vbus_mv", "mV"), ("shunt_uv", "µV"), ("cur_ma", "mA"))),
+            f"温度记录（仅记录，不设门禁）：{span('temp_c', '℃')}{trend}"]
+
+
 def verdict(rows: list, log_path: Path, elapsed: float, requested: float,
             window: dict = None, pool: dict = None) -> list:
     """按判定口径给出问题列表（空 = 通过）。"""
@@ -540,7 +584,8 @@ def main() -> None:
                   f"duty_mean={row['duty_mean']:.2f}% duty_max={row['duty_max']:.2f}% "
                   f"ui_pool_free={row['ui_pool_free']} "
                   f"key_mean={row['key_mean_us']}us key_max={row['key_max_us']}us "
-                  f"page={row['page']} bpm={row['bpm']}")
+                  f"page={row['page']} bpm={row['bpm']} "
+                  f"vbus_mv={fmt_power(row['vbus_mv'])} temp_c={fmt_power(row['temp_c'])}")
             if row["page"] != PAGES["transport"]:
                 s.fail(f"soak 页面漂移：page={row['page']}（期望 3=transport）")
             return row
@@ -604,14 +649,16 @@ def main() -> None:
              f"interval={args.interval:.0f}s cycle={args.cycle:.0f}s",
              "# t_s internal_free internal_min psram_free streaming xrun audio_stack_free "
              "render_blocks render_mean_us render_max_us duty_mean duty_max "
-             "key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm"]
+             "key_count key_mean_us key_max_us input_stack_free ui_pool_free page bpm "
+             + " ".join(POWER_COLS)]
     for r in rows:
-        lines.append("  ".join(str(r[k]) for k in
-                               ("t", "internal_free", "internal_min", "psram_free", "streaming",
-                                "xrun", "audio_stack_free", "render_blocks", "render_mean_us",
-                                "render_max_us", "duty_mean", "duty_max", "key_count",
-                                "key_mean_us", "key_max_us", "input_stack_free", "ui_pool_free",
-                                "page", "bpm")))
+        lines.append("  ".join([str(r[k]) for k in
+                                ("t", "internal_free", "internal_min", "psram_free", "streaming",
+                                 "xrun", "audio_stack_free", "render_blocks", "render_mean_us",
+                                 "render_max_us", "duty_mean", "duty_max", "key_count",
+                                 "key_mean_us", "key_max_us", "input_stack_free", "ui_pool_free",
+                                 "page", "bpm")]
+                               + [fmt_power(r.get(k)) for k in POWER_COLS]))
     lines.append("")
     lines.append(f"内存判定：HEAP_FLOOR={HEAP_FLOOR}B（internal_free 与 internal_min），"
                  f"HEAP_NET_FLOOR={HEAP_NET_FLOOR}B（首末差），"
@@ -633,11 +680,14 @@ def main() -> None:
     else:
         lines.append("save 窗口：关闭（xrun 必须为 0）")
     lines.append(f"实测时长 {measured}s / 请求 {args.duration:.0f}s")
+    lines.extend(power_record(rows))
     lines.append(f"断言失败 {s.failures} 项")
     lines.append("判定问题：无" if not problems else "判定问题：\n- " + "\n- ".join(problems))
     lines.append("VERDICT: " + ("PASS" if not problems and s.failures == 0 else "FAIL"))
     sum_path.write_text("\n".join(lines) + "\n")
     print(f"   摘要: {sum_path}")
+    for line in power_record(rows):
+        print(f"  [记录] {line}")
     for p in problems:
         print(f"  [FAIL] {p}")
     if s.failures or problems:
