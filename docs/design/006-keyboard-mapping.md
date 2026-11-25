@@ -1,6 +1,6 @@
 # ADR-006: Tab5 Keyboard 70 键映射 — DAW 式半音矩阵 + 修饰层键
 
-> 状态：已接受并落地（阶段 3，P3-1；实现 `components/sloop_ui/src/input.c`）｜ 日期：2026-11-20
+> 状态：已接受并落地（阶段 3，P3-1；实现 `components/sloop_ui/src/input.c`；键码/动作/绑定表自 P4-F Task 6 起在 `src/input_map.h`）｜ 日期：2026-11-20
 > 关联：spec `2026-11-20-phase3-mvp-ui-design.md` §3.4；注入入口 `console` 的 `KEY` 命令
 
 ## 背景
@@ -39,9 +39,9 @@ A。InputManager 为表驱动（`{code, layer, action, param}`），查表两遍
 | REC | `0` 0x0A | `CMD_REC_TOGGLE`（上游 `rec_toggle`）：停止态 arm（首个音符或 PLAY 启动）；走带中立即录选中轨；再按一次关录音**不停播放**；自由录音进行中 = 关闭它（收成 loop，与上游 editor 的 REC 同一 `transport_req=1` 路径；PLAY 才是 drop） |
 | FILL 保持 | `-` 0x0B（按住） | down/up 发 `CMD_FILL_CONTROL{a=1/0,b=0}` → 上游 `fill_held`：按住期间 fill 步条件成立（fill-only 步演奏、no-fill 步静音） |
 | FILL NEXT | `+` 0x0C（点按） | down 发 `CMD_FILL_CONTROL{a=0,b=1}` → **脉冲**：只翻转上游 `fill_arm`（下一小节 fill），**不读不写 `fill_held`**（按住 `-` 时点 `+` 不会清掉保持电平）；再按一次取消。STOP 清 held/armed |
-| ENTER 动作 | enter 0x3D | **STEP 页 = 切换聚焦步的选中 drum lane 位**（`sloop_ui_step_drum_toggle()` → `CMD_DRUM_STEP_WRITE`，P4-C Task 9）；**FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；**TRANSPORT 页 = 焦点工具字段 +1/切换**（`sloop_ui_transport_adjust(1)`，P4-C Task 10：LVL/RAT 循环、MIC/SPAN ±1、SLIDE 切换、ROT/LEN/TRANS 前进）；**SONG 页 = LOAD 选中 section**（`sloop_ui_song_load()` → `CMD_SECTION_LOAD`，P4-C Task 11）；其它页无动作（不抢演奏键）。FILE 的 SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
+| ENTER 动作 | enter 0x3D | **STEP 页 = 切换聚焦步的选中 drum lane 位**（`sloop_ui_step_drum_toggle()` → `CMD_DRUM_STEP_WRITE`，P4-C Task 9）；**FILE 页（PROJECTS/PRESETS）= LOAD 选中槽**（`sloop_ui_file_load()` → `CMD_PROJECT_LOAD`/`CMD_PRESET_LOAD`）；**TRANSPORT 页 = 焦点工具字段 +1/切换**（`sloop_ui_transport_adjust(1)`，P4-C Task 10：LVL/RAT 循环、MIC/SPAN ±1、SLIDE 切换、ROT/LEN/TRANS 前进）；**SONG 页 = LOAD 选中 section**（`sloop_ui_song_load()` → `CMD_SECTION_LOAD`，P4-C Task 11）；**参数页（SOUND / MOD / SCALE / VOICE / GLOBAL / FX）= 焦点槽 +1**（P4-F Task 4，裁决 R8：与 DSYN/FM6P 页一致；此前参数页的 ENTER 无动作；锁定槽无动作、不发命令，见下「参数页键盘」）；其它页无动作（不抢演奏键）。FILE 的 SAVE/ERASE 只走触摸按钮与 console（spec §4.5，避免与演奏键冲突） |
 | 页面 | esc 0x00=PLAY；tab 0x20=组顺序扁平轮转的下一张 | `sloop_ui_request_page()`：只记目标页，30ms UI 定时器在 LVGL 上下文切页（输入路径不等锁，派发 22–72µs）；顺序 = **最终 12 页**（P4-C Task 11 起 SONG 已注册）PLAY→TRACKS→GLOBAL→FX→ANALOG→FM6→SAMPLE→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→PLAY（ADR-005 §4；跳过未注册页）。**P4-F Task 6 起 = 18 页**：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→FX→**TOOLS**→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY |
-| 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；**TRANSPORT 页**在 8 个工具字段环上移动（`sloop_ui_transport_focus_move()`：LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS 环绕）；**SONG 页**在 count 内的 16 个歌曲条目间移动（`sloop_ui_song_entry_move()`，环绕）；↑ 0x3B / ↓ 0x4B：普通页移焦点轨（三条合成轨环绕）；**STEP 页**走焦点环 `T1,T2,T3,DRM L1..L16`（`sloop_ui_step_focus_vertical()`：T3↓→L1、T1↑→L16、L1↑→T3、L16↓→T1，鼓轨上逐 lane）；**TRANSPORT 页**调焦点工具字段（`sloop_ui_transport_adjust(±1)`）；**SONG 页**在 A–D section 卡间移动（`sloop_ui_song_section_move()`，环绕） | `state_set_focus()` / `sloop_ui_step_focus_vertical()` / `sloop_ui_file_slot_move()` / `sloop_ui_transport_focus_move()` / `sloop_ui_transport_adjust()`（参数页另有 ←/→ 选槽、↑/↓ 调值，见 ADR-008 §8） |
+| 焦点 | ← 0x4A / → 0x4C：**STEP 等普通页**移焦点步（0..15 环绕）；**FILE 页（PROJECTS/PRESETS）选槽**（`sloop_ui_file_slot_move()`，无选中时 → 落 A、← 落 D，之后环绕）；**TRANSPORT 页**在 8 个工具字段环上移动（`sloop_ui_transport_focus_move()`：LVL,RAT,MIC,SPAN,SLIDE,ROT,LEN,TRANS 环绕）；**SONG 页**在 count 内的 16 个歌曲条目间移动（`sloop_ui_song_entry_move()`，环绕）；↑ 0x3B / ↓ 0x4B：普通页移焦点轨（三条合成轨环绕）；**STEP 页**走焦点环 `T1,T2,T3,DRM L1..L16`（`sloop_ui_step_focus_vertical()`：T3↓→L1、T1↑→L16、L1↑→T3、L16↓→T1，鼓轨上逐 lane）；**TRANSPORT 页**调焦点工具字段（`sloop_ui_transport_adjust(±1)`）；**SONG 页**在 A–D section 卡间移动（`sloop_ui_song_section_move()`，环绕） | `state_set_focus()` / `sloop_ui_step_focus_vertical()` / `sloop_ui_file_slot_move()` / `sloop_ui_transport_focus_move()` / `sloop_ui_transport_adjust()`（参数页的 ←/→/↑/↓ 见下「参数页键盘」与 ADR-008 §8.9） |
 
 八度切换（原计划的 OCT±）**未实现**：`-` 0x0B / `+` 0x0C 已在 P4-C 分配给 FILL 保持 /
 FILL NEXT、`0` 0x0A 分配给 REC（见键表）；八度切换仍留给阶段 4 的完整层键位子集
@@ -92,7 +92,17 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 - **键表是纯数据**：键码、`input_action_t`、绑定表 `k_bindings` 与查表 `input_map_find_binding`
   自本任务起在 `src/input_map.h`（从 `input.c` 原样移入；无 LVGL/FreeRTOS），
   `scripts/knob-test.sh` 同源编译并断言「同一 (键, 层) 至多一条」「EDIT 层 = 7 条音名擦除 +
-  4 条步工具」「步工具键在其它层无绑定」。
+  4 条步工具」「步工具键在其它层无绑定」。四条绑定的原文（层键 Aa = `K_AA` 0x31）：
+
+  | 键 | 码 | 层 | 动作 | 语义 |
+  |---|---|---|---|---|
+  | `k` | `K_K` 0x39 | EDIT | `ACT_STEP_LOCK` | 把 `last_param` 锁到聚焦步（`CMD_LOCK_FOCUS{a=1}`） |
+  | `l` | `K_L` 0x3A | EDIT | `ACT_STEP_UNLOCK` | 解除聚焦步上该参数的锁（`CMD_LOCK_FOCUS{a=0}`） |
+  | `9` | `K_9` 0x09 | EDIT | `ACT_STEP_FILL` | 聚焦步 fill 条件循环 |
+  | `;` | `K_SEMI` 0x2B | EDIT | `ACT_STEP_FILL` | 同上（同一动作的第二个键位，`9` 与 `;` 在表里是两条绑定） |
+
+  这四个键在基础层、GLO、SEL、FX 层都没有绑定（`k`/`l`/`;` 在任何层都不是演奏键；`9` 同），
+  所以按住 Aa 时不会与演奏或混音冲突。
 - **锁哪个参数**：状态层在每次成功的 `CMD_SET_PARAM` / `CMD_SET_PARAM_BATCH` 后记录写在
   **焦点轨**上的最后一对（`app_state_t.last_param{track,id}`，`id=0xFF` = 还没有；sync/选轨/
   整份刷新不改写）。参数页的旋钮、± 与 console `PARAM` 都走这条命令，所以在 MOD/SOUND 等
@@ -120,6 +130,26 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
   尾部追加 `step="…"`（`sloop_ui_step_tool_text`，与屏幕同源）。参数名取
   `sloop_core_desc_track_live` 的 label。
 
+### 参数页键盘（P4-F Task 4；裁决 R8）
+
+SOUND / MOD / SCALE / VOICE / GLOBAL / FX 六页（chip 页与 SOUND 引擎页）共用一套键盘规则，
+与 DSYN / FM6P 页的既有约定对齐：
+
+- **←/→**：在当前 chip 的**存在**槽之间环绕（跳过空槽与被条件隐藏的槽；SOUND 无 chip 行 ⇒
+  8 个引擎槽之间环绕）。锁定槽（显示 `--`）仍可被聚焦，只是调值无动作——焦点环不因鼓轨
+  逐槽规则塌陷。
+- **↑/↓**：焦点槽 ±1（可编辑槽发 `CMD_SET_PARAM`/`CMD_SET_GLOBAL`；锁定槽无动作、不发命令）。
+- **ENTER = 焦点槽 +1**（R8 接受的范围外变化：此前参数页的 ENTER 无动作；TRANSPORT 的
+  「+1/切换」与之同形）。
+- **鼓轨逐槽锁定（R8）**：选中鼓轨时，布局表未标 `drum_ok` 的 TRACK/ENGINE 槽显示 `--` 并
+  拒绝编辑；**FX 页因此从「整页可编辑」变为逐槽**（DIST/CHOR/DLY/REV/ATK 锁定，只有
+  TFLT/LEVEL/PAN 可编辑；SLICER/INSERT/INSERT 2 全开）——旧实现对上游 `page_for_drum`
+  （012 §3）的偏离被纠正；GLOBAL 页的全局参数在鼓轨上全部可编辑。console `PARAM` 仍可写
+  这些值（诊断面不受页面锁定约束）。
+- chip 本身只经触摸与 console `UI <page> CHIP <n>` 切换（键盘不切 chip）。
+- 设备证据：`scripts/inject/params.sh` ⑩（键盘环绕/↑↓/ENTER、鼓轨逐槽 `locked` 回显），
+  Task 7 同会话 713 / 0（`docs/dev/verify/4-pf-2026-11-24/task-7-params-*`）。
+
 ### SONG 页（P4-C Task 11）
 
 - ←/→ 在 1..count 个歌曲条目间移动选中项（`sloop_ui_song_entry_move()`，count 内环绕）、
@@ -146,7 +176,9 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
 `KEY <code> <down|up>`（console）与物理键盘同入口 `sloop_ui_input_key()`；code 十进制或
 `0x` 十六进制，取值 0..0x7F（tab5_keyboard 事件码）。`KEY` 每条打印 `elapsed_us`（命令入口
 → 派发返回，含 state_apply 与 PLAY 指示），`KEY STATS [RESET]` 打印累计均值/最大。
-InputManager 任务：优先级 4（低于音频 5），栈 4KB，`tab5_kb_poll()` 每批 8 条。
+InputManager 任务：优先级 4（低于音频 5），栈 **8,192B**（P4-F Task 6 评审 R13：原 4KB，
+键盘路径上 `app_state_t` 快照与动作局部叠加会压穿；见「STEP 页步工具」的栈一条），
+`tab5_kb_poll()` 每批 8 条。
 
 **轮询周期 = tick 地板**（阶段 4 P4-0 Task 2）：周期写成 5ms 意图（`INPUT_POLL_MS`），
 实际取 `INPUT_POLL_TICKS = max(1 tick, pdMS_TO_TICKS(5))`。本工程 `CONFIG_FREERTOS_HZ=100`

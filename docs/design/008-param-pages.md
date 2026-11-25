@@ -143,6 +143,19 @@ esp_err_t ui_page_register(const ui_page_t *page);  /* start 之前注册；id �
   （`sloop_store_sample_erase` 不走 `store_note_write`）。走带中由存储层拒绝，故不会
   在播放中触发。
 
+**P4-F 新增/改版的页（Task 4–6 落地、Task 7 同会话复测，2026-11-25；结构见 §8.9–§8.12）**：
+
+| 页 | 实测 delta（`UI MEM`，跨快照 min–max） | est_bytes | 余量（对最大值） | 说明 |
+|---|---|---|---|---|
+| SOUND | **5,360–5,554 B** | 6,144 B | +10.6% | 8 旋钮（常驻，随选中轨引擎换标签）+ 页眉两个自绘三区对象（ENGINE/PRESET；鼓轨 = KIT 单行）+ 常驻隐藏的 FM6 bank 行（§8.10） |
+| MOD / SCALE / VOICE | **3,012–3,088 B**（各页） | 3,584 B | +16..19% | 8 旋钮 + 单对象自绘 chip 行（§8.9）；GLOBAL/FX 改 chip 页后同形 |
+| GLOBAL / FX | **2,916–3,080 B**（各页） | 3,584 B | +16..23% | 同上（§8.10）；est 仍是 P4-A 的 3,584，对象数不变 |
+| TOOLS | **2,568–2,732 B** | 3,584 B | +31..40% | 8 个单对象 label（§8.11）；est 取 chip 页同档 |
+| TRANSPORT | **8,464–8,876 B**（改前 8,248–8,716 B） | **9,216 B（未抬）** | +3.8..8.9% | 加 REC 配置行：三格是**一个**自绘可点击对象（§8.11）；est 被 SEQ→PRESETS 有序对锁死 |
+
+组 Σ est：EDIT 16,896（SOUND 6,144 + 3×3,584）、MIX 10,752（3×3,584）；有序对账面与
+Task 7 的 72 对实测矩阵见 ADR-005 §5.5。chip 页统一 3,584 是裁决 R7（spec 的 5,120 是上限）。
+
 > **R34 备注（2026-11-22 评审修复）**：`styles_init()` 必须**每次开机只跑一次**（`static bool`
 > 守卫，PROJECTS/PRESETS 原本如此，TRACKS/STEP 本轮补齐）——组作用域会反复销毁/重建页面，
 > 重跑 `lv_style_init` 会丢掉静态样式已分配的 props 数组（实测 PLAY↔TRACKS 每往返漏 ~300B）；
@@ -379,9 +392,16 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   回显 `applied` 即引擎钳位结果），与 UI 编辑同一状态层路径（AGENTS §5.4.1）；
   `PARAM RAW <id> <value>` 跳过 desc 预判，用于复验引擎对无描述符 id 的忽略路径。
 
-### 8. 参数页框架（P4-A Task 10 落地）
+### 8. 参数页框架（P4-A Task 10 落地；P4-F 起的结构见 §8.9–§8.12）
 
-#### 8.1 页与布局表
+> **历史范围**：§8.1–§8.8 是 P4-A…P4-D 的落地记录，写的是当时的「五页」（GLOBAL / FX /
+> ANALOG / FM6 / SAMPLE）。P4-F 之后这五页里只剩 GLOBAL / FX / SAMPLE（GLOBAL/FX 已改 chip
+> 页，SAMPLE 保持整页结构），ANALOG + FM6 合并为 SOUND，另有 MOD / SCALE / VOICE 三张 chip
+> 页与 MIX 组的 TOOLS。**现行结构以 §8.9（chip 框架）、§8.10（SOUND / GLOBAL / FX）、§8.11
+> （TOOLS / REC 配置行）、§8.12（终态索引与任务栈门禁）为准**；本节的「五页」「九页」字样
+> 只描述当时。
+
+#### 8.1 页与布局表（P4-A 时点）
 
 - **布局表**（`sloop_ui/src/page_layout.c`）：GLOBAL / FX / ANALOG / FM6 / SAMPLE
   五页，每页 8 槽 `{scope, engine, id}`（`0xFF` = 空槽）。页元数据（id/title/est）
@@ -506,10 +526,13 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - 当前固件所有轨默认 ANALOG（engine=0），该路径需 `ENG TRACK <k> <engine> <preset>`
   触发；一次性探针（`ENG TRACK 1 1 0` → 选轨 1 → ANALOG 页）证据见
   `docs/dev/verify/4-p0-2026-11-21/task-10-*`。
+  **P4-F 起**：独立 ANALOG / FM6 页已删，SOUND 页的标签随选中轨引擎换（§8.10），不再有
+  「页声明引擎 ≠ 选中轨引擎」的整页锁定；整页锁定只剩 SAMPLE 页（选中轨不是 SAMPLE 引擎
+  时页眉红字 `… — N/A`、旋钮 `--`）。选中鼓轨时逐槽规则取而代之（§8.9）。
 
 #### 8.5 预算与验证
 
-- 九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
+- （P4-D 时点；P4-F 终态见 §3 末表与 §8.12）九页预算见 §3 表（GLOBAL/FX/ANALOG 各 est 3,584B、FM6 6,144B（Task 13 的 bank
   行）、SAMPLE 6,144B（P4-D Task 8 的槽管理行）、DSYN 7,168B（P4-D Task 9，实测
   6,344–6,452B）、FM6P 7,168B（Task 10 首测 → Task 11/12 归档 6,980–7,124B））；P4-B 起按组核算：P4-D Task 8 起
   SAMPLE 随 **SYNTH** 组，EDIT Σ **16,896B**、SYNTH Σ **20,480B**（ADR-005 §5.1；
@@ -736,8 +759,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - **验证入口**：`scripts/knob-test.sh`（表完整性 + 槽位 = 012 §3 + 可见性/锁定规则 +
   九组导航）；`scripts/inject/params.sh` ⑩（三页 est/构建、每 chip 逐槽 label ==
   `ENG DESC live`、首槽 ± 回读、chip 行 TAP、键盘、20 次切 chip 零分配、鼓轨逐槽、
-  FILTER 条件 chip；六页全面矩阵留给 Task 7）。FX/GLOBAL 的 chip 化（SLICER/INSERT/
-  REV/DRUMS/TEXTURE）是 Task 5，同一框架加表行即可。
+  FILTER 条件 chip；六页全面矩阵由 Task 7 完成——`params` 713 PASS / 0 FAIL、`nav`
+  583 / 0，证据 `docs/dev/verify/4-pf-2026-11-24/task-7-*`）。FX/GLOBAL 的 chip 化
+  （SLICER/INSERT/REV/DRUMS/TEXTURE）见 §8.10。
 
 ### 8.10 SOUND 通用引擎页 + GLOBAL/FX chip 页（P4-F Task 5）
 
@@ -785,8 +809,9 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - **容量（实测，`firmware/build/verify/p4f-task5-peaks.txt`）**：SOUND **5,360–5,554B**
   （est **6,144**，+10.8% 对最大；= 8 旋钮 + 页眉两行 + 常驻隐藏的 bank 行），GLOBAL
   **2,936–3,080B**、FX **2,916–3,080B**（est 3,584），`build_ms` 4–10ms。EDIT Σ est
-  **16,896**（原 20,480）、MIX Σ est **7,168**（不变）。有序对（ADR-005 §5.4）：
-  EDIT→STEP 账面 55,656、MIX→STEP 53,096、SEQ→MIX 55,184（目标页 3,584）；实测峰值
+  **16,896**（原 20,480）、MIX Σ est **7,168**（不变）。有序对（base 11,624 口径，
+  ADR-005 §5.4；终态 18 页的账面与重测 base 见 ADR-005 §5.5）：EDIT→STEP 账面 55,656、
+  MIX→STEP 45,928、SEQ→MIX 51,560（目标页 3,584）；实测峰值
   `池剩余` EDIT→STEP **13,260B**、MIX→STEP **21,692B**、SEQ→MIX **17,140B**（均 ≥4,096）。
   GLOBAL/FX 20 次切 chip `pool_free` Δ **+0B**。
 - **LVGL 任务栈纪律（Task 5 实测出的约束；评审 R10 收口）**：LVGL 任务栈原为 **7,168B**
@@ -837,6 +862,36 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 - **验证入口**：`scripts/knob-test.sh`（18 页轮转、MIX 三成员、TOOLS 页 id）；
   `scripts/inject/params.sh` ⑪ 段（TOOLS est/delta、MIX Σ est、SEQ→MIX(TOOLS) 有序对、
   预备/超时/改预备的像素与回显、REC 配置行的三格像素与三项往返、格间缝 miss）。
+
+### 8.12 P4-F 终态索引与任务栈门禁（Task 4–7 收口）
+
+**参数页按结构分三类**（18 个注册页里占 9 个；布局表 `page_layout.{h,c}` 是唯一权威）：
+
+| 类 | 页 | 要点 | 出处 |
+|---|---|---|---|
+| chip 页（`chip_count ≥ 2`） | MOD 5 / SCALE 4 / VOICE 4 / GLOBAL 4 / FX 4 | 每页 `chips[5]`（`PARAM_PAGE_CHIPS`）、每 chip `slots[8]`；单对象自绘 chip 行；切 chip 零分配；条件 chip（`CHIP_WHEN_ANALOG`）；逐槽 `drum_ok`（012 §3）；TRACK scope 一律 live 描述符 | §8.9 |
+| 引擎页（`features = SOUND`） | SOUND | 页 id 6；主体 = 选中轨引擎的 `P_E0..P_E7`；页眉 ENGINE/PRESET 两个三区对象（鼓轨 = KIT 行）；FM6 bank 行按引擎显隐（A10）；`analog`/`fm6` 是 console 别名，`APP_PAGE_FM6` = 7 是不注册的空位 id | §8.10 |
+| 工具页 | TOOLS | 两段式确认（预备 → 1.5s 内再点 → 一条 `CMD_TOOLS`） | §8.11 |
+
+SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 的 REC 配置行是 §8.11
+的单对象三格。进阶约束（都不是 est 能表达的）：
+
+- **LVGL 任务栈门禁**：任务栈 **10,240B**（`display.c`，裁决 R10），定时器拍、切页构建与
+  全部控件回调都在这个任务里，`app_state_t` ≈ 1.7KB。`UI MEM` 行尾的
+  **`lvgl_stack_free=<字节>`** 是该任务的历史最小余量，`params.sh` 与 `nav.sh` 断言
+  **≥2,048**（Task 7 同会话实测：params 5,036 / nav 5,116B；Task 6 时点 5,804B）。规则：
+  页面构建函数与点击/输入路径在栈上至多持 **一份** `app_state_t`（`refresh` 那份），
+  需要单字段时用状态层窄读访问器；加页或加副本前先看 `lvgl_stack_free`。
+- **输入任务栈门禁**：`INPUT_TASK_STACK` **8,192B**（裁决 R13），键盘路径同样至多一份
+  快照；`KEY STATS` 的 `input_stack_free`（input 任务循环内采样的历史最小值）断言
+  ≥2,048 **仅当 `phys>0`**——console 的 `KEY` 注入量不到这条栈，`phys=0` 时场景显式跳过
+  （见 ADR-006）。输入路径的余量因此**尚未被机器验证**（人测项）。
+- **「超预算先改对象设计，不抬 est」**的三次应用：chip 行（336B/chip 的 label 方案 →
+  单对象）、TRANSPORT REC 配置行（3 label → 单对象，守住 est 9,216）、SOUND bank 行
+  （按引擎显隐而不是每引擎建行）。
+- **验证入口**：`scripts/knob-test.sh`（17 例：布局表/chip/槽位 = 012 §3、条件可见性、
+  鼓轨逐槽、18 页轮转、键表）、`scripts/state-test.sh`（45 例）、`scripts/inject/params.sh`
+  （Task 7：713 / 0）与 `nav.sh`（583 / 0，含 72 对有序对与 `lvgl_stack_free`）。
 
 ### 9. 描述符契约的定稿决定（Task 8/10）
 

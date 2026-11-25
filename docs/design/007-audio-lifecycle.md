@@ -119,6 +119,7 @@ soak 的 60KB 门限上），而稳态（流式）占用两种做法相同。静
 IDLE 把已删任务从待清理表摘掉（任务数减一，上限 1s）才能复用，否则下一次 start 重新初始化
 TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不到即置 `broken` 并返回
 `ESP_ERR_INVALID_STATE`（与超时强删同一出口）。堆泄漏本身当时仍是 DI-26（已于 2026-11-24 P4-F Task 2 修复，回归门禁 `scripts/selftest-heap.py`）。
+
 **由此定下的规则**：selftest TU（`selftest.c` 及其 include 的上游/host 替身）里任何带堆的懒初始化状态
 （RTOS 对象、libc 缓存、「已初始化」标志 + 句柄）都必须在 `selftest_snapshot_init()` **之前**完成——
 落在快照窗口里的「未初始化」标志会被 `selftest_restore()` 逐 job 回滚，变成每 job 一次的泄漏。
@@ -126,6 +127,49 @@ TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不�
 回归：`scripts/inject/sys.sh` ⑤（console 全量自检之后）与 ⑧（chip worker 起流之后）都断言
 `ENG PERF` 的 `duty_mean ≤ 18.88%` 且 3s 窗口 xrun 增量 0；启流日志行带 `stack=<地址>`，
 可直接看出落点。
+
+### 诊断/HAL 附注：只读电源读数与任务栈（P4-F，2026-11-25）
+
+**`power_sensor` 的只读契约**（`firmware/main/power_sensor.{c,h}`，spec A5；行为记录在
+`docs/dev/device-notes.md` §10）：
+
+- INA226（从地址 0x41）挂在 BSP 板载 I2C 总线（`bsp_i2c_get_handle()`，与 ES8388 / 触摸 /
+  键盘 RGB 同一条），只在该总线上**懒挂一个**设备句柄（400kHz），不建第二条总线、不另加锁
+  （总线自身的锁串行化各设备）。
+- 驱动**只读、不写 INA226 任何寄存器**：每次读三笔、每笔一个寄存器 2 字节——0xFE 厂商 ID
+  （须为 0x5449）、0x01 分流电压（LSB 2.5µV，int16）、0x02 总线电压（LSB 1.25mV）。指针
+  **不自动递增**（数据手册 7.5.5.3；首版一笔 4 字节读得到 `5449 FFFF` ⇒ `ina=err`）。上电
+  默认配置 0x4127 即「分流 + 总线连续转换」；校准寄存器复位为 0 ⇒ 电流寄存器 0x04 恒 0，
+  故不读它。`cur_ma = shunt_uv / 5`（整数 mA），5mΩ 是官方原理图第 5 页的 R39（R005/1%），
+  没有查证来源就不得换算。
+- 不碰 ES8388、不持引擎锁；流式下 20 次连读 `xrun 0 → 0`。失败形态：INA226 无应答或 ID
+  不符 ⇒ `ESP_ERR_INVALID_STATE` 且三字段为 `INT32_MIN` 哨兵（console 回显 `na`、
+  `ina=err`）；温度读失败只把 `temp_c` 置 `na`。芯片温度走 IDF `temperature_sensor`，
+  量程 −10..80℃。调用契约是**单调用者**（console 任务）；若以后让别的任务并发调用，需要给
+  `ina226_ensure()` 加初始化保护。
+- **测量点在电池侧（裁决 R15）**：VBUS 引脚接的不是 USB-C VBUS，而是电池侧节点
+  `SYS_BAT_PRE`（`R39` 的另一端是 `SYS_BAT_2S`）。USB-C 供电且未装电池时实测
+  **≈915–933mV / −1..0mA**——**USB 输入功率不可由这颗 INA226 观测**。只有装上电池后
+  `vbus_mv`/`cur_ma` 才有信息（届时 `cur_ma` 为正 = 放电是按图推断、未实测，应先核对
+  符号）。因此 soak 的功耗/温度两列**仅记录、不设门禁**；原理图上整机只有这一颗电流计，
+  整机输入功耗需要硬件侧的其它手段。温度实测 27–28℃（轻载 + 室温），低于 spec 预期的
+  35–70℃，是正常读数。
+
+**任务栈（P4-F 终态）**：
+
+| 任务 | 栈 | 依据 |
+|---|---|---|
+| audio | 4,096B，`MALLOC_CAP_INTERNAL\|MALLOC_CAP_DMA` 分配 + 静态 TCB | 本节上文（必须整块在 L2MEM） |
+| LVGL（定时器拍/页面构建/全部控件回调） | **10,240B** | 裁决 R10：原 7,168B 被叠放的 `app_state_t` 副本压穿；余量经 `UI MEM lvgl_stack_free` 暴露，门禁 ≥2,048 |
+| input（键盘轮询与派发） | **8,192B** | 裁决 R13：原 4,096B，键盘路径同样会叠副本；`KEY STATS input_stack_free` 仅在 `phys>0` 时有意义 |
+| sys_selftest worker（SYSTEM 页 SELFTEST chip） | 5,632B | Task 2 由 16,384 收缩；高水位 1,484 字（峰值 ≈4.1KB），栈落在 L2MEM |
+| console REPL | 16,384B | 既有；`TAP`/`KEY` 注入在这个任务上执行，**量不到** LVGL/input 任务的栈 |
+
+**规则**：点击路径（LVGL 控件回调）与输入路径（键盘派发）在栈上**至多持一份
+`app_state_t`**（约 1.7KB；`refresh`/`sloop_ui_step_tool` 的那一份原位刷新），需要单字段时
+用状态层的窄读访问器；页面**构建**函数不持整份副本。物理点击只能进 LVGL 任务，所以
+`TAP` 注入测不到这条栈——加页或加副本前先看 `lvgl_stack_free`，并留意仍未被机器验证的
+输入路径（ADR-008 §8.12、ADR-006）。
 
 ## 后果
 

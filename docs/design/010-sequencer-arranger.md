@@ -151,7 +151,9 @@ Task 3 新增 `sloop_seq.h` 与 `seq_tab5.c`，后者在 `store_tab5.c` 之后�
 - `sloop_seq_read_dstep/write_dstep` 原样读写鼓步的 16 lane `on/lvl/rat` 打包字节；
   `sloop_seq_set_micro` 接受 -32..31；`sloop_seq_set_fill` 接受 0..3，其中 3 由上游
   `step_plays()` 按 normal 处理。
-- `sloop_seq_lock_set/del/list` 直接调用上游 `lock_set/lock_del` 或枚举其 `plock_t` 存储。
+- `sloop_seq_lock_set/del/list` 直接调用上游 `lock_set/lock_del` 或枚举其 `plock_t` 存储
+  （`del` 之后另把空闲槽的残留 param/val 清零，使解锁后的捕获 hash 与 LOAD 之后一致——
+  P4-F Task 6，见 §11「空闲锁槽的规范化」）。
   每轨 24 槽，同键覆写不占新槽，第 25 项返回 `ESP_ERR_NO_MEM`；不可锁参数（含 P_SLEN）和
   越界输入返回 `ESP_ERR_INVALID_ARG`；`lock_del(param=P_COUNT)` 清除该步全部锁。
 - 所有公共写入口先检查 `s_frozen`，再在 `s_engine_lock` 内复核并写入；host 的空
@@ -389,6 +391,12 @@ Task 8 把 `seq.c`（FELUCCA_ARRANGER 段）的 live sections、quick chain、SO
   残留字节，无数据丢失；`SEQ LOCK DEL` 这条既有路径同样如此）。适配层在
   `sloop_seq_lock_del` 与 `sloop_seq_step_edit(SEQ_STEP_CLEAR)` 里于上游 `lock_del` 之后把全部
   空闲槽的 param/val 清零，live 状态与 LOAD 之后的形态一致（`test_lock_del_canonical`）。
+  **字节兼容**：改动只在 RAM。工程序列化只写 `step < NSTEP` 的有效锁（上游 `project.c`
+  的导出循环，先计数再逐项写 step/param/val），空闲槽的残留从不落盘——所以落盘字节、
+  格式版本与长度都不变，旧固件写下的工程对象照常可读；唯一可观测的差别是解锁之后
+  `proj_capture` 的捕获 hash（`STORE LIVEHASH` / `STORE PROJ HASH`）等于 LOAD 之后的值，
+  以及同样基于有效锁的上游 `ed_step_sig` 不受影响。`lock_set` 覆写同键时不经过这里
+  （槽仍是有效的）。
 - **与 §7 的边界**：CLEAR SEQ 的 undo 走上游单槽 undo（`undo_mark` 与上游同序），锁/fill
   的编辑本身不在 undo 里（上游边界不变）。
 
