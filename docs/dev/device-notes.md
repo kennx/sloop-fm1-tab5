@@ -183,3 +183,14 @@ R39 = **0.005Ω（丝印值 `R005`，1%）**，电流 = 分流电压 / 5mΩ（`c
 - **对音频无扰**：`ENG POWER` 只做三笔 400kHz I2C 读（BSP 板载总线的锁串行化，不另加锁、不持引擎锁），
   流式下两个 3s 窗口各连读 20 次，`ENG PERF` 的 `xrun 0 → 0`、`render_max_us` 不变
   （`docs/dev/verify/4-pf-2026-11-24/task-9-power-readings.log`、`task-9-power-summary.txt`；探针 `task-9-power-probe.py`）。
+
+## 11. 设备当前状态（2026-11-25，P4-F Task 10b 会话之后；下次上设备前先读）
+
+- **工作工程**：`LIVEHASH 16FC5CB6`，且 flash 的 autosave 副本就是它（`autosave_hash == LIVEHASH`、
+  `autosave=1`；`docs/dev/verify/4-pf-2026-11-24/task-10b-device-end.log`）。它不是「干净」工程：
+  轨 0 是 `slen=64 / mute=1 / level=1`（`sequence` 的自由录音把 LEN 拉到 64，其余是场景归一留下的）。
+  同一会话的开机基线是 `D6962C61`，要回到它只能靠工程槽 A–D 里的存档。
+- **工程槽 A–D / section A–D**：自 P4-C 起就是注入场景的测试状态（section 与工程槽共用同一组存储槽，
+  `sequence`/`song`/`step_edit`/`store` 都拿槽 3 当诊断槽），**不要当作用户存档**。
+- 之后起跑的 3h soak（`soak.py --duration 10800 --save-window 3600`，17:54:38）会先 `STORE PROJ SAVE 0 + LOAD 0`
+  一次并把窗口内外的状态写回 autosave——soak 结束后的设备状态以 Task 10c 的读数为准。

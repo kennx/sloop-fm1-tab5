@@ -185,6 +185,14 @@ MIX→STEP 17,940 / 17,832B、SEQ→MIX 15,592 / 15,460B；`lvgl_stack_free` 最
 而截屏在起播后约 1.1s（与 Task 8 同延迟）⇒ 确定性撞上。Task 8 的工程轨 0 为 `div=2`（播放头在列 6），
 所以同一锚点当时通过。传输本身正常（`probe-transport.log`）。修正 `e488b75` 把播放态的页内锚点移到网格之外
 （顶栏 / 行标签 / 列号 / 底部提示），停止态条目仍覆盖网格内像素；离线复判见 `anchor-fix-check.log`。
+**评审（Task 10）指出这样移完之后 `step-playing` 的五个页内锚点全是静态家具**——`anchor-fix-check.log` 里
+它们在停止帧 `step-default.png` 上的命中计数完全相同，即该条目对「其实没在播」没有判别力；STEP 页也没有
+任何播放字样可取。`370a059` 补了**播放头存在性**锚点：`page_step.c` 给播放头所在列的格画 5px accent 框、
+停止时不画，取轨行 0/1/3 顶边 4px 带内的 accent 像素——`step-playing` 要求 ≥100、`step-default` 同框
+要求 ==0（设备帧实测 224 / 0；不取轨 2，MONO 的 accent 与 track2 同色）；TRANSPORT 的状态行另加
+text 像素的 present/absent 对。离线自测对已晋升的 8 张设备帧做了正反向复判（命中 + 反向不命中）。
+**新锚点还没有在设备上运行过**：3h soak 期间不碰设备，由 Task 10c 在 soak 结束后跑一次全量并登记；
+下表 run 3 的 475/0、158 锚点是加锚点之前的口径（现为 166）。
 两次失败的完整目录保留为 `task-10b-matrix-run{1,2}-fail/`。
 
 **边界与需要知道的**：
@@ -195,8 +203,15 @@ MIX→STEP 17,940 / 17,832B、SEQ→MIX 15,592 / 15,460B；`lvgl_stack_free` 最
   （`B17A591C`）；`sys` 复跑的归一 SAVE 之后是 `16FC5CB6`，且 `autosave_hash == LIVEHASH`——flash 的 autosave
   副本现在是这个状态。注入场景本就破坏性/自归一（例如 `sequence` 的自由录音把轨 0 留成 `len=64`）。
   若要回到本会话之前的工程，只能靠工程槽 A–D 里的存档。
-- 矩阵中段（复跑之前）见过一次 `ENG PERF xrun=1`（全量自检/`system-selftest` 条目停起流之后），
-  复跑的 `sys` 与其后的所有读数 `xrun=0`；soak 的 xrun 门禁以它自己的复位后基线为准。
+- **xrun 读数（与 transcript 逐行核对过）**：`sequence` ⑦ `STORE TEST PASS 6/6` 之后的第一条
+  `ENG AUDIO` 是 `xrun=6`（`task-10b-sequence-transcript.log:2581`）——该场景在此之前不读 xrun，
+  所以这 6 次落在哪个窗口**不能由 transcript 确定**（最可能是 ⑦ `STORE TEST` 在流式下的两个
+  4KB 扇区擦写；存储写窗口按 soak 的口径允许 ≤16，`sequence` 自身对 xrun 没有断言）。
+  `sys` 首轮进入场景时 `xrun=1`（`task-10b-sys-transcript.log:7`），复跑 ③ 的窗口是 `2 → 2`
+  （`task-10b-sys-rerun-transcript.log:530`）——都是同一开机内更早场景留下的计数，③ 断言的是
+  窗口增量 0，两轮都 PASS。这些是**不被任何场景门禁的存储写 / 流重启窗口**；本节只陈述读数，
+  不外推「无害」——soak 的 xrun 门禁以它自己复位后的基线为准（AGENTS §5.5）。此前本条写的
+  「只见过一次 xrun=1、其后全部 xrun=0」与 transcript 不符，已更正。
 - 我的一次手工探针里 SCR 帧传输慢到 ≈21s/帧（DI-5 一类），矩阵脚本自己的 99 次截屏没有失败或重试；
   仅记录。
 
