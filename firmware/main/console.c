@@ -1665,7 +1665,7 @@ static int ui_command(int argc, char **argv)
         }
         char *end = NULL;
         long idx = strtol(argv[2], &end, 0);
-        /* 下行子签固定 5 个槽位（theme.h UI_GROUP_MAX=5，最大组 EDIT = 5 页）：
+        /* 下行子签固定 5 个槽位（ui_nav.h UI_GROUP_MAX=5；最大的组 EDIT = 4 页）：
          * 0..4 之外的 index 一律用法错误（与 sloop_ui_sub_select 的上界同口径）。 */
         if (end == argv[2] || *end != '\0' || idx < 0 || idx > 4) {
             printf("用法: UI SUB <index=0..4>（当前组的子签下标；组内最多 5 页）\n");
