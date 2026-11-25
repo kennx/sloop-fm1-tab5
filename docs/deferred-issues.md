@@ -443,3 +443,15 @@
 | **触发条件** | 任何新增页/组/页签行的任务开工前；或 `nav` ⑩ 的最小池剩余 < 6,144B；或 LVGL 池扩容/缩容时。 |
 | **参考** | `docs/design/005-ui-architecture.md` §5（base 定义）与 §5.5（终态账面 + 72 对实测表）；`docs/dev/verify/4-pf-2026-11-24/task-7-nav-stdout.log`、`task-7-nav-session1-stdout.log` 与对应 transcript；`scripts/inject/nav.sh` ⑩；`scripts/inject/inject.py`（`UI MEM` 解析）；ADR-008 §3（页级 est 与实测） |
 | **登记** | 2026-11-25（P4-F Task 10a 文档收口时发现） |
+
+## DI-57: SOUND 页眉对用户预置只显示 `USER nn`，不显示槽名（上游显示槽名）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 终审 A1 修复（`b7c915a`）后，`sloop_core_sound_read` 投影 `t->user`，SOUND 页 PRESET 行与 `TAP` 回显在载入用户预置后显示 `USER nn`（nn = 槽号+1，同 PRESETS 页 `U01..U32`），不再是工厂预置名。上游页眉显示的是该槽的**名字**（`ui_draw.c:850` `up_name(user_of(t))`，默认名 `<ENGINE> <槽号>`，可自定义）。槽名在 flash 银行索引里，唯一入口 `sloop_store_preset_name` = 存储锁 + `up_boot()` 重扫；而投影在 30ms sync（LVGL 任务）里无锁读 `trk[]`，每次都去抢存储锁会在 flash 擦写期间卡住 UI 任务，故未取。 |
+| **影响面** | 仅标签信息量：用户看到的是槽号而非自己起的名字；槽号可在 PRESETS 页对上名字。行为（载入、± 换预置清 `user`）与上游一致。 |
+| **为何可延迟** | 不是错误标签（修复前才是——显示成工厂预置名）；阶段收口不新增依赖。 |
+| **解决方向** | 在 `sloop_core_sound_read` 之外做「user 变化时取一次」：页面侧（`page_params.c` 的 update）在 `sound.user` 变化时调 `sloop_store_preset_name(user-1, buf)` 填一个页内缓冲，取不到（存储未就绪/槽空）回退 `USER nn`；注意这会让 LVGL 任务在 flash 擦写期间等存储锁（≤ 一次写窗口，量级同 SAMPLE 页的同步擦除），需在 `params.sh` 里加一条断言 `xrun` 增量 0 并评估 `lvgl_stack_free`。`preset_name[16]` 放得下 `USER nn` 与 12 字符槽名之一，但放不下 `U01 <名字>`（需 17 字节）。 |
+| **触发条件** | 用户反馈想在 SOUND 页看到自定义预置名；或 PRESETS 页/页眉统一做「按名浏览」（DI-54）时一并处理。 |
+| **参考** | `firmware/components/sloop_core/src/desc_tab5.h`（`sloop_core_sound_read`）；`firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_preset_name`）；`third_party/sloop-fm1/firmware/src/ui_draw.c:845-856`；ADR-008 §8.10（SOUND 页眉）。 |
+| **登记** | 2026-11-25（P4-F 终审修复波） |
