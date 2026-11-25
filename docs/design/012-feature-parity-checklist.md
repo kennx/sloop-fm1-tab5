@@ -45,7 +45,7 @@ SEL 选轨、EDIT 层擦除（`tracks.sh` 84 / `step_edit.sh` 314）。
 
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
-| ENV（ATK/DEC/SUS/REL） | GLO? 否：ENV 页 | MOD·ENV | ✅ | `params.sh` ⑩（`knob-test.sh` 槽表） | P4-F Task 4 |
+| ENV（ATK/DEC/SUS/REL） | ENV 页 | MOD·ENV | ✅ | `params.sh` ⑩（`knob-test.sh` 槽表） | P4-F Task 4 |
 | ENV DEST（ED_FLT/ED_PIT/ED_SHP/ESYNC） | ENV DEST 页 | MOD·ENV DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | LFO / LFO 2 / LFO DEST | 三页 | MOD·LFO / LFO 2 / LFO DEST | ✅ | `params.sh` ⑩ | P4-F Task 4 |
 | FX（DIST/CHOR/DLY/REV）+ 轨道滤波 TFLT | FX / FILTER 页 | FX 页的 `FX` chip（8 槽，另加 LVL/PAN/ATK） | ✅ | `params.sh` | 保留 FX 页的扩展 8 槽（兼容）；P4-F Task 5 起是 chip 页 |
