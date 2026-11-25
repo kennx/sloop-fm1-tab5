@@ -75,7 +75,7 @@
 - B-I1（SOUND 槽标签随引擎槽值重解析）只做过 GREEN 验证，没有在修复前固件上做 RED；A1 的 `USER 01` 字面没有 OCR，机读证据是 `UI SOUND CHIP`/`TAP` 回显与页眉区像素差（裁决 R22）。
 - `params` ⑪ 与 `transport` ⑩g 的「截屏复位重跑」路径没有在设备上演练（`step_edit` ②g 的 pos/neg 两条已演练）。
 - 探针与重启包装器（`task-10c-probes.py`、`task-10c-restart_wrap.py`）是一次性的，没有固化进 `scripts/inject/`。
-- `step_edit` 的像素常量假定 MONO 主题，场景不像 `sys` 那样自归一 palette：设备停在别的 palette 时会有十几条像素 FAIL（10c-2 实测：306 PASS / 14 FAIL，`task-10c-step_edit-rerun-cyan-stdout.log`）。控制台 `KEY`/`PARAM`/`ENG`/`SEQ` 断言不受影响。
+- `step_edit` 的像素常量假定 MONO 主题，场景曾不像 `sys` 那样自归一 palette：设备停在别的 palette 时会有十几条像素 FAIL（10c-2 实测：306 PASS / 14 FAIL，`task-10c-step_edit-rerun-cyan-stdout.log`）。**已按裁决 R23 修（`93f8f96`，只改脚本）**：十条场景共用入口括号——非 MONO/主题开时归一 palette 4 + 主题关并落盘，收尾（含异常路径）还原入口调色板/主题开关；默认 MONO 入口零写命令。**设备验证欠给最终 soak 之后**：CYAN 入口的 `step_edit` 判别运行（期望与 MONO 入口同数、场景之后 `palette=2` 被还原）、MONO 入口的十场景计数回归、一条非 MONO 入口上开头就硬复位的场景（`store`），见 `readme.md` §7。
 - 载入工程/预置时 `P_LEVEL`/`P_MUTE`/ARP/HOLD 是保留参数（`param_kept`，上游语义）——换声音不会把静音轨放开。
 
 **后续跟进（需要动代码或等外部条件）**
@@ -142,3 +142,4 @@
 | R20 | `step_edit` ②g 的发声探针在入口归一轨 0 的 `P_MUTE=0`/`P_LEVEL=104` 并在收尾还原（脚本缺口，不是固件缺陷） | 无 |
 | R21 | 接受「同批 console TAP 可对刚隐藏的 chip 返回 select」为投影模型的固有延迟（≤1 拍） | 极小概率的误触（人手 30ms 内完成换引擎 + 点 chip） |
 | R22 | A1 的 `USER 01` 以 `UI SOUND CHIP`/`TAP` 回显为机读证据，页眉字面留给目检 | 无 |
+| R23 | 带像素探针的场景在入口归一 MONO（palette 4 + 主题关）并在收尾还原入口调色板/主题开关（脚本缺口，不是固件缺陷；`93f8f96`） | 无 |

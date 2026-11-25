@@ -282,6 +282,21 @@ CYAN 是怎么来的：10c-1 的一次被误起又中止的 `sys` 复跑停在 �
 控制台断言不受影响。这一轮没有改脚本（范围外），收口报告 §4 记为已知限制；随后 `sys` 复跑按设计把设备归一回 MONO。
 10c-1 的矩阵批是在 MONO 上跑的，§7 的十场景读数不受影响。
 
+**CYAN 红的修复（裁决 R23，只改脚本 `93f8f96`，断言不变；设备验证欠给最终 soak 之后）**：
+`inject.py` 的 `main()` 给十条场景（含 `sys`）套同一个调色板括号——每轮入口 `palette_normalise` 读
+`STORE SETTINGS INFO`，非 MONO（palette 4）或主题开着时 `SET palette 4` / `theme_on 0` 并立即
+`STORE SETTINGS SAVE`（SET 只改 RAM，场景开头的硬复位会赶在 1s 任务的静默窗口之前），`finally`
+里 `palette_restore` 写回入口值并落盘（断言未过 / `InjectError` 异常终止同样还原）。默认 MONO 入口
+零写命令、断言计数不变；`sys` 的调色板轮换用例不变。离线证据：真实 `main()` + 假串口演练 10 例
+（MONO 零写 / CYAN 归一·还原 / 异常终止·断言未过仍还原 / ScenarioRestart 重跑 / SAVE 被拒后复位
+重新归一 / theme_on / 播放中入口 / init 未完重试），`soak-selftest.py` 与 `screenshot_matrix.py
+--selftest` 通过。**尚未在设备上跑**：soak 结束后欠 (1) CYAN 入口的判别运行——先 `STORE SETTINGS SET
+palette 2` + `STORE SETTINGS SAVE`，跑 `step_edit.sh`，期望 rc=0、PASS/FAIL 与 MONO 入口同数（≈321/0），
+场景之后 `STORE SETTINGS INFO palette=2`；(2) MONO 入口回归：十场景各一遍，PASS/FAIL 计数与 §7 表相同
+（括号零断言）；(3) 任一非 MONO 入口（例如 CYAN 上的 `store`，开头就硬复位）证明归一跨复位成立。
+`screenshot_matrix.py` 的 `close_bracket` 经复核本就还原入口 palette/theme_on（漂移/复位丢失两条
+中止路径按设计不还原）；`soak.py` 没有像素探针，无 MONO 假设。
+
 **边界与需要知道的**：
 
 - 无视觉检查：全部是像素探针/锚点结论。人眼复核的材料是 **`task-10c-matrix/sheet-*.png`**（10 张）。
