@@ -189,6 +189,7 @@
 #include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
+#include "usb_fm1.h"
 
 static const char *TAG = "sloop_console";
 
@@ -339,6 +340,27 @@ static int disp_command(int argc, char **argv)
         return 1;
     }
     printf("DISP BRIGHT ERR invalid\n用法: DISP BRIGHT [0..100]\n");
+    return 1;
+}
+
+/* FM1 STATUS：USB host 未启动回 no_host；无设备时 vid/pid=0x0000、product=-（5A Task 5 补齐
+ * INFO/GET/… 子命令） */
+static int fm1_command(int argc, char **argv)
+{
+    if (argc == 2 && strcasecmp(argv[1], "status") == 0) {
+        usb_fm1_status_t st;
+        usb_fm1_get_status(&st);
+        if (!st.host_ok) {
+            printf("FM1 STATUS ERR no_host\n");
+            return 1;
+        }
+        printf("FM1 STATUS link=%s vid=0x%04X pid=0x%04X product=%s rx=%u tx=%u drops=%u open_fail=%u\n",
+               st.link ? "ready" : "none", st.vid, st.pid, st.product[0] ? st.product : "-",
+               (unsigned)st.rx_frames, (unsigned)st.tx_frames, (unsigned)st.rx_drops,
+               (unsigned)st.open_fail);
+        return 0;
+    }
+    printf("FM1 ERR invalid\n用法: FM1 STATUS\n");
     return 1;
 }
 
@@ -4055,6 +4077,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&disp_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 DISP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t fm1_cmd = {
+        .command = "FM1",
+        .help = "FM-1 联动诊断：FM1 STATUS 打印 USB-MIDI 链路与收发计数（ADR-002）",
+        .hint = "STATUS",
+        .func = &fm1_command,
+    };
+    ret = esp_console_cmd_register(&fm1_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 FM1 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

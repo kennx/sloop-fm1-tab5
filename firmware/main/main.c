@@ -29,6 +29,7 @@
 #include "sloop_ui.h"
 #include "sys_selftest.h"
 #include "tab5_keyboard.h"
+#include "usb_fm1.h"
 
 static const char *TAG = "sloop_tab5";
 
@@ -109,6 +110,13 @@ void app_main(void)
             ESP_LOGE(TAG, "音频流启动失败: %s（引擎静默，ENG AUDIO ON 可重试）",
                      esp_err_to_name(audio_ret));
         }
+    }
+
+    /* USB-A host 常驻（5A Task 1，ADR-002）：当前只做设备枚举记录，FM1 STATUS 可查；
+     * 任务栈在 PSRAM。失败不阻断启动——联动模式不可用，独立模式照常。 */
+    esp_err_t usb_ret = usb_fm1_start(&(usb_fm1_config_t){0});
+    if (usb_ret != ESP_OK) {
+        ESP_LOGE(TAG, "USB host 启动失败: %s（FM1 联动不可用）", esp_err_to_name(usb_ret));
     }
 
     /* 阶段 3 UI：状态层就绪后接管屏幕（单容器屏 + 两行页签：7 组 / 14 页，P4-D Task 8）。
