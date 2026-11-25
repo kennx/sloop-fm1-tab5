@@ -3821,8 +3821,8 @@ def param_sound_slot_labels(s: Session) -> None:
                 s.cmd("TAP %d %d" % sound_row_xy(1, +1))
                 s.expect(r'-> SOUND PRESET value=\d+ name="[^"]+" status="OK"', f"⑫ TAP PRESET +（{step + 1}）")
                 s.cmd(f"PARAM {pid}")
-                m = re.search(rf"PARAM track=1 id={pid} value=(-?\d+) applied=(-?\d+)", s.last)
-                if m is not None and int(m.group(2)) != v:
+                m = re.search(rf"PARAM track=1 id={pid} value=(-?\d+) min=", s.last)
+                if m is not None and int(m.group(1)) != v:
                     discriminated = True
                     break
             (s.ok if discriminated else s.ser.note)(
@@ -5210,7 +5210,7 @@ def proj_snapshot_open(s: Session, name: str, slot: int, tag: str) -> tuple:
         raise InjectError(
             f"{tag} 重跑后诊断槽 {slot} 不是工作工程快照（槽 {got}，快照 hash={hash0:08X}）："
             f"快照已被改写，无法还原工作工程——终止场景。设备 RAM 里的工作工程可能停在场景"
-            f"中途态；flash 的 autosave 副本未被本场景写过，硬复位即回到最近一次 autosave")
+            f"中途态；若期间没有落进 autosave 窗口，硬复位即回到最近一次 autosave 副本")
     empty = proj_slot_state(s, slot) < 0
     if not empty:
         s.ser.note(f"{tag} 诊断槽 {slot} 入口非空（用户工程？）：被工作工程快照覆盖，收口不擦")
