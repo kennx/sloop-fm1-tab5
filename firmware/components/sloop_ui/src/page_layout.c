@@ -156,7 +156,8 @@ enum {
  * X(下标, 页 id, est, 标题, features, chip 数, chip0, chip1, chip2, chip3, chip4)
  * est（chip 页 = 3,584）：chip 行是**一个**自绘对象（每 chip 一个 label 的首版实测
  * MOD 4,544B，会逼 est 到 5,120 并让 EDIT→STEP 有序对账面 63,848 > 63,120；改对象设计
- * 后实测 3,012–3,072B，est = 实测 +17..19%、512 对齐，见 ADR-008 §8.9）。SOUND est
+ * 后实测 2,936–3,104B（跨 boot 3,012–3,088B），est = 实测 +15..22%、512 对齐，见 ADR-008
+ * §8.9）。SOUND est
  * 6,144 = 8 旋钮 + 页眉两行 + 常驻隐藏的 bank 行（上限 7,168）。est 只在实测超限时改对象
  * 设计，不抬。宏体内不放注释（每行都要续行）。
  * 宏参数名不能叫 id/title：designator 的 .id/.title 会被参数替换掉。 */

@@ -62,6 +62,7 @@ esp_err_t page_params_chip_set(uint8_t index, uint8_t chip);
  * 槽不存在回 false。不取 LVGL 锁。 */
 bool page_params_slot_info(uint8_t index, uint8_t chip, uint8_t slot, uint8_t *id,
                            const char **label, bool *locked);
+/* 槽位是否锁定（引擎页不适用/鼓轨逐槽规则/槽不存在）；chip 越界 = 锁定。不取 LVGL 锁。 */
 bool page_params_slot_locked(uint8_t index, uint8_t chip, uint8_t slot);
 
 /* 调试注入（console `UI KNOB`）：向**当前**参数页第 slot 槽旋钮派发合成

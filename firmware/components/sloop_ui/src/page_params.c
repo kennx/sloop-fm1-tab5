@@ -290,7 +290,8 @@ static bool slot_desc(const param_page_t *pg, uint8_t chip, uint8_t slot, sloop_
         return sloop_core_desc(SLOOP_DESC_GLOBAL, 0, s->id, out);
     default: {
         /* 窄读选中轨：本函数在点击路径的第三层帧里被调（回调 → refresh → update → 这里），
-         * 在栈上放整份 app_state_t（≈1.7KB）会把 LVGL 任务的 7KB 栈压穿（Task 5 评审 R10）。 */
+         * 在栈上放整份 app_state_t（≈1.7KB）会压穿当时 7,168B 的 LVGL 任务栈（Task 5 评审
+         * R10；现为 10,240B，副本份数的限制不变）。 */
         uint8_t track = state_selected_track();
         return track < APP_STATE_TRACKS && sloop_core_desc_track_live(track, s->id, out);
     }
@@ -1359,7 +1360,10 @@ static void chip_row_event_cb(lv_event_t *e)
 }
 
 /* 生效 chip：选中 chip 若在当前上下文隐藏（条件 chip），落到首个可见 chip 并回写选择。
- * 非 chip 页恒 0。调用方已持 LVGL 锁或处于 LVGL 上下文。 */
+ * 非 chip 页恒 0。**不取 LVGL 锁**：上下文取自调用方的快照 st，选择经 s_focus_mux 读写，
+ * 不碰 LVGL 对象——所以两个调用方都不以持锁为前提：update 拍（LVGL 上下文）随后按返回值
+ * 决定是否 apply_chip 重配旋钮；page_params_chip_get（console `UI <page> CHIP`，无 LVGL
+ * 锁）只读返回值，回写的选择留给下一拍生效。 */
 static uint8_t chip_effective(uint8_t index, const param_page_t *pg, const app_state_t *st)
 {
     uint8_t chip = chip_get(index);

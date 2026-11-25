@@ -654,7 +654,8 @@ void sloop_core_set_global(uint32_t id, int16_t value)
  * mode 依赖 label/names）处替换静态表。这里**不**投影动态钩子，直接取 TP[]/edit[]：
  * 前提是这些动态描述符的 min/max 与静态表相同（上游现状如此，只换 label/names/unit）。
  * 若上游某次改动让动态范围不同于静态范围，本函数的钳位会与 UI 显示范围不一致——
- * 届时须把动态钩子纳入（需要 track 上下文，sloop_core_desc 已登记同一限制）。 */
+ * 届时须把动态钩子纳入——带轨道上下文的读取入口已存在：sloop_core_desc_track_live()
+ * （上游 track_desc()，desc_tab5.h）；本函数仍是钳位表，与上游 lock_desc() 同取静态表。 */
 static const param_desc_t *param_desc_at(const track_t *t, uint32_t id)
 {
     if (id < P_E0) return &TP[id];

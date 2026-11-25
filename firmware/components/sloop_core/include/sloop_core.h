@@ -222,7 +222,11 @@ bool sloop_core_desc(sloop_desc_scope_t scope, uint32_t engine, uint32_t id, slo
  * 规则按上游现状只换 label/names/unit/fmt、范围与默认值同静态表（这是上游的事实，
  * 不是本函数的保证；上游若让动态范围偏离静态表，这里如实跟随）。
  * 上游 static 表与引擎钩子只读 t->p[]/eng_req 的整数值，**不取引擎锁**、可在任意任务
- * 调用（与 sloop_core_desc 同口径）；冻结态同样可读。out 为 NULL 时只判有无描述符。
+ * 调用（与 sloop_core_desc 同口径）；冻结态同样可读。**冻结期间的错位**：诊断冻结时值投影
+ * 不再跟随引擎——`sloop_core_read`/`read_window` 回冻结时的快照、`read_params`/`read_step`
+ * 回全零——而本函数的标签仍取 live `trk[]`（冻结只挡写入口；`ENG SELFTEST` 期间 UI 同时
+ * 静默，手工 `ENG FREEZE ON` 时参数页可能显示「新标签 + 旧值/零值」）。
+ * out 为 NULL 时只判有无描述符。
  * 未命中返回 false 且不改 out。`out` 的指针指向上游静态数据，调用方不得释放/改写。 */
 bool sloop_core_desc_track_live(uint8_t track, uint32_t id, sloop_desc_t *out);
 

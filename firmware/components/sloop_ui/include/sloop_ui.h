@@ -278,7 +278,8 @@ typedef enum {
                               * err=0 成功 / 1..7 = app_seq_status_t（映射见 console）；
                               * 页面守卫（未就绪/走带中 MODE 或配置）回 7/5 且不发命令。
                               * 动作结果文本由 `sloop_ui_song_status_text()` 与屏幕同源给出。 */
-    SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */    SLOOP_TAP_TOOLS,       /* TOOLS 页三张 chip（P4-F Task 6）：a=动作（0 CLRSEQ / 1 INITSOUND /
+    SLOOP_TAP_SYSTEM,        /* SYSTEM 页：a=行（0..8）v=写后回读值 d=±1 err=settings_status */
+    SLOOP_TAP_TOOLS,         /* TOOLS 页三张 chip（P4-F Task 6）：a=动作（0 CLRSEQ / 1 INITSOUND /
                              * 2 NEWPRJ = sloop_tool_t）v=1 本次点按**只进入/保持预备态**
                              * （未执行，1.5s 内再点同一 chip 才执行）/ 0 已执行（一条
                              * CMD_TOOLS）。结果文本由 `ui_tools_status_text` 与屏幕同源给出

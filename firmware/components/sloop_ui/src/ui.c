@@ -114,7 +114,7 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
     {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
     /* TOOLS（P4-F Task 6，MIX 组第 3 张子签）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
-     * label，实测 delta 2,568–2,664B（≈320B/对象）。est = 实测 +10% 上取整到 512 的常规档
+     * label，实测 delta 2,568–2,732B（≈320B/对象）。est = 实测 +10% 上取整到 512 的常规档
      * 3,584（ADR-008 预算表；控制器的 7,168 是上限）。 */
     {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 3584},
 };
@@ -122,7 +122,7 @@ static const ui_page_t k_builtin_pages[] = {
 /* 组表（ADR-005「导航决策」）：组顺序 = 上行页签顺序 = `TAB` 扁平轮转顺序；
  * 组内顺序 = 下行子签顺序。没有已注册成员的组 group_size()==0：组签不显示、
  * `TAB` 也跳过（注册表是可发现性的唯一来源）。
- * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，theme.h 有断言）；
+ * 成员上限 UI_GROUP_MAX（= 子行可容纳的子签数，ui_nav.h 有静态断言）；
  * SYS 是 P4-E Task 6 的单页设置组。 */
 typedef struct {
     const char *name;
@@ -599,8 +599,8 @@ static bool create_tab_bar(void)
         s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
-    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大组 EDIT 5 页，
-     * SYNTH 3 页） */
+    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大的组 EDIT 4 页，
+     * MIX/SYNTH 3 页） */
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_t *btn = make_tab_button(bar, UI_SUB_W, UI_SUB_H, sub_clicked_cb,
                                         (void *)(uintptr_t)i);
@@ -767,9 +767,9 @@ void sloop_ui_zoom_knob(const knob_t *k)
 
 /* 已建页刷新：UI 拍里**唯一**的一份状态副本放在这个独立函数的帧里，不留在
  * ui_timer_cb——后者还要调 state_sync_from_engine()（自带一份引擎快照 + 参数数组）与
- * show_page()（自带一份状态副本，页面构建还可能再取）。LVGL 任务栈只有 7,168B，三份
+ * show_page()（自带一份状态副本，页面构建还可能再取）。当时 LVGL 任务栈是 7,168B，三份
  * ~1.7KB 的副本叠起来后余量不足 0.5KB（P4-F Task 5 用高水位实测；再多一份即
- * Stack protection fault）。 */
+ * Stack protection fault）——评审 R10 之后栈是 10,240B，副本份数的限制不变。 */
 static uint32_t s_lvgl_stack_free; /* LVGL 任务栈的历史最小余量（字节；0 = 尚未跑过 UI 拍） */
 
 static void ui_refresh_built(void)

@@ -782,8 +782,8 @@ lv_obj_t *page_step_build(lv_obj_t *parent)
     lv_label_set_text(hint,
                       "TAP = TOGGLE   DIM = BEYOND LEN   TIE = HOLD   A = ACCENT   S = SLIDE   "
                       "F = FILL   N = NO-FILL   m± = NUDGE   xN = RATCHET\n"
-                      "NOTE: WHITE=NORM YELLOW=HARD GREY=SOFT DARK=GHOST  |  AA+K = LOCK   "
-                      "AA+L = UNLOCK   AA+9 = FILL CONDITION\n"
+                      "NOTE: WHITE=NORM YELLOW=HARD GREY=SOFT DARK=GHOST  |  Aa+K = LOCK   "
+                      "Aa+L = UNLOCK   Aa+9 = FILL CONDITION\n"
                       "DRM: TAP DOT=SELECT+TOGGLE, TAP CELL=TOGGLE, UP/DN=LANE, ENTER=TOGGLE");
     lv_obj_add_style(hint, &s_st_hint, 0);
     lv_obj_set_pos(hint, 24, 590);
