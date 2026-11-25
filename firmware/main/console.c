@@ -12,7 +12,8 @@
  *  - SYS：SYS NVS ERASE 删除平台设置三键（诊断；下一次 boot 落默认）；SYS SELFTEST ARM 清
  *    SYSTEM 页 SELFTEST chip 的每 boot 一次标记（R25 诊断注入，让复位后的 chip 重走 worker）。
  *  - ENG：SLOOP 引擎诊断（INFO/SNAP/STEP、SMOKE、同源 SELFTEST、TRACK/PRESET/TRIG、
- *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8）。
+ *    DESC 描述符投影、PERF、MEM 内部堆水位与 AUDIO ON|OFF 音频流启停，DI-8；POWER 读
+ *    INA226（总线/分流电压 + 由原理图分流电阻换算的电流）与芯片温度，power_sensor.c）。
  *    TRACK 换引擎/预置**并载入参数**；PRESET 打印同一「当前 p[] + 引擎 + 预置」的纯写值
  *    向量（71 行 P<id>=<v>，注入侧的机器比对期望，无副作用；冻结态回 `ERR frozen`）；
  *    FREEZE <on|off> 是诊断冻结的手动入口（必须成对，供注入复验冻结拒绝路径）。
@@ -177,8 +178,10 @@
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "math.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "power_sensor.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
@@ -586,6 +589,27 @@ static int eng_perf(void)
     return 0;
 }
 
+/* 哨兵打印为 na；调用方按字段各给一个缓冲。 */
+static const char *power_text(const char *fmt, int32_t v, char *buf)
+{
+    if (v == POWER_SENSOR_NA) return "na";
+    snprintf(buf, 16, fmt, (long)v);
+    return buf;
+}
+
+static int eng_power(void)
+{
+    /* 记录项（无门禁）：INA226 无效 ⇒ ina=err 且三项 na、返回非零；温度失败 ⇒ na */
+    power_sample_t p;
+    esp_err_t ret = power_sensor_read(&p);
+    char vbus[16], shunt[16], cur[16], temp[16];
+    if (p.temp_ok) snprintf(temp, sizeof(temp), "%.1f", (double)p.temp_c);
+    printf("ENG POWER vbus_mv=%s shunt_uv=%s cur_ma=%s temp_c=%s ina=%s\n",
+           power_text("%ld", p.vbus_mv, vbus), power_text("%ld", p.shunt_uv, shunt),
+           power_text("%ld", p.cur_ma, cur), p.temp_ok ? temp : "na", p.ina_ok ? "ok" : "err");
+    return ret == ESP_OK ? 0 : 1;
+}
+
 static int eng_command(int argc, char **argv)
 {
     if (argc == 2 && strcasecmp(argv[1], "info") == 0) {
@@ -838,7 +862,8 @@ static int eng_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "perf") == 0) return eng_perf();
-    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
+    if (argc == 2 && strcasecmp(argv[1], "power") == 0) return eng_power();
+    printf("用法: ENG INFO|SNAP|STEP <track=0..2> <idx=0..63>|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|PRESET <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|POWER|MEM|AUDIO [ON|OFF]|FREEZE <on|off>（诊断，成对）\n");
     return 1;
 }
 
@@ -4055,8 +4080,8 @@ esp_err_t app_console_init(void)
 
     const esp_console_cmd_t eng_cmd = {
         .command = "ENG",
-        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/DESC/PERF/MEM/AUDIO",
-        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|MEM|AUDIO [ON|OFF]",
+        .help = "SLOOP 引擎诊断：INFO/SMOKE/SELFTEST/TRACK/TRIG/DESC/PERF/POWER/MEM/AUDIO",
+        .hint = "INFO|SMOKE|SELFTEST [case]|TRACK <k> <engine> <preset>|TRIG <synth|drum> <a> <b>|DESC <track|global|engine> <engine> <id>|DESC live <track> <id>|PERF|POWER|MEM|AUDIO [ON|OFF]",
         .func = &eng_command,
     };
     ret = esp_console_cmd_register(&eng_cmd);
