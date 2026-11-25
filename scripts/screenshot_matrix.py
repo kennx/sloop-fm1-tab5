@@ -218,12 +218,42 @@ TR_STATUS = (48, TABCAT + 264, 808, TABCAT + 264 + 40)   # TRANSPORT 状态行 l
 
 
 def _step_focus_frame(ctx: dict):
-    """焦点格左描边（UI_TEXT 3px）；焦点步不在窗口内时不可见 ⇒ 不适用。"""
+    """焦点格左描边（UI_TEXT 3px）；焦点步不在窗口内时不可见 ⇒ 不适用。
+    只用于停止态：播放头的 5px 框会盖过它（播放态见 `_step_playing_stable`）。"""
     col = ctx["focus_step"] - ctx["window_start"]
     if not 0 <= col < ctx["window_len"]:
         return None
     return (inject.STEP_GRID_X0 + col * inject.STEP_CELL_PITCH + 1,
             inject.STEP_GRID_Y0 + ctx["focus_track"] * inject.STEP_ROW_PITCH + 52, "text", 10)
+
+
+def _step_playing_stable(ctx: dict) -> list:
+    """播放态只取播放头扫不到的区域（网格之外）：顶栏（焦点轨色）、行标签 T1（轨色）、
+    网格下方的列号与底部提示（UI_TEXT_DIM）。网格内的格/格框不取——焦点格描边是 3px，
+    播放头落到该列时 5px accent 框盖过它（page_step.c），而播放头位置随焦点轨的
+    LEN/DIV 与截屏时刻变化，len=64 的工程下起播后约 1s 都停在列 0。"""
+    g = inject.STEP_GRID_Y0
+    return [(24, TABCAT + 14, 560, TABCAT + 14 + 30, f"track{ctx['focus_track']}", 300),
+            (24, g + 42 - 4, inject.STEP_GRID_X0 - 4, g + 42 + 26, "track0", 20),
+            (inject.STEP_GRID_X0 + 24, TABCAT + 568 - 2, inject.STEP_GRID_X0 + 64,
+             TABCAT + 568 + 22, "text_dim", 6),
+            (24, TABCAT + 590 + 20, 900, TABCAT + 590 + 44, "text_dim", 600)]
+
+
+def _step_ph_header(ctx: dict):
+    return _step_playing_stable(ctx)[0]
+
+
+def _step_ph_row_label(ctx: dict):
+    return _step_playing_stable(ctx)[1]
+
+
+def _step_ph_colnum(ctx: dict):
+    return _step_playing_stable(ctx)[2]
+
+
+def _step_ph_hint(ctx: dict):
+    return _step_playing_stable(ctx)[3]
 
 
 def _step_status_row(ctx: dict):
@@ -301,7 +331,8 @@ MATRIX = [
         (*inject.fm6p_op_chip_probe(0), "accent"), (*inject.fm6p_page_chip_probe(0), "accent"), KNOB0_VALUE]),
     E("step", "default", ["@track0", _page_cmd("step")], [_step_focus_frame, _step_status_row]),
     E("step", "playing", ["@track0", _page_cmd("step"), "@play", _page_cmd("step"), "@playing"],
-      [_step_focus_frame, _step_status_row], post=("@stop",)),
+      [_step_ph_header, _step_ph_row_label, _step_ph_colnum, _step_ph_hint, _step_status_row],
+      post=("@stop",)),
     E("transport", "default", [_page_cmd("transport")], [
         (inject.TRANSPORT_PLAY[0], inject.TRANSPORT_PLAY[1], "track1"),
         (inject.TRANSPORT_STOP[0], inject.TRANSPORT_STOP[1], "track3"), (*TR_STATUS, "text_dim", 30)]),
