@@ -153,6 +153,9 @@
 - Modify: `firmware/main/console.c`（`ENG POWER` → `vbus_mv=.. shunt_uv=.. [cur_ma=..] temp_c=..`）、`scripts/soak.py`（采样列 + 摘要的 min/max）、`scripts/soak-selftest.py`
 
 - [ ] Step 1: 查分流电阻值（原理图/手册；查不到则按降级口径）；实现并读回合理值（USB 供电 ~5V；温度 35–60℃ 量级）。
+  > **更正（2026-11-25，实施后回填；原文保留作记录）**：括号里的预期是错的——INA226 的 VBUS 引脚接
+  > 电池侧节点 `SYS_BAT_PRE`，主机 USB-C 供电、未装电池时读 ≈0.9V 而不是 ~5V；温度实测 27–28℃。
+  > 分流电阻已查到（R39 = 5mΩ），电流可换算。见收口 spec A5「实施结果」、ADR-007 与 device-notes §10。
 - [ ] Step 2: soak.py 增列；`soak-selftest.py` 通过；短跑 `soak.py --duration 300 --interval 60` 验证列。
 - [ ] Step 3: 提交 `feat(firmware/main): ENG POWER 读数与 soak 的功耗温度采样`。
 
