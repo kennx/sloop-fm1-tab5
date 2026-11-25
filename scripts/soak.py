@@ -32,7 +32,7 @@
        恢复 ON；
        窗口外累计 xrun 不得再增长（xrun 是自启动累计值，基线可为非 0）。不带该参数时行为不变
        （每次采样 xrun 必须为 0）；
-   10. 跨组池检查：PLAY 稳态下 10 轮「七个非 PLAY/TRACKS 组的代表页各访问一次 → 回 PLAY」，
+   10. 跨组池检查：PLAY 稳态下 10 轮「八个非 PLAY 组的代表页各访问一次 → 回 PLAY」，
        `UI MEM` 的 pool_free 首末差与单次下降都 ≤ 128B（组作用域不变量 + R34 实测
        噪声 84B；测量点固定在 PLAY 稳态，避开各页面 TLSF 碎片的涨落）。
 
@@ -68,6 +68,18 @@ PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
          "dsyn": 12, "fm6p": 13, "system": 14,
          "mod": 15, "scale": 16, "voice": 17,
          "tools": 18}                # 18 页：Task 5 的 SOUND 取代 ANALOG+FM6；Task 6 加 TOOLS（MIX）
+# 组表（与 ui_nav.h 的 UI_GROUP_LIST 同源）：组顺序 = 组签顺序，成员顺序 = 子签顺序 = TAB
+# 扁平轮转顺序（NAV_ORDER，取 inject 的同一张表）。PAGES / NAV_ORDER / GROUP_PAGES 必须说
+# 同一张导航——import 时校验；与固件源码（ui_nav.h 的组表与页签几何 104/176/5）的一致性由
+# soak-selftest.py 对源码校验。
+GROUP_PAGES = {"play": (0,), "tracks": (1,), "edit": (6, 15, 16, 17), "mix": (4, 5, 18),
+               "synth": (8, 12, 13), "seq": (2, 3), "song": (11,), "file": (9, 10), "sys": (14,)}
+NAV_ORDER = tuple(inject.NAV_ORDER)   # ((页 id, 页名) …)，18 页
+TAB_X0, TAB_GROUP_W, TAB_GROUP_GAP = inject.UI_TAB_X0, inject.UI_GROUP_W, inject.UI_TAB_GAP   # 16 / 104 / 8
+TAB_SUB_W, TAB_SUB_SLOTS = inject.UI_SUB_W, inject.UI_GROUP_SLOTS                            # 176 / 5
+if ([pid for members in GROUP_PAGES.values() for pid in members] != [pid for pid, _ in NAV_ORDER]
+        or list(GROUP_PAGES) != [g.lower() for g in inject.UI_GROUP_NAMES]):
+    raise SystemExit("soak 页表不一致：GROUP_PAGES 平铺 ≠ NAV_ORDER（P4-F 定稿应为 18 页 / 9 组）")
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -77,11 +89,32 @@ STACK_FLOOR = 2048
 KEY_EVENTS_PER_CYCLE = 2        # 每轮 KEY down + up
 SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash 擦写不饿死音频）
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
-POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 POOL_RT_GROUPS 的代表页各一次）
-# 非当前组（PLAY/TRACKS 之外）的代表页（组作用域销毁/重建）；P4-F Task 4 起组表多出
-# EDIT 与 MIX——跨组往返的分配面各多一组，轮数与阈值不变（Task 5 起 EDIT 的代表页是
-# SOUND：页名 `sound`，`analog`/`fm6` 是它的 console 别名）。
-POOL_RT_GROUPS = ("transport", "song", "projects", "dsyn", "system", "sound", "global")
+POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 pool_rt_pages(轮) 的 8 张代表页各一次）
+# 八个非 PLAY 组各取代表页（组名 → 页名，或页名元组 = 按轮交替；P4-F Task 7 定稿：九组
+# 全覆盖——TRACKS 入表；MIX 给两张：Task 6 新增的 TOOLS 与更老、更复杂的 GLOBAL（chip 页），
+# 两者都要有 destroy/rebuild 泄漏检查；EDIT 是 SOUND：页名 `sound`，`analog`/`fm6` 是它的
+# console 别名）。代表页必须属于它代表的组，且每张在 POOL_RT_ROUNDS 里被测同样多轮（import
+# 时校验）。轮数与阈值不变。
+POOL_RT_REP = {"tracks": "tracks", "edit": "sound", "mix": ("tools", "global"), "synth": "dsyn",
+               "seq": "transport", "song": "song", "file": "projects", "sys": "system"}
+
+
+def pool_rt_pages(round_index: int = 0) -> tuple:
+    """第 round_index 轮的代表页（组顺序 = GROUP_PAGES；多代表页的组按轮下标取模交替）。"""
+    return tuple(pages[round_index % len(pages)] if isinstance(pages, tuple) else pages
+                 for g, pages in POOL_RT_REP.items() if g != "play")
+
+
+POOL_RT_GROUPS = pool_rt_pages(0)   # 偶数轮的代表页（nav/AGENTS 提到的基名；奇数轮 MIX = global）
+POOL_RT_DESC = "→".join(
+    f"{g.upper()}:{'/'.join(p) if isinstance(p, tuple) else p}" for g, p in POOL_RT_REP.items())
+if (set(POOL_RT_REP) != set(GROUP_PAGES) - {"play"}
+        or any(PAGES[page] not in GROUP_PAGES[group]
+               for group, pages in POOL_RT_REP.items()
+               for page in (pages if isinstance(pages, tuple) else (pages,)))
+        or any(POOL_RT_ROUNDS % (len(p) if isinstance(p, tuple) else 1) for p in POOL_RT_REP.values())):
+    raise SystemExit("soak 代表页不一致：POOL_RT_REP 须覆盖八个非 PLAY 组、页属于该组、"
+                     "且多代表页的组在 POOL_RT_ROUNDS 内各轮被测同样多轮")
 PANIC_TOKENS = ("panic", "Guru Meditation", "task_wdt", "abort()", "Backtrace", "assert failed")
 
 
@@ -151,8 +184,13 @@ def visit_all_pages(s) -> None:
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:
         s.cmd(f"UI TAB {group}")
-        s.expect(rf"UI TAB (\w+) page=\w+ \(\d+\)", f"UI TAB {group}")
-    for page in PAGES:
+        m = re.search(rf"UI TAB (\w+) page=(\w+) \((\d+)\)", s.last)
+        # 点组落在该组的某个成员页上（「上次子页」记忆 ⇒ 不假定是哪一张）
+        if m is None or int(m.group(3)) not in GROUP_PAGES[group]:
+            s.fail(f"UI TAB {group} 未落在组成员页：{s.last.strip()!r}")
+        else:
+            s.ok(f"UI TAB {group} → {m.group(2)} ({m.group(3)}) 是 {m.group(1)} 的成员页")
+    for _, page in NAV_ORDER:   # TAB 扁平顺序访问 18 页（每页首次构建都过一次分配面）
         switch(s, page)
     switch(s, "transport")
 
@@ -191,23 +229,24 @@ def ui_pool_free(s) -> int:
 
 
 def pool_round_trip(s) -> dict:
-    """组作用域池检查（PLAY 稳态口径，与 nav ⑧ / song ⑩ 同源）：每轮把 SEQ/SONG/FILE/
-    SYNTH 四组各访问一次再回 PLAY，**测量点固定在 PLAY 稳态**（离开组即销毁，PLAY 的池
+    """组作用域池检查（PLAY 稳态口径，与 nav ⑧ / song ⑩ 同源）：每轮把八个非 PLAY 组
+    （TRACKS/EDIT/MIX/SYNTH/SEQ/SONG/FILE/SYS）的代表页各访问一次再回 PLAY，**测量点固定在 PLAY 稳态**（离开组即销毁，PLAY 的池
     水位不含任何页面的 TLSF 碎片涨落）。R34 的每往返 ~268B 泄漏（styles_init 每页只跑
     一次）会被 10 轮累计显著超过；首末差与单次下降都 ≤ POOL_RT_NOISE。
 
     先做一轮预热：跨组销毁后的首次重建会做一次性文本/字形缓存（Task 11 §3 实测
     ~400B），不是逐次泄漏。"""
-    s.ser.note(f"soak 池检查：PLAY 稳态下 {POOL_RT_ROUNDS} 轮（每轮 "
-               + "→".join(POOL_RT_GROUPS) + " →play）")
-    for group in POOL_RT_GROUPS:   # 预热：每组的首次重建
-        switch(s, group)
+    s.ser.note(f"soak 池检查：PLAY 稳态下 {POOL_RT_ROUNDS} 轮（组:代表页 {POOL_RT_DESC} →play；"
+               "多代表页的组按轮交替）")
+    for r in range(2):             # 预热：每个代表页（含交替页）的首次重建
+        for page in pool_rt_pages(r):
+            switch(s, page)
     switch(s, "play")
     start = ui_pool_free(s)
     values = [start]
-    for _ in range(POOL_RT_ROUNDS):
-        for group in POOL_RT_GROUPS:
-            switch(s, group)
+    for trip in range(POOL_RT_ROUNDS):
+        for page in pool_rt_pages(trip):
+            switch(s, page)
         switch(s, "play")
         values.append(ui_pool_free(s))
     steps = [b - a for a, b in zip(values, values[1:])]
@@ -472,7 +511,7 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        visit_all_pages(s)  # 15 页各访问一次后采样（组作用域：只驻留 SEQ 组）
+        visit_all_pages(s)  # 18 页各访问一次后采样（组作用域：只驻留 SEQ 组）
         ensure_playing(s)
         pool = pool_round_trip(s)  # 跨组往返的池水位（组作用域不变量）
 
@@ -580,7 +619,7 @@ def main() -> None:
     lines.append(f"占空比判定：基线 {DUTY_BASELINE_PCT:.2f}%（阶段 2 静默渲染），"
                  f"上限 2× = {DUTY_MAX_PCT:.2f}%（流式 render_mean_us / 块预算 5804µs）")
     if pool is not None:
-        lines.append(f"池检查：PLAY 稳态 ×{pool['rounds']} 轮（每轮 " + "→".join(POOL_RT_GROUPS)
+        lines.append(f"池检查：PLAY 稳态 ×{pool['rounds']} 轮（组:代表页 " + POOL_RT_DESC + "，按轮交替"
                      + f" →play）；pool_free {pool['start']} -> {pool['end']}"
                      f"（Δ={pool['delta']}B，单次最小 {pool['min_step']}B，容差 ±{POOL_RT_NOISE}B）")
         lines.append("逐轮 pool_free: " + " ".join(str(v) for v in pool["values"]))
