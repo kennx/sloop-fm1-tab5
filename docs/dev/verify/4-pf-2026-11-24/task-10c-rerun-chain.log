@@ -1,0 +1,19 @@
+23:00:31 CHAIN START
+23:00:41 boot rc=0 ver=d317a72 fatal=0
+23:01:12 entry: trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+23:01:12 entry: STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401B0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=819215D9 autosave_writes=0 last_xrun=0 last_save_ms=0 PROJ 0 EMPTY;PROJ 1 EMPTY;PROJ 2 EMPTY;PROJ 3 EMPTY;
+23:04:29 scenario[rerun] step_edit rc=1 PASS=306 FAIL-lines=15 (197s) | [FAIL] step_edit: 14 项断言/抽检未通过（见上）
+23:15:10 scenario[rerun] sys rc=0 PASS=354 FAIL-lines=0 (641s) | [PASS] sys: 全部断言与像素抽检通过
+23:15:11 CHAIN DONE
+23:15:15 CHAIN2 START
+23:15:15 muted-pre: sel=0 trk k=0 mute=0 solo=0 LIVEHASH 5270B666
+23:15:16 muted-set: trk k=0 engine=0 preset=0 level=1 mute=1 armed=0 solo=0 len=16 div=2 voices=0 PARAM track=0 id=40 value=1 applied=1 min=0 max=1;PARAM track=0 id=0 value=1 applied=1 min=0 max=127;
+23:18:11 scenario[rerun-muted-entry] step_edit rc=0 PASS=321 FAIL-lines=0 (175s) | [PASS] step_edit: 全部断言与像素抽检通过
+23:18:11 muted-post（入口 mute/level 应被还原）: trk k=0 mute=1 solo=0 LIVEHASH BFC04A64
+23:18:12 写回 104/0: trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 LIVEHASH FCE9B26C autosave_hash=5270B666
+23:18:12 CHAIN2 DONE
+23:18:16 CHAIN3 START
+23:18:17 mono-pre: trk k=0 mute=0 solo=0 set_palette=4 LIVEHASH FCE9B26C autosave_hash=FCE9B26C
+23:21:13 scenario[rerun-default-entry-MONO] step_edit rc=0 PASS=321 FAIL-lines=0 (176s) | [PASS] step_edit: 全部断言与像素抽检通过
+23:21:14 final-rerun: trk k=0 mute=0 solo=0 set_palette=4 LIVEHASH FCE9B26C autosave=1 internal_free=69747 internal_min=66232 xrun=0
+23:21:14 CHAIN3 DONE
