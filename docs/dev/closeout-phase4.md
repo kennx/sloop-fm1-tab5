@@ -1,7 +1,7 @@
 # 阶段 4（独立模式功能对齐）收口报告
 
 > 分支 `feat/phase4f`，受测固件 **`d317a72`**（boot `App version: d317a72`，无 `-dirty`）。`d317a72` 之后的提交**只改 `scripts/` 与文档**：
-> `git diff d317a72..HEAD --stat -- firmware third_party` 为空（2026-11-26 复核），HEAD 上的固件与受测固件逐字节同一。
+> `git diff d317a72..HEAD --stat -- firmware third_party` 为空（2026-11-26 复核），HEAD 上的固件**源码**与受测固件逐字节同一（二进制内嵌构建时间，不逐字节比较）。
 > **状态：机器侧完成（2026-11-26）**——§2 的门禁全部通过，含最终固件上的 3h soak PASS 与 10c3 最终回归。
 > 这**不是**「阶段 4 完成」的声明：人测项一个都没做（§5 是待办清单），dev → main 不在本阶段（§6）。
 > 机器侧门禁全部通过；**没有任何一项经过人眼/人耳/人手验证**（§5 是待办清单）。
@@ -35,12 +35,12 @@
 | `device-selftest.py` | 182/182 |
 | `selftest-heap.py` | PASS：run 1 −268B、run 2 −36B、收尾 69,887B |
 | `desc-check.py` | 10/10 + live 2/2 + 越界 7/7 |
-| 十条注入场景首轮 | **5,007 / 0**（params 768、step_edit 312、tracks 84、nav 583、transport 288、store 908、song 354、sequence 562、synth 794、sys 354） |
+| 十条注入场景首轮 | **5,007 / 0**（分两批读数：params 768 来自另一轮；单一会话口径见下行 10c3 的 **5,017 / 0**。params 768、step_edit 312、tracks 84、nav 583、transport 288、store 908、song 354、sequence 562、synth 794、sys 354） |
 | 复跑 | sequence 562/0、synth 794/0、nav 583/0、**sys 354/0**（10c-2）；**step_edit**：默认入口（MONO）rc=0，**321 / 0**（LIVEHASH FCE9B26C 前后不变）；轨 0 静音的入口 rc=0，**321 / 0**——同一入口态在修复前是 `voices 峰值 0` 的红；场景之后轨 0 仍是 `mute=1 level=1`（入口值被还原）（R20 修复的判别用例） |
 | `screenshot_matrix.py` | **481 / 0**：33 条目、166 锚点、逐条目后 `LIVEHASH` 33/33 不变；播放头存在性锚点首次在设备上命中 |
 | 终审修复波的欠账验证 a–f | a（A1 用户预置页眉）、b（B-I1 槽标签重解析）、c（播放头锚点）、d（重启路径 pos/neg）、e（歌曲还原）、f（隐藏 chip / CHIP quiesced / TOOLS 过期）——全部通过，边界见 `readme.md` §7 |
 | **最终 3h soak**（固件 `d317a72`） | **PASS**：`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，2026-11-25 23:24:03 → 2026-11-26 02:24；实测 10801s / 181 采样 / 断言失败 0 / 判定问题无。内部堆 69,747→69,731B（Δ−16B）、`internal_min` 66,208B（门限 61,440B）；streaming=1、xrun 0；`duty_mean` ≤12.78%；音频栈 3,120B、输入栈 7,852B；PLAY 稳态池往返 45,868→45,856B（Δ−12B，单次最小 −48B）；save 窗口 xrun 0→0、窗口后 streaming=1。功耗/温度仅记录（裁决 R15）：`ina=ok` 181/181、芯片温度 27.1..29.1 ℃。修复前固件 `1e8587b` 的同口径信号 soak 也 PASS（只作信号，裁决 R17）；R11/R14 的降栈备用方案没有用上。证据 `task-10c-soak-final-{summary,transcript}.*` |
-| **10c3 最终回归**（2026-11-26；脚本 = HEAD `03798f1`，固件与 `d317a72` 逐字节同一） | **R23 的设备验证**：CYAN 入口（硬复位后 `STORE SETTINGS SET palette 2` + `SAVE`）跑 `step_edit` ⇒ rc=0、**326 / 0**（R23 前同一入口 306/14；多出的 5 条是括号自己的断言），场景之后 `palette=2` 被还原；CYAN 入口的 `store`（开头就硬复位）⇒ **911 / 0**、同样还原。**十场景同一会话**（transport → step_edit → tracks → nav → params → store → song → sequence → synth → sys）⇒ **5,017 PASS / 0 FAIL**（transport 288 / step_edit 323 / tracks 84 / nav 583 / params 768 / store 907 / song 354 / sequence 562 / synth 794 / sys 354；与 10c-1 的 5,007 相比差 +10，逐行 diff 后全是入口相关的条件断言或已登记的基线变化，没有丢检查）；`screenshot_matrix.py` rc=0：33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL 行；`device-selftest.py` 182/182；nav 有序对 72/72、最紧 SEQ→FILE 6,564B。证据 `task-10c3-*`（`readme.md` §8） |
+| **10c3 最终回归**（2026-11-26；脚本 = HEAD `03798f1`，固件源码与 `d317a72` 逐字节同一） | **R23 的设备验证**：CYAN 入口（硬复位后 `STORE SETTINGS SET palette 2` + `SAVE`）跑 `step_edit` ⇒ rc=0、**326 / 0**（R23 前同一入口 306/14；多出的 5 条是括号自己的断言），场景之后 `palette=2` 被还原；CYAN 入口的 `store`（开头就硬复位）⇒ **911 / 0**、同样还原。**十场景同一会话**（transport → step_edit → tracks → nav → params → store → song → sequence → synth → sys）⇒ **5,017 PASS / 0 FAIL**（transport 288 / step_edit 323 / tracks 84 / nav 583 / params 768 / store 907 / song 354 / sequence 562 / synth 794 / sys 354；与 10c-1 的 5,007 相比差 +10，逐行 diff 后全是入口相关的条件断言或已登记的基线变化，没有丢检查）；`screenshot_matrix.py` rc=0：33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL 行；`device-selftest.py` 182/182；nav 有序对 72/72、最紧 SEQ→FILE 6,564B。证据 `task-10c3-*`（`readme.md` §8） |
 
 ## 3. 功能对齐清单状态
 
@@ -108,7 +108,7 @@
 
 ## 6. dev → main：不在本阶段
 
-用户 2026-11-24 明示本阶段不合并 main。当前状态：`feat/phase4f` 领先 `dev`，**未合并、未切换分支**；是否合回 `dev`、何时合 `main` 由用户另行决定。合并前建议至少完成 §5 的第 1、7 两项，（最终 soak 已 PASS，§2）。
+用户 2026-11-24 明示本阶段不合并 main。当前状态：`feat/phase4f` 经整分支终审与收口回归后合回 `dev`（**不合并 main**）；何时合 `main` 由用户另行决定。合 `main` 前建议至少完成 §5 的第 1、7 两项，（最终 soak 已 PASS，§2）。
 
 ## 7. 开发机状态提醒
 
@@ -141,7 +141,7 @@
 | R15 | INA226 测量点在电池侧，USB 供电下功耗读数无信息，只记录 | 功耗数据无意义但不影响门禁 |
 | R16 | 播放态的像素锚点移出网格（随后评审补了播放头存在性锚点） | 漏掉「网格在播放态渲染异常」的像素证据（其它条目仍覆盖网格） |
 | R17 | 修复前固件的 3h soak 只作信号；最终固件上必须重跑 | 多花 3 小时设备时间 |
-| R18 | 接受对两条栈读数 minor 的反驳（内核返回值单位、`phys=` 计数位置） | 栈门禁读数差 4 倍（多处的 ≈5KB 实测已排除） |
+| R18 | 接受对两条栈读数 minor 的反驳（内核返回值单位、`phys=` 计数位置）；其中 HWM 单位那半随后在 `58bd40d` 更正（本端口 `StackType_t`=`uint8_t`，内核除以 `sizeof(StackType_t)` 后返回的即字节） | 栈门禁读数差 4 倍（多处的 ≈5KB 实测已排除） |
 | R19 | SOUND 页眉 PRESET ± 是 Tab5 的**按引擎**步进（上游是单一列表跨引擎环绕） | 与上游浏览心智不同，但功能可达 |
 | R20 | `step_edit` ②g 的发声探针在入口归一轨 0 的 `P_MUTE=0`/`P_LEVEL=104` 并在收尾还原（脚本缺口，不是固件缺陷） | 无 |
 | R21 | 接受「同批 console TAP 可对刚隐藏的 chip 返回 select」为投影模型的固有延迟（≤1 拍） | 极小概率的误触（人手 30ms 内完成换引擎 + 点 chip） |
