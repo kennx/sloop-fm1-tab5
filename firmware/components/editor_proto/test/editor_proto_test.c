@@ -96,6 +96,14 @@ static void test_info(void)
     f.argc = 8; ASSERT(!edp_info_parse(&f, &info));        /* 截断的回复 ⇒ false */
     edp_frame_parse(r, n, &f); f.cmd = EDP_CMD_PING;       /* 完整回复、argc 复原：只因命令号拒绝 */
     ASSERT(!edp_info_parse(&f, &info));
+    edp_frame_parse(r, n, &f); f.argc = 19; ASSERT(!edp_info_parse(&f, &info));   /* 版本串缺结尾 0 ⇒ false */
+    uint8_t r17[160]; size_t m = 0;                 /* 17 个引擎的完整回复 */
+    r17[m++] = 0xF0; r17[m++] = 0x7D; r17[m++] = 0x46; r17[m++] = 0x4C; r17[m++] = 1;
+    memcpy(r17 + m, ver, 20); m += 20;
+    r17[m++] = 17; r17[m++] = 71; r17[m++] = 50; r17[m++] = 64; r17[m++] = 63;
+    for (int i = 0; i < 17; i++) { memcpy(r17 + m, "ANALOG", 7); m += 7; }
+    r17[m++] = 4; r17[m++] = 12; r17[m++] = 0xF7;
+    ASSERT(edp_frame_parse(r17, m, &f) && !edp_info_parse(&f, &info));   /* 引擎数 17 > EDP_NENGINES_MAX ⇒ false */
 }
 
 static void test_pack7_u35(void)
@@ -105,6 +113,7 @@ static void test_pack7_u35(void)
     size_t n = edp_pack7_pack(in, 9, out, sizeof out);
     ASSERT(n == 11 && memcmp(out, want, 11) == 0);        /* 首组高位字节 = bit2|bit3|bit5 = 0x2C */
     ASSERT(edp_pack7_unpack(out, n, back, sizeof back) == 9 && memcmp(back, in, 9) == 0);
+    ASSERT(edp_pack7_unpack(out, n, back, 8) == 0);   /* 容量不足：不截断，返回 0 */
     ASSERT(edp_pack7_pack(in, 9, out, 10) == 0);          /* 需要 11 字节 */
     uint8_t u[5]; edp_u35_enc(0, u);        ASSERT(u[0]==0 && u[1]==0 && u[4]==0);
     edp_u35_enc(0xFFFFFFFFu, u);            ASSERT(u[0]==0x7F && u[4]==0x0F);
