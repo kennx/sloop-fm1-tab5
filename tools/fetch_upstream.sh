@@ -106,10 +106,15 @@ done < <(git -C "$CHECKOUT" ls-files)
     cd "$WORK"
     find sloop-fm1 -type f -print0 | sort -z | xargs -0 sha256sum > MANIFEST.sha256
 )
+# The manifest is shared with tools/fetch_sloop_go.sh: carry its lines over.
+if [[ -d "$THIRD_PARTY/sloop-fm1-go" && -f $MANIFEST ]]; then
+    awk '$2 ~ /^sloop-fm1-go\//' "$MANIFEST" >> "$WORK/MANIFEST.sha256"
+fi
+LC_ALL=C sort -k2 -o "$WORK/MANIFEST.sha256" "$WORK/MANIFEST.sha256"
 
 rm -rf "$DEST"
 mv "$STAGE" "$DEST"
 mv "$WORK/MANIFEST.sha256" "$MANIFEST"
 [[ ! -e $DEST/.git ]] || fail "vendored tree unexpectedly contains git metadata"
 (cd "$THIRD_PARTY" && sha256sum -c MANIFEST.sha256)
-printf 'Vendored %s at %s (%s files)\n' "$REPO" "$ACTUAL" "$(wc -l < "$MANIFEST")"
+printf 'Vendored %s at %s (%s files)\n' "$REPO" "$ACTUAL" "$(find "$DEST" -type f | wc -l)"
