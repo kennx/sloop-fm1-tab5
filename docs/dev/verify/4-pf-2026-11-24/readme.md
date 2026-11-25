@@ -7,7 +7,9 @@
 > **状态**：Task 2–9 各自的门禁已通过并在此入库；**阶段收口的最终设备矩阵由 Task 10b 在同一固件
 > `1e8587b` 上重跑并通过（§6：host 全绿、烧录 ×3、182/182、`selftest-heap.py` PASS、十场景首轮
 > 4,954/0 + 复跑 2,293/0、截屏矩阵 run 3 475/0）；3h soak 的读数 pending（§6 末）**。
-> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10b 重算，423 项全 OK）。
+> **最终固件是 `d317a72`**（终审修复波之后）：Task 10c 在它上面重跑了全矩阵并全绿（§7：182/182、
+> heap PASS、十场景 5,007/0 + 复跑、截屏矩阵 481/0）；最终 3h soak **运行中**（§7 末）。
+> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10c-2 重算，586 项全 OK）。
 
 ## 1. 门禁矩阵（门禁 → 命令 → 结论）
 
@@ -191,7 +193,7 @@ MIX→STEP 17,940 / 17,832B、SEQ→MIX 15,592 / 15,460B；`lvgl_stack_free` 最
 停止时不画，取轨行 0/1/3 顶边 4px 带内的 accent 像素——`step-playing` 要求 ≥100、`step-default` 同框
 要求 ==0（设备帧实测 224 / 0；不取轨 2，MONO 的 accent 与 track2 同色）；TRANSPORT 的状态行另加
 text 像素的 present/absent 对。离线自测对已晋升的 8 张设备帧做了正反向复判（命中 + 反向不命中）。
-**新锚点还没有在设备上运行过**：3h soak 期间不碰设备，由 Task 10c 在 soak 结束后跑一次全量并登记；
+**新锚点已在设备上验证**（Task 10c，最终固件 `d317a72`：481/0、166 锚点，见 §7；下段是 10b 时点的原注记）；
 下表 run 3 的 475/0、158 锚点是加锚点之前的口径（现为 166）。
 两次失败的完整目录保留为 `task-10b-matrix-run{1,2}-fail/`。
 
@@ -215,8 +217,83 @@ text 像素的 present/absent 对。离线自测对已晋升的 8 张设备帧�
 - 我的一次手工探针里 SCR 帧传输慢到 ≈21s/帧（DI-5 一类），矩阵脚本自己的 99 次截屏没有失败或重试；
   仅记录。
 
-**3h soak：pending**。`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，
+**3h soak（信号，已出结果：PASS）**——跑在修复前固件 `1e8587b` 上，按裁决 R17 只作信号：3h/10,801s/181 采样，
+内部堆 69,831→69,811B、xrun 0、duty_mean ≤12.49%、池 45,912→45,888（Δ−24B）、save 窗口 xrun 增量 0
+（`task-10b-soak-signal-summary.txt`、`task-10b-soak-signal-transcript.log`）。最终固件上的 3h soak 见 §7 末。
+原始启动记录：`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，
 PID 441876，起跑 2026-11-25 17:54:38（硬复位 + 30s 之后），stdout `/tmp/p4f_10b/soak-3h.log`，
 transcript/摘要 `firmware/build/verify/soak{,-summary}-20261125-175438.{log,txt}`（gitignored，结果由 Task 10c 晋升）。
 语义：3,600s 的 save 窗口在最前（停走带、`STORE AUTO OFF`、一次 `PROJ SAVE 0 + LOAD 0`）且计入总时长，
 其后约 7,200s 是播放 + 动作循环；与 AGENTS §5.5 的 1800/900 同比例。预期结束 ≈ 20:55。
+
+## 7. 10c 最终固件（`d317a72`）矩阵
+
+逐门禁的完整表在 `task-10c-matrix-summary.txt`；本节只给结论、欠账验证与需要知道的边界。
+受测固件 = 干净树 `d317a72` 的 clean 构建（boot `App version: d317a72`，无 `-dirty`）；`d317a72` 之后的
+提交只改 `scripts/` 与文档。10c-1 的运行在 2026-11-25 21:09–22:55，10c-2 的复跑在 23:00–23:21。
+
+| 门禁 | 结果 | 证据 |
+|---|---|---|
+| 构建：`build.sh --clean` → `build.sh` ×2 | 全部 exit 0；第二、三遍 0 warning | `task-10c-build-{clean,2,3}.log` |
+| host：五个门禁 + 四个 `--selftest` + MANIFEST | 全部 exit 0；state 46/46、knob 17/17、seq/synth/golden PASSED；MANIFEST 233/233 | `task-10c-host-*`、`task-10c-self-*`、`task-10c-manifest.log` |
+| 烧录 ×3 + 启动日志 | 每次 3× `Hash of data verified`；0 fatal/abort/backtrace/panic | `task-10c-flash-{1,2,3}.log`、`task-10c-boot-{1,2,3}.log` |
+| `device-selftest.py` | 182/182（`result=PASS`，163s） | `task-10c-device-selftest-{stdout,transcript}.log` |
+| `selftest-heap.py` | PASS：run 1 −268B、run 2 −36B、收尾 69,887B | `task-10c-selftest-heap-{stdout,transcript}.log` |
+| `desc-check.py` | 10/10 + live 2/2 + 越界 7/7 | `task-10c-desc-check-{stdout,transcript}.log` |
+| 十条注入场景首轮 | params **768/0**、step_edit **312/0**、tracks **84/0**、nav **583/0**、transport **288/0**、store **908/0**、song **354/0**、sequence **562/0**、synth **794/0**、sys **354/0** —— **5,007 / 0** | `task-10c-m1-*-stdout.log`、`task-10c-owed-params-stdout.log`、`task-10c-<场景>-transcript.log` |
+| 复跑 | sequence 562/0、synth 794/0、nav 583/0、sys 354/0（10c-2） | `task-10c-*-rerun-*.log` |
+| `screenshot_matrix.py` | **481 / 0**：33 条目 / 166 锚点 / 逐条目后 `LIVEHASH` 33/33 不变；播放头存在性锚点首次在设备上命中 | `task-10c-matrix/`、`task-10c-matrix-stdout.log` |
+
+关键读数：nav 有序对 72/72，最紧 SEQ→FILE 6,620B（presets）、SEQ→SONG 7,152B（≥4,096）；`lvgl_stack_free` 5,116B；
+`sys`（首轮 / 复跑）的 DI-40 回归 duty_mean 11.42% / 11.77%、worker 恢复流式后 9.48% / 9.27%。
+
+**终审修复波的欠账验证 a–f**（逐项的原始行在 `task-10c-matrix-summary.txt`）：
+
+- **a（A1 用户预置页眉）通过**：`STORE PRESET SAVE 0` 后改值再 `LOAD` ⇒ 值来自用户预置；页眉 PRESET 名字区在
+  用户/工厂两帧间 706 像素不同；`TAP PRESET +/−` 的回显是工厂名（`user` 已清）。**`USER 01` 字面没有被机器读出**
+  （无 OCR）——机读证据是 `UI SOUND CHIP`/`TAP` 回显与像素差（裁决 R22）；PNG `task-10c-owed1-a1-user-preset.png`
+  留给目检。
+- **b（B-I1 槽标签随引擎槽值重解析）通过，GREEN-only**：`params` 768/0，⑫ 段 47 PASS（LOFI/PHYS/NOISE 各档的
+  8 槽 label == `ENG DESC live`）；PRESET ± 子用例在正则修正后有判别力。**未在修复前固件上做 RED**。
+- **c（播放头锚点）通过**：见上表；`step-playing` 三条轨行带 accent present 各 224 px、`transport-playing`
+  状态行 text present 2,038；default 条目的同框 ABSENT 对照全中。§6 里「新锚点尚未在设备上运行」的注记由此作废。
+- **d（C-I1 重启路径）pos ✓ / neg ✓**：`step_edit` ②g 在真实设备上走 `TransferError → esptool 复位 → 场景从头重跑`；
+  pos 的重跑沿用第一轮快照（不再 SAVE）；neg（快照之后把槽 3 改写）在开括号终止、非零退出。
+  **`transport` ⑩g 与 `params` ⑪ 的重启路径未演练**（⑩g 括号内没有截屏）。
+- **e（C-I2 歌曲还原）通过**：非默认歌曲（count=2 loop=1 `0:2 1:3`、mode=loop）为入口跑 `params` ⇒ 逐项还原。
+- **f（隐藏 chip / CHIP 静默令牌 / TOOLS 预备过期）通过，带一条已知边界**：`UI QUIESCE on` 期间
+  `UI MOD CHIP 1` ⇒ `UI ERR quiesced`；TOOLS 预备 2.0s 后再点仍 `armed`、窗口内第三击执行。隐藏 chip 的回显里
+  没有 `chip=255`；**同批次 console `TAP` 落在 30ms 同步拍之前时回 `chip=3 select`（不是 miss）**，一拍后 `TAP miss`
+  ——按裁决 R21 记为 ADR-008 §8.12 的已知边界（只有同批 console 注入可达）。探针自身有两处错（`SEQ DSTEP` 是鼓轨
+  dump；UNDO 不换回 lock/fill 的假设），30 PASS / 2 FAIL 原样保留在 `task-10c-owed2-probe-f*.log`。
+
+**`step_edit` 的红与修复（裁决 R20，只改脚本 `51d2f58`，断言不变）**：10c-1 在真实残留（入口工程轨 0
+`mute=1 level=1`）上 ②g `[FAIL] 无 Aa 按住 c：轨 0 voices 峰值 0`；同一固件在默认工程上全绿 ⇒ 场景没有归一
+发声前提。修复后 ②g 在快照之后把轨 0 写成 `P_MUTE=0`/`P_LEVEL=104`，收口之后写回入口值。设备验证：
+
+| 入口 | 结果 | 证据 |
+|---|---|---|
+| 轨 0 `mute=1 level=1`（用 `PARAM` 复原残留——10c-2 起跑时设备入口已是默认工程，残留不在了） | rc=0，**321 PASS / 0 FAIL**；`voices 峰值 1`；场景之后轨 0 仍是 `level=1 mute=1`、LIVEHASH == 入口 | `task-10c-step_edit-rerun-muted-{stdout,transcript,pre,set,post}.log` |
+| 默认工程、MONO | rc=0，**321 PASS / 0 FAIL**；LIVEHASH FCE9B26C 前后不变 | `task-10c-step_edit-rerun-{stdout,transcript}.log`、`task-10c-rerun-final-state.log` |
+| 默认工程、设备 palette=2 CYAN | rc=1，306 PASS / **14 FAIL**——全是像素探针配色不符 | `task-10c-step_edit-rerun-cyan-{stdout,transcript}.log` |
+
+CYAN 是怎么来的：10c-1 的一次被误起又中止的 `sys` 复跑停在 ③ 的 COLOR 轮换中途（`progress.md` 的「自伤记录」）。
+`step_edit` 的像素常量假定 MONO 且场景**不**像 `sys` 那样自归一 palette ⇒ 设备停在别的 palette 时会有十几条像素 FAIL，
+控制台断言不受影响。这一轮没有改脚本（范围外），收口报告 §4 记为已知限制；随后 `sys` 复跑按设计把设备归一回 MONO。
+10c-1 的矩阵批是在 MONO 上跑的，§7 的十场景读数不受影响。
+
+**边界与需要知道的**：
+
+- 无视觉检查：全部是像素探针/锚点结论。人眼复核的材料是 **`task-10c-matrix/sheet-*.png`**（10 张）。
+- 输入任务栈断言仍因 `phys=0` 跳过（console `KEY` 注入）。
+- 矩阵结束设备态（10c-1）：`xrun=1`（SELFTEST 条目的停流/起流；硬复位后 0）、工程槽 0–3 全空（`store` 场景按设计擦了槽 0）。
+  10c-2 结束时：LIVEHASH FCE9B26C、autosave=1、palette=4、`internal_free` 69,747 / `internal_min` 66,232、xrun=0。
+- 10c-2 起跑时的工作工程是 10c-1 矩阵批留下的默认工程（四轨 engine 0 / preset 0 / level 104、BPM 90→120），
+  不是用户的工程；开发机的工程槽自 P4-C 起就是场景测试态（收口报告 §7）。
+- 一次性探针与重启包装器入库为 `task-10c-probes.py` / `task-10c-restart_wrap.py` / `task-10c-tool-*.py`（没有固化进 `scripts/inject/`）。
+
+**最终 3h soak：运行中**。`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，PID 601697，
+起跑 2026-11-25 23:24:03（硬复位 + 30s 之后；`task-10c-presoak-boot.log`），stdout `/tmp/p4f_10c2/soak-3h-final.log`，
+transcript/摘要 `firmware/build/verify/soak{,-summary}-20261125-232403.{log,txt}`（gitignored，结果出来后晋升）。
+**在它出结果之前，阶段 4 的收口门禁是未闭合的**。语义同 §6 末的信号 soak（那一次跑在修复前固件 `1e8587b` 上：
+PASS，内部堆 Δ−20B、xrun 0、duty_mean ≤12.49%、池往返 Δ−24B；按裁决 R17 只作信号）。预计结束 ≈ 02:25。
