@@ -1,0 +1,23 @@
+  [PASS] P_LEVEL (track 0 0): label=LVL fmt=6 min=0 max=127 def=104 unit=- enums=0 first=- last=-
+  [PASS] P_ATK (track 0 1): label=ATK fmt=3 min=0 max=127 def=10 unit=- enums=0 first=- last=-
+  [PASS] P_ED_FLT (track 0 5): label=FLT fmt=2 min=-64 max=63 def=0 unit=- enums=0 first=- last=-
+  [PASS] P_ITYPE (track 0 53): label=INSRT fmt=8 min=0 max=8 def=0 unit=- enums=9 first=OFF last=CHOR
+  [PASS] G_BPM (global 0 0): label=BPM fmt=9 min=40 max=240 def=90 unit=- enums=0 first=- last=-
+  [PASS] DRUM_KIT (engine 12 0): label=KIT fmt=8 min=0 max=45 def=0 unit=- enums=46 first=ACOUSTIC last=SYN4
+  [PASS] ANALOG_WAVE (engine 0 0): label=WAVE fmt=8 min=0 max=4 def=0 unit=- enums=5 first=SAW last=PWM
+  [PASS] ANALOG_DTN (engine 0 1): label=DTN fmt=0 min=0 max=127 def=10 unit=ct enums=0 first=- last=-
+  [PASS] FM6_ALG (engine 9 0): label=ALG fmt=0 min=0 max=32 def=0 unit=- enums=33 first=PAT last=32
+  [PASS] SAMPLE_SET (engine 4 0): label=SET fmt=8 min=0 max=11 def=0 unit=- enums=12 first=PIANO last=USR4
+  [PASS] 越界拒绝 track 0 63（P_E0..P_E7 无轨道上下文）
+  [PASS] 越界拒绝 global 0 50（G_COUNT=50 上界外）
+  [PASS] 越界拒绝 engine 13 0（engine 13 不存在（哨兵只到 12））
+  [PASS] 越界拒绝 engine 12 1（鼓轨只有 P_E0 = kit）
+  [PASS] 越界拒绝 live 3 64（鼓轨没有 P_E1..P_E7（只有 P_E0 = kit））
+  [PASS] 越界拒绝 live 4 0（轨 4 不存在）
+  [PASS] 越界拒绝 live 0 71（id ≥ P_COUNT=71）
+  [PASS] live INSERT track=0 P_ITYPE=1 P_IA: label=DRIVE fmt=1 min=0 max=127 def=64 unit=- enums=0 first=- last=-
+  [PASS] live ENV SYNC off track=0 P_ATK: label=ATK fmt=3 min=0 max=127 def=10 unit=- enums=0 first=- last=-
+  [PASS] live ENV SYNC on track=0 P_ATK: label=ATK fmt=0 min=0 max=127 def=10 unit=- enums=25 first=0 last=4BAR
+  [PASS] live: P_ITYPE/P_ESYNC 写回原值，P_IA 描述符回到 INS A
+DESC CHECK passed=10/10 live=2/2 negative=7/7 result=PASS
+transcript: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/desc-20261125-214250.log
