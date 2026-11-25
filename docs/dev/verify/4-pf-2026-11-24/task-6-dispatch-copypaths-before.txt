@@ -1,0 +1,6 @@
+paths with >=2 nested app_state_t copies: 5
+  3 copies: sloop_ui_fm6p_adjust@fm6p[copy] > fm6p_step@fm6p[copy] > fm6p_write@fm6p[copy] > cell_value@fm6p
+  3 copies: sloop_ui_song_load@song > song_action@song[copy] > song_action_cfg@song[copy] > song_apply_cfg@song[copy] > status_seq@song > status_store@song
+  2 copies: sloop_ui_dsyn_adjust@dsyn > dsyn_step@dsyn[copy] > dsyn_write@dsyn[copy] > field_value@dsyn
+  2 copies: sloop_ui_fm6p_adjust@fm6p[copy] > fm6p_step@fm6p[copy] > focus_get@fm6p
+  2 copies: sloop_ui_song_load@song > song_action@song[copy] > song_action_cfg@song[copy] > count_of@song

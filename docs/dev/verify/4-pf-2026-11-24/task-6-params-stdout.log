@@ -1,49 +1,49 @@
   [fw] SCR
-  [fw] I (178062) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (84231) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (201862) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (102981) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (229302) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (125501) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (253112) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (144471) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (291472) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (177961) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (315102) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (196531) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (338192) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (214661) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (362162) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (233641) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (387072) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (253761) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (443912) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (305321) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (465682) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (322391) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (489372) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (341111) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (511782) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (358541) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (556042) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (397491) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (578972) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (415441) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (601622) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (432891) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (624432) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (450541) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (646762) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (468101) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (674542) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (490891) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (714752) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (526091) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (736562) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (542871) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (762132) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (563651) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
 == inject params @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025.log
   [PASS] UI tracks（归一选轨）
   [PASS] TAP 卡 0
   [PASS] STATE SNAP selected_track=0 = 0
@@ -61,8 +61,8 @@
   [PASS] STATE SNAP bpm（+1） = 91
   [PASS] TAP −（GLOBAL BPM）
   [PASS] PARAM GLOBAL 0（回到基线）: PARAM GLOBAL 0 → 90（期望 90）
-  [PASS] 键盘 ↑×2（SWING）: PARAM GLOBAL 1 → 2（期望 2）
-  [PASS] 键盘 ↓×2（SWING 回基线）: PARAM GLOBAL 1 → 0（期望 0）
+  [PASS] 键盘 ↑×2（SWING）: PARAM GLOBAL 1 → 42（期望 42）
+  [PASS] 键盘 ↓×2（SWING 回基线）: PARAM GLOBAL 1 → 40（期望 40）
   [PASS] UI KNOB slot=0 press (0,-73) value=90
   [PASS] 按下不改值（PARAM GLOBAL 0）: PARAM GLOBAL 0 → 90（期望 90）
   [PASS] UI KNOB slot=0 drag (73,0) value=157
@@ -78,14 +78,14 @@
   [PASS] 环带外拖动被忽略（值不变）: PARAM GLOBAL 0 → 90（期望 90）
   [PASS] TAP 旋钮 1 复位焦点
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-global.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-global.png  (1280x720 rgb565)
   [PASS] 页签选中（GLOBAL）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] PLAY 页签未选中: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] − 按钮底: (1100,78) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] + 按钮底: (1258,78) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 数值文本（BPM 值）: 区域 (110, 214, 242, 246) 内 (144, 148, 160)±16 像素 278（阈值 ≥40）
-  [PASS] UI MEM GLOBAL state=built delta=3012 est=3584（0<delta≤est）
+  [PASS] UI MEM GLOBAL state=built delta=2960 est=3584（0<delta≤est）
   [PASS] UI fx
   [PASS] FX 的 FX chip（= 原 8 槽；chip 选择是页内局部态）
   [PASS] UI MEM FX state=built delta=3040 est=3584（0<delta≤est）
@@ -96,15 +96,15 @@
   [PASS] TAP −（FX LEVEL）
   [PASS] PARAM 0（LEVEL 回基线）: PARAM 0 → 104（期望 104）
   [PASS] TAP 旋钮 7（ATK）设焦点
-  [PASS] 键盘 ↑（FX ATK）: PARAM 1 → 11（期望 11）
-  [PASS] 键盘 ↓（FX ATK 回基线）: PARAM 1 → 10（期望 10）
+  [PASS] 键盘 ↑（FX ATK）: PARAM 1 → 1（期望 1）
+  [PASS] 键盘 ↓（FX ATK 回基线）: PARAM 1 → 0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-fx.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-fx.png  (1280x720 rgb565)
   [PASS] 页签选中（FX）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
-  [PASS] 旋钮 6 数值文本（PAN）: 区域 (732, 512, 864, 544) 内 (144, 148, 160)±16 像素 283（阈值 ≥30）
+  [PASS] 旋钮 6 数值文本（PAN）: 区域 (732, 512, 864, 544) 内 (144, 148, 160)±16 像素 613（阈值 ≥30）
   [PASS] UI sound
-  [PASS] UI MEM SOUND state=built delta=5552 est=6144（0<delta≤est≤6144）
+  [PASS] UI MEM SOUND state=built delta=5528 est=6144（0<delta≤est≤6144）
   [PASS] TAP 旋钮 0（WAVE）设焦点
   [PASS] TAP +（SOUND WAVE）
   [PASS] PARAM 63（WAVE +1）: PARAM 63 → 1（期望 1）
@@ -135,7 +135,7 @@
   [PASS] PRESET 往返后 CUT 回基线（环顶探针前提）: PARAM 67 → 0（期望 0）
   [PASS] 焦点回槽 4（CUT；截图口径）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-sound.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-sound.png  (1280x720 rgb565)
   [PASS] 页签选中（SOUND）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 4 弧线底（行 1 环顶）: (166,454) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
@@ -167,7 +167,7 @@
   [PASS] 鼓轨没有 PRESET 行：其 + 区 TAP miss
   [PASS] 鼓轨：bank 行隐藏（没有引擎）⇒ TAP SAVE miss
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-sound-drum.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-sound-drum.png  (1280x720 rgb565)
   [PASS] 鼓轨页眉红字（SOUND · TRACK 4 (DRUM) — NO SOUND）: 区域 (320, 80, 1080, 108) 内 (224, 84, 40)±16 像素 1218（阈值 ≥200）
   [PASS] KIT 行底色（row 0 仍在）: (19,80) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] PRESET 行矩形左上角是页面背景（行缺席）: (323,80) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
@@ -211,7 +211,7 @@
   [PASS] 归一 FM6 ALG=0（环顶探针前提）
   [PASS] TAP 旋钮 0（ALG）设焦点
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-sound-fm6.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-sound-fm6.png  (1280x720 rgb565)
   [PASS] 页签选中（SOUND，FM6 引擎）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] PLAY 页签未选中: (36,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 弧线底（环顶）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
@@ -234,7 +234,7 @@
   [PASS] TAP 旋钮 0 复位焦点（改值态截屏）
   [PASS] PARAM 63 12（FM6 ALG 改值态）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-fm6-alg.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-fm6-alg.png  (1280x720 rgb565)
   [PASS] 页签选中（SOUND，FM6 改值态）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（改值态）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 数值文本（ALG=12）: 区域 (100, 214, 232, 246) 内 (240, 244, 248)±16 像素 54（阈值 ≥30）
@@ -248,7 +248,7 @@
   [PASS] PARAM 63（SET=8 = USR1）: PARAM 63 → 8（期望 8）
   [PASS] TAP ERASE（USR1 空槽擦除 → ERASE OK）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-sample.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-sample.png  (1280x720 rgb565)
   [PASS] 组签选中（SYNTH）: (484,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 子签选中（SAMPLE）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 子签未选中（DSYN）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
@@ -257,7 +257,7 @@
   [PASS] 槽 U1 标签（选中 = UI_ACCENT）: 区域 (16, 624, 216, 668) 内 (224, 176, 40)±24 像素 172（阈值 ≥30）
   [PASS] 状态行（SET U1 = 轨 1 绿）: 区域 (972, 624, 1264, 668) 内 (56, 160, 72)±24 像素 364（阈值 ≥30）
   [PASS] TAP 槽 U1 幂等
-  [PASS] UI MEM SAMPLE state=built delta=4376 est=6144（0<delta≤est）
+  [PASS] UI MEM SAMPLE state=built delta=4308 est=6144（0<delta≤est）
   [PASS] SAMPLE SET 回基线（槽行测后）
   [PASS] TAP 旋钮 0（SET）设焦点
   [PASS] TAP +（SAMPLE SET）
@@ -280,14 +280,14 @@
   [PASS] ENG TRACK 轨 1 → SAMPLE（解锁）
   [PASS] PARAM 63 1（SAMPLE SET 改值态）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-sample-set.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-sample-set.png  (1280x720 rgb565)
   [PASS] 页签选中（SAMPLE，改值态）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 旋钮 0 弧线底（改值态）: (166,158) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 旋钮 0 数值文本（SET 枚举名）: 区域 (100, 214, 232, 246) 内 (144, 148, 160)±16 像素 175（阈值 ≥30）
   [PASS] SAMPLE SET 回基线
   [PASS] ENG TRACK 轨 1 → ANALOG（复位）
   [PASS] UI dsyn（SYNTH 第 2 张子签）
-  [PASS] UI MEM DSYN state=built delta=6408 est=7168（0<delta≤est）
+  [PASS] UI MEM DSYN state=built delta=6392 est=7168（0<delta≤est）
   [PASS] UI DSYN KIT 0
   [PASS] UI DSYN LANE 0
   [PASS] UI DSYN PAGE 1（SND2）
@@ -298,7 +298,7 @@
   [PASS] TAP AUDITION（试听队列）
   [PASS] UI DSYN PAGE 0（SND1）
   [PASS] UI fm6p（SYNTH 第 3 张子签）
-  [PASS] UI MEM FM6P state=built delta=7100 est=7168（0<delta≤est）
+  [PASS] UI MEM FM6P state=built delta=7032 est=7168（0<delta≤est）
   [PASS] UI FM6P OP 0（锁定页也可写页内量）
   [PASS] UI FM6P PAGE 0（EG）
   [PASS] STATE SNAP fm6p_engine_ok=0（轨 1 = ANALOG） = 0
@@ -311,15 +311,15 @@
   [PASS] 锁定页 TAP 底部 + → 字段写被拒（写前真值）
   [PASS] 锁定页 TAP 底部中段（死区）→ TAP miss
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-params-fm6p-locked.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-params-fm6p-locked.png  (1280x720 rgb565)
   [PASS] 组签选中（SYNTH）: (484,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 子签选中（FM6P）: (404,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] 子签未选中（SAMPLE）: (36,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] 锁定页状态行红字（NOT FM6）: 区域 (1004, 76, 1264, 108) 内 (224, 84, 40)±16 像素 167（阈值 ≥40）
   [PASS] UI MEM SYNTH built=3（期望 3 = SAMPLE/DSYN/FM6P）
   [PASS] UI MEM SYNTH sum_est=20480（期望 20,480 = 6144 + 7168 + 7168）
-  [PASS] UI MEM SYNTH sum_delta=17884（0 < Σdelta ≤ Σest）
-  [PASS] UI MEM SYNTH build_ms=15ms（0 < x ≤100）
+  [PASS] UI MEM SYNTH sum_delta=17732（0 < Σdelta ≤ Σest）
+  [PASS] UI MEM SYNTH build_ms=13ms（0 < x ≤100）
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 0
   [PASS] STATE SNAP selected_track=0 = 0
@@ -329,29 +329,29 @@
   [PASS] UI MEM built=2 / MIX built=2 sum_est=10752（期望 2 / 2 / 10,752：GLOBAL+FX+TOOLS 属 MIX，TOOLS 此刻未建；PLAY 已随跨组销毁）
   [PASS] UI MEM built=4 / EDIT built=4（期望 4 / 4：只有当前组 EDIT 的四页常驻）
   [PASS] UI MEM 非当前组 built=0（PLAY=0 TRACKS=0 MIX=0 SYNTH=0 SEQ=0 SONG=0 FILE=0）
-  [PASS] UI MEM pool_free=34888（组作用域后 ≥20KB，DI-19 收口）
+  [PASS] UI MEM pool_free=34384（组作用域后 ≥20KB，DI-19 收口）
   [PASS] UI MEM EDIT sum_est=16896（期望 16,896 = 6144 + 3×3584）
   [PASS] UI MEM EDIT build_ms=10ms（0 < x ≤100）
-  [PASS] 有序对 EDIT 全建 → STEP：构建日志 池剩余=13064B（≥4,096）
-  [PASS] 有序对 MIX 全建 → STEP：构建日志 池剩余=18760B（≥4,096）
-  [PASS] 有序对 SEQ 全建 → MIX（GLOBAL）：构建日志 池剩余=16580B（≥4,096）
-  [PASS] 有序对 SEQ 全建 → MIX（FX）：构建日志 池剩余=16464B（≥4,096）
-  [PASS] 有序对 SEQ 全建 → MIX（TOOLS）：构建日志 池剩余=16860B（≥4,096）
-  [PASS] LVGL 任务栈最小余量 lvgl_stack_free=5884B（≥2048）
+  [PASS] 有序对 EDIT 全建 → STEP：构建日志 池剩余=12572B（≥4,096）
+  [PASS] 有序对 MIX 全建 → STEP：构建日志 池剩余=18272B（≥4,096）
+  [PASS] 有序对 SEQ 全建 → MIX（GLOBAL）：构建日志 池剩余=16068B（≥4,096）
+  [PASS] 有序对 SEQ 全建 → MIX（FX）：构建日志 池剩余=15984B（≥4,096）
+  [PASS] 有序对 SEQ 全建 → MIX（TOOLS）：构建日志 池剩余=16492B（≥4,096）
+  [PASS] LVGL 任务栈最小余量 lvgl_stack_free=5804B（≥2048）
   [PASS] ⑩ 起点：选中轨 0 = 0
   [PASS] ⑩ UI global
-  [PASS] ⑩ GLOBAL 首建 delta=2972B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
+  [PASS] ⑩ GLOBAL 首建 delta=2992B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
   [PASS] ⑩ UI fx
-  [PASS] ⑩ FX 首建 delta=3084B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
+  [PASS] ⑩ FX 首建 delta=3008B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
   [PASS] ⑩ UI mod
-  [PASS] ⑩ MOD 首建 delta=3060B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
+  [PASS] ⑩ MOD 首建 delta=3108B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
   [PASS] ⑩ UI scale
-  [PASS] ⑩ SCALE 首建 delta=3040B 预算=3584B 耗时=6ms（delta ≤ est ≤ 3584）
+  [PASS] ⑩ SCALE 首建 delta=3032B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
   [PASS] ⑩ UI voice
-  [PASS] ⑩ VOICE 首建 delta=3068B 预算=3584B 耗时=6ms（delta ≤ est ≤ 3584）
-  [PASS] ⑩ UI MEM MOD state=built est=3584 delta=3060
-  [PASS] ⑩ UI MEM SCALE state=built est=3584 delta=3040
-  [PASS] ⑩ UI MEM VOICE state=built est=3584 delta=3068
+  [PASS] ⑩ VOICE 首建 delta=3052B 预算=3584B 耗时=5ms（delta ≤ est ≤ 3584）
+  [PASS] ⑩ UI MEM MOD state=built est=3584 delta=3108
+  [PASS] ⑩ UI MEM SCALE state=built est=3584 delta=3032
+  [PASS] ⑩ UI MEM VOICE state=built est=3584 delta=3052
   [PASS] ⑩ UI MEM GROUP EDIT sum_est=16896（期望 16,896）
   [PASS] ⑩ GLOBAL·GLO 选中（chip=0）
   [PASS] ⑩ GLOBAL·GLO 槽数 8（期望 8）
@@ -364,9 +364,9 @@
   [PASS] ⑩ GLOBAL·REV 槽数 8（期望 8）
   [PASS] ⑩ GLOBAL·REV 8 槽 label == 描述符且无锁定
   [PASS] ⑩ GLOBAL·REV TAP 旋钮（焦点 slot=0）
-  [PASS] ⑩ GLOBAL·REV TAP +（写后回读 91）
-  [PASS] ⑩ GLOBAL·REV 引擎回读: PARAM GLOBAL 8 → 91（期望 91）
-  [PASS] ⑩ GLOBAL·REV 回基线: PARAM GLOBAL 8 → 90（期望 90）
+  [PASS] ⑩ GLOBAL·REV TAP +（写后回读 1）
+  [PASS] ⑩ GLOBAL·REV 引擎回读: PARAM GLOBAL 8 → 1（期望 1）
+  [PASS] ⑩ GLOBAL·REV 回基线: PARAM GLOBAL 8 → 0（期望 0）
   [PASS] ⑩ GLOBAL·DRUMS 选中（chip=2）
   [PASS] ⑩ GLOBAL·DRUMS 槽数 4（期望 4）
   [PASS] ⑩ GLOBAL·DRUMS 4 槽 label == 描述符且无锁定
@@ -448,9 +448,9 @@
   [PASS] ⑩ SCALE·SEL 槽数 4（期望 4）
   [PASS] ⑩ SCALE·SEL 4 槽 label == 描述符且无锁定
   [PASS] ⑩ SCALE·SEL TAP 旋钮（焦点 slot=0）
-  [PASS] ⑩ SCALE·SEL TAP +（写后回读 1）
-  [PASS] ⑩ SCALE·SEL 引擎回读: PARAM 25 → 1（期望 1）
-  [PASS] ⑩ SCALE·SEL 回基线: PARAM 25 → 0（期望 0）
+  [PASS] ⑩ SCALE·SEL TAP −（写后回读 10）
+  [PASS] ⑩ SCALE·SEL 引擎回读: PARAM 25 → 10（期望 10）
+  [PASS] ⑩ SCALE·SEL 回基线: PARAM 25 → 11（期望 11）
   [PASS] ⑩ SCALE·SEL 2 选中（chip=1）
   [PASS] ⑩ SCALE·SEL 2 槽数 3（期望 3）
   [PASS] ⑩ SCALE·SEL 2 3 槽 label == 描述符且无锁定
@@ -501,9 +501,9 @@
   [PASS] ⑩ VOICE·FILTER 引擎回读: PARAM 58 → 1（期望 1）
   [PASS] ⑩ VOICE·FILTER 回基线: PARAM 58 → 0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task4-voice-filter.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task4-voice-filter.png  (1280x720 rgb565)
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task4-mod-chip0.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task4-mod-chip0.png  (1280x720 rgb565)
   [PASS] ⑩ TAP chip「ENV」
   [PASS] ⑩ console 读回 chip=0（与 chip 行同源）
   [PASS] ⑩ TAP chip「ENV DEST」
@@ -521,7 +521,7 @@
   [PASS] ⑩ TAP chip「GLOBAL·TEXTURE」
   [PASS] ⑩ GLOBAL 只有 4 个 chip：CHIP 4 → UI ERR chip
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task5-global-chip0.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task5-global-chip0.png  (1280x720 rgb565)
   [PASS] ⑩ GLOBAL chip 行选中底色（第 1 个 chip）: (22,79) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 24）
   [PASS] ⑩ GLOBAL chip 行未选中底色（第 2 个 chip）: (79,79) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] ⑩ TAP chip「FX·FX」
@@ -530,7 +530,7 @@
   [PASS] ⑩ TAP chip「FX·INSERT 2」
   [PASS] ⑩ FX 只有 4 个 chip：CHIP 4 → UI ERR chip
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task5-fx-chip0.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task5-fx-chip0.png  (1280x720 rgb565)
   [PASS] ⑩ FX chip 行选中底色（第 1 个 chip）: (22,79) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 24）
   [PASS] ⑩ FX chip 行未选中底色（第 2 个 chip）: (68,79) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] ⑩ 键盘：焦点 slot 2（LFO 2 只有 3 槽）
@@ -538,11 +538,11 @@
   [PASS] ⑩ ↓ 回基线: PARAM 60 → 0（期望 0）
   [PASS] ⑩ ENTER = 焦点槽 +1: PARAM 60 → 1（期望 1）
   [PASS] ⑩ 回基线: PARAM 60 → 0（期望 0）
-  [PASS] ⑩ GLOBAL 20 次切 chip pool_free 46152 → 46152（Δ=+0B，|Δ| ≤128）
-  [PASS] ⑩ FX 20 次切 chip pool_free 43104 → 43104（Δ=+0B，|Δ| ≤128）
-  [PASS] ⑩ MOD 20 次切 chip pool_free 46068 → 46068（Δ=+0B，|Δ| ≤128）
-  [PASS] ⑩ SCALE 20 次切 chip pool_free 43076 → 43076（Δ=+0B，|Δ| ≤128）
-  [PASS] ⑩ VOICE 20 次切 chip pool_free 40028 → 40028（Δ=+0B，|Δ| ≤128）
+  [PASS] ⑩ GLOBAL 20 次切 chip pool_free 45700 → 45700（Δ=+0B，|Δ| ≤128）
+  [PASS] ⑩ FX 20 次切 chip pool_free 42656 → 42648（Δ=-8B，|Δ| ≤128）
+  [PASS] ⑩ MOD 20 次切 chip pool_free 45656 → 45656（Δ=+0B，|Δ| ≤128）
+  [PASS] ⑩ SCALE 20 次切 chip pool_free 42672 → 42676（Δ=+4B，|Δ| ≤128）
+  [PASS] ⑩ VOICE 20 次切 chip pool_free 39652 → 39648（Δ=-4B，|Δ| ≤128）
   [PASS] ⑩ INSERT TYPE=5（CRUSH）⇒ 旋钮标签 ['INSRT', 'BITS', 'RATE', 'LPF']（期望 TYPE/BITS/RATE/LPF；基线 ['INSRT', 'INS A', 'INS B', 'INS C']）
   [PASS] ⑩ INSERT TYPE 回 0 ⇒ 标签复原 ['INSRT', 'INS A', 'INS B', 'INS C']
   [PASS] ⑩ 选中鼓轨（轨 3） = 3
@@ -574,20 +574,20 @@
   [PASS] ⑩ 鼓轨 ALLOC（锁定槽）TAP + → locked
   [PASS] ⑩ 锁定槽值不变: PARAM 43 → 0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task4-voice-drum.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task4-voice-drum.png  (1280x720 rgb565)
   [PASS] ⑩ 鼓轨 FX·DIST（锁定槽）TAP + → locked
   [PASS] ⑩ 锁定槽 DIST 值不变: PARAM 33 → 0（期望 0）
   [PASS] ⑩ 鼓轨 SLICER·SLCR TAP（可编辑）
   [PASS] ⑩ SLCR 回基线: PARAM 45 → 0（期望 0）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task5-fx-drum.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task5-fx-drum.png  (1280x720 rgb565)
   [PASS] ⑩ 鼓轨 INSERT 2 = 单槽 IMIX(57) 可编辑：{0: (57, 'MIX', 0)}
   [PASS] ⑩ 鼓轨 GLOBAL·DRUMS id=[24, 25, 26, 32]（DRCH/DRLVL/DRREV/DRDLY）全可编辑
   [PASS] ⑩ 鼓轨 DRCH TAP（可编辑）
   [PASS] ⑩ DRCH 引擎回读: PARAM GLOBAL 24 → 11（期望 11）
   [PASS] ⑩ DRCH 回基线: PARAM GLOBAL 24 → 10（期望 10）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task5-global-drum.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task5-global-drum.png  (1280x720 rgb565)
   [PASS] ⑩ 回轨 0 = 0
   [PASS] ⑩ ANALOG 轨：FILTER 可选
   [PASS] ⑩ FILTER 槽 id [58, 67, 68, 70]（期望 FTYPE + E4/E5/E7）
@@ -595,11 +595,11 @@
   [PASS] ⑩ FILTER 选中时换到 DIGITAL ⇒ 生效 chip 回落到首个可见
   [PASS] ⑩ DIGITAL 轨 FILTER 那一格 TAP miss
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task4-voice-digital.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task4-voice-digital.png  (1280x720 rgb565)
   [PASS] ⑩ 回 ANALOG：FILTER 再出现
   [PASS] ⑪ UI transport
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task6-transport-rec-config.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task6-transport-rec-config.png  (1280x720 rgb565)
   [PASS] ⑪ REC 配置 QNT 格底 = UI_PANEL_HI: (466,462) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
   [PASS] ⑪ REC 配置 QNT 格内有白字: 区域 (460, 474, 552, 496) 内 (240, 244, 248)±16 像素 148（阈值 ≥30）
   [PASS] ⑪ REC 配置 MODE 格底 = UI_PANEL_HI: (574,462) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
@@ -644,7 +644,7 @@
   [PASS] ⑪ SEQ LOCK LIST：聚焦步 × last_param
   [PASS] ⑪ 轨 0 恰一把锁
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task6-step-locked.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task6-step-locked.png  (1280x720 rgb565)
   [PASS] ⑪ STEP 状态行显示结果（成功绿）: 区域 (1040, 82, 1258, 112) 内 (56, 160, 72)±16 像素 231（阈值 ≥30）
   [PASS] ⑪ Aa+l ⇒ UNLOCKED
   [PASS] ⑪ 解锁后轨 0 无锁
@@ -708,7 +708,7 @@
   [PASS] 轨 0 绝对步 5 是开的 NOTE（n=1 note=60,0）
   [PASS] ⑪ UI tools
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task6-tools.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task6-tools.png  (1280x720 rgb565)
   [PASS] ⑪ CLEAR SEQ chip 底 = UI_PANEL_HI: (54,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
   [PASS] ⑪ INIT SOUND chip 底 = UI_PANEL_HI: (438,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
   [PASS] ⑪ NEW chip 底 = UI_PANEL_HI: (822,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
@@ -717,7 +717,7 @@
   [PASS] ⑪ 第一次点 CLEAR SEQ 只预备：armed=True status='AGAIN TO CONFIRM'
   [PASS] ⑪ 未确认：步表不变
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task6-tools-armed.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task6-tools-armed.png  (1280x720 rgb565)
   [PASS] ⑪ 预备 chip 底 = UI_ACCENT: (54,210) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ⑪ 非预备 chip 1 底仍是 UI_PANEL_HI: (438,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
   [PASS] ⑪ 非预备 chip 2 底仍是 UI_PANEL_HI: (822,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
@@ -741,7 +741,7 @@
   [PASS] ⑪ CLEAR SEQ 后步表已清
   [PASS] ⑪ CLEAR SEQ 走带不中断 = 1
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-071714-task6-tools-cleared.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-params-20261125-074025-task6-tools-cleared.png  (1280x720 rgb565)
   [PASS] ⑪ 执行后 chip 回普通底: (54,210) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
   [PASS] ⑪ 状态行 PATTERN CLEARED（成功绿）: 区域 (24, 92, 700, 130) 内 (56, 160, 72)±16 像素 1361（阈值 ≥40）
   [PASS] UI transport
@@ -795,10 +795,10 @@
   [PASS] UI tracks（选轨）
   [PASS] TAP 卡 0
   [PASS] STATE SNAP selected_track=0 = 0
-  [PASS] ⑪ UI MEM TOOLS state=built est=3584 delta=2644 / MIX built=3 sum_est=10752 build_ms=7（期望 built / 3584 / 0<delta≤est / 3 / 10,752 / ≤100）
+  [PASS] ⑪ UI MEM TOOLS state=built est=3584 delta=2652 / MIX built=3 sum_est=10752 build_ms=9（期望 built / 3584 / 0<delta≤est / 3 / 10,752 / ≤100）
   [PASS] ⑨ UI KNOB on FILE：UI projects
   [PASS] ⑨ UI KNOB on FILE → UI ERR not_params
-  [PASS] LVGL 任务栈最小余量（全场景）lvgl_stack_free=5884B（≥2048）
+  [PASS] LVGL 任务栈最小余量（全场景）lvgl_stack_free=5804B（≥2048）
   [PASS] 复位 UI play
 [PASS] params: 全部断言与像素抽检通过
 params rc=0

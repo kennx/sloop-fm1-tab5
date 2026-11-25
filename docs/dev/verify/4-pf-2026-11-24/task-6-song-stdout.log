@@ -1,23 +1,23 @@
   [fw] SCR
-  [fw] I (10921) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (758241) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (31391) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (778571) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (55121) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (802121) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (72101) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (819141) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (89531) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (836851) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (110421) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (857761) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (129511) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (877141) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (166261) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (914331) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
   [fw] SCR
-  [fw] I (183411) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
+  [fw] I (931431) sloop_console: SCR: 传输前 PSRAM 剩余 28226944 字节
 == inject song @ /dev/ttyACM0
-   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508.log
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142.log
   [PASS] ⓪ STORE AUTO OFF
   [PASS] UI WINDOW 0 16
   [PASS] STATE SNAP window_bank = 0
@@ -33,11 +33,11 @@
   [PASS] ① UI song → 页 11
   [PASS] ① UI TAB song（与物理组签同一路径）
   [PASS] ① SONG 单页组：UI SUB 0 → UI ERR sub
-  [PASS] ① SONG 页 state=built est=12288 delta=11580（0 < delta ≤ 12288）
+  [PASS] ① SONG 页 state=built est=12288 delta=11336（0 < delta ≤ 12288）
   [PASS] ① GROUP SONG built=1 sum_est=12288（期望 1 / 12288）
-  [PASS] ① SONG build_ms=22ms（0 < x ≤100）
+  [PASS] ① SONG build_ms=19ms（0 < x ≤100）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-empty.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-empty.png  (1280x720 rgb565)
   [PASS] ② 卡 A 底（选中）: (44,180) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 14）
   [PASS] ② 卡 A 文本: 区域 (94, 188, 242, 252) 内 (144, 148, 160)±12 像素 203（阈值 ≥20）
   [PASS] ② 卡 B 底（未选中）: (348,180) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 14）
@@ -125,7 +125,7 @@
   [PASS] ④ 恢复 A2+B3
   [PASS] ④ 回 SONG（同组）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-edit.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-edit.png  (1280x720 rgb565)
   [PASS] ④ entry0 选中底（UI_PANEL_SEL）: (44,378) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 14）
   [PASS] ④ 状态行文本（UI_TEXT_DIM）: 区域 (24, 92, 1000, 152) 内 (144, 148, 160)±16 像素 336（阈值 ≥40）
   [PASS] ④b 归一 8 项（项 5 = C9）
@@ -210,14 +210,14 @@
   [PASS] ⑥ TAP JUMP(B) → status JUMP B: OK
   [PASS] ⑥ 下一小节生效：SEQ SECTION live=B（期望 B）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-live-b.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-live-b.png  (1280x720 rgb565)
   [PASS] ⑥ 状态行含 LIVE/PLAY 文本: 区域 (24, 92, 1000, 152) 内 (144, 148, 160)±16 像素 323（阈值 ≥40）
   [PASS] ⑥ 选中 C（空）
   [PASS] ⑥ JUMP 空 scene C → EMPTY
   [PASS] ⑥ JUMP 空 scene C → EMPTY → status JUMP C: EMPTY
   [PASS] ⑥ 空 scene 被拒后 live 仍是 B
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-empty-jump.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-empty-jump.png  (1280x720 rgb565)
   [PASS] ⑥ 状态行拒绝文本（UI_ERROR 红字）: 区域 (24, 92, 1232, 152) 内 (224, 84, 40)±20 像素 2690（阈值 ≥20）
   [PASS] ⑦ 选 B 起链
   [PASS] ⑦ CHAIN begin（立即请求 B）
@@ -228,7 +228,7 @@
   [PASS] ⑦ CHAIN commit（原子安装） → status CHAIN: B A B
   [PASS] ⑦ SEQ CHAIN count=3 scenes=[1, 0, 1]（期望 3 / [1,0,1]）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-chain.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-chain.png  (1280x720 rgb565)
   [PASS] ⑦ 状态行 CHAIN 文本: 区域 (24, 92, 1100, 152) 内 (144, 148, 160)±16 像素 334（阈值 ≥40）
   [PASS] ⑦ 空链用例：选 B
   [PASS] ⑦ 再起链 B
@@ -261,7 +261,7 @@
   [PASS] ⑧ 缺 scene 拒播：SEQ SONG running=0
   [PASS] ⑧ 回 SONG（截缺 scene 态）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-empty-scene.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-empty-scene.png  (1280x720 rgb565)
   [PASS] ⑧ READY 行（UI_TEXT_DIM）: 区域 (24, 92, 1100, 152) 内 (144, 148, 160)±16 像素 2213（阈值 ≥40）
   [PASS] ⑧ 重选 entry 1（C3）
   [PASS] ⑧ entry1 SCENE C→D
@@ -290,7 +290,7 @@
   [PASS] ⑨ NO SONG 不覆盖原歌曲：count=2 entry={0: (0, 2), 1: (1, 3)}
   [PASS] ⑨ 回 SONG
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-song-nosong.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-song-nosong.png  (1280x720 rgb565)
   [PASS] ⑨ 状态行 LAST NO SONG 文本: 区域 (24, 92, 1200, 152) 内 (144, 148, 160)±16 像素 2339（阈值 ≥40）
   [PASS] ⑩ 起点 PLAY
   [PASS] ⑩ SONG↔PLAY 1/10：UI song
@@ -313,8 +313,8 @@
   [PASS] ⑩ SONG↔PLAY 9/10：UI play
   [PASS] ⑩ SONG↔PLAY 10/10：UI song
   [PASS] ⑩ SONG↔PLAY 10/10：UI play
-  [PASS] ⑩ 10 次 SONG↔PLAY 往返后 pool_free 变化 47372 → 47376（Δ=+4B，允许 |Δ| ≤ 128B）
-  [PASS] ⑩ 单次 SONG↔PLAY 的最大池下降 44B ≤ 128B（无逐次增长）
+  [PASS] ⑩ 10 次 SONG↔PLAY 往返后 pool_free 变化 45848 → 45888（Δ=+40B，允许 |Δ| ≤ 128B）
+  [PASS] ⑩ 单次 SONG↔PLAY 的最大池下降 24B ≤ 128B（无逐次增长）
   [PASS] ⑩ SEQ↔SONG 起点 PLAY
   [PASS] ⑩ SEQ↔SONG 预热：UI step
   [PASS] ⑩ SEQ↔SONG 预热：UI transport
@@ -360,25 +360,25 @@
   [PASS] ⑩ SEQ↔SONG 10/10：UI transport
   [PASS] ⑩ SEQ↔SONG 10/10：UI song
   [PASS] ⑩ SEQ↔SONG 10/10：UI play
-  [PASS] ⑩ 10 次 SEQ↔SONG 往返后 pool_free 变化 46984 → 46964（Δ=-20B，允许 |Δ| ≤ 128B）
-  [PASS] ⑩ 单次 SEQ↔SONG 的最大池下降 28B ≤ 128B（无逐次增长）
+  [PASS] ⑩ 10 次 SEQ↔SONG 往返后 pool_free 变化 45952 → 45964（Δ=+12B，允许 |Δ| ≤ 128B）
+  [PASS] ⑩ 单次 SEQ↔SONG 的最大池下降 24B ≤ 128B（无逐次增长）
   [PASS] ⑩ UI TAB FILE
   [PASS] ⑩ UI SUB 0 → PROJECTS
   [PASS] ⑩ UI SUB 1 → PRESETS
   [PASS] ⑩ FILE 两页全建 built=2
   [PASS] ⑩ FILE 全建 → 首建 STEP
-  [PASS] ⑩ FILE→STEP 过渡峰值 pool_free=8532B ≥4,096（STEP delta=21656 预算=23040）
+  [PASS] ⑩ FILE→STEP 过渡峰值 pool_free=7956B ≥4,096（STEP delta=21644 预算=23040）
   [PASS] ⑩b UI TAB edit
   [PASS] ⑩b EDIT 子签归一到 SOUND（P4-F Task 5：首个子页）
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-tabs-edit.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-tabs-edit.png  (1280x720 rgb565)
   [PASS] ⑩b 组签选中（EDIT）: (260,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ⑩b 子签选中（EDIT 首个子页）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ⑩b 组签未选中（SEQ）: (596,8) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
   [PASS] ⑩b UI TAB seq
   [PASS] ⑩b SEQ 子签归一到 STEP
   帧缓冲: 1280x720 rgb565 (1843200 字节)
-  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-063508-task-11-tabs-seq.png  (1280x720 rgb565)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-song-20261125-075142-task-11-tabs-seq.png  (1280x720 rgb565)
   [PASS] ⑩b 组签选中（SEQ）: (596,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ⑩b 子签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
   [PASS] ⑩b 子签未选中（TRANSPORT）: (220,42) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
