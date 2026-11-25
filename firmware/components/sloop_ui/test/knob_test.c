@@ -504,11 +504,20 @@ static void layout_check_chips(const param_page_t *pg, const exp_chip_t *exp, ui
 }
 
 /* 布局表：页数/页 id/标题/est。既有五页的 id 与 est 不变；MOD/SCALE/VOICE 追加在
- * app_page_t 末尾（15..17）。chip 页 est ≤ 5,120（控制器上限），且 EDIT 组 Σ est 满足
- * ADR-005 §5 的 EDIT→STEP 有序对：base 11,624 + Σ + STEP 23,040 + 4,096 ≤ 63,120。 */
-#define UI_BASE_BYTES 11624      /* ADR-005 §5：非页面基础占用（实测） */
+ * app_page_t 末尾（15..17）。chip 页 est ≤ 5,120（控制器上限），且各有序对满足
+ * ADR-005 §5 的账面：base + 源组 Σ est + 目标页 est + 4,096 ≤ 63,120。 */
+/* 非页面基础占用（`pool_used − Σdelta(已建页)`，只建 PLAY 的稳态）：P4-F 重测 13,950–14,250B
+ * （九组组签、18 页注册表、ZOOM label），文档取 14,000 记账（ADR-005 §5.5「base 重测」、
+ * DI-56）。终审 B 之前这里还是 P4-C 的 11,624。 */
+#define UI_BASE_BYTES 14000      /* ADR-005 §5.5：非页面基础占用（P4-F 重测，取整记账） */
 #define UI_STEP_EST 23040        /* ui.c k_builtin_pages 的 STEP est */
+#define UI_TRANSPORT_EST 9216    /* SEQ Σ est = STEP + TRANSPORT = 32,256 */
+#define UI_PRESETS_EST 12800     /* FILE 组最贵目标页 */
 #define UI_POOL_AVAIL 63120      /* TLSF 可用（64KB 池） */
+/* DI-56：按重测 base 记账，最坏对 SEQ→PRESETS 超出池 32B（读数区间上沿 14,250 时 284B）——
+ * 真门禁是实测（构建日志池剩余 ≥4,096，`nav` ⑩ 全矩阵 ≥6,408B）。这里只钉住「超出不超过
+ * 文档登记的 284B」：再加页/签把最坏对推大时本条先红。 */
+#define UI_BOOK_OVERRUN_MAX 284
 #define UI_CHIP_PAGE_EST_MAX 5120u
 
 static void case_layout_pages(void)
@@ -559,13 +568,21 @@ static void case_layout_pages(void)
     check_ll("非参数页 → -1", page_layout_index(APP_PAGE_PLAY), -1);
     check_ll("FM6 页不再注册（空位 id）", page_layout_index(APP_PAGE_FM6), -1);
     check_ll("未注册 id → -1", page_layout_index(APP_STATE_PAGES), -1);
-    /* 有序对账面 = base + Σ est + 4KB ≤ 池可用（ADR-005 §5） */
+    /* 有序对账面 = base + 源组 Σ est + 目标页 est + 4KB ≤ 池可用（ADR-005 §5）；终态全表见
+     * §5.5。这里覆盖涉及参数页的三条 + 最坏的 SEQ→PRESETS（不是只查子集）。 */
     check_ll("EDIT Σ est", edit_est, 6144u + 3u * (mod ? mod->est_bytes : 0));
     check_ll("MIX Σ est", mix_est, 2u * mix_max);
     CHECK((long long)UI_BASE_BYTES + edit_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL); /* EDIT→STEP */
     CHECK((long long)UI_BASE_BYTES + mix_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL);  /* MIX→STEP */
     /* SEQ→MIX：跨组峰值 = 源组已建 Σ（SEQ 两页）+ 目标页 est */
-    CHECK((long long)UI_BASE_BYTES + 23040u + 9216u + mix_max + 4096 <= UI_POOL_AVAIL);
+    CHECK((long long)UI_BASE_BYTES + UI_STEP_EST + UI_TRANSPORT_EST + mix_max + 4096 <= UI_POOL_AVAIL);
+    /* SEQ→PRESETS：最坏有序对（DI-56） */
+    {
+        const long long worst = (long long)UI_BASE_BYTES + UI_STEP_EST + UI_TRANSPORT_EST +
+                                UI_PRESETS_EST + 4096;
+        CHECK(worst <= (long long)UI_POOL_AVAIL + UI_BOOK_OVERRUN_MAX);
+        CHECK(worst - UI_POOL_AVAIL <= UI_BOOK_OVERRUN_MAX && worst >= (long long)UI_POOL_AVAIL);
+    }
 }
 
 /* 布局表：逐页 chip 完整性（≤8 槽、id 按作用域合法、chip 名页内唯一、when 枚举合法、

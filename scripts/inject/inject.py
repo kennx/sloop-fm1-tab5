@@ -1253,7 +1253,7 @@ def run_transport_tools(s: Session) -> None:
     s.ser.note(f"⑩ TRANSPORT 预算：est={est} delta={delta}（余量 "
                f"{(est - delta) * 100.0 / max(delta, 1):.1f}%）；SEQ Σest={seq_est} ⇒ "
                f"SEQ→PRESETS 有序对 = {UI_BASE_BYTES} + {seq_est} + 12800 + 4096 = {pair}B"
-               f"（≤ 63120）")
+               f"（纸面账，按重测 base 可能略超 63120——门禁是下面的实测池剩余，DI-56）")
 
     # ---------- ⑩j 跨组过渡峰值：SEQ 全建（STEP+TRANSPORT）→ 首建 PRESETS ----------------
     # ADR-005 §5 的新最坏有序对 `32,256 + 12,800`（账面 62,952B、余 168B）此前只有
@@ -2205,9 +2205,11 @@ NAV_POOL_FLOOR = 4096
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
 NAV_LEAK_NOISE = 128
-# 非页面基础占用（P4-C Task 11 起页签用单对象 label）：boot `UI MEM` free 49,016 +
-# PLAY delta 2,480 ⇒ 63,120 − 49,016 − 2,480 = 11,624B（ADR-005 §5）。
-UI_BASE_BYTES = 11624
+# 非页面基础占用（`pool_used − Σdelta(已建页)`，只建 PLAY 的稳态）：P4-C Task 11 时点
+# 11,624B，P4-F 重测 13,950–14,250B（九组组签、18 页注册表、ZOOM label），文档取 14,000
+# 记账（ADR-005 §5.5「base 重测」）。按它记，最坏对 SEQ→PRESETS 纸面超 32B——真门禁是
+# 实测（构建日志池剩余 ≥4,096），见 DI-56。只用于 transcript 注记。
+UI_BASE_BYTES = 14000
 # STEP 页右上角状态行（page_step.c：状态标签 (656,14) 宽 600 右对齐，16pt）：
 # 文本由聚焦步/选中 drum lane 派生（P4-C Task 9）：合成轨 `T1 S3 NOTE C4 …`（轨色），
 # 鼓轨 `DRM S6 LANE 3 SNARE ON …`（橙）。焦点换轨即换色 ⇒ nav 用它判「焦点落到鼓轨」。
