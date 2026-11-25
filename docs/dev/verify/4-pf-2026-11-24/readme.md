@@ -4,9 +4,10 @@
 > GLOBAL·FX / TOOLS / REC 配置 / 键盘参数锁）、导航 18 页九组、全页面截屏矩阵、`ENG POWER`。
 > 分支 `feat/phase4f`（**不合并 main**，用户 2026-11-24 明示）。设备 Tab5 `/dev/ttyACM0`，
 > ESP-IDF 5.5.5，target `esp32p4`；门禁口径 AGENTS §5.5。
-> **状态**：Task 2–9 各自的门禁已通过并在此入库；**阶段收口的最终设备矩阵（十场景 + 182 例 +
-> `selftest-heap.py` + 截屏矩阵 + 长时 soak）由 Task 10b 在同一固件上重跑，读数待 10b 追加**。
-> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10a 重算，215 项全 OK）。
+> **状态**：Task 2–9 各自的门禁已通过并在此入库；**阶段收口的最终设备矩阵由 Task 10b 在同一固件
+> `1e8587b` 上重跑并通过（§6：host 全绿、烧录 ×3、182/182、`selftest-heap.py` PASS、十场景首轮
+> 4,954/0 + 复跑 2,293/0、截屏矩阵 run 3 475/0）；3h soak 的读数 pending（§6 末）**。
+> 本文件与 `SHA256SUMS` 不入校验清单；`SHA256SUMS` 覆盖目录内其余全部文件（Task 10b 重算，423 项全 OK）。
 
 ## 1. 门禁矩阵（门禁 → 命令 → 结论）
 
@@ -25,7 +26,7 @@
 | 8（全页面截屏矩阵；含评审修复轮） | `e481469` | `screenshot_matrix.py --selftest` / 设备全量 ×2 / `--inject-drift` / REC 拒跑 | 33 条目 / 155 锚点 / 33 条逐条目哈希核对 / 468 PASS / 0 FAIL（run A、B 逐项相同）；漂移 ⇒ exit 1 且 `autosave=0`；REC armed ⇒ 拒跑 | ✅ | `task-8-matrix/`、`task-8-matrix-run{A,B}-stdout.log`、`task-8-drift-*`、`task-8-rec-refuse-*` |
 | 9（`ENG POWER` / soak 功耗列） | 源码 = `8788d30`（设备版本串 `d8056e1-dirty`） | `build.sh` ×2 / `flash.sh` / 探针 `p4f-task9-power_probe.py` / `soak-selftest.py` / `soak.py --duration 300 --interval 60` | 0 warning；`ina=ok`；流式下 20 次连读 xrun 0→0；soak-selftest 34 PASS；soak **PASS**（301s、min 66,316B、xrun 0、duty ≤13.54%） | ✅（功耗列仅记录） | `task-9-*` |
 | 10a（证据晋升 / 文档 ADR / 注释清扫） | `cd10eb2` | `build.sh` ×2 / `knob` / `state` / `seq` / `synth` / `soak-selftest.py` / `screenshot_matrix.py --selftest` | 第二遍 0 warning；17/17、45/45、PASSED、PASSED、PASS、OK | ✅（未上设备） | `task-10a-gates-summary.txt` |
-| 10b（最终矩阵） | 待定 | 十场景 / 182 / `selftest-heap.py` / 截屏矩阵 / 3h soak | **待 10b** | ⏳ | — |
+| 10b（最终矩阵） | `1e8587b`（矩阵锚点修正 `e488b75` 只改脚本） | host 全矩阵 + MANIFEST + 烧录 ×3 / `device-selftest.py` / `selftest-heap.py` / `desc-check.py` / 十场景（含 `sequence`/`synth`/`sys`/`nav` 复跑）/ `screenshot_matrix.py` ×3 / 3h soak | 构建 ×3 第二、三遍 0 warning、MANIFEST 233/233；182/182；heap −260/−44B；desc 10/10+2/2+7/7；首轮 **4,954/0**、复跑 **2,293/0**；矩阵 run 1/2 各 468/1（锚点撞播放头，R16）、run 3 **475/0** | ✅（soak ⏳） | `task-10b-*`（见 §6） |
 
 ## 2. 各任务文件说明
 
@@ -81,6 +82,23 @@ U31/R39 区域位图）、`soak-smoke-{stdout,summary,transcript}.log/txt`、`so
 
 **Task 10a**：`task-10a-gates-summary.txt`（注释清扫后的构建与 host 门禁尾部）。
 
+**Task 10b**（`task-10b-*`，门禁表 = `task-10b-gates-summary.txt`）：
+- 构建/host：`build-{clean,2,3}.log`、`host-{golden,seq,state,knob,synth}.log`、`host-summary.txt`、
+  `selftest-{screenshot,soak,sample,matrix,matrix-fix}.log`、`manifest.log`。
+- 设备：`flash-{1,2,3}.log` + `boot-{1,2,3}.log`（`App version: 1e8587b`）、`device-pre-selftest.log` /
+  `device-mid.log` / `device-end.log`（会话三个时点的 `LIVEHASH`/`ENG MEM`）、
+  `device-selftest-{stdout,transcript}.log`、`selftest-heap-{stdout,transcript}.log`、
+  `desc-check-{stdout,transcript}.log`。
+- 十场景首轮：`<场景>-stdout.log` + `<场景>-transcript.log`（最新一次 transcript，原始回显）；
+  `scn1-summary.txt` / `scn2-summary.txt` 是运行器的逐场景 rc/耗时。复跑：`{sequence,synth,sys,nav}-rerun-{stdout,transcript}.log`、
+  `rerun-summary.txt`；`sys-rerun-killed-stdout.log` 是第一次 sys 复跑被 agent 超时杀掉的半截 stdout。
+- 截屏矩阵：`matrix-run{1,2,3}-stdout.log`；`task-10b-matrix/` = run 3（修正后，**最新一次全量**：
+  33 张 PNG + `matrix.csv` + `matrix.log` + `sheet-*.png` ×10）；`task-10b-matrix-run{1,2}-fail/` =
+  修正前的两次失败运行（同样含全部 PNG 与联系表）。诊断：`anchor-fix-check.log`（旧/新锚点在
+  run 1/2 帧上的离线复判 + 反向对照）、`probe-transport.{py,log}`（起播后 `pos=` 轮询）、
+  `probe-playhead{.py,-scr.log}`（逐帧数播放头列；该探针的帧传输变慢到 ≈21s/帧，记录在案）。
+- soak：`soak-launch.txt`（PID/起跑时间/命令/语义）、`boot-pre-soak.log`。
+
 ## 3. Task 8 事故记录（已恢复）
 
 提交前的首版 `screenshot_matrix.py`（未入库的版本）在一次全量运行中把设备工作工程从
@@ -132,9 +150,58 @@ SHA256 `13cf3fd9954d39aa198e57b1bb94ec56af7d49107c80a245acc5bd90ac8ea329`；
   Aa+k / Aa+l / Aa+9 / 擦除 / 演奏键后再读 `KEY STATS`。
 - **物理点击路径的 LVGL 栈**只由 Task 5 的临时诊断固件量过 chip 点击这一条链（5,900B），
   页眉行/±/bank 回调与之同形但未逐条实测。
-- **时点**：`store`/`synth`/`transport` 的最近一次全绿在 Task 5 的 `dcd516f` / Task 6 的
-  `e3c262e`–`4d6825b`，未在 P4-F 的最终固件上重跑；`sequence`/`song` 同理。Task 10b 统一重跑。
+- **时点**：Task 2–9 的读数各来自其受测固件；`store`/`synth`/`transport`/`sequence`/`song` 当时未在
+  P4-F 最终固件上重跑——**已由 Task 10b 在 `1e8587b` 上统一重跑全绿（§6）**。
 - **池账目**：base 重测 ≈14.0KB 后，最坏有序对的纸面账略超 63,120B（实测 72/72 对仍
   ≥4,096B）——ADR-005 §5.5、DI-56。
 - `step_edit` 的清空断言只查 `time != 0`（`ST_TIE = 1` 也被接受），是否可能留下 TIE 是开放问题。
 - Task 6 首轮 `transport` 的一次「还原后 LIVEHASH ≠ 快照」未复现、根因未证明（同固件复跑 288/0）。
+
+## 6. 10b 设备矩阵（2026-11-25，固件 `1e8587b`）
+
+完整门禁表（命令、退出码、耗时、关键读数）在 `task-10b-gates-summary.txt`；本节只给结论与需要知道的边界。
+受测固件 = 干净树 `1e8587b` 的 clean 构建（boot `App version: 1e8587b`，无 `-dirty`）；
+矩阵期间唯一的代码改动是 `e488b75`（`scripts/screenshot_matrix.py` 的 `step-playing` 锚点选位，固件不变）。
+
+| 门禁 | 结果 |
+|---|---|
+| host：`build.sh --clean` → `build.sh` ×2、五个 host 门禁、四个 `--selftest`、MANIFEST | 全部 exit 0；第二、三遍构建 0 warning；state 45/0、knob 17/0、seq/synth/golden PASSED；MANIFEST 233 OK / 0 non-OK |
+| 烧录 ×3 + 启动日志 | 每次 3× `Hash of data verified`；0 fatal/abort/backtrace/panic |
+| `device-selftest.py` | 182/182（`identical=182 mismatch=0 deterministic=1 result=PASS`） |
+| `selftest-heap.py` | PASS：run 1 −260B、**run 2 −44B**（门限 ≤1,024B）、收尾 69,955B（门限 ≥61,440B） |
+| `desc-check.py` | 10/10 + live 2/2 + 越界 7/7 |
+| 十场景首轮（按序、同会话） | transport **288/0**、step_edit **314/0**、tracks **84/0**、nav **583/0**、params **713/0**、store **908/0**、song **354/0**、sequence **562/0**、synth **794/0**、sys **354/0** —— 合计 **4,954 / 0** |
+| 复跑 | sequence 562/0、synth 794/0、sys 354/0、nav 583/0 —— **2,293 / 0**，四条两轮同数 |
+| `screenshot_matrix.py` run 3 | **475 / 0**、exit 0：33 条目全部解码 1280×720、158 个锚点全中、33/33 条目后 `LIVEHASH == B17A591C`、起点还原 |
+
+关键读数：有序对（nav 首轮 / 复跑）SEQ→PRESETS 6,436 / 6,456B（全矩阵最紧）、EDIT→STEP 12,148 / 12,060B、
+MIX→STEP 17,940 / 17,832B、SEQ→MIX 15,592 / 15,460B；`lvgl_stack_free` 最小 5,116 / 5,052B（门限 2,048）；
+开机 `internal_free` 70,299–70,319B；全部 18 页 `delta ≤ est`（明细见 `task-10b-gates-summary.txt` §6）。
+`sys` 复跑的 DI-40 回归：console 全量自检后 `duty_mean=11.47%`、worker 恢复流式后 9.55%，xrun 增量 0。
+
+**矩阵 run 1 / run 2 的红（已由控制器裁决 R16 定性为工具锚点问题）**：两次都是 468 PASS / 1 FAIL，失败点是
+`step-playing.png (89,208)`。该锚点取焦点格左边框（3px 白），播放头落到同一列时以 5px accent 框盖过它；
+矩阵脚本不归一焦点轨的 LEN/DIV，当时工作工程的轨 0 是 `len=64 / div=8`，起播后约 1s 播放头停在列 0，
+而截屏在起播后约 1.1s（与 Task 8 同延迟）⇒ 确定性撞上。Task 8 的工程轨 0 为 `div=2`（播放头在列 6），
+所以同一锚点当时通过。传输本身正常（`probe-transport.log`）。修正 `e488b75` 把播放态的页内锚点移到网格之外
+（顶栏 / 行标签 / 列号 / 底部提示），停止态条目仍覆盖网格内像素；离线复判见 `anchor-fix-check.log`。
+两次失败的完整目录保留为 `task-10b-matrix-run{1,2}-fail/`。
+
+**边界与需要知道的**：
+- 无视觉检查：全部是像素探针/锚点结论。给用户人眼复核的材料是 **`task-10b-matrix/sheet-*.png`**
+  （最新一次全量，含 10a 改过提示串之后的 STEP 页三行提示 `Aa+K/…`）；run 1/2 的联系表在 `-fail/` 目录里。
+- 输入任务栈断言仍因 `phys=0` 跳过（console `KEY` 注入），人测项不变。
+- **工作工程被场景改动（按设计）**：开机基线 `LIVEHASH D6962C61`；矩阵三轮回合内逐条目不变
+  （`B17A591C`）；`sys` 复跑的归一 SAVE 之后是 `16FC5CB6`，且 `autosave_hash == LIVEHASH`——flash 的 autosave
+  副本现在是这个状态。注入场景本就破坏性/自归一（例如 `sequence` 的自由录音把轨 0 留成 `len=64`）。
+  若要回到本会话之前的工程，只能靠工程槽 A–D 里的存档。
+- 矩阵中段（复跑之前）见过一次 `ENG PERF xrun=1`（全量自检/`system-selftest` 条目停起流之后），
+  复跑的 `sys` 与其后的所有读数 `xrun=0`；soak 的 xrun 门禁以它自己的复位后基线为准。
+- 我的一次手工探针里 SCR 帧传输慢到 ≈21s/帧（DI-5 一类），矩阵脚本自己的 99 次截屏没有失败或重试；
+  仅记录。
+
+**3h soak：pending**。`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，
+PID 441876，起跑 2026-11-25 17:54:38（硬复位 + 30s 之后），stdout `/tmp/p4f_10b/soak-3h.log`，
+transcript/摘要 `firmware/build/verify/soak{,-summary}-20261125-175438.{log,txt}`（gitignored，结果由 Task 10c 晋升）。
+语义：3,600s 的 save 窗口在最前（停走带、`STORE AUTO OFF`、一次 `PROJ SAVE 0 + LOAD 0`）且计入总时长，
+其后约 7,200s 是播放 + 动作循环；与 AGENTS §5.5 的 1800/900 同比例。预期结束 ≈ 20:55。

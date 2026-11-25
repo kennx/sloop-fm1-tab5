@@ -1,0 +1,6 @@
+transport rc=0 pass_lines=288 fail_lines=0 start=15:31:46 dur=159s
+step_edit rc=0 pass_lines=314 fail_lines=0 start=15:34:25 dur=245s
+tracks rc=0 pass_lines=84 fail_lines=0 start=15:38:30 dur=92s
+nav rc=0 pass_lines=583 fail_lines=0 start=15:40:02 dur=512s
+params rc=0 pass_lines=713 fail_lines=0 start=15:48:34 dur=619s
+DONE

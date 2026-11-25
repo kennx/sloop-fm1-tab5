@@ -1,0 +1,5 @@
+sequence rc=0 pass_lines=562 fail_lines=0 start=17:01:24 dur=181s
+synth rc=0 pass_lines=794 fail_lines=0 start=17:04:25 dur=173s
+sys rc=0 pass_lines=354 fail_lines=0 start=17:32:56 dur=641s
+nav rc=0 pass_lines=583 fail_lines=0 start=17:43:37 dur=421s
+DONE

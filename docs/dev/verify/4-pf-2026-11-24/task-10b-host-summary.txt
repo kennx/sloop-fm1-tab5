@@ -1,0 +1,10 @@
+host-test rc=0
+seq-test rc=0
+state-test rc=0
+knob-test rc=0
+synth-test rc=0
+screenshot-selftest rc=0
+soak-selftest rc=0
+sample-selftest rc=0
+matrix-selftest rc=0
+manifest rc=0 ok=233 nonok=0

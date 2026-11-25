@@ -1,0 +1,125 @@
+已加载 ESP-IDF 环境: /home/kenn/esp/esp-idf/export.sh
+==> 使用串口: /dev/ttyACM0
+Executing action: flash
+Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
+Executing "ninja flash"...
+[1/12] Performing build step for 'bootloader'
+[1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+[2/12] No install step for 'bootloader'
+[3/12] Building C object esp-idf/sloop_ui/CMakeFiles/__idf_sloop_ui.dir/src/knob_math.c.obj
+[4/12] Completed 'bootloader'
+[5/12] Building C object esp-idf/sloop_core/CMakeFiles/__idf_sloop_core.dir/src/selftest.c.obj
+[6/12] Linking C static library esp-idf/sloop_core/libsloop_core.a; Move regress bookkeeping tables to PSRAM
+[7/12] Linking C static library esp-idf/sloop_ui/libsloop_ui.a
+[8/12] Generating esp-idf/esp_system/ld/sections.ld
+[9/12] Linking CXX executable sloop_fm1_tab5.elf
+[10/12] Generating binary image from built executable
+esptool.py v4.13.0
+Creating esp32p4 image...
+Merged 3 ELF sections
+Successfully created esp32p4 image.
+Generated /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+[11/12] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+sloop_fm1_tab5.bin binary size 0x1af660 bytes. Smallest app partition is 0x800000 bytes. 0x6509a0 bytes (79%) free.
+[11/12] cd /home/kenn/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH=/home/kenn/esp/esp-idf -D "SERIAL_TOOL=/home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python;;/home/kenn/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32p4" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/kenn/projects/sloop-fm1-tab5/firmware/build -P /home/kenn/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB 0x2000 bootloader/bootloader.bin 0x10000 sloop_fm1_tab5.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.13.0
+Serial port /dev/ttyACM0
+Connecting...
+Chip is ESP32-P4 (revision v1.3)
+Features: High-Performance MCU
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: e8:f6:0a:e2:fd:41
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00002000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x001bffff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 23088 bytes to 14348...
+Writing at 0x00002000... (100 %)
+Wrote 23088 bytes (14348 compressed) at 0x00002000 in 0.2 seconds (effective 918.8 kbit/s)...
+Hash of data verified.
+Compressed 1767008 bytes to 1051651...
+Writing at 0x00010000... (1 %)
+Writing at 0x0001b278... (3 %)
+Writing at 0x000262fb... (4 %)
+Writing at 0x00031b3e... (6 %)
+Writing at 0x0003a74e... (7 %)
+Writing at 0x0003f93f... (9 %)
+Writing at 0x00044889... (10 %)
+Writing at 0x0004b177... (12 %)
+Writing at 0x00051a98... (13 %)
+Writing at 0x00057536... (15 %)
+Writing at 0x0005c413... (16 %)
+Writing at 0x000613e2... (18 %)
+Writing at 0x000663eb... (20 %)
+Writing at 0x0006bd62... (21 %)
+Writing at 0x00070606... (23 %)
+Writing at 0x00074ea5... (24 %)
+Writing at 0x000795a7... (26 %)
+Writing at 0x0007df2e... (27 %)
+Writing at 0x000829a0... (29 %)
+Writing at 0x00089150... (30 %)
+Writing at 0x00091138... (32 %)
+Writing at 0x0009b08c... (33 %)
+Writing at 0x000a4b18... (35 %)
+Writing at 0x000ab451... (36 %)
+Writing at 0x000b24f7... (38 %)
+Writing at 0x000b9830... (40 %)
+Writing at 0x000c0ee4... (41 %)
+Writing at 0x000c767f... (43 %)
+Writing at 0x000ce0c9... (44 %)
+Writing at 0x000d49d1... (46 %)
+Writing at 0x000dba39... (47 %)
+Writing at 0x000e2f89... (49 %)
+Writing at 0x000e874b... (50 %)
+Writing at 0x000eda73... (52 %)
+Writing at 0x000f2d72... (53 %)
+Writing at 0x000f7c8d... (55 %)
+Writing at 0x000fcdfb... (56 %)
+Writing at 0x001023f0... (58 %)
+Writing at 0x0010776b... (60 %)
+Writing at 0x0010c8b7... (61 %)
+Writing at 0x001137f0... (63 %)
+Writing at 0x0011a262... (64 %)
+Writing at 0x001217f6... (66 %)
+Writing at 0x0012877c... (67 %)
+Writing at 0x0012eb75... (69 %)
+Writing at 0x0013523a... (70 %)
+Writing at 0x0013c60e... (72 %)
+Writing at 0x00142c2a... (73 %)
+Writing at 0x00148dae... (75 %)
+Writing at 0x0014ee43... (76 %)
+Writing at 0x00154c13... (78 %)
+Writing at 0x0015aefc... (80 %)
+Writing at 0x00163789... (81 %)
+Writing at 0x0016d237... (83 %)
+Writing at 0x00173515... (84 %)
+Writing at 0x0017a764... (86 %)
+Writing at 0x00182e52... (87 %)
+Writing at 0x00189990... (89 %)
+Writing at 0x00192084... (90 %)
+Writing at 0x0019884e... (92 %)
+Writing at 0x0019e7c0... (93 %)
+Writing at 0x001a6235... (95 %)
+Writing at 0x001ad6de... (96 %)
+Writing at 0x001b4c99... (98 %)
+Writing at 0x001bd044... (100 %)
+Wrote 1767008 bytes (1051651 compressed) at 0x00010000 in 6.8 seconds (effective 2078.9 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 138...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (138 compressed) at 0x00008000 in 0.0 seconds (effective 982.6 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+Done
+==> 烧录完成（如需看日志: scripts/flash.sh /dev/ttyACM0 --monitor）
