@@ -1,0 +1,135 @@
+
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  UI tracks
+I (87586) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5796B 预算=7168B 池剩余=39072B 耗时=9ms
+I (87586) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>  UI voice
+I (88096) sloop_ui: 页面构建 page=VOICE(17) 池增量=2964B 预算=3584B 池剩余=41440B 耗时=6ms
+I (88096) sloop_ui: 切页 page=VOICE(17) 组=EDIT 跨组耗时=9ms
+UI page=voice (17)
+sloop>  UI VOICE CHIP 3
+UI voice chip=3
+UI voice slot=0 id=58 label="TYPE" locked=0
+UI voice slot=1 id=67 label="CUT" locked=0
+UI voice slot=2 id=68 label="RES" locked=0
+UI voice slot=3 id=70 label="KTR" locked=0
+sloop>  ENG TRACK 0 1 0
+ENG TRACK k=0 engine=1 preset=0 OK
+sloop>  TAP 338 92
+TAP miss 338,92 page=17
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 338 92
+TAP miss 338,92 page=17
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>  UI VOICE CHIP 3
+UI voice chip=3
+UI voice slot=0 id=58 label="TYPE" locked=0
+UI voice slot=1 id=67 label="CUT" locked=0
+UI voice slot=2 id=68 label="RES" locked=0
+UI voice slot=3 id=70 label="KTR" locked=0
+sloop>  UI VOICE CHIP 0
+UI voice chip=0
+UI voice slot=0 id=37 label="VCE" locked=0
+UI voice slot=1 id=38 label="GLD" locked=0
+UI voice slot=2 id=41 label="GLMOD" locked=0
+UI voice slot=3 id=42 label="PRIO" locked=0
+sloop>  UI mod
+I (88896) sloop_ui: 页面构建 page=MOD(15) 池增量=3060B 预算=3584B 池剩余=44072B 耗时=6ms
+I (88896) sloop_ui: 切页 page=MOD(15) 组=EDIT 组内首建耗时=8ms
+UI page=mod (15)
+sloop>  UI MOD CHIP
+UI mod chip=0
+UI mod slot=0 id=1 label="ATK" locked=0
+UI mod slot=1 id=2 label="DEC" locked=0
+UI mod slot=2 id=3 label="SUS" locked=0
+UI mod slot=3 id=4 label="REL" locked=0
+sloop>  UI QUIESCE on
+I (89106) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+UI QUIESCE on quiesced=1
+sloop>  UI MOD CHIP 1
+UI ERR quiesced
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI MOD CHIP
+UI mod chip=0
+UI mod slot=0 id=1 label="ATK" locked=0
+UI mod slot=1 id=2 label="DEC" locked=0
+UI mod slot=2 id=3 label="SUS" locked=0
+UI mod slot=3 id=4 label="REL" locked=0
+sloop>  UI QUIESCE off
+I (89396) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+UI QUIESCE off quiesced=0
+sloop>  UI MOD CHIP 1
+UI mod chip=1
+UI mod slot=0 id=5 label="FLT" locked=0
+UI mod slot=1 id=6 label="PIT" locked=0
+UI mod slot=2 id=7 label="SHP" locked=0
+UI mod slot=3 id=59 label="ESYNC" locked=0
+sloop>  UI MOD CHIP 0
+UI mod chip=0
+UI mod slot=0 id=1 label="ATK" locked=0
+UI mod slot=1 id=2 label="DEC" locked=0
+UI mod slot=2 id=3 label="SUS" locked=0
+UI mod slot=3 id=4 label="REL" locked=0
+sloop>  STATE SNAP
+STATE SNAP page=15 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH DF4255D4
+sloop>  UI tools
+I (89966) sloop_ui: 页面构建 page=TOOLS(18) 池增量=2728B 预算=3584B 池剩余=41392B 耗时=5ms
+I (89966) sloop_ui: 切页 page=TOOLS(18) 组=MIX 跨组耗时=8ms
+UI page=tools (18)
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ armed status="AGAIN TO CONFIRM"
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ armed status="AGAIN TO CONFIRM"
+sloop>  STORE LIVEHASH
+LIVEHASH DF4255D4
+sloop>  UI QUIESCE on
+I (92456) sloop_ui: 诊断期静默 ON：UI 定时器暂停、LVGL 定时器停用、输入丢弃生效
+UI QUIESCE on quiesced=1
+sloop>  UI QUIESCE off
+I (94476) sloop_ui: 诊断期静默 OFF：UI 定时器恢复、输入处理恢复（丢弃 0 条键盘事件）
+UI QUIESCE off quiesced=0
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ armed status="AGAIN TO CONFIRM"
+sloop>  STORE LIVEHASH
+LIVEHASH DF4255D4
+sloop>  TAP 204 262
+TAP 204,262 page=18 -> TOOLS CLRSEQ value=0 status="PATTERN CLEARED"
+sloop>  SEQ PATTERN UNDO 0
+SEQ PATTERN UNDO track=0 arg=0 OK
+sloop>  STORE LIVEHASH
+LIVEHASH 6DB1FD94
+sloop>  UI play
+I (95066) sloop_ui: 页面构建 page=PLAY(0) 池增量=2444B 预算=3072B 池剩余=45096B 耗时=4ms
+I (95066) sloop_ui: 切页 page=PLAY(0) 组=PLAY 跨组耗时=7ms
+UI page=play (0)
+sloop>  # [inject] probe f 结束 failures=1
