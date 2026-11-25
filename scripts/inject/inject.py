@@ -8848,6 +8848,23 @@ def run_synth(s: Session) -> None:
     s.cmd("TAP %d %d" % dsyn_adj_xy(False))  # 底部 −（回 100）
     s.expect(r'-> DSYN field=FCUT value=100 status="EDIT OK( DIRTY)?"',
              "④ DSYN 底部 − → 写后回读 100")
+    # 键盘 ↑/↓（sloop_ui_dsyn_adjust → dsyn_step_st → dsyn_write_st：输入任务路径上整条链
+    # 只持一份快照，R13；焦点槽仍是 FCUT）。此前 synth 只走 TAP/旋钮，这条路径没有设备用例。
+    def dsyn_fcut() -> int:
+        s.cmd("DSYN INFO")
+        m = re.search(r"f=([-\d,]+)", s.last)
+        if m is None:
+            raise InjectError("DSYN INFO 缺少 f= 字段表")
+        return int(m.group(1).split(",")[18])   # FCUT = 第 18 个虚拟字段（SND3）
+
+    f0 = dsyn_fcut()
+    s.cmd("KEY 0x3B down")   # ↑：焦点槽 +1
+    s.cmd("KEY 0x3B up")
+    f1 = dsyn_fcut()
+    (s.ok if f1 == f0 + 1 else s.fail)(f"④ DSYN 键盘 ↑ → FCUT {f0} → {f1}")
+    s.cmd("KEY 0x4B down")   # ↓：回原值
+    s.cmd("KEY 0x4B up")
+    (s.ok if dsyn_fcut() == f0 else s.fail)(f"④ DSYN 键盘 ↓ → FCUT 回 {f0}")
     mem = param_mem(s)
     st, est, delta = mem["pages"].get(12, ("?", 0, 0))
     (s.ok if st == "built" and 0 < delta <= est else s.fail)(
@@ -8884,6 +8901,20 @@ def run_synth(s: Session) -> None:
     s.expect(r'-> FM6P ALG value=\d+ status="[^"]*"', "④ FM6P 底部 + → 写后回读")
     s.cmd("TAP %d %d" % fm6p_adj_xy(False))  # 底部 −（回原位）
     s.expect(r'-> FM6P ALG value=\d+ status="[^"]*"', "④ FM6P 底部 −（回原位）")
+    # 键盘 ↑/↓（sloop_ui_fm6p_adjust → fm6p_step_st → fm6p_write_st：输入任务路径上整条链
+    # 只持一份快照，R13；焦点槽仍是 ALG）。断言用 FM6P INFO 的 alg（引擎回读）。
+    def fm6p_alg() -> int:
+        s.cmd(f"FM6P INFO {SYNTH_FM6_TRACK}")
+        return s.snap_int(r"alg=(-?\d+)")
+
+    a0 = fm6p_alg()
+    s.cmd("KEY 0x3B down")   # ↑：焦点槽 +1
+    s.cmd("KEY 0x3B up")
+    a1 = fm6p_alg()
+    (s.ok if a1 == a0 + 1 else s.fail)(f"④ FM6P 键盘 ↑ → ALG {a0} → {a1}")
+    s.cmd("KEY 0x4B down")   # ↓：回原值
+    s.cmd("KEY 0x4B up")
+    (s.ok if fm6p_alg() == a0 else s.fail)(f"④ FM6P 键盘 ↓ → ALG 回 {a0}")
     s.cmd("STATE SNAP")
     s.expect_int(r"fm6p_engine_ok=(\d+)", 1, "④ STATE SNAP fm6p_engine_ok=1")
     # select_track(1) 走过 TRACKS（跨组）已销毁 SYNTH 的 SAMPLE/DSYN：同组重建兄弟页，
