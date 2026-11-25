@@ -388,6 +388,7 @@ C_TEXT_DIM = (144, 148, 160)  # UI_TEXT_DIM 0x8A949E → rgb565 (144,148,160)：
 UI_TAB_X0, UI_TAB_GAP = 16, 8
 UI_GROUP_W, UI_GROUP_H, UI_GROUP_Y = 104, 32, 4
 UI_SUB_W, UI_SUB_H, UI_SUB_Y = 176, 30, 38
+UI_GROUP_SLOTS = 5                # 下行子签固定 5 槽（ui_nav.h UI_GROUP_MAX）
 UI_GROUP_NAMES = ("PLAY", "TRACKS", "EDIT", "MIX", "SYNTH", "SEQ", "SONG", "FILE", "SYS")
 
 
@@ -2191,13 +2192,22 @@ NAV_SETTLE_S = 1.0  # ≈33 个 30ms 拍；实测拍迟滞可达 ~270ms，观察
 NAV_ATTEMPTS = 5
 # 跨组切换 / 组内首次构建兄弟页的延迟预算（ADR-005 §3；UI MEM 的 GROUP build_ms）
 NAV_BUILD_BUDGET_MS = 100
-# TAB 扁平整轮顺序（P4-F Task 5 起 17 页 / 9 组：SOUND 取代 ANALOG+FM6，独立 FM6 页删除、
+# TAB 扁平整轮顺序（P4-F Task 6 起 18 页 / 9 组：SOUND 取代 ANALOG+FM6，独立 FM6 页删除、
 # APP_PAGE_FM6=7 是空位 id；Task 6 加 TOOLS ⇒ 18 页：TOOLS 是 MIX 的第 3 张子签）——group
 # 顺序 + 组内顺序，与 ui_nav.h 的 UI_GROUP_LIST 同源。
 NAV_ORDER = ((0, "play"), (1, "tracks"), (6, "sound"), (15, "mod"), (16, "scale"),
              (17, "voice"), (4, "global"), (5, "fx"), (18, "tools"), (8, "sample"), (12, "dsyn"),
              (13, "fm6p"), (2, "step"), (3, "transport"), (11, "song"), (9, "projects"),
              (10, "presets"), (14, "system"))
+# 组表（与 ui_nav.h 的 UI_GROUP_LIST 同源：组顺序 = 组签顺序，成员顺序 = 子签顺序）；平铺后
+# 必须等于 NAV_ORDER（run_nav 入口校验）。有序对全矩阵（⑩）与九组签逐组像素（⑨）由它驱动。
+NAV_GROUP_PAGES = {"PLAY": ("play",), "TRACKS": ("tracks",),
+                   "EDIT": ("sound", "mod", "scale", "voice"),
+                   "MIX": ("global", "fx", "tools"), "SYNTH": ("sample", "dsyn", "fm6p"),
+                   "SEQ": ("step", "transport"), "SONG": ("song",),
+                   "FILE": ("projects", "presets"), "SYS": ("system",)}
+# 跨组过渡峰值的门限（ADR-005 §5：构建目标页时源组仍全部驻留，构建日志的「池剩余」即峰值点）
+NAV_POOL_FLOOR = 4096
 # 跨组往返的池泄漏回归（R34/ADR-008 §3）：每页 styles_init 只跑一次后，PLAY↔TRACKS
 # 往返不应改变 pool_free。阈值 = 「噪声」（TLSF 块拆分/文本缓存的个位数字节；实测 0）。
 NAV_LEAK_TRIPS = 10
@@ -2374,12 +2384,19 @@ def run_nav(s: Session) -> None:
        同一 30ms 拍内 `KEY tab` 排队时 `UI TAB` 胜出且待切页被丢弃（R30）；
        FILE 组两页、SONG 单页组、**SYNTH 组三页**（P4-D Task 8：`UI TAB synth` /
        `UI SUB 0..2`、离开组 built=0）各走一遍；
-    ⑦ `TAB` 全 17 页轮转（P4-F Task 5：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→
-       FX→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY），
+    ⑦ `TAB` 全 18 页轮转（P4-F Task 6：PLAY→TRACKS→SOUND→MOD→SCALE→VOICE→GLOBAL→
+       FX→TOOLS→SAMPLE→DSYN→FM6P→STEP→TRANSPORT→SONG→PROJECTS→PRESETS→SYSTEM→PLAY），
        异步切页用 STATE SNAP 轮询等落地、回卷到 PLAY；
     ⑧ 跨组往返不泄漏（R34）：PLAY↔TRACKS ×10 的 `UI MEM` pool_free 首末差 ≤ 噪声，
-       且无逐次递增（每页 `styles_init` 只跑一次）。
+       且无逐次递增（每页 `styles_init` 只跑一次）；
+    ⑨ 九组签逐组像素（P4-F Task 7 定稿）：`UI TAB <g>` 后该组签唯一选中（104px 的左右
+       内缘）、其余未选中、子签数 = 成员数、只有本组已建；
+    ⑩ 有序对全矩阵（ADR-005 §5）：源组全建 → 跨组首建目标页，构建日志 `池剩余 ≥ 4,096`
+       （9×8 组对、逐目标页；含 P4-F 新增的 EDIT→STEP / MIX→STEP / SEQ→MIX / MIX→FILE），
+       收尾断言 `lvgl_stack_free ≥ 2,048`。
     """
+    if [n for members in NAV_GROUP_PAGES.values() for n in members] != [n for _, n in NAV_ORDER]:
+        raise InjectError("NAV_GROUP_PAGES 平铺与 NAV_ORDER 不一致（组表漂移）")
     ensure_stopped(s)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
@@ -2811,6 +2828,42 @@ def run_nav(s: Session) -> None:
         f"⑥ 离开 SYNTH 后 built={mem_synth['groups']['SYNTH']['built']} "
         + " ".join(f"{p}={mem_synth['pages'].get(p, ('?',))[0]}" for p in (8, 12, 13))
         + "（期望 0 / unbuilt ×3）")
+    # SEQ 组两页（STEP/TRANSPORT）：子签 0..1、`UI SUB 2` 越界、同组不重建、离开组两页销毁
+    s.cmd("UI TAB seq")
+    s.expect(r"UI TAB SEQ page=\w+ \([23]\)", "⑥ UI TAB seq（→ 上次子页）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI SUB 0 page=step \(2\)", "⑥ UI SUB 0 切 STEP")
+    s.cmd("UI SUB 1")
+    s.expect(r"UI SUB 1 page=transport \(3\)", "⑥ UI SUB 1 切 TRANSPORT")
+    mem_seq = param_mem(s)
+    (s.ok if mem_seq["groups"]["SEQ"]["built"] == 2
+     and mem_seq["groups"]["SEQ"]["sum_est"] == 32256 else s.fail)(
+        f"⑥ SEQ built={mem_seq['groups']['SEQ']['built']} "
+        f"sum_est={mem_seq['groups']['SEQ']['sum_est']}（期望 2 / 32,256）")
+    s.cmd("UI SUB 2")
+    s.expect(r"UI ERR sub 2", "⑥ SEQ 组只有 2 张子签：UI SUB 2 越界")
+    s.cmd("UI")
+    s.expect(r"UI page=transport \(3\)", "⑥ 越界注入不改页（仍 TRANSPORT）")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（SEQ 两页销毁）")
+    mem_seq = param_mem(s)
+    (s.ok if mem_seq["groups"]["SEQ"]["built"] == 0
+     and all(mem_seq["pages"].get(p, ("?",))[0] == "unbuilt" for p in (2, 3)) else s.fail)(
+        f"⑥ 离开 SEQ 后 built={mem_seq['groups']['SEQ']['built']} "
+        + " ".join(f"{p}={mem_seq['pages'].get(p, ('?',))[0]}" for p in (2, 3))
+        + "（期望 0 / unbuilt ×2）")
+    # SYS 单页组（P4-E Task 6）：点组进 SYSTEM、子行为空、离开后 built=0
+    s.cmd("UI TAB sys")
+    s.expect(r"UI TAB SYS page=system \(14\)", "⑥ UI TAB sys（SYS 独立组）")
+    s.cmd("UI SUB 0")
+    s.expect(r"UI ERR sub 0", "⑥ SYS 单页组：UI SUB 0 → UI ERR sub")
+    s.cmd("UI tab play")
+    s.expect(r"UI TAB PLAY page=play \(0\)", "⑥ 回 PLAY（SYSTEM 页销毁）")
+    mem_sys = param_mem(s)
+    (s.ok if mem_sys["groups"]["SYS"]["built"] == 0
+     and mem_sys["pages"].get(14, ("?",))[0] == "unbuilt" else s.fail)(
+        f"⑥ 离开 SYS 后 built={mem_sys['groups']['SYS']['built']} "
+        f"page={mem_sys['pages'].get(14, ('?',))[0]}（期望 0 / unbuilt）")
     s.cmd("UI TAB nope")
     s.expect(r"UI ERR group nope", "⑥ 未知组名 → UI ERR group")
     # ⑥d R30：同一 30ms 拍内 KEY tab 排队 + UI TAB 点击 ⇒ 点击胜出、待切页丢弃。
@@ -2891,6 +2944,92 @@ def run_nav(s: Session) -> None:
     worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
     (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(
         f"⑧ 单次往返的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+
+    # ---------- ⑨ 九组签逐组像素（104px）+ 组作用域通用断言 ----------
+    # 对每个组 `UI TAB <g>`：该组签是唯一选中（强调色，左/右内缘都是 ⇒ 签宽 104）、其余 8 张
+    # 未选中、签间缝是页签条底色；下行子签数 = 组成员数（第 n 槽起是页签条底色）、选中
+    # 子签 = 当前页在组内的下标；`UI MEM` 只有本组已建（built = 成员数）。
+    s.ser.note("⑨ 九组逐组：UI TAB <g> → 组签选中色 / 其余未选中 / 子签数 / 只有本组已建")
+    for gi, (gname, members) in enumerate(NAV_GROUP_PAGES.items()):
+        s.cmd(f"UI TAB {gname.lower()}")
+        m = re.search(rf"UI TAB {gname} page=(\w+) \((\d+)\)", s.last)
+        if m is None:
+            raise InjectError(f"⑨ UI TAB {gname} 回显异常：{s.last!r}")
+        cur_name = m.group(1)
+        (s.ok if cur_name in members else s.fail)(
+            f"⑨ UI TAB {gname} → {cur_name}（{m.group(2)}）是本组成员")
+        mem = param_mem(s)
+        built_groups = [g for g in UI_GROUP_NAMES if mem["groups"][g]["built"] != 0]
+        # 点组只建落地的那一页（其余成员按需懒建）：总 built = 1，且只有它在组内是 built
+        (s.ok if built_groups == [gname] and mem["head"]["built"] == 1
+         and mem["head"]["group"] == gname else s.fail)(
+            f"⑨ {gname} 为当前组：已建组 {built_groups}、总 built={mem['head']['built']}"
+            f"（期望仅 {gname} / 1 = 点组只建落地页）")
+        member_ids = [pid for pid, name in NAV_ORDER if name in members]
+        (s.ok if len(member_ids) == len(members)
+         and all(mem["pages"].get(pid, ("?",))[0] == ("built" if name == cur_name else "unbuilt")
+                 for pid, name in NAV_ORDER if name in members) else s.fail)(
+            f"⑨ {gname} 的成员页状态：{cur_name} built、其余 unbuilt")
+        time.sleep(0.15)  # ≥5 拍：页签条刷新稳定
+        img = s.capture(f"nav-09-tab-{gname.lower()}")
+        for j, other in enumerate(UI_GROUP_NAMES):
+            s.probe(img, f"⑨ {gname}：组签 {other}{'（选中）' if j == gi else '（未选中）'}",
+                    *group_tab_probe(j), C_YELLOW if j == gi else C_PANEL_HI, 10)
+        gx = UI_TAB_X0 + gi * (UI_GROUP_W + UI_TAB_GAP)
+        s.probe(img, f"⑨ {gname} 组签右内缘（签宽 104px）", gx + UI_GROUP_W - 8, UI_GROUP_Y + 4,
+                C_YELLOW)
+        s.probe(img, f"⑨ {gname} 组签右缘之外（签缝/行尾）", gx + UI_GROUP_W + 4, UI_GROUP_Y + 12,
+                C_PANEL, 10)
+        # 单页组的选中态在上行组签（下行无子签）；多页组的选中子签 = 落地页在组内的下标
+        n_subs = len(members) if len(members) > 1 else 0
+        sel_idx = members.index(cur_name) if n_subs and cur_name in members else -1
+        for k in range(UI_GROUP_SLOTS):
+            want = (C_YELLOW if k == sel_idx else C_PANEL_HI) if k < n_subs else C_PANEL
+            s.probe(img, f"⑨ {gname}：子签槽 {k}"
+                    + ("（选中）" if k == sel_idx else "（未选中）" if k < n_subs else "（空）"),
+                    *sub_tab_probe(k), want, 10)
+
+    # ---------- ⑩ 有序对全矩阵（ADR-005 §5）：源组全建 → 跨组首建目标页 ----------
+    # 过渡峰值 = 目标页构建完成那一刻的池余量（源组页面尚未销毁）。构建日志的「池剩余」就是
+    # 这个点。9 组 × 8 个目标组、逐目标页（源组每次重新全建）：任何一页低于 4,096 都 FAIL。
+    s.ser.note("⑩ 有序对全矩阵：源组全建 → 跨组首建目标页，构建日志 池剩余 ≥ "
+               f"{NAV_POOL_FLOOR:,}（{len(UI_GROUP_NAMES)}×{len(UI_GROUP_NAMES) - 1} 组对、逐目标页）")
+    pair_min = {}
+    for g_src, src_pages in NAV_GROUP_PAGES.items():
+        for g_dst, dst_pages in NAV_GROUP_PAGES.items():
+            if g_dst == g_src:
+                continue
+            frees = []
+            for d in dst_pages:
+                for p in src_pages:  # 上一次跨组已销毁源组：每个目标页之前重新全建
+                    s.cmd(f"UI {p}")
+                s.cmd(f"UI {d}")
+                m = re.search(r"页面构建 page=(\w+)\((\d+)\) 池增量=(\d+)B 预算=(\d+)B 池剩余=(\d+)B",
+                              s.last)
+                if m is None or m.group(1).lower() != d:
+                    s.fail(f"⑩ {g_src} 全建 → {d}：构建日志缺失或页不符（池剩余不可测）")
+                    continue
+                free = int(m.group(5))
+                frees.append(free)
+                (s.ok if free >= NAV_POOL_FLOOR else s.fail)(
+                    f"⑩ {g_src} 全建 → {d}（{g_dst}）：池剩余={free}B"
+                    f"（≥{NAV_POOL_FLOOR:,}）")
+            pair_min[(g_src, g_dst)] = min(frees) if frees else -1
+            worst = min((f, d) for f, d in zip(frees, dst_pages)) if frees else (-1, "?")
+            (s.ok if worst[0] >= NAV_POOL_FLOOR else s.fail)(
+                f"有序对 {g_src}→{g_dst}：{len(frees)}/{len(dst_pages)} 个目标页，最小池剩余 "
+                f"{worst[0]}B（{worst[1]}）")
+    good = sum(1 for v in pair_min.values() if v >= NAV_POOL_FLOOR)
+    worst_pair = min(pair_min, key=pair_min.get) if pair_min else None
+    s.ser.note(f"⑩ 组对 {good}/{len(pair_min)} 个全部目标页 ≥{NAV_POOL_FLOOR:,}；最紧 "
+               f"{worst_pair[0]}→{worst_pair[1]}={pair_min[worst_pair]}B；P4-F 新增组合 "
+               + " ".join(f"{a}→{b}={pair_min[(a, b)]}B" for a, b in (
+                   ("EDIT", "SEQ"), ("MIX", "SEQ"), ("SEQ", "MIX"), ("MIX", "FILE"))))
+    # LVGL 任务栈余量（R10）：高水位覆盖到此为止的 30ms 拍、切页构建与渲染
+    lv = param_mem(s)["head"]["lvgl_stack_free"]
+    s.ser.note(f"UI MEM lvgl_stack_free={lv}B（nav 全场景收尾；门禁 ≥{LVGL_STACK_FLOOR}）")
+    (s.ok if lv >= LVGL_STACK_FLOOR else s.fail)(
+        f"LVGL 任务栈最小余量（nav 全场景）lvgl_stack_free={lv}B（≥{LVGL_STACK_FLOOR}）")
 
     # 复位：PLAY 页（脚本可重复运行）
     s.cmd("UI play")
@@ -4187,7 +4326,7 @@ def run_params(s: Session) -> None:
                    (166 - 70 + 14, 230 - 80 + 64, 166 - 70 + 146, 230 - 80 + 96), C_TEXT_DIM, 16, 40)
 
     mem1 = param_mem(s)
-    for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "ANALOG")):
+    for pid, title in ((4, "GLOBAL"), (5, "FX"), (6, "SOUND")):
         st, est, delta = mem1["pages"].get(pid, ("?", 0, 0))
         if pid == 4:
             (s.ok if st == "built" and 0 < delta <= est else s.fail)(
