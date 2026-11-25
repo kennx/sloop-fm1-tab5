@@ -1,7 +1,31 @@
 # P4-F 阶段 4 收口 spec（DI-26 前置 / 功能对齐清单 / 参数族覆盖 / 截屏矩阵 / 长 soak / dev→main）
 
 > 状态：builder check 完成（5 条发现已并入：DI-26 兜底规则、表外缺口处置规则、状态相关标签的钩子/镜像、
-> soak 无人值守、SOUND 底行条件化；页数更正为 18）→ 待用户确认。
+> soak 无人值守、SOUND 底行条件化；页数更正为 18）。Task 0–9 已实施；**Task 10a（2026-11-25）
+> 按实施结果修订**——失效的原文已改写或以「原文」标注保留，出入逐条对应控制器账本的裁决
+> （`.superpowers/sdd/2026-11-24-p4f-phase4-closeout/progress.md`）：
+>
+> - **导航三次重组（R1）**：Task 4 先建 MIX 组承接 GLOBAL/FX（否则 EDIT 有 7 个子签，超过
+>   `UI_GROUP_MAX` 5），Task 5 用 SOUND 取代 ANALOG + FM6，Task 6 加 TOOLS ⇒ 终态 18 页 / 9 组
+>   （ADR-005 §1、§5.5）。§3 的「EDIT 保留 FM6」是中间态。
+> - **est（R7）**：chip 页定稿 **3,584**（本文的 5,120 是上限；chip 行改成单对象自绘后实测
+>   2,936–3,104B）⇒ EDIT Σ **16,896**、MIX Σ **10,752**（§3 表已改）。
+> - **A9 不做镜像（R6）**：上游 static `track_desc()` 在 sloop_core 的单 TU 内直接可达 ⇒
+>   `sloop_core_desc_track_live(track,id,out)` 直接转调，**未建任何标签镜像**（A9 已改写）。
+> - **A5 的供电假设不成立（R15）**：INA226 的 VBUS 引脚在电池侧，USB-C 供电时读 ≈0.9V/0mA，
+>   USB 输入功率不可观测；分流电阻已查到（R39 = 5mΩ），电流可换算（A5 已改写）。
+> - **DI-26 已定位并修复**（Task 2）：根因是 host 替身 `cpu1_host` 的懒初始化落在自检快照
+>   窗口内、每 job 回滚重建；兜底规则（降为记录模式）未触发。
+> - **范围外被接受的行为变化（R8）**：ENTER = 焦点槽 +1（全部参数页）；FX 页在鼓轨上按
+>   012 §3 逐槽锁定（此前整页可编辑是对上游的偏离）。
+> - **锁 / fill 的范围（R12）**：聚焦步在本轨 LEN 之内即可，不要求该步有音。
+> - **任务栈（R10/R13）**：LVGL 10,240B、input 8,192B；`UI MEM lvgl_stack_free ≥2,048` 入门禁
+>   （§6 已补）。
+> - **TOOLS 守卫按上游（R4）**；`project_new` 是 ui_input.c 的 static ⇒ 逐行镜像（R5）。
+> - **截屏矩阵的幂等闸门**（Task 8 评审修复轮）：每个条目后核对 `LIVEHASH`，漂移即中止且
+>   不碰 flash——起因是首版脚本改写过设备工作工程的两个字段（已从 autosave 扇区恢复）。
+> - **池 base 重测**：≈14.0KB（原 11,624）⇒ 最坏有序对的纸面账略超 63,120，实测矩阵仍全部
+>   ≥4,096B（ADR-005 §5.5、DI-56）。
 > 上位：`docs/design/002-port-roadmap.md` §6（阶段 4 完成判据）、
 > `docs/superpowers/specs/2026-11-21-phase4-feature-parity-design.md` §3 P4-F 行。
 > 取舍按用户长期授权（auto 权限模式、「最大程度移植 sloop-fm1 到 Tab5」）由本会话代为决定；
@@ -21,8 +45,9 @@
    `ENGINES[]->edit[]`，console `PARAM GLOBAL` 可写）。P4-A 的「框架证明口径」明确把全页覆盖推迟到本阶段。
 3. **DI-26**（全量自检每次泄漏 ~40KB 内部堆，≈230B/执行 job）是收口前置：定位方向见 DI 条目
    （job 路径的库调用 vs `selftest_restore()` 回滚了堆相关全局）。泄漏点未定位；本 spec 不预设结论。
-4. **DI-43**：内部堆余量仅 4KB，SELFTEST worker 16KB 栈常驻。
-5. INA226（0x41，G31/G32）与芯片温度无驱动；`soak.py` 无功耗/温度采样。
+   （实施结果：Task 2 定位并修复，见文首。）
+4. **DI-43**：内部堆余量仅 4KB，SELFTEST worker 16KB 栈常驻。（实施结果：worker 栈 5,632B；DI-43 余下的人测项见 DI 清单。）
+5. INA226（0x41，G31/G32）与芯片温度无驱动；`soak.py` 无功耗/温度采样。（实施结果：Task 9 落地，测量点在电池侧，见 A5。）
 
 ## 2. 目标 / 非目标 / 反目标
 
@@ -52,48 +77,57 @@ punch-in 现场 FX 层、LIVE 页（清单里登记为 DI，写明触发条件�
 
 ## 3. 容量与导航（ADR-005 §5 口径）
 
-现状：15 页 / 8 组，组签 122px；最坏有序对 SEQ→PRESETS 60,776（余 2,344）。
-
-方案（见 §5 A1）：**9 组 / 18 页**，组签 `min(176,(1280−32−216−8×8)/9)=107.5 → 104px`
-（9×104+8×8=1,000，右端 1,016 ≤ 1,064；最长标签 TRACKS ≈ 66px 可容纳）。
+**终态（实施后；权威账目见 ADR-005 §5.5）**：18 页 / 9 组，组签 `min(176,(1280−32−216−8×8)/9)
+=107.5 → 104px`（9×104+8×8=1,000，右端 1,016 ≤ 1,064；`TRACKS` 文本 ≈66px，`nav` ⑨ 像素抽检通过）：
 
 | 组 | 子页（≤5） | est（B） | Σ est |
 |---|---|---|---|
 | PLAY | PLAY | 3,072 | 3,072 |
 | TRACKS | TRACKS | 7,168 | 7,168 |
-| EDIT | SOUND / FM6 / MOD / SCALE / VOICE | 3,584 + 6,144 + 3×7,168 | 31,232 |
-| MIX | GLOBAL / FX / TOOLS | 3×7,168 | 21,504 |
+| EDIT | SOUND / MOD / SCALE / VOICE | 6,144 + 3×3,584 | **16,896** |
+| MIX | GLOBAL / FX / TOOLS | 3×3,584 | **10,752** |
 | SYNTH | SAMPLE / DSYN / FM6P | 6,144 + 7,168 + 7,168 | 20,480 |
 | SEQ | STEP / TRANSPORT | 23,040 + 9,216 | 32,256 |
 | SONG | SONG | 12,288 | 12,288 |
 | FILE | PROJECTS / PRESETS | 8,192 + 12,800 | 20,992 |
 | SYS | SYSTEM | 10,240 | 10,240 |
 
-**EDIT Σ 31,232 超限**（EDIT→STEP = 31,232 + 23,040 = 54,272 ⇒ 账面 69,996 > 63,120）。
-裁决：MOD/SCALE/VOICE 三页用**单页多 chip 复用 8 旋钮**（DSYN/FM6P 模式），est 压到 **5,120**
-（比 DSYN 少一半 chip 行/无状态行；实测后按 ADR-008 定稿）⇒ EDIT Σ = 3,584 + 6,144 + 15,360 =
-**25,088**，EDIT→STEP = 48,128 ⇒ 账面 **63,908 > 63,120 仍超 788B**。
-再裁决：FM6 页（edit[0..7] + bank 行）的编辑功能被 SOUND（通用引擎页）完全覆盖，**FM6 页只保留
-bank 存取行**（SAVE/ERASE/槽号，旋钮区显示 `SOUND` 页同款 8 槽只读？否——）：
-**FM6 并入 SOUND 页的底部 bank 行**（选中轨为 FM6 引擎时出现，同 SAMPLE 槽行几何），FM6 页删除
-⇒ EDIT = SOUND / MOD / SCALE / VOICE，est 6,144 + 3×5,120 = **21,504**；EDIT→STEP = 44,544
-⇒ 账面 60,264（余 2,856，与 SONG→? 同量级）。最坏有序对仍 SEQ→PRESETS 60,776（余 2,344，不变）。
-新增对：MIX→STEP 21,504+23,040 = 44,544（同上 60,264）；SEQ→MIX 32,256+7,168 = 39,424 ⇒ 55,184。
-FM6P 44B tripwire、ZOOM +768B（zoom ON 时 61,544）口径不变。**est 是上限**：实测超限先改对象设计。
-（FM6 页删除的连带：`UI fm6` 页名→重定向到 SOUND 并显示 bank 行；`params`/`store`/`synth` 场景的
-FM6 用例改指向 SOUND；TAB 轮转 18 页。）
+有序对账面（base 11,624 口径，`base + 源组 Σ + 最贵目标页 + 4,096 ≤ 63,120`）：最坏仍是
+**SEQ→PRESETS 60,776**（余 2,344）；EDIT→STEP 55,656、MIX→STEP 49,512、SEQ→MIX 51,560。
+**实测**（Task 7 `nav` ⑩，72/72 组对 × 144 目标页）：全部 ≥4,096B，最紧 SEQ→PRESETS
+6,424 / 6,408B（两次运行）、EDIT→STEP 12,092 / 12,084B、MIX→STEP 17,832 / 17,980B、SEQ→MIX
+15,612 / 15,596B。**注意**：base 用同一方法重测为 ≈14.0KB（九组组签/18 页注册表/ZOOM label
+之后），最坏对的纸面账因此是 63,104–63,404，**略超 63,120**；实测余量（2.3KB）来自 est 表
+自身的保守量。加页/加签前同时看账面与实测矩阵（DI-56）。
+
+**原文的裁决链（保留作记录；数值是当时的上限估算，已被上表取代）**：
+
+> 现状（spec 撰写时）：15 页 / 8 组，组签 122px；最坏有序对 SEQ→PRESETS 60,776（余 2,344）。
+> EDIT = SOUND / FM6 / MOD / SCALE / VOICE，`3,584 + 6,144 + 3×7,168 = 31,232` ⇒ EDIT Σ 31,232 超限（EDIT→STEP = 54,272 ⇒ 账面 69,996 > 63,120）。
+> 裁决：MOD/SCALE/VOICE 三页用**单页多 chip 复用 8 旋钮**（DSYN/FM6P 模式），est 压到 **5,120**
+> （比 DSYN 少一半 chip 行/无状态行；实测后按 ADR-008 定稿）⇒ EDIT Σ = 3,584 + 6,144 + 15,360 =
+> **25,088**，EDIT→STEP = 48,128 ⇒ 账面 **63,908 > 63,120 仍超 788B**。
+> 再裁决：FM6 页（edit[0..7] + bank 行）的编辑功能被 SOUND（通用引擎页）完全覆盖，**FM6 页只保留
+> bank 存取行**（SAVE/ERASE/槽号，旋钮区显示 `SOUND` 页同款 8 槽只读？否——）：
+> **FM6 并入 SOUND 页的底部 bank 行**（选中轨为 FM6 引擎时出现，同 SAMPLE 槽行几何），FM6 页删除
+> ⇒ EDIT = SOUND / MOD / SCALE / VOICE，est 6,144 + 3×5,120 = **21,504**；EDIT→STEP = 44,544
+> ⇒ 账面 60,264（余 2,856，与 SONG→? 同量级）。最坏有序对仍 SEQ→PRESETS 60,776（余 2,344，不变）。
+> 新增对：MIX→STEP 21,504+23,040 = 44,544（同上 60,264）；SEQ→MIX 32,256+7,168 = 39,424 ⇒ 55,184。
+> FM6P 44B tripwire、ZOOM +768B（zoom ON 时 61,544）口径不变。**est 是上限**：实测超限先改对象设计。
+> （FM6 页删除的连带：`UI fm6` 页名→重定向到 SOUND 并显示 bank 行；`params`/`store`/`synth` 场景的
+> FM6 用例改指向 SOUND；TAB 轮转 18 页。）
 
 ## 4. 字段/页面映射（上游 → Tab5）
 
 | Tab5 页 | 内容（数据全部来自 `sloop_core_desc`，不引入新描述符表） | 交互 |
 |---|---|---|
 | **SOUND**（取代 ANALOG+FM6） | 页眉：`ENGINE − 名 +` / `PRESET − 名 +`（选中轨换引擎/换预置，经状态层新命令 `CMD_SET_ENGINE`/`CMD_SET_PRESET`；上游 PRESETS 页 KNOB 1/2 的对应物——审计发现此前只有 console `ENG TRACK`）；主体：选中轨引擎的 `edit[0..7]`（标题显示引擎名，标签经引擎 `desc` 钩子；鼓轨 ⇒ 旋钮区锁定并改显示 `KIT − 名 +` 行写鼓轨 `P_E0`——上游 DRUMS 屏 KNOB 1）；底部：引擎为 FM6 ⇒ bank 行（B1..B27/SAVE/ERASE，A10）；SAMPLE 引擎的槽行只在 SAMPLE 页 | 同现 ANALOG/FM6 页 |
-| **MOD**（chip 页） | chip：ENV（ATK/DEC/SUS/REL + 其余 ENV 族 TP 参数按上游 ENV 页序）/ ENV DEST / LFO / LFO 2 / LFO DEST；每 chip ≤8 槽，`desc` 缺失的槽不建 | DSYN 页 chip 模式；键盘 ←→ 焦点、↑↓ 调值、chip 经 `UI MOD PAGE` |
+| **MOD**（chip 页） | chip：ENV（ATK/DEC/SUS/REL + 其余 ENV 族 TP 参数按上游 ENV 页序）/ ENV DEST / LFO / LFO 2 / LFO DEST；每 chip ≤8 槽，`desc` 缺失的槽不建 | DSYN 页 chip 模式；键盘 ←→ 在当前 chip 的存在槽间环绕、↑↓ 调值、ENTER = +1（R8）；chip 只经触摸与 console `UI MOD CHIP <n>` |
 | **SCALE**（chip 页） | SEL / SEL 2 / ARP / ARP 2 | 同上 |
 | **VOICE**（chip 页） | VOICE / VOICE 2 / PATTERN（`P_SLEN/P_SDIV/P_SSWING/P_SGATE`，A8）；FILTER（`P_FTYPE`+E4/E5/E7）是条件 chip，仅引擎为 ANALOG 且非鼓轨时出现 | 同上 |
 | **FX**（chip 页，从 EDIT 移入 MIX） | FX / SLICER / INSERT / INSERT 2（FX chip = 现 FX 页 8 槽，保持兼容） | 同上 |
 | **GLOBAL**（chip 页） | GLO（= 现 8 槽：GLOBAL+DLY）/ REV（REV/CHO+MASTER 8 槽）/ DRUMS（4 槽）/ TEXTURE（7 槽） | 同上 |
-| **TOOLS** | 三动作（另：TRANSPORT 增 REC 配置 chip QUANT/MODE/START；STEP 页键盘 EDIT 层加参数锁 lock/unlock 与 fill 条件循环——零新增 LVGL 对象，TRANSPORT est 不变）：CLEAR SEQ / INIT SOUND / NEW PROJECT（上游 TOOLS 页 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 的语义经适配层移植，动作型全局在引擎里如何落地以清单审计为准） | 触摸 chip + 确认态（二次点击确认，防误触）；走状态层 `CMD_TOOLS_*` |
+| **TOOLS** | 三动作（另：TRANSPORT 增 REC 配置 chip QUANT/MODE/START；STEP 页键盘 EDIT 层加参数锁 lock/unlock 与 fill 条件循环——零新增 LVGL 对象，TRANSPORT est 不变）：CLEAR SEQ / INIT SOUND / NEW PROJECT（上游 TOOLS 页 `G_CLRSEQ/G_INITSND/G_NEWPRJ` 的语义经适配层移植，动作型全局在引擎里如何落地以清单审计为准） | 触摸 chip + 确认态（二次点击确认，防误触）；走状态层 `CMD_TOOLS{a}`（一条命令，`tools_status` 回显） |
 | MIDI / MIDI 2 / MIDI 3 / SYSTEM | 阶段 5（非目标） | — |
 | NOTES（上游音序编辑器） | STEP 页（P4-C） | — |
 | REC / STUDIO(DSYN) / SONG / USER 预置 / SECTION / MENU | 已对齐（TRANSPORT / DSYN / SONG / PRESETS 用户槽 / PROJECTS / SYSTEM） | 工厂预置选择与换引擎见 SOUND 页眉（清单 012 §6 裁决 8） |
@@ -135,9 +169,23 @@ TOOLS 动作在上游不是「参数」而是 UI 动作），**以清单与上�
 **A5 长 soak**（取 3h 默认 + 可延长）：`soak.py --duration 10800`，新增 `ENG POWER` 读数列
 （INA226 总线电压 mV / 电流 mA、芯片温度 ℃）。INA226：I2C 0x41，先读总线电压（无需校准）；
 电流需要分流电阻值——**若原理图/手册查不到，电流列记 ⚠️ 并以分流电压原始读数代替**，不得臆造校准值。
-芯片温度用 IDF `temperature_sensor`。供电：开发机由主机 USB-C 供电即「外接电源」。**无人值守**：收口矩阵里由执行者在后台起跑并继续做文档，
+芯片温度用 IDF `temperature_sensor`。~~供电：开发机由主机 USB-C 供电即「外接电源」。~~ **无人值守**：收口矩阵里由执行者在后台起跑并继续做文档，
 断连/超时判失败并重试一次；用户只需在收口前让设备保持连接（§7）。判定沿用 §5.5（heap floor/duty/xrun/池往返/音频栈），另加
 「温度不超过芯片规格的降频阈值」的记录项（不设新门禁，只记录）。
+
+**实施结果（Task 9，2026-11-25；裁决 R15）**：
+- **分流电阻查到**：官方原理图第 5 页 U31 旁的 R39 = `R005/1%` = **5mΩ**（夹在 `SYS_BAT_PRE`
+  与 `SYS_BAT_2S` 之间，矢量连线核对）⇒ `cur_ma = shunt_uv / 5`，没有降级、也没有臆造校准值。
+  固件**只读** INA226（不写寄存器、不读恒 0 的电流寄存器 0x04），契约见 ADR-007 的
+  「诊断/HAL 附注」。
+- **「USB-C 供电即外接电源 ⇒ vbus ≈ 5V」的假设不成立**：INA226 的 VBUS 引脚接的是电池侧
+  节点 `SYS_BAT_PRE`，不是 USB-C VBUS。本机由主机 USB-C 供电、未装电池 ⇒ 实测
+  **≈915–933mV / −1..0mA**，Soak 采样基本是平的。**USB 输入功耗不能由这颗 INA226 观测**；
+  `vbus_mv`/`cur_ma` 只有装上电池后才有信息（届时 `cur_ma` 为正 = 放电是按图推断、未实测，
+  应先核对符号）。原理图上整机只有这一颗电流计，整机输入功耗需要硬件侧的其它手段。
+- 温度实测 27–28℃（轻载 + 室温），量程取 −10..80℃；「降频阈值」本身未查证，记录项无数值门禁。
+- 结论：功耗/温度两列**仅记录**的性质不变，但原因从「校准值未知」改为「测量点在电池侧」；
+  roadmap 的「INA226 电流」项标为硬件限制（装电池后才有意义，人测项）。
 
 **A6 worker 栈（DI-43(1)）**（取高水位收缩）：chip 跑完打印 `uxTaskGetStackHighWaterMark`，
 按实测下调 `SYS_SELFTEST_STACK`（预期 4–6KB，回收 ~10KB 内部堆）。与 A3 同任务量测
@@ -150,10 +198,18 @@ TOOLS 动作在上游不是「参数」而是 UI 动作），**以清单与上�
 
 **A9 状态相关标签**（builder check 裁决）：上游 `track_desc()` 有三处按状态换标签/名/格式而范围不变
 （INSERT A/B/C 随 `P_ITYPE`、ATK/DEC/REL 在 ENV SYNC 时显示音名、LOFI/NOISE/PHYS 随引擎模式）。
-SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` 钩子（上游函数指针，TU 内可达），
-不复制表。INSERT 与 ENV SYNC 的表是 vendored `params.c` 的 `static`、外部不可达 ⇒ 允许适配侧**小镜像**
-（同 `SONG_PANEL_DEF`/`settings_tail_fill` 先例：注释指向上游行号、host 测试钉住），**只镜像标签/名/格式，
-不镜像范围**。§4「不引入新描述符表」据此解读为「不引入新的范围表」。
+~~SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` 钩子，不复制表。INSERT 与 ENV
+SYNC 的表是 vendored `params.c` 的 `static`、外部不可达 ⇒ 允许适配侧小镜像（只镜像标签/名/格式，不镜像范围）。~~
+
+**实施结果（Task 3，2026-11-24；裁决 R6，覆盖上面的镜像许可）**：「外部不可达」的前提不成立——
+sloop_core 是单 TU（`hostsim.c` 把 `params.c`/`engines.c` 编在一起，`selftest.c` 经 `regress.c`
+include 它），上游 static 的 `track_desc()`（`params.c:231`，内部即 `ins_desc()`/`ESYNC_DESC`/
+`ENGINES[e]->desc`）从适配层**直接可达**。因此**不做任何镜像**：新增公共入口
+`sloop_core_desc_track_live(track,id,out)` 直接转调上游 `track_desc()`（按上游用 `eng_req`；TRACK
+scope 与 `id ≥ P_E0` 的引擎槽同一入口），范围天然不变；适配层只加上游函数没有的守卫（`id ≥
+P_COUNT`、鼓轨 `P_E1..P_E7` 回 false、不取引擎锁）。`sloop_core_desc`（静态投影，供钳位表与
+console）行为不变。host 门禁 `scripts/synth-test.sh` 的 `test_desc_live`（27 项，期望值硬编码自
+上游源码）+ 设备 `scripts/desc-check.py` 的 2 项 live 抽样；console 入口 `ENG DESC live <track> <id>`。
 
 **A10 SOUND 底行**（builder check 裁决）：底行随选中轨引擎条件出现——FM6 ⇒ bank 行（B1..B27/SAVE/ERASE，
 搬自被删的 FM6 页）、其它引擎 ⇒ 无底行；SAMPLE 引擎的槽行**只在 SAMPLE 页**（SOUND 不重复）。
@@ -169,10 +225,15 @@ SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` �
 
 - **DI-26**：新 `scripts/selftest-heap.py PORT`（硬复位 → `ENG MEM` → 全量自检 → `ENG MEM` → 再全量
   → `ENG MEM`，断言第二次前后 `internal_free` 差 ≤1,024B 且 ≥60KB）；放进阶段收口矩阵。
-- **host**：`state-test.sh`（`CMD_TOOLS_*`、chip 页不涉状态层新命令除 TOOLS）、`knob-test.sh`
-  （chip 页纯函数：族→槽表）、`seq/persist/synth` 不变。
+- **host**：`state-test.sh`（`CMD_TOOLS` / `CMD_LOCK_FOCUS` / `CMD_FILL_STEP` / `CMD_SET_ENGINE` /
+  `CMD_SET_PRESET`；终态 45 例）、`knob-test.sh`（chip 页纯数据：族→槽表、条件 chip、鼓轨逐槽、
+  18 页九组、键表 `input_map.h`；终态 17 例）；`seq-test.sh` 新增 `test_tools_*` 与
+  `test_lock_del_canonical`（同源 `preset_tab5.h`），`synth-test.sh` 新增 `test_desc_live` 与
+  `sloop_core_sound_read`——不是「不变」。
+- **任务栈门禁**（R10/R13，实施中加入）：`params.sh`/`nav.sh` 断言 `UI MEM lvgl_stack_free ≥2,048`；
+  `KEY STATS input_stack_free ≥2,048` 仅当 `phys>0`（console 注入量不到输入任务栈）。
 - **注入**：`params.sh` 扩成六页（SOUND 的 12 引擎轮换：`ENG TRACK` 换 12 个引擎后 8 槽 label
-  与 `ENG DESC` 一致、鼓轨锁定、FM6/SAMPLE 底行条件出现；MOD/SCALE/VOICE/FX/GLOBAL 各 chip
+  与 `ENG DESC live` 一致、鼓轨锁定、FM6 bank 行按引擎出现/缺席；MOD/SCALE/VOICE/FX/GLOBAL 各 chip
   的字段名逐一对照 `desc`、写后回读；TOOLS 三动作的确认态与效果）；`nav.sh` 18 页轮转 / 9 组 / 104px；
   `store`/`synth` 场景的 FM6 用例改指向 SOUND；新有序对（EDIT→STEP / MIX→STEP / SEQ→MIX）实测 `pool_free ≥ 4,096`。
 - **截屏矩阵**：`screenshot_matrix.py` 退出码 0 + PNG 解码校验 + 联系表生成。
@@ -192,5 +253,8 @@ SOUND 页：`sloop_core_desc` 的 ENGINE scope 追加调用 `ENGINES[e]->desc` �
 2. 容量：MIX/EDIT 的 est 是上限，实测超限须改对象设计（chip 页比 DSYN 少状态行，预期可守住）。
 3. DI-26 若落在 newlib/IDF 库内部（非我方代码），修法受限——允许的最坏结果是「定位 + 隔离 +
    记录」，并在收口报告明示；不得为通过门禁而放宽断言。
-4. INA226 分流电阻未知 ⇒ 电流列降级为原始读数。
-5. 9 组签 104px：`TRACKS` 文本宽度需实测（预计 ~66px）。
+4. ~~INA226 分流电阻未知 ⇒ 电流列降级为原始读数。~~ 未发生（R39 = 5mΩ 已查到）；实际风险是
+   另一个——测量点在电池侧，USB 供电下读数无信息（A5 实施结果、R15）。
+5. 9 组签 104px：`TRACKS` 文本宽度需实测（预计 ~66px）——已实测通过（`nav` ⑨ 九组签逐组像素）。
+6. （实施中发现）池 base 从 11,624 涨到 ≈14.0KB，最坏有序对的纸面账略超 63,120；实测矩阵仍全部
+   ≥4,096B。见 ADR-005 §5.5 与 DI-56。
