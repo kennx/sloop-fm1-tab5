@@ -1,0 +1,14 @@
+== sloop_ui knob math host test
+PASS k=1 值 ↔ 弧线值往返与钳位
+PASS k=2 环带判定（55..95px）
+PASS k=3 角度差归一化（跨死区/负角）
+PASS k=4 相对拖拽换算与钳位
+PASS k=5 格式化表（上游生成表口径）
+PASS k=6 鼓演奏 16 lane 键位（不回落合成轨）
+PASS k=7 演奏键路由（释放永远回原轨）
+PASS k=8 MONO 色表恰等于现行常量
+PASS k=9 GREEN accent 与固定字段
+PASS k=10 自定义 theme 覆盖颜色
+
+10 passed, 0 failed
+KNOB TEST PASSED

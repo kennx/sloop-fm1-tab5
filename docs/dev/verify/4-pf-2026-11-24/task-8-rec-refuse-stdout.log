@@ -1,0 +1,6 @@
+== screenshot_matrix @ /dev/ttyACM0
+   产物目录: /tmp/matrix-rec/matrix-20261125-125927
+[INFO] PNG 0/1 张；锚点 0 个；截屏复位重试 0 次
+[INFO] 未进入归一括号（运行前提不满足或设备未就绪）：没有改动任何状态，autosave 未动
+[FAIL] screenshot_matrix: STATE SNAP rec=armed（期望 off）：走带会录下一轨 take，拒绝运行；先停录音再试；未进入归一括号（运行前提不满足或设备未就绪）：没有改动任何状态，autosave 未动；已出的 PNG 与 matrix.csv 在 /tmp/matrix-rec/matrix-20261125-125927
+exit=1

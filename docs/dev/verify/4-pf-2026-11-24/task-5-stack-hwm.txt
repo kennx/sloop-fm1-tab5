@@ -1,0 +1,6 @@
+# LVGL 任务栈高水位（DIAG-TEMP：ui_timer_cb 每 50 拍读 uxTaskGetStackHighWaterMark；任务栈 7,168B；数值 = 剩余字节的最小值）
+## 修复前（78959b0 的固件）：nav ⑦ TAB FX→SAMPLE（MIX→SYNTH）Stack protection fault，SP 0x4ff9d9a0 < 栈底 0x4ff9d9ac（inject-nav-20261124-214204.log:1447；回溯 state_get_copy ← build_sample_row）
+## 只去掉构建路径的两份副本（page_params_build / build_sample_row）：nav 180/0，最小 hwm=372（inject-nav-20261124-215746.log）
+## 再把 ui_timer_cb 的状态副本拆进 ui_refresh_built()：
+nav: inject-nav-20261124-220717.log hwm 样本（次数 剩余B）:  2 2036 3 2848 1 3052 
+params: inject-params-20261124-221003.log hwm 样本（次数 剩余B）:  42 2036 

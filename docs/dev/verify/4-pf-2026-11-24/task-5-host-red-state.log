@@ -1,0 +1,8 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2162:11: error: ‘CMD_SET_ENGINE’ undeclared (first use in this function); did you mean ‘CMD_SET_FILL’?
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2167:31: error: ‘app_state_t’ has no member named ‘sound_status’; did you mean ‘store_status’?
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2167:45: error: ‘APP_SOUND_STATUS_OK’ undeclared (first use in this function); did you mean ‘APP_SYNTH_STATUS_OK’?
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2168:30: error: ‘app_state_t’ has no member named ‘sound’
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2169:42: error: ‘app_state_t’ has no member named ‘sound’
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2170:32: error: ‘app_state_t’ has no member named ‘sound’
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2171:33: error: ‘app_state_t’ has no member named ‘sound’
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2172:32: error: ‘app_state_t’ has no member named ‘sound’

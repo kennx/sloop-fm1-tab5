@@ -1,0 +1,5 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:593:61: error: ‘param_page_t’ has no member named ‘features’
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:593:76: error: ‘PARAM_FEAT_SOUND’ undeclared (first use in this function)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:593:95: error: ‘PARAM_FEAT_BANK_FM6’ undeclared (first use in this function)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:594:76: error: ‘PARAM_FEAT_SAMPLE’ undeclared (first use in this function)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui/test/knob_test.c:616:38: error: ‘param_page_t’ has no member named ‘features’

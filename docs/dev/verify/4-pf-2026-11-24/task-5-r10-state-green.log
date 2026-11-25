@@ -1,0 +1,4 @@
+PASS k=33 SETTINGS_SET 拒绝映射：blocked/invalid/error
+PASS k=37 SELFTEST worker 不可用立即 FAIL
+41 passed, 0 failed
+STATE TEST PASSED
