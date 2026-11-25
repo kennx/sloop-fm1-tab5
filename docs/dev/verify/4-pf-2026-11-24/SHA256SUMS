@@ -234,6 +234,7 @@ a8bb9a6c297d7f4d6e38294ba6c774fd2986215ae10066e2f3cc5e7ef456b2a9  task-10c-m1-so
 11e75ce308f66fbfbee290cb5a5d8aee0a8f3b8ed5bcb84860daf2699f30d169  task-10c-m1-step_edit-stdout.log
 9b721488cc9366959b146b6aa216f62bda68e8e226683aa280b92cbd4afbaa4b  task-10c-m1-store-stdout.log
 6a617c65afaa90d328f5e85e0cfafcb4f01691a8fc68135a1f2da1c6cb7985f8  task-10c-m1-synth-stdout.log
+374c4f578b6d00038d1f80cb8a4877dc87d3fde40a15d40e6e3b48378764c188  task-10c-m1-sys-stdout.log
 e8269e99b14838bb2ddb62aa33062ff1fa902e5ea20329add390ec4aaddc399d  task-10c-m1-tracks-stdout.log
 9d36718bd8f1d44761ed8547a21033f262b4b6728f6aff29156879da079e9194  task-10c-m1-transport-stdout.log
 110079993867708eee55e2eefaac044254dae3081838881d6c87b8124fcf420a  task-10c-manifest.log
