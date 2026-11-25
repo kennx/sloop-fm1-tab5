@@ -1,7 +1,9 @@
-# 阶段 4（独立模式功能对齐）收口报告 — 草稿
+# 阶段 4（独立模式功能对齐）收口报告
 
-> 分支 `feat/phase4f`，受测固件 **`d317a72`**（boot `App version: d317a72`，无 `-dirty`；其后的提交只改 `scripts/` 与文档）。
-> **状态：最终 3h soak 运行中**（§2）。soak 出结果之前，本报告不是「阶段 4 完成」的声明。
+> 分支 `feat/phase4f`，受测固件 **`d317a72`**（boot `App version: d317a72`，无 `-dirty`）。`d317a72` 之后的提交**只改 `scripts/` 与文档**：
+> `git diff d317a72..HEAD --stat -- firmware third_party` 为空（2026-11-26 复核），HEAD 上的固件与受测固件逐字节同一。
+> **状态：机器侧完成（2026-11-26）**——§2 的门禁全部通过，含最终固件上的 3h soak PASS 与 10c3 最终回归。
+> 这**不是**「阶段 4 完成」的声明：人测项一个都没做（§5 是待办清单），dev → main 不在本阶段（§6）。
 > 机器侧门禁全部通过；**没有任何一项经过人眼/人耳/人手验证**（§5 是待办清单）。
 > **dev → main 不在本阶段**（§6）。没有 push、没有合并、没有切分支。
 > 证据：`docs/dev/verify/4-pf-2026-11-24/`（`readme.md` §7、`SHA256SUMS`）与 `docs/dev/verification-log.md`。
@@ -22,7 +24,8 @@
 
 ## 2. 门禁结果（最终固件 `d317a72`）
 
-完整表（命令 → 结果 → 证据文件）在 `4-pf-2026-11-24/task-10c-matrix-summary.txt`；这里只给结论。
+完整表（命令 → 结果 → 证据文件）在 `4-pf-2026-11-24/task-10c-matrix-summary.txt`（10c-1/10c-2）与 `task-10c3-summary.txt`
+（10c-3 = 本节最后两行）。`d317a72` 之后的提交只改 `scripts/inject/inject.py`（R20/R23 两处归一化）与文档。
 
 | 门禁 | 结果 |
 |---|---|
@@ -36,7 +39,8 @@
 | 复跑 | sequence 562/0、synth 794/0、nav 583/0、**sys 354/0**（10c-2）；**step_edit**：默认入口（MONO）rc=0，**321 / 0**（LIVEHASH FCE9B26C 前后不变）；轨 0 静音的入口 rc=0，**321 / 0**——同一入口态在修复前是 `voices 峰值 0` 的红；场景之后轨 0 仍是 `mute=1 level=1`（入口值被还原）（R20 修复的判别用例） |
 | `screenshot_matrix.py` | **481 / 0**：33 条目、166 锚点、逐条目后 `LIVEHASH` 33/33 不变；播放头存在性锚点首次在设备上命中 |
 | 终审修复波的欠账验证 a–f | a（A1 用户预置页眉）、b（B-I1 槽标签重解析）、c（播放头锚点）、d（重启路径 pos/neg）、e（歌曲还原）、f（隐藏 chip / CHIP quiesced / TOOLS 过期）——全部通过，边界见 `readme.md` §7 |
-| **最终 3h soak** | **运行中**：`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，PID 601697，2026-11-25 23:24:03 起跑（硬复位 + 30s 之后），预计 ≈02:25 结束；transcript `firmware/build/verify/soak-20261125-232403.log`（gitignored，跑完晋升）。修复前固件 `1e8587b` 上的同口径 3h soak 已 PASS（只作信号，裁决 R17）：内部堆 69,831→69,811B、xrun 0、duty_mean ≤12.49%、池往返 Δ−24B、save 窗口 xrun 增量 0；R11/R14 的降栈备用方案没有用上。结果出来后登记到 verification-log 与 `readme.md` §7；**在此之前阶段 4 的收口门禁是未闭合的** |
+| **最终 3h soak**（固件 `d317a72`） | **PASS**：`soak.py /dev/ttyACM0 --duration 10800 --interval 60 --save-window 3600`，2026-11-25 23:24:03 → 2026-11-26 02:24；实测 10801s / 181 采样 / 断言失败 0 / 判定问题无。内部堆 69,747→69,731B（Δ−16B）、`internal_min` 66,208B（门限 61,440B）；streaming=1、xrun 0；`duty_mean` ≤12.78%；音频栈 3,120B、输入栈 7,852B；PLAY 稳态池往返 45,868→45,856B（Δ−12B，单次最小 −48B）；save 窗口 xrun 0→0、窗口后 streaming=1。功耗/温度仅记录（裁决 R15）：`ina=ok` 181/181、芯片温度 27.1..29.1 ℃。修复前固件 `1e8587b` 的同口径信号 soak 也 PASS（只作信号，裁决 R17）；R11/R14 的降栈备用方案没有用上。证据 `task-10c-soak-final-{summary,transcript}.*` |
+| **10c3 最终回归**（2026-11-26；脚本 = HEAD `03798f1`，固件与 `d317a72` 逐字节同一） | **R23 的设备验证**：CYAN 入口（硬复位后 `STORE SETTINGS SET palette 2` + `SAVE`）跑 `step_edit` ⇒ rc=0、**326 / 0**（R23 前同一入口 306/14；多出的 5 条是括号自己的断言），场景之后 `palette=2` 被还原；CYAN 入口的 `store`（开头就硬复位）⇒ **911 / 0**、同样还原。**十场景同一会话**（transport → step_edit → tracks → nav → params → store → song → sequence → synth → sys）⇒ **5,017 PASS / 0 FAIL**（transport 288 / step_edit 323 / tracks 84 / nav 583 / params 768 / store 907 / song 354 / sequence 562 / synth 794 / sys 354；与 10c-1 的 5,007 相比差 +10，逐行 diff 后全是入口相关的条件断言或已登记的基线变化，没有丢检查）；`screenshot_matrix.py` rc=0：33 条目 / 166 锚点 / 481 PASS 行 / 0 FAIL 行；`device-selftest.py` 182/182；nav 有序对 72/72、最紧 SEQ→FILE 6,564B。证据 `task-10c3-*`（`readme.md` §8） |
 
 ## 3. 功能对齐清单状态
 
@@ -75,7 +79,7 @@
 - B-I1（SOUND 槽标签随引擎槽值重解析）只做过 GREEN 验证，没有在修复前固件上做 RED；A1 的 `USER 01` 字面没有 OCR，机读证据是 `UI SOUND CHIP`/`TAP` 回显与页眉区像素差（裁决 R22）。
 - `params` ⑪ 与 `transport` ⑩g 的「截屏复位重跑」路径没有在设备上演练（`step_edit` ②g 的 pos/neg 两条已演练）。
 - 探针与重启包装器（`task-10c-probes.py`、`task-10c-restart_wrap.py`）是一次性的，没有固化进 `scripts/inject/`。
-- `step_edit` 的像素常量假定 MONO 主题，场景曾不像 `sys` 那样自归一 palette：设备停在别的 palette 时会有十几条像素 FAIL（10c-2 实测：306 PASS / 14 FAIL，`task-10c-step_edit-rerun-cyan-stdout.log`）。**已按裁决 R23 修（`93f8f96`，只改脚本）**：十条场景共用入口括号——非 MONO/主题开时归一 palette 4 + 主题关并落盘，收尾（含异常路径）还原入口调色板/主题开关；默认 MONO 入口零写命令。**设备验证欠给最终 soak 之后**：CYAN 入口的 `step_edit` 判别运行（期望与 MONO 入口同数、场景之后 `palette=2` 被还原）、MONO 入口的十场景计数回归、一条非 MONO 入口上开头就硬复位的场景（`store`），见 `readme.md` §7。
+- `step_edit` 的像素常量假定 MONO 主题，场景曾不像 `sys` 那样自归一 palette：设备停在别的 palette 时会有十几条像素 FAIL（10c-2 实测：306 PASS / 14 FAIL，`task-10c-step_edit-rerun-cyan-stdout.log`）。**已按裁决 R23 修（`93f8f96`，只改脚本）并做了设备验证（10c3，`readme.md` §8）**：十条场景共用入口括号——非 MONO/主题开时归一 palette 4 + 主题关并落盘，收尾（含异常路径）还原入口调色板/主题开关；默认 MONO 入口零写命令。CYAN 入口的 `step_edit` ⇒ rc=0、326/0（= MONO 入口的 321 + 括号自己的 5 条），场景之后 `palette=2` 被还原；CYAN 入口的 `store`（开头就硬复位）同样通过并还原。主题开着（`theme_on=1`）的入口只有离线演练，没有上设备。
 - 载入工程/预置时 `P_LEVEL`/`P_MUTE`/ARP/HOLD 是保留参数（`param_kept`，上游语义）——换声音不会把静音轨放开。
 
 **后续跟进（需要动代码或等外部条件）**
@@ -104,15 +108,15 @@
 
 ## 6. dev → main：不在本阶段
 
-用户 2026-11-24 明示本阶段不合并 main。当前状态：`feat/phase4f` 领先 `dev`，**未合并、未切换分支**；是否合回 `dev`、何时合 `main` 由用户另行决定。合并前建议至少完成 §5 的第 1、7 两项，并等最终 soak 出结果。
+用户 2026-11-24 明示本阶段不合并 main。当前状态：`feat/phase4f` 领先 `dev`，**未合并、未切换分支**；是否合回 `dev`、何时合 `main` 由用户另行决定。合并前建议至少完成 §5 的第 1、7 两项，（最终 soak 已 PASS，§2）。
 
 ## 7. 开发机状态提醒
 
 - **autosave 的工作工程是场景测试态**：最终固件的矩阵与复跑之后，设备 RAM/autosave 副本里的工程由注入场景留下（`sys` 复跑的归一 SAVE 之后是 `5270B666` 一类，不是用户的工程）。`sequence`/`store` 等场景按设计会擦写工程槽——**开发机上的工程槽 A–D 与用户预置槽自 P4-C 起就是场景测试态**，不要把它当成存着音乐作品的设备。
 - 更早的会话曾把工作工程留在 `16FC5CB6`（轨 0 `len=64 / mute=1 / level=1`）；10c-1 的矩阵批从 TOOLS NEWPRJ 的默认工程起跑后，autosave 副本已换成默认工程，这个残留**不在了**。
-- 设备主题被 10c-1 一次误起又中止的 `sys` 复跑留在 CYAN；10c-2 的 `sys` 复跑按设计把它归一回 MONO 并落盘。若用户原本用的是别的 palette，需要自己改回。
-- `STORE AUTO` 在 soak 起跑前确认是 on（`autosave=1`、`autosave_hash=FCE9B26C`、`playing=0`、`rec=off`）。
-- 最终 3h soak 会在 3,600s 处停走带做一次 `STORE PROJ SAVE 0 + LOAD 0`（写诊断/工程槽 0），并把 `STORE AUTO` 关掉、跑完再打开。
+- 设备主题被 10c-1 一次误起又中止的 `sys` 复跑留在 CYAN；10c-2 的 `sys` 复跑按设计把它归一回 MONO 并落盘。10c-3 的 CYAN 判别运行（`step_edit`、`store` 各一次）之后已手动回 palette 4（MONO）并落盘（`task-10c3-mono-restore{,_2}.log`）。若用户原本用的是别的 palette，需要自己改回。
+- `STORE AUTO` 在 soak 起跑前是 on（`autosave=1`、`autosave_hash=FCE9B26C`、`playing=0`、`rec=off`）；soak 结束与 10c3 收尾之后也是 on（`task-10c3-final-state.log`：`autosave=1`；硬复位 `App version: d317a72`、fatal 0）。
+- 最终 3h soak 已在 3,600s 处停走带做了一次 `STORE PROJ SAVE 0 + LOAD 0`（写工程槽 0），并把 `STORE AUTO` 关掉、跑完再打开——工程槽 0 里是 soak 入口的工作工程快照（场景测试态，不是用户作品）。10c3 的 `store` 场景又按设计擦写过工程槽。
 
 ## 8. 我替用户做的裁决一览
 
