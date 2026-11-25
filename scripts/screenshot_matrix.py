@@ -21,7 +21,15 @@
     (x0, y0, x1, y1, 类别, 最少像素数[, 容差]) 区域探针：框内 ≥N 个像素 ≈ 主题色
     callable(ctx) → 上述元组或 None            ctx = STATE SNAP 的 focus_track / focus_step /
                                               window_start / window_len；None = 不适用（记 n/a）
+    ClassCount(框, 类别, PRESENT, 最少像素数)   第四种：框内该类别的像素数 **≥ N**（存在）
+    ClassCount(框, 类别, ABSENT)                或 **== 0**（缺席）——区域探针只有下限，这一种用来做
+                                              「同一位置、停止帧缺席 / 播放帧存在」的状态对照
 类别: accent panel panel_hi panel_sel bg text text_dim error track0..track3
+
+播放态条目必须有能区分「播放中」与「停止」的锚点（静态家具不算）：STEP 页没有播放字样，
+用**播放头存在性**——page_step.c 给播放头所在列的格画 5px accent 框（停止时不画），取每个轨行
+顶边 4px 带内 accent 像素「播放 ≥ N / 停止 == 0」；TRANSPORT 的状态行在播放时是 UI_TEXT、
+停止时是 UI_TEXT_DIM（无工具结果时），取其 text 像素「播放 ≥ N / 停止 == 0」。
 
 幂等（可重复运行，全程不写 flash；SELFTEST 条目例外——chip worker 自检前会落盘一次）:
     前提：`STATE SNAP rec` 必须是 off（走带会录 take）——否则在改动任何状态之前拒绝运行。
@@ -69,6 +77,7 @@ import inject  # noqa: E402
 
 W, H = 1280, 720
 TOL = 16                      # 默认容差（与 inject 的探针同口径，容忍 RGB565 位扩展）
+PRESENT, ABSENT = "present", "absent"   # ClassCount 锚点的两种判定（存在 ≥N / 缺席 ==0）
 TABCAT = 72                   # 页签条高度（页面区起点）
 PAGES = {name: pid for pid, name in inject.NAV_ORDER}   # 页名 → 页 id（inject 的扁平页表）
 GROUP_PAGES = inject.NAV_GROUP_PAGES                 # 组 → 成员页（与 ui_nav.h 同源）
@@ -142,8 +151,47 @@ def theme_pixels(palette: int) -> dict:
     return {k: _expand(_rgb565(v)) for k, v in theme_rgb(palette).items()}
 
 
+def _count_class(img, box, want, tol):
+    """框内 ≈ want（逐通道差 ≤ tol）的像素数；返回 (像素数, 最近的像素色)。"""
+    x0, y0, x1, y1 = box
+    n, best = 0, None
+    for count, rgb in (img.crop((x0, y0, x1, y1)).getcolors(1 << 20) or []):
+        d = max(abs(rgb[i] - want[i]) for i in range(3))
+        if d <= tol:
+            n += count
+        if best is None or d < best[0]:
+            best = (d, rgb)
+    return n, (best[1] if best else None)
+
+
+class ClassCount:
+    """第四种锚点：框内某类别的像素数——PRESENT 要求 ≥ min_count，ABSENT 要求 == 0。
+    rect 可为 callable(ctx) → (x0, y0, x1, y1) 或 None（不适用）。本类可调用：返回自己的框
+    （供 check_anchor / 自测解析），类别色与容差同区域探针。"""
+
+    def __init__(self, rect, cls: str, sense: str, min_count: int = 1, tol: int = TOL):
+        assert sense in (PRESENT, ABSENT)
+        assert min_count > 0
+        self.rect, self.cls, self.sense, self.min_count, self.tol = rect, cls, sense, min_count, tol
+
+    def __call__(self, ctx):
+        return self.rect(ctx) if callable(self.rect) else self.rect
+
+
 def check_anchor(img, anchor, pixels: dict, ctx: dict):
     """返回 (ok, 摘要)；anchor 解析为 None 时返回 (None, "n/a")。"""
+    if isinstance(anchor, ClassCount):
+        box = anchor(ctx)
+        if box is None:
+            return None, "n/a"
+        n, got = _count_class(img, box, pixels[anchor.cls], anchor.tol)
+        if anchor.sense == PRESENT:
+            ok = n >= anchor.min_count
+            want = f"≥{anchor.min_count}"
+        else:
+            ok, want = n == 0, "=0"
+        return ok, (f"count{box} {anchor.cls} {anchor.sense} 命中 {n}（{want}）"
+                    f" 最近 {got} 期望 {pixels[anchor.cls]}")
     a = anchor(ctx) if callable(anchor) else anchor
     if a is None:
         return None, "n/a"
@@ -151,14 +199,7 @@ def check_anchor(img, anchor, pixels: dict, ctx: dict):
         x0, y0, x1, y1, cls, min_count = a[:6]
         tol = a[6] if len(a) > 6 else TOL
         want = pixels[cls]
-        n, best = 0, None
-        for count, rgb in (img.crop((x0, y0, x1, y1)).getcolors(1 << 20) or []):
-            d = max(abs(rgb[i] - want[i]) for i in range(3))
-            if d <= tol:
-                n += count
-            if best is None or d < best[0]:
-                best = (d, rgb)
-        got = best[1] if best else None
+        n, got = _count_class(img, (x0, y0, x1, y1), want, tol)
         return n >= min_count, (f"region({x0},{y0},{x1},{y1}) {cls} 命中 {n}（≥{min_count}）"
                                 f" 最近 {got} 期望 {want}")
     x, y, cls = a[:3]
@@ -261,6 +302,40 @@ def _step_status_row(ctx: dict):
     return (*inject.NAV_STATUS_BOX, f"track{ctx['focus_track']}", 30)
 
 
+# 播放头存在性（STEP 页没有播放字样，这是播放态唯一的「状态」证据）。page_step.c：播放时给
+# 每个轨行里 step_pos 所在列的格换 5px UI_ACCENT 边框（格矩形内、圆角 10），停止时不画
+# （playhead = -1）。取**每个轨行顶边 4px 带、整行网格宽**：有播放头 ⇒ 带内 accent 像素
+# ≈ 4 行 × 56px = 224（设备帧实测）；停止 ⇒ 0（四轮矩阵的 step-default.png 逐行都是 0）。
+#   - 只取顶边 4px（不是 5px）：格内标记字形自 TOP_Y = 4 起，第 5 行起可能是 accent 色的
+#     「A」（accent 标记）；
+#   - 不取轨 2：MONO 的 accent 与 track2 同色（theme_derive.h），轨 2 亮格的底色会冒充
+#     播放头；轨 0/1/3 的空格/亮格底色（panel_hi、蓝、绿）都离 accent 很远；
+#   - 焦点格描边是 UI_TEXT 3px（白），不在 accent 容差内，停止帧不会误中。
+PLAYHEAD_BAND_H = 4
+STEP_COLS = 16                  # 矩阵归一 UI WINDOW 0 16 ⇒ 网格满 16 列（带取整行宽，与播放头列无关）
+PLAYHEAD_ROWS = (0, 1, 3)
+PLAYHEAD_MIN_PX = 100            # 一个播放头格 ≈224；取不到一半，容忍位扩展/抗锯齿差异
+
+
+def _step_playhead_band(r: int) -> tuple:
+    """轨行 r 的顶边带（绝对坐标）：inject.STEP_GRID_Y0 已含页签条。"""
+    y = inject.STEP_GRID_Y0 + r * inject.STEP_ROW_PITCH
+    return (inject.STEP_GRID_X0, y,
+            inject.STEP_GRID_X0 + (STEP_COLS - 1) * inject.STEP_CELL_PITCH + inject.STEP_CELL_W,
+            y + PLAYHEAD_BAND_H)
+
+
+def _step_playhead(r: int, sense: str):
+    return ClassCount(_step_playhead_band(r), "accent", sense,
+                      PLAYHEAD_MIN_PX if sense == PRESENT else 1)
+
+
+def _transport_status_text(sense: str):
+    """TRANSPORT 状态行：播放中 = UI_TEXT；停止且无工具结果 = UI_TEXT_DIM（page_transport.c）。
+    有工具动作/结果时停止态也是 UI_TEXT——矩阵的 default 条目不发工具动作。"""
+    return ClassCount(TR_STATUS, "text", sense, 300 if sense == PRESENT else 1)
+
+
 def _param_default(page: str) -> list:
     return [chip_fill(page, 0, "accent"), chip_fill(page, 1, "panel_hi"), KNOB0_NAME]
 
@@ -329,16 +404,20 @@ MATRIX = [
     E("fm6p", "default", ["@track0", _page_cmd("fm6p")], [(*inject.FM6P_STATUS_BOX, "error", 40)]),
     E("fm6p", "engine", ["@fm6", _page_cmd("fm6p")], [
         (*inject.fm6p_op_chip_probe(0), "accent"), (*inject.fm6p_page_chip_probe(0), "accent"), KNOB0_VALUE]),
-    E("step", "default", ["@track0", _page_cmd("step")], [_step_focus_frame, _step_status_row]),
+    E("step", "default", ["@track0", _page_cmd("step")],
+      [_step_focus_frame, _step_status_row] + [_step_playhead(r, ABSENT) for r in PLAYHEAD_ROWS]),
     E("step", "playing", ["@track0", _page_cmd("step"), "@play", _page_cmd("step"), "@playing"],
-      [_step_ph_header, _step_ph_row_label, _step_ph_colnum, _step_ph_hint, _step_status_row],
+      [_step_playhead(r, PRESENT) for r in PLAYHEAD_ROWS]
+      + [_step_ph_header, _step_ph_row_label, _step_ph_colnum, _step_ph_hint, _step_status_row],
       post=("@stop",)),
     E("transport", "default", [_page_cmd("transport")], [
         (inject.TRANSPORT_PLAY[0], inject.TRANSPORT_PLAY[1], "track1"),
-        (inject.TRANSPORT_STOP[0], inject.TRANSPORT_STOP[1], "track3"), (*TR_STATUS, "text_dim", 30)]),
+        (inject.TRANSPORT_STOP[0], inject.TRANSPORT_STOP[1], "track3"), (*TR_STATUS, "text_dim", 30),
+        _transport_status_text(ABSENT)]),
     E("transport", "playing", ["@play", "@playing"], [
         (inject.TRANSPORT_PLAY[0], inject.TRANSPORT_PLAY[1], "track1"),
-        (inject.TRANSPORT_STOP[0], inject.TRANSPORT_STOP[1], "track3"), (*TR_STATUS, "text", 30)],
+        (inject.TRANSPORT_STOP[0], inject.TRANSPORT_STOP[1], "track3"), (*TR_STATUS, "text", 30),
+        _transport_status_text(PRESENT)],
        post=("@stop",)),
     E("song", "default", [_page_cmd("song")], [
         (24 + 20, TABCAT + inject.SONG_CARD_Y + 12, "panel_sel", 14),          # 卡 A 选中底
@@ -1071,6 +1150,11 @@ def _check_matrix() -> None:
         for a in e["anchors"]:
             res = a(SAMPLE_CTX) if callable(a) else a
             assert res is not None, f"{key} 的锚点在样例 ctx 下不适用（自测要求可解析）"
+            if isinstance(a, ClassCount):
+                assert len(res) == 4 and 0 <= res[0] < res[2] <= W and 0 <= res[1] < res[3] <= H, \
+                    f"{key} 的 ClassCount 框不合法/越界：{res}"
+                assert a.cls in theme_pixels(4), f"{key} 的 ClassCount 类别未知：{a.cls!r}"
+                continue
             assert len(res) in (3, 4, 6, 7), f"{key} 的锚点元组长度 {len(res)} 不合法：{res}"
             xs, ys = ((res[0], res[2]), (res[1], res[3])) if len(res) >= 6 else ((res[0],), (res[1],))
             assert all(0 <= x < W for x in xs) and all(0 <= y < H for y in ys), \
@@ -1140,6 +1224,88 @@ def _check_anchor_checker() -> None:
     assert ok is True, "右下角 bg 像素应命中"
 
 
+def _check_state_contrast() -> None:
+    """播放态条目必须带「状态」锚点，且与同页停止帧构成显式对照（R16）。"""
+    by = {(e["page"], e["state"]): e for e in MATRIX}
+    n_pairs = 0
+    for (page, state), e in by.items():
+        if state != "playing":
+            continue
+        stop = by[(page, "default")]
+        present = [a for a in e["anchors"] if isinstance(a, ClassCount) and a.sense == PRESENT]
+        absent = [a for a in stop["anchors"] if isinstance(a, ClassCount) and a.sense == ABSENT]
+        assert present, f"{page}-playing 没有 PRESENT 锚点（播放态必须有状态证据）"
+        for a in present:
+            box, cls = a(SAMPLE_CTX), a.cls
+            assert any(b(SAMPLE_CTX) == box and b.cls == cls for b in absent), \
+                f"{page}: PRESENT {box} {cls} 在 default 条目里没有同框同类的 ABSENT 对照"
+            n_pairs += 1
+    assert n_pairs >= 2, "状态对照不足（STEP 播放头 + TRANSPORT 状态行至少各一组）"
+    # STEP：轨 2 不取——MONO 的 accent 与 track2 同色，轨 2 亮格底色会冒充播放头
+    assert 2 not in PLAYHEAD_ROWS and PLAYHEAD_ROWS == (0, 1, 3)
+    assert theme_pixels(4)["accent"] == theme_pixels(4)["track2"], "前提变了：accent ≠ track2 时可重评轨 2"
+    assert theme_pixels(4)["accent"] != theme_pixels(4)["text"], "焦点格描边（UI_TEXT）不得落在 accent 容差内"
+    assert max(abs(a - b) for a, b in zip(theme_pixels(4)["accent"], theme_pixels(4)["text"])) > TOL
+
+    from PIL import Image, ImageDraw
+    px = theme_pixels(4)
+    x0, y0, pitch, rp, cw, ch = (inject.STEP_GRID_X0, inject.STEP_GRID_Y0, inject.STEP_CELL_PITCH,
+                                 inject.STEP_ROW_PITCH, inject.STEP_CELL_W, inject.STEP_CELL_H)
+    # 合成帧 1：停止态，轨 2 有亮格（底色 = accent 色）、轨 0 的焦点格 3px 白描边、格内有 accent「A」标记
+    img = Image.new("RGB", (W, H), px["bg"])
+    d = ImageDraw.Draw(img)
+    for r in range(4):
+        for c in range(STEP_COLS):
+            cell = (x0 + c * pitch, y0 + r * rp, x0 + c * pitch + cw - 1, y0 + r * rp + ch - 1)
+            on = (r == 2 and c in (2, 3)) or (r == 1 and c == 5)
+            d.rounded_rectangle(cell, 10, fill=px["track2"] if on and r == 2 else
+                                (px["track1"] if on else px["panel_hi"]))
+    d.rounded_rectangle((x0 + 5 * pitch, y0 + 4, x0 + 5 * pitch + cw - 1, y0 + 3 + 12), 2, fill=px["accent"])  # 标记
+    d.rounded_rectangle((x0 + 5 * pitch, y0, x0 + 5 * pitch + cw - 1, y0 + ch - 1), 10,
+                        outline=px["text"], width=3)                                              # 焦点描边
+    for r in PLAYHEAD_ROWS:
+        ok, msg = check_anchor(img, _step_playhead(r, ABSENT), px, SAMPLE_CTX)
+        assert ok is True, f"合成停止帧：轨 {r} 顶边带应无播放头像素：{msg}"
+        ok, _ = check_anchor(img, _step_playhead(r, PRESENT), px, SAMPLE_CTX)
+        assert ok is False, f"合成停止帧：轨 {r} 不应判为播放中"
+    # 合成帧 2：播放中——轨 0 的播放头在列 0、其余轨在列 5（与设备帧同形）
+    for r, c in ((0, 0), (1, 5), (2, 5), (3, 5)):
+        d.rounded_rectangle((x0 + c * pitch, y0 + r * rp, x0 + c * pitch + cw - 1, y0 + r * rp + ch - 1),
+                            10, outline=px["accent"], width=5)
+    for r in PLAYHEAD_ROWS:
+        ok, msg = check_anchor(img, _step_playhead(r, PRESENT), px, SAMPLE_CTX)
+        assert ok is True, f"合成播放帧：轨 {r} 顶边带应命中播放头：{msg}"
+        ok, _ = check_anchor(img, _step_playhead(r, ABSENT), px, SAMPLE_CTX)
+        assert ok is False, f"合成播放帧：轨 {r} 不应判为停止"
+    # TRANSPORT 状态行：播放 = text，停止且无工具结果 = text_dim
+    img = Image.new("RGB", (W, H), px["bg"])
+    d = ImageDraw.Draw(img)
+    d.rectangle((TR_STATUS[0], TR_STATUS[1], TR_STATUS[0] + 300, TR_STATUS[1] + 30), fill=px["text_dim"])
+    ok, _ = check_anchor(img, _transport_status_text(ABSENT), px, SAMPLE_CTX)
+    assert ok is True, "停止的状态行（text_dim）应判 text 缺席"
+    d.rectangle((TR_STATUS[0], TR_STATUS[1], TR_STATUS[0] + 300, TR_STATUS[1] + 30), fill=px["text"])
+    ok, msg = check_anchor(img, _transport_status_text(PRESENT), px, SAMPLE_CTX)
+    assert ok is True, f"播放的状态行（text）应命中：{msg}"
+    # 已晋升的设备帧（若在工作树里）：用真实帧复判两组对照——这是离线复判，不是设备运行
+    base = Path(__file__).resolve().parent.parent / "docs/dev/verify/4-pf-2026-11-24"
+    replayed = 0
+    for sub in sorted(base.glob("task-*-matrix*/step-*.png")):
+        name = sub.name
+        state = "default" if name == "step-default.png" else "playing" if name == "step-playing.png" else None
+        if state is None:
+            continue
+        im = Image.open(sub).convert("RGB")
+        sense = PRESENT if state == "playing" else ABSENT
+        other = ABSENT if sense == PRESENT else PRESENT
+        for r in PLAYHEAD_ROWS:
+            ok, msg = check_anchor(im, _step_playhead(r, sense), px, SAMPLE_CTX)
+            assert ok is True, f"设备帧复判失败 {sub.relative_to(base)} 轨 {r}：{msg}"
+            ok, msg = check_anchor(im, _step_playhead(r, other), px, SAMPLE_CTX)
+            assert ok is False, f"设备帧复判无判别力 {sub.relative_to(base)} 轨 {r}（反向也命中）：{msg}"
+        replayed += 1
+    print(f"  [selftest] 状态对照 {n_pairs} 组；设备帧离线复判 step-*.png × {replayed}（正向命中 + 反向不命中）")
+
+
 def _placeholder(entry: dict, path: Path) -> None:
     from PIL import Image, ImageDraw
     px = theme_pixels(4)
@@ -1201,10 +1367,11 @@ def run_selftest() -> None:
     _check_matrix()
     _check_theme()
     _check_anchor_checker()
+    _check_state_contrast()
     _check_sheets()
     _check_csv()
     print(f"自测断言全部通过（MATRIX {len(MATRIX)} 条目 / {len(PAGES)} 页：唯一性、页名、宏名全部可解析、派单要求的状态齐全、锚点 ≥3 且在 1280×720 内、"
-          f"每组 ≤{SHEET_COLS * 5} 格；MONO 主题色派生 = inject 实测常量；点/区域/ctx 锚点判定；"
+          f"每组 ≤{SHEET_COLS * 5} 格；MONO 主题色派生 = inject 实测常量；点/区域/ctx/ClassCount 锚点判定与播放态状态对照；"
           f"占位 PNG → {len(GROUP_PAGES) + 1} 张联系表；CSV 往返）")
 
 
