@@ -51,12 +51,18 @@ size_t edp_frame_build(uint8_t cmd, const uint8_t *args, size_t nargs, uint8_t *
 
 bool edp_frame_parse(const uint8_t *raw, size_t len, edp_frame_t *out)
 {
+    size_t i;
     if (!out || len < 6 || len - 6 > EDP_ARGS_MAX) {
         return false;
     }
     if (raw[0] != EDP_SYSEX_START || raw[1] != 0x7D || raw[2] != 0x46 || raw[3] != 0x4C ||
         raw[len - 1] != EDP_SYSEX_END) {
         return false;
+    }
+    for (i = 1; i < len - 1; i++) {     /* 首尾之外必须是 7 位数据字节 */
+        if (raw[i] >= 0x80u) {
+            return false;
+        }
     }
     out->cmd = raw[4];
     out->argc = (uint16_t)(len - 6);

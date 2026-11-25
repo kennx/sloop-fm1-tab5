@@ -33,7 +33,7 @@ void    edp_v14_enc(int16_t v, uint8_t out[2]);          /* 钳位到 −8192..8
 int16_t edp_v14_dec(uint8_t lo, uint8_t hi);
 size_t  edp_frame_build(uint8_t cmd, const uint8_t *args, size_t nargs,
                         uint8_t *out, size_t cap);        /* 返回帧长；参数 >0x7F 或容量不足返回 0 */
-bool    edp_frame_parse(const uint8_t *raw, size_t len, edp_frame_t *out);
+bool    edp_frame_parse(const uint8_t *raw, size_t len, edp_frame_t *out);  /* 首尾之外出现 ≥0x80 的字节即坏帧 */
 bool    edp_cmd_is_push(uint8_t cmd);
 bool    edp_info_parse(const edp_frame_t *reply, edp_info_t *out);  /* reply->cmd 必须是 INFO */
 size_t  edp_pack7_pack(const uint8_t *in, size_t n, uint8_t *out, size_t cap);    /* 0 = 容量不足 */

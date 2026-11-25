@@ -63,6 +63,8 @@ static void test_frame_parse(void)
     ASSERT(!edp_frame_parse(ping, 5, &f));                          /* 太短 */
     uint8_t m[6] = {0xF0,0x7D,0x46,0x4D,0x19,0xF7}; ASSERT(!edp_frame_parse(m, 6, &f));  /* 头错 */
     m[3] = 0x4C; m[5] = 0x00;     ASSERT(!edp_frame_parse(m, 6, &f));  /* 无 EOX */
+    static const uint8_t bad8[] = {0xF0,0x7D,0x46,0x4C,0x02,0x00,0x81,0x40,0xF7};
+    ASSERT(edp_frame_parse(bad8, sizeof bad8, &f) == false);           /* 内部字节 ≥ 0x80 */
     static const uint8_t get[] = {0xF0,0x7D,0x46,0x4C,0x02,0x00,0x01,0x64,0x40,0xF7};
     ASSERT(edp_frame_parse(get, sizeof get, &f) && f.cmd == 2 && f.argc == 4 && f.args[3] == 0x40);
     static uint8_t huge[6 + EDP_ARGS_MAX + 1] = {0xF0,0x7D,0x46,0x4C,0x02};   /* 参数数超限 */
@@ -92,7 +94,8 @@ static void test_info(void)
            info.g_count == 50 && info.nstep == 64 && info.pe0 == 63 && info.ntrk == 4 && info.proto == 12);
     ASSERT(strcmp(info.engines[0], "ANALOG") == 0 && strcmp(info.engines[11], "ANALOG") == 0);
     f.argc = 8; ASSERT(!edp_info_parse(&f, &info));        /* 截断的回复 ⇒ false */
-    f.cmd = EDP_CMD_PING; ASSERT(!edp_info_parse(&f, &info));
+    edp_frame_parse(r, n, &f); f.cmd = EDP_CMD_PING;       /* 完整回复、argc 复原：只因命令号拒绝 */
+    ASSERT(!edp_info_parse(&f, &info));
 }
 
 static void test_pack7_u35(void)
