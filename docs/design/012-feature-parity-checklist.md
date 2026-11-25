@@ -66,6 +66,11 @@
 
 ### 2.3 播放 / 音序 / 录音 / 编排
 
+> P4-F Task 7（2026-11-25）定稿：键盘层键的设备证据——GLO mute/solo、SEL 选轨（本节两行）与
+> EDIT 层擦除（`step_edit.sh` ②g）。同任务把导航定稿在 `nav.sh`：18 页 TAB 轮转、九组 104px
+> 组签逐组像素、多页组 `UI SUB` 范围（EDIT 4 / MIX 3 / SYNTH 3 / SEQ 2 / FILE 2）、组作用域
+> 销毁、有序对全矩阵（9×8 组对逐目标页，构建日志 `池剩余 ≥ 4,096`）。
+
 | 上游特性 | 上游入口 | Tab5 落点 | 状态 | 证据 | 处置 |
 |---|---|---|---|---|---|
 | PLAY/STOP；REC arm/record/free take | PLAY/REC、REC 屏 | TRANSPORT 页 | ✅ | `transport.sh`、`sequence.sh` | — |
@@ -73,16 +78,16 @@
 | hold REC 清选中轨（~2s 环） | REC 长按 | TRANSPORT `CLEAR T<n>`（即时，无长按） | ✅ | `transport.sh` | 口径差异：Tab5 即时清，文档化 |
 | SEQ steps 1–64 分四页；步 LEVEL/RATCHET/NUDGE/TIE/SLIDE | SEQ 层 | STEP 页 | ✅ | `step_edit.sh`、`sequence.sh` | — |
 | EDIT 层旋钮 SHIFT(rotate)/LENGTH ×2÷/TRANSPOSE/UNDO/REDO | EDIT 层 | TRANSPORT 工具区 | ✅ | `transport.sh` | undo 粒度：每次调用一次（上游一次 hold 算一次） |
-| EDIT 层 **erase**（按住 EDIT + 键，走带中 MPC 式擦除该音符/鼓声） | EDIT 层 | 键盘 EDIT 层 a–g 擦除**聚焦步**里的同名音（`input.c:166-169`）；非走带中逐拍 | ◐ | 键位绑定 `input.c:166-169`，**无机器证据** | DI-45（live 变体）；Task 7 补 `step_edit` 的 KEY 注入断言 |
+| EDIT 层 **erase**（按住 EDIT + 键，走带中 MPC 式擦除该音符/鼓声） | EDIT 层 | 键盘 EDIT 层 a–g 擦除**聚焦步**里的同名音（`input.c:166-169`）；非走带中逐拍 | ◐ | `step_edit.sh` ②g（P4-F Task 7，`KEY` 注入）：Aa+c/e/d 擦除聚焦步的同名音——单音步清空、两音步（NOTE+CONT）只摘一根、跨八度（C3 也被 Aa+c 擦）、无匹配音级不变、不按 Aa 时 c 是演奏键（聚焦 C4 步按住即发声 `voices≥1`、步表不变）、鼓轨无擦除语义（位图不变）、诊断冻结时同一个会擦的键（Aa+f 对准 F4 步）不写引擎（解冻后同键会擦——RED 已验证）；真值 `ENG STEP`；本段包在 `STORE PROJ SAVE 3`/`LOAD 3` 里，工作工程逐位还原 | DI-45（live 变体） |
 | 参数锁（步 held + PRESETS 旋钮锁最近编辑的参数）/ fill 条件（步 held + OCT+） | SEQ 层 | 仅 console `SEQ LOCK SET/DEL`、`SEQ FILL`（状态层命令已有、无 UI 调用者） | ✅ | `params.sh` ⑪ STEP 键盘锁段；`state-test.sh`；`sequence.sh`（console） | P4-F Task 6：EDIT 层 Aa+k / Aa+l / Aa+9（ADR-006「STEP 页步工具」；零新增 LVGL 对象） |
 | 鼓轨 MUTE mode（EDIT + 黑键：静音 Sequencer 里的某个鼓声） | EDIT 层 | — | ○ | — | DI-46 |
 | ARP 层 **roll**（按住 ARP + 键 = note repeat，RATE 1/8…1/64） | ARP 层 | — | ○ | — | DI-47 |
-| GLO 层 mute/solo 键；fill 保持 / fill next bar | GLO 层 | 键盘 GLO 层 1–8 键（`input.c:159-162`）；TRACKS 卡只显示状态；TRANSPORT FILL | ✅ | `state-test.sh`（mute/solo 命令路径，host）、`transport.sh`（fill）；键位绑定 `input.c:159-162` **无设备证据** → Task 7 补 `tracks` 的 KEY 注入断言 | — |
+| GLO 层 mute/solo 键；fill 保持 / fill next bar | GLO 层 | 键盘 GLO 层 1–8 键（`input.c:159-162`）；TRACKS 卡只显示状态；TRANSPORT FILL | ✅ | `state-test.sh`（mute/solo 命令路径，host）、`transport.sh`（fill）、`tracks.sh` 的 GLO 层 `KEY` 注入（P4-F Task 7：Alt+1..4 逐轨 mute 翻转、Alt+5..8 solo 翻转，`ENG SNAP trk` 真值 + TRACKS 卡 MUTE/SOLO 像素区；Alt+Ctrl 同按同键取 GLO；不按层键时数字键不是混音键；收口还原） | — |
 | GLO 层 track levels ×4 | GLO 层 KNOB | FX 页 LEVEL 槽（逐轨） | ✅ | `params.sh`（LEVEL 写读） | — |
 | GLO 层 **tap tempo** | GLO 层白键 16 | 仅 BPM± | ○ | — | DI-48 |
 | SEL 层 参数（KEY/CHORD/SCALE/KEYS/TRANSPOSE） | SEL 层 | 参数 → Task 4 SCALE 页 | ○ | — | Task 4（参数）；键盘「按音阶走」行为见 DI-49 |
 | SAVE 层：section 播放 / chain / loop / song / SONG REC | SAVE 层 | SONG 页 | ✅ | `song.sh`、`sequence.sh` | — |
-| 选轨（ALGORITHM） | 面板 | TRACKS 卡 / 键盘 SEL 层 1–4 | ✅ | `tracks.sh`（卡片）；SEL 层键位无设备证据 → Task 7 | — |
+| 选轨（ALGORITHM） | 面板 | TRACKS 卡 / 键盘 SEL 层 1–4 | ✅ | `tracks.sh`（卡片 TAP）；SEL 层 `KEY` 注入（P4-F Task 7：Ctrl+1..4 ⇒ `STATE SNAP selected_track`/`focus_track`、重复按幂等、不改混音、松开 Ctrl 后数字键不选轨、卡 3 选中像素） | — |
 | 八度（OCT−/+，合成轨） | 面板 | **无**：Tab5 键盘音高固定，无八度移位 | ○ | — | DI-53 |
 | 鼓轨 16 lane 网格、ghost/hard（力度） | DRUMS 屏 | STEP 鼓格 / 键盘 lane | ✅ | `step_edit.sh`、`sequence.sh` | — |
 | SONG 模式 / loop 恢复 | SONG 屏 | SONG 页 | ✅ | `song.sh`、`sequence.sh` | warm reset 见 DI-33 |
@@ -109,7 +114,7 @@
 | SEQ > STEP ADVANCE | — | 非目标 | — | Tab5 无「松键后光标」模型 |
 | SEQ > DRUM PREVIEW | DSYN AUDITION（显式试听） | ◐ | `synth.sh` | 显式试听等效，文档化 |
 | HARDWARE CALIBRATION / MIDI LEARN CLEAR | — | 非目标 | — | FM-1 硬件 / 阶段 5 |
-| ABOUT | SYSTEM 页版本行 | ✅ | 版本行在 `page_system.c:427`；注入无断言 → Task 7 补 | — |
+| ABOUT | SYSTEM 页版本行 | ✅ | `sys.sh` ②（P4-F Task 7）：版本行两行暗色文字的像素探针（`APP <version>` / `SLOOP 2.8.5 (bac9c05)`）、文字不越出 label 盒；① 断言启动日志 `App version` 为 git 短哈希并与主机 HEAD 注记（transcript 含启动日志原始回显） | — |
 | （非上游项）屏幕亮度 / 输出音量 | — | SYSTEM 页 BRIGHT / VOLUME | ✅ Tab5 原生 | `sys.sh` | 听感人测 |
 | 输出路由 | OUTPUT 行 | ◐ | `sys.sh`（`N/A`） | DI-39（硬件） |
 | VIS 可视化（12 风格） | — | ○ | — | DI-51 |
