@@ -170,6 +170,10 @@ class Session:
         self.resets = 0
         self.last = ""
         self.failures = 0
+        # 场景快照的基线 {名字: 任意值}：**跨 ScenarioRestart 存活**（终审 C-I1）。工作工程
+        # 快照用 (hash0, 槽入口是否为空)，见 proj_snapshot_open；其它跨重跑只能取一次的值
+        # （如 params ⑪ 入口的歌曲顺序）走 session_once。
+        self.snapshots: dict = {}
         self.ser = self._open()
 
     def _open(self) -> LoggedSerial:
@@ -794,8 +798,10 @@ def run_transport_tools(s: Session) -> None:
     判据：每个 TAP 回显一条对应 EditCmd（`-> TRANSPORT <CMD> <op> value=<写后回读>`），
     引擎真值随之变化；非法动作（空步 LVL、鼓轨 SPAN/SLIDE、鼓轨 TRANSPOSE）回
     ERR/ignored 且**不改状态**。pattern 工具会整轨改写（CLEAR 连 lock/micro/fill
-    一起清、UNDO 不含它们），所以先用诊断槽 3 快照工程、结束时 LOAD 还原并 ERASE，
-    用 `STORE LIVEHASH` 逐位证明还原。结束时焦点/选轨/走带都归一，脚本可重复。"""
+    一起清、UNDO 不含它们），所以先用诊断槽 3 快照工程、结束时 LOAD 还原，用 `STORE
+    LIVEHASH` 逐位证明还原。**破坏性**：占用诊断槽 3——入口非空则其原内容被工作工程快照
+    覆盖（之后留着快照）；入口为空则收口擦回空。快照基线跨截屏复位重跑保持（终审 C-I1）。
+    结束时焦点/选轨/走带都归一，脚本可重复。"""
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
     s.cmd("TAP %d %d" % TRANSPORT_STOP)
@@ -1040,8 +1046,9 @@ def run_transport_tools(s: Session) -> None:
     (s.ok if seq_dstep(s, 5) == d4 else s.fail)("⑩ 不适用动作不改鼓步（逐字节不变）")
 
     # ---------- ⑩g pattern 工具（先快照工程：CLEAR 会清 lock/micro/fill，UNDO 不含它们） ----------
-    store_cmd(s, "STORE PROJ SAVE 3", r"^PROJ 3 SAVED hash=[0-9A-F]{8}", "⑩ 工程快照 SAVE 3")
-    hash0 = live_hash(s)
+    # **破坏性**：占用诊断槽 3（入口非空则被工作工程快照覆盖）；基线跨截屏复位重跑保持
+    # （proj_snapshot_open，终审 C-I1）。
+    proj_snapshot_open(s, "transport.pattern", 3, "⑩g")
     select_track(s, 0)
     tr_focus_step(s, 0, 2)
 
@@ -1098,12 +1105,9 @@ def run_transport_tools(s: Session) -> None:
              "⑩ 鼓轨 TRANSPOSE → ERR invalid")
     (s.ok if seq_dstep(s, 5) == d_before else s.fail)("⑩ 被拒的 TRANSPOSE 不改鼓步")
 
-    # 工程还原（诊断槽 3 的 LOAD 连 lock/micro/fill 一起回原状态）+ 槽收口
-    store_cmd(s, "STORE PROJ LOAD 3", r"^PROJ 3 LOADED hash=[0-9A-F]{8}", "⑩ 工程还原 LOAD 3")
-    hash1 = live_hash(s)
-    (s.ok if hash1 == hash0 else s.fail)(
-        f"⑩ 还原后 LIVEHASH {hash1:08X} == 快照前 {hash0:08X}")
-    store_cmd(s, "STORE PROJ ERASE 3", r"^PROJ 3 ERASE", "⑩ 收口 ERASE 3")
+    # 工程还原（诊断槽 3 的 LOAD 连 lock/micro/fill 一起回原状态）+ 槽收口（入口为空才擦：
+    # 入口非空的槽留着快照——它原来的内容已被覆盖，擦掉只是再丢一份）
+    proj_snapshot_close(s, "transport.pattern", 3, "⑩g")
 
     # ---------- ⑩h 键盘：←/→ 移工具焦点、↑/↓ 调焦点字段、ENTER 切换 ----------
     select_track(s, 0)
@@ -1533,13 +1537,8 @@ def run_step_edit_erase(s: Session) -> None:
     focus0 = s.snap_int(r"focus_step=(\d+)")
     # 工作工程快照（诊断槽 D = 3，与 transport/sequence 的约定一致）：本段在轨 0 造/擦音符，
     # 收口 LOAD 还原。入口槽 D 若非空，其内容被本快照覆盖（注记）；入口为空则收口擦回空。
-    s.cmd("STORE PROJ HASH 3")
-    slot3_empty = re.search(r"^STORE ERR empty\r?$", s.last, re.MULTILINE) is not None
-    if not slot3_empty:
-        s.ser.note("②g 诊断槽 D 入口非空（用户工程？）：被工作工程快照覆盖，收口不擦")
-    hash0 = live_hash(s)
-    s.cmd("STORE PROJ SAVE 3")
-    s.expect(rf"^PROJ 3 SAVED hash={hash0:08X}\r?$", "②g 工作工程快照 → 诊断槽 D（hash = LIVEHASH）")
+    # 基线跨截屏复位重跑保持（proj_snapshot_open，终审 C-I1）。
+    proj_snapshot_open(s, "step_edit.erase", 3, "②g")
     select_track(s, 0)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
@@ -1673,13 +1672,7 @@ def run_step_edit_erase(s: Session) -> None:
 
     # 收口：LOAD 入口快照还原工作工程（本段造/擦的音随之消失），LIVEHASH 逐位证明；
     # last_note 回 60、焦点回 T1 入口列。槽 D 入口为空则擦回空。
-    s.cmd("STORE PROJ LOAD 3")
-    s.expect(rf"^PROJ 3 LOADED hash={hash0:08X}\r?$", "②g 收口 LOAD 3（工作工程快照）")
-    hash1 = live_hash(s)
-    (s.ok if hash1 == hash0 else s.fail)(
-        f"②g 收口后 LIVEHASH {hash1:08X} == 入口 {hash0:08X}（工作工程逐位还原）")
-    if slot3_empty:
-        proj_erase(s, 3, "②g 收口擦回空的诊断槽 D")
+    proj_snapshot_close(s, "step_edit.erase", 3, "②g")
     s.cmd("KEY 0x%02X down" % KEY_NOTE_C4)
     s.expect(rf"KEY 0x{KEY_NOTE_C4:02X} down", "②g 收口 last_note = 60")
     s.cmd("KEY 0x%02X up" % KEY_NOTE_C4)
@@ -4061,14 +4054,27 @@ def param_tools(s: Session) -> None:
     """TOOLS 页：两段式确认（未确认 ⇒ 状态不变；超时取消）、走带守卫（CLRSEQ/INITSOUND 走带中
     允许、NEW 在 SONG 播放中拒绝）、NEW 的副作用。**破坏性**（NEW 清空工作工程）：先把工作
     工程存进诊断槽 3，结束 LOAD 还原并以 LIVEHASH 逐位证明；section 用诊断槽 D——它与工程
-    槽 3 是同一个存储槽，故在捕获 D 之前先 LOAD 回快照，收口以 SECTION ERASE 清空该槽、
-    歌曲顺序回默认。"""
+    槽 3 是同一个存储槽，故在捕获 D 之前先 LOAD 回快照，收口以 SECTION ERASE 清空该槽。
+    **破坏性**：诊断槽 3 / section D 的入口内容无法保留（工程快照与 D 捕获先后覆盖它；
+    入口非空时收口后该槽为空）。歌曲顺序与 SONG/LOOP 模式按入口快照还原（session_once：
+    截屏复位后的重跑沿用第一轮的快照）；入口歌曲若引用 D，D 已空——那一项还原后缺 scene。
+    快照基线跨重跑保持（proj_snapshot_open，终审 C-I1）。"""
     s.ser.note("⑪ TOOLS 页：两段式确认 / 走带守卫 / NEW（工程快照 → 槽 3，结束还原）")
     # 先停走带再快照：SAVE/LOAD 在走带中都被存储层拒绝（STOP BEFORE …）
     ensure_stopped(s)
-    s.cmd("STORE PROJ SAVE 3")
-    s.expect(r"PROJ 3 SAVED hash=", "⑪ 工作工程快照 → 诊断槽 3")
-    h0 = live_hash(s)
+
+    def song_state():
+        cfg = song_cfg(s)
+        s.cmd("SEQ SONG")
+        m = re.search(r"^SEQ SONG mode=(song|loop) ", s.last, re.MULTILINE)
+        if m is None:
+            raise InjectError(f"SEQ SONG 回显缺少 mode：{s.last.strip()!r}")
+        return cfg, m.group(1)
+
+    song0, song_mode0 = session_once(s, "params.tools.song", song_state, "⑪ 歌曲顺序快照")
+    s.ser.note(f"⑪ 入口歌曲：count={song0['count']} loop={song0['loop']} mode={song_mode0} "
+               f"entries={sorted(song0['entry'].items())[:song0['count']]}")
+    h0, _ = proj_snapshot_open(s, "params.tools", 3, "⑪")
     select_track(s, 0)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
@@ -4148,8 +4154,11 @@ def param_tools(s: Session) -> None:
 
     # 还原工作工程（此刻还原：section A–D 与工程槽 A–D 是**同一组四个存储槽**，下面的
     # 诊断 section D 就是槽 3——先 LOAD 回快照，D 捕获到的才是与快照相同的状态）
-    s.cmd("STORE PROJ LOAD 3")
-    s.expect(r"PROJ 3 LOADED hash=", "⑪ 还原工作工程（捕获 section D 之前）")
+    if proj_slot_state(s, 3) != h0:
+        raise InjectError("⑪ 捕获 section D 之前：诊断槽 3 不是工作工程快照——终止（不让 D 捕获"
+                          "覆盖来历不明的内容后继续）")
+    store_cmd(s, "STORE PROJ LOAD 3", rf"^PROJ 3 LOADED hash={h0:08X}\r?$",
+              "⑪ 还原工作工程（捕获 section D 之前）")
     (s.ok if live_hash(s) == h0 else s.fail)("⑪ 还原后 LIVEHASH == 快照")
 
     # NEW 的唯一守卫：SONG 播放中且 arrangement_enabled ⇒ STOP THE SONG FIRST
@@ -4199,16 +4208,26 @@ def param_tools(s: Session) -> None:
     s.cmd("SEQ SECTION")
     s.expect(rf"SEQ SECTION ready=0x0*{ready_before:X} ", "⑪ NEW：section A–D 保留")
 
-    # 还原：工作工程（LIVEHASH 逐位）、默认歌曲、诊断 section D、诊断槽 3
-    s.cmd("STORE PROJ LOAD 3")
-    s.expect(r"PROJ 3 LOADED hash=", "⑪ 还原工作工程")
-    (s.ok if live_hash(s) == h0 else s.fail)("⑪ 还原后 LIVEHASH == 快照")
+    # 还原：工作工程（LIVEHASH 逐位）→ 擦诊断 section D（= 清空诊断槽 3；先擦 D 再还歌曲：
+    # SECTION ERASE 的 arr_drop_scene 会摘掉引用 D 的歌曲项）→ 入口的歌曲顺序与 SONG/LOOP 模式。
+    # 槽 3 在此无条件清空：D 捕获已覆盖过快照，入口非空的内容留不住（见段首）。
+    proj_snapshot_close(s, "params.tools", 3, "⑪", erase=False)
     s.cmd("SEQ SECTION 3 ERASE")
     s.expect(r"SEQ SECTION D ERASE OK", "⑪ 擦诊断 section D")
-    s.cmd("STORE SONG SET 4 0 0:4 1:4 2:4 3:4")
-    s.expect(r"STORE SONG SET count=4 loop=0 dirty=1", "⑪ 歌曲回默认（A–D 各 4 小节）")
+    ent = [song0["entry"].get(i, (0, 4)) for i in range(song0["count"])]
+    s.cmd("STORE SONG SET %d %d %s" % (song0["count"], song0["loop"],
+                                       " ".join(f"{sc}:{bars}" for sc, bars in ent)))
+    s.expect(rf"STORE SONG SET count={song0['count']} loop={song0['loop']} dirty=1",
+             "⑪ 歌曲顺序回入口快照")
+    s.cmd(f"SEQ SONG MODE {song_mode0}")
+    s.expect(rf"SEQ SONG mode={song_mode0}", "⑪ SONG/LOOP 模式回入口快照")
+    song1 = song_cfg(s)
+    (s.ok if (song1["count"], song1["loop"]) == (song0["count"], song0["loop"]) and
+     all(song1["entry"].get(i) == song0["entry"].get(i) for i in range(song0["count"])) else s.fail)(
+        f"⑪ 歌曲顺序逐项还原：count={song1['count']} loop={song1['loop']}")
     s.cmd("STORE PROJ LIST")
     s.expect(r"PROJ 3 EMPTY", "⑪ 诊断槽 3（= section D）已空")
+    del s.snapshots["params.tools.song"]
     select_track(s, 0)
 
 
@@ -5047,6 +5066,91 @@ def proj_erase(s: Session, slot: int, label: str) -> None:
         s.ok(label + "（空槽：上游 EMPTY SECTION，未写 flash）")
         return
     raise InjectError(f"{label}: 回显缺少 ERASED/STORE ERR empty（响应 {s.last.strip()!r}）")
+
+
+def proj_slot_state(s: Session, slot: int) -> int:
+    """`STORE PROJ HASH <slot>`：空槽回 -1，否则 RAM 槽的哈希。"""
+    s.cmd(f"STORE PROJ HASH {slot}")
+    if re.search(r"^STORE ERR empty\r?$", s.last, re.MULTILINE):
+        return -1
+    m = re.search(rf"^PROJ {slot} HASH=([0-9A-F]{{8}})\r?$", s.last, re.MULTILINE)
+    if m is None:
+        raise InjectError(f"STORE PROJ HASH {slot}: 回显缺少哈希（响应 {s.last.strip()!r}）")
+    return int(m.group(1), 16)
+
+
+def session_once(s: Session, key: str, produce, tag: str):
+    """跨 ScenarioRestart **只求值一次**的快照：首轮调用执行 produce() 并记在 Session 上，
+    截屏复位后的重跑直接回第一轮的值（重跑时设备已复位，此刻读到的可能已是场景改过的
+    状态）。"""
+    if key not in s.snapshots:
+        s.snapshots[key] = produce()
+    else:
+        s.ser.note(f"{tag} 重跑：沿用第一轮的快照")
+    return s.snapshots[key]
+
+
+def proj_snapshot_open(s: Session, name: str, slot: int, tag: str) -> tuple:
+    """工作工程快照的**开括号**：把当前工作工程存进诊断槽，返回 (hash0, 槽入口是否为空)。
+
+    **基线跨 ScenarioRestart 保持**（终审 C-I1）：截屏传输失败 ⇒ 设备复位 ⇒ 场景从头重跑，
+    本函数被第二次调到。复位不擦 flash——槽里已经是第一轮的快照；旧实现在重跑时看到
+    「槽非空」就再 SAVE 一次，快照被复位后的状态覆盖，收口 LOAD 还原的不再是入口的工作
+    工程，而场景照样 exit 0。现在：基线记在 Session 上，重跑**不再 SAVE**，只核对槽里仍是
+    快照（`STORE PROJ HASH`）。
+    - 相等 ⇒ 沿用第一轮的基线；
+    - 入口为空且槽现在仍空 ⇒ 第一轮的 SAVE 根本没发生，补存一次不覆盖任何东西；
+    - 其它（槽被改写 / 第一轮 SAVE 未落盘而槽里是别的工程）⇒ InjectError 终止场景（非零
+      退出），不再拿一个来历不明的槽去「还原」。
+    """
+    base = s.snapshots.get(name)
+    if base is not None:
+        hash0, was_empty = base
+        cur = proj_slot_state(s, slot)
+        if cur == hash0:
+            s.ok(f"{tag} 重跑：诊断槽 {slot} 仍是第一轮的快照 hash={hash0:08X}（不再 SAVE）")
+            return hash0, was_empty
+        if was_empty and cur < 0:
+            hash0 = live_hash(s)
+            store_cmd(s, f"STORE PROJ SAVE {slot}", rf"^PROJ {slot} SAVED hash={hash0:08X}\r?$",
+                      f"{tag} 重跑：第一轮的快照未落盘，补存")
+            s.snapshots[name] = (hash0, True)
+            return hash0, True
+        got = "empty" if cur < 0 else f"hash={cur:08X}"
+        raise InjectError(
+            f"{tag} 重跑后诊断槽 {slot} 不是工作工程快照（槽 {got}，快照 hash={hash0:08X}）："
+            f"快照已被改写，无法还原工作工程——终止场景。设备 RAM 里的工作工程可能停在场景"
+            f"中途态；flash 的 autosave 副本未被本场景写过，硬复位即回到最近一次 autosave")
+    empty = proj_slot_state(s, slot) < 0
+    if not empty:
+        s.ser.note(f"{tag} 诊断槽 {slot} 入口非空（用户工程？）：被工作工程快照覆盖，收口不擦")
+    hash0 = live_hash(s)
+    s.snapshots[name] = (hash0, empty)
+    store_cmd(s, f"STORE PROJ SAVE {slot}", rf"^PROJ {slot} SAVED hash={hash0:08X}\r?$",
+              f"{tag} 工作工程快照 → 诊断槽 {slot}（hash = LIVEHASH）")
+    return hash0, empty
+
+
+def proj_snapshot_close(s: Session, name: str, slot: int, tag: str, erase=None) -> None:
+    """工作工程快照的**闭括号**（与 proj_snapshot_open 成对）：槽必须仍是快照（否则
+    InjectError 终止）→ LOAD → LIVEHASH 逐位等于快照（断言）→ 擦槽。
+    erase：None = 入口为空才擦（非空入口的槽留着快照，step_edit ②g / transport ⑩g）；
+    True = 无条件擦（调用方之后还要用这个槽或断言它为空，params ⑪）。"""
+    hash0, was_empty = s.snapshots[name]
+    cur = proj_slot_state(s, slot)
+    if cur != hash0:
+        got = "empty" if cur < 0 else f"hash={cur:08X}"
+        raise InjectError(
+            f"{tag} 收口：诊断槽 {slot} 不是工作工程快照（槽 {got}，快照 hash={hash0:08X}）——"
+            f"不 LOAD 来历不明的内容，终止场景")
+    store_cmd(s, f"STORE PROJ LOAD {slot}", rf"^PROJ {slot} LOADED hash={hash0:08X}\r?$",
+              f"{tag} 收口 LOAD {slot}（工作工程快照）")
+    hash1 = live_hash(s)
+    (s.ok if hash1 == hash0 else s.fail)(
+        f"{tag} 收口后 LIVEHASH {hash1:08X} == 入口 {hash0:08X}（工作工程逐位还原）")
+    if erase or (erase is None and was_empty):
+        proj_erase(s, slot, f"{tag} 收口擦诊断槽 {slot}")
+    del s.snapshots[name]
 
 
 def store_hash(s: Session, cmd: str, pattern: str, label: str = "") -> int:

@@ -5,7 +5,8 @@
 #   `ENG STEP` 真值；两音步只摘一根、跨八度、无匹配不变、鼓轨 no-op、冻结不写）。
 #   ②g 整段包在 STORE PROJ SAVE 3 / LOAD 3 里——诊断槽 D（= 槽 3，与 section A–D
 #   共用同一组存储槽）先存工作工程快照，收口 LOAD 并以 LIVEHASH 逐位证明还原；入口时
-#   槽 D 已非空则被这份快照覆盖、不擦（transcript 有注记）
+#   槽 D 已非空则被这份快照覆盖、不擦（transcript 有注记）。快照基线跨截屏复位重跑保持
+#   （proj_snapshot_open：重跑不再 SAVE，槽里不是快照即终止）——**破坏性**仅限该槽
 # 用法: bash scripts/inject/step_edit.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 脚本可重复运行：先归一窗口到 {0,0,16}；目标格已亮先经同一 TAP 路径点灭再点亮；
