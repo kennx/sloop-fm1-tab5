@@ -131,7 +131,9 @@ static void refresh(void)
 static bool tools_press(uint8_t act)
 {
     const uint32_t now = tools_now_ms();
-    if (s_arm != act) {
+    /* 窗口在这里也判（不只是 update 拍里清预备）：两击之间若没有 UI 拍——quiesce 期间、或
+     * 两次注入同一拍——过了 1.5s 的旧预备不得执行（终审 B）。 */
+    if (s_arm != act || now - s_arm_ms >= TOOLS_ARM_MS) {
         s_arm = act;
         s_arm_ms = now;
         return true;
