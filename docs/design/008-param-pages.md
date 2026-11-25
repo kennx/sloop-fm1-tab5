@@ -909,6 +909,13 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   快照；`KEY STATS` 的 `input_stack_free`（input 任务循环内采样的历史最小值）断言
   ≥2,048 **仅当 `phys>0`**——console 的 `KEY` 注入量不到这条栈，`phys=0` 时场景显式跳过
   （见 ADR-006）。输入路径的余量因此**尚未被机器验证**（人测项）。
+- **已知边界（裁决 R21，10c 设备实测）**：chip 行的命中判定读的是状态层投影。换引擎
+  （`ENG TRACK`）之后 **30ms 同步拍到来之前**，投影里还是旧引擎 ⇒ 刚被隐藏的条件 chip
+  （如 `CHIP_WHEN_ANALOG` 的 FILTER）在这一拍内仍按「可见」处理，`TAP` 回 `chip=3 select`
+  而不是 `TAP miss`（只选中、不写参数）；一拍之后回 `TAP miss`。**只有同批次的 console
+  `TAP` 注入能落进这个窗口**——物理触摸走 LVGL indev，与 sync 同拍且在其后。接受为投影模型
+  的固有延迟（≤1 拍），不改判定逻辑；`UI QUIESCE` 期间的 `UI <page> CHIP` 回
+  `UI ERR quiesced`。
 - **「超预算先改对象设计，不抬 est」**的三次应用：chip 行（336B/chip 的 label 方案 →
   单对象）、TRANSPORT REC 配置行（3 label → 单对象，守住 est 9,216）、SOUND bank 行
   （按引擎显隐而不是每引擎建行）。
