@@ -1499,6 +1499,11 @@ static int ui_command(int argc, char **argv)
                     printf("UI ERR chip\n");
                     return 1;
                 }
+                /* 与兄弟 UI 命令同一令牌：诊断期静默时不落成 INVALID_STATE 的 esp_err 名（终审 B） */
+                if (sloop_ui_quiesced()) {
+                    printf("UI ERR quiesced\n");
+                    return 1;
+                }
                 esp_err_t ret = sloop_ui_param_chip_set(chip_page, (uint8_t)v);
                 if (ret == ESP_ERR_NOT_ALLOWED) {
                     printf("UI ERR chip (hidden)\n");
@@ -1530,7 +1535,7 @@ static int ui_command(int argc, char **argv)
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
             printf("UI ERR page (want=play|tracks|step|transport|global|fx|sound|analog|fm6|"
-                   "sample|projects|presets|song|dsyn|fm6p|system|mod|scale|voice|0..%u)\n",
+                   "sample|projects|presets|song|dsyn|fm6p|system|mod|scale|voice|tools|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -4117,7 +4122,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song|tools>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);
