@@ -7,18 +7,6 @@
 
 ---
 
-## DI-1: USB-MIDI host 类驱动缺失（联动模式核心通道）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | ADR-001 依赖核验发现：`usb_host_uac` 1.5.0 仅覆盖 UAC1 音频采集，**不含 USB-MIDI host 类**。FM-1 是组合 USB 设备（MIDI + UAC1），Tab5 做 host 需各自驱动。 |
-| **影响面** | **联动模式全部控制面**：编辑器协议 77 命令下发、CHANGED/RELOAD/STEP_CHANGED/TRACK_CHANGED push 上行（双向同步骨架）、LIVE 遥控、LIVE 页普通音符（按轨通道）——全部走 USB-MIDI，缺驱动则一个字节都发不出。音频采集（usb_host_uac）不受影响；**独立模式零影响**。 |
-| **为何可延迟** | 开发顺序独立模式先行（显示/键盘 bring-up → sloop_core → UI），不碰 USB host；且技术可行性与工作量已知可控（见下）。 |
-| **解决方向** | 新建 `usb_fm1` 组件时先写 **ADR-002** 选型：(a) 基于 ESP-IDF 原生 `usb_host` 栈自写 MIDI 1.0 类驱动——bulk IN/OUT + 4 字节事件包，SysEx 重组参考 Sloop Go `MidiEngine.kt` 与 `docs/research/editor-protocol.md` §8；(b) tinyusb host 路线（MIDI host 成熟度**待查证**）；(c) 社区组件（registry 再查一轮）。**先例**：[fm1-cartridge](https://github.com/andrerezemini/fm1-cartridge)（ESP32-S3 对 FM-1 做 USB-MIDI host + 回传音频）证明链路可行，驱动实现可参考。 |
-| **触发条件** | 进入联动模式开发（`usb_fm1` 组件立项）之前必须解决；在此之前仅按需更新本条目认知。 |
-| **参考** | `docs/design/001-idf-version.md`（缺口首次记录）、`docs/research/editor-protocol.md` §8、`docs/research/sloop-fm1-go.md` §3、`docs/dev/device-notes.md` §3（FM-1 接入状态） |
-| **登记** | 2026-11-19（代码评审会话） |
-
 ## DI-2: sdkconfig.defaults 变更不生效（旧生成物 sdkconfig 掩盖）
 
 | 项 | 内容 |
@@ -455,3 +443,39 @@
 | **触发条件** | 用户反馈想在 SOUND 页看到自定义预置名；或 PRESETS 页/页眉统一做「按名浏览」（DI-54）时一并处理。 |
 | **参考** | `firmware/components/sloop_core/src/desc_tab5.h`（`sloop_core_sound_read`）；`firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_preset_name`）；`third_party/sloop-fm1/firmware/src/ui_draw.c:845-856`；ADR-008 §8.10（SOUND 页眉）。 |
 | **登记** | 2026-11-25（P4-F 终审修复波） |
+
+## DI-58: 开机偶发 BSP `pi4ioe5v6408` "Chip reset failed" abort
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 5A Task 4 探针期间 8 次开机出现 1 次：上电约 1.5s（日志 1.47s）IO 扩展芯片复位失败——`E (1473) pi4ioe5v6408: reset(252): Chip reset failed` → `ESP_ERROR_CHECK failed … bsp_io_expander.c line 23` → `abort()`；自动重启后正常，之后 7 次开机未复现。出错点是 BSP `esp_io_expander_new_i2c_pi4ioe5v6408()` 里的芯片复位检查。时刻早于显示/存储/USB host 的初始化（均 ≥ 约 3s），**与 5A 的改动无关**。 |
+| **影响面** | 开机路径：独立模式与联动模式同样波及。表现为启动期 abort 后自动重启，启动延后数秒；运行期不受影响。冷启动/热复位/供电哪一项相关**未定性**。 |
+| **为何可延迟** | 自动重启后即正常，复现率低（1/8）且无法按需触发；根因在 BSP 的上电时序，需要专项复现（多次冷启动计数 + 复核 PI4IO 复位到寄存器可读的等待），不是 5A 的范围。 |
+| **解决方向** | BSP 升级（查 `espressif/m5stack_tab5` 新版本是否改了 `bsp_io_expander.c` 的复位/就绪等待）或复核上电时序。 |
+| **触发条件** | 再次复现（日常开机、烧录后首启或阶段收口矩阵中出现），或 BSP 升级时。 |
+| **参考** | `.superpowers/sdd/2026-11-26-5a-fm1-connect/task-4-report.md`（原始记录）；`firmware/managed_components/espressif__m5stack_tab5/src/bsp_io_expander.c:23` |
+| **登记** | 2026-11-26（5A Task 4 探针发现，Task 6 文档收口登记） |
+
+## DI-59: `EDP_ARGS_MAX = 384` 小于上游 `DSYN_GET` 回复（约 416 个参数字节）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `editor_proto` 的帧参数上限 `EDP_ARGS_MAX` = 384（`editor_proto.h:20`，`edp_frame_t.args[]` 的大小）；上游 `firmware/src/editor.c` 的发送缓冲 `ed_out[600]`，`DSYN_GET` 的回复约 416 个参数字节。`edp_frame_parse` 对超过 `EDP_ARGS_MAX` 的帧返回 false ⇒ 该回复被判为无效。5A 用到的 INFO/GET/SET/WATCH/PING 回复都远小于 384，且 **5A 不发该命令**。 |
+| **影响面** | 任何参数多于 384 的回复，当前已知只有 `DSYN_GET`（Drum synth 页）。5A 的联动协议面不受影响；Tab5 的 DSYN 页目前走本地引擎（`sloop_core_dsyn_*`），不经 FM-1。 |
+| **为何可延迟** | 属 5E（Drum synth 页）的入口条件：在 Tab5 开始经 FM-1 读写 DSYN 之前不会触发；扩容会连带改 `edp_frame_t` 的大小（回复槽/解析暂存随之上调），需要单独量一次占用。 |
+| **解决方向** | 5E 开工前把 `EDP_ARGS_MAX` 提到 ≥ 416（5A Task 2 裁决记的备选值是 512；上游 `ed_out` 为 600，是否直接对齐 600 届时定）。扩容后必须复核：**栈占用**——`fm1_session.c` 的三个请求函数把 `edp_frame_t reply` 放在栈上（`:216/:243/:271`，当前 387B，上限每加 1 字节栈帧同步加 1），它们跑在调用方任务的栈上（console 等），而解析暂存 `f` 与回复槽 `s_reply` 是 PSRAM 里的静态对象（随 `edp_frame_t` 变大，不占内部堆）；`midi_stream` 的 1,024 字节帧上限是否仍够；`scripts/editor-proto-test.sh` 补一条 416+ 参数的往返与「恰在上限内/外」用例。 |
+| **触发条件** | 5E（Drum synth 页）开工前必须处理。 |
+| **参考** | `firmware/components/editor_proto/include/editor_proto.h`（`EDP_ARGS_MAX`）、`firmware/components/editor_proto/src/editor_proto.c`（`edp_frame_parse`）、`third_party/sloop-fm1/firmware/src/editor.c:39`（`ed_out`） |
+| **登记** | 2026-11-26（5A Task 2 终评遗留，Task 6 登记） |
+
+## DI-60: `usb_fm1` 的两处异常路径待加固（OUT transfer 永不完成 / `NEW_DEV` 时旧句柄尚在）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | ① **发送侧**：`usb_fm1_send_frame()` 提交 Bulk OUT 前置位 `s_out_inflight`，只有完成回调（或提交失败）才清；等回复超时只是返回 `ESP_ERR_TIMEOUT`。若该 transfer 永不完成（不回调），`s_out_inflight` 保持置位，之后每次发送直接回 `ESP_ERR_NOT_FINISHED`，而断开清理要求端点无在途 URB，待执行的清理会一直等。② **枚举侧**：`handle_new_dev()` 在 `NEW_DEV` 到达时若旧设备句柄 `s_dev != NULL`（上一次的清理尚未跑完，如快速拔插），新设备被 `usb_host_device_close` 并忽略，需再拔插一次才被接手。5A 冒烟未触发这两条路径。 |
+| **影响面** | 仅联动模式（FM-1 链路）的异常恢复：① 发送侧永久失败直到断开清理完成；② 快速拔插后链路不恢复、`FM1 STATUS` 停在 `link=none`。独立模式零影响。 |
+| **为何可延迟** | 两条都是异常/竞态路径，5A 的多轮真机运行（含探针期间一次偶然的断开/重连）未触发；受控拔插尚待操作员。5C 的主题就是断连恢复，届时一并设计。 |
+| **解决方向** | ① 发送超时后显式取消在途的 OUT transfer（或让在途标记按序号失效——迟到的回调按 seq 丢弃），使清理不依赖「一定会回调」；② `NEW_DEV` 时旧句柄尚在则**排队**而不是丢弃：先对旧设备走完清理，再接手新设备。两条都补 host 侧的可注入测试（故障注入点）。 |
+| **触发条件** | 5C（断连恢复）开工时必须处理；此前若 5A 冒烟的拔插步骤（`scripts/fm1-smoke.py` 步骤 7）出现「重插后不恢复」，立即处理。 |
+| **参考** | `firmware/components/usb_fm1/src/usb_fm1.c`（`usb_fm1_send_frame` 的 `s_out_inflight`、`handle_new_dev` 的 `s_dev != NULL` 分支）；`.superpowers/sdd/2026-11-26-5a-fm1-connect/task-4-report.md` |
+| **登记** | 2026-11-26（5A Task 4 终评遗留，Task 6 登记） |
