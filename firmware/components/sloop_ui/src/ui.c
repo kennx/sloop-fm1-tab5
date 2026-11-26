@@ -68,8 +68,10 @@
 #include "page_fm6p.h"
 #include "page_layout.h"
 #include "page_params.h"
+#include "page_sound.h"
 #include "page_system.h"
 #include "page_tools.h"
+#include "sound_layout.h"
 #include "sloop_core.h"
 #include "sloop_hal.h"
 #include "sloop_state.h"
@@ -1168,6 +1170,78 @@ bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t 
 {
     int idx = page_layout_index(page);
     return idx >= 0 && page_params_slot_info((uint8_t)idx, chip, slot, id, label, locked);
+}
+
+/* Sound 仪表盘（5B-1 Task 3）：页 id → page_sound.c 的薄外壳。当前页是否仪表盘只读单字节
+ * s_page（与 sloop_ui_file_page_active 同一纪律）；持锁入口在 LVGL 锁内调页面层。 */
+bool sloop_ui_sound_dashboard_active(void)
+{
+    return s_started && page_layout_index(s_page) >= 0 &&
+           page_layout_is_dashboard(page_layout_get((uint8_t)page_layout_index(s_page)));
+}
+
+uint16_t sloop_ui_sound_slot_index(uint8_t card, uint8_t slot)
+{
+    return sound_layout_slot_index(card, slot);
+}
+
+uint16_t sloop_ui_sound_slot_total(void)
+{
+    return sloop_ui_sound_dashboard_active() ? page_sound_slot_total() : 0u;
+}
+
+uint16_t sloop_ui_sound_collapsed(void)
+{
+    return sloop_ui_sound_dashboard_active() ? page_sound_collapsed() : 0u;
+}
+
+esp_err_t sloop_ui_sound_slot_info(uint16_t flat, uint8_t *card, uint8_t *slot, uint8_t *scope,
+                                   uint8_t *id, const char **label, bool *locked, int16_t *value)
+{
+    if (!sloop_ui_sound_dashboard_active()) return ESP_ERR_INVALID_STATE;
+    return page_sound_slot_info(flat, card, slot, scope, id, label, locked, value);
+}
+
+/* 持锁入口的公共前提：未启动 / 非仪表盘页 / 诊断期静默都是 INVALID_STATE */
+static bool sound_dash_ready(void)
+{
+    return s_started && !s_quiesced && sloop_ui_sound_dashboard_active();
+}
+
+esp_err_t sloop_ui_sound_slot_rect(uint16_t flat, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_slot_rect(flat, x, y, w, h);
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_scroll_get(int16_t *y, int16_t *max_y)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_scroll_get(y, max_y);
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_scroll_set(int16_t y)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_scroll_set(y);
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press, int16_t *value)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_test_knob(flat, dx, dy, press, value);
+    bsp_display_unlock();
+    return ret;
 }
 
 /* FILE 页路由（InputManager 调用，不取 LVGL 锁）：只读单字节 s_page（与

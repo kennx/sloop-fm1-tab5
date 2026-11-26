@@ -90,7 +90,8 @@
  * `page_layout_is_dashboard()` 分流：update 跳过 apply_focus/sound_sync_slots/槽循环/
  * sloop_ui_zoom_knob（ZOOM 大读数画在页面区顶部，会盖住本页可操作的页眉），改调
  * page_sound_update；TAP 先走按钮/页眉行/银行行，未命中再交 page_sound_tap；± 细调、
- * `UI KNOB`、`UI <page> CHIP` 的逐槽诊断在仪表盘页没有对象可作用，一律不动作。
+ * `UI KNOB`、`UI <page> CHIP` 的逐槽诊断在仪表盘页没有对象可作用，一律不动作（槽级注入走
+ * `UI SOUND KNOB`，在 page_sound.c）。
  */
 #include "page_params.h"
 
@@ -1075,14 +1076,13 @@ esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press
 {
     int idx = current_index();
     if (idx < 0 || slot >= PARAM_PAGE_SLOTS) return ESP_ERR_INVALID_ARG;
-    /* 仪表盘页没有 8 槽旋钮对象：槽级注入由后续任务的 `UI SOUND KNOB` 提供 */
+    /* 仪表盘页没有 8 槽旋钮对象：槽级注入走 `UI SOUND KNOB`（page_sound.c） */
     if (page_layout_is_dashboard(page_layout_get((uint8_t)idx))) return ESP_ERR_NOT_SUPPORTED;
     page_ui_t *ui = &s_ui[idx];
     if (ui->header == NULL) return ESP_ERR_INVALID_STATE;
     if (!ui->present[slot]) return ESP_ERR_INVALID_ARG;
     /* 槽位锁定（引擎页不适用/鼓轨逐槽规则）：旋钮显示 -- 且不可编辑。用独立错误码让
-     * console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。仪表盘页（没有 8 槽旋钮
- * 对象）回 ESP_ERR_NOT_SUPPORTED。 */
+     * console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。 */
     app_state_t st;
     state_get_copy(&st);
     if (slot_locked(page_layout_get((uint8_t)idx), chip_get((uint8_t)idx), slot, &st)) {
@@ -1571,7 +1571,8 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
         UI_BUILD_CHECK(ui->sound_row[0]);
         UI_BUILD_CHECK(ui->sound_row[1]);
     }
-    /* bank 存取行（SOUND 页；仅 FM6 引擎时显示）：旋钮之后建，几何在页面区底部 */
+    /* bank 存取行（SOUND 页；仅 FM6 引擎时显示）：旋钮之后建，y 取 bank_row_y(pg)
+     * （仪表盘页在页眉下方，其余页在页面区底部） */
     if (bank_row_present(pg) && build_bank_row(index, parent) == NULL) return NULL;
     /* 槽管理行（仅 SAMPLE 页）：同一底部带，页内唯一 */
     if (sample_row_present(pg) && build_sample_row(index, parent) == NULL) return NULL;
@@ -1760,8 +1761,9 @@ void page_params_update(uint8_t index, const app_state_t *st)
         }
     }
 
-    /* 卡片区（仅仪表盘页）：在银行行之后——视口顶随银行行的可见性变（上面已落地显隐） */
-    if (dash) page_sound_update(st);
+    /* 卡片区（仅仪表盘页）：在银行行之后——视口顶随银行行的可见性变（上面已落地显隐）。
+     * 银行行可见性用本文件的同一谓词（page_sound.c 不另抄一份） */
+    if (dash) page_sound_update(st, bank_row_visible(pg, st));
 }
 
 /* ---------------------------------------------------------------- TAP --- */

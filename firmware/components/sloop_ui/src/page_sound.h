@@ -4,22 +4,26 @@
  * 主体 = 一个滚动容器 + 13 张自绘卡片（成员表与布局 = sound_layout.h 的纯函数）：选中轨的
  * 全部参数组各占一张卡，卡内每行 4 个槽（140×132，96px 的环）。它作为 PARAM_FEAT_DASHBOARD
  * 挂在参数页框架上——页眉行、FM6 银行行、页级 ± 按钮仍由 page_params.c 建，本模块只管卡片
- * 区。卡片成员、槽的值/锁定/拖动改值在后续任务接入。
+ * 区。槽按上下文解析成存在位图（不存在的槽是空白格），存在的槽显示值、鼓轨上按 drum_ok
+ * 锁定，环带内拖动改值；键盘、折叠与焦点描边在后续任务接入。
  *
  * 坐标：入口收到的 (x, y) 是页面区相对坐标；sound_layout_* 给的是**内容坐标**（原点 = 列 0 /
  * y 0），两者只差「视口左上角 − 滚动量」，换算在 page_sound.c 的一处（content_point）。
+ * console 的矩形/注入入口给的是屏幕绝对坐标 = 页面区坐标 + (0, UI_TAB_BAR_H)。
  *
  * 手势：容器与卡片都不让 LVGL 自己滚（SCROLLABLE/SCROLL_CHAIN/GESTURE_BUBBLE 清掉），滚动
- * 由卡片的事件回调驱动 lv_obj_scroll_by_bounded——这样「环带内按下 = 旋钮、环带外 = 滚动」
+ * 由它们共用的事件回调驱动 lv_obj_scroll_by_bounded——这样「环带内按下 = 旋钮、其余 = 滚动」
  * 的归属在按下那一刻就定了，不经过 LVGL 的滚动判定。
  *
- * 线程：全部入口由 page_params.c 在 LVGL 锁内调用（build/update/tap）或 LVGL 事件回调里跑。
+ * 线程：build/update/tap 与持锁的注入入口由 page_params.c / ui.c 在 LVGL 锁内调用，或在 LVGL
+ * 事件回调里跑；slot_total / slot_info 不取锁（console 任务直读 PSRAM 里的槽状态）。
  */
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "esp_err.h"
 #include "lvgl.h"
 #include "sloop_state.h"
 #include "sloop_ui.h"
@@ -28,11 +32,30 @@
  * 随页面根删除回收，控件指针由紧随的 page_sound_forget 清掉）。视口先按「银行行隐藏」放，
  * 紧随的首拍 update 按选中轨引擎挪位（构建路径不取状态副本）。 */
 lv_obj_t *page_sound_build(lv_obj_t *parent);
-/* 每拍：银行行可见性翻转 ⇒ 挪容器；选中轨/引擎变 ⇒ 重取槽名称并失效重绘。 */
-void page_sound_update(const app_state_t *st);
-/* 页面销毁（组作用域 / 构建失败）：清控件指针与手势态。 */
+/* 每拍：银行行可见性（调用方的谓词，page_params.c 的 bank_row_visible）翻转 ⇒ 挪容器；
+ * 上下文（选中轨/引擎/引擎槽值/ENV SYNC/INSERT TYPE）变 ⇒ 重解析全部槽并整卡重绘；
+ * 否则只刷值变了的槽。 */
+void page_sound_update(const app_state_t *st, bool bank_visible);
+/* 页面销毁（组作用域 / 构建失败）：清控件指针、手势态、存在位图与焦点。 */
 void page_sound_forget(void);
-/* TAP 注入（页面区相对坐标）：命中的卡片标题行 ⇒ SLOOP_TAP_SOUND_CARD{a=卡片}；命中槽
- * 矩形 ⇒ SLOOP_TAP_SOUND_FOCUS{a=卡片 b=槽 v=扁平下标}；视口外/空白处未命中返回 false。
- * 本阶段只判命中，不改任何状态。 */
+/* TAP 注入（页面区相对坐标）：命中的卡片标题行 ⇒ SLOOP_TAP_SOUND_CARD{a=卡片 v=该卡折叠位}；
+ * 命中**存在**槽的矩形 ⇒ 设焦点并回 SLOOP_TAP_SOUND_FOCUS{a=卡片 b=槽 v=扁平下标}；
+ * 视口外/空白处/不存在的槽未命中返回 false。 */
 bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
+
+/* ---- console `UI SOUND …` 的页面层入口（5B-1 Task 3；公共外壳 sloop_ui_sound_* 在 ui.c） ---
+ * 槽下标一律是成员表扁平下标。返回码：页未建 ESP_ERR_INVALID_STATE；下标越界
+ * ESP_ERR_INVALID_ARG；槽不存在（或所在卡片折叠）ESP_ERR_NOT_FOUND。 */
+uint16_t page_sound_slot_total(void); /* 当前上下文存在的槽数；页未建 = 0。无锁 */
+uint16_t page_sound_collapsed(void);  /* 折叠位掩码（一位一张卡）。无锁 */
+/* 逐槽诊断；card/slot/scope/id 对存在的槽总有效，其余字段只对存在的槽写。无锁 */
+esp_err_t page_sound_slot_info(uint16_t flat, uint8_t *card, uint8_t *slot, uint8_t *scope,
+                               uint8_t *id, const char **label, bool *locked, int16_t *value);
+/* 槽矩形（屏幕绝对坐标）；失败时四个输出清零。持锁 */
+esp_err_t page_sound_slot_rect(uint16_t flat, int16_t *x, int16_t *y, int16_t *w, int16_t *h);
+esp_err_t page_sound_scroll_get(int16_t *y, int16_t *max_y); /* 持锁 */
+esp_err_t page_sound_scroll_set(int16_t y);                   /* 钳位 [0, max]。持锁 */
+/* 槽级旋钮注入：合成点 = 槽圆心 + (dx, dy)，走与物理触摸相同的 sound_handle_pressed/pressing
+ * （press = 记锚点不改值；drag = 相对锚点的角度差 → 值差）。ESP_OK = 事件被接受；
+ * NOT_FOUND = 环带外/无锚点（或槽不存在）；NOT_ALLOWED = 锁定槽。*value 回填槽当前值。持锁 */
+esp_err_t page_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press, int16_t *value);

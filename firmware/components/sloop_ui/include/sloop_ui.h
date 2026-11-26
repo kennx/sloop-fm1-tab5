@@ -285,8 +285,8 @@ typedef enum {
                              * CMD_TOOLS）。结果文本由 `ui_tools_status_text` 与屏幕同源给出
                              * （`AGAIN TO CONFIRM` / `PATTERN CLEARED` / `STOP THE SONG FIRST`…）。 */
     SLOOP_TAP_SOUND_FOCUS,   /* SOUND 仪表盘的槽（5B-1）：a=卡片 b=卡内槽 v=成员表扁平下标
-                             * （sound_layout_slot_index）。命中卡片标题行以外、槽矩形以内的点；
-                             * 后续任务接入焦点后只设焦点、不改值。 */
+                             * （sound_layout_slot_index）。命中**存在**槽的矩形：只设焦点、不改值
+                             * （作用域与锁定态由 console 经 sloop_ui_sound_slot_info 取）。 */
     SLOOP_TAP_SOUND_CARD,    /* SOUND 仪表盘的卡片标题行（5B-1）：a=卡片。折叠动作在后续任务。 */
 } sloop_tap_kind_t;
 
@@ -396,6 +396,27 @@ bool sloop_ui_param_slot_locked(uint8_t page, uint8_t chip, uint8_t slot);
  * 旋钮正在显示的名称（"-" = 无控件），locked = 显示 -- 且拒绝编辑。槽不存在回 false。 */
 bool sloop_ui_param_slot_info(uint8_t page, uint8_t chip, uint8_t slot, uint8_t *id,
                               const char **label, bool *locked);
+
+/* Sound 仪表盘（SOUND 页；5B-1 Task 3，逻辑在 page_sound.c）：脚本靠它定位槽、滚动视口并
+ * 注入槽级拖动。槽一律用成员表的扁平下标（卡片 × 卡内槽 ⇄ 扁平下标：
+ * sloop_ui_sound_slot_index）。错误码：UI 未启动或当前页不是仪表盘 = ESP_ERR_INVALID_STATE；
+ * 页对象未建（含诊断期静默）= ESP_ERR_INVALID_STATE；下标越界 = ESP_ERR_INVALID_ARG；
+ * 槽不存在（当前上下文没有这个槽）= ESP_ERR_NOT_FOUND；持锁入口另有 ESP_ERR_TIMEOUT。
+ * 不取锁的入口只读 PSRAM 里的槽状态与单字节当前页，最坏读到相邻拍的解析结果。 */
+bool sloop_ui_sound_dashboard_active(void);                 /* 无锁 */
+uint16_t sloop_ui_sound_slot_index(uint8_t card, uint8_t slot); /* 卡片/卡内槽 → 扁平下标；越界 0xFFFF。无锁、只查表 */
+uint16_t sloop_ui_sound_slot_total(void);                   /* 当前上下文存在的槽数。无锁 */
+uint16_t sloop_ui_sound_collapsed(void);                    /* 折叠位掩码（一位一张卡）。无锁 */
+esp_err_t sloop_ui_sound_slot_info(uint16_t flat, uint8_t *card, uint8_t *slot, uint8_t *scope,
+                                   uint8_t *id, const char **label, bool *locked, int16_t *value); /* 无锁 */
+esp_err_t sloop_ui_sound_slot_rect(uint16_t flat, int16_t *x, int16_t *y, int16_t *w, int16_t *h); /* 持锁；屏幕绝对坐标 */
+esp_err_t sloop_ui_sound_scroll_get(int16_t *y, int16_t *max_y); /* 持锁 */
+esp_err_t sloop_ui_sound_scroll_set(int16_t y);                /* 持锁；钳位 [0, max] */
+/* 槽级旋钮注入（console `UI SOUND KNOB <flat> <press|drag> <dx> <dy>`，dx/dy 相对槽圆心）：
+ * 与 `UI KNOB` 同语义（press 记锚点不改值；drag = 相对锚点的角度差 → 值差），走与物理触摸
+ * 相同的处理路径。ESP_OK = 接受；ESP_ERR_NOT_FOUND = 环带外/无锚点或槽不存在；
+ * ESP_ERR_NOT_ALLOWED = 锁定槽。*value 回填槽当前值（可 NULL）。持锁 */
+esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press, int16_t *value);
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、

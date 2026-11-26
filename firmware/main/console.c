@@ -1244,6 +1244,8 @@ static int param_command(int argc, char **argv)
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
+ * UI SOUND CARD|SCROLL|STATS|KNOB：SOUND 仪表盘的槽定位/滚动/统计/槽级旋钮注入
+ * （5B-1 Task 3，见 ui_sound_command；裸 `UI sound` 仍是切页）。
  * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建当前页
  * 立即重建到失败态（注入当场消费）；已建非当前页回到未建态（注入待命）；未建页挂起
  * 到下一次构建；off 只撤销未消费的注入。
@@ -1393,6 +1395,147 @@ static int ui_lockhold_command(const char *arg)
     return 0;
 }
 
+/* UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>
+ * （5B-1 Task 3）：SOUND 仪表盘的槽定位、滚动、统计与槽级旋钮注入。槽用成员表的扁平下标；
+ * TAP/注入要的矩形是屏幕绝对坐标（含 72px 页签条）。当前页不是仪表盘 `UI ERR sound
+ * (not_dashboard)`、页对象未建 `(not_built)`、参数/下标不合法 `(invalid)`、槽在当前上下文
+ * 不存在（KNOB）`(absent)`。裸 `UI sound` 仍是**切页**、`UI sound CHIP` 仍走 chip 段（本函数
+ * 只在第三个词是上面四个子命令时被调）。 */
+static int ui_sound_err(esp_err_t ret)
+{
+    if (ret == ESP_ERR_TIMEOUT) {
+        printf("UI ERR lock_timeout\n");
+    } else {
+        printf("UI ERR sound (%s)\n", ret == ESP_ERR_INVALID_STATE ? "not_built" : "invalid");
+    }
+    return 1;
+}
+
+static int ui_sound_command(int argc, char **argv)
+{
+    if (sloop_ui_quiesced()) {
+        printf("UI ERR quiesced\n");
+        return 1;
+    }
+    if (!sloop_ui_sound_dashboard_active()) {
+        printf("UI ERR sound (not_dashboard)\n");
+        return 1;
+    }
+
+    if (argc == 3 && strcasecmp(argv[2], "stats") == 0) {
+        int16_t max = 0;
+        esp_err_t ret = sloop_ui_sound_scroll_get(NULL, &max);
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        /* 卡片数 = 槽 0 落在成员表里的最大卡片下标 + 1（越界的卡片回 0xFFFF） */
+        uint32_t cards = 0;
+        while (cards <= UINT8_MAX && sloop_ui_sound_slot_index((uint8_t)cards, 0) != 0xFFFFu) cards++;
+        printf("UI SOUND STATS cards=%u slots=%u scroll_max=%d collapsed=0x%04X\n", (unsigned)cards,
+               (unsigned)sloop_ui_sound_slot_total(), (int)max, (unsigned)sloop_ui_sound_collapsed());
+        return 0;
+    }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "scroll") == 0) {
+        if (argc == 4) {
+            int32_t y = 0;
+            if (!seq_int(argv[3], -100000, 100000, &y)) {
+                printf("用法: UI SOUND SCROLL [<y>]（内容坐标的滚动量，钳位到 [0, max]）\n");
+                return 1;
+            }
+            /* 先夹到 int16 再交给页面层钳位到 [0, max]：越界的大数 = 滚到底/顶 */
+            if (y > INT16_MAX) y = INT16_MAX;
+            if (y < INT16_MIN) y = INT16_MIN;
+            esp_err_t ret = sloop_ui_sound_scroll_set((int16_t)y);
+            if (ret != ESP_OK) return ui_sound_err(ret);
+        }
+        int16_t y = 0, max = 0;
+        esp_err_t ret = sloop_ui_sound_scroll_get(&y, &max);
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        printf("UI SOUND SCROLL y=%d max=%d\n", (int)y, (int)max);
+        return 0;
+    }    if (argc == 6 && strcasecmp(argv[2], "card") == 0 && strcasecmp(argv[4], "slot") == 0) {
+        uint32_t card = 0, slot = 0;
+        if (!eng_uint(argv[3], UINT8_MAX, &card) || !eng_uint(argv[5], UINT8_MAX, &slot)) {
+            printf("UI ERR sound (invalid)\n");
+            return 1;
+        }
+        uint16_t flat = sloop_ui_sound_slot_index((uint8_t)card, (uint8_t)slot);
+        if (flat == 0xFFFFu) {
+            printf("UI ERR sound (invalid)\n");
+            return 1;
+        }
+        uint8_t scope = 0, id = 0;
+        const char *label = "-";
+        bool locked = false;
+        int16_t value = 0;
+        esp_err_t ret = sloop_ui_sound_slot_info(flat, NULL, NULL, &scope, &id, &label, &locked, &value);
+        if (ret == ESP_ERR_NOT_FOUND) {
+            /* 成员表里有、当前上下文不存在的槽：回显占位，不算错误 */
+            printf("UI SOUND SLOT card=%u slot=%u flat=%u present=0 scope=- id=- label=\"-\" "
+                   "locked=0 value=0 x=0 y=0 w=0 h=0\n",
+                   (unsigned)card, (unsigned)slot, (unsigned)flat);
+            return 0;
+        }
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        int16_t x = 0, y = 0, w = 0, h = 0;
+        ret = sloop_ui_sound_slot_rect(flat, &x, &y, &w, &h);
+        if (ret != ESP_OK && ret != ESP_ERR_NOT_FOUND) return ui_sound_err(ret);
+        printf("UI SOUND SLOT card=%u slot=%u flat=%u present=1 scope=%u id=%u label=\"%s\" locked=%u "
+               "value=%d x=%d y=%d w=%d h=%d\n",
+               (unsigned)card, (unsigned)slot, (unsigned)flat, (unsigned)scope, (unsigned)id,
+               label != NULL ? label : "-", (unsigned)locked, (int)value, (int)x, (int)y, (int)w, (int)h);
+        return 0;
+    }
+    if (argc == 7 && strcasecmp(argv[2], "knob") == 0) {
+        /* dx/dy 相对槽圆心，可负；press = 记锚点（不改值），drag = 相对锚点的角度差 → 值差 */
+        char *end = NULL;
+        long flat = strtol(argv[3], &end, 0);
+        bool bad = end == argv[3] || *end != '\0' || flat < 0 || flat > 0xFFFF;
+        bool press = strcasecmp(argv[4], "press") == 0;
+        long dx = 0, dy = 0;
+        if (!bad && (press || strcasecmp(argv[4], "drag") == 0)) {
+            end = NULL;
+            dx = strtol(argv[5], &end, 0);
+            bad = end == argv[5] || *end != '\0' || dx < -1000 || dx > 1000;
+            end = NULL;
+            dy = strtol(argv[6], &end, 0);
+            bad = bad || end == argv[6] || *end != '\0' || dy < -1000 || dy > 1000;
+        } else {
+            bad = true;
+        }
+        if (bad) {
+            printf("用法: UI SOUND KNOB <flat=成员表扁平下标> <press|drag> <dx> <dy>（dx/dy 相对槽圆心）\n");
+            return 1;
+        }
+        /* 先分流「槽不存在」：它与环带外同为 ESP_ERR_NOT_FOUND，但令牌不同 */
+        esp_err_t ret = sloop_ui_sound_slot_info((uint16_t)flat, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+        if (ret == ESP_ERR_NOT_FOUND) {
+            printf("UI ERR sound (absent)\n");
+            return 1;
+        }
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        int16_t value = 0;
+        ret = sloop_ui_sound_test_knob((uint16_t)flat, (int32_t)dx, (int32_t)dy, press, &value);
+        const char *op = press ? "press" : "drag";
+        if (ret == ESP_OK) {
+            printf("UI SOUND KNOB flat=%u %s dx=%ld dy=%ld value=%d\n", (unsigned)flat, op, dx, dy,
+                   (int)value);
+            return 0;
+        }
+        if (ret == ESP_ERR_NOT_FOUND) {
+            printf("UI SOUND KNOB flat=%u %s dx=%ld dy=%ld ignored (ring band)\n", (unsigned)flat, op,
+                   dx, dy);
+            return 1;
+        }
+        if (ret == ESP_ERR_NOT_ALLOWED) {
+            printf("UI SOUND KNOB flat=%u %s dx=%ld dy=%ld ignored (locked)\n", (unsigned)flat, op, dx,
+                   dy);
+            return 1;
+        }
+        return ui_sound_err(ret);
+    }
+    printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>\n");
+    return 1;
+}
+
 static int ui_command(int argc, char **argv)
 {
     if (argc == 1) {
@@ -1405,6 +1548,12 @@ static int ui_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
+    /* UI SOUND CARD|SCROLL|STATS|KNOB …：仪表盘子命令（裸 `UI sound` / `UI sound CHIP` 不走这里） */
+    if (argc >= 3 && strcasecmp(argv[1], "sound") == 0 &&
+        (strcasecmp(argv[2], "card") == 0 || strcasecmp(argv[2], "scroll") == 0 ||
+         strcasecmp(argv[2], "stats") == 0 || strcasecmp(argv[2], "knob") == 0)) {
+        return ui_sound_command(argc, argv);
+    }
     if (argc == 6 && strcasecmp(argv[1], "knob") == 0) {
         /* UI KNOB <slot> PRESS|DRAG <dx> <dy>：向当前参数页的旋钮派发合成指针事件
          * （走物理触摸同一路径，ADR-008 §8.2/§8.5）。dx/dy 相对旋钮中心，可负。 */
@@ -2372,13 +2521,20 @@ static int tap_command(int argc, char **argv)
         }
         break;
     }
-    case SLOOP_TAP_SOUND_FOCUS:
-        /* 5B-1 骨架：只回命中；焦点/值字段在后续任务补全 */
-        printf("TAP %ld,%ld page=%u -> SOUND focus card=%u slot=%u flat=%d\n", x, y, page,
-               (unsigned)r.a, (unsigned)r.b, (int)r.v);
+    case SLOOP_TAP_SOUND_FOCUS: {
+        /* 命中的是**存在**的槽（不存在的槽 miss）：只设焦点、不发命令。命令名/锁定态取槽
+         * 当前的作用域与鼓轨逐槽规则（与屏幕同源），表示这个槽拖动时会走哪条状态层命令 */
+        uint8_t scope = 0;
+        bool locked = false;
+        (void)sloop_ui_sound_slot_info((uint16_t)r.v, NULL, NULL, &scope, NULL, NULL, &locked, NULL);
+        printf("TAP %ld,%ld page=%u -> SOUND focus card=%u slot=%u flat=%d CMD_%s%s\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b, (int)r.v,
+               scope == SLOOP_DESC_GLOBAL ? "SET_GLOBAL" : "SET_PARAM", locked ? " locked=1" : "");
         break;
+    }
     case SLOOP_TAP_SOUND_CARD:
-        printf("TAP %ld,%ld page=%u -> SOUND card=%u\n", x, y, page, (unsigned)r.a);
+        printf("TAP %ld,%ld page=%u -> SOUND card=%u collapsed=%u\n", x, y, page, (unsigned)r.a,
+               (unsigned)r.v);
         break;
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
