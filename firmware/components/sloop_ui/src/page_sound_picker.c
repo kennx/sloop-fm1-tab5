@@ -80,9 +80,9 @@ static EXT_RAM_BSS_ATTR char s_text[32];
 
 /* 提示行（R13 的规则写在这里；固件只带 Montserrat：必须全 ASCII）——引擎 / 预置 / kit */
 static const char *const k_hints[4] = {
-    "Left/Right or Up/Down: move | ENTER or tap a row: use engine | ESC: close",
+    "Left/Right or Up/Down: move highlight | ENTER or tap a row: use the highlighted engine | ESC: close",
     "Up/Down: move | ENTER or tap a row: load preset | Chip: preview, again: switch engine | ESC: close",
-    "Up/Down: move | ENTER or tap a row: use kit | ESC: close",
+    "Up/Down: move highlight | ENTER or tap a row: use the highlighted kit | ESC: close",
     /* row 1 且 chip 高亮 ≠ 当前引擎（R16 只读预览） */
     "Preview: rows are read-only | ENTER or tap a row: nothing | Left/Right + ENTER or tap chip again: switch engine | ESC: close",
 };
@@ -771,9 +771,10 @@ bool page_sound_picker_confirm(void)
 {
     pick_view_t v;
     if (!view_get(&v)) return false;
-    /* R16：预览别的引擎时列表只读——焦点在列表上的 ENTER 什么都不做（面板保持打开）；只有焦点在 chip 行
-     * （←/→ 之后）ENTER 才确认高亮的 chip = 换引擎 */
-    if (!v.drum && v.chip_hl != v.engine) return v.zone == ZONE_CHIPS ? pick_commit(0u, v.chip_hl, NULL) : false;
+    /* R16（只对 row 1 的预置列表）：chip 高亮 ≠ 当前引擎时列表只读——焦点在列表上的 ENTER 什么都不做（面板
+     * 保持打开）；只有焦点在 chip 行（←/→ 之后）ENTER 才确认高亮的 chip = 换引擎。row 0（引擎列表 / 鼓轨
+     * kit 列表）没有预览：列表焦点上的 ENTER 就是选中高亮的那一项 */
+    if (v.row == 1u && v.chip_hl != v.engine) return v.zone == ZONE_CHIPS ? pick_commit(0u, v.chip_hl, NULL) : false;
     if (v.zone == ZONE_CHIPS && !v.drum) return pick_commit(0u, v.chip_hl, NULL);
     return list_select(v.list_hl, NULL);
 }

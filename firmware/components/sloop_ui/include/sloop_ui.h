@@ -450,7 +450,7 @@ esp_err_t sloop_ui_sound_card_toggle(uint8_t card);
 /* Sound 选择器（5B-1 Task 6，逻辑在 page_sound_picker.c）：点页眉行名字区（TAP 回
  * SLOOP_TAP_SOUND_PICK_OPEN）打开的引擎/预置/鼓 kit 面板；chip 只高亮，列表行选择各发一条
  * CMD_SET_ENGINE / CMD_SET_PRESET / CMD_SET_PARAM（kit）并关闭。下面三个**不取 LVGL 锁**，给键盘
- * 路由（输入任务）用：active = 面板打开；confirm = ENTER（焦点在列表 ⇒ 选中该行，预览态不动作；
+ * 路由（输入任务）用：active = 面板打开；confirm = ENTER（焦点在列表 ⇒ 选中该行——row 1 预览态不动作；
  * 焦点在 chip 行 ⇒ 换引擎）；cancel = ESC（只关面板，不切页）。选择器打开时 ←/→/↑/↓ 仍走
  * sloop_ui_param_focus_move / sloop_ui_param_adjust，由页面层转给选择器。 */
 bool sloop_ui_sound_picker_active(void);

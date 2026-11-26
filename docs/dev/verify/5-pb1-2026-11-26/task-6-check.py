@@ -12,6 +12,7 @@ Usage:
 PNG 没有人眼读（本会话无图像输入能力）：每张截屏做像素核对（面板边框 / chip 行 / 高亮条 /
 当前项强调色文字 / 提示行墨迹落在面板内）。
 
+修复轮 3：row 0 的列表焦点（↓ / 页级 ± 之后）ENTER = 选中高亮的引擎（预览规则只对 row 1）。
 修复轮 2：预览态、焦点在列表时 ENTER 不动作（→ 回 chip 行后 ENTER 才换引擎）、预览态提示行换文案、
 `UI SOUND PICK` 只认四种形式、裸 release 不算点击。
 
@@ -363,6 +364,30 @@ def main():
         ck.ok(eng_rows(c)[0][1] == "0", "确认当前项不下发：轨 0 引擎仍是 ANALOG")
         ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "确认当前项后选择器关闭")
 
+        # ---- 修复轮 3：row 0 的列表焦点（↓ / 页级 ± 之后）ENTER = 选中高亮的引擎（上一轮被预览规则误拒）----
+        open_row(c, 160)
+        key(c, KEY_DOWN)
+        p = pick(c)
+        ck.ok(p is not None and p.groups() == ("0", "0", "1", "12"), f"row 0 ↓：{p.group(0) if p else '无'}（高亮 DIGITAL）")
+        key(c, KEY_ENTER)
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"row 0 ↓ + ENTER ⇒ 用高亮的引擎：{' '.join(rows[0][:3])}")
+        ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "ENTER 后选择器关闭")
+        open_row(c, 160)
+        rect, t = tap_row(c, 0)
+        mp = grab(t, RE_TAP_PICK, "pick engine")
+        ck.ok(mp.group(5) == "0" and mp.group(6) == "CMD_SET_ENGINE" and eng_rows(c)[0][1] == "0", f"还原：{mp.group(0)}")
+        open_row(c, 160)
+        t = c.cmd("TAP 1136 132")  # 页级 −：列表高亮下一行（0 → 1；+ 才是上一行）
+        mp = grab(t, RE_TAP_PICK, "pick engine highlight")
+        ck.ok(mp.group(4) == "engine" and mp.group(5) == "1" and mp.group(6) == "highlight", f"row 0 页级 −：{mp.group(0)}")
+        key(c, KEY_ENTER)
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "1", f"row 0 页级 ± + ENTER ⇒ 用高亮的引擎：{' '.join(rows[0][:3])}")
+        open_row(c, 160)
+        tap_row(c, 0)
+        ck.ok(eng_rows(c)[0][1] == "0", "还原：轨 0 引擎回 ANALOG")
+
         # ---- preset：row 1 = 当前引擎（ANALOG，22 个）的预置列表 ----
         t = open_row(c, 512)
         mo = grab(t, RE_TAP_OPEN, "pick open row 1")
@@ -610,7 +635,8 @@ def main():
         key(c, KEY_DOWN)
         key(c, KEY_ENTER)
         par = grab(c.cmd(f"PARAM {P_E0}"), RE_PARAM, "PARAM 63")
-        ck.ok(par.group(1) == "3", f"鼓轨 ↓ ↓ ENTER ⇒ P_E0 = 3：{par.group(0)}")
+        ck.ok(par.group(1) == "3", f"鼓轨 ↓ ↓ ENTER ⇒ 用高亮的 kit，P_E0 = 3：{par.group(0)}")
+        ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "鼓轨 ENTER 后选择器关闭")
         for _ in range(3):  # 还原 kit：KIT 行 − ×3
             c.cmd("TAP 37 92")
         par = grab(c.cmd(f"PARAM {P_E0}"), RE_PARAM, "PARAM 63")

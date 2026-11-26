@@ -7,8 +7,9 @@
  *
  * 选择规则（TAP、触摸与键盘同一组动作函数）：chip 只移动高亮/预览，不下发；再点一次已高亮的 chip 或
  * 在 chip 行上按 ENTER ⇒ CMD_SET_ENGINE 并关闭。列表行 = 直接选择：引擎行 / 鼓 kit 行 / 预置行各发一条
- * 命令并关闭；预置行只对**当前引擎**可选——chip 高亮 ≠ 当前引擎时列表只读（预览：点行不下发，ENTER =
- * 焦点在 chip 行时 ENTER 确认 chip = 换引擎，焦点在列表时 ENTER 不动作，current 也不标）；确认的就是当前项时不下发（免得误触 ENTER 把当前声音复位；
+ * 命令并关闭；预置行（row 1）只对**当前引擎**可选——chip 高亮 ≠ 当前引擎时列表只读（预览：点行不动作；
+ * 焦点在 chip 行时 ENTER 确认 chip = 换引擎，焦点在列表时 ENTER 不动作，current 也不标；row 0 没有预览：
+ * 点行或列表焦点上的 ENTER = 用高亮的引擎 / kit）；确认的就是当前项时不下发（免得误触 ENTER 把当前声音复位；
  * 载入用户预置后工厂预置 0 不算当前项）。←/→ 移动 chip 高亮，↑/↓ 移动列表高亮（row 0 两者是同一个
  * 引擎下标），ENTER 确认最后移动的那一行，ESC 关闭。选中轨或它的声音（引擎/预置/kit/用户预置）一变，
  * page_sound_update 就关掉选择器；发命令前再比对一次打开时的上下文。
@@ -42,8 +43,8 @@ void page_sound_picker_cancel(void);
 bool page_sound_picker_active(void); /* 无锁 */
 
 /* 键盘（无锁）：dx = chip 高亮 ±1（环绕；row 1 换预览的引擎，row 0 与列表高亮同一个下标；鼓轨忽略），
- * dy = 列表高亮 ±1（环绕）。confirm = ENTER：焦点在列表 ⇒ 选中该行（预览别的引擎时 = 不动作）；
- * 焦点在 chip 行 ⇒ 确认高亮的 chip = 换引擎。发了命令回 true。 */
+ * dy = 列表高亮 ±1（环绕）。confirm = ENTER：焦点在列表 ⇒ 选中该行（row 1 预览别的引擎时 = 不动作；
+ * row 0 = 用高亮的引擎 / kit）；焦点在 chip 行 ⇒ 确认高亮的 chip = 换引擎。发了命令回 true。 */
 void page_sound_picker_move(int8_t dx, int8_t dy);
 bool page_sound_picker_confirm(void);
 
