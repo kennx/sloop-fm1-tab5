@@ -1,0 +1,12 @@
+# fm1-nonmidi-watch 2026-11-26 19:07:49 port=/dev/ttyACM0
+     0.0s FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=164 tx=158 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+    34.2s E (189724) USB HOST: EP command error: ESP_ERR_INVALID_STATE
+    34.2s E (189724) USB HOST: Enqueue URB error: ESP_ERR_INVALID_STATE
+    34.2s 12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+    34.2s W (189724) usb_fm1: Bulk IN 重提交失败: ESP_ERR_INVALID_STATE
+    36.2s FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=198 tx=192 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+    43.6s I (199144) usb_fm1: 新设备 addr=3 VID=0x0930 PID=0x6545 class=0x00
+    43.6s I (199144) usb_fm1:   接口 0 alt=0 class=0x08 subclass=0x06 protocol=0x50 eps=2
+    43.6s W (199144) usb_fm1: 设备 addr=3 无 MIDI 接口
+    44.4s FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=198 tx=192 drops=0 open_fail=1 watch=0 info=no proto=- version=- need_upgrade=0
+    66.3s # RESULT open_fail>=1 seen; exit 0

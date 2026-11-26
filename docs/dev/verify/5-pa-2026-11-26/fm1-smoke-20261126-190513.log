@@ -1,0 +1,259 @@
+# [fm1-smoke] port=/dev/ttyACM0 log=firmware/build/verify/fm1-smoke-20261126-190513.log
+# [fm1-smoke] firmware App version:      715fdae
+# [fm1-smoke] 1 link
+FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=6 tx=6 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+# [fm1-smoke] 2 ready
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=6 tx=6 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+# [fm1-smoke] 2 info
+sloop>  FM1 INFO
+FM1 INFO version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12 engines=ANALOG|DIGITAL|PHASE|LOFI|SAMPLE|VOICE|TRIO|WHEEL|GRAIN|FM6|PHYS|NOISE
+# [fm1-smoke] 3 ping1
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] 3 ping2
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] 3 ping3
+sloop>  FM1 PING
+FM1 PING ms=2
+# [fm1-smoke] 3 ping4
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] 3 ping5
+sloop>  FM1 PING
+FM1 PING ms=2
+# [fm1-smoke] 3 ping6
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] 3 ping7
+sloop>  FM1 PING
+FM1 PING ms=2
+# [fm1-smoke] 3 ping8
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] 3 ping9
+sloop>  FM1 PING
+FM1 PING ms=2
+# [fm1-smoke] 3 ping10
+sloop>  FM1 PING
+FM1 PING ms=1
+# [fm1-smoke] PING ×10 全部成功：ms 中位数 1（1–2）
+# [fm1-smoke] 4 get_orig
+sloop>  FM1 GET 0 1
+FM1 GET scope=0 id=1 value=0
+# [fm1-smoke] 4 set_tmp
+sloop>  FM1 SET 0 1 1
+FM1 SET scope=0 id=1 value=1
+# [fm1-smoke] 4 get_tmp
+sloop>  FM1 GET 0 1
+FM1 GET scope=0 id=1 value=1
+# [fm1-smoke] 4 set_restore
+sloop>  FM1 SET 0 1 0
+FM1 SET scope=0 id=1 value=0
+# [fm1-smoke] 4 get_restore
+sloop>  FM1 GET 0 1
+FM1 GET scope=0 id=1 value=0
+# [fm1-smoke] ATK 已还原并读回确认：0
+# [fm1-smoke] 5 events_clear
+sloop>  FM1 EVENTS CLEAR
+FM1 EVENTS cleared
+# [fm1-smoke] 5 events1
+sloop>  FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+# [fm1-smoke] >>> 请在 FM-1 上拧一个声音参数旋钮（不要切换引擎或预设）
+sloop>  FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+sloop>  FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+sloop>  FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+sloop>  FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=1 changed=0 reload=1 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=9 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=2 changed=0 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=4 id=10 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=3 changed=1 reload=2 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=23 scope=1 id=0 value=81
+# [fm1-smoke] 第一次推送：changed=1 cmd=23 scope=1 id=0 value=81
+# [fm1-smoke] 静置 10s（会话层每秒 PING 保活）
+# [fm1-smoke] 6 events2
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+# [fm1-smoke] >>> 请在 FM-1 上再拧一次声音参数旋钮（不要切换引擎或预置）
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=4 changed=1 reload=3 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=0 id=15 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=5 changed=1 reload=4 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=2 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=5 changed=1 reload=4 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=24 scope=2 id=2 value=0
+sloop>  FM1 EVENTS
+FM1 EVENTS total=6 changed=2 reload=4 step_changed=0 track_changed=0 timeouts=0 stray=0 last=cmd=23 scope=1 id=0 value=80
+# [fm1-smoke] 第二次推送：2 cmd=23 scope=1 id=0 value=80
+# [fm1-smoke] 7 status_gone
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=85 tx=79 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+# [fm1-smoke] >>> 请拔掉 FM-1
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=86 tx=80 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=87 tx=81 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=88 tx=82 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=89 tx=83 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=90 tx=84 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+sloop>  W (72404) usb_fm1: Bulk IN 出错 status=1（连续第 1/3 次）
+E (72404) USB HOST: EP command error: ESP_ERR_INVALID_STATE
+E (72404) USB HOST: Enqueue URB error: ESP_ERR_INVALID_STATE
+W (72404) usb_fm1: Bulk IN 重提交失败: ESP_ERR_INVALID_STATE
+I (72404) usb_fm1: 设备已清理（rx/tx 计数保留）
+FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+# [fm1-smoke] 7 info_gone
+sloop>  FM1 INFO
+FM1 INFO ERR no_link
+# [fm1-smoke] 7 ping_gone1
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 PING
+FM1 PING ERR no_link
+# [fm1-smoke] 7 ping_gone2
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 PING
+FM1 PING ERR no_link
+# [fm1-smoke] 7 ping_gone3
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 PING
+FM1 PING ERR no_link
+# [fm1-smoke] 7 ping_gone4
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 PING
+FM1 PING ERR no_link
+# [fm1-smoke] 7 ping_gone5
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 PING
+FM1 PING ERR no_link
+# [fm1-smoke] 拔线后连发 5 次 FM1 PING：每次都在 1s 内得到回复
+# [fm1-smoke] 7 status_back
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+# [fm1-smoke] >>> 请重新插上
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=91 tx=85 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+sloop>  I (86194) usb_fm1: 新设备 addr=2 VID=0x1209 PID=0x0001 class=0x00
+I (86194) usb_fm1:   接口 0 alt=0 class=0x01 subclass=0x01 protocol=0x00 eps=0
+I (86194) usb_fm1:   接口 1 alt=0 class=0x01 subclass=0x03 protocol=0x00 eps=2
+I (86194) usb_fm1:   接口 2 alt=0 class=0x01 subclass=0x02 protocol=0x00 eps=0
+I (86194) usb_fm1:   接口 2 alt=1 class=0x01 subclass=0x02 protocol=0x00 eps=1
+I (86204) usb_fm1: MIDI Streaming 接口 1 就绪: ep_in=0x81 mps=64 ep_out=0x01 mps=64 in_buf=256 字节, internal_free 73155 -> 72775
+I (86204) fm1_session: INFO 完成: version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12
+I (86204) fm1_session: WATCH 完成: on=3
+FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=93 tx=87 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+# [fm1-smoke] 7 info_back
+sloop>  FM1 INFO
+FM1 INFO version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12 engines=ANALOG|DIGITAL|PHASE|LOFI|SAMPLE|VOICE|TRIO|WHEEL|GRAIN|FM6|PHYS|NOISE
+# [fm1-smoke] 7 ping_back
+sloop>  FM1 PING
+FM1 PING ms=1
+FM1 SMOKE PASS 7/7
