@@ -339,3 +339,43 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（323s）
 
 手指滚动/点击未在真机验证（滚动方向只有 LVGL 源码证据）；PNG 人眼未读；十条注入场景与截屏矩阵未跑（同 §10 第 7 条）；
 换轨窗口的批写测试：`↑` 那条有区分力（窗外会写、窗内不写），拖动那条仍只有「被拒 + 未改写」。
+
+---
+
+## 12. Task 4 修复轮 2（复审：R12 的全折叠条款；固件 `fc59cb7`，2026-11-27）
+
+> 复审确认修复轮 1 的各项都已处理，只剩 R12 的一个条款没实现、且测试被放宽成了「某个存在的槽」。本节读数都在
+> `fc59cb7` 上取（boot 自报 `App version:      fc59cb7-dirty`：`-dirty` = 工作树里未提交的 docs，
+> `git diff fc59cb7 -- firmware scripts third_party tools` 为空）。
+
+| 评审项 | 改动 |
+|---|---|
+| R12 全折叠条款 | `focus_resolve`：找不到任何可聚焦的槽时，焦点槽仍存在 ⇒ **保持**（`next` 维持 `f`）；只有 `!present_bit(f)` 才 `sound_layout_first_present`。修复轮 1 的版本在这里无条件落到 flat 0 |
+| 精确断言 | `task-4-check.py`：焦点 47（card 6）→ 先折其它 12 张（card 6 仍开 ⇒ 焦点不动）→ 最后折 card 6 ⇒ `UI SOUND FOCUS` **仍是 47**；`↑/↓` 不写；`TAP +` ⇒ `PARAM slot=47 locked`。另加一条「全折叠且焦点槽已不存在 ⇒ 首个存在槽」（焦点设到 37 后换引擎让它消失 ⇒ `flat=0`） |
+| 文档 | `console-and-injection.md`：去掉「或所在卡片被折叠）由 UI 拍」的多余右括号；`TAP` 的 `−/+` 说明补「`PARAM slot=<n> locked` 也是『所在卡片折叠』『上下文已变』两种拒绝的回显」；`firmware-map.md` 同步措辞 |
+| `hint_text_is_ascii` | 字面量含反斜杠（`\xNN` / `\uNNNN` 转义在源码里是 ASCII、展开后不是）一律判失败 |
+
+```
+scripts/knob-test.sh / sound-test.sh   → 17 passed, 0 failed / 4 passed, 0 failed
+scripts/build.sh ×2                    → rc=0 / rc=0，编译 0 警告 0 错误（第一遍只有 §5.5 豁免的那对 CMake 提示）
+scripts/flash.sh                       → rc=0，Hash of data verified ×3
+I (7756) sloop_ui: 页面构建 page=SOUND(6) 池增量=7312B 预算=8704B 池剩余=40984B 耗时=11ms
+UI MEM page id=6 title=SOUND state=built est=8704 delta=7312 build_ms=11
+ENG MEM internal_free=72827 internal_min=71836 …  → 72759 / internal_min=71808（差 68B）
+
+其余 12 张折叠、card 6 仍开 ⇒ 焦点不动：UI SOUND FOCUS flat=47 card=6 slot=0 label="DST"
+全部折叠 ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=0 collapsed=0x1FFF；焦点保持不变：UI SOUND FOCUS flat=47 card=6 slot=0 label="DST"（折叠前 47）
+全折叠时 ↑/↓ 不写（四轨行不变）；TAP 1224,132 page=6 -> PARAM slot=47 locked (page or slot N/A)
+全折叠时把焦点设进 card 4 ⇒ 保持：UI SOUND FOCUS flat=37 card=4 slot=8 label="TYPE"
+焦点槽随引擎消失（全折叠）⇒ 落到首个存在槽：UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+全部展开 ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000；焦点不变 flat=0
+提示行字形：连通域 88 个、最高 14px、占位框 0 个；同一检查在修复前截屏上报出占位框 4 个（最高 16px）
+# [check] PASS 90/90
+python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
+# [selftest-heap] run1: before=72963 after=72703 delta=260 result=PASS cases=182/182 identical=182
+# [selftest-heap] run2: before=72703 after=72659 delta=44 result=PASS cases=182/182 identical=182
+```
+
+还原：收尾硬复位后 `sel=1`、四轨 `engine=0 preset=0 level=104`、`STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60`、
+`zoom=0 dirty=0`、`autosave_hash=02C79E5A autosave_writes=0`；自检堆之后再硬复位一次读数相同。池 delta 7,312B（est 8,704 未抬）。
+证据：`task-4-fix2-{build-1,build-2,flash,check,knob-test,sound-test,selftest-heap,selftest-heap-transcript}.log`、`task-4-fix2-check.out`、`task-4-fix2-sound-hint.png`。
