@@ -26,4 +26,4 @@ DaisySP / Mutable Rings 物理建模代码的 MIT notice 保留在 `firmware/src
 
 - `LICENSE`：GPL-3.0 全文；上游 `NOTICE.md` 明示为 **GPL-3.0-only**（"GNU General Public License v3.0 only"），多数源码文件头亦标 `SPDX-License-Identifier: GPL-3.0-only`。
 - `NOTICE.md`：上游致谢——FM6 算法表取自 msfa（Apache-2.0，经 Dexed 与 Felucca）；启动图标是 SLOOP 图标的矢量转换，上游声明该图标**没有单独许可**、复用前须先与作者确认（本副本只读参考，不复用该图标）。
-- `fonts/OFL.txt`：JetBrains Mono 的 SIL OFL 1.1 许可文本；字体数据 `fonts/JetBrainsMono.ttf` 随副本入库（`android/app/src/main/res/font/jetbrains_mono.ttf` 是同一文件的另一份拷贝）。当前**未编入固件**；阶段 5B 若把该字体位图化编入固件，届时在此补记。
+- `fonts/OFL.txt`：JetBrains Mono 的 SIL OFL 1.1 许可文本；字体数据 `fonts/JetBrainsMono.ttf` 随副本入库（`android/app/src/main/res/font/jetbrains_mono.ttf` 是同一文件的另一份拷贝）。当前**未编入固件**；阶段 5F 若把该字体位图化编入固件，届时在此补记。
