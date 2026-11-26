@@ -10,9 +10,9 @@
  * LV_OBJ_FLAG_HIDDEN；**离开组时销毁源组全部已建页**（含原当前页），于是跨组
  * 切换的峰值 = 源组已建 Σ + 目标页 est（瞬态，由 ADR-005 §5 的不变量覆盖），
  * 稳态只保留一个组的页面。PLAY（page_play.c）/ TRACKS（page_tracks.c）/
- * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页
- * SOUND|MOD|SCALE|VOICE（EDIT 组）与 MIX 组的 GLOBAL|FX（page_params.c + knob.c，
- * 布局表 page_layout.c；MOD/SCALE/VOICE 是 chip 页，P4-F Task 4）/
+ * STEP（page_step.c）/ TRANSPORT（page_transport.c）/ 参数页 SOUND（EDIT 组；
+ * page_params.c + knob.c + 5B-1 的卡片仪表盘 page_sound.c，布局表 page_layout.c——原
+ * MOD/SCALE/VOICE/GLOBAL/FX 五张族页的参数都在仪表盘卡片里）/
  * SONG（page_song.c，P4-C Task 11）/ DSYN（page_dsyn.c，P4-D Task 9）/ FM6P
  * （page_fm6p.c，P4-D Task 10）/ FILE 组 PROJECTS|PRESETS（page_projects.c /
  * page_presets.c，P4-B Task 12）/ SYSTEM（page_system.c，P4-E Task 6）都在组表
@@ -116,7 +116,7 @@ static const ui_page_t k_builtin_pages[] = {
     {APP_PAGE_DSYN, "DSYN", page_dsyn_build, page_dsyn_update, 7168},
     {APP_PAGE_FM6P, "FM6P", page_fm6p_build, page_fm6p_update, 7168},
     {APP_PAGE_SYSTEM, "SYSTEM", page_system_build, page_system_update, 10240},
-    /* TOOLS（P4-F Task 6，MIX 组第 3 张子签）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
+    /* TOOLS（P4-F Task 6 进 MIX；5B-1 起是该组唯一页）：状态行 + 3 chip + 3 说明 + 提示共 8 个单对象
      * label，实测 delta 2,568–2,732B（≈320B/对象）。est = 实测 +10% 上取整到 512 的常规档
      * 3,584（ADR-008 预算表；控制器的 7,168 是上限）。 */
     {APP_PAGE_TOOLS, "TOOLS", page_tools_build, page_tools_update, 3584},
@@ -604,8 +604,8 @@ static bool create_tab_bar(void)
         s_group_labels[g] = btn; /* 单对象：文本色与底色落在同一 label 上 */
     }
 
-    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大的组 EDIT 4 页，
-     * MIX/SYNTH 3 页） */
+    /* 下行子签：固定 UI_GROUP_MAX 槽，标签/位置按当前组刷新（最大的组 SYNTH 3 页；
+     * EDIT/MIX 自 5B-1 起单页、子行留空） */
     for (uint8_t i = 0; i < UI_GROUP_MAX; i++) {
         lv_obj_t *btn = make_tab_button(bar, UI_SUB_W, UI_SUB_H, sub_clicked_cb,
                                         (void *)(uintptr_t)i);
@@ -674,7 +674,7 @@ static void register_builtin_pages(void)
                      esp_err_to_name(ret));
         }
     }
-    /* 参数页（GLOBAL/FX/SOUND/SAMPLE + chip 页 MOD/SCALE/VOICE）：布局表与注册表
+    /* 参数页（SOUND/SAMPLE；5B-1 起族页退役）：布局表与注册表
      * 条目同源（page_layout.c 的 X 宏表，注册胶水在 page_params.c）。注册顺序只决定
      * `UI MEM` 的行序；页签/`TAB` 顺序由组表 k_groups[] 决定 */
     esp_err_t ret = page_layout_register();

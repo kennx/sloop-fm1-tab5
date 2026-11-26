@@ -1258,7 +1258,8 @@ static const char *const k_page_names[APP_STATE_PAGES] = {
     /* SYNTH 组（P4-D Task 8：SAMPLE 随组表移入；DSYN 是 Task 9 的实体页，
      * FM6P 由 Task 10 换成实体页） */
     "dsyn", "fm6p", "system",
-    /* EDIT 组的 chip 页（P4-F Task 4）：MOD / SCALE / VOICE，id 追加在最后 */
+    /* 5B-1 退役的族页 MOD / SCALE / VOICE（原 EDIT 组 chip 页，P4-F Task 4）：不注册，
+     * `UI <页名>` 回 not_registered；页名保留让 id 与日志照旧 */
     "mod", "scale", "voice",
     /* TOOLS（P4-F Task 6）：MIX 组第 3 张子签 */
     "tools",
@@ -1691,7 +1692,7 @@ static int ui_command(int argc, char **argv)
             return 1;
         }
         if (!sloop_ui_param_page((uint8_t)page)) {
-            /* 参数页 = 布局表里的 7 页（GLOBAL/FX/SOUND/SAMPLE + MOD/SCALE/VOICE，page_layout.c）；
+            /* 参数页 = 布局表里的 2 页（SOUND/SAMPLE，page_layout.c）；
              * FILE 组两页（PROJECTS/PRESETS）不是参数页，旋钮注入不适用。 */
             printf("UI ERR not_params\n");
             return 1;
@@ -1871,13 +1872,13 @@ static int ui_command(int argc, char **argv)
                (unsigned)sloop_ui_fm6p_page_get());
         return 0;
     }
-    /* UI <参数页名> CHIP [<n>]：参数页 chip 框架的选择器 + 逐槽诊断（P4-F Task 4；
-     * MOD/SCALE/VOICE 是 chip 页，Task 5 的 FX/GLOBAL 同一入口）。与页面 chip 行共用页内
-     * UI 局部态；写入口在 LVGL 锁内立即重配刷新（零分配）。条件 chip 在当前上下文隐藏
-     * （如非 ANALOG 轨上的 FILTER）回 `UI ERR chip (hidden)` 且不改选择。旧式整页
-     * （SOUND/SAMPLE）没有 chip 行：只读（`CHIP <n>` 回 `UI ERR chip`），
-     * 逐槽行照打（鼓轨逐槽规则的机读口）。裸 `UI mod` 仍是**切页**（页名表优先，见本
-     * 函数末尾的 argc==2 循环）。 */
+    /* UI <参数页名> CHIP [<n>]：参数页 chip 框架的选择器 + 逐槽诊断（P4-F Task 4；5B-1
+     * 退役族页后没有 chip 页，入口只剩只读诊断）。与页面 chip 行共用页内 UI 局部态；写
+     * 入口在 LVGL 锁内立即重配刷新（零分配）。条件 chip 在当前上下文隐藏（如非 ANALOG 轨上
+     * 的 FILTER）回 `UI ERR chip (hidden)` 且不改选择。旧式整页（SAMPLE）没有 chip 行：
+     * 只读（`CHIP <n>` 回 `UI ERR chip`），逐槽行照打（鼓轨逐槽规则的机读口）；SOUND 仪表盘
+     * 恒回 `chip=255` 且无逐槽行（卡片槽的机读口是 `UI SOUND CARD/SLOT`）。裸 `UI <页名>`
+     * 仍是**切页**（页名表优先，见本函数末尾的 argc==2 循环；退役页名回 not_registered）。 */
     {
         uint8_t chip_page = 0;
         if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "chip") == 0 &&

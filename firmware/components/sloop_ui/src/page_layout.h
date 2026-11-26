@@ -5,7 +5,9 @@
  * 参照（ENV/LFO/FX/GLOBAL/MASTER…），本表按 8 槽重新策展（映射而非逐像素复刻）。
  * 槽位 {scope, engine, id, drum_ok} 直接喂给 sloop_core_desc / sloop_core_desc_track_live
  * （描述符单一来源）与状态层参数命令；页 id/title/est 是页面注册表条目（ui_page_t）的
- * 元数据。槽表的权威来源 = docs/design/012-feature-parity-checklist.md §3。
+ * 元数据。槽表的权威来源 = docs/design/012-feature-parity-checklist.md §3（5B-1 起全局/
+ * 效果/每轨族参数的槽位表在 sound_layout.h，由 SOUND 仪表盘的卡片承载；本表只剩 SOUND
+ * 与 SAMPLE 两页）。
  *
  * 本头文件与 page_layout.c **不含 LVGL**：纯数据 + 纯规则，host 单测（scripts/knob-test.sh）
  * 与固件同源编译。注册表胶水（build/update 包装、ui_page_t 条目）在 page_params.c。
@@ -21,11 +23,12 @@
 #include "sloop_state.h"
 
 #define PARAM_PAGE_SLOTS 8
-/* 每页 chip 数上限 = MOD 页（ENV / ENV DEST / LFO / LFO 2 / LFO DEST） */
+/* 每页 chip 数上限。表内两页都是无名整页（只用 chips[0]）；5B-1 退役 MOD/SCALE/VOICE/
+ * GLOBAL/FX 后没有 chip 页，多 chip 槽位与下面两条规则（条件 chip、鼓轨逐槽 drum_ok）
+ * 留作框架——chip 行的建控件/TAP/console `UI <page> CHIP` 路径仍在 page_params.c。 */
 #define PARAM_PAGE_CHIPS 5
 
-/* 条件 chip（P4-F Task 4）：chip 只在谓词成立时出现（隐藏时不占 chip 行、不参与
- * 生效 chip 的下标解析）。 */
+/* 条件 chip：chip 只在谓词成立时出现（隐藏时不占 chip 行、不参与生效 chip 的下标解析）。 */
 typedef enum {
     PARAM_CHIP_ALWAYS = 0,
     PARAM_CHIP_WHEN_ANALOG, /* 仅选中轨是 ANALOG 引擎（0）的合成轨（上游 page_shown） */
@@ -70,9 +73,9 @@ typedef struct {
                                    * 区——**没有** 8 槽旋钮与 chip 行；页眉行、银行行、± 按钮仍由
                                    * page_params.c 建（按钮下移到 SOUND_BTN_Y 让出页眉行） */
 
-/* 参数页数（布局表条目数；页 id 不要求连续——MOD/SCALE/VOICE 追加在 app_page_t 末尾；
- * APP_PAGE_FM6 是不注册的空位 id） */
-#define PARAM_PAGE_COUNT 7
+/* 参数页数（布局表条目数；页 id 不要求连续）。APP_PAGE_FM6 与 5B-1 退役的 GLOBAL/FX/
+ * MOD/SCALE/VOICE 是不注册的 id：page_layout_index 对它们返回 -1。 */
+#define PARAM_PAGE_COUNT 2
 
 /* 把布局表里的所有页注册进页面注册表（sloop_ui_start 内置注册之后调用；幂等由
  * ui.c 的内置注册标志保证）。返回第一个非 ESP_OK 的错误，全成功返回 ESP_OK。

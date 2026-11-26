@@ -10,17 +10,15 @@
  *   LOFI/NOISE/PHYS 的模式换）；页眉 ENGINE/PRESET（鼓轨 KIT）+ 仅 FM6 引擎出现的 bank 行。
  *   5B-1 起该页带 PARAM_FEAT_DASHBOARD：页面不再建这 8 槽（主体 = page_sound.c 的卡片仪表盘，
  *   成员表在 sound_layout.h），表项只留给页眉/bank 行逻辑与 host 测试；
- * - GLOBAL：GLO（= 原 8 槽：GLOBAL 4 + DLY 4）/ REV（REV/CHO 4 + MASTER 4）/ DRUMS（4）/
- *   TEXTURE（7）——全局参数在鼓轨上全部可编辑；
- * - FX：FX（= 原 8 槽：DST/CHO/DLY/REV + FILT + LVL/PAN/ATK；鼓轨上只有 TFLT/LEVEL/PAN
- *   可编辑）/ SLICER / INSERT / INSERT 2（鼓轨上全部可编辑）；
  * - SAMPLE：ENGINES[4]->edit[0..7] 的 6 个真实槽（edit[5]/[7] 是上游占位 ⇒ 空槽）；
- * - MOD / SCALE / VOICE（P4-F Task 4）：每页多个 chip 复用同一组 8 个旋钮（DSYN 模式），
- *   选择是页内 UI 局部态；VOICE·FILTER 是条件 chip（仅 ANALOG 合成轨出现）。
+ * - 原 GLOBAL / FX / MOD / SCALE / VOICE 五张族页自 5B-1 起退役：它们的全部参数由 SOUND
+ *   仪表盘的卡片承载（槽位表 = sound_layout.h），不再进本表、不注册；页 id 保留为
+ *   app_page_t 里不注册的枚举值（console `UI <页名>` ⇒ not_registered）。
  *
- * 槽位语义：GLOBAL → GP[]（song.g[]）；TRACK → **选中轨**的 TP[]（描述符经
- * sloop_core_desc_track_live：INSERT/ENV SYNC/引擎钩子的动态标签，范围同静态表）；
- * ENGINE → 页声明引擎的 edit[i]（值取 trk[选中轨].p[P_E0+i]）。
+ * 槽位语义：TRACK → **选中轨**的 TP[]（描述符经 sloop_core_desc_track_live：INSERT/ENV
+ * SYNC/引擎钩子的动态标签，范围同静态表）；ENGINE → 页声明引擎的 edit[i]（值取
+ * trk[选中轨].p[P_E0+i]）。表里已没有 GLOBAL 槽与 chip 页；条件 chip（when）与鼓轨逐槽
+ * 规则留在 page_layout.h 的通用访问器里。
  *
  * id 必须与 sloop_state.h 的 app_page_t 一致（既有 id 不变；APP_PAGE_FM6 是空位、不在表里）；
  * est 是构建前预算门槛（实测池增量 + ~10% 余量、512 对齐，见 ADR-008 预算表；实测超限
@@ -30,15 +28,13 @@
 
 #include "param_ids.h"
 
-/* 槽位：TRACK（鼓轨锁定）/ TRACK 且鼓轨可编辑 / GLOBAL / ENGINE。空槽 = 旧式整页的
- * 占位（SAMPLE 的 edit[5]/[7]）；chip 的 slot_count 之外由零填充表示、不读。 */
+/* 槽位：TRACK（鼓轨锁定）/ ENGINE。空槽 = 旧式整页的占位（SAMPLE 的 edit[5]/[7]）；
+ * chip 的 slot_count 之外由零填充表示、不读。 */
 #define TS(pid)   { .scope = SLOOP_DESC_TRACK, .engine = 0, .id = (uint8_t)(pid), .drum_ok = 0 }
-#define TD(pid)   { .scope = SLOOP_DESC_TRACK, .engine = 0, .id = (uint8_t)(pid), .drum_ok = 1 }
-#define GS(pid)   { .scope = SLOOP_DESC_GLOBAL, .engine = 0, .id = (uint8_t)(pid), .drum_ok = 1 }
 #define ES(en, i) { .scope = SLOOP_DESC_ENGINE, .engine = (uint8_t)(en), .id = (uint8_t)(i), .drum_ok = 0 }
 #define EMPTY_SLOT { .scope = SLOOP_DESC_ENGINE, .engine = 0, .id = 0xFF, .drum_ok = 0 }
 #define CHIP_NONE {0}
-/* chip：{名, when, 槽数, {槽…}}；旧式整页 = 无名 chip（不画 chip 行） */
+/* chip：{名, when, 槽数, {槽…}}；表内两页都是无名整页（不画 chip 行），when 恒 ALWAYS */
 #define CHIP(nm, wh, ...) \
     { .name = nm, .when = (uint8_t)(wh),                                                   \
       .slot_count = (uint8_t)(sizeof((param_slot_t[]){__VA_ARGS__}) / sizeof(param_slot_t)), \
@@ -46,71 +42,22 @@
 
 /* 布局表（一处定义）：
  * X(下标, 页 id, est, 标题, features, chip 数, chip0, chip1, chip2, chip3, chip4)
- * est（chip 页 = 3,584）：chip 行是**一个**自绘对象（每 chip 一个 label 的首版实测
- * MOD 4,544B，会逼 est 到 5,120 并让 EDIT→STEP 有序对账面 63,848 > 63,120；改对象设计
- * 后实测 2,936–3,104B（跨 boot 3,012–3,088B），est = 实测 +15..22%、512 对齐，见 ADR-008
- * §8.9）。SOUND est
- * 8,704 = 卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± 按钮 + 常驻隐藏的
- * bank 行：实测 6,044–6,816B + Task 4 预留的两个对象，+10%、512 对齐（2026-11-26 校准；开工时的
- * 估算 12,288 是上限，5B 规格 §5.6）。est 只在实测超限时改对象设计，不抬。
- * 宏体内不放注释（每行都要续行）。
+ * SOUND est 8,704 = 卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± 按钮 +
+ * 常驻隐藏的 bank 行：实测 6,044–6,816B + Task 4 预留的两个对象，+10%、512 对齐
+ * （2026-11-26 校准；开工时的估算 12,288 是上限，5B 规格 §5.6）。est 只在实测超限时改对象
+ * 设计，不抬。宏体内不放注释（每行都要续行）。
  * 宏参数名不能叫 id/title：designator 的 .id/.title 会被参数替换掉。 */
 #define PARAM_PAGES(X) \
-    X(0, APP_PAGE_GLOBAL, 3584, "GLOBAL", 0, 4, \
-      CHIP("GLO", PARAM_CHIP_ALWAYS, GS(L_G_BPM), GS(L_G_SWING), GS(L_G_CLOCK), GS(L_G_TUNE), \
-           GS(L_G_DTIME), GS(L_G_DFDBK), GS(L_G_DCOLOR), GS(L_G_DMIX)), \
-      CHIP("REV", PARAM_CHIP_ALWAYS, GS(L_G_RSIZE), GS(L_G_RDAMP), GS(L_G_CRATE), GS(L_G_CDEPTH), \
-           GS(L_G_DUST), GS(L_G_DUCK), GS(L_G_FILT), GS(L_G_ROLL)), \
-      CHIP("DRUMS", PARAM_CHIP_ALWAYS, GS(L_G_DRCH), GS(L_G_DRLVL), GS(L_G_DRREV), GS(L_G_DRDLY)), \
-      CHIP("TEXTURE", PARAM_CHIP_ALWAYS, GS(L_G_TXSRC), GS(L_G_TXLVL), GS(L_G_TXTONE), \
-           GS(L_G_TXMOVE), GS(L_G_TXRATE), GS(L_G_TXWHEN), GS(L_G_TXDUCK)), \
-      CHIP_NONE) \
-    X(1, APP_PAGE_FX, 3584, "FX", 0, 4, \
-      CHIP("FX", PARAM_CHIP_ALWAYS, TS(L_P_DIST), TS(L_P_CHOR), TS(L_P_DLY), TS(L_P_REV), \
-           TD(L_P_TFLT), TD(L_P_LEVEL), TD(L_P_PAN), TS(L_P_ATK)), \
-      CHIP("SLICER", PARAM_CHIP_ALWAYS, TD(L_P_SLCR), TD(L_P_SLPAT), TD(L_P_SLRATE), \
-           TD(L_P_SLDEPTH)), \
-      CHIP("INSERT", PARAM_CHIP_ALWAYS, TD(L_P_ITYPE), TD(L_P_IA), TD(L_P_IB), TD(L_P_IC)), \
-      CHIP("INSERT 2", PARAM_CHIP_ALWAYS, TD(L_P_IMIX)), \
-      CHIP_NONE) \
-    X(2, APP_PAGE_ANALOG, 8704, "SOUND", \
+    X(0, APP_PAGE_ANALOG, 8704, "SOUND", \
       PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_DASHBOARD, 0, \
       CHIP(NULL, PARAM_CHIP_ALWAYS, TS(L_P_E0), TS(L_P_E0 + 1), TS(L_P_E0 + 2), TS(L_P_E0 + 3), \
            TS(L_P_E0 + 4), TS(L_P_E0 + 5), TS(L_P_E0 + 6), TS(L_P_E0 + 7)), \
       CHIP_NONE, CHIP_NONE, CHIP_NONE, CHIP_NONE) \
-    X(3, APP_PAGE_SAMPLE, 6144, "SAMPLE", PARAM_FEAT_SAMPLE, 0, \
+    X(1, APP_PAGE_SAMPLE, 6144, "SAMPLE", PARAM_FEAT_SAMPLE, 0, \
       CHIP(NULL, PARAM_CHIP_ALWAYS, ES(L_ENG_SAMPLE, L_E0), ES(L_ENG_SAMPLE, L_E1), \
            ES(L_ENG_SAMPLE, L_E2), ES(L_ENG_SAMPLE, L_E3), ES(L_ENG_SAMPLE, L_E4), EMPTY_SLOT, \
            ES(L_ENG_SAMPLE, L_E6), EMPTY_SLOT), \
-      CHIP_NONE, CHIP_NONE, CHIP_NONE, CHIP_NONE) \
-    X(4, APP_PAGE_MOD, 3584, "MOD", 0, 5, \
-      CHIP("ENV", PARAM_CHIP_ALWAYS, TS(L_P_ATK), TS(L_P_DEC), TS(L_P_SUS), TS(L_P_REL)), \
-      CHIP("ENV DEST", PARAM_CHIP_ALWAYS, TS(L_P_ED_FLT), TS(L_P_ED_PIT), TS(L_P_ED_SHP), \
-           TS(L_P_ESYNC)), \
-      CHIP("LFO", PARAM_CHIP_ALWAYS, TS(L_P_LRATE), TS(L_P_LWAVE), TS(L_P_LPHASE), \
-           TS(L_P_LFADE)), \
-      CHIP("LFO 2", PARAM_CHIP_ALWAYS, TS(L_P_LSYNC), TS(L_P_LTRIG), TS(L_P_LPOL)), \
-      CHIP("LFO DEST", PARAM_CHIP_ALWAYS, TS(L_P_LD_PIT), TS(L_P_LD_FLT), TS(L_P_LD_SHP), \
-           TS(L_P_LD_AMP))) \
-    X(5, APP_PAGE_SCALE, 3584, "SCALE", 0, 4, \
-      CHIP("SEL", PARAM_CHIP_ALWAYS, TS(L_P_ROOT), TS(L_P_SCALE), TS(L_P_QUANT), \
-           TS(L_P_CHORD)), \
-      CHIP("SEL 2", PARAM_CHIP_ALWAYS, TS(L_P_TRANS), TS(L_P_STRUM), TS(L_P_VLEAD)), \
-      CHIP("ARP", PARAM_CHIP_ALWAYS, TS(L_P_AMODE), TS(L_P_ARATE), TS(L_P_AOCT), \
-           TS(L_P_AGATE)), \
-      CHIP("ARP 2", PARAM_CHIP_ALWAYS, TS(L_P_ASWING), TS(L_P_APROB), TS(L_P_AHOLD), \
-           TS(L_P_AORDER)), \
-      CHIP_NONE) \
-    X(6, APP_PAGE_VOICE, 3584, "VOICE", 0, 4, \
-      CHIP("VOICE", PARAM_CHIP_ALWAYS, TS(L_P_VOICE), TS(L_P_GLIDE), TS(L_P_GLMODE), \
-           TS(L_P_PRIO)), \
-      CHIP("VOICE 2", PARAM_CHIP_ALWAYS, TS(L_P_ALLOC), TS(L_P_DETUNE), TD(L_P_PAN), \
-           TS(L_P_MUTE)), \
-      CHIP("PATTERN", PARAM_CHIP_ALWAYS, TD(L_P_SLEN), TD(L_P_SDIV), TD(L_P_SSWING), \
-           TD(L_P_SGATE)), \
-      CHIP("FILTER", PARAM_CHIP_WHEN_ANALOG, TS(L_P_FTYPE), ES(L_ENG_ANALOG, L_E4), \
-           ES(L_ENG_ANALOG, L_E5), ES(L_ENG_ANALOG, L_E7)), \
-      CHIP_NONE)
+      CHIP_NONE, CHIP_NONE, CHIP_NONE, CHIP_NONE)
 
 /* 页定义来自同一张 X 宏表。 */
 #define X_PAGE(n, pid, pest, ptitle, pfeat, nchips, c0, c1, c2, c3, c4)                \

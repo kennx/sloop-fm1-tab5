@@ -11,8 +11,8 @@
  * 引擎页（SAMPLE）只在「选中轨的引擎 = 页声明的引擎」时可编辑（否则显示 --，避免用
  * SAMPLE 的 label 写另一个引擎的槽位）；鼓轨不适用引擎页。
  *
- * chip 页（P4-F Task 4/5）：布局表 chip_count ≥ 2 的页（MOD/SCALE/VOICE/GLOBAL/FX）有
- * chip 行，8 个旋钮对象常驻，切 chip 零分配重配；选中 chip 是页内 UI 局部态
+ * chip 页（P4-F Task 4/5；5B-1 退役五张族页后布局表里没有 chip 页，框架保留）：布局表
+ * chip_count ≥ 2 的页有 chip 行，8 个旋钮对象常驻，切 chip 零分配重配；选中 chip 是页内 UI 局部态
  * （page_params_chip_get/set 与 chip 行、console `UI <page> CHIP` 共用）。鼓轨规则逐槽：
  * 未标 drum_ok 的槽显示 --、拒绝编辑。sloop_ui.h 的 sloop_ui_param_chip_* 是加锁外壳。
  *
