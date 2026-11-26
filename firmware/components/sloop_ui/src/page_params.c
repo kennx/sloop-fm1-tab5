@@ -24,10 +24,13 @@
  * app_state_t.sound（UI 不读上游 ENGINES[]）。动作 = 两条状态层命令：CMD_SET_ENGINE /
  * CMD_SET_PRESET（a = 选中轨）。选中鼓轨时两行换成单行 `KIT − 名 +`：经 CMD_SET_PARAM 写
  * 鼓轨的 P_E0（上游 DRUMS 屏 KNOB 1），旋钮区按鼓轨逐槽规则全部锁定（页眉标 NO SOUND）。
- * 底部 bank 行只在该轨引擎为 FM6 时显示（A10）：对象随页常驻、按引擎显隐（零分配），
- * 其余引擎整行隐藏 ⇒ TAP 落在该带 = miss。
+ * bank 行只在该轨引擎为 FM6 时显示（A10）：对象随页常驻、按引擎显隐（零分配），其余引擎
+ * 整行隐藏——5B-1 仪表盘页上该带被卡片视口盖住，TAP 落在那里交给 page_sound_tap（卡片
+ * 标题行等），不是 miss。
  *
- * chip 页（P4-F Task 4：MOD / SCALE / VOICE；Task 5 起 GLOBAL / FX；ADR-008 §8.9）：一页 = 多个 chip 共用同一组
+ * chip 页（P4-F Task 4：MOD / SCALE / VOICE；Task 5 起 GLOBAL / FX；ADR-008 §8.9；**5B-1 起这五张
+ * 族页全部退役**——参数由 SOUND 卡片仪表盘（page_sound.c，成员表 sound_layout.h）承载，布局表里
+ * 没有 chip 页，下面的框架与规则保留、当前无实例**）：一页 = 多个 chip 共用同一组
  * 8 个旋钮（DSYN 模式）。chip 行在页眉行（y=4..36）：**一个自绘可点击对象**画出整行
  * chip（宽度按名字长度；点击按指针 x 落到哪个 chip），标题挪到 chip 行右侧；页眉/±
  * 按钮几何不变。整行一个对象而不是每 chip 一个 label：实测每 chip 一个 label 约
@@ -36,8 +39,8 @@
  * （`UI <page> CHIP <n>` 与 chip 行共用，跨组页面重建保留）。切 chip 在 30ms 拍内
  * **零分配**重配：8 个旋钮对象常驻，只换 desc（label/fmt/范围）、显隐与焦点；chip 行
  * 只改「可见掩码/选中下标」两个字节并失效重绘——不新建/删除对象、不改样式。
- * 布局表 chip_count ≥ 2 的页是 chip 页；chip_count == 0 的无名单 chip 是整页（SAMPLE 与
- * SOUND），不画 chip 行。
+ * 布局表 chip_count ≥ 2 的页是 chip 页；chip_count == 0 的无名单 chip 是整页（SAMPLE；SOUND 的
+ * 表项只留给页眉/bank 行逻辑），不画 chip 行。
  *
  * 槽位描述符与鼓轨规则：TRACK scope 一律取 `sloop_core_desc_track_live(选中轨, id)`
  * （INSERT/ENV SYNC/引擎钩子的动态标签，范围同静态表——FX 页的 `ATK/ESYNC` 手工标注
@@ -63,7 +66,8 @@
  * 键盘：←/→ 仍只在旋钮间移动焦点（不改既有旋钮模型），bank 行与页眉行**只经触摸**
  * （TAP 注入与按钮回调共用同一动作函数）；SAVE/ERASE 与 FILE 页同样只走触摸 + console。
  * 行的可见性是比原「锁定页拒绝」更强的守卫：选中轨不是 FM6（含鼓轨）时整行不显示、
- * 不建命中区（TAP miss），不可能用别的引擎的轨把该轨最后一次载入的 patch 写进用户银行槽；
+ * 不建命中区（仪表盘页上该带由卡片接管，bank 控件收不到 TAP），不可能用别的引擎的轨把该轨
+ * 最后一次载入的 patch 写进用户银行槽；
  * 原页面本地的 `NOT FM6` 拒绝态因此不再存在（鼓轨 PUT 的状态层拒绝不变）。
  * **行可见性按此刻的状态重新判定**（`bank_row_visible`，不信任上一拍 update 的显隐标志：
  * 换引擎与本回调之间可能隔着不到一拍），行隐藏时命令不下发。
@@ -1960,7 +1964,8 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
         }
     }
 
-    /* bank 行（SOUND 页且引擎为 FM6 ⇒ 行可见；否则整行隐藏，落在这里的 TAP = miss）：
+    /* bank 行（SOUND 页且引擎为 FM6 ⇒ 行可见；否则整行隐藏，TAP 落空后由函数末尾的
+     * page_sound_tap 接手——仪表盘页上该带是卡片视口）：
      * 槽 ± 只改目标槽，SAVE/ERASE 发状态层命令 */
     if (bank_row_present(pg) && ui->bank_label != NULL && ui->bank_vis_shown == 1) {
         const int16_t by = bank_row_y(pg);

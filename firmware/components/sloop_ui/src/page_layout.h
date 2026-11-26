@@ -65,9 +65,10 @@ typedef struct {
  * page_params.c 不再按页 id 例外）。 */
 #define PARAM_FEAT_SOUND    0x01u /* SOUND 页：页眉 ENGINE/PRESET 行（鼓轨 = 单行 KIT），
                                    * 主体 = 选中轨引擎的 8 槽（TRACK scope 的 P_E0..P_E7） */
-#define PARAM_FEAT_BANK_FM6 0x02u /* 底部 bank 存取行（B1..B27 / SAVE / ERASE）：**仅**选中轨
-                                   * 为 FM6 引擎的合成轨时显示（A10）；其余引擎整行隐藏、
-                                   * TAP 落在该带 ⇒ miss */
+#define PARAM_FEAT_BANK_FM6 0x02u /* bank 存取行（B1..B27 / SAVE / ERASE）：**仅**选中轨为
+                                   * FM6 引擎的合成轨时显示（A10）；其余引擎整行隐藏——仪表盘页
+                                   * 上那一带被卡片视口盖住，TAP 落在那里交给 page_sound_tap
+                                   * （卡片标题行等），不再有 miss */
 #define PARAM_FEAT_SAMPLE   0x04u /* 底部采样槽管理行（SAMPLE 页，P4-D Task 8） */
 #define PARAM_FEAT_DASHBOARD 0x08u /* 卡片仪表盘页（SOUND，5B-1）：主体 = page_sound.c 的滚动卡片
                                    * 区——**没有** 8 槽旋钮与 chip 行；页眉行、银行行、± 按钮仍由

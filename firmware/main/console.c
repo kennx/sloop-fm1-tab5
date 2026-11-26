@@ -1925,8 +1925,8 @@ static int ui_command(int argc, char **argv)
     if ((argc == 3 || argc == 4) && strcasecmp(argv[1], "forcefail") == 0) {
         uint8_t page = 0;
         if (!ui_parse_page(argv[2], &page)) {
-            printf("UI ERR page (want=play|tracks|step|transport|global|fx|sound|analog|fm6|"
-                   "sample|projects|presets|song|dsyn|fm6p|system|mod|scale|voice|tools|0..%u)\n",
+            printf("UI ERR page (want=play|tracks|step|transport|sound|analog|fm6|sample|dsyn|"
+                   "fm6p|projects|presets|song|system|tools|0..%u)\n",
                    (unsigned)(APP_STATE_PAGES - 1));
             return 1;
         }
@@ -2086,9 +2086,9 @@ static int ui_command(int argc, char **argv)
         }
         return 1;
     }
-    printf("用法: UI <play|tracks|step|transport|global|fx|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|mod|scale|voice|tools> | UI MEM | UI WINDOW [<start> <len>] | "
+    printf("用法: UI <play|tracks|step|transport|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|tools> | UI MEM | UI WINDOW [<start> <len>] | "
            "UI LANE [<lane=0..15>] | UI DSYN [KIT <0..3> | LANE <0..15> | PAGE <0..3>] | "
-           "UI FM6P [OP <0..5> | PAGE <0..5>] | UI GLOBAL|FX|MOD|SCALE|VOICE CHIP [<n>] | "
+           "UI FM6P [OP <0..5> | PAGE <0..5>] | UI SOUND|SAMPLE CHIP [<n>] | "
            "UI TOOL [<field=0..7>] | "
            "UI KNOB <slot> <press|drag> <dx> <dy> | UI TAB <group> | UI SUB <index=0..4> | "
            "UI FORCEFAIL <page> [on|off] | UI QUIESCE <on|off> | UI LOCKHOLD <ms>（无参打印当前页）\n"
@@ -4573,7 +4573,7 @@ esp_err_t app_console_init(void)
     const esp_console_cmd_t ui_cmd = {
         .command = "UI",
         .help = "UI 切页/查询当前页/池水位/诊断期静默（sloop_ui 页面注册表，ADR-008 懒建）",
-        .hint = "<play|tracks|step|transport|global|fx|analog|fm6|sample|dsyn|fm6p|projects|presets|song|tools>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
+        .hint = "<play|tracks|step|transport|sound|analog|fm6|sample|dsyn|fm6p|projects|presets|song|system|tools>|MEM|KNOB <slot> <press|drag> <dx> <dy>|FORCEFAIL <page> [on|off]|QUIESCE <on|off>",
         .func = &ui_command,
     };
     ret = esp_console_cmd_register(&ui_cmd);

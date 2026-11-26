@@ -252,7 +252,7 @@ static inline uint32_t ui_tools_status_color(uint8_t act, bool armed, uint8_t st
 
 /* SAMPLE 页槽管理行的状态行（P4-D Task 8；单一口径——屏幕文本与 console `TAP`
  * 回显都从这里出）。状态是**页面本地**结果，不写 app_state_t（页面本地结果的同一
- * 口径；bank 行原来的 NOT FM6 拒绝态已随独立 FM6 页删除，行不出现即 TAP miss）：
+ * 口径；bank 行原来的 NOT FM6 拒绝态已随独立 FM6 页删除，行不出现时该带归卡片视口）：
  *   SET        槽选中已把 SET 宏（P_E0 = base + k）写入选中轨 → `SET U<n>`（slot = 0..3）
  *   ERASE_OK   CMD_SAMPLE_ERASE 成功 → `ERASE OK`
  *   NOT_USR    页面拒绝：当前 SET 不在 USR1..USR4，或选中轨引擎 ≠ SAMPLE → `NOT USR`
