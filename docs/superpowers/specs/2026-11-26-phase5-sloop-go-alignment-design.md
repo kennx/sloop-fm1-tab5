@@ -238,6 +238,20 @@ CHANGED → 拔线清理、重插恢复 → 全程 USB-C 控制台不掉）；�
 ②内部 RAM 压不回门线之上（走 §内容 0 ③ 的门禁变更）；③用户 FM-1 的固件版本偏旧（按版本政策提示升级，
 设备门禁等用户升级后才能关闭）；④线材/接口（必须 USB-A 口 + 能传数据的 A 转 C 线）。
 
+**完成情况（2026-11-26）**：5A 已完成（机器侧）——受测固件 `715fdae`，FM-1 未接条件的全矩阵通过（含硬复位后的 30min soak PASS），
+用户执行的冒烟 `FM1 SMOKE PASS 7/7`；FM-1 已接条件下的 182 + selftest-heap 尚未执行、两份 FM-1 已接证据的原始转录已丢失，
+合并 `dev` 前待补。与本文 / 实施计划的偏差：
+
+- `sysex_feed` 改为流式「返回消费字节数」接口（单缓冲 + 单返回码在「同一包里 F7 紧跟 F0」时交不了帧）。
+- `FM1 STATUS` 比计划多 `midi_if` / `ep_in` / `ep_out`、`watch=<0|1|3>`、`version=` / `need_upgrade=`。
+- 参数错误统一回 `FM1 ERR invalid`（发送 / 解析失败另有 `ERR bad_reply`）。
+- IN 环错误：设备仍在时先清 halt 再重提交，连续 3 次才断链。
+- 内部堆用两步保住门线（`CONFIG_USB_HOST_DWC_DMA_CAP_MEMORY_IN_PSRAM=y` + `sloop_input` 栈进 PSRAM），§内容 0 ③ 的「下调
+  `HEAP_FLOOR`」没有用上，门线仍是 61,440B。
+- 协商失败按指数退避重试（1s→30s）。
+
+收口报告（证据汇总、36 条裁决、已知边界、5B 入口条件）：`docs/dev/closeout-phase5a.md`；证据包：`docs/dev/verify/5-pa-2026-11-26/`。
+
 ### 5B 新壳 + Sound（单轨编辑）+ Mixer + Device 页（体量 L）
 
 - **壳**：左上固定「▶/■」「⋮」（下拉：页面列表 + undo/redo）；每页固定页眉（页面控件 + 右侧链路/队列状态）；
