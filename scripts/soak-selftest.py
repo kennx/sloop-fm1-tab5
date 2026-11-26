@@ -252,9 +252,10 @@ FIRMWARE_SRC = Path(soak.inject.__file__).resolve().parents[2] / "firmware" / "c
 
 
 def test_tables() -> None:
-    """页表定稿（P4-F Task 7）：soak 的 PAGES / NAV_ORDER / GROUP_PAGES / 页签几何常量与
-    代表页必须和固件源码说同一张导航——组表与几何取自 ui_nav.h（UI_GROUP_LIST、UI_GROUP_W…），
-    页 id 取自 sloop_state.h 的 app_page_t（APP_PAGE_FM6=7 是空位，不在 PAGES 里）。"""
+    """页表定稿（P4-F Task 7；5B-1 起五张族页退役）：soak 的 PAGES / NAV_ORDER / GROUP_PAGES /
+    页签几何常量与代表页必须和固件源码说同一张导航——组表与几何取自 ui_nav.h（UI_GROUP_LIST、
+    UI_GROUP_W…），页 id 取自 sloop_state.h 的 app_page_t（APP_PAGE_FM6=7 是空位；GLOBAL/FX/
+    MOD/SCALE/VOICE 是不注册的退役 id——都不在 PAGES 里）。"""
     nav_h = (FIRMWARE_SRC / "sloop_ui" / "src" / "ui_nav.h").read_text(encoding="utf-8")
     state_h = (FIRMWARE_SRC / "sloop_state" / "include" / "sloop_state.h").read_text(encoding="utf-8")
     body = state_h[state_h.index("typedef enum {", state_h.index("#define APP_LAYER_GLO")):]
@@ -269,8 +270,9 @@ def test_tables() -> None:
     check(len(fw_groups) == 9 and list(fw) == list(soak_groups) == list(soak.inject.UI_GROUP_NAMES),
           "九组且组顺序一致（ui_nav.h = GROUP_PAGES = inject.UI_GROUP_NAMES）")
     check(soak_groups == fw, "组成员与页 id 逐一一致（ui_nav.h UI_GROUP_LIST = GROUP_PAGES）")
-    check(len(soak.PAGES) == 18 and set(soak.PAGES.values()) == set(flat_fw) == set(range(19)) - {7},
-          "18 页：PAGES 的 id 集合 = 组表平铺 = 0..18 去掉空位 7")
+    retired = {4, 5, 7, 15, 16, 17}
+    check(len(soak.PAGES) == 13 and set(soak.PAGES.values()) == set(flat_fw) == set(range(19)) - retired,
+          "13 页：PAGES 的 id 集合 = 组表平铺 = 0..18 去掉空位 7 与退役页 4/5/15/16/17")
     check([pid for pid, _ in soak.NAV_ORDER] == flat_fw,
           "NAV_ORDER 的页 id 序列 = 组表平铺（TAB 扁平轮转顺序）")
     check({name: pid for pid, name in soak.NAV_ORDER} == soak.PAGES,
@@ -286,13 +288,10 @@ def test_tables() -> None:
           and len(soak.pool_rt_pages(1)) == 8
           and all(soak.PAGES[page] in soak.GROUP_PAGES[g] for g, pages in reps.items() for page in pages),
           "POOL_RT_REP = 八个非 PLAY 组，每轮 8 张代表页，各页属于所代表的组")
-    check(soak.POOL_RT_GROUPS == soak.pool_rt_pages(0) and "tools" in soak.pool_rt_pages(0)
-          and "global" in soak.pool_rt_pages(1) and "tools" not in soak.pool_rt_pages(1)
-          and soak.pool_rt_pages(2) == soak.pool_rt_pages(0),
-          "MIX 代表页按轮交替：偶数轮 tools / 奇数轮 global（GLOBAL 仍有 destroy/rebuild 检查）")
-    check(all(soak.pool_rt_pages(r) == soak.pool_rt_pages(r % 2) for r in range(soak.POOL_RT_ROUNDS))
-          and soak.POOL_RT_ROUNDS % 2 == 0,
-          "POOL_RT_ROUNDS 内两张 MIX 代表页各被测同样多轮")
+    check(soak.POOL_RT_GROUPS == soak.pool_rt_pages(0) and "tools" in soak.pool_rt_pages(0),
+          "MIX 代表页 = tools（5B-1 起 MIX 只有 TOOLS，不再按轮交替）")
+    check(all(soak.pool_rt_pages(r) == soak.POOL_RT_GROUPS for r in range(soak.POOL_RT_ROUNDS)),
+          "POOL_RT_ROUNDS 内每轮都是同样 8 张代表页")
 
 
 def main() -> int:

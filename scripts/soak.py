@@ -65,23 +65,22 @@ sys.path.insert(0, str(SCRIPTS_DIR / "inject"))
 import inject  # noqa: E402
 
 PAGES = {"play": 0, "tracks": 1, "step": 2, "transport": 3,
-         "global": 4, "fx": 5, "sound": 6, "sample": 8,               # id 7 = 空位（FM6 页已删）
+         "sound": 6, "sample": 8,                                    # id 7 = 空位（FM6 页已删）
          "projects": 9, "presets": 10, "song": 11,
          "dsyn": 12, "fm6p": 13, "system": 14,
-         "mod": 15, "scale": 16, "voice": 17,
-         "tools": 18}                # 18 页：Task 5 的 SOUND 取代 ANALOG+FM6；Task 6 加 TOOLS（MIX）
+         "tools": 18}                # 13 页：5B-1 退役 GLOBAL/FX/MOD/SCALE/VOICE（id 4/5/15/16/17 不注册）
 # 组表（与 ui_nav.h 的 UI_GROUP_LIST 同源）：组顺序 = 组签顺序，成员顺序 = 子签顺序 = TAB
 # 扁平轮转顺序（NAV_ORDER，取 inject 的同一张表）。PAGES / NAV_ORDER / GROUP_PAGES 必须说
 # 同一张导航——import 时校验；与固件源码（ui_nav.h 的组表与页签几何 104/176/5）的一致性由
 # soak-selftest.py 对源码校验。
-GROUP_PAGES = {"play": (0,), "tracks": (1,), "edit": (6, 15, 16, 17), "mix": (4, 5, 18),
+GROUP_PAGES = {"play": (0,), "tracks": (1,), "edit": (6,), "mix": (18,),
                "synth": (8, 12, 13), "seq": (2, 3), "song": (11,), "file": (9, 10), "sys": (14,)}
-NAV_ORDER = tuple(inject.NAV_ORDER)   # ((页 id, 页名) …)，18 页
+NAV_ORDER = tuple(inject.NAV_ORDER)   # ((页 id, 页名) …)，13 页
 TAB_X0, TAB_GROUP_W, TAB_GROUP_GAP = inject.UI_TAB_X0, inject.UI_GROUP_W, inject.UI_TAB_GAP   # 16 / 104 / 8
 TAB_SUB_W, TAB_SUB_SLOTS = inject.UI_SUB_W, inject.UI_GROUP_SLOTS                            # 176 / 5
 if ([pid for members in GROUP_PAGES.values() for pid in members] != [pid for pid, _ in NAV_ORDER]
         or list(GROUP_PAGES) != [g.lower() for g in inject.UI_GROUP_NAMES]):
-    raise SystemExit("soak 页表不一致：GROUP_PAGES 平铺 ≠ NAV_ORDER（P4-F 定稿应为 18 页 / 9 组）")
+    raise SystemExit("soak 页表不一致：GROUP_PAGES 平铺 ≠ NAV_ORDER（5B-1 定稿应为 13 页 / 9 组）")
 HEAP_FLOOR = 60 * 1024          # AGENTS §5.5 内存门禁：internal_free / internal_min 下限
 HEAP_NET_FLOOR = -8 * 1024      # 采样首末差下限（30min 内累计下降超过 8KB 视为泄漏）
 HEAP_JITTER = 2 * 1024          # 连续 3 个采样窗口的非增累计下滑容差
@@ -93,11 +92,10 @@ SAVE_WINDOW_XRUN_MAX = 16       # --save-window 内允许的 xrun 增量（flash
 POOL_RT_NOISE = 128             # 跨组往返 pool_free 容差（R34 实测 84B；nav ⑧ 同口径）
 POOL_RT_ROUNDS = 10             # 测量轮数（每轮访问 pool_rt_pages(轮) 的 8 张代表页各一次）
 # 八个非 PLAY 组各取代表页（组名 → 页名，或页名元组 = 按轮交替；P4-F Task 7 定稿：九组
-# 全覆盖——TRACKS 入表；MIX 给两张：Task 6 新增的 TOOLS 与更老、更复杂的 GLOBAL（chip 页），
-# 两者都要有 destroy/rebuild 泄漏检查；EDIT 是 SOUND：页名 `sound`，`analog`/`fm6` 是它的
-# console 别名）。代表页必须属于它代表的组，且每张在 POOL_RT_ROUNDS 里被测同样多轮（import
-# 时校验）。轮数与阈值不变。
-POOL_RT_REP = {"tracks": "tracks", "edit": "sound", "mix": ("tools", "global"), "synth": "dsyn",
+# 全覆盖——TRACKS 入表；EDIT 是 SOUND：页名 `sound`，`analog`/`fm6` 是它的 console 别名；MIX 自
+# 5B-1 起只有 TOOLS，不再按轮交替）。代表页必须属于它代表的组，且每张在 POOL_RT_ROUNDS 里
+# 被测同样多轮（import 时校验）。轮数与阈值不变。
+POOL_RT_REP = {"tracks": "tracks", "edit": "sound", "mix": "tools", "synth": "dsyn",
                "seq": "transport", "song": "song", "file": "projects", "sys": "system"}
 
 
@@ -107,7 +105,7 @@ def pool_rt_pages(round_index: int = 0) -> tuple:
                  for g, pages in POOL_RT_REP.items() if g != "play")
 
 
-POOL_RT_GROUPS = pool_rt_pages(0)   # 偶数轮的代表页（nav/AGENTS 提到的基名；奇数轮 MIX = global）
+POOL_RT_GROUPS = pool_rt_pages(0)   # 每轮的代表页（nav/AGENTS 提到的基名；各组都是单代表页）
 POOL_RT_DESC = "→".join(
     f"{g.upper()}:{'/'.join(p) if isinstance(p, tuple) else p}" for g, p in POOL_RT_REP.items())
 if (set(POOL_RT_REP) != set(GROUP_PAGES) - {"play"}
@@ -205,7 +203,7 @@ GROUPS = ("play", "tracks", "edit", "mix", "synth", "seq", "song", "file", "sys"
 
 
 def visit_all_pages(s) -> None:
-    """采样前把 18 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
+    """采样前把 13 页都访问一遍（每页的首次构建都过一次分配面），并逐个点过九个组签
     （与物理组签同一动作函数），最终停在 TRANSPORT——组作用域（ADR-005 §5）下采样时
     只驻留 SEQ 组的页面；`UI MEM` 的分组行给出该组的 built/sum_delta。"""
     for group in GROUPS:
@@ -216,7 +214,7 @@ def visit_all_pages(s) -> None:
             s.fail(f"UI TAB {group} 未落在组成员页：{s.last.strip()!r}")
         else:
             s.ok(f"UI TAB {group} → {m.group(2)} ({m.group(3)}) 是 {m.group(1)} 的成员页")
-    for _, page in NAV_ORDER:   # TAB 扁平顺序访问 18 页（每页首次构建都过一次分配面）
+    for _, page in NAV_ORDER:   # TAB 扁平顺序访问 13 页（每页首次构建都过一次分配面）
         switch(s, page)
     switch(s, "transport")
 
@@ -555,7 +553,7 @@ def main() -> None:
         # 步窗是持久的 UI 局部态：soak 的 STEP 注入几何按默认窗口派生，先归一到 0/16
         s.cmd("UI WINDOW 0 16")
         s.expect(r"UI WINDOW bank=0 start=0 len=16", "soak 前置：步窗归一 0/16")
-        visit_all_pages(s)  # 18 页各访问一次后采样（组作用域：只驻留 SEQ 组）
+        visit_all_pages(s)  # 13 页各访问一次后采样（组作用域：只驻留 SEQ 组）
         ensure_playing(s)
         pool = pool_round_trip(s)  # 跨组往返的池水位（组作用域不变量）
 

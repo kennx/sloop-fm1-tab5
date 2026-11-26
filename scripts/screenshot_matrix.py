@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """screenshot_matrix.py — 全页面截屏矩阵 + 联系表（spec 2026-11-24 §A4）
 
-矩阵 = 18 页 × 关键状态（默认 / 编辑中 / 播放中 / 鼓轨·引擎·预备·锁定 / SELFTEST 结果行），
+矩阵 = 13 页 × 关键状态（默认 / 编辑中 / 播放中 / 引擎·预备 / SELFTEST 结果行），
 定义在 MATRIX 表。每个条目：页、状态名、到达该状态的 console 命令序列、3–5 个像素锚点
 （类别名 → 主题色，随 `STATE SNAP set_palette=` 选档，palette 4 = MONO = 当前观感）。
 
@@ -236,33 +236,17 @@ def tab_anchors(page: str) -> list:
             (*inject.group_tab_probe((gi + 1) % len(inject.UI_GROUP_NAMES)), "panel_hi", 10)]
 
 
-def chip_x(page: str, c: int) -> int:
-    return inject.UI_TAB_X0 + sum(inject.chip_width(n) + 8 for n, _ in inject.CHIP_PAGES[page][:c])
-
-
-def chip_fill(page: str, c: int, cls: str):
-    """chip 行第 c 张的左缘内 6px、文字区之上（inject 的 (x0+6, 79)）。"""
-    return (chip_x(page, c) + 6, TABCAT + 7, cls, 24 if cls == "accent" else 10)
-
-
-def chip_header(page: str):
-    """chip 页上下文行（page_params.c：header_x = chip 行右端 − CHIP_GAP + 16）。"""
-    x = chip_x(page, len(inject.CHIP_PAGES[page]))
-    return (x + 16, TABCAT + 8, x + 256, TABCAT + 36, "text_dim", 20)
-
-
 def knob_box(y1: int, y2: int, cls: str, min_count: int, tol: int = TOL):
     """旋钮 0 的文本行（knob.c 的 KNOB_*_Y 相对旋钮对象左上角）。"""
     x, y = inject.param_knob_xy(0)
     return (x - 66, y - 80 + y1, x + 66, y - 80 + y2, cls, min_count, tol)
 
 
-KNOB0_NAME = knob_box(40, 64, "accent", 10)      # 焦点槽的名称 = UI_ACCENT
 KNOB0_VALUE = knob_box(64, 94, "text", 30)        # 焦点槽的数值 = UI_TEXT
 SOUND_ROW_Y = inject.SOUND_ROW_Y                         # 76：SOUND 页眉两行的屏幕 y
+SOUND_ROW_BG = (16 + 3, SOUND_ROW_Y + 4, "panel_hi", 10)   # 页眉行底色（行对象不建时该点是 bg）
 SOUND_ENGINE_NAME = (16 + 130, SOUND_ROW_Y + 4, 16 + 288 - 54, SOUND_ROW_Y + 32, "accent", 12, 24)
 SOUND_PRESET_NAME = (320 + 130, SOUND_ROW_Y + 4, 320 + 384 - 54, SOUND_ROW_Y + 32, "accent", 12, 24)
-SOUND_HEADER_ERR = (320, SOUND_ROW_Y + 4, 1080, SOUND_ROW_Y + 32, "error", 200)
 SAMPLE_HEADER_ERR = (24, SOUND_ROW_Y + 4, 600, SOUND_ROW_Y + 32, "error", 40)
 TOOLS_FILL = lambda i: (inject.TOOLS_CHIP[i][0] - 150, inject.TOOLS_CHIP[i][1] - 52)  # noqa: E731
 TR_STATUS = (48, TABCAT + 264, 808, TABCAT + 264 + 40)   # TRANSPORT 状态行 label (48,264) 28pt
@@ -346,14 +330,6 @@ def _transport_status_text(sense: str):
     return ClassCount(TR_STATUS, "text", sense, 300 if sense == PRESENT else 1)
 
 
-def _param_default(page: str) -> list:
-    return [chip_fill(page, 0, "accent"), chip_fill(page, 1, "panel_hi"), KNOB0_NAME]
-
-
-def _param_editing(page: str) -> list:
-    return [chip_fill(page, 1, "accent"), chip_fill(page, 0, "panel_hi"), KNOB0_VALUE]
-
-
 def E(page: str, state: str, setup: list, specific: list, post: tuple = ()) -> dict:
     return {"page": page, "state": state, "setup": list(setup),
             "anchors": tab_anchors(page) + list(specific), "post": list(post)}
@@ -366,7 +342,6 @@ def _page_cmd(page: str) -> tuple:
 # ---------------------------------------------------------------- 矩阵定义 ---
 # setup / post 的每一项: "console 命令" | ("console 命令", 期望正则) | "@宏"（见 MACROS）。
 # 顺序即执行顺序（页按 NAV_ORDER）；SYSTEM 的 selftest 放最后——worker 收尾把 AUTO 打开。
-CHIP_PAGES = ("mod", "scale", "voice", "fx", "global")
 MATRIX = [
     E("play", "default", [_page_cmd("play")], [
         (940 + 20, TABCAT + 48 + 20, "panel"),                                  # NOTE 闪现框底
@@ -374,32 +349,12 @@ MATRIX = [
     E("tracks", "default", [_page_cmd("tracks")], [
         (24 - 4, 347, "track0"),                                                # 卡 0 选中描边
         (24 + 148, 552, "panel_sel", 8), (24 + inject.TRACKS_CARD_PITCH + 148, 552, "panel", 8)]),
-    E("sound", "default", ["@track0", _page_cmd("sound")], [
-        (16 + 3, SOUND_ROW_Y + 4, "panel_hi", 10), SOUND_ENGINE_NAME, SOUND_PRESET_NAME]),
-    E("sound", "editing", ["@track0", _page_cmd("sound"), "@edit0"], [
-        SOUND_ENGINE_NAME, KNOB0_VALUE]),
-    E("sound", "drum", ["@track3", _page_cmd("sound")], [
-        SOUND_HEADER_ERR, (320 + 3, SOUND_ROW_Y + 4, "bg", 10), (16 + 3, SOUND_ROW_Y + 4, "panel_hi", 10)]),
-    E("sound", "fm6", ["@fm6", _page_cmd("sound")], [
-        SOUND_ENGINE_NAME, (*inject.bank_btn_probe(0), "track1"), (*inject.bank_btn_probe(2), "track3")]),
-    E("mod", "default", ["@track0", _page_cmd("mod"), ("UI MOD CHIP 0", r"UI mod chip=0")], _param_default("mod")),
-    E("mod", "editing", ["@track0", _page_cmd("mod"), "@edit0"], _param_editing("mod")),
-    E("mod", "locked", ["@track3", _page_cmd("mod"), ("UI MOD CHIP 0", r"UI mod chip=0"),
-                        ("UI MOD CHIP", r"UI mod slot=0 id=\d+ [^\n]*locked=1")],
-      [chip_fill("mod", 0, "accent"), chip_fill("mod", 1, "panel_hi"), chip_header("mod")]),
-    # 锁定态本身由置态命令的 `locked=1` 回显断言：锁定槽的 `--` 与无指示弧在颜色上与「值为最小的
-    # 可编辑槽」不可区分（实测 mod-locked 与 mod-default 的旋钮环像素分布相同），不设像素锚点。
-    E("scale", "default", ["@track0", _page_cmd("scale"), ("UI SCALE CHIP 0", r"UI scale chip=0")],
-      _param_default("scale")),
-    E("scale", "editing", ["@track0", _page_cmd("scale"), "@edit0"], _param_editing("scale")),
-    E("voice", "default", ["@track0", _page_cmd("voice"), ("UI VOICE CHIP 0", r"UI voice chip=0")],
-      _param_default("voice")),
-    E("voice", "editing", ["@track0", _page_cmd("voice"), "@edit0"], _param_editing("voice")),
-    E("global", "default", ["@track0", _page_cmd("global"), ("UI GLOBAL CHIP 0", r"UI global chip=0")],
-      _param_default("global")),
-    E("global", "editing", ["@track0", _page_cmd("global"), "@edit0"], _param_editing("global")),
-    E("fx", "default", ["@track0", _page_cmd("fx"), ("UI FX CHIP 0", r"UI fx chip=0")], _param_default("fx")),
-    E("fx", "editing", ["@track0", _page_cmd("fx"), "@edit0"], _param_editing("fx")),
+    # SOUND 卡片仪表盘（5B-1）占位两条：原五张族页（MOD/SCALE/VOICE/GLOBAL/FX）与旧 SOUND 的
+    # 8 槽条目退役，这里只钉仍成立的页级锚点（页签 + 页眉两行）；卡片、鼓轨 KIT 行、FM6 bank
+    # 行、选择器与 editing 的置态宏由 sound 场景任务（Task 8）补齐。
+    E("sound", "default", ["@track0", _page_cmd("sound")],
+      [SOUND_ROW_BG, SOUND_ENGINE_NAME, SOUND_PRESET_NAME]),
+    E("sound", "editing", ["@track0", _page_cmd("sound")], [SOUND_ENGINE_NAME, SOUND_PRESET_NAME]),
     E("tools", "default", [_page_cmd("tools")], [
         (*TOOLS_FILL(0), "panel_hi"), (*inject.TOOLS_STATUS_BOX, "text_dim", 40)]),
     E("tools", "armed", [_page_cmd("tools"), "@armed"], [
@@ -639,10 +594,6 @@ def macro_track0(r: Runner) -> None:
     select_track(r, 0)
 
 
-def macro_track3(r: Runner) -> None:
-    select_track(r, 3)
-
-
 def ensure_engine(r: Runner, engine: int) -> int:
     """返回一条引擎 == engine 的合成轨并选中它；没有就换轨 0..2 中第一条非 FM6 轨
     （原轨若是有 live patch 编辑的 FM6，换引擎会丢编辑）并登记整份还原。"""
@@ -688,39 +639,6 @@ def macro_sample(r: Runner) -> None:
     value = int(m.group(1))
     r.run("TAP %d %d" % inject.sample_slot_xy(0), r"-> SAMPLE slot=0 select")
     r.undo.append(lambda rr: rr.run(f"PARAM {pid} {value}", rf"applied={value} "))
-
-
-def macro_edit0(r: Runner) -> None:
-    """编辑中：chip 页选第 2 张 chip；TAP 旋钮 0 设焦点，再用页眉 `+`/`−` 把焦点槽写成一个
-    非默认值；原值登记还原（条目后 `PARAM` 写回）、chip 选回 0。"""
-    s = r.s
-    page = r.entry["page"]
-    if page in inject.CHIP_PAGES:
-        r.run("TAP %d %d" % inject.chip_center(page, 1), rf"-> PARAMS {page} chip=1 select")
-    r.run(f"UI {page.upper()} CHIP")
-    m = re.search(rf"UI {page} slot=0 id=(\d+) ", s.last)
-    if m is None:
-        raise inject.InjectError(f"UI {page.upper()} CHIP 回显缺少 slot=0：{s.last.strip()[:200]!r}")
-    pid = int(m.group(1))
-    read = inject.chip_param_cmd(page, pid, 0)
-    r.trace.append(read)
-    s.cmd(read)
-    m = re.search(r"value=(-?\d+) min=(-?\d+) max=(-?\d+)", s.last)
-    if m is None:
-        raise inject.InjectError(f"{read} 回显缺少 value/min/max：{s.last.strip()[:200]!r}")
-    value, lo, hi = (int(x) for x in m.groups())
-    r.run("TAP %d %d" % inject.param_knob_xy(0), r"-> PARAM slot=0 focus")
-    if value < hi:
-        xy, sign, new = inject.PARAM_BTN_PLUS, r"\+1", value + 1
-    elif value > lo:
-        xy, sign, new = inject.PARAM_BTN_MINUS, r"-1", value - 1
-    else:
-        xy = None
-    if xy is not None:
-        r.run("TAP %d %d" % xy, rf"-> PARAM slot=0 id={pid} delta={sign} value={new}")
-        r.undo.append(lambda rr: rr.run(f"{read} {value}", rf"applied={value} "))
-    if page in inject.CHIP_PAGES:
-        r.undo.append(lambda rr: rr.run(f"UI {page.upper()} CHIP 0", rf"UI {page} chip=0"))
 
 
 def macro_play(r: Runner) -> None:
@@ -804,8 +722,8 @@ def macro_selftest(r: Runner) -> None:
 
 
 MACROS = {
-    "track0": macro_track0, "track3": macro_track3, "fm6": macro_fm6, "sample": macro_sample,
-    "edit0": macro_edit0, "play": macro_play, "playing": macro_playing, "stop": macro_stop,
+    "track0": macro_track0, "fm6": macro_fm6, "sample": macro_sample,
+    "play": macro_play, "playing": macro_playing, "stop": macro_stop,
     "armed": macro_armed, "armed_timeout": macro_armed_timeout, "selftest": macro_selftest,
     "auto_off": macro_auto_off,
 }
@@ -1186,7 +1104,7 @@ def _check_matrix() -> None:
                 assert len(res) == 3 or res[3] > 0, f"{key} 的点锚点容差非法：{res}"
             cls = res[4] if len(res) >= 6 else res[2]
             assert cls in theme_pixels(4), f"{key} 的锚点类别未知：{cls!r}"
-    assert {e["page"] for e in MATRIX} == set(PAGES), "MATRIX 没有覆盖全部 18 页"
+    assert {e["page"] for e in MATRIX} == set(PAGES), "MATRIX 没有覆盖全部 13 页"
     for page in PAGES:
         assert any(e["page"] == page and e["state"] == "default" for e in MATRIX), \
             f"{page} 缺少 default 条目"
@@ -1195,10 +1113,8 @@ def _check_matrix() -> None:
         for item in e["setup"] + e["post"]:
             name = item[1:] if isinstance(item, str) and item.startswith("@") else None
             assert name is None or name in MACROS, f"{(e['page'], e['state'])} 引用了未定义的宏 @{name}"
-    required = ({(p, "default") for p in PAGES}
-                | {(p, "editing") for p in ("sound", "mod", "scale", "voice", "fx", "global")}
-                | {("step", "playing"), ("transport", "playing"), ("sound", "drum"), ("tools", "armed"),
-                   ("sound", "fm6"), ("mod", "locked")})
+    required = ({(p, "default") for p in PAGES} | {("sound", "editing")}
+                | {("step", "playing"), ("transport", "playing"), ("tools", "armed")})
     have = {(e["page"], e["state"]) for e in MATRIX}
     assert required <= have, f"MATRIX 缺少派单要求的状态：{sorted(required - have)}"
     for group in GROUP_PAGES:
