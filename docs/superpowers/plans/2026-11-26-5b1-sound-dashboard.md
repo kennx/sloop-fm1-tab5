@@ -96,9 +96,10 @@ typedef struct { uint8_t card; int16_t col, y, h, rows; } sound_card_pos_t;
 
 uint16_t sound_layout_slot_index(uint8_t card, uint8_t slot);          /* 越界 = SOUND_SLOT_NONE */
 bool    sound_layout_slot_locate(uint16_t flat, uint8_t *card, uint8_t *slot);
-/* 两列 staggered 布局：折叠卡片高 = SOUND_TITLE_H；返回内容总高（含顶部 view_y0）。 */
-int16_t sound_layout_place(int16_t view_y0, uint16_t collapsed, sound_card_pos_t out[SOUND_CARDS_MAX]);
-/* 槽在页面内的矩形（x,y,w,h；不含 72）。卡片折叠/槽越界返回 false。 */
+/* 两列 staggered 布局，**内容坐标**（原点 = 列 0 / y 0，不含页边距）：折叠卡片高 = SOUND_TITLE_H，卡片间距 8；
+ * 返回内容总高。页面坐标 = 内容坐标 + (16, 视口顶) − 滚动量，由调用方换算。 */
+int16_t sound_layout_place(uint16_t collapsed, sound_card_pos_t out[SOUND_CARDS_MAX]);
+/* 槽在内容坐标里的矩形（x = col*(616+16) + 12 + slot%4*140；y = 卡片 y + 36 + slot/4*132）。卡片折叠/槽越界返回 false。 */
 bool    sound_layout_slot_rect(const sound_card_pos_t *pos, uint8_t slot,
                                int16_t *x, int16_t *y, int16_t *w, int16_t *h);
 /* 存在位图（SOUND_SLOT_TABLE_MAX 位）上移动焦点：delta 可为 ±1；跳过不存在的槽与折叠卡片，环绕；无存在槽返回 false。 */
@@ -158,15 +159,15 @@ static void test_index(void) {
 }
 static void test_place(void) {
     sound_card_pos_t p[SOUND_CARDS_MAX];
-    int16_t h = sound_layout_place(80, 0, p);
+    int16_t h = sound_layout_place(0, p);
     /* 行数 = ceil(n/4)：Global 1 行 ⇒ h = 36 + 132 + 12 = 180；FX 6 行 ⇒ 36 + 792 + 12 = 840 */
-    ASSERT(p[0].rows == 1 && p[0].h == 180 && p[0].y == 80);
+    ASSERT(p[0].rows == 1 && p[0].h == 180 && p[0].y == 0 && p[0].col == 0);
     ASSERT(p[6].rows == 6 && p[6].h == 840);
     /* staggered：第 2 张（Master 5 槽 = 2 行，h = 36 + 264 + 12 = 312）落在右列；每张卡 x = 16 + col*(616+16) */
-    ASSERT(p[1].rows == 2 && p[1].h == 312 && p[1].col == 1 && p[1].y == 80);
+    ASSERT(p[1].rows == 2 && p[1].h == 312 && p[1].col == 1 && p[1].y == 0);
     ASSERT(p[1].col != p[0].col);
     /* 折叠第 6 张：高 180，总高变短 */
-    int16_t h2 = sound_layout_place(80, 1u << 6, p);
+    int16_t h2 = sound_layout_place(1u << 6, p);
     ASSERT(p[6].h == 180 && h2 < h);
     /* 每张卡不得越过另一列已放卡片：同列卡片 y 严格递增且不重叠 */
     for (uint8_t i = 0; i < SOUND_CARDS_MAX; i++)
@@ -175,9 +176,9 @@ static void test_place(void) {
 }
 static void test_rect_and_move(void) {
     sound_card_pos_t p[SOUND_CARDS_MAX]; int16_t x, y, w, h;
-    (void)sound_layout_place(80, 0, p);
+    (void)sound_layout_place(0, p);
     ASSERT(sound_layout_slot_rect(&p[0], 0, &x, &y, &w, &h) && w == SOUND_CELL_W && h == SOUND_CELL_H);
-    ASSERT(sound_layout_slot_rect(&p[0], 1, &x, &y, &w, &h) && x == p[0].col * (SOUND_COL_W + SOUND_COL_GAP) + 16 + 12 + SOUND_CELL_W);
+    ASSERT(sound_layout_slot_rect(&p[0], 1, &x, &y, &w, &h) && x == p[0].col * (SOUND_COL_W + SOUND_COL_GAP) + SOUND_CARD_PAD + SOUND_CELL_W);
     ASSERT(!sound_layout_slot_rect(&p[0], 4, &x, &y, &w, &h));
     uint32_t present[4] = {0};    /* 全存在 */
     for (uint16_t i = 0; i < SOUND_SLOT_TABLE_MAX; i++) present[i >> 5] |= 1ul << (i & 31);
@@ -252,10 +253,11 @@ bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 - [ ] **Step 2: 实现骨架 `page_sound.c`**
 
 - 静态状态（**全部 `EXT_RAM_BSS_ATTR`**）：`sound_card_pos_t s_pos[13]`、`uint16_t s_collapsed`、`int16_t s_scroll`、卡片对象指针 `lv_obj_t *s_cards[13]`、`lv_obj_t *s_scroll_obj`、`int32_t s_gesture_card`（当前手势的卡片，−1 = 滚动/无）、`int8_t s_gesture_slot`、`int32_t s_gesture_last_y`、`bool s_gesture_moved`。
-- `page_sound_build`：滚动容器 `make_plain(parent)`，pos `(16, 80)`，size `(1248, 564)`，`lv_obj_set_scrollable(obj, false)`，`lv_obj_set_clip_corner`/默认裁剪（子对象超出视口不画）；13 张卡片 `make_plain(container)`，pos/size 取 `sound_layout_place(0, 0, s_pos)`（容器内坐标），`lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN | LV_OBJ_FLAG_GESTURE_BUBBLE)`、`lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE)`，事件回调 `card_event_cb`（`LV_EVENT_ALL`）。
+- `page_sound_build`：滚动容器 `make_plain(parent)`，pos `(16, 80)`，size `(1248, 564)`，`lv_obj_set_scrollable(obj, false)`，`lv_obj_set_clip_corner`/默认裁剪（子对象超出视口不画）；13 张卡片 `make_plain(container)`，pos/size 取 `sound_layout_place(0, s_pos)`（容器内 = 内容坐标），`lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN | LV_OBJ_FLAG_GESTURE_BUBBLE)`、`lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE)`，事件回调 `card_event_cb`（`LV_EVENT_ALL`）。
 - 绘制（`LV_EVENT_DRAW_MAIN`）：卡片底 = 圆角矩形 `UI_PANEL`（半径 10）；标题 16pt `UI_TEXT` 起于 `(12, 8)`，右端 `▾`；每个槽：圆心 `(槽矩形中心 x, 矩形顶 + 12 + 48)`，底弧 `UI_PANEL_HI` 宽 8、扫角 135°→405°，名称 14pt 在弧上方，值占位 `"--"` 16pt 在弧内。写法照 `knob.c` 的 `knob_draw`（`lv_draw_rect`/`lv_draw_arc`/`lv_draw_label`，文本用静态缓冲、`text_local = 0`）。
 - 手势（`card_event_cb`）：`LV_EVENT_PRESSED` → 记 `s_gesture_card`、按下点、`s_gesture_moved = false`；若按下点命中某槽环带（`sound_ring_hit` 对槽圆心）⇒ `s_gesture_slot = 该槽`，否则 `−1`。`LV_EVENT_PRESSING` → `lv_indev_get_point`；位移绝对值 > 4 ⇒ `s_gesture_moved = true`；`s_gesture_slot < 0` 时 `lv_obj_scroll_by_bounded(s_scroll_obj, 0, last_y − y, LV_ANIM_OFF)`；`s_scroll = lv_obj_get_scroll_y(s_scroll_obj)`。`LV_EVENT_RELEASED`/`LV_EVENT_PRESS_LOST` → 清手势。`LV_EVENT_CLICKED`/`SHORT_CLICKED`/`LONG_PRESSED*` → 若 `s_gesture_moved` 则忽略（`lv_indev_wait_release` 不需要）。
-- TAP（本任务只判命中）：`page_sound_tap` 把 `(x,y)` 加 `s_scroll` 换到内容坐标，逐卡 `rect_hit`；命中的卡片标题行 ⇒ 填 `SLOOP_TAP_SOUND_CARD{a=card}` 返回 true；命中某槽 ⇒ `SLOOP_TAP_SOUND_FOCUS{a=card, b=slot, v=扁平下标}` 返回 true；否则 false。
+- 坐标换算（全文件唯一一处）：内容点 = `(x − 16, y − 80 + s_scroll)`（页面区相对坐标进来）；绘制/TAP/槽矩形都用它。
+- TAP（本任务只判命中）：`page_sound_tap` 把 `(x,y)` 换到内容坐标，逐卡 `rect_hit`；命中的卡片标题行 ⇒ 填 `SLOOP_TAP_SOUND_CARD{a=card}` 返回 true；命中某槽 ⇒ `SLOOP_TAP_SOUND_FOCUS{a=card, b=slot, v=扁平下标}` 返回 true；否则 false。
 
 - [ ] **Step 3: 构建与烧录**
 
@@ -303,7 +305,7 @@ bool sloop_ui_sound_dashboard_active(void);                       /* 无锁 */
 uint16_t sloop_ui_sound_slot_total(void);                         /* 无锁：当前上下文存在的槽数 */
 esp_err_t sloop_ui_sound_slot_info(uint16_t flat, uint8_t *card, uint8_t *slot, uint8_t *scope,
                                    uint8_t *id, const char **label, bool *locked, int16_t *value); /* 无锁 */
-esp_err_t sloop_ui_sound_slot_rect(uint16_t flat, int16_t *x, int16_t *y, int16_t *w, int16_t *h); /* 持锁；屏幕绝对坐标（含 72） */
+esp_err_t sloop_ui_sound_slot_rect(uint16_t flat, int16_t *x, int16_t *y, int16_t *w, int16_t *h); /* 持锁；屏幕绝对坐标 = (16 + 内容x, 72 + 80 + 内容y − 滚动量) */
 esp_err_t sloop_ui_sound_scroll_get(int16_t *y, int16_t *max_y); /* 持锁 */
 esp_err_t sloop_ui_sound_scroll_set(int16_t y);                   /* 持锁；钳位 [0, max] */
 esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press, int16_t *value); /* 持锁 */
