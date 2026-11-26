@@ -270,8 +270,9 @@ static bool focus_ok(uint16_t flat)
 }
 
 /* 焦点悬空的处置（update 每拍与 focus_get 共用这一条规则）：尚无焦点 ⇒ 首个存在槽；焦点槽已
- * 不存在（换轨/换引擎后描述符消失）或被折叠（R12）⇒ 扁平序里下一个可聚焦的槽（环绕）；全部
- * 折叠 ⇒ 保持原焦点（编辑惰性）；没有存在槽 ⇒ 首个存在槽 / NONE。会把结果写回焦点。
+ * 不存在（换轨/换引擎后描述符消失）或被折叠（R12）⇒ 扁平序里下一个可聚焦的槽（环绕）；找不到
+ * 这样的槽（全部折叠）而焦点槽仍存在 ⇒ 保持原焦点（编辑惰性：sound_slot_cmd 拒折叠卡）；焦点槽不
+ * 存在才落到首个存在槽；没有存在槽 ⇒ NONE。会把结果写回焦点。
  * 页面重建后、首拍重解析之前 s_present / s_slot 还是空的：此时只回显、不动焦点——否则不持锁的
  * focus_get 会把幸存的焦点抹成首个槽。 */
 static uint16_t focus_resolve(void)
@@ -284,9 +285,10 @@ static uint16_t focus_resolve(void)
         (void)sound_layout_first_present(s_present, &next);
     } else if (sound_layout_flat_move(s_present, collapsed_get(), (int16_t)f, 1, &next)) {
         /* 重指到下一个可聚焦的槽 */
-    } else {
-        (void)sound_layout_first_present(s_present, &next); /* 全折叠：能落到存在的槽就落，编辑惰性 */
+    } else if (!present_bit(f)) {
+        (void)sound_layout_first_present(s_present, &next);
     }
+    /* 否则 = 全部折叠而焦点槽仍在：next 保持 f（R12：不动焦点，编辑惰性） */
     if (next != f) focus_set(next);
     return next;
 }

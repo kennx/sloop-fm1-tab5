@@ -238,8 +238,10 @@ def hint_text_is_ascii(src):
     m = re.search(r"#define SOUND_HINT_TEXT(?:[^\n]*\\\n)*[^\n]*", text)
     if m is None:
         return False, None
-    lit = "".join(re.findall(r'"([^"]*)"', m.group(0)))
-    return all(0x20 <= ord(ch) <= 0x7E for ch in lit), lit
+    lits = re.findall(r'"([^"]*)"', m.group(0))
+    lit = "".join(lits)
+    # 反斜杠转义（\xNN / \uNNNN）在源码字面量里是 ASCII 字符，展开后不是：一律拒绝
+    return "\\" not in lit and all(0x20 <= ord(ch) <= 0x7E for ch in lit), lit
 
 
 def visible(rect_y, rect_h):
@@ -506,25 +508,39 @@ def main():
         st = stats(c)
         ck.ok(st.group(4) == "0020", f"{st.group(0)}")
         c.cmd("UI SOUND CARDTOGGLE 5")
-        for n in range(13):
+        # R12 全折叠条款：焦点 47 在 card 6。先把**其它 12 张**卡折叠（card 6 仍开 ⇒ 焦点不动），最后折叠
+        # card 6 ⇒ 没有任何可聚焦的槽：焦点必须**保持 47**（槽仍在，编辑惰性），不许落到 flat 0。
+        f_before = RE_FOCUS.search(c.cmd("UI SOUND FOCUS 47"))
+        for n in [k for k in range(13) if k != 6]:
             c.cmd(f"UI SOUND CARDTOGGLE {n}")
+        f_mid = focus(c)
+        ck.ok(f_mid.group(1) == "47", f"其余 12 张折叠、card 6 仍开 ⇒ 焦点不动：{f_mid.group(0)}")
+        c.cmd("UI SOUND CARDTOGGLE 6")
         st = stats(c)
         f = focus(c)
-        fr = slot(c, int(f.group(2)), int(f.group(3)))
         rows_all = eng_rows(c)
-        ck.ok(st.group(4) == "1FFF" and int(f.group(1)) < 109 and fr.group(4) == "1",
-              f"全部折叠 ⇒ {st.group(0)}；焦点保持在某个存在的槽：{f.group(0)}")
+        ck.ok(st.group(4) == "1FFF" and f.group(1) == f_before.group(1),
+              f"全部折叠 ⇒ {st.group(0)}；焦点保持不变：{f.group(0)}（折叠前 {f_before.group(1)}）")
         key(c, 0x3B)
         key(c, 0x4B)
         t = c.cmd("TAP 1224 132")
         m = RE_LOCKED.search(t)
         ck.ok(eng_rows(c) == rows_all and m is not None and m.group(4) == f.group(1),
               f"全折叠时 ↑/↓ 不写（四轨行不变）；TAP + ⇒ {result_line(t)}")
+        # 全折叠且焦点槽**已不存在**才落到首个存在槽：焦点设到 P_FTYPE（37，card 4 折叠 ⇒ 保持），换引擎让它消失
+        f37 = RE_FOCUS.search(c.cmd("UI SOUND FOCUS 37"))
+        ck.ok(f37.group(1) == "37", f"全折叠时把焦点设进 card 4 ⇒ 保持：{f37.group(0)}")
+        t = c.cmd("TAP 283 92")
+        f_abs = focus(c)
+        ck.ok("-> SOUND ENGINE value=1 " in t and f_abs.group(1) == "0",
+              f"焦点槽随引擎消失（全折叠）⇒ 落到首个存在槽：{f_abs.group(0)}")
+        t = c.cmd("TAP 37 92")
+        ck.ok("-> SOUND ENGINE value=0 " in t, f"换回 ANALOG：{result_line(t)}")
         for n in range(13):
             c.cmd(f"UI SOUND CARDTOGGLE {n}")
         st = stats(c)
         f2 = focus(c)
-        ck.ok(st.group(4) == "0000" and f2.group(1) == f.group(1), f"全部展开 ⇒ {st.group(0)}；焦点不变 {f2.group(0)}")
+        ck.ok(st.group(4) == "0000" and f2.group(1) == f_abs.group(1), f"全部展开 ⇒ {st.group(0)}；焦点不变 {f2.group(0)}")
 
         # ---- absent：焦点槽随引擎消失后重指 ----
         s48 = slot(c, 4, 8)

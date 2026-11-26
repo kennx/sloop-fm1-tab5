@@ -59,7 +59,7 @@ void page_sound_focus_move(int8_t delta);
 bool page_sound_adjust(int8_t delta);
 bool page_sound_adjust_value(int8_t delta, int16_t *applied); /* 同上；applied（可 NULL）= 写后投影真值 */
 /* 焦点槽；恒为一个可聚焦的槽 = 存在且所在卡片没折叠（悬空的焦点按 update 同一条规则重指：扁平序
- * 下一个可聚焦的槽，环绕；全部折叠则保持原焦点、编辑惰性）。无存在槽 = SOUND_SLOT_NONE。页面重建后
+ * 下一个可聚焦的槽，环绕；全部折叠则保持原焦点、编辑惰性——焦点槽已不存在时才落到首个存在槽）。无存在槽 = SOUND_SLOT_NONE。页面重建后
  * 首拍重解析之前只回显、不重指。 */
 uint16_t page_sound_focus_get(void);
 void page_sound_focus_set(uint16_t flat); /* 只写焦点（不校验存在性）；滚到可见在下一拍 */
