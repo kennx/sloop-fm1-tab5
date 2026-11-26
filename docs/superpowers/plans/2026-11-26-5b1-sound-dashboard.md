@@ -314,7 +314,7 @@ esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool p
 
 - [ ] **Step 1: 存在位图、描述符与值**
 
-`page_sound.c` 增加（PSRAM）：`uint32_t s_present[4]`、`struct { sloop_desc_t desc; int16_t value; bool shown, locked; } s_slot[SOUND_SLOT_TABLE_MAX]`、脏检查键 `s_ctx_key`（选中轨、引擎、`P_ITYPE`、`P_ESYNC`、`st->core.trk[sel].engine`）。`page_sound_update`：上下文键变化 ⇒ 重解析：对每个表成员，`gate` 不满足（非 ANALOG）或描述符取不到或 `label` 为空或（`min == max && enum_count == 0`）⇒ 不存在；TRACK 作用域用 `sloop_core_desc_track_live(sel, id)`，GLOBAL 用 `sloop_core_desc(SLOOP_DESC_GLOBAL, 0, id)`；`locked = drum && scope != GLOBAL && drum_ok == 0`；每次拍：存在的槽取值（`st->p[id]` / `st->g[id]`），值/锁定变化才 `lv_obj_invalidate_area(卡片, 槽矩形 + s_scroll)`。绘制：存在且未锁 ⇒ 弧 + 名称 + `knob_format_value` 的值；锁定 ⇒ 无弧、`--`。
+`page_sound.c` 增加（PSRAM）：`uint32_t s_present[4]`、`struct { sloop_desc_t desc; int16_t value; bool shown, locked; } s_slot[SOUND_SLOT_TABLE_MAX]`、脏检查键 `s_ctx_key`（选中轨、引擎、`P_ITYPE`、`P_ESYNC`、`st->core.trk[sel].engine`）。`page_sound_update`：上下文键变化 ⇒ 重解析：对每个表成员，`gate` 不满足（非 ANALOG）或描述符取不到或 `label` 为空或（`min == max && enum_count == 0`）⇒ 不存在；TRACK 作用域用 `sloop_core_desc_track_live(sel, id)`，GLOBAL 用 `sloop_core_desc(SLOOP_DESC_GLOBAL, 0, id)`；`locked = drum && scope != GLOBAL && drum_ok == 0`；每次拍：存在的槽取值（`st->p[id]` / `st->g[id]`），值/锁定变化才 `lv_obj_invalidate_area(卡片, 槽矩形)：卡片是容器的子对象，矩形用卡片内坐标 = 槽内容矩形 − 卡片内容原点；滚动由容器 pos 体现，不进矩形`。绘制：存在且未锁 ⇒ 弧 + 名称 + `knob_format_value` 的值；锁定 ⇒ 无弧、`--`。
 
 - [ ] **Step 2: 拖动改值**
 
