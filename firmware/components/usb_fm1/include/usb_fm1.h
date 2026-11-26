@@ -38,9 +38,11 @@ typedef struct {
 
 esp_err_t usb_fm1_start(const usb_fm1_config_t *cfg);
 void usb_fm1_get_status(usb_fm1_status_t *out);
-/* 同步发送一个完整 SysEx 帧；timeout 内未完成返回 ESP_ERR_TIMEOUT。多个任务可并发调用
- * （内部串行化）；链路不在返回 ESP_ERR_INVALID_STATE，传输完成但状态非 COMPLETED 返回
- * ESP_ERR_INVALID_RESPONSE，上一帧超时后仍在途返回 ESP_ERR_NOT_FINISHED。 */
+/* 同步发送一个完整 SysEx 帧。多个任务可并发调用（内部串行化）。返回：ESP_OK；
+ * ESP_ERR_INVALID_ARG（帧不是 F0 开头 F7 结尾或放不进编码缓冲）；ESP_ERR_INVALID_STATE（链路不在）；
+ * ESP_ERR_NOT_FINISHED（上一帧超时后仍在途）；ESP_ERR_TIMEOUT（含等内部互斥，timeout 内未完成；
+ * ≥2^31 tick 视为一直等）；库的提交错误码；ESP_ERR_INVALID_RESPONSE（传输完成但状态非 COMPLETED）。
+ * 不得在 on_frame/on_link 里调用：它们与完成 Bulk OUT 的是同一个任务，会自锁到超时。 */
 esp_err_t usb_fm1_send_frame(const uint8_t *frame, size_t len, TickType_t timeout);
 
 #ifdef __cplusplus

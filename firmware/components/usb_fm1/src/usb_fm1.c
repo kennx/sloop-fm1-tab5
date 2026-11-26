@@ -36,6 +36,7 @@ static const char *TAG = "usb_fm1";
 #define CLI_TASK_PRIO 4
 
 #define MIDI_STREAMING_SUBCLASS 0x03
+#define IN_ERR_MAX 3 /* IN 环连续出错这么多次就停环 */
 #define TX_BUF_SIZE (MIDI_STREAM_SYSEX_MAX * 4 / 3 + 8) /* 最大 SysEx 帧编码后的事件包字节数 */
 
 static usb_host_client_handle_t s_client;
@@ -50,6 +51,8 @@ static uint8_t s_dev_addr, s_intf;
 static usb_transfer_t *s_in_xfer, *s_out_xfer;
 static size_t s_in_buf_len;
 static bool s_in_inflight;
+static uint8_t s_in_errs; /* IN 环连续出错次数，fm1_cli 独占 */
+static bool s_intf_claimed;
 static bool s_teardown_due;
 static EXT_RAM_BSS_ATTR sysex_asm_t s_asm;
 
@@ -146,9 +149,13 @@ static void teardown_if_due(void)
     if (s_in_inflight || out_busy) return; /* 最后一个回报者会再踢一脚 */
 
     s_teardown_due = false;
-    esp_err_t ret = usb_host_interface_release(s_client, s_dev, s_intf);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "设备 %u 接口 %u 释放失败: %s", s_dev_addr, s_intf, esp_err_to_name(ret));
+    esp_err_t ret = ESP_OK;
+    if (s_intf_claimed) {
+        s_intf_claimed = false;
+        ret = usb_host_interface_release(s_client, s_dev, s_intf);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "设备 %u 接口 %u 释放失败: %s", s_dev_addr, s_intf, esp_err_to_name(ret));
+        }
     }
     usb_host_transfer_free(s_in_xfer);
     s_in_xfer = NULL;
@@ -198,23 +205,50 @@ static void feed_midi(const uint8_t *buf, size_t len)
     }
 }
 
+/* 出错后重提交：库在端点出错后只 flush 不恢复，pipe 停在 HALTED，直接 submit 会被拒；
+ * 先清 halt。pipe 其实还 active 时 clear 回 INVALID_STATE，不算失败，照常提交 */
+static esp_err_t in_resubmit_after_error(usb_transfer_t *xfer)
+{
+    esp_err_t ret = usb_host_endpoint_clear(xfer->device_handle, xfer->bEndpointAddress);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) return ret;
+    return usb_host_transfer_submit(xfer);
+}
+
+/* IN 环规则：COMPLETED ⇒ 交付数据、连续错误清零、重提交。ERROR/TIMED_OUT/OVERFLOW/SKIPPED 按瞬时
+ * 错误处理 ⇒ 清 halt 后重提交并累计连续错误，满 IN_ERR_MAX 次停环。STALL/NO_DEVICE/CANCELED 不重提交
+ * （已 STALL 的 pipe 重提交会被库立刻再 stall+flush，空转）；设备已消失（待清理）同样不重提交。
+ * 停环一律 link down + 清理。 */
 static void in_xfer_cb(usb_transfer_t *xfer)
 {
     s_in_inflight = false;
-    if (xfer->status == USB_TRANSFER_STATUS_COMPLETED) {
+    bool retry = false;
+    switch (xfer->status) {
+    case USB_TRANSFER_STATUS_COMPLETED:
+        s_in_errs = 0;
         feed_midi(xfer->data_buffer, (size_t)xfer->actual_num_bytes & ~(size_t)3);
-        if (!s_teardown_due) {
-            esp_err_t ret = usb_host_transfer_submit(xfer);
-            if (ret == ESP_OK) {
-                s_in_inflight = true;
-                return;
-            }
-            ESP_LOGW(TAG, "Bulk IN 重提交失败: %s", esp_err_to_name(ret));
-        }
-    } else if (xfer->status == USB_TRANSFER_STATUS_NO_DEVICE || xfer->status == USB_TRANSFER_STATUS_CANCELED) {
+        retry = true;
+        break;
+    case USB_TRANSFER_STATUS_STALL:
+        ESP_LOGW(TAG, "Bulk IN STALL，停止 IN 环");
+        break;
+    case USB_TRANSFER_STATUS_NO_DEVICE:
+    case USB_TRANSFER_STATUS_CANCELED:
         ESP_LOGI(TAG, "Bulk IN 停止 status=%d", xfer->status);
-    } else {
-        ESP_LOGW(TAG, "Bulk IN 出错 status=%d", xfer->status);
+        break;
+    default:
+        s_in_errs++;
+        ESP_LOGW(TAG, "Bulk IN 出错 status=%d（连续第 %u/%u 次）", xfer->status, s_in_errs, IN_ERR_MAX);
+        retry = s_in_errs < IN_ERR_MAX;
+        break;
+    }
+    if (retry && !s_teardown_due) {
+        esp_err_t ret = xfer->status == USB_TRANSFER_STATUS_COMPLETED ? usb_host_transfer_submit(xfer)
+                                                                      : in_resubmit_after_error(xfer);
+        if (ret == ESP_OK) {
+            s_in_inflight = true;
+            return;
+        }
+        ESP_LOGW(TAG, "Bulk IN 重提交失败: %s", esp_err_to_name(ret));
     }
     if (!s_teardown_due) {
         /* IN 环已停且不会重启：链路作废，走同一条清理路径 */
@@ -325,6 +359,7 @@ static void handle_new_dev(uint8_t addr)
     s_intf = midi_intf->bInterfaceNumber;
     ret = usb_host_interface_claim(s_client, dev, s_intf, 0);
     if (ret == ESP_OK) {
+        s_intf_claimed = true;
         s_in_buf_len = (size_t)USB_EP_DESC_GET_MPS(ep_in) * 4;
         ret = usb_host_transfer_alloc(s_in_buf_len, 0, &s_in_xfer);
     }
@@ -349,6 +384,7 @@ static void handle_new_dev(uint8_t addr)
         s_status.ep_out = ep_out->bEndpointAddress;
         portEXIT_CRITICAL(&s_mux);
 
+        s_in_errs = 0;
         s_in_inflight = true;
         ret = usb_host_transfer_submit(s_in_xfer);
     }
@@ -491,8 +527,11 @@ esp_err_t usb_fm1_send_frame(const uint8_t *frame, size_t len, TickType_t timeou
 {
     if (frame == NULL || !s_status.link) return ESP_ERR_INVALID_STATE;
 
+    /* ≥2^31 tick（含 portMAX_DELAY）视为一直等：直接拿它做截止时刻会溢出成立即超时 */
+    const bool forever = (int32_t)timeout < 0;
+    const TickType_t wait = forever ? portMAX_DELAY : timeout;
     TickType_t deadline = xTaskGetTickCount() + timeout;
-    if (xSemaphoreTake(s_tx_mux, timeout) != pdTRUE) return ESP_ERR_TIMEOUT;
+    if (xSemaphoreTake(s_tx_mux, wait) != pdTRUE) return ESP_ERR_TIMEOUT;
 
     portENTER_CRITICAL(&s_mux);
     usb_transfer_t *out = s_out_xfer;
@@ -530,8 +569,8 @@ esp_err_t usb_fm1_send_frame(const uint8_t *frame, size_t len, TickType_t timeou
     usb_transfer_status_t status = USB_TRANSFER_STATUS_ERROR;
     bool done = false;
     while (!done) {
-        TickType_t left = deadline - xTaskGetTickCount();
-        if ((int32_t)left <= 0) left = 0;
+        TickType_t left = forever ? portMAX_DELAY : deadline - xTaskGetTickCount();
+        if (!forever && (int32_t)left <= 0) left = 0;
         if (xSemaphoreTake(s_tx_done, left) != pdTRUE) {
             xSemaphoreGive(s_tx_mux);
             return ESP_ERR_TIMEOUT;
