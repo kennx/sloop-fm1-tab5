@@ -19,6 +19,12 @@
  * SOUND 页（P4-F Task 5）：页眉 ENGINE/PRESET 两行（鼓轨 = 单行 KIT）与仅 FM6 引擎出现的
  * bank 行，见 page_params.c 文件头；TAP 回显走 sloop_tap_kind_t 的 SLOOP_TAP_SOUND_*。
  *
+ * 仪表盘页（PARAM_FEAT_DASHBOARD，5B-1；目前只有 SOUND）：主体的 8 槽旋钮与 chip 行不建，
+ * 换成 page_sound.c 的滚动卡片区；页眉行/银行行/± 按钮照建（± 在 SOUND_BTN_Y、银行行在
+ * BANK_ROW_Y_DASH）。因此本文件的 8 槽入口在仪表盘页都「不适用」：page_params_test_knob 回
+ * ESP_ERR_NOT_SUPPORTED，slot_info/slot_locked 回 false，chip_set 回 ESP_ERR_INVALID_ARG，
+ * chip_get 回 0xFF；param_step 不下发（± 按钮的焦点槽动作由后续任务接入）。
+ *
  * 线程：build/update/tap 由 ui.c 在 LVGL 锁内调用；键盘路由（sloop_ui_param_*）不取
  * LVGL 锁，焦点用临界区保护，调值经状态层、控件刷新交给 30ms UI 定时器。
  */

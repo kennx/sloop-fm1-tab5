@@ -284,6 +284,10 @@ typedef enum {
                              * （未执行，1.5s 内再点同一 chip 才执行）/ 0 已执行（一条
                              * CMD_TOOLS）。结果文本由 `ui_tools_status_text` 与屏幕同源给出
                              * （`AGAIN TO CONFIRM` / `PATTERN CLEARED` / `STOP THE SONG FIRST`…）。 */
+    SLOOP_TAP_SOUND_FOCUS,   /* SOUND 仪表盘的槽（5B-1）：a=卡片 b=卡内槽 v=成员表扁平下标
+                             * （sound_layout_slot_index）。命中卡片标题行以外、槽矩形以内的点；
+                             * 后续任务接入焦点后只设焦点、不改值。 */
+    SLOOP_TAP_SOUND_CARD,    /* SOUND 仪表盘的卡片标题行（5B-1）：a=卡片。折叠动作在后续任务。 */
 } sloop_tap_kind_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作

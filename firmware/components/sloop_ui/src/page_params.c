@@ -13,7 +13,9 @@
  * 1 个原始单位（细调）。调试注入 console `UI KNOB` 走同一指针路径（ADR-008 §8.2）。
  * TAP 注入与控件回调共用同一动作函数（param_step/slot_write），只是 TAP 不能拖拽。
  *
- * SOUND 页（P4-F Task 5，取代原 ANALOG + FM6 两页；spec §4 / A10）：主体 = **选中轨引擎**的
+ * SOUND 页（P4-F Task 5，取代原 ANALOG + FM6 两页；spec §4 / A10；5B-1 起带 PARAM_FEAT_DASHBOARD——
+ * 主体换成卡片仪表盘、不再建下面说的 8 个旋钮，见文末「仪表盘页」；页眉/bank 行逻辑照旧）：
+ * 主体 = **选中轨引擎**的
  * 8 槽（布局表的 TRACK scope P_E0..P_E7，描述符经 sloop_core_desc_track_live 取该轨引擎的
  * 钩子——LOFI/NOISE/PHYS 的标签随模式换），8 个旋钮对象常驻、按上下文显隐。页眉两行是
  * **三区对象**（同 DSYN 的 LANE / FM6P 的 BANK）：`ENGINE − 名 +` / `PRESET − 名 +`，
@@ -80,6 +82,15 @@
  * 对每个已用槽算 ≤80KiB 的数据 CRC，因此只在建页、槽动作与键变化时立即读；30ms 拍的
  * 非强制路径**最短 250ms**、key 稳定时 1s——绝不每 30ms 轮询（P4-D Task 4 评审的
  * UI 停顿风险）。
+ *
+ * 仪表盘页（PARAM_FEAT_DASHBOARD，SOUND；5B-1）：主体的 8 槽旋钮与 chip 行**不建**，换成
+ * page_sound.c 的滚动卡片区。页眉行、银行行、± 按钮照建，位置变两处：± 按钮下移到
+ * SOUND_BTN_Y 让出页眉行；银行行从页面区底部挪到页眉下方 BANK_ROW_Y_DASH（SAMPLE 页的
+ * 槽管理行不动，仍在 SAMPLE_ROW_Y）。本文件里凡是碰 knobs[]/present[]/chip 状态的路径都按
+ * `page_layout_is_dashboard()` 分流：update 跳过 apply_focus/sound_sync_slots/槽循环/
+ * sloop_ui_zoom_knob（ZOOM 大读数画在页面区顶部，会盖住本页可操作的页眉），改调
+ * page_sound_update；TAP 先走按钮/页眉行/银行行，未命中再交 page_sound_tap；± 细调、
+ * `UI KNOB`、`UI <page> CHIP` 的逐槽诊断在仪表盘页没有对象可作用，一律不动作。
  */
 #include "page_params.h"
 
@@ -90,6 +101,7 @@
 #include "freertos/task.h"
 #include "knob.h"
 #include "page_layout.h"
+#include "page_sound.h"
 #include "sloop_store.h"
 #include "theme.h"
 
@@ -114,6 +126,9 @@
  * KNOB_OBJ_DY + KNOB_OBJ_SIZE = 536，行取 y=552（16px 间隙）、高 44，页面区高 648
  * ⇒ 不与旋钮环/两行文本重叠，也不需要压缩旋钮区。 */
 #define BANK_ROW_Y    552
+/* 仪表盘页（SOUND）的银行行在页眉下方：页眉行 4..36、提示/± 行 40..80，行占 76..120，
+ * 卡片视口顶随之 = SOUND_VIEW_Y_BANK（128，page_layout.h）。 */
+#define BANK_ROW_Y_DASH 76
 #define BANK_ROW_H    44
 #define BANK_LABEL_X  16
 #define BANK_LABEL_W  88
@@ -329,6 +344,12 @@ static bool bank_row_visible(const param_page_t *pg, const app_state_t *st)
     return page_layout_bank_row_visible(pg, drum, engine);
 }
 
+/* 银行行的 y（建控件与 TAP 命中同源）：仪表盘页在页眉下方，其余页在页面区底部 */
+static int16_t bank_row_y(const param_page_t *pg)
+{
+    return page_layout_is_dashboard(pg) ? BANK_ROW_Y_DASH : BANK_ROW_Y;
+}
+
 /* 槽管理行建在布局表标了 PARAM_FEAT_SAMPLE 的页（SAMPLE）。 */
 static bool sample_row_present(const param_page_t *pg)
 {
@@ -524,7 +545,8 @@ static void apply_focus(uint8_t index, uint8_t focus)
 static bool param_step(uint8_t index, int8_t delta, int16_t *applied)
 {
     const param_page_t *pg = page_layout_get(index);
-    if (pg == NULL) return false;
+    /* 仪表盘页没有 8 槽旋钮：焦点槽的 ± 由卡片区的后续任务接入，这里不碰槽表、不发命令 */
+    if (pg == NULL || page_layout_is_dashboard(pg)) return false;
     uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t v;
@@ -1053,11 +1075,14 @@ esp_err_t page_params_test_knob(uint8_t slot, int32_t dx, int32_t dy, bool press
 {
     int idx = current_index();
     if (idx < 0 || slot >= PARAM_PAGE_SLOTS) return ESP_ERR_INVALID_ARG;
+    /* 仪表盘页没有 8 槽旋钮对象：槽级注入由后续任务的 `UI SOUND KNOB` 提供 */
+    if (page_layout_is_dashboard(page_layout_get((uint8_t)idx))) return ESP_ERR_NOT_SUPPORTED;
     page_ui_t *ui = &s_ui[idx];
     if (ui->header == NULL) return ESP_ERR_INVALID_STATE;
     if (!ui->present[slot]) return ESP_ERR_INVALID_ARG;
     /* 槽位锁定（引擎页不适用/鼓轨逐槽规则）：旋钮显示 -- 且不可编辑。用独立错误码让
-     * console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。 */
+     * console 回 `ignored (locked)`（与环带外的 NOT_FOUND 区分）。仪表盘页（没有 8 槽旋钮
+ * 对象）回 ESP_ERR_NOT_SUPPORTED。 */
     app_state_t st;
     state_get_copy(&st);
     if (slot_locked(page_layout_get((uint8_t)idx), chip_get((uint8_t)idx), slot, &st)) {
@@ -1178,36 +1203,37 @@ static lv_obj_t *make_row_label(lv_obj_t *parent, int16_t x, int16_t y, int16_t 
 static lv_obj_t *build_bank_row(uint8_t index, lv_obj_t *parent)
 {
     page_ui_t *ui = &s_ui[index];
+    const param_page_t *pg = page_layout_get(index);
     s_bank_slot = 0;   /* 页面重建：目标槽归零（与 FILE 页选中槽同口径） */
     s_bank_act = 0xFF; /* 尚无动作：状态行留空 */
     ui->bank_shown_slot = 0xFF;
     ui->bank_status_key = 0xFFFFFFFFu;
     ui->bank_vis_shown = -1; /* 可见性由紧随的 update 按选中轨引擎落地 */
 
-    ui->bank_label = make_row_label(parent, BANK_LABEL_X, BANK_ROW_Y, BANK_LABEL_W, UI_TEXT_DIM,
+    ui->bank_label = make_row_label(parent, BANK_LABEL_X, bank_row_y(pg), BANK_LABEL_W, UI_TEXT_DIM,
                                     LV_TEXT_ALIGN_LEFT);
     UI_BUILD_CHECK(ui->bank_label);
     lv_label_set_text(ui->bank_label, "BANK");
 
-    ui->bank_value = make_row_label(parent, BANK_VAL_X, BANK_ROW_Y, BANK_VAL_W, UI_ACCENT,
+    ui->bank_value = make_row_label(parent, BANK_VAL_X, bank_row_y(pg), BANK_VAL_W, UI_ACCENT,
                                     LV_TEXT_ALIGN_CENTER);
     UI_BUILD_CHECK(ui->bank_value);
 
     const uintptr_t ctx = (uintptr_t)((unsigned)index << 4);
-    ui->bank_dec = make_row_button(parent, BANK_DEC_X, BANK_ROW_Y, BANK_SLOT_W, "-", NULL,
+    ui->bank_dec = make_row_button(parent, BANK_DEC_X, bank_row_y(pg), BANK_SLOT_W, "-", NULL,
                                    bank_cb, (void *)(ctx | 0u));
     UI_BUILD_CHECK(ui->bank_dec);
-    ui->bank_inc = make_row_button(parent, BANK_INC_X, BANK_ROW_Y, BANK_SLOT_W, "+", NULL,
+    ui->bank_inc = make_row_button(parent, BANK_INC_X, bank_row_y(pg), BANK_SLOT_W, "+", NULL,
                                    bank_cb, (void *)(ctx | 1u));
     UI_BUILD_CHECK(ui->bank_inc);
-    ui->bank_save = make_row_button(parent, BANK_SAVE_X, BANK_ROW_Y, BANK_ACT_W, "SAVE",
+    ui->bank_save = make_row_button(parent, BANK_SAVE_X, bank_row_y(pg), BANK_ACT_W, "SAVE",
                                     &s_st_bank_save, bank_cb, (void *)(ctx | 2u));
     UI_BUILD_CHECK(ui->bank_save);
-    ui->bank_erase = make_row_button(parent, BANK_ERASE_X, BANK_ROW_Y, BANK_ACT_W, "ERASE",
+    ui->bank_erase = make_row_button(parent, BANK_ERASE_X, bank_row_y(pg), BANK_ACT_W, "ERASE",
                                      &s_st_bank_erase, bank_cb, (void *)(ctx | 3u));
     UI_BUILD_CHECK(ui->bank_erase);
 
-    ui->bank_status = make_row_label(parent, BANK_STATUS_X, BANK_ROW_Y, BANK_STATUS_W, UI_TEXT_DIM,
+    ui->bank_status = make_row_label(parent, BANK_STATUS_X, bank_row_y(pg), BANK_STATUS_W, UI_TEXT_DIM,
                                      LV_TEXT_ALIGN_LEFT);
     UI_BUILD_CHECK(ui->bank_status);
 
@@ -1488,43 +1514,53 @@ lv_obj_t *page_params_build(uint8_t index, lv_obj_t *parent)
     lv_obj_set_size(ui->header, header_w, 30);
 
     /* ± 按钮：共用同一回调，user_data 编码 (页下标 << 4 | 方向位)；方向位 0=减 1=加。
-     * 旋钮上下文另有 +1 偏移（见 KNOB_CTX），按钮不需要（解码不经过 NULL 哨兵）。 */
-    ui->btn_dec = make_button(parent, BTN_DEC_X, BTN_Y, "-", btn_cb,
+     * 旋钮上下文另有 +1 偏移（见 KNOB_CTX），按钮不需要（解码不经过 NULL 哨兵）。
+     * 仪表盘页的 ± 下移到页眉行下方（SOUND_BTN_Y）；其余页仍在页面区右上角。 */
+    const bool dash = page_layout_is_dashboard(pg);
+    const int16_t btn_y = dash ? SOUND_BTN_Y : BTN_Y;
+    ui->btn_dec = make_button(parent, BTN_DEC_X, btn_y, "-", btn_cb,
                               (void *)(uintptr_t)(((unsigned)index << 4) | 0u));
     UI_BUILD_CHECK(ui->btn_dec);
-    ui->btn_inc = make_button(parent, BTN_INC_X, BTN_Y, "+", btn_cb,
+    ui->btn_inc = make_button(parent, BTN_INC_X, btn_y, "+", btn_cb,
                               (void *)(uintptr_t)(((unsigned)index << 4) | 1u));
     UI_BUILD_CHECK(ui->btn_inc);
 
-    /* 旋钮：旧式整页只为有描述符的槽建控件；chip 页与 SOUND 页 8 个对象常驻（desc/
-     * 显隐由 update 首拍的 apply_chip 落地；SOUND 的槽集合随选中轨变），不新建/删除对象。 */
-    uint8_t chip = chip_get(index);
-    if (chip >= page_layout_chip_count(pg)) chip = 0;
-    static const sloop_desc_t placeholder = {"?", NULL, SLOOP_DESC_FMT_INT, 0, 1, 0, NULL, 0};
-    for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
-        sloop_desc_t desc = placeholder;
-        if (!resident && !slot_desc(pg, chip, slot, &desc)) continue;
-        knob_t *k = &ui->knobs[slot];
-        int16_t cx = (int16_t)(GRID_X0 + (slot % 4u) * CELL_PITCH);
-        int16_t cy = (int16_t)(GRID_Y0 + (slot / 4u) * ROW_PITCH);
-        if (!knob_create(k, parent, cx, cy, &desc, KNOB_CTX(index, slot), knob_change_cb,
-                         knob_focus_cb)) {
-            return NULL;
-        }
-        if (resident) {
-            lv_obj_set_hidden(k->obj, true);
-        } else {
-            ui->present[slot] = true;
-        }
-    }
+    /* 仪表盘页：主体 = page_sound.c 的滚动卡片区，不建 8 槽旋钮。它必须先于页眉行/银行行建
+     * （后建的对象在上面：滚出视口、被页眉盖住的卡片部分抢不到触摸）。 */
+    if (dash && page_sound_build(parent) == NULL) return NULL;
 
-    /* 焦点槽落在第一个有控件的槽上（重试后槽集合可能变化；chip 页由 apply_chip 夹） */
-    uint8_t f = focus_get(index);
-    if (!resident && !ui->present[f]) {
+    /* 旋钮：旧式整页只为有描述符的槽建控件；chip 页与 SOUND 页 8 个对象常驻（desc/
+     * 显隐由 update 首拍的 apply_chip 落地；SOUND 的槽集合随选中轨变），不新建/删除对象。
+     * 仪表盘页整段跳过（ui->knobs[]/present[] 保持全零）。 */
+    if (!dash) {
+        uint8_t chip = chip_get(index);
+        if (chip >= page_layout_chip_count(pg)) chip = 0;
+        static const sloop_desc_t placeholder = {"?", NULL, SLOOP_DESC_FMT_INT, 0, 1, 0, NULL, 0};
         for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
-            if (ui->present[slot]) {
-                focus_set(index, slot);
-                break;
+            sloop_desc_t desc = placeholder;
+            if (!resident && !slot_desc(pg, chip, slot, &desc)) continue;
+            knob_t *k = &ui->knobs[slot];
+            int16_t cx = (int16_t)(GRID_X0 + (slot % 4u) * CELL_PITCH);
+            int16_t cy = (int16_t)(GRID_Y0 + (slot / 4u) * ROW_PITCH);
+            if (!knob_create(k, parent, cx, cy, &desc, KNOB_CTX(index, slot), knob_change_cb,
+                             knob_focus_cb)) {
+                return NULL;
+            }
+            if (resident) {
+                lv_obj_set_hidden(k->obj, true);
+            } else {
+                ui->present[slot] = true;
+            }
+        }
+
+        /* 焦点槽落在第一个有控件的槽上（重试后槽集合可能变化；chip 页由 apply_chip 夹） */
+        uint8_t f = focus_get(index);
+        if (!resident && !ui->present[f]) {
+            for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
+                if (ui->present[slot]) {
+                    focus_set(index, slot);
+                    break;
+                }
             }
         }
     }
@@ -1560,8 +1596,10 @@ void page_params_update(uint8_t index, const app_state_t *st)
     }
 
     /* chip 页：生效 chip（条件 chip 隐藏时夹到首个可见）变化 ⇒ 零分配重配 8 旋钮 */
+    /* 仪表盘页：没有旋钮/chip 行对象，本函数里碰它们的几段都跳过（文件头「仪表盘页」） */
+    const bool dash = page_layout_is_dashboard(pg);
     uint8_t chip = chip_effective(index, pg, st);
-    if (chip != ui->shown_chip) {
+    if (!dash && chip != ui->shown_chip) {
         ui->shown_chip = chip;
         apply_chip(index, chip);
     }
@@ -1630,37 +1668,43 @@ void page_params_update(uint8_t index, const app_state_t *st)
         ui->shown_esync = (int8_t)esync;
         ui->shown_itype = itype;
         update_header(index, pg, st, track, chip, locked);
-        /* SOUND：槽集合随选中轨变（鼓轨 ⇄ 合成轨），先对齐显隐再重解析描述符 */
-        if (page_layout_is_sound(pg)) sound_sync_slots(index, chip);
-        /* 动态描述符翻转（ENV SYNC 的 ATK/DEC/REL、INSERT TYPE 的 A/B/C；引擎钩子随
-         * 换轨/换引擎）：重新解析并重绘，不要求用户重进页面。 */
+        if (!dash) {
+            /* SOUND：槽集合随选中轨变（鼓轨 ⇄ 合成轨），先对齐显隐再重解析描述符 */
+            if (page_layout_is_sound(pg)) sound_sync_slots(index, chip);
+            /* 动态描述符翻转（ENV SYNC 的 ATK/DEC/REL、INSERT TYPE 的 A/B/C；引擎钩子随
+             * 换轨/换引擎）：重新解析并重绘，不要求用户重进页面。 */
+            for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
+                if (!ui->present[slot]) continue;
+                sloop_desc_t d;
+                if (!slot_desc(pg, chip, slot, &d)) continue;
+                knob_t *k = &ui->knobs[slot];
+                if (d.label == k->desc.label && d.fmt == k->desc.fmt && d.unit == k->desc.unit) {
+                    continue;
+                }
+                k->desc = d;
+                lv_obj_invalidate(k->obj);
+            }
+        }
+    }
+
+    if (!dash) {
+        uint8_t focus = focus_get(index);
+        if (ui->focus_shown != focus) apply_focus(index, focus);
+
+        /* 锁定槽（引擎页不适用/鼓轨逐槽规则）：-- 且不接受拖拽；可编辑槽按投影值刷新 */
         for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
             if (!ui->present[slot]) continue;
-            sloop_desc_t d;
-            if (!slot_desc(pg, chip, slot, &d)) continue;
             knob_t *k = &ui->knobs[slot];
-            if (d.label == k->desc.label && d.fmt == k->desc.fmt && d.unit == k->desc.unit) continue;
-            k->desc = d;
-            lv_obj_invalidate(k->obj);
+            if (slot_locked(pg, chip, slot, st)) {
+                if (!k->shown || !k->locked) knob_show_locked(k);
+                continue;
+            }
+            int16_t v;
+            if (!slot_value(pg, chip, slot, st, &v)) continue;
+            if (!k->shown || k->locked || k->value != v) knob_show(k, v);
         }
+        sloop_ui_zoom_knob(ui->present[focus] ? &ui->knobs[focus] : NULL);
     }
-
-    uint8_t focus = focus_get(index);
-    if (ui->focus_shown != focus) apply_focus(index, focus);
-
-    /* 锁定槽（引擎页不适用/鼓轨逐槽规则）：-- 且不接受拖拽；可编辑槽按投影值刷新 */
-    for (uint8_t slot = 0; slot < PARAM_PAGE_SLOTS; slot++) {
-        if (!ui->present[slot]) continue;
-        knob_t *k = &ui->knobs[slot];
-        if (slot_locked(pg, chip, slot, st)) {
-            if (!k->shown || !k->locked) knob_show_locked(k);
-            continue;
-        }
-        int16_t v;
-        if (!slot_value(pg, chip, slot, st, &v)) continue;
-        if (!k->shown || k->locked || k->value != v) knob_show(k, v);
-    }
-    sloop_ui_zoom_knob(ui->present[focus] ? &ui->knobs[focus] : NULL);
 
     /* bank 行（SOUND 页；仅选中轨引擎为 FM6 时可见，A10）：目标槽 `B<n+1>` + 状态行
      * （最后一次 bank 动作 × store_status，与 FILE 页同一映射）。可见性变化 = 上下文切换：
@@ -1715,6 +1759,9 @@ void page_params_update(uint8_t index, const app_state_t *st)
             sample_render(index, st);
         }
     }
+
+    /* 卡片区（仅仪表盘页）：在银行行之后——视口顶随银行行的可见性变（上面已落地显隐） */
+    if (dash) page_sound_update(st);
 }
 
 /* ---------------------------------------------------------------- TAP --- */
@@ -1797,11 +1844,12 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
     page_ui_t *ui = &s_ui[index];
     if (pg == NULL || ui->header == NULL) return false;
 
-    if (rect_hit(x, y, BTN_DEC_X, BTN_Y, BTN_W, BTN_H)) {
+    const int16_t btn_y = page_layout_is_dashboard(pg) ? SOUND_BTN_Y : BTN_Y;
+    if (rect_hit(x, y, BTN_DEC_X, btn_y, BTN_W, BTN_H)) {
         param_tap_button(index, -1, out);
         return true;
     }
-    if (rect_hit(x, y, BTN_INC_X, BTN_Y, BTN_W, BTN_H)) {
+    if (rect_hit(x, y, BTN_INC_X, btn_y, BTN_W, BTN_H)) {
         param_tap_button(index, +1, out);
         return true;
     }
@@ -1873,23 +1921,26 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
     /* bank 行（SOUND 页且引擎为 FM6 ⇒ 行可见；否则整行隐藏，落在这里的 TAP = miss）：
      * 槽 ± 只改目标槽，SAVE/ERASE 发状态层命令 */
     if (bank_row_present(pg) && ui->bank_label != NULL && ui->bank_vis_shown == 1) {
-        if (rect_hit(x, y, BANK_DEC_X, BANK_ROW_Y, BANK_SLOT_W, BANK_ROW_H)) {
+        const int16_t by = bank_row_y(pg);
+        if (rect_hit(x, y, BANK_DEC_X, by, BANK_SLOT_W, BANK_ROW_H)) {
             bank_tap_slot(index, -1, out);
             return true;
         }
-        if (rect_hit(x, y, BANK_INC_X, BANK_ROW_Y, BANK_SLOT_W, BANK_ROW_H)) {
+        if (rect_hit(x, y, BANK_INC_X, by, BANK_SLOT_W, BANK_ROW_H)) {
             bank_tap_slot(index, +1, out);
             return true;
         }
-        if (rect_hit(x, y, BANK_SAVE_X, BANK_ROW_Y, BANK_ACT_W, BANK_ROW_H)) {
+        if (rect_hit(x, y, BANK_SAVE_X, by, BANK_ACT_W, BANK_ROW_H)) {
             bank_tap_action(index, 0, out);
             return true;
         }
-        if (rect_hit(x, y, BANK_ERASE_X, BANK_ROW_Y, BANK_ACT_W, BANK_ROW_H)) {
+        if (rect_hit(x, y, BANK_ERASE_X, by, BANK_ACT_W, BANK_ROW_H)) {
             bank_tap_action(index, 2, out);
             return true;
         }
     }
+    /* 卡片区（仅仪表盘页）：以上固定行都未命中才轮到它（标题行/槽矩形） */
+    if (page_layout_is_dashboard(pg)) return page_sound_tap(x, y, out);
     return false;
 }
 
@@ -1898,6 +1949,7 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
 void page_params_forget(uint8_t index)
 {
     if (index >= PARAM_PAGE_COUNT) return;
+    if (page_layout_is_dashboard(page_layout_get(index))) page_sound_forget();
     memset(&s_ui[index], 0, sizeof s_ui[index]);
     s_sample_act = 0xFF;
     s_sample_lock_refused = 0;
@@ -1934,6 +1986,7 @@ uint8_t page_params_chip_get(uint8_t index)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL) return 0;
+    if (page_layout_is_dashboard(pg)) return 0xFFu; /* 没有 chip 行：无生效 chip */
     app_state_t st;
     state_get_copy(&st);
     return chip_effective(index, pg, &st);
@@ -1944,7 +1997,9 @@ uint8_t page_params_chip_get(uint8_t index)
 esp_err_t page_params_chip_set(uint8_t index, uint8_t chip)
 {
     const param_page_t *pg = page_layout_get(index);
-    if (pg == NULL || pg->chip_count <= 1u) return ESP_ERR_INVALID_ARG;
+    if (pg == NULL || pg->chip_count <= 1u || page_layout_is_dashboard(pg)) {
+        return ESP_ERR_INVALID_ARG;
+    }
     if (chip >= pg->chip_count) return ESP_ERR_INVALID_ARG;
     if (s_ui[index].header != NULL) {
         return param_chip_select(index, chip) ? ESP_OK : ESP_ERR_NOT_ALLOWED;
@@ -1968,6 +2023,7 @@ bool page_params_slot_info(uint8_t index, uint8_t chip, uint8_t slot, uint8_t *i
                            const char **label, bool *locked)
 {
     const param_page_t *pg = page_layout_get(index);
+    if (page_layout_is_dashboard(pg)) return false; /* 没有 8 槽旋钮：逐槽诊断不适用 */
     const param_slot_t *sl = page_layout_slot(page_layout_chip(pg, chip), slot);
     if (sl == NULL) return false;
     app_state_t st;
@@ -1986,6 +2042,7 @@ bool page_params_slot_locked(uint8_t index, uint8_t chip, uint8_t slot)
 {
     const param_page_t *pg = page_layout_get(index);
     if (pg == NULL) return true;
+    if (page_layout_is_dashboard(pg)) return false; /* 没有 8 槽旋钮：逐槽诊断不适用 */
     app_state_t st;
     state_get_copy(&st);
     return slot_locked(pg, chip, slot, &st);

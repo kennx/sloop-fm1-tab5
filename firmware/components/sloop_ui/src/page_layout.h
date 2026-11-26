@@ -66,6 +66,9 @@ typedef struct {
                                    * 为 FM6 引擎的合成轨时显示（A10）；其余引擎整行隐藏、
                                    * TAP 落在该带 ⇒ miss */
 #define PARAM_FEAT_SAMPLE   0x04u /* 底部采样槽管理行（SAMPLE 页，P4-D Task 8） */
+#define PARAM_FEAT_DASHBOARD 0x08u /* 卡片仪表盘页（SOUND，5B-1）：主体 = page_sound.c 的滚动卡片
+                                   * 区——**没有** 8 槽旋钮与 chip 行；页眉行、银行行、± 按钮仍由
+                                   * page_params.c 建（按钮下移到 SOUND_BTN_Y 让出页眉行） */
 
 /* 参数页数（布局表条目数；页 id 不要求连续——MOD/SCALE/VOICE 追加在 app_page_t 末尾；
  * APP_PAGE_FM6 是不注册的空位 id） */
@@ -195,6 +198,31 @@ static inline bool page_layout_bank_row_visible(const param_page_t *pg, bool dru
 {
     return pg != NULL && (pg->features & PARAM_FEAT_BANK_FM6) != 0u && !drum &&
            engine == PARAM_ENGINE_FM6;
+}
+
+static inline bool page_layout_is_dashboard(const param_page_t *pg)
+{
+    return pg != NULL && (pg->features & PARAM_FEAT_DASHBOARD) != 0u;
+}
+/* SOUND 仪表盘（5B-1）的固定行与卡片视口（页面区相对坐标）：页眉行 y=4..36，下方一行提示/
+ * ± 按钮 y=40..80（按钮 x 同各参数页的 BTN_DEC_X/BTN_INC_X）；银行行在仪表盘页挪到页眉
+ * 下方 SOUND_BANK_ROW_Y（= page_params.c 的 BANK_ROW_Y_DASH，仅 FM6 合成轨显示），卡片区视口
+ * 顶随它下移。建控件、卡片自绘与 TAP 命中同源。 */
+#define SOUND_BTN_Y        40
+#define SOUND_BANK_ROW_Y   76
+#define SOUND_BANK_ROW_H   44
+#define SOUND_VIEW_X       16
+#define SOUND_VIEW_W       1248
+#define SOUND_VIEW_BOTTOM  644   /* 页面区高 648 − 底留白 4 */
+#define SOUND_VIEW_Y       80    /* 银行行隐藏时的视口顶 */
+#define SOUND_VIEW_Y_BANK  (SOUND_BANK_ROW_Y + SOUND_BANK_ROW_H + 8) /* 128 */
+static inline int16_t page_layout_sound_view_top(bool bank_visible)
+{
+    return bank_visible ? SOUND_VIEW_Y_BANK : SOUND_VIEW_Y;
+}
+static inline int16_t page_layout_sound_view_h(bool bank_visible)
+{
+    return (int16_t)(SOUND_VIEW_BOTTOM - page_layout_sound_view_top(bank_visible));
 }
 
 /* 鼓轨逐槽规则（012 §3）：全局参数与标了 drum_ok 的槽在鼓轨上仍可编辑，其余槽锁定。 */

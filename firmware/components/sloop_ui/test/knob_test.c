@@ -545,8 +545,9 @@ static void case_layout_pages(void)
         check_ll("est 取值", page_layout_est(i), pg->est_bytes);
         check_ll("page_id → 下标", page_layout_index(ids[i]), i);
         if (i == 2) {
-            /* SOUND：8 旋钮 + 页眉两行 + 条件 bank 行；est 6,144 起、上限 7,168 */
-            CHECK(pg->est_bytes >= 6144u && pg->est_bytes <= 7168u);
+            /* SOUND：卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± + 条件
+             * bank 行；est 12,288，上限 12,768（5B 规格 §5.6，不得上抬） */
+            CHECK(pg->est_bytes >= 6144u && pg->est_bytes <= 12768u);
         } else if (i == 3) {
             check_ll("SAMPLE（旧式整页）est 不变", pg->est_bytes, 6144u);
         } else {
@@ -570,7 +571,7 @@ static void case_layout_pages(void)
     check_ll("未注册 id → -1", page_layout_index(APP_STATE_PAGES), -1);
     /* 有序对账面 = base + 源组 Σ est + 目标页 est + 4KB ≤ 池可用（ADR-005 §5）；终态全表见
      * §5.5。这里覆盖涉及参数页的三条 + 最坏的 SEQ→PRESETS（不是只查子集）。 */
-    check_ll("EDIT Σ est", edit_est, 6144u + 3u * (mod ? mod->est_bytes : 0));
+    check_ll("EDIT Σ est", edit_est, 12288u + 3u * (mod ? mod->est_bytes : 0));
     check_ll("MIX Σ est", mix_est, 2u * mix_max);
     CHECK((long long)UI_BASE_BYTES + edit_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL); /* EDIT→STEP */
     CHECK((long long)UI_BASE_BYTES + mix_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL);  /* MIX→STEP */
@@ -598,7 +599,8 @@ static void case_layout_integrity(void)
                  1);
         uint8_t named = page_layout_chip_count(pg);
         check_ll("features 只用已定义的位",
-                 (pg->features & ~(uint8_t)(PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_SAMPLE)) == 0, 1);
+                 (pg->features & ~(uint8_t)(PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_SAMPLE |
+                                           PARAM_FEAT_DASHBOARD)) == 0, 1);
         if (pg->chip_count == 0) {
             check_ll("旧式页 chips[0] 无名", pg->chips[0].name == NULL, 1);
             check_ll("旧式页生效 chip 数", named, 1);
@@ -696,7 +698,23 @@ static void case_layout_sound(void)
     if (!snd || !fx || !smp) return;
     check_ll("SOUND 标题", strcmp(snd->title, "SOUND") == 0, 1);
     check_ll("SOUND 是整页（无 chip 行）", snd->chip_count, 0);
-    check_ll("SOUND features", snd->features, PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6);
+    check_ll("SOUND features", snd->features,
+             PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_DASHBOARD);
+    /* 仪表盘（5B-1）：只有 SOUND 带 DASHBOARD；± 按钮让出页眉行、银行行在页眉下方、卡片
+     * 视口随银行行的可见性下移（page_sound.c 建容器、page_params.c 建/TAP 固定行，同一组量） */
+    check_ll("仪表盘 = 仅 SOUND", page_layout_is_dashboard(snd), 1);
+    check_ll("非仪表盘页", page_layout_is_dashboard(fx) || page_layout_is_dashboard(smp) ||
+                                page_layout_is_dashboard(NULL), 0);
+    check_ll("± 按钮在页眉行之下", SOUND_BTN_Y, SOUND_ROW_Y + SOUND_ROW_H + 4);
+    check_ll("银行行在 ± 行之下", SOUND_BANK_ROW_Y, SOUND_BTN_Y + 36);
+    check_ll("视口顶（银行行隐藏）", page_layout_sound_view_top(false), 80);
+    check_ll("视口顶（银行行可见）", page_layout_sound_view_top(true),
+             SOUND_BANK_ROW_Y + SOUND_BANK_ROW_H + 8);
+    check_ll("视口高（银行行隐藏）", page_layout_sound_view_h(false), SOUND_VIEW_BOTTOM - 80);
+    check_ll("视口高（银行行可见）", page_layout_sound_view_h(true),
+             SOUND_VIEW_BOTTOM - (SOUND_BANK_ROW_Y + SOUND_BANK_ROW_H + 8));
+    check_ll("视口宽 = 两列 + 列间距", SOUND_VIEW_W, 2 * 616 + 16);
+    check_ll("视口不越页面区", SOUND_VIEW_X + SOUND_VIEW_W <= 1280 && SOUND_VIEW_BOTTOM < 648, 1);
     check_ll("page_layout_is_sound", page_layout_is_sound(snd), 1);
     check_ll("is_sound(FX)", page_layout_is_sound(fx), 0);
     check_ll("is_sound(NULL)", page_layout_is_sound(NULL), 0);

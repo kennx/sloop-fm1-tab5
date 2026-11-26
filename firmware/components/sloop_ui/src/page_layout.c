@@ -7,7 +7,9 @@
  * docs/design/012-feature-parity-checklist.md §3（每 chip 的槽顺序即上游页序）：
  * - SOUND（P4-F Task 5，取代原 ANALOG + FM6 两页）：选中轨引擎的 edit[0..7] = TRACK scope
  *   的 P_E0..P_E7（描述符经 sloop_core_desc_track_live 的规则 4 取该轨引擎的钩子，标签随
- *   LOFI/NOISE/PHYS 的模式换）；页眉 ENGINE/PRESET（鼓轨 KIT）+ 仅 FM6 引擎出现的 bank 行；
+ *   LOFI/NOISE/PHYS 的模式换）；页眉 ENGINE/PRESET（鼓轨 KIT）+ 仅 FM6 引擎出现的 bank 行。
+ *   5B-1 起该页带 PARAM_FEAT_DASHBOARD：页面不再建这 8 槽（主体 = page_sound.c 的卡片仪表盘，
+ *   成员表在 sound_layout.h），表项只留给页眉/bank 行逻辑与 host 测试；
  * - GLOBAL：GLO（= 原 8 槽：GLOBAL 4 + DLY 4）/ REV（REV/CHO 4 + MASTER 4）/ DRUMS（4）/
  *   TEXTURE（7）——全局参数在鼓轨上全部可编辑；
  * - FX：FX（= 原 8 槽：DST/CHO/DLY/REV + FILT + LVL/PAN/ATK；鼓轨上只有 TFLT/LEVEL/PAN
@@ -48,8 +50,9 @@
  * MOD 4,544B，会逼 est 到 5,120 并让 EDIT→STEP 有序对账面 63,848 > 63,120；改对象设计
  * 后实测 2,936–3,104B（跨 boot 3,012–3,088B），est = 实测 +15..22%、512 对齐，见 ADR-008
  * §8.9）。SOUND est
- * 6,144 = 8 旋钮 + 页眉两行 + 常驻隐藏的 bank 行（上限 7,168）。est 只在实测超限时改对象
- * 设计，不抬。宏体内不放注释（每行都要续行）。
+ * 12,288 = 卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± 按钮 + 常驻隐藏的
+ * bank 行（上限 12,768，5B 规格 §5.6）。est 只在实测超限时改对象设计，不抬。
+ * 宏体内不放注释（每行都要续行）。
  * 宏参数名不能叫 id/title：designator 的 .id/.title 会被参数替换掉。 */
 #define PARAM_PAGES(X) \
     X(0, APP_PAGE_GLOBAL, 3584, "GLOBAL", 0, 4, \
@@ -69,7 +72,8 @@
       CHIP("INSERT", PARAM_CHIP_ALWAYS, TD(L_P_ITYPE), TD(L_P_IA), TD(L_P_IB), TD(L_P_IC)), \
       CHIP("INSERT 2", PARAM_CHIP_ALWAYS, TD(L_P_IMIX)), \
       CHIP_NONE) \
-    X(2, APP_PAGE_ANALOG, 6144, "SOUND", PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6, 0, \
+    X(2, APP_PAGE_ANALOG, 12288, "SOUND", \
+      PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_DASHBOARD, 0, \
       CHIP(NULL, PARAM_CHIP_ALWAYS, TS(L_P_E0), TS(L_P_E0 + 1), TS(L_P_E0 + 2), TS(L_P_E0 + 3), \
            TS(L_P_E0 + 4), TS(L_P_E0 + 5), TS(L_P_E0 + 6), TS(L_P_E0 + 7)), \
       CHIP_NONE, CHIP_NONE, CHIP_NONE, CHIP_NONE) \

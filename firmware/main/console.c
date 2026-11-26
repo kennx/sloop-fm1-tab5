@@ -2372,6 +2372,14 @@ static int tap_command(int argc, char **argv)
         }
         break;
     }
+    case SLOOP_TAP_SOUND_FOCUS:
+        /* 5B-1 骨架：只回命中；焦点/值字段在后续任务补全 */
+        printf("TAP %ld,%ld page=%u -> SOUND focus card=%u slot=%u flat=%d\n", x, y, page,
+               (unsigned)r.a, (unsigned)r.b, (int)r.v);
+        break;
+    case SLOOP_TAP_SOUND_CARD:
+        printf("TAP %ld,%ld page=%u -> SOUND card=%u\n", x, y, page, (unsigned)r.a);
+        break;
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;
