@@ -63,6 +63,7 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "input_map.h"
@@ -502,8 +503,9 @@ esp_err_t input_start(void)
             return ESP_ERR_NO_MEM;
         }
     }
-    if (xTaskCreate(input_task, "sloop_input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, &s_task) !=
-        pdPASS) {
+    /* 栈放 PSRAM（TCB 仍在内部 RAM）：本任务不跑音频、不写 flash，但 8KB 栈占内部堆 */
+    if (xTaskCreateWithCaps(input_task, "sloop_input", INPUT_TASK_STACK, NULL, INPUT_TASK_PRIO, &s_task,
+                            MALLOC_CAP_SPIRAM) != pdPASS) {
         ESP_LOGE(TAG, "创建输入任务失败");
         return ESP_ERR_NO_MEM;
     }
