@@ -1,0 +1,52 @@
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2700:1: warning: ‘/*’ within comment [-Wcomment]
+ 2700 | /* last_param 不被 sync 覆盖（UI 局部态同类），选轨/整份刷新也不清。 */
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP 开步保留字段/关步完整 CLEAR
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+PASS k=5 MUTE/SOLO 引擎写入口与 sync 真值
+PASS k=6 ERASE_NOTE 委托 NOTE_DEL（字段随移/CONT）
+PASS k=7 步窗抽象：默认/映射/投影/钳位
+PASS k=8 步窗 sync 与 SET_WINDOW 交错按新基重取
+PASS k=9 参数命令：单 SET 钳位/越界忽略
+PASS k=10 参数批量：一次引擎调用/截断/空载荷
+PASS k=11 参数投影：sync 采纳引擎真值/跟随选轨
+PASS k=12 选轨即刷参数投影（不等 sync）
+PASS k=13 state_get_copy 反映 cmd 与 sync
+PASS k=14 全局参数 CMD_SET_GLOBAL 与投影
+PASS k=15 越界参数忽略
+PASS k=16 工程存储命令：返回码映射/刷新/越界
+PASS k=17 用户预置命令：鼓轨区分/轨号透传/越界
+PASS k=18 FM6 银行命令：选中轨 patch/鼓轨/越界
+PASS k=19 页 id 扩容（18 页）
+PASS k=20 STEP_EDIT 完整 POD 与详细窗口同拍投影
+PASS k=21 PATTERN/micro/fill 标量透传与投影
+PASS k=22 LOCK 命令与 seq_status 全返回码
+PASS k=23 DRUM_STEP_WRITE 原始 POD 与合成步隔离
+PASS k=24 REC/fill/鼓演奏/物理 PLAY 命令透传
+PASS k=25 sync 拷贝录音快照投影
+PASS k=26 外部选轨同步 focus_track
+PASS k=27 冻结 toggle/erase 与 micro/fill 超宽拒绝
+PASS k=28 sections/chain/SONG 命令与歌曲投影
+PASS k=29 DSYN 命令：越界不调引擎/写后回读/STORE/试听/CRUSH
+PASS k=30 FM6 patch 与采样擦除命令：锁定/回读/错误映射
+PASS k=31 SETTINGS_SET 六字段路由与同拍投影
+PASS k=32 SETTINGS_SET 状态层钳位与字段越界
+PASS k=33 SETTINGS_SET 拒绝映射：blocked/invalid/error
+PASS k=34 SYS 亮度/音量/输出：钳位/HAL 失败/headphone/投影
+PASS k=35 REC CONFIG 成功置 settings dirty
+PASS k=36 SELFTEST_RUN 请求深度 1 与结果投影
+PASS k=37 SELFTEST worker 不可用立即 FAIL
+PASS k=38 SET_ENGINE：换引擎调用/同拍投影/越界·鼓轨·冻结不调引擎
+PASS k=39 SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎
+PASS k=40 sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名
+PASS k=41 窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0
+PASS k=42 SOUND：用户预置投影 user / USER nn / 换预置·换引擎清 user
+PASS k=43 TOOLS：action 越界不调引擎/返回码映射/成功整份刷新
+PASS k=44 LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、R12 范围（LEN 内含 TIE/空步）、UNLOCK 无锁、冻结、错误码映射
+PASS k=45 last_param 跨 sync/选轨保持
+PASS k=46 last_param 只记生效写（冻结/无描述符不记）
+
+46 passed, 0 failed
+STATE TEST PASSED
