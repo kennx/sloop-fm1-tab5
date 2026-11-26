@@ -133,6 +133,7 @@ void fm1_session_on_link(bool present, void *user)
         s_auto_watch = true;
     } else {
         s_watch_on = false;
+        s_watch_val = 0;
         s_info.valid = false;
     }
     task = s_task;
@@ -140,17 +141,35 @@ void fm1_session_on_link(bool present, void *user)
     if (task != NULL) xTaskNotify(task, present ? BIT_LINK_UP : BIT_LINK_DOWN, eSetBits);
 }
 
-/* 一次请求/回复：timeout 覆盖等锁、发送与等回复。cmd 不符或参数不足的回复计 stray 后继续等到超时 */
+/* 请求超时的统一出口（等锁、截止时刻已到两处；等回复处的超时在 request 末尾计） */
+static esp_err_t timed_out(void)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_stats.timeouts++;
+    portEXIT_CRITICAL(&s_mux);
+    return ESP_ERR_TIMEOUT;
+}
+
+/* 一次请求/回复：一个截止时刻覆盖等锁、发送与等回复（timeout ≥ 2^31 tick 视为一直等）；等锁
+ * 耗尽截止时刻就不发帧。cmd 不符或参数不足的回复计 stray 后继续等到超时 */
 static esp_err_t request(uint8_t cmd, const uint8_t *args, size_t nargs, size_t reply_argc,
                          TickType_t timeout, edp_frame_t *reply)
 {
-    const TickType_t deadline = xTaskGetTickCount() + timeout;
+    const bool forever = (int32_t)timeout < 0;
+    const TickType_t deadline = forever ? 0 : xTaskGetTickCount() + timeout;
     uint8_t frame[16];
+    TickType_t left = forever ? portMAX_DELAY : timeout;
     size_t len;
     esp_err_t ret;
 
     if (!s_ready) return ESP_ERR_NOT_ALLOWED;
-    if (xSemaphoreTake(s_req_mux, timeout) != pdTRUE) return ESP_ERR_TIMEOUT;
+    if (xSemaphoreTake(s_req_mux, left) != pdTRUE) return timed_out();
+
+    left = forever ? portMAX_DELAY : deadline - xTaskGetTickCount();
+    if (!forever && (int32_t)left <= 0) {
+        xSemaphoreGive(s_req_mux);
+        return timed_out();
+    }
 
     portENTER_CRITICAL(&s_mux);
     s_pending = true;
@@ -159,10 +178,10 @@ static esp_err_t request(uint8_t cmd, const uint8_t *args, size_t nargs, size_t 
     xSemaphoreTake(s_reply_sem, 0);
 
     len = edp_frame_build(cmd, args, nargs, frame, sizeof frame);
-    ret = len == 0 ? ESP_ERR_INVALID_ARG : usb_fm1_send_frame(frame, len, timeout);
+    ret = len == 0 ? ESP_ERR_INVALID_ARG : usb_fm1_send_frame(frame, len, left);
     while (ret == ESP_OK) {
-        TickType_t left = deadline - xTaskGetTickCount();
-        if ((int32_t)left <= 0) left = 0;
+        left = forever ? portMAX_DELAY : deadline - xTaskGetTickCount();
+        if (!forever && (int32_t)left <= 0) left = 0;
         if (xSemaphoreTake(s_reply_sem, left) != pdTRUE) {
             ret = ESP_ERR_TIMEOUT;
             break;
