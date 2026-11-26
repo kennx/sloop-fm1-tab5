@@ -196,3 +196,10 @@ d159838f1389b7cdaaa9b8637700b48c8a16f386560a013a6d71aa0f7f21948b  task-7-song-st
 bb1e4d3440df8396acc714e0cefeb8d3f935f88e4ef966d788c2bedbeb410888  task-7-store-stdout.log
 a9d3a9919aab1c8ddb00498e59b86ac0337a45130cc12e468281f628ce5f7aad  task-7-sys-stdout.log
 e683db4632bbc035f78bacaf3cd8fb318c771d0879d9771e2a73c49c00114ff7  task-7-ui-mem.txt
+1cb93e86b819dd5550cd8b65d2b2ffb72a69a254388a7c750e8cf7c856dd13dc  task-7-fix1-build-1.log
+6e63f2685063fd51a07cc32a490fc9e5ef1787dbe4e8483815facb07754fa225  task-7-fix1-build-2.log
+aeb943be9efb5db6864d6f3a3044c160fadef9f1407a6ecc93868efce23ff753  task-7-fix1-knob-test.log
+60fb811376074cb4e6348480903c796132a9cf82a16b92e99a6375df01ab1ee4  task-7-fix1-sound-test.log
+e5875b57b2aba0cabcc73a0b8625cd243f7cf315a707da34595eb84684d8af3b  task-7-fix1-soak-selftest.log
+b0cd70b047fa70d391bdaac21357dede631b7f3705cccdfd296e5a2d658286bf  task-7-fix1-screenshot-selftest.log
+d8c5e07b0dd7cdb8328d71c14e2ed76f29ba218b5a089ef3397b241143293ba6  task-7-fix1-matrix-selftest.log

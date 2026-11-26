@@ -713,6 +713,8 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
 
 ### 8.9 参数页 chip 框架（P4-F Task 4：MOD / SCALE / VOICE）
 
+> 5B-1 Task 7 起本节的 chip 页全部退役（框架保留、无实例）：现行口径见 §8.12 的历史索引注与文末「Sound 仪表盘」的「族页退役」条。
+
 - **布局表升为 chip 结构**（`page_layout.{h,c}`，**不含 LVGL**、host 单测
   `scripts/knob-test.sh` 同源编译）：`param_page_t{page_id,title,est_bytes,chip_count,
   chips[5]}`，`param_chip_t{name,when,slot_count,slots[8]}`，`param_slot_t{scope,engine,id,
@@ -766,6 +768,8 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   （SLICER/INSERT/REV/DRUMS/TEXTURE）见 §8.10。
 
 ### 8.10 SOUND 通用引擎页 + GLOBAL/FX chip 页（P4-F Task 5）
+
+> 5B-1 Task 7 起 GLOBAL/FX chip 页退役、SOUND 的主体是卡片仪表盘（本节的页眉与 bank 行仍成立）：见 §8.12 的历史索引注与文末「族页退役」条。
 
 > 上位：spec `2026-11-24-p4f-phase4-closeout-design.md` §3/§4 与 A9/A10；槽表权威 =
 > `docs/design/012-feature-parity-checklist.md` §3。
@@ -860,6 +864,8 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   chip 页、有序对峰值）与 `store.sh` ⓰（bank 行缺席 ⇒ TAP miss）。
 
 ### 8.11 TOOLS 页与 TRANSPORT 的 REC 配置行（P4-F Task 6）
+
+> 5B-1 Task 7 起 TOOLS 是 MIX 组的唯一页（下文「MIX 组三张子签」为 P4-F 时点）：见 §8.12 的历史索引注。
 
 - **TOOLS 页**（`page_tools.c`，MIX 组第 3 张子签，页 id `APP_PAGE_TOOLS` = 18）：状态行 +
   三张单对象 chip（CLEAR SEQ / INIT SOUND / NEW）+ 三行说明 + 提示，共 8 个 label；

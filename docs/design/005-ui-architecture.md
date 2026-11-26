@@ -564,7 +564,8 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
   新进入前列的只有 SEQ→EDIT 40,960 ⇒ **59,056** ≤ 63,120。退掉族页后 EDIT→STEP 60,592 → **49,840**、
   MIX→STEP 49,512 → 44,720、SEQ→MIX → 53,936。
 - **实测（Task 7 `nav` ⑩ 有序对全矩阵，72 组对 / 104 目标页全部 `池剩余 ≥ 4,096`；固件 `c8305e4`）**：
-  最紧四条不变（SEQ→FILE 6,468 / SEQ→SONG 7,252 / FILE→SEQ 7,792 / SYNTH→SEQ 9,400B）。涉及
+  最紧四条不变（SEQ→FILE 6,412 / SEQ→SONG 7,228 / FILE→SEQ 7,800 / SYNTH→SEQ 9,416B；P4-F 时点 6,424 / 7,212 /
+  7,896 / 9,476B）。涉及
   EDIT/MIX 的：SEQ→EDIT **11428B**（sound；P4-F 时点 13,164）、EDIT→SEQ **19192B**（step；
   P4-F 时点 12,092）、MIX→SEQ **23904B**（原 17,832）、SEQ→MIX **16076B**（tools；原 15,596）、
   MIX→EDIT 38496B、EDIT→MIX 38444B；`lvgl_stack_free` 5116B。
