@@ -9,6 +9,9 @@
 > 首轮（12:59 / 13:04）的冒烟与监听转录已丢失，只作历史保留（第 21 行、§4）。
 > **状态：两种条件的门禁全部通过**——FM-1 未接：全矩阵（27 步里 26 步 rc=0；首跑 soak 的 rc=1 是驱动脚本没按「硬复位 + 30s 后起跑」
 > 的口径，复位后重跑 PASS，首跑转录保留）；FM-1 已接：`FM1 SMOKE PASS 7/7`、182/182、堆 PASS。
+> **已合回 `dev`**：合并提交 `aba1499`（父 `f4b2026` + `00379c0`）；合并前离线全量测试与合并后门禁见 §1 第 22–23 行。
+> 合并后的树在 `firmware/`、`scripts/`、`tools/` 上与全矩阵固件 `715fdae` 逐字节相同（`git diff --stat 715fdae dev -- firmware scripts tools`
+> 为空），**设备矩阵没有在合并后重跑**。
 
 ## 1. 门禁矩阵（门禁 → 命令 → 证据 → 结论）
 
@@ -39,6 +42,8 @@ rc 与耗时在 `status.txt`（13:13:09 → 15:05:36；`HEAD=715fdae branch=feat
 | 19 | 自检堆泄漏（**FM-1 已接**） | `python3 scripts/selftest-heap.py /dev/ttyACM0`（→ 19:18:07） | `att-heap.log`（stdout）、`att-heap-transcript.log`（串口回显） | ✅ rc=0：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72675B`（门线 61,440B）；`# [selftest-heap] PASS` |
 | 20 | FM-1 已接两项检查之后的链路状态 | `FM1 STATUS` / `FM1 INFO` / `FM1 PING` / `FM1 EVENTS` / `ENG MEM`（19:18:21） | `att-fm1.log` | ✅ `FM1 STATUS link=ready … rx=322 tx=322 drops=0 open_fail=0 … watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0`；`FM1 INFO` 与基线一致；`FM1 PING ms=1`；`FM1 EVENTS total=0 … last=none`；`ENG MEM internal_free=72559 internal_min=71824 psram_free=30065824 psram_min=29344924` |
 | 21 | 首轮冒烟与 U 盘监听（12:59 / 13:04；**历史记录，不作为门禁证据**） | `python3 scripts/fm1-smoke.py /dev/ttyACM0`；`fm1-nonmidi-watch.py` | 无文件——两份原始转录已被全矩阵的 `build.sh --clean` 删除（§4） | 首轮结论：`FM1 SMOKE PASS 7/7`；U 盘插入 `link=none open_fail=1`、无 abort。读数出自主控当时核实的清单，没有原始回显可核；当时设备固件是 `715fdae` 的同源构建（版本串含 `-dirty`）。门禁证据以第 16–17 行为准 |
+| 22 | 合并前离线全量测试（`feat/phase5-sloop-go` @ `00379c0`） | `scripts/host-test.sh`、`state-test.sh`、`knob-test.sh`、`seq-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh`；`python3 scripts/soak-selftest.py`、`screenshot.py --selftest`、`fm1-smoke.py --selftest` | `finish-selftest.log` | ✅ 日志里十项全部 PASS：`182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget` + `ALL HOST TESTS PASSED (subset)`；state `46 passed, 0 failed`；knob `17 passed, 0 failed`；seq `SEQ HOST TEST PASSED (0 failures)`、`persist-host: PASS (0 failures)`；synth `SYNTH HOST TEST PASSED`；editor-proto `6/6`；usb-fm1 `5/5`；soak-selftest `结果: PASS`；screenshot `selftest OK`；`FM1 SMOKE SELFTEST OK`（14 组样例）。MANIFEST 校验的输出不在这份日志里（§4） |
+| 23 | 合并 `dev` 后门禁（`dev` @ `aba1499`） | `scripts/build.sh` ×2 + 第 22 行的离线套件 | `postmerge-gate.log` | ✅ 两遍构建都到 `==> 构建完成`，固件编译 0 警告：第一遍只有 §5.5 豁免的一对 CMake 提示（`build.cmake:631` + `Missing kconfig option. Re-run the build process...`，第 41 / 55 行），第二遍没有任何提示。离线套件十项全部 PASS，结论行与第 22 行相同。MANIFEST 同样不在日志里（§4）；设备矩阵未重跑（依据见本节开头） |
 
 ## 2. 文件说明与计数口径
 
@@ -84,6 +89,9 @@ rc 与耗时在 `status.txt`（13:13:09 → 15:05:36；`HEAD=715fdae branch=feat
   `att-182-transcript.log` / `att-heap-transcript.log`（串口回显）、`att-fm1.log`（两项检查之后的 `FM1` 与 `ENG MEM` 读数）。
   受测固件 = `715fdae`：冒烟、监听与已接检查起跑是同一次开机（`att-status.txt` 起跑时 `rx=198 tx=192`，与监听日志末尾一致），
   冒烟转录头自报 `App version: 715fdae`；`att-*` 自身没有开机日志，`att-status.txt` 里没有烧录步骤。
+- 合并相关：`finish-selftest.log`（合并前在 `00379c0` 上跑的离线套件输出，从 `host-test.sh` 的生成步骤开始）、
+  `postmerge-gate.log`（合并后在 `aba1499` 上的 `build.sh` ×2 + 同一套离线套件）。两份日志都没有记录 HEAD / 分支，
+  提交号与执行时点来自主控。
 - `matrix-20261126-142157/`：截屏矩阵的联系表 `sheet-*.png` ×10 + 每页一张代表图 `<page>-default.png` ×18
   （入库规则见 §3）。
 
@@ -146,12 +154,17 @@ rc 与耗时在 `status.txt`（13:13:09 → 15:05:36；`HEAD=715fdae branch=feat
   已接（`att-heap.log`）是 `IDLE1 (CPU 1)`、`console_repl` 在 CPU 1——没喂上狗的是自检所在核的 IDLE。既有现象，与
   `verification-log.md` 里登记通过的转录同款（如 `4-p0-2026-11-21/task-11-selftest-full-transcript.log`；DI-64）；
   各次自检均 PASS、未重启。
+- **两份合并相关日志不含 MANIFEST 校验的输出**（第 22–23 行）：主控的清单把 MANIFEST 列为第 11 项，日志里只有其余十项的
+  结论行。入库时在 `dev` @ `aba1499` 上只读复核了一次：`cd third_party && sha256sum -c MANIFEST.sha256` ⇒ 320 行全 OK——
+  这是入库者的复核，不是那两次运行的输出。
+- host-test 里 state 测试的编译有一条 `state_test.c:2700:1: warning: '/*' within comment [-Wcomment]`（两份日志都有）：
+  host 侧 gcc 警告，13:18 的 `11-state-test.log` 同款，既有；固件构建本身是 0 警告（第 23 行）。
 - 设备态：全矩阵与 A/B 按设计改写过工程槽 0（A/B 的准备步骤 `SAVE` / `LOAD`）；autosave 的工作工程是复位后那次 soak
   之后的状态。
 
 ## 5. SHA256 清单
 
-本目录内除 `readme.md` 外的全部文件（99 项），在证据目录内生成；校验：
+本目录内除 `readme.md` 外的全部文件（101 项），在证据目录内生成；校验：
 `cd docs/dev/verify/5-pa-2026-11-26 && sha256sum -c <(grep -E '^[0-9a-f]{64}' readme.md)`。
 
 43a39b8f6b80736b0bd8d8ede54466ed28f07a890a21d0bebeee455e5cb07c51  01-build-clean.log
@@ -207,6 +220,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ab-back-boot.l
 c73bd42e800b2039662710ae38349048228ccdbb41c611c261474e168d063622  att-heap-transcript.log
 fa65fd377c9ba02b6a815e009af908c64df98ba1b5fa895e5679279b74e373b5  att-heap.log
 02b5c794937227ec413e4baf4932d565c484f7739f5ed80ccba7667b91673322  att-status.txt
+0f51b99e8a019b22591113cf97ffb9e91966183d574ed3c1b7a66e046b6925b2  finish-selftest.log
 f15ebdb88ffd15ad943a36a4127ab038a2cdca479cc312b25d9648613e11b7ba  fm1-nonmidi-watch-2.log
 e1e8d18cea94ced9ad36a1bcd0d3a0255ba708d550a65fa1104f769515ac3fa5  fm1-smoke-20261126-190513.log
 98868449aa25005a2315c8d6681cdaa303c8ff448be6e191ce0441258895a30c  inject-nav-20261126-133636.log
@@ -247,6 +261,7 @@ c0e21b67bff85bfd77623687d797b1247ec008ef32c272d851ac7d52acd64f7b  matrix-2026112
 005af4a19815c1d0e8e239569433f8e190e4ad2a0279fa36ce6d461048de436e  matrix-20261126-142157/tracks-default.png
 da1425e8e83dad422535cbb6383dfde83fc970a7317327a5697f41c2305d49dd  matrix-20261126-142157/transport-default.png
 956b6e3ea3e57cb0862a3fa857cb6d3751b7b13474fdc2f5d7bd0c1a7230ded7  matrix-20261126-142157/voice-default.png
+fb9beedd435f726fcc15c5c3b22992e593d1a1e709e15225dbe27bdc6f71a8c6  postmerge-gate.log
 621a51f64d4c5087759d8046f19d442b5a0eddecf2c1d81c500a507a68693950  selftest-heap-20261126-132250.log
 c2dc61103cb9d4b6443d84ab9ad66bd860ffa73127d4fe3054fd5a66221d0c14  soak-20261126-143458.log
 23d179da8ebab9b31652a72100910a3a6f5cd5e70d208e20ad5c5c0c717e0124  soak-20261126-150834.log

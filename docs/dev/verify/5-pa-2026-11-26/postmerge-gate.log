@@ -1,0 +1,1727 @@
+已加载 ESP-IDF 环境: /home/kenn/esp/esp-idf/export.sh
+==> 构建 /home/kenn/projects/sloop-fm1-tab5/firmware (build: /home/kenn/projects/sloop-fm1-tab5/firmware/build)
+Executing action: all (aliases: build)
+Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
+Executing "ninja all"...
+[0/1] Re-running CMake...
+-- Component directory /home/kenn/esp/esp-idf/components/esp_blockdev does not contain a CMakeLists.txt file. No component will be added
+-- Minimal build - OFF
+-- Building ESP-IDF components for target esp32p4
+NOTICE: Skipping optional dependency: espressif/esp_sccb_intf
+NOTICE: Skipping optional dependency: espressif/usb
+NOTICE: 
+Following dependencies have new versions available:
+Dependency "espressif/esp_lvgl_port": "2.9.0" -> "2.9.1"
+Dependency "espressif/m5stack_tab5": "1.3.3" -> "1.3.4"
+Consider running "idf.py update-dependencies" to update your lock file.
+NOTICE: Processing 23 dependencies:
+NOTICE: [1/23] espressif/bmi270 (1.1.0)
+NOTICE: [2/23] espressif/cmake_utilities (0.5.3)
+NOTICE: [3/23] espressif/esp_cam_sensor (2.7.0)
+NOTICE: [4/23] espressif/esp_codec_dev (1.5.11)
+NOTICE: [5/23] espressif/esp_h264 (1.4.1)
+NOTICE: [6/23] espressif/esp_io_expander (1.2.1)
+NOTICE: [7/23] espressif/esp_io_expander_pi4ioe5v6408 (1.0.1)
+NOTICE: [8/23] espressif/esp_ipa (2.5.0)
+NOTICE: [9/23] espressif/esp_lcd_ili9881c (1.1.0)
+NOTICE: [10/23] espressif/esp_lcd_st7123 (1.0.2)
+NOTICE: [11/23] espressif/esp_lcd_touch (1.2.1)
+NOTICE: [12/23] espressif/esp_lcd_touch_gt911 (1.2.1)
+NOTICE: [13/23] espressif/esp_lcd_touch_st7123 (1.0.2)
+NOTICE: [14/23] espressif/esp_lvgl_port (2.9.0)
+NOTICE: [15/23] espressif/esp_sccb_intf (1.0.0)
+NOTICE: [16/23] espressif/esp_video (2.6.0)
+NOTICE: [17/23] espressif/i2c_bus (1.5.2)
+NOTICE: [18/23] espressif/m5stack_tab5 (1.3.3)
+NOTICE: [19/23] espressif/sensor_hub (0.1.5)
+NOTICE: [20/23] espressif/usb (1.6.1)
+NOTICE: [21/23] espressif/usb_host_uvc (2.6.0)
+NOTICE: [22/23] lvgl/lvgl (9.6.0~1)
+NOTICE: [23/23] idf (5.5.5)
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/build.cmake:631 (message):
+Call Stack (most recent call first):
+  /home/kenn/esp/esp-idf/tools/cmake/project.cmake:752 (idf_build_process)
+  CMakeLists.txt:6 (project)
+
+
+-- esp_h264: ESP32-P4 prebuilt library profile: esp32p4
+-- CONFIG_ESP32P4_REV_MIN_FULL not defined, using default version
+-- ESP-TEE is currently supported only on the esp32c6;esp32h2;esp32c5 SoCs
+NOTICE: Skipping optional dependency: espressif/esp_sccb_intf
+NOTICE: Skipping optional dependency: espressif/usb
+NOTICE: espressif__usb overrides usb since "project_managed_components" type got higher priority than "idf_components"
+-- Project sdkconfig file /home/kenn/projects/sloop-fm1-tab5/firmware/sdkconfig
+Loading defaults file /home/kenn/projects/sloop-fm1-tab5/firmware/sdkconfig.defaults...
+CMake Warning at /home/kenn/esp/esp-idf/tools/cmake/project.cmake:765 (message):
+  Missing kconfig option.  Re-run the build process...
+Call Stack (most recent call first):
+  CMakeLists.txt:6 (project)
+
+
+NOTICE: Skipping optional dependency: espressif/esp_sccb_intf
+NOTICE: Skipping optional dependency: espressif/usb
+NOTICE: Skipping optional dependency: espressif/freetype
+NOTICE: Skipping optional dependency: espressif/libjpeg-turbo
+NOTICE: Skipping optional dependency: espressif/libpng
+NOTICE: Skipping optional dependency: espressif/lz4
+NOTICE: 
+Following dependencies have new versions available:
+Dependency "espressif/esp_lvgl_port": "2.9.0" -> "2.9.1"
+Dependency "espressif/m5stack_tab5": "1.3.3" -> "1.3.4"
+Consider running "idf.py update-dependencies" to update your lock file.
+NOTICE: Processing 23 dependencies:
+NOTICE: [1/23] espressif/bmi270 (1.1.0)
+NOTICE: [2/23] espressif/cmake_utilities (0.5.3)
+NOTICE: [3/23] espressif/esp_cam_sensor (2.7.0)
+NOTICE: [4/23] espressif/esp_codec_dev (1.5.11)
+NOTICE: [5/23] espressif/esp_h264 (1.4.1)
+NOTICE: [6/23] espressif/esp_io_expander (1.2.1)
+NOTICE: [7/23] espressif/esp_io_expander_pi4ioe5v6408 (1.0.1)
+NOTICE: [8/23] espressif/esp_ipa (2.5.0)
+NOTICE: [9/23] espressif/esp_lcd_ili9881c (1.1.0)
+NOTICE: [10/23] espressif/esp_lcd_st7123 (1.0.2)
+NOTICE: [11/23] espressif/esp_lcd_touch (1.2.1)
+NOTICE: [12/23] espressif/esp_lcd_touch_gt911 (1.2.1)
+NOTICE: [13/23] espressif/esp_lcd_touch_st7123 (1.0.2)
+NOTICE: [14/23] espressif/esp_lvgl_port (2.9.0)
+NOTICE: [15/23] espressif/esp_sccb_intf (1.0.0)
+NOTICE: [16/23] espressif/esp_video (2.6.0)
+NOTICE: [17/23] espressif/i2c_bus (1.5.2)
+NOTICE: [18/23] espressif/m5stack_tab5 (1.3.3)
+NOTICE: [19/23] espressif/sensor_hub (0.1.5)
+NOTICE: [20/23] espressif/usb (1.6.1)
+NOTICE: [21/23] espressif/usb_host_uvc (2.6.0)
+NOTICE: [22/23] lvgl/lvgl (9.6.0~1)
+NOTICE: [23/23] idf (5.5.5)
+-- esp_h264: ESP32-P4 prebuilt library profile: esp32p4
+-- CONFIG_ESP32P4_REV_MIN_FULL not defined, using default version
+-- ESP-TEE is currently supported only on the esp32c6;esp32h2;esp32c5 SoCs
+NOTICE: Skipping optional dependency: espressif/esp_sccb_intf
+NOTICE: Skipping optional dependency: espressif/usb
+NOTICE: Skipping optional dependency: espressif/freetype
+NOTICE: Skipping optional dependency: espressif/libjpeg-turbo
+NOTICE: Skipping optional dependency: espressif/libpng
+NOTICE: Skipping optional dependency: espressif/lz4
+NOTICE: espressif__usb overrides usb since "project_managed_components" type got higher priority than "idf_components"
+-- Project sdkconfig file /home/kenn/projects/sloop-fm1-tab5/firmware/sdkconfig
+Loading defaults file /home/kenn/projects/sloop-fm1-tab5/firmware/sdkconfig.defaults...
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Adding linker script /home/kenn/esp/esp-idf/components/riscv/ld/rom.api.ld
+-- USING O3
+-- App "sloop_fm1_tab5" version: aba1499
+-- Adding linker script /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esp_system/ld/memory.ld
+-- Adding linker script /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esp_system/ld/sections.ld.in
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.api.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.rvfp.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.wdt.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.systimer.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.version.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.libc.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/esp_rom/esp32p4/ld/esp32p4.rom.newlib.ld
+-- Adding linker script /home/kenn/esp/esp-idf/components/soc/esp32p4/ld/esp32p4.peripherals.ld
+-- I2C_BUS: 1.5.2
+-- LVGL version: 9.6.0~1
+-- ESP_CAM_SENSOR: 2.7.0
+-- esp_h264: ESP32-P4 prebuilt library profile: esp32p4_less_v3
+-- ESP_IPA: 2.5.0
+-- ESP_VIDEO: 2.6.0
+-- ESP_LCD_ST7123: 1.0.2
+-- ESP_LCD_TOUCH_ST7123: 1.0.2
+-- Components: app_trace app_update bootloader bootloader_support bt cmock console cxx driver editor_proto efuse esp-tls esp_adc esp_app_format esp_bootloader_format esp_coex esp_common esp_driver_ana_cmpr esp_driver_bitscrambler esp_driver_cam esp_driver_dac esp_driver_gpio esp_driver_gptimer esp_driver_i2c esp_driver_i2s esp_driver_isp esp_driver_jpeg esp_driver_ledc esp_driver_mcpwm esp_driver_parlio esp_driver_pcnt esp_driver_ppa esp_driver_rmt esp_driver_sdio esp_driver_sdm esp_driver_sdmmc esp_driver_sdspi esp_driver_spi esp_driver_touch_sens esp_driver_tsens esp_driver_twai esp_driver_uart esp_driver_usb_serial_jtag esp_eth esp_event esp_gdbstub esp_hal_ieee802154 esp_hid esp_http_client esp_http_server esp_https_ota esp_https_server esp_hw_support esp_lcd esp_local_ctrl esp_mm esp_netif esp_netif_stack esp_partition esp_phy esp_pm esp_psram esp_ringbuf esp_rom esp_security esp_system esp_timer esp_vfs_console esp_wifi espcoredump espressif__bmi270 espressif__cmake_utilities espressif__esp_cam_sensor espressif__esp_codec_dev espressif__esp_h264 espressif__esp_io_expander espressif__esp_io_expander_pi4ioe5v6408 espressif__esp_ipa espressif__esp_lcd_ili9881c espressif__esp_lcd_st7123 espressif__esp_lcd_touch espressif__esp_lcd_touch_gt911 espressif__esp_lcd_touch_st7123 espressif__esp_lvgl_port espressif__esp_sccb_intf espressif__esp_video espressif__i2c_bus espressif__m5stack_tab5 espressif__sensor_hub espressif__usb espressif__usb_host_uvc esptool_py fatfs freertos hal heap http_parser idf_test ieee802154 json log lvgl__lvgl lwip main mbedtls mqtt newlib nvs_flash nvs_sec_provider openthread partition_table protobuf-c protocomm pthread riscv rt sdmmc sloop_core sloop_hal_tab5 sloop_state sloop_ui soc spi_flash spiffs tab5_keyboard tcp_transport ulp unity usb_fm1 vfs wear_levelling wifi_provisioning wpa_supplicant
+-- Component paths: /home/kenn/esp/esp-idf/components/app_trace /home/kenn/esp/esp-idf/components/app_update /home/kenn/esp/esp-idf/components/bootloader /home/kenn/esp/esp-idf/components/bootloader_support /home/kenn/esp/esp-idf/components/bt /home/kenn/esp/esp-idf/components/cmock /home/kenn/esp/esp-idf/components/console /home/kenn/esp/esp-idf/components/cxx /home/kenn/esp/esp-idf/components/driver /home/kenn/projects/sloop-fm1-tab5/firmware/components/editor_proto /home/kenn/esp/esp-idf/components/efuse /home/kenn/esp/esp-idf/components/esp-tls /home/kenn/esp/esp-idf/components/esp_adc /home/kenn/esp/esp-idf/components/esp_app_format /home/kenn/esp/esp-idf/components/esp_bootloader_format /home/kenn/esp/esp-idf/components/esp_coex /home/kenn/esp/esp-idf/components/esp_common /home/kenn/esp/esp-idf/components/esp_driver_ana_cmpr /home/kenn/esp/esp-idf/components/esp_driver_bitscrambler /home/kenn/esp/esp-idf/components/esp_driver_cam /home/kenn/esp/esp-idf/components/esp_driver_dac /home/kenn/esp/esp-idf/components/esp_driver_gpio /home/kenn/esp/esp-idf/components/esp_driver_gptimer /home/kenn/esp/esp-idf/components/esp_driver_i2c /home/kenn/esp/esp-idf/components/esp_driver_i2s /home/kenn/esp/esp-idf/components/esp_driver_isp /home/kenn/esp/esp-idf/components/esp_driver_jpeg /home/kenn/esp/esp-idf/components/esp_driver_ledc /home/kenn/esp/esp-idf/components/esp_driver_mcpwm /home/kenn/esp/esp-idf/components/esp_driver_parlio /home/kenn/esp/esp-idf/components/esp_driver_pcnt /home/kenn/esp/esp-idf/components/esp_driver_ppa /home/kenn/esp/esp-idf/components/esp_driver_rmt /home/kenn/esp/esp-idf/components/esp_driver_sdio /home/kenn/esp/esp-idf/components/esp_driver_sdm /home/kenn/esp/esp-idf/components/esp_driver_sdmmc /home/kenn/esp/esp-idf/components/esp_driver_sdspi /home/kenn/esp/esp-idf/components/esp_driver_spi /home/kenn/esp/esp-idf/components/esp_driver_touch_sens /home/kenn/esp/esp-idf/components/esp_driver_tsens /home/kenn/esp/esp-idf/components/esp_driver_twai /home/kenn/esp/esp-idf/components/esp_driver_uart /home/kenn/esp/esp-idf/components/esp_driver_usb_serial_jtag /home/kenn/esp/esp-idf/components/esp_eth /home/kenn/esp/esp-idf/components/esp_event /home/kenn/esp/esp-idf/components/esp_gdbstub /home/kenn/esp/esp-idf/components/esp_hal_ieee802154 /home/kenn/esp/esp-idf/components/esp_hid /home/kenn/esp/esp-idf/components/esp_http_client /home/kenn/esp/esp-idf/components/esp_http_server /home/kenn/esp/esp-idf/components/esp_https_ota /home/kenn/esp/esp-idf/components/esp_https_server /home/kenn/esp/esp-idf/components/esp_hw_support /home/kenn/esp/esp-idf/components/esp_lcd /home/kenn/esp/esp-idf/components/esp_local_ctrl /home/kenn/esp/esp-idf/components/esp_mm /home/kenn/esp/esp-idf/components/esp_netif /home/kenn/esp/esp-idf/components/esp_netif_stack /home/kenn/esp/esp-idf/components/esp_partition /home/kenn/esp/esp-idf/components/esp_phy /home/kenn/esp/esp-idf/components/esp_pm /home/kenn/esp/esp-idf/components/esp_psram /home/kenn/esp/esp-idf/components/esp_ringbuf /home/kenn/esp/esp-idf/components/esp_rom /home/kenn/esp/esp-idf/components/esp_security /home/kenn/esp/esp-idf/components/esp_system /home/kenn/esp/esp-idf/components/esp_timer /home/kenn/esp/esp-idf/components/esp_vfs_console /home/kenn/esp/esp-idf/components/esp_wifi /home/kenn/esp/esp-idf/components/espcoredump /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__bmi270 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__cmake_utilities /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_cam_sensor /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_codec_dev /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_h264 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_io_expander /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_io_expander_pi4ioe5v6408 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_ipa /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lcd_ili9881c /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lcd_st7123 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lcd_touch /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lcd_touch_gt911 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lcd_touch_st7123 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_lvgl_port /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_sccb_intf /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__esp_video /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__i2c_bus /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__m5stack_tab5 /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__sensor_hub /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__usb /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/espressif__usb_host_uvc /home/kenn/esp/esp-idf/components/esptool_py /home/kenn/esp/esp-idf/components/fatfs /home/kenn/esp/esp-idf/components/freertos /home/kenn/esp/esp-idf/components/hal /home/kenn/esp/esp-idf/components/heap /home/kenn/esp/esp-idf/components/http_parser /home/kenn/esp/esp-idf/components/idf_test /home/kenn/esp/esp-idf/components/ieee802154 /home/kenn/esp/esp-idf/components/json /home/kenn/esp/esp-idf/components/log /home/kenn/projects/sloop-fm1-tab5/firmware/managed_components/lvgl__lvgl /home/kenn/esp/esp-idf/components/lwip /home/kenn/projects/sloop-fm1-tab5/firmware/main /home/kenn/esp/esp-idf/components/mbedtls /home/kenn/esp/esp-idf/components/mqtt /home/kenn/esp/esp-idf/components/newlib /home/kenn/esp/esp-idf/components/nvs_flash /home/kenn/esp/esp-idf/components/nvs_sec_provider /home/kenn/esp/esp-idf/components/openthread /home/kenn/esp/esp-idf/components/partition_table /home/kenn/esp/esp-idf/components/protobuf-c /home/kenn/esp/esp-idf/components/protocomm /home/kenn/esp/esp-idf/components/pthread /home/kenn/esp/esp-idf/components/riscv /home/kenn/esp/esp-idf/components/rt /home/kenn/esp/esp-idf/components/sdmmc /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_core /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_hal_tab5 /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state /home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_ui /home/kenn/esp/esp-idf/components/soc /home/kenn/esp/esp-idf/components/spi_flash /home/kenn/esp/esp-idf/components/spiffs /home/kenn/projects/sloop-fm1-tab5/firmware/components/tab5_keyboard /home/kenn/esp/esp-idf/components/tcp_transport /home/kenn/esp/esp-idf/components/ulp /home/kenn/esp/esp-idf/components/unity /home/kenn/projects/sloop-fm1-tab5/firmware/components/usb_fm1 /home/kenn/esp/esp-idf/components/vfs /home/kenn/esp/esp-idf/components/wear_levelling /home/kenn/esp/esp-idf/components/wifi_provisioning /home/kenn/esp/esp-idf/components/wpa_supplicant
+-- Configuring done (62.8s)
+-- Generating done (1.1s)
+-- Build files have been written to: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+[1/24] Building C object esp-idf/esp_app_format/CMakeFiles/__idf_esp_app_format.dir/esp_app_desc.c.obj
+[2/24] Performing build step for 'bootloader'
+[1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+[3/24] No install step for 'bootloader'
+[4/24] Linking C static library esp-idf/esp_app_format/libesp_app_format.a
+[5/24] Completed 'bootloader'
+[6/24] Building C object esp-idf/usb_fm1/CMakeFiles/__idf_usb_fm1.dir/src/midi_stream.c.obj
+[7/24] Building C object esp-idf/editor_proto/CMakeFiles/__idf_editor_proto.dir/src/editor_proto.c.obj
+[8/24] Linking C static library esp-idf/editor_proto/libeditor_proto.a
+[9/24] Building C object esp-idf/sloop_ui/CMakeFiles/__idf_sloop_ui.dir/src/knob_math.c.obj
+[10/24] Building C object esp-idf/usb_fm1/CMakeFiles/__idf_usb_fm1.dir/src/fm1_session.c.obj
+[11/24] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj
+[12/24] Building C object esp-idf/sloop_ui/CMakeFiles/__idf_sloop_ui.dir/src/input.c.obj
+[13/24] Building C object esp-idf/usb_fm1/CMakeFiles/__idf_usb_fm1.dir/src/usb_fm1.c.obj
+[14/24] Linking C static library esp-idf/usb_fm1/libusb_fm1.a
+[15/24] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/console.c.obj
+[16/24] Building C object esp-idf/sloop_core/CMakeFiles/__idf_sloop_core.dir/src/selftest.c.obj
+[17/24] Linking C static library esp-idf/sloop_core/libsloop_core.a; Move regress bookkeeping tables to PSRAM
+[18/24] Linking C static library esp-idf/sloop_ui/libsloop_ui.a
+[19/24] Linking C static library esp-idf/main/libmain.a
+[20/24] Generating esp-idf/esp_system/ld/sections.ld
+[21/24] Linking CXX executable sloop_fm1_tab5.elf
+[22/24] Generating binary image from built executable
+esptool.py v4.13.0
+Creating esp32p4 image...
+Merged 3 ELF sections
+Successfully created esp32p4 image.
+Generated /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+[23/24] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+sloop_fm1_tab5.bin binary size 0x1c2270 bytes. Smallest app partition is 0x800000 bytes. 0x63dd90 bytes (78%) free.
+
+Project build complete. To flash, run:
+ idf.py flash
+or
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x2000 firmware/build/bootloader/bootloader.bin 0x8000 firmware/build/partition_table/partition-table.bin 0x10000 firmware/build/sloop_fm1_tab5.bin
+or from the "/home/kenn/projects/sloop-fm1-tab5/firmware/build" directory
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash "@flash_args"
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+已加载 ESP-IDF 环境: /home/kenn/esp/esp-idf/export.sh
+==> 构建 /home/kenn/projects/sloop-fm1-tab5/firmware (build: /home/kenn/projects/sloop-fm1-tab5/firmware/build)
+Executing action: all (aliases: build)
+Running ninja in directory /home/kenn/projects/sloop-fm1-tab5/firmware/build
+Executing "ninja all"...
+[1/4] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/kenn/projects/sloop-fm1-tab5/firmware/build/partition_table/partition-table.bin /home/kenn/projects/sloop-fm1-tab5/firmware/build/sloop_fm1_tab5.bin
+sloop_fm1_tab5.bin binary size 0x1c2270 bytes. Smallest app partition is 0x800000 bytes. 0x63dd90 bytes (78%) free.
+[2/4] Performing build step for 'bootloader'
+[1/1] cd /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/esp-idf/esptool_py && /home/kenn/.espressif/python_env/idf5.5_py3.14_env/bin/python /home/kenn/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x2000 /home/kenn/projects/sloop-fm1-tab5/firmware/build/bootloader/bootloader.bin
+Bootloader binary size 0x5a30 bytes. 0x5d0 bytes (6%) free.
+[3/4] No install step for 'bootloader'
+[4/4] Completed 'bootloader'
+
+Project build complete. To flash, run:
+ idf.py flash
+or
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m 0x2000 firmware/build/bootloader/bootloader.bin 0x8000 firmware/build/partition_table/partition-table.bin 0x10000 firmware/build/sloop_fm1_tab5.bin
+or from the "/home/kenn/projects/sloop-fm1-tab5/firmware/build" directory
+ python -m esptool --chip esp32p4 -b 460800 --before default_reset --after hard_reset write_flash "@flash_args"
+==> 构建完成: /home/kenn/projects/sloop-fm1-tab5/firmware/build
+== generate DSP tables
+tables: build/gen/felucca_tables.h
+== generate embedded samples
+generated waves into /home/kenn/projects/sloop-fm1-tab5/third_party/sloop-fm1/build/genwav
+samples: 8 sets, 49 zones, 283212 B ADPCM (cached)
+== generate drum kits
+drum kits: 32 synthesised -> build/gen/felucca_drumkits.h
+== generate FM6 patches
+fm6 patches: 8 -> build/gen/felucca_fm6.h
+== generate screen font
+font S: ter-u16b.bdf 16px h 16, digit adv 8, 5376 B
+font L: ter-u16b.bdf 16px h 32, digit adv 16, the S bitmaps at 2x (0 B)
+== generate UI icons
+icons: 86 of 86 (192x72 L), 3096 B
+== generate splash logo
+logo: splash 240x188, 4635 B RLE -> build/gen/sloop_logo.h
+== regression: golden renders, health, voices, CPU budget
+regress: voices: budget of 8 across 3 parts: 3 POLY parts, random notes: at most 8 voices active (budget 8), VOICE part at most 4 (cap 4), 665 voices taken, 0 still fading after their KILL_BLOCKS, all free 1.22 s after the note-offs ok
+regress: voices: a stolen voice fades: 5 takes; largest sample step at a take 774 vs 1027 before it (0.75 x, limit 1.50 x) ok
+regress: voices: MONO keeps its note: MONO part held its note through 868 voices taken from the others: lost in 0 blocks ok
+regress: voices: LEGATO keeps its note: LEGATO part held its note through 868 voices taken from the others: lost in 0 blocks ok
+regress: voices: UNISON keeps its note: UNISON part held its note through 875 voices taken from the others: lost in 0 blocks ok
+regress: voices: VOICE engine cap: VOICE engine, 8 keys: at most 4 voices in POLY, 4 in UNISON (cap 4); freed after release ok
+regress: routing: no hanging notes: 14135 random MIDI / key events on ch 1-3, 10, 5, 16 and the keys, track selection changing, 3 rounds: no gate left on, every voice free ok
+regress: CPU OVER BUDGET  cpu/DIGITAL/12_FM_BASS: 1652 over the idle mix (time), baseline 1107 (+49 %, limit +35 %) -- timed: a note, not a failure
+regress: CPU note  cpu/SAMPLE/01_UP_BASS: -13 (time), baseline 554 (-102 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/02_VIBES: 38 (time), baseline 594 (-94 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/03_HORN_STAB: -16 (time), baseline 252 (-106 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/04_STRING_STB: -10 (time), baseline 223 (-104 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/06_SCRATCH: 32 (time), baseline 210 (-85 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/07_GM_KIT: 7 (time), baseline 236 (-97 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/SAMPLE/10_DEEP_BASS: 23 (time), baseline 1125 (-98 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU note  cpu/FM6/05_WOOD_BARS: 89 (time), baseline 284 (-69 %): faster? BUDGET_UPDATE=1 to keep it
+regress: CPU OVER BUDGET  cpu/NOISE/09_BITCRUSH: 2662 over the idle mix (time), baseline 1560 (+71 %, limit +35 %) -- timed: a note, not a failure
+regress: CPU OVER BUDGET  cpu/NOISE/10_RADIO: 2559 over the idle mix (time), baseline 1582 (+62 %, limit +35 %) -- timed: a note, not a failure
+regress: CPU: no instruction counter on this host: timed (best of three seconds, limit +35 %; CPU_VALGRIND=1 counts them exactly under callgrind)
+regress: CPU, one part with 8 notes held (VOICE 4), heaviest preset per engine (per mille / ns per sample):
+regress:   ANALOG   MONO BASS        2299 /1000   167.6 ns
+regress:   DIGITAL  FM BASS          2268 /1000   165.4 ns
+regress:   PHASE    CZ LEAD          1907 /1000   139.1 ns
+regress:   LOFI     CHIP CHORD       1642 /1000   119.7 ns
+regress:   SAMPLE   LOFI KEYS        1995 /1000   145.5 ns
+regress:   VOICE    TALKBOX          1935 /1000   141.1 ns
+regress:   TRIO     ACCORDION        2653 /1000   193.5 ns
+regress:   WHEEL    HOUSE ORGN       2547 /1000   185.7 ns
+regress:   GRAIN    PNO FREEZE       1586 /1000   115.6 ns
+regress:   FM6      BRASS SECT       2313 /1000   168.7 ns
+regress:   PHYS     CELLO BOW        2476 /1000   180.6 ns
+regress:   NOISE    BITCRUSH         3278 /1000   239.0 ns
+regress:   idle                       616 /1000    44.9 ns
+regress:   idle_drums                1000 /1000    72.9 ns
+regress:   3parts_full_drums         3125 /1000   227.9 ns
+regress: 182 golden renders (0 changed, 0 gone), 0 health failures, 0 voice / routing checks failed, 0 CPU entries over budget (11 notes), 0 crashes; 4.8 s
+== DSP render (ANALOG preset 0)
+== sequencer 2.0
+seq2: 2.6: IN = CH 12: notes on other channels play nothing                    ok
+seq2: 2.6: IN = CH 12: a note on channel 12 plays the selected track (3)       ok
+seq2: 2.6: its note-off ends it on track 3, where it started                   ok
+seq2: 2.6: a CC on channel 12 sets the selected track; on channel 1 it is ignored ok
+seq2: 2.6: IN changed while a note is held: it is released (no hanging note)   ok
+seq2: #191: the latched arp plays its keys (C4 E4)                             ok
+seq2: #191: TRN +2 after the keys: the latched arp follows (D4 F#4)            ok
+seq2: #191: QNT WHITE, SCALE MIN after the keys: C4 Eb4                        ok
+seq2: #191: ROOT D after the keys: D4 F4                                       ok
+seq2: #191: CHORD+ 7th added after OCT+: in the key's octave (60 63 67 70, not 82) ok
+  drum DLY: echo rms off 81492, 64 737433, 127 2181813, 127 + filter 2121521
+seq2: 2.5: GLO > DRUMS > DLY: the drums echo in the tempo delay (more with more DLY, through the FILTER too); 0: none ok
+seq2: track FILTER: LP -50 darkens a part (HF / 2), HP +50 thins it (level / 2) ok
+seq2: track FILTER: back to 0, it opens and is bypassed again                  ok
+seq2: track FILTER on the drum track: LP darkens the hats                      ok
+seq2: track FILTER on the drum track: open again, bypassed                     ok
+seq2: track FILTER: a step can lock it                                         ok
+seq2: USB AUDIO FULL: the USB level stays up when MASTER is low, no clipping   ok
+seq2: 2.4: nudge +16 fires a quarter step late, -16 a quarter step early (within a block) ok
+seq2: 2.4: 16 nudged steps (two crossing) over 8 bars: every step once, in order, none doubled ok
+seq2: 2.7 QUANT OFF: a hit a quarter step late: step 3, nudge +16; a second sound on it keeps it ok
+seq2: 2.7 QUANT OFF: a hit a quarter step early: into the next step (7), nudge -16 ok
+seq2: 2.7 QUANT ON (as before): on the grid, no nudge                          ok
+seq2: 2.7 QUANT OFF: a played note an eighth step late: nudge +8; undo keeps the nudges ok
+seq2: 2.7 QUANT OFF: the free take keeps the timing too (as nudges)            ok
+seq2: 2.7 overdub: a note over the held pad: step 9 = pad going on + the new note; step 10 its end (pad only) ok
+seq2: 2.7 overdub: the pad goes on under it (same voices, never cut), the new note ended ok
+seq2: 2.7 overdub, played back: the pad from step 1, held through steps 9-10, the new note only on 9 ok
+seq2: 2.7 overdub: held four steps: ties to step 12, its end on 13             ok
+seq2: 2.7 overdub as played: 32 steps held, a note pressed on step 17 of the next pass: the held note goes on ok
+seq2: 2.7.1 recording: hold a note, play another on top, let it go: the first goes on (one voice) to its own end ok
+seq2: 2.7.1 recording: the first let go first: it ends there, the second goes on to its end ok
+seq2: 2.7.1 recording: a chord built note by note: each note starts on its step, all held to the end ok
+seq2: 2.7.1 recording: the second note played late in a step (into the next): the first goes on ok
+seq2: 2.7.2 recording LEGATO: a note played over the held one is marked legato (SF_LEG), the first is not ok
+seq2: 2.7.2 playback: the legato note takes over, the envelope goes on (no new attack, no glide of its own) ok
+seq2: 2.7.2 playback: the legato note ends where it was let go                 ok
+seq2: 2.7.2 recording LEGATO: over the held note early in a step it was tied into: legato ok
+seq2: 2.7.2 recording MONO: a note played after the first was let go is not legato ok
+seq2: 2.7.2 recording POLY: over a held note, both go on (no SF_LEG)           ok
+seq2: 2.4: lock_set takes P_E0 and P_DIST, refuses P_SLEN and P_AMODE (not lockable) ok
+seq2: 2.4: lock_set bounds the step and the parameter                          ok
+seq2: 2.4: a lock on P_E0 / P_DIST at step 3: set for that step, the base back at step 4 ok
+seq2: 2.4: a knob turned during the locked step: kept as the new base          ok
+seq2: 2.4: STOP during the locked step: the base (4) is back                   ok
+seq2: 2.4: a lock's value is clamped (WAVE 99 -> 4); lock_del clears a step's locks ok
+seq2: 2.4: steps_clear frees every lock and nudge                              ok
+seq2: 2.4: step_fill / step_fill_set: 2 bits a step, the index bounded         ok
+seq2: 2.4: no fill: the kick and the NO FILL hat play, the FILL ONLY snare (x4) is silent ok
+seq2: 2.4: fill held: the snare plays with its 4 ratchet hits, the NO FILL hat is silent ok
+seq2: 2.4: fill let go: back to normal                                         ok
+seq2: 2.4: a synth FILL ONLY step: one note a bar without the fill, two with it ok
+seq2: 2.4: FILL NEXT BAR: the whole next bar is a fill (the snare plays, the hat not)... ok
+seq2: 2.4: ... and only that bar                                               ok
+seq2: 2.4: FILL NEXT BAR pressed again before the bar: cancelled               ok
+seq2: 2.4: STOP clears the held and the armed fill                             ok
+seq2: 2.4: section_bars: A 1 bar, B 2 bars (32 x 1/16), C 3 bars (3 x 1BAR); an empty slot 1 ok
+seq2: 2.4: chain A B: A on the next bar, B a bar later, A two bars after that, round again (bar exact) ok
+seq2: 2.4: the chain state follows: entry 2 (B), 2 bars                        ok
+seq2: 2.4: a single section tap cancels the chain: A, and it stays             ok
+seq2: 2.4: STOP: no chain, no request                                          ok
+seq2: REC mode FREE, empty project: the first note starts a free take          ok
+seq2: REC mode TEMPO, empty project: the first note starts the loop at 100 BPM, recording ok
+seq2: REC START COUNT: a note only sounds, nothing starts                      ok
+seq2: REC START COUNT: PLAY -> one bar of clicks, not playing yet              ok
+seq2: REC START COUNT: 4 clicks (one bar of 4/4)                               ok
+seq2: REC START COUNT: after the bar the loop starts and records               ok
+seq2: REC START COUNT: REC during the count-in cancels it                      ok
+seq2: REC START COUNT: PLAY again during the count-in: back to armed           ok
+seq2: MIDI clock: stopped, BPM follows the master (120)                        ok
+seq2: MIDI clock: START, 2 bars at 120 -> beat 8 exactly                       ok
+seq2: MIDI clock: the master at 100 -> 2 more bars, BPM 100                    ok
+seq2: MIDI clock: SYNC USB ignores the TRS jack                                ok
+seq2: MIDI clock: STOP                                                         ok
+seq2: MIDI clock: no pulse for 0.5 s -> the internal tempo plays               ok
+seq2:   140 +-2.5 ms: 1 value(s), 0 change(s), BPM 140
+seq2: MIDI clock (2.7.2): a steady 140 with jittery pulses shows 140, steady   ok
+seq2: MIDI clock (2.7.2): a master at 139.5 shows one value, steady            ok
+seq2: MIDI clock (2.7.2): a ramp to 146 is followed                            ok
+seq2: MIDI clock (2.7.2): a jump to 100 is taken within two beats              ok
+seq2: FILTER RESO (2.7.2): resonance makes the track filter overshoot a step; clean (40) barely does ok
+seq2: 2.4: count-in running before the master starts                           ok
+seq2: 2.4: a MIDI START during the count-in starts and records at once         ok
+seq2: 2.4: SWING on the 8T grid does nothing (triplets stay even)              ok
+seq2: 2.4: DIV 1/8 -> 1/4 in the first beat: the step on beat 2 plays          ok
+seq2: 2.4: DIV 2BAR: one step every 8 beats (3 hits in 16 beats)               ok
+seq2: 2.4: DIV 1/2: one step every 2 beats (5 hits in 8 beats)                 ok
+seq2: 2.4: delay TIME 1/8D = 3/4 beat, 1/16D = 3/8 beat                        ok
+seq2: 2.6: delay TIME 1/4D = 1.5 beats, after 1/16D (older projects keep their value) ok
+seq2: 2.4: div_units: 1BAR = 4 beats, 2BAR = 8, 1/16 = a quarter beat          ok
+seq2: 2.4: MIDI = KEYS: the sequencer sends nothing to MIDI OUT                ok
+seq2: 2.4: MIDI = SEQ: the steps go out on their track's channel (drums on 10) ok
+seq2: 2.4: MIDI = SEQ: every note sent on was ended (STOP ends the rest)       ok
+seq2: 2.4: IN = NOTES: a MIDI note plays                                       ok
+seq2: 2.4: IN = CLOCK: a MIDI note-on is ignored                               ok
+seq2: 2.4: IN = CLOCK: the note-off still ends the note held before            ok
+seq2: 2.4: IN = CLOCK: the clock still runs SLOOP (START, one bar)             ok
+seq2: CC 7 10 74 72 73 75 5 91 93 94 on ch 1 set track 1 (2.7: 74 = ANALOG's CUT, the FILTER untouched) ok
+seq2: 2.5: CC 0 / 127: the ends of the range                                   ok
+seq2: CC 74 (2.7, after PR #71): the engine's cutoff (ANALOG CUT); an engine without one (DIGITAL): the FILTER ok
+seq2: 2.5: CC71 = the engine's RES; an engine without one, and unmapped CCs, change nothing ok
+seq2: 2.6: CC 64 (sustain) on ch 2: track 2's pedal down (no parameter changed) ok
+seq2: 2.5: a CC on ch 4-16 sets the selected track                             ok
+seq2: 2.5: the drum channel: 7 / 91 / 94 = DRUMS LVL / REV / DLY, 10 PAN, 74 FILTER; 73 ignored ok
+seq2: 2.7.1: CC 11 on ch 1: track 1 at 64 about -12 dB, at 0 silent, its LEVEL untouched ok
+seq2: 2.7.1: CC 11 on the drum channel: the drums' expression (DRUMS LVL untouched); ch 2: track 2's ok
+seq2: 2.7.1: CC 121 (reset all controllers): the expression full again         ok
+seq2: 2.5: IN = CLOCK: CCs ignored                                             ok
+seq2: 2.6: GLO > MIDI: ch 2, 11, 8 play tracks 1, 2, 3; ch 1 (nobody's): the selected track ok
+seq2: 2.6: a CC follows the track's channel too                                ok
+seq2: 2.6: their note-offs end them                                            ok
+seq2: 2.6: OTHER = OFF: a channel no track has plays nothing (notes and CCs)   ok
+seq2: 2.6: MIDI out: a track's keys on its own channel (track 2 on 11)         ok
+seq2: 2.6: sustain down: a note let go keeps sounding                          ok
+seq2: 2.6: sustain up: the waiting note ends, the one still held by its key stays ok
+seq2: 2.6: (and ends with its key)                                             ok
+seq2: 2.6: pedal up after another track was selected: the first one's note ends ok
+seq2: 2.6:   and its later notes end with their keys (no pedal stuck)          ok
+seq2: 2.6: the wheel let go after another track was selected: the first one back too ok
+seq2: 2.6: a project / NEW (every track released): the bends back to the middle ok
+seq2: 2.6: OTHER = OFF: a note-off on an ignored channel does not end the selected track's note ok
+seq2: 2.6: a note played again under the pedal: no key left counted by the arp ok
+seq2: 2.6: MIDI Program Change: queued for the track its channel plays (ch 2: track 2, ch 10: drums); OTHER = OFF / IN = CLOCK: none ok
+seq2: 2.7.2: MIDI Bank Select (CC 0) latches per channel and a Program Change carries it (pc_bank) ok
+seq2: 2.6: GLO > MIDI CH2 changed with a note held on it: the note does not stay stuck ok
+seq2: 2.6: GLO > MIDI CH1 = OFF: track 1 sends nothing to MIDI OUT either      ok
+seq2: 2.6: CH1 changed with a sequencer note on: its note-off on the channel it went out on (5) ok
+seq2: overload: the releasing voice goes first, faded (stage 4)                ok
+seq2: overload: the upper notes thin out, the bass and the MONO lead stay      ok
+seq2: 64 bars at 87..174 BPM: every kick in the block of its downbeat click    ok
+seq2: DIV 1/4 -> 1/32 and 40 -> 240 BPM mid-step: one step a block, no burst   ok
+seq2: SWING 75 %, LEN 3 against LEN 16: in phase after 15 bars (no drift)      ok
+seq2: LEN 32 -> 16 while playing: in phase with a 16-step track                ok
+seq2: drums: a hat x4 plays 4 even hits in its step, the next step plays       ok
+seq2: synth: a note x3 starts 3 times in its step                              ok
+seq2: roll 1/32 held 8 steps: ~16 hits                                         ok
+seq2: roll 1/32 recorded: one hit a step, ratchet x2                           ok
+seq2: EDIT + hat while playing steps 4..7: those hats gone, the rest and the kicks kept ok
+seq2: undo: the erased hats are back                                           ok
+seq2: EDIT + hat while stopped: every hat gone                                 ok
+seq2: OCT- / OCT+ held on the drums: a ghost snare and a hard kick recorded    ok
+seq2: ... and played at 42 / 127                                               ok
+seq2: chord 9TH on C4 in C minor: C Eb Bb D                                    ok
+seq2: chord TRIAD on D4 in C minor: D F Ab                                     ok
+seq2: chord mode: the black keys are silent                                    ok
+seq2: drum track muted: no hits                                                ok
+seq2: track 1 soloed: the drums silent (faded out)                             ok
+seq2: solo off: the drums back                                                 ok
+seq2: CHORD+: C4, no modifier: C E G                                           ok
+seq2: CHORD+: F# held: the third flips, C Eb G                                 ok
+seq2: CHORD+: ... and back the other way on a minor chord: D F# A              ok
+seq2: CHORD+: G#: the 7th, C E G B                                             ok
+seq2: CHORD+: A#: sus4, C F G                                                  ok
+seq2: CHORD+: C#: the 9th, C E G D                                             ok
+seq2: CHORD+: G# + C#: 7th and 9th, four notes (the 5th gives way)             ok
+seq2: CHORD+: D#: an inversion, E G C                                          ok
+seq2: CHORD+: modifiers combine (F# + G#: C Eb G B)                            ok
+seq2: CHORD+: the black keys F# G# A# C# D# (both octaves), white keys none    ok
+seq2: CHORD+ keys: F#3 held, C4: C Eb G sound                                  ok
+seq2: CHORD+ keys: F#3 let go with C4 held: C E G (the chord changes under the finger) ok
+seq2: CHORD+ keys: G#3 pressed with C4 held: the 7th joins                     ok
+seq2: CHORD+ keys: all let go: nothing held                                    ok
+seq2: CHORD+: a modifier key plays no note of its own                          ok
+seq2: STRUM 20: the lowest note at once                                        ok
+seq2: STRUM 20: the next one 20 ms later                                       ok
+seq2: STRUM 20: the third 20 ms after that                                     ok
+seq2: STRUM -20 (up): the highest note first                                   ok
+seq2: STRUM: a key let go before its notes start: they never start (no hanging note) ok
+seq2: VLEAD: C E G then F: C F A (the nearest inversion)                       ok
+seq2: VLEAD: ... then G: B D G (or D G B), no jump up                          ok
+seq2: STRUM on a chord step: the low note first, the others after              ok
+seq2: STRUM on a chord step: all three within 30 ms                            ok
+seq2: STOP: no strummed note left waiting                                      ok
+seq2: all checks ok
+== note length: POLY spans, MONO / STEP FULL limits, shrink and delete
+len: C1: LEN 2 to start with                                                    ok
+len: C1: LEN 10 under C2 D2 E2 (2.8.1: NOTE AHEAD at 2)                         ok
+len: the melody's notes keep their LEN 2                                        ok
+len: plays: C1 sounds 10 steps in one go under the melody                       ok
+len: plays: D2 sounds its 2 steps over it                                       ok
+len: shorter: LEN 5 ends inside D2, D2 keeps its length                         ok
+len: back to LEN 2: the melody exactly as it was                                ok
+len: C1 deleted: nothing of it left under the melody                            ok
+len: MONO sound: stops at C2, says MONO: SET VOICE POLY                         ok
+len: a step with 4 notes: stops, says STEP FULL                                 ok
+len: nothing ahead: plain TIEs, as before                                       ok
+len: 0 failed
+== held-note recording: live, overdub, free take, MIDI overflow
+hold: track 2 RHODES (POLY), live: C1 held under the scale (restarts 0, cut 0 blocks) ok
+hold: track 2 RHODES (POLY), live: C1 ends when its key is let go                ok
+hold: track 2 RHODES (POLY), playback: C1 sounds under the scale in one go (gated 1548/1548, restarts 0) ok
+hold: track 1 808 BOOM set to POLY, live: C1 held under the scale (restarts 0, cut 0 blocks) ok
+hold: track 1 808 BOOM set to POLY, live: C1 ends when its key is let go         ok
+hold: track 1 808 BOOM set to POLY, playback: C1 sounds under the scale in one go (gated 1548/1548, restarts 0) ok
+hold: free take: the first note starts it                                        ok
+hold: track 2 RHODES (POLY), free take: C1 held under the scale plays back whole (1720/1720, restarts 0) ok
+hold: track 2 RHODES (POLY), free take: C1 ends where it was let go, the scale plays (0 late, scale 1031) ok
+hold: free take: the first note starts it                                        ok
+hold: track 2 RHODES (POLY), free take (QUANT OFF): C1 held under the scale plays back whole (1720/1720, restarts 0) ok
+hold: track 2 RHODES (POLY), free take: C1 ends where it was let go, the scale plays (0 late, scale 1031) ok
+hold: armed: the first note starts the transport and the recording               ok
+hold: track 2 RHODES (POLY), armed take: C1 held under the scale plays back whole (1376/1376, restarts 0) ok
+hold: MIDI in: a burst over the ring's 64: no note left hanging                  ok
+hold: MONO sound, recording: one key: nothing said                               ok
+hold: MONO sound, recording: a key over a held one: MONO: SET VOICE POLY         ok
+hold: MONO sound, free take: a key over a held one: MONO: SET VOICE POLY         ok
+hold: track 2 RHODES (POLY), overdub to step 10: C1 held over a recorded scale plays back whole (1376/1376, restarts 0) ok
+hold: track 2 RHODES (POLY), overdub: C1 ends where it was let go (0 late blocks) ok
+hold: track 2 RHODES (POLY), overdub: the scale plays as recorded (1023 blocks), and ends (0 late) ok
+hold: track 2 RHODES (POLY), overdub to step 5: C1 held over a recorded scale plays back whole (516/516, restarts 0) ok
+hold: track 2 RHODES (POLY), overdub: C1 ends where it was let go (0 late blocks) ok
+hold: track 2 RHODES (POLY), overdub: the scale plays as recorded (1023 blocks), and ends (0 late) ok
+hold: track 2 RHODES (POLY), overdub to step 7: C1 held over a recorded scale plays back whole (860/860, restarts 0) ok
+hold: track 2 RHODES (POLY), overdub: C1 ends where it was let go (0 late blocks) ok
+hold: track 2 RHODES (POLY), overdub: the scale plays as recorded (1023 blocks), and ends (0 late) ok
+hold: 0 failed
+== drum lanes, kit audio, metronome, record arm, free take
+drums: 16 lanes a step (levels, ratchets), the key / GM maps, every kit distinct, bounded audio and finite tails, metronome (OFF/REC/ON, accent), record: first note starts the loop, at once while playing, latency-compensated steps, free takes set the loop and tempo, arm follows the track PASS
+== arranger: order, repeats, timing, loop, tempo change, scene validation
+arranger: order, repeats, stop, loop, tempo change, fractional timing, invalid scenes, erased section PASS
+== song audio: four tracks, scene transitions, SONG REC, clean stop
+song live: B on the bar (176416), SONG REC -> A 2 bars, B 3 bars PASS
+song audio: 3 synth parts + drums, section at 176416, stop at 352800, no held sequencer notes PASS
+== project formats, capture / apply, autosave
+layout: P_CHORD, P_TFLT, P_STRUM, P_VLEAD, then the ten of 2.6 just before P_E0 (63), P_COUNT = format 5's + 10 ok
+format 6 fits one flash object (3816 of 3840 bytes); 4 slots fit .noinit (with panel, settings, dbg, bootguard) ok
+format 6: the 2.6 parameters fit a byte each (0..255)              ok
+FUN3 -> FUN6: converted, valid format 6 slot                       ok
+FUN3 -> FUN6: globals (swing 50 -> 40: the MPC scale), the new ones default ok
+FUN3 -> FUN6: parameters (P_E0.. moved), steps, drum notes -> lanes, no lock, no fill ok
+FUN2 image is 2552 bytes (as stored)                               ok
+FUN2 -> FUN6: converted, valid format 6 slot                       ok
+FUN2 -> FUN6: globals and selected track                           ok
+FUN2 -> FUN6: every parameter mapped, SLICER OFF, CHORD OFF (4 tracks) ok
+FUN2 -> FUN6: engine bytes kept (WHEEL 7, ANALOG 0, TRIO 6), drum 0 ok
+FUN4 image is 3112 bytes (as stored)                               ok
+FUN4 -> FUN6: as stored (levels, ratchets, lanes, engine 8; P_E0.. moved, FILTER off), zero nudges, locks free, no fill condition ok
+FUN4 with a bad checksum: refused                                  ok
+FUN5 -> FUN6: by id, the 2.6 parameters default, nudges and conditions kept, a lock on E2 moved with it ok
+FUN5 with a bad checksum: refused                                  ok
+FUN6 -> FUN6: as stored (levels, ratchets, lanes, nudges, locks, fill conditions, INSERT, SYNC, engine 8) ok
+FUN2 with a bad checksum: refused                                  ok
+FUN2 with a wrong length: refused                                  ok
+FUN6 size with a FUN3 magic: refused                               ok
+FUN6 size with a FUN5 magic: refused                               ok
+FUN3 with a bad checksum: refused                                  ok
+FUN1 -> FUN6: track 1 mapped, tracks 2..4 defaults                 ok
+the working project: capture -> apply round trip (levels, lanes, DUST, drum DLY, nudges, locks, fill conditions, the 2.6 parameters) ok
+2.5 drum DLY: kept in the byte after sel, a 2.4 project: 0, a section sets it, 200 -> 127 ok
+2.6 TEXTURE: kept in a project (SRC LEVEL TONE MOVE RATE WHEN DUCK), a section sets it, an older one: OFF; the drum channel not taken from a project ok
+2.7 KBD HOLD: saved by 2.7 (rsv 0x40) kept; an older project: HOLD OFF where the arp is OFF ok
+2.7 drum SOUND page: TUNE and DECAY of the 16 sounds kept in a project and a section; an older one: none ok
+format 6: the byte parameters and TEXTURE's packed fields hold every value of their range ok
+apply: INSERT 200 -> the last type, a lock on LEN / step 64 / param 200 is freed, LEVEL 999 -> 127, condition 3 -> normal ok
+2.6 SAVE > PROJECT > ERASE: an object of no bytes is no project (an empty slot, older SLOOP too) ok
+project format test passed
+== old-format project fixtures (FUN5/FUN4/FUN1) import to the generated fields
+fun5: 3840B  fmt=5 sel=2 bpm=105 t0=0/3
+fun4: 3112B  fmt=4 sel=1 bpm=111 t0=0/3
+fun1: 688B  fmt=1 sel=0 bpm=123 t0=7/5
+写入 build/host/fixtures/（expected.json: 62 项）
+[host-check] fun5: 62 项与上游 project.c 一致
+[host-check] fun4: 62 项与上游 project.c 一致
+[host-check] fun1: 62 项与上游 project.c 一致
+== flash storage (A/B, torn writes)
+empty flash loads nothing                      ok
+save A                                         ok
+load returns A                                 ok
+save B                                         ok
+load returns B (newer seq)                     ok
+torn save keeps B                              ok
+header not written keeps B                     ok
+save A again                                   ok
+load returns A                                 ok
+both copies corrupt -> nothing                 ok
+other objects untouched                        ok
+settings save/load                             ok
+CRC-32 is zlib's (check value 0xCBF43926)      ok
+newer copy rotten -> the older one loads       ok
+save over the rotten copy                      ok
+... loads the new data                         ok
+both headers broken -> nothing                 ok
+data stays in the Felucca regions (autosave too) ok
+every object copy has its own sector           ok
+2.5: save in two parts                         ok
+2.5: ... loads as one object                   ok
+2.5: ... a 2.4 load takes its part only        ok
+2.5: ... a torn save keeps the last one        ok
+2.5: ... too big for a sector: refused         ok
+2.6 erase: a project saved                     ok
+2.6 erase: the empty object written            ok
+2.6 erase: loads 0 bytes (an empty slot)       ok
+2.6 erase: saved again                         ok
+side: saved with a copy                        ok
+side: the payload as without it                ok
+side: read back                                ok
+side: an older save (none): erased bytes       ok
+side: torn save keeps the last copy, its side  ok
+side: no more than the gap                     ok
+storage test passed
+== user presets
+UP_PUT frame < 640 bytes                       ok
+UP_PUT parses                                  ok
+UP_PUT values (negative v14 too)               ok
+pattern: rest drops flags, tie has no note     ok
+UP_PUT short frame -> args                     ok
+UP_PUT slot 32 -> args                         ok
+UP_PUT bad engine -> args                      ok
+UP_PUT empty name -> args                      ok
+UP_PUT 13-char name -> args                    ok
+UP_PUT 12-char name ok                         ok
+name shown upper case                          ok
+bank fits one object                           ok
+bank save                                      ok
+bank load: the record is back                  ok
+other slots empty                              ok
+bank 0 never written -> empty                  ok
+banks in 0xDC000..0xDFFFF                      ok
+bank with another record size -> empty         ok
+record with another version -> empty           ok
+np < P_COUNT: mapped by count                  ok
+old record (np 53): SLICER, CHORD and FILTER defaults, E0..E7 kept ok
+2.3 record (np 58): FILTER, STRUM, VLEAD and the 2.6 ten defaults, CHORD and E0..E7 kept ok
+2.5 record (np 61): the 2.6 parameters (INSERT, FTYPE, ESYNC, LFO 2) default, the rest and E0..E7 kept ok
+SLOOP 1.0 record (np 57): CHORD default, the rest kept ok
+np == P_COUNT: as stored                       ok
+steps -> pattern                               ok
+empty sequencer -> empty pattern               ok
+user preset test passed
+== drum synth and editor commands
+dsyn: the kit list ends with SYN1..SYN4, after USR3+4 (older projects keep their kit) ok
+dsyn: never stored: SYN1..4 = 808, 909, TRAP, TECHNO                                 ok
+dsyn: SYN1 (808) plays the 16 sounds bit for bit as the 808 kit                      ok
+dsyn: an edit (the kick's decay) is heard on that sound only                         ok
+dsyn: ... undone: bit for bit again                                                  ok
+dsyn: KIT = SYN3 plays its own sounds (RAM); the factory kits theirs                 ok
+dsyn: DSYN_LIST: 32 factory kits, 4 of yours, stored; the names                      ok
+dsyn: DSYN_GET SYN2: name, crush, the kit it came from, its 16 sounds                ok
+dsyn: DSYN_GET of no kit: rc 1                                                       ok
+dsyn: DSYN_PUT a sound of 0xFF bytes: written, every value in range, not stored      ok
+dsyn: DSYN_PUT the name, the crush, its source                                       ok
+dsyn: DSYN_PUT 17: SYN4 = a copy of a factory kit                                    ok
+dsyn: DSYN_PUT: no such kit / part, a short sound: rc 1                              ok
+dsyn: DSYN_STORE without flash: rc 4                                                 ok
+dsyn: DSYN_PLAY: the hat of SYN2 plays on the next audio block                       ok
+dsyn: DSYN_PLAY of no lane: rc 1, nothing queued                                     ok
+dsyn: 2000 random kits (any byte the editor could send): bounded, finite             ok
+  kick, curvature at the block edges / inside: at most 1.21 (ARCADE)
+dsyn: the kicks of the synthesised kits: no step at the block edges (no whistle at 1.4 / 2.8 kHz) ok
+  808      kick: crossings 52 / +7 78 / -8 34; tail 0.0649 / DECAY -4 0.0000 / +3 1.7340
+dsyn: SOUND page, a synthesised kit: TUNE up / down, DECAY -4 shorter, +3 longer     ok
+dsyn: SOUND page: the snare's TUNE and DECAY leave the kick as it is                 ok
+  ACOUSTIC kick: crossings 16 / +7 25 / -8 11; tail 0.0003 / DECAY -4 0.0000 / +3 0.0003
+dsyn: SOUND page, a sampled kit: TUNE up / down, DECAY -4 fades it (+3: as the sample is) ok
+dsyn: SOUND page: the snare's TUNE and DECAY leave the kick as it is                 ok
+  SYN1     kick: crossings 17 / +7 22 / -8 11; tail 8.0596 / DECAY -4 0.3946 / +3 12.0772
+dsyn: SOUND page, a synthesised kit: TUNE up / down, DECAY -4 shorter, +3 longer     ok
+dsyn: SOUND page: the snare's TUNE and DECAY leave the kick as it is                 ok
+  808 closed hat: crossings 505 / TUNE +7 921 / -8 315
+dsyn: SOUND page (2.7.2): TUNE shifts a noise sound's brightness (the 808 hat)       ok
+dsyn: all checks ok
+== FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos
+fm6: algorithms: the classic carrier counts of all 32 (operators on the output bus)             ok
+fm6: algorithms: each of the 32 sounds with every operator at full level                        ok
+fm6: algorithms: more carriers, more level (1 .. 6)                                             ok
+fm6: envelope: attack -> L1, decay -> L2 -> L3, held while the key is down, then the release (in order) ok
+fm6: envelope: the voice ends after the release (engine done), not while the key is held        ok
+fm6: envelope: attack rate 60 slower than 80 slower than 99; 99 within a block or two           ok
+fm6: envelope: attack to L1 in 78 / 8 / 1 blocks (rates 60 / 80 / 99), L1 reached at block 77
+fm6: envelope: a decayed note ends while its key is held (L3 0), its voice free                 ok
+fm6: retrigger: a note from silence renders the same samples twice                              ok
+fm6: retrigger: the same key again while it sounds: no step larger than the tone's own          ok
+fm6: factory patches C1..C7, velocity 30 / 127: peak 22850 (VOICE_FS 24000), |mean| at most 5.7
+fm6: no clipping: every factory patch, C1..C7, velocity 30 and 127: a voice below 2 x VOICE_FS  ok
+fm6: no DC: |mean| below 1 % of VOICE_FS                                                        ok
+fm6: MLVL -40 / 0 / +40: centroid 131 / 146 / 793 Hz
+fm6: MLVL: + brighter, - darker                                                                 ok
+fm6: MRAT 0 / +3: centroid 146 / 203 Hz
+fm6: MRAT: + raises the modulators' ratios (brighter)                                           ok
+fm6: MEG 0 / +50: centroid at 0.5 s 132 / 179 Hz
+fm6: MEG: + the modulators decay slower (brighter later)                                        ok
+fm6: VMOD 0 / +5: centroid ratio vel 127 / 40 1.13 / 1.45
+fm6: VMOD: + velocity moves the brightness more                                                 ok
+fm6: FB 0 / +6 (OP6 alone): centroid 131 / 11044 Hz
+fm6: FB: + more feedback (brighter)                                                             ok
+fm6: ALG: 1..32 replaces the patch's algorithm, PAT (0) keeps it                                ok
+fm6: DTUN 0 / 127 (3 carriers): level swing over 50 ms windows 1.012 / 18.403
+fm6: DTUN: the carriers apart: they beat                                                        ok
+fm6: PTCH F5 loads the fifth factory patch (main loop)                                          ok
+fm6: PTCH B4 of an empty bank: the init voice                                                   ok
+fm6: AMS 1, AMD  0: centroid  475 Hz (AMS 0:  529 Hz)
+fm6: AMS 2, AMD  0: centroid  475 Hz (AMS 0:  529 Hz)
+fm6: AMS 3, AMD  0: centroid  475 Hz (AMS 0:  529 Hz)
+fm6: AMS 1, AMD 99: centroid  446 Hz (AMS 0:  529 Hz)
+fm6: AMS 2, AMD 99: centroid  418 Hz (AMS 0:  529 Hz)
+fm6: AMS 3, AMD 99: centroid  286 Hz (AMS 0:  529 Hz)
+fm6: AMS 1..3, AMD 0: at most 13.3 % from the AMS 0 voice
+fm6: AMS 1..3 (AMD 0 and 99): tonal, the centroid near the AMS 0 one (not noise)                ok
+fm6: AMS 1..3, AMD 0: the voice within 25 % of the AMS 0 one; every voice below 2 x VOICE_FS    ok
+fm6: pack(unpack(x)) == x: the factory patches and the init voice (generator and C agree)       ok
+fm6: any 128 bytes unpack into range (2000 random records)                                      ok
+fm6: a 32-voice bank SysEx: checksum, its 32 records back as they were                          ok
+fm6: a single-voice SysEx (155 bytes): back to the same packed record                           ok
+fm6: voices: 8 keys in POLY: 6 voices (the engine's cap)                                        ok
+fm6: voices: all free some seconds after the release (the operator envelopes end them)          ok
+fm6: cost: no instruction counter on this host (proc_pid_rusage); not measured
+fm6: bank: an erased flash: no bank, every slot empty, B-slots play the init voice              ok
+fm6: bank: store into B4 (slot 3): ok, found, the record back as sent                           ok
+fm6: bank: slot 27 is bad (rc 1), nothing written                                               ok
+fm6: bank: PTCH B4 loads the stored patch (main loop)                                           ok
+fm6: bank: a store into the slot a part plays: the part hears the new patch                     ok
+fm6: bank: found again after a power cycle (the same copy, the same slots)                      ok
+fm6: bank: the sector's tail after the payload stays erased (0xE5000 / 0xE6000)                 ok
+fm6: bank: erase B4: empty again, the init voice (fm6_poll)                                     ok
+fm6: bank: both headers broken -> no bank, every slot empty                                     ok
+fm6: bank: a store then starts a fresh bank                                                     ok
+fm6: bank: 4 sector erases for 4 writes
+fm6: demos in build/host/fm6-demo: the 8 presets, each playing a short phrase
+fm6_test: all checks ok
+== SAMPLE pitch/loop
+pitch: SAMPLE GRAND PNO      C4..114, 27 steps of 2 semitones: ok
+pitch: SAMPLE UP BASS        C4 -> C5: +0.00 semitones: does not follow the keys (a kit), not tested
+pitch: SAMPLE VIBES          C4..114, 24 steps of 2 semitones: ok
+pitch: SAMPLE HORN STAB      C4..114, 20 steps of 2 semitones: ok
+pitch: SAMPLE STRING STB     C4..114, 18 steps of 2 semitones: ok
+pitch: SAMPLE LOFI FLUTE     C4..114, 27 steps of 2 semitones: ok
+pitch: SAMPLE SCRATCH        C4 -> C5: +8.88 semitones: does not follow the keys (a kit), not tested
+pitch: SAMPLE GM KIT         C4 -> C5: +0.00 semitones: does not follow the keys (a kit), not tested
+pitch: SAMPLE DUSTY PNO      C4..114, 27 steps of 2 semitones: ok
+pitch: SAMPLE LOFI KEYS      C4 -> C5: +0.00 semitones: does not follow the keys (a kit), not tested
+pitch: SAMPLE DEEP BASS      C4 -> C5: +0.00 semitones: does not follow the keys (a kit), not tested
+pitch: GRAIN  LOFI CLOUD     C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  VIBE HAZE      C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  FLUTE DUST     C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  STR CLOUD      C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  SHIMMER        from note 108: past the grain decode bound, not tested
+pitch: GRAIN  SHIMMER        C4..106, 23 steps of 2 semitones: ok
+pitch: GRAIN  DRONE          C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  PNO FREEZE     C4..114, 27 steps of 2 semitones: ok
+pitch: GRAIN  HORN CLOUD     C4..114, 27 steps of 2 semitones: ok
+pitch: 0 failed
+== synthesised drum kits
+drum kits: 32 synthesised x 16 sounds bounded, audible, finite; levels near the sampled kit PASS
+== punch-in FX
+punch: FX FADE: blocks to full wet, fade 0 = 1, fade 15 = 511
+kills: low 60 Hz 0.003, high 9 kHz 0.003, mid 900 Hz 0.017 (1 kHz through KILL LOW 1.00)
+oct up: 440 Hz / 220 Hz power 7506.5, level 0.96
+auto-pan: 4 eighths of a beat hard left, 4 hard right (of 16)
+fade out: 0.252 at a beat, 0.0003 at two
+rewind: sound for 0.36 s, then silence
+freeze: held 1.04 then 1.03 of the dry level (right 0.99), 0.0007 2 s after release
+freeze held 30 s: the reverb's mean -325, -319, -315 (10 s each)
+quick switch KILL LOW -> MONO -> KILL MID over silence: peak 0
+black keys: KILL LOW / MID / HIGH, REWIND, OCT UP, FLANGER, AUTO-PAN, FREEZE, LOOP 8T, MONO, FADE OUT do what they say PASS
+punch-in FX: 27 effects change the mix while held, bounded, exact dry mix after release; FX-held keys pick effects, play and record nothing PASS
+== soak: 1 minute(s) of random live use
+soak: 1 min, 2079 events, peak 17994, max block 87.2 us, mean 3.41 us; tail 0
+soak: free takes 9, closed into a loop 0
+soak: random live use, bounded output, no hanging voices, idle after stop PASS
+ALL HOST TESTS PASSED (subset)
+/home/kenn/projects/sloop-fm1-tab5/firmware/components/sloop_state/test/state_test.c:2700:1: warning: ‘/*’ within comment [-Wcomment]
+ 2700 | /* last_param 不被 sync 覆盖（UI 局部态同类），选轨/整份刷新也不清。 */
+== state layer host test
+PASS k=1 SET_BPM 钳位 40..240 并落引擎
+PASS k=2 TOGGLE_STEP 空步↔关（last_note/默认 60）
+PASS k=3 TOGGLE_STEP 开步保留字段/关步完整 CLEAR
+PASS k=4 TOGGLE_STEP 关步折叠 TIE 连缀
+PASS k=5 MUTE/SOLO 引擎写入口与 sync 真值
+PASS k=6 ERASE_NOTE 委托 NOTE_DEL（字段随移/CONT）
+PASS k=7 步窗抽象：默认/映射/投影/钳位
+PASS k=8 步窗 sync 与 SET_WINDOW 交错按新基重取
+PASS k=9 参数命令：单 SET 钳位/越界忽略
+PASS k=10 参数批量：一次引擎调用/截断/空载荷
+PASS k=11 参数投影：sync 采纳引擎真值/跟随选轨
+PASS k=12 选轨即刷参数投影（不等 sync）
+PASS k=13 state_get_copy 反映 cmd 与 sync
+PASS k=14 全局参数 CMD_SET_GLOBAL 与投影
+PASS k=15 越界参数忽略
+PASS k=16 工程存储命令：返回码映射/刷新/越界
+PASS k=17 用户预置命令：鼓轨区分/轨号透传/越界
+PASS k=18 FM6 银行命令：选中轨 patch/鼓轨/越界
+PASS k=19 页 id 扩容（18 页）
+PASS k=20 STEP_EDIT 完整 POD 与详细窗口同拍投影
+PASS k=21 PATTERN/micro/fill 标量透传与投影
+PASS k=22 LOCK 命令与 seq_status 全返回码
+PASS k=23 DRUM_STEP_WRITE 原始 POD 与合成步隔离
+PASS k=24 REC/fill/鼓演奏/物理 PLAY 命令透传
+PASS k=25 sync 拷贝录音快照投影
+PASS k=26 外部选轨同步 focus_track
+PASS k=27 冻结 toggle/erase 与 micro/fill 超宽拒绝
+PASS k=28 sections/chain/SONG 命令与歌曲投影
+PASS k=29 DSYN 命令：越界不调引擎/写后回读/STORE/试听/CRUSH
+PASS k=30 FM6 patch 与采样擦除命令：锁定/回读/错误映射
+PASS k=31 SETTINGS_SET 六字段路由与同拍投影
+PASS k=32 SETTINGS_SET 状态层钳位与字段越界
+PASS k=33 SETTINGS_SET 拒绝映射：blocked/invalid/error
+PASS k=34 SYS 亮度/音量/输出：钳位/HAL 失败/headphone/投影
+PASS k=35 REC CONFIG 成功置 settings dirty
+PASS k=36 SELFTEST_RUN 请求深度 1 与结果投影
+PASS k=37 SELFTEST worker 不可用立即 FAIL
+PASS k=38 SET_ENGINE：换引擎调用/同拍投影/越界·鼓轨·冻结不调引擎
+PASS k=39 SET_PRESET：换预置调用/npresets 按轨引擎/越界·鼓轨·冻结不调引擎
+PASS k=40 sound 投影：init/sync/选轨/整份刷新各一次、鼓轨 kit 名
+PASS k=41 窄读访问器：选中轨/引擎/p/g/sound 与副本同源、越界回 0
+PASS k=42 SOUND：用户预置投影 user / USER nn / 换预置·换引擎清 user
+PASS k=43 TOOLS：action 越界不调引擎/返回码映射/成功整份刷新
+PASS k=44 LOCK_FOCUS/FILL_STEP：焦点步×焦点轨×last_param、R12 范围（LEN 内含 TIE/空步）、UNLOCK 无锁、冻结、错误码映射
+PASS k=45 last_param 跨 sync/选轨保持
+PASS k=46 last_param 只记生效写（冻结/无描述符不记）
+
+46 passed, 0 failed
+STATE TEST PASSED
+== sloop_ui knob math host test
+PASS k=1 值 ↔ 弧线值往返与钳位
+PASS k=2 环带判定（55..95px）
+PASS k=3 角度差归一化（跨死区/负角）
+PASS k=4 相对拖拽换算与钳位
+PASS k=5 格式化表（上游生成表口径）
+PASS k=6 鼓演奏 16 lane 键位（不回落合成轨）
+PASS k=7 演奏键路由（释放永远回原轨）
+PASS k=8 MONO 色表恰等于现行常量
+PASS k=9 GREEN accent 与固定字段
+PASS k=10 自定义 theme 覆盖颜色
+PASS k=11 参数页布局表：页数/页 id/est 与 EDIT/MIX 有序对账面
+PASS k=12 参数页布局表：chip 完整性（槽数/id/唯一名/枚举）
+PASS k=13 参数页布局表：MOD/SCALE/VOICE/FX/GLOBAL 槽位 = 012 §3
+PASS k=14 SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）
+PASS k=15 条件 chip 可见性与鼓轨逐槽锁定规则
+PASS k=16 九组导航：组表顺序/成员/18 页扁平轮转/104px 组签
+PASS k=17 EDIT 层步工具键：k/l/9/; 唯一且不占其它层
+
+17 passed, 0 failed
+KNOB TEST PASSED
+== sloop_core sequencer adapter host test
+seq-host: raw drum step accepts the last step                                    ok
+seq-host: all 16 drum lanes preserve on/lvl/rat packing                          ok
+seq-host: public raw drum write reaches the real upstream packed step            ok
+seq-host: raw drum read/write each use the engine lock                           ok
+seq-host: raw drum write rejects an invalid step or null input                   ok
+seq-host: invalid raw drum read returns a zeroed step                            ok
+seq-host: frozen raw drum write returns invalid state                            ok
+seq-host: frozen raw drum read returns a zeroed step                             ok
+seq-host: micro accepts -32                                                      ok
+seq-host: micro accepts 31                                                       ok
+seq-host: micro rejects -33/32 without changing the step                         ok
+seq-host: micro rejects invalid track/step                                       ok
+seq-host: fill accepts normal                                                    ok
+seq-host: fill accepts fill-only                                                 ok
+seq-host: fill accepts no-fill                                                   ok
+seq-host: fill preserves the upstream two-bit value 3                            ok
+seq-host: upstream treats stored fill value 3 as normal                          ok
+seq-host: fill rejects values above 3 and invalid track/step                     ok
+seq-host: frozen micro/fill writes return invalid state                          ok
+seq-host: different parameters coexist on one step                               ok
+seq-host: lock list returns both same-step locks and values                      ok
+seq-host: same-key lock overwrite succeeds                                       ok
+seq-host: same-key overwrite consumes no additional slot                         ok
+seq-host: lock list honors its output capacity                                   ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: lock allocation accepts a unique key up to 24 slots                    ok
+seq-host: the 25th lock returns no memory                                        ok
+seq-host: unlockable parameter and invalid track/step/param are invalid          ok
+seq-host: a full-table rejection leaves all 24 locks intact                      ok
+seq-host: single-key lock delete succeeds                                        ok
+seq-host: single-key delete leaves the other same-step lock                      ok
+seq-host: P_COUNT clears every lock on the step                                  ok
+seq-host: clear-step removes the remaining same-step lock                        ok
+seq-host: lock delete rejects invalid track/step/param                           ok
+seq-host: frozen lock writes return invalid state                                ok
+seq-host: frozen lock list is empty                                              ok
+seq-host: C1 spans C2/D2/E2 with CONT and a continuation-only note at step 8     ok
+seq-host: unsafe CONT move/copy return blocked without changing the track        ok
+seq-host: deleting C1 removes every CONT residue and preserves C2/D2/E2          ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: deleted C1 has no residual note in the pattern                         ok
+seq-host: move fixture has a source lock                                         ok
+seq-host: note move carries its span, micro and fill and clears the source metadata ok
+seq-host: note move relocates its parameter lock                                 ok
+seq-host: copy fixture has a source lock                                         ok
+seq-host: note copy duplicates its span, micro and fill without clearing the source ok
+seq-host: note copy duplicates its parameter lock                                ok
+seq-host: full-table copy fixture reaches 24 locks                               ok
+seq-host: copy with a full lock table returns no memory                          ok
+seq-host: full-table copy rejection leaves the whole track unchanged             ok
+seq-host: insufficient-capacity copy fixture has two source locks and one free slot ok
+seq-host: copy preflight rejects two locks with one free slot                    ok
+seq-host: insufficient-capacity copy rejection preserves the whole track         ok
+seq-host: occupied-target fixture has a source lock                              ok
+seq-host: occupied move/copy targets return blocked without changing the track   ok
+seq-host: far move blocked midway returns blocked                                ok
+seq-host: far move blocked midway leaves the track unchanged（无半截移动） ok
+seq-host: blocked far move does not consume an undo mark                         ok
+seq-host: far copy blocked midway returns blocked                                ok
+seq-host: far copy blocked midway leaves the track unchanged（无半截拷贝） ok
+seq-host: blocked far copy does not consume an undo mark                         ok
+seq-host: step edit writes per-note lvl/rat and toggles slide                    ok
+seq-host: step field edits reject an absent note index and out-of-range values   ok
+seq-host: step clear fixture has a lock                                          ok
+seq-host: step clear removes notes, lock, micro and fill without changing LEN    ok
+seq-host: rotate fixture has anchored locks                                      ok
+seq-host: rotate wraps the last step to the first while micro/fill/locks stay anchored ok
+seq-host: rotate leaves lock steps and values unchanged                          ok
+seq-host: LEN 16 to 32 copies only step data and anchors micro/fill/locks        ok
+seq-host: LEN 3 to 1 uses upstream integer halving and does not move steps       ok
+seq-host: transpose saturates at 127 and scans step 63 beyond LEN                ok
+seq-host: transpose saturates at zero                                            ok
+seq-host: transpose rejects the drum track without changing it                   ok
+seq-host: clear/undo fixture has locks on both steps                             ok
+seq-host: pattern clear removes steps, locks, micro and fill without changing LEN ok
+seq-host: undo restores only steps, micro and LEN, not fill or locks             ok
+seq-host: redo swaps the same limited scope back to the cleared pattern          ok
+seq-host: null and negative operations are rejected without changing the track   ok
+seq-host: step edit takes and releases the engine lock exactly once              ok
+seq-host: pattern edit takes and releases the engine lock exactly once           ok
+seq-host: step/pattern entries recheck freeze after locking and leave data unchanged ok
+seq-host: pitch erase finds and deletes the note under one engine lock           ok
+seq-host: erasing an absent pitch returns not found and leaves the step unchanged ok
+seq-host: erasing from an empty step returns not found                           ok
+seq-host: pitch erase rejects the drum track, invalid steps and invalid pitches  ok
+seq-host: erasing the last pitch clears the step through the upstream delete     ok
+seq-host: frozen pitch erase returns invalid state without touching the step     ok
+seq-host: fresh transport reports REC off with note quant on and no take         ok
+seq-host: REC configuration accepts only 0/1 modes                               ok
+seq-host: REC configuration accepts quant off / tempo / count                    ok
+seq-host: REC configuration is projected in the snapshot (runtime only, not persisted) ok
+seq-host: frozen diagnostic mode rejects REC / fill / play button entries        ok
+seq-host: frozen REC snapshot is zeroed and consumes no one-shot                 ok
+seq-host: REC toggles on while stopped                                           ok
+seq-host: stopped REC arms and waits for a note                                  ok
+seq-host: the first note starts the loop and recording                           ok
+seq-host: the armed first note starts the transport instead of a free take       ok
+seq-host: the first note is recorded into step 0                                 ok
+seq-host: REC off stops recording but keeps the transport playing                ok
+seq-host: REC off projects the off state                                         ok
+seq-host: REC while playing starts recording at once                             ok
+seq-host: a second REC press ends the take                                       ok
+seq-host: selecting another track moves the REC bit                              ok
+seq-host: a disarmed song stays disarmed on a track change                       ok
+seq-host: count-in fixture is armed with START=COUNT                             ok
+seq-host: API PLAY while armed in COUNT mode runs the count-in first             ok
+seq-host: the four-beat count-in ends in the loop and the recording              ok
+seq-host: POLY fixture is armed                                                  ok
+seq-host: a POLY take records both notes of the chord in step 0                  ok
+seq-host: releasing one POLY key ends only its note; the other keeps its length  ok
+seq-host: free take fixture starts from an empty project                         ok
+seq-host: stopped REC arms an empty project                                      ok
+seq-host: the first note of an empty project opens a free take                   ok
+seq-host: REC closes the free take                                               ok
+seq-host: a valid free take closes into a one-bar loop and starts playing        ok
+seq-host: the free take is quantised into step 0                                 ok
+seq-host: the take result is a one-shot consumed by the snapshot                 ok
+seq-host: a second free take fixture is armed                                    ok
+seq-host: REC closes the short take                                              ok
+seq-host: a free take shorter than half a second is dropped and leaves the project empty ok
+seq-host: physical PLAY fixture is armed                                         ok
+seq-host: the free take is running before the PLAY press                         ok
+seq-host: the physical PLAY key is accepted                                      ok
+seq-host: the physical PLAY key drops the free take instead of closing it        ok
+seq-host: releasing the physical PLAY key clears its button bit                  ok
+seq-host: the dropped take leaves the project empty and reports the drop         ok
+seq-host: API PLAY fixture is armed                                              ok
+seq-host: API PLAY closes the free take into a loop (it does not drop it)        ok
+seq-host: physical PLAY starts the transport                                     ok
+seq-host: physical PLAY requests the transport when no take runs                 ok
+seq-host: physical PLAY with the transport running stops it                      ok
+seq-host: physical PLAY stops a running transport                                ok
+seq-host: drum hit accepts the last lane                                         ok
+seq-host: a live drum hit outside recording records nothing and never falls back to track 0 ok
+seq-host: drum hit rejects lane 16 and velocity 128; velocity 0 is a release     ok
+seq-host: a recorded drum hit on lane 15 succeeds                                ok
+seq-host: the recorded hit writes lane 15 at its velocity level                  ok
+seq-host: a second lane records separately at its own level                      ok
+seq-host: both recorded lanes share the step without touching the others         ok
+seq-host: frozen drum hits return invalid state                                  ok
+seq-host: FILL held sets only the held flag                                      ok
+seq-host: the next rendered block plays the fill                                 ok
+seq-host: a FILL NEXT pulse toggles only the arm and leaves a held fill untouched ok
+seq-host: FILL NEXT again cancels the arm without touching held                  ok
+seq-host: releasing FILL clears only the held flag                               ok
+seq-host: a held fill and a next-bar arm coexist before STOP                     ok
+seq-host: STOP ends a held or armed fill                                         ok
+seq-host: FILL NEXT with held off arms the next bar only                         ok
+seq-host: an armed next-bar fill does not hold the current block                 ok
+seq-host: FILL NEXT never latches the held flag (held only follows down/up)      ok
+seq-host: the next-bar fill plays for exactly one bar and then stops             ok
+seq-host: FC_FILL steps trigger and FC_NOFILL steps drop out exactly on the armed bar ok
+seq-host: the armed fill is consumed by its bar                                  ok
+seq-host: swallow fixture is armed                                               ok
+seq-host: REC closes the free take                                               ok
+seq-host: a valid take closes into a loop and marks ft_owns_press for 300 ms     ok
+seq-host: a REC press within 300 ms after the take closed is swallowed           ok
+seq-host: after the window REC records again (the transport kept playing)        ok
+seq-host: drop-swallow fixture is armed                                          ok
+seq-host: physical PLAY drops the take                                           ok
+seq-host: the drop also marks ft_owns_press (nothing was closed)                 ok
+seq-host: a REC press within 300 ms after the drop is swallowed too              ok
+seq-host: after the window REC arms again from the stopped transport             ok
+seq-host: PLAY press fixture starts the transport                                ok
+seq-host: PLAY release clears its button bit without the engine lock (also when frozen) ok
+seq-host: fresh snapshot: loop mode, no section, no chain, no SONG REC           ok
+seq-host: default song order is A/B/C/D, 4 bars each (upstream arr_defaults)     ok
+seq-host: a stopped song clamps index to the last valid entry                    ok
+seq-host: index is clamped to count-1 for consumers                              ok
+seq-host: ready is the A-D bitmap of valid project slots                         ok
+seq-host: SONG mode can be enabled                                               ok
+seq-host: snapshot projects the SONG mode flag                                   ok
+seq-host: SONG mode can be disabled                                              ok
+seq-host: SONG mode is refused while SONG REC runs                               ok
+seq-host: frozen snapshot is zeroed                                              ok
+seq-host: frozen arranger actions return invalid state                           ok
+seq-host: storage not ready: song_read does not touch proj_slot                  ok
+seq-host: storage not ready: song snapshot is zeroed                             ok
+seq-host: storage not ready: section STORE returns invalid state (no capture)    ok
+seq-host: storage not ready: section LOAD returns invalid state                  ok
+seq-host: storage not ready: section ERASE returns invalid state                 ok
+seq-host: storage not ready: section REQUEST returns invalid state               ok
+seq-host: storage not ready: CHAIN BEGIN returns invalid state                   ok
+seq-host: storage not ready: CHAIN COMMIT returns invalid state                  ok
+seq-host: storage not ready: SONG mode cannot be enabled (audio path would call arrangement_ready) ok
+seq-host: storage not ready: SONG mode can still be disabled                     ok
+seq-host: A2+B3 fixture is in SONG mode                                          ok
+seq-host: loop=0 SONG stops by itself after the last bar                         ok
+seq-host: entry B starts exactly after A's 2 bars                                ok
+seq-host: A2+B3 ends after 5 bars in total                                       ok
+seq-host: the working loop and its selected track come back after the song ends  ok
+seq-host: the loop's pattern is restored, not the last section's                 ok
+seq-host: snapshot after the natural end: loop mode flag kept, no song running   ok
+seq-host: loop=1 fixture is in SONG mode                                         ok
+seq-host: loop=1 wraps into entry B                                              ok
+seq-host: STOP ends loop=1 SONG                                                  ok
+seq-host: STOP gives the working loop and selected track back                    ok
+seq-host: missing-scene fixture is in SONG mode                                  ok
+seq-host: a missing later scene refuses the whole song (not even scene A starts) ok
+seq-host: the refused song leaves the working loop untouched                     ok
+seq-host: live STORE captures a section while playing                            ok
+seq-host: section capture takes the engine lock exactly once                     ok
+seq-host: the captured section is immediately the RAM slot's content             ok
+seq-host: STORE marks only the section dirty (flash happens later, outside the engine lock) ok
+seq-host: snapshot reports the live section and the pending flush                ok
+seq-host: section store rejects invalid slots and store+erase together           ok
+seq-host: frozen section store returns invalid state without capturing           ok
+seq-host: stopped LOAD applies the RAM section and makes it live                 ok
+seq-host: LOAD of an empty section is not found                                  ok
+seq-host: ERASE clears a stopped section                                         ok
+seq-host: ERASE clears the RAM slot, the live section and its dirty bit          ok
+seq-host: ERASE of an empty section is not found                                 ok
+seq-host: ERASE of an empty slot writes nothing                                  ok
+seq-host: ERASE drops the erased scene from the song order                       ok
+seq-host: the surviving song entry is kept and the song is marked dirty          ok
+seq-host: section LOAD is refused while the transport runs (scene changes go through live_req) ok
+seq-host: request fixture loads A                                                ok
+seq-host: a live request is queued for the next bar and cancels any chain        ok
+seq-host: the queued section starts on the next bar                              ok
+seq-host: requesting an empty section is not found                               ok
+seq-host: requesting slot 4 is invalid                                           ok
+seq-host: a stopped transport has no next bar to request for (LOAD instead)      ok
+seq-host: song fixture is playing                                                ok
+seq-host: a live section request is refused while the song plays                 ok
+seq-host: standalone COMMIT fixture loads A                                      ok
+seq-host: the fixture is playing A with no pending request                       ok
+seq-host: standalone COMMIT installs the chain with one engine lock              ok
+seq-host: COMMIT independently requests its first scene                          ok
+seq-host: the chain starts at entry 0 on the next bar                            ok
+seq-host: COMMIT does not re-request a first scene that is already playing       ok
+seq-host: a one-entry chain is accepted (a looping single section)               ok
+seq-host: chain fixture loads A                                                  ok
+seq-host: chain begin queues the first section right away (and cancels an older chain) ok
+seq-host: chain commit installs A/B atomically                                   ok
+seq-host: the chain state follows: A first, one bar                              ok
+seq-host: chain A/B/A keeps the order                                            ok
+seq-host: A plays its own bar count (B starts one bar in)                        ok
+seq-host: B plays two bars (its longest pattern) before A returns                ok
+seq-host: after the round the chain state follows: entry B, two bars             ok
+seq-host: STOP drops the chain                                                   ok
+seq-host: chain begin needs a playing live loop                                  ok
+seq-host: chain commit needs a playing live loop                                 ok
+seq-host: chain-limit fixture loads A                                            ok
+seq-host: chain fixture is playing A/B                                           ok
+seq-host: a nine-entry chain is refused and leaves the installed chain unchanged ok
+seq-host: a null scene list is invalid                                           ok
+seq-host: a chain naming an empty section is refused atomically                  ok
+seq-host: count 0 cancels the chain                                              ok
+seq-host: the cancelled chain can be rebuilt                                     ok
+seq-host: a single section tap cancels the chain and asks for A                  ok
+seq-host: the single tap keeps A playing (no chain comes back)                   ok
+seq-host: SONG REC fixture loads A                                               ok
+seq-host: SONG REC arms on the next bar and forces loop mode                     ok
+seq-host: the take starts at the next bar, with the live section                 ok
+seq-host: A's first bar is counted                                               ok
+seq-host: B is asked for at the next bar                                         ok
+seq-host: STOP finishes the take with two parts                                  ok
+seq-host: SONG REC writes A 2 bars + B 3 bars (the bar playing counts)           ok
+seq-host: the finished take is projected and marks the song dirty for the delayed writer ok
+seq-host: the dirty mark is reconciled from srec_done once per take              ok
+seq-host: later 30ms snapshots do not re-mark the same take                      ok
+seq-host: 64-bar fixture loads A                                                 ok
+seq-host: 64-bar take arms                                                       ok
+seq-host: the take is recording                                                  ok
+seq-host: 64 bars of one section split into a second entry (never more than 64 bars) ok
+seq-host: the split take finishes as a two-entry song                            ok
+seq-host: 16-item fixture loads A                                                ok
+seq-host: 16-item take arms                                                      ok
+seq-host: 16-item take is recording                                              ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: the next section is requested                                          ok
+seq-host: sixteen section changes fill the song                                  ok
+seq-host: a seventeenth change finishes the take with 16 entries (upstream srec_finish) ok
+seq-host: stopping an empty take is accepted                                     ok
+seq-host: an empty take reports NO SONG (0xFF), not a zero-part song             ok
+seq-host: an empty take leaves the song order untouched                          ok
+seq-host: NO SONG is projected and marks nothing dirty                           ok
+seq-host: cancelling an armed (not yet recording) take keeps the old result      ok
+seq-host: a new take can start with a stale result pending                       ok
+seq-host: the new take clears the visible result                                 ok
+seq-host: the stale take is reconciled (song dirty) before the reset; the new take shows none ok
+seq-host: NO SONG advances the reconciled value (no dirty)                       ok
+seq-host: a later take with the same part count is marked again after NO SONG    ok
+seq-host: FILL held goes down                                                    ok
+seq-host: REC snapshot projects the FILL hold level                              ok
+seq-host: FILL NEXT is a pulse                                                   ok
+seq-host: NEXT flips the arm without touching the hold level                     ok
+seq-host: FILL released                                                          ok
+seq-host: release clears only the hold level                                     ok
+seq-host: clrseq fixture: lock + fill on the selected track                      ok
+seq-host: clrseq fixture: transport is playing                                   ok
+seq-host: CLEAR SEQ on the selected track succeeds while playing                 ok
+seq-host: CLEAR SEQ takes the engine lock exactly once                           ok
+seq-host: CLEAR SEQ empties the selected track's step table (TIEs included)      ok
+seq-host: CLEAR SEQ drops the selected track's parameter locks                   ok
+seq-host: CLEAR SEQ resets micro and fill conditions                             ok
+seq-host: CLEAR SEQ leaves the other tracks untouched                            ok
+seq-host: CLEAR SEQ does not touch parameters                                    ok
+seq-host: CLEAR SEQ while playing: the transport keeps running                   ok
+seq-host: UNDO restores the cleared pattern                                      ok
+seq-host: unknown action is rejected before taking the lock                      ok
+seq-host: frozen: CLEAR SEQ returns invalid state without touching the engine    ok
+seq-host: initsound fixture: sound is dirty before the action                    ok
+seq-host: INIT SOUND succeeds with one engine lock                               ok
+seq-host: INIT SOUND: engine kept, preset 0                                      ok
+seq-host: INIT SOUND p[] == sloop_core_set_engine on the same sound              ok
+seq-host: INIT SOUND: sound params reset, mix (LEVEL) kept                       ok
+seq-host: INIT SOUND on the drum track is not allowed (page_desc excludes it)    ok
+seq-host: frozen: INIT SOUND returns invalid state without the engine lock       ok
+seq-host: INIT SOUND while playing: the transport keeps running                  ok
+seq-host: new fixture: a lock on track 0                                         ok
+seq-host: new fixture: transport is playing                                      ok
+seq-host: NEW succeeds with one engine lock while the loop is playing            ok
+seq-host: NEW requests a transport stop and a panic on every track               ok
+seq-host: NEW marks undo on every track (one session per track, drum last)       ok
+seq-host: NEW sets the reload/force flags                                        ok
+seq-host: NEW: default sound of TRK_DEF on every synth track (old sound fades out) ok
+seq-host: NEW: empty pattern and default parameters on every synth track         ok
+seq-host: NEW: default sound of TRK_DEF on every synth track (old sound fades out) ok
+seq-host: NEW: empty pattern and default parameters on every synth track         ok
+seq-host: NEW: default sound of TRK_DEF on every synth track (old sound fades out) ok
+seq-host: NEW: empty pattern and default parameters on every synth track         ok
+seq-host: NEW: the dirty sound/pattern values are gone                           ok
+seq-host: NEW: parameter locks cleared                                           ok
+seq-host: NEW: default kit and empty drum pattern                                ok
+seq-host: NEW: drum tune/decay/live mutes reset                                  ok
+seq-host: NEW: solo and octave cleared                                           ok
+seq-host: NEW: every non-MIDI global back to its default (BPM/swing/fx too)      ok
+seq-host: NEW: the FM-1's MIDI-class settings are kept                           ok
+seq-host: NEW: the selected track is kept                                        ok
+seq-host: NEW: sections A-D (RAM slots + dirty) untouched                        ok
+seq-host: NEW: song arrangement untouched                                        ok
+seq-host: NEW: the transport stops (request consumed by the render block)        ok
+seq-host: NEW with arrangement enabled but stopped proceeds                      ok
+seq-host: guard fixture: the song is playing                                     ok
+seq-host: NEW while the song plays: not allowed                                  ok
+seq-host: NEW refused by the song guard: nothing changes, transport still running ok
+seq-host: CLEAR SEQ / INIT SOUND stay allowed while the song plays               ok
+seq-host: NEW while the loop plays proceeds (stops the transport itself)         ok
+seq-host: NEW: loop transport stopped                                            ok
+seq-host: frozen: NEW returns invalid state                                      ok
+seq-host: factory preset applied on a user preset: user cleared                  ok
+seq-host: engine changed on a user preset: user cleared                          ok
+seq-host: a preset on another track leaves this track's user preset              ok
+seq-host: canonical fixture: two locks                                           ok
+seq-host: unlock one lock                                                        ok
+seq-host: SAVE -> LOAD after an unlock keeps the live hash (no residue in the free slot) ok
+seq-host: canonical fixture 2: a locked step                                     ok
+seq-host: clear the locked step (lock_del with P_COUNT)                          ok
+seq-host: SAVE -> LOAD after clearing a locked step keeps the live hash          ok
+SEQ HOST TEST PASSED (0 failures)
+== sloop_core PER3 song-settings host test
+persist-host: canonical: kind = NEW                                                      ok
+persist-host: canonical: 88B persist + 1,464B DSU = 1,552B                               ok
+persist-host: canonical: magic PER3                                                      ok
+persist-host: canonical: palette/lowcut/zoom = 0                                         ok
+persist-host: canonical: 默认 panel（PAN5）                                          ok
+persist-host: canonical: arrangement @48 = count/loop                                    ok
+persist-host: canonical: entries @52 = entry[0].scene/bars                               ok
+persist-host: canonical: lights = 0（2.2 迁移口径）                                ok
+persist-host: canonical: 默认 DSU 银行 @88（DSU1 / ver 1 / n 4）                   ok
+persist-host: canonical: 默认 side（theme 0 + FAV1 + CRC）                           ok
+persist-host: canonical: side CRC 自校验通过                                        ok
+persist-host: side: 全 0xFF = 空白侧区                                              ok
+persist-host: side: 空白侧区 → 默认记录                                        ok
+persist-host: side: 2.7 beta 主题记录确实自校验不过                           ok
+persist-host: side: 有内容的侧区原样保留（含自校验不过的主题记录） ok
+persist-host: canonical: 读回分类为 PER3                                            ok
+persist-host: canonical: arrangement 读回（36B 含 reserved）                        ok
+persist-host: canonical: entry[0] 偏移 52 语义                                       ok
+persist-host: PER3+MIDI(32B): 长度保持 1,584B                                        ok
+persist-host: PER3+MIDI: 0..47（palette/panel）逐字节不变                         ok
+persist-host: PER3+MIDI: lights @84 逐字节不变                                      ok
+persist-host: PER3+MIDI: 88..1,551 = 当前 dsu（P4-D：替换 flash 里的旧值）    ok
+persist-host: PER3+MIDI: MIDI 尾段（1,552..1,583）逐字节不变                    ok
+persist-host: PER3+MIDI: arrangement 已替换                                           ok
+persist-host: PER3+MIDI: side 原样随副本提交                                      ok
+persist-host: PER3+MIDI(40B): 长度保持 1,592B                                        ok
+persist-host: PER3+MIDI(40B): 尾段逐字节不变                                      ok
+persist-host: PER3(1,552B): 长度不变                                                 ok
+persist-host: PER3(1,552B): 已有 DSU 被当前 dsu 替换                              ok
+persist-host: PER3(88B): 下次保存补默认 DSU → 1,552B                            ok
+persist-host: PER3(88B): 头部与 lights 逐字节不变                                ok
+persist-host: PER3(88B): 追加的 DSU 有效                                            ok
+persist-host: PER3(84B, 2.2): 补 lights=0 + DSU → 1,552B                              ok
+persist-host: PER3(84B): 头部不变、lights 补 0                                     ok
+persist-host: PER2 → PER3 canonical（1,552B）                                        ok
+persist-host: PER2 迁移: magic 变 PER3                                                ok
+persist-host: PER2 迁移: palette/lowcut/zoom 保留                                    ok
+persist-host: PER2 迁移: panel 原样保留                                            ok
+persist-host: PER2 迁移: lights = 0                                                    ok
+persist-host: PER2 迁移: arrangement = 当前歌曲                                    ok
+persist-host: PER2 迁移: 追加默认 DSU                                              ok
+persist-host: PER2 迁移: side = 默认（旧格式没有 side）                       ok
+persist-host: PER2 迁移: 结果读回为 PER3                                          ok
+persist-host: PER2 迁移: 坏 panel → 默认 panel                                    ok
+persist-host: PER1 → PER3 canonical                                                    ok
+persist-host: PER1 迁移: palette 保留、lowcut/zoom = 0                              ok
+persist-host: PER1 迁移: panel 原样保留                                            ok
+persist-host: 未知 magic: 拒绝（长度不变）                                     ok
+persist-host: 未知 magic: payload 与 side 一个字节都没改                       ok
+persist-host: PER3 非法长度（200B）: 拒绝                                        ok
+persist-host: arrangement 校验: count = 0 拒绝                                       ok
+persist-host: arrangement 校验: count = 17 拒绝                                      ok
+persist-host: arrangement 校验: loop = 2 拒绝                                        ok
+persist-host: arrangement 校验: scene = 4 拒绝                                       ok
+persist-host: arrangement 校验: bars = 65 拒绝                                       ok
+persist-host: arrangement 校验: bars = 0 拒绝                                        ok
+persist-host: arrangement 校验: count 之外的 entry 不参与（上游口径）      ok
+persist-host: 读回: 合法 arrangement 原样                                          ok
+persist-host: 读回: 非法 arrangement → 默认歌曲（arr_defaults：4×4 bars）  ok
+persist-host: set: 非法 arrangement 不组装                                          ok
+persist-host: dirty: 初始干净                                                        ok
+persist-host: dirty: 标记 → dirty、gen 1                                            ok
+persist-host: dirty: 写失败保留（下个窗口重试）                             ok
+persist-host: dirty: 写成功且无新修改 → 清                                    ok
+persist-host: dirty: 写成功但期间有新修改 → 保留                           ok
+persist-host: loaded: 损坏对象 → false（拒绝覆盖）                           ok
+persist-host: loaded: 损坏对象 → 默认歌曲 count=4 loop=0                       ok
+persist-host: loaded: 默认歌曲 = A/B/C/D 各 4 小节（上游 arr_defaults）       ok
+persist-host: loaded: 默认歌曲结构合法（count 非零，可被 song_set/播放接受） ok
+persist-host: loaded: 空设置 → 默认歌曲（true，不是错误）                ok
+persist-host: loaded: 合法 PER3 → 读回值原样生效                              ok
+persist-host: flash: canonical 写入（st_save3）                                      ok
+persist-host: flash: 读回逐字节相同（1,552B）                                   ok
+persist-host: flash: side record 随副本提交（80B 逐字节）                      ok
+persist-host: flash: 读回 arrangement 与写入一致                                  ok
+persist-host: flash: 读回 side 作为下次提交的输入                             ok
+persist-host: flash: 第二次保存（改歌曲）                                      ok
+persist-host: flash: 第二次保存后 arrangement 是新的                            ok
+persist-host: flash: 第二次保存 side 仍逐字节相同                             ok
+persist-host: flash: A/B 交替（seq = 2，写回 copy 1）                             ok
+persist-host: flash: 写入未知 magic 对象                                           ok
+persist-host: flash: 未知 magic 对象 → 拒绝保存（invalid）                   ok
+persist-host: flash: 拒绝时不覆盖原扇区（两个 4KB 逐字节不变）         ok
+persist-host: flash: 原对象仍可读                                                  ok
+persist-host: torn: 先写一份完整 canonical                                         ok
+persist-host: torn: 旧副本与 side 可读                                             ok
+persist-host: torn: 写失败且故障命中一次                                       ok
+persist-host: torn: 写失败保留 dirty（下次窗口重试）                        ok
+persist-host: torn: 旧副本的 arrangement 仍可读（不是半截新值）           ok
+persist-host: torn: 旧副本的 side 仍可读                                          ok
+persist-host: dsu: canonical 的 88..1,551 逐字节 = 当前 dsu                        ok
+persist-host: dsu: put_dsu 把 pitch=42 写进 88..1,551（读回 42）                  ok
+persist-host: dsu: canonical 保存同样携带 pitch=42                                 ok
+persist-host: dsu: len < 1,552 时 put_dsu 一个字节都不写                         ok
+persist-host: dsu: RAM 银行坏了 → 先落默认再写                               ok
+persist-host: dsu: PER3(1,552B) 长度不变                                             ok
+persist-host: dsu: PER3 的 0..47 与 84..87 逐字节不变                             ok
+persist-host: dsu: PER3 的 48..83 已替换                                             ok
+persist-host: dsu: PER3 的 88..1,551 = 当前 dsu（替换 flash 里的旧值）        ok
+persist-host: dsu: 读回 pitch=99（替换而非保留旧字节）                      ok
+persist-host: dsu: PER3+32B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3+36B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3+40B 尾段逐字节保留、DSU 已替换                        ok
+persist-host: dsu: PER3(84B) → 1,552B 带当前 dsu                                    ok
+persist-host: dsu: PER3(88B) → 1,552B 带当前 dsu                                    ok
+persist-host: dsu: 未知 magic 仍拒绝（dirty 不被组装清掉）                  ok
+persist-host: dsu: 写失败保留 dirty                                                 ok
+persist-host: dsu: 写期间又被编辑 → 保留 dirty（payload 过时）            ok
+persist-host: dsu: 写成功且字节一致 → 清 dsu_dirty                            ok
+persist-host: dsu: 真实 st_save3 成功 → dsu_dirty = 0                              ok
+persist-host: dsu: flash 读回的 DSU 含保存时的编辑（pitch=77）               ok
+persist-host: dsu: flash 写入 88B 旧 PER3                                             ok
+persist-host: dsu: flash 88B 旧对象 → 1,552B（当前 dsu + 新 arrangement）      ok
+persist-host: settings_canonical: 无尾段 + reso=5 → 追加 40B 尾段 = 1,592B      ok
+persist-host: settings_canonical: palette/lowcut/zoom @4/8/12 = 2/1/1                    ok
+persist-host: settings_canonical: lights @84 = lvl3 | rec_tempo | theme_on | rec_quant_off，其余位 0 ok
+persist-host: settings_canonical: 尾段 byte38 bits 2..5 = 5，其余位保持          ok
+persist-host: settings_canonical: 尾段其余 39 字节 = fixture                       ok
+persist-host: settings_foreign_bits: 已有尾段 ⇒ 长度不变 1,592B                ok
+persist-host: settings_foreign_bits: palette/lowcut/zoom 直写                          ok
+persist-host: settings_foreign_bits: word@84 == 0x3FFFF9F0（外部位 4..8/11..29 全保持） ok
+persist-host: settings_foreign_bits: 尾段 byte38 == 0xC3（bits 2..5 清零、其余保持） ok
+persist-host: settings_foreign_bits: 48..83 arrangement 逐字节不变                  ok
+persist-host: settings_foreign_bits: 除 4..15/84..87/尾 byte38 外逐字节不变      ok
+persist-host: settings_reso_appends_tail: reso=0 ⇒ 长度仍 1,552B、不追加（lights 只清 owned 位） ok
+persist-host: settings_reso_appends_tail: reso=7 + tail_def ⇒ 1,592B                   ok
+persist-host: settings_reso_appends_tail: 尾段 = fixture，byte38 bits 2..5 = 7        ok
+persist-host: settings_reso_appends_tail: tail_def=NULL ⇒ 不追加、不报错        ok
+persist-host: settings_reso_appends_tail: cap 不足 ⇒ 不追加                       ok
+persist-host: settings_reso_appends_tail: 短尾段 reso=0 ⇒ 不扩（长度不变）  ok
+persist-host: settings_reso_appends_tail: 32B 短尾段 reso=7 + tail_def ⇒ 扩到 1,592B ok
+persist-host: settings_reso_appends_tail: 短尾段已有字节逐字节保留           ok
+persist-host: settings_reso_appends_tail: 缺的后缀 = tail_def[short_len..40)（byte38 已打点） ok
+persist-host: settings_reso_appends_tail: nibble 落在 byte38，其余位保持         ok
+persist-host: settings_reso_appends_tail: 扩展后读回 reso=7                         ok
+persist-host: settings_reso_appends_tail: 短尾段 reso=0 ⇒ 不扩（长度不变）  ok
+persist-host: settings_reso_appends_tail: 36B 短尾段 reso=7 + tail_def ⇒ 扩到 1,592B ok
+persist-host: settings_reso_appends_tail: 短尾段已有字节逐字节保留           ok
+persist-host: settings_reso_appends_tail: 缺的后缀 = tail_def[short_len..40)（byte38 已打点） ok
+persist-host: settings_reso_appends_tail: nibble 落在 byte38，其余位保持         ok
+persist-host: settings_reso_appends_tail: 扩展后读回 reso=7                         ok
+persist-host: settings_reso_appends_tail: 短尾段 tail_def=NULL ⇒ 不扩             ok
+persist-host: settings_reso_appends_tail: 短尾段 cap 不足 ⇒ 不扩                ok
+persist-host: settings_reso_appends_tail: 88B（无 DSU）⇒ 不扩                     ok
+persist-host: settings_roundtrip: (a) 9 个字段逐项读回                            ok
+persist-host: settings_roundtrip: (b) owned 位已写、外部位不入投影            ok
+persist-host: settings_roundtrip: (c) 无尾段 ⇒ reso 读回 0（其余字段照常） ok
+persist-host: settings_roundtrip: reso 读回 >10 钳到 10                              ok
+persist-host: settings_roundtrip: lights_lvl=4 ⇒ 读回 OFF(0)（上游 ≥ LIGHTS_N 归 OFF） ok
+persist-host: settings_roundtrip: lights_lvl=15 ⇒ 读回 OFF(0)                        ok
+persist-host: settings_roundtrip: lights_lvl=3 照常读回，owned 位各自解出      ok
+persist-host: settings_roundtrip: 84B（2.2）⇒ lights word 读 0                      ok
+persist-host: settings_roundtrip: 32B 尾段（1,584B）没有 byte38 ⇒ reso 0         ok
+persist-host: settings_roundtrip: PER2 读 palette/lowcut/zoom（没有 lights/尾段 ⇒ 0） ok
+persist-host: settings_roundtrip: PER2(48B) palette=1 lowcut=1 zoom=1 三个字段读回 ok
+persist-host: settings_roundtrip: PER1 只读 palette                                    ok
+persist-host: settings_roundtrip: 损坏对象 → false 且 *out 不动                 ok
+persist-host: settings_roundtrip: 无对象（len 0）→ false 且 *out 不动          ok
+persist-host: side_theme_read: THM2 + CRC36 → true、name NUL 结尾                   ok
+persist-host: side_theme_read: RGB565 → RGB888 纯红/绿/蓝                          ok
+persist-host: side_theme_read: RGB565 → RGB888 中间值 *255/31、*255/63             ok
+persist-host: side_theme_read: trk[4] 展开                                             ok
+persist-host: side_theme_read: bg/hi 展开                                              ok
+persist-host: side_theme_read: 8 字符名 → char[9] 补 NUL                           ok
+persist-host: side_theme_read: THM1 → false 且 *out 不动                            ok
+persist-host: side_theme_read: 坏 CRC → false                                         ok
+persist-host: side_theme_read: 改回后 CRC 再通过（对照）                       ok
+persist-host: side_theme_read: 全 0xFF（从未写）→ false                          ok
+persist-host: settings_real_st_save3: 写前 get 与 panel = SONG_PANEL_DEF              ok
+persist-host: settings_real_st_save3: 往返后 get_settings 与写前逐项一致       ok
+persist-host: settings_real_st_save3: SONG_PANEL_DEF 16..47 逐字节不变              ok
+persist-host: settings_real_st_save3: side theme 随副本提交并可读回             ok
+persist-host: PASS (0 failures)
+== sloop_core DSYN / FM6 / sample-slot host test
+synth-host: SLOOP_DSYN_FIELDS == 24                                            ok
+synth-host: desc: 24 labels in protocol order                                  ok
+synth-host: desc rejects field 24 and NULL                                     ok
+synth-host: desc FLT_MODE: enum 0..7, LP+ALL at 5                              ok
+synth-host: desc LEVEL: 0..255 dB                                              ok
+synth-host: desc FENV: -128..127                                               ok
+synth-host: dsu_dirty starts clear                                             ok
+synth-host: load_factory(0, 0)                                                 ok
+synth-host: load_factory marks dsu_dirty                                       ok
+synth-host: factory kit: sound/name/crush/src = DS_KITS[0]                     ok
+synth-host: field  0 WAVE     writes raw[0] = 2                                ok
+synth-host: field  1 SRC      writes raw[1] = 3                                ok
+synth-host: field  2 CLAP     writes raw[1] = 1                                ok
+synth-host: field  3 PITCH    writes raw[2] = 61                               ok
+synth-host: field  4 FINE     writes raw[3] = 13                               ok
+synth-host: field  5 BEND     writes raw[4] = 37                               ok
+synth-host: field  6 BTIME    writes raw[5] = 71                               ok
+synth-host: field  7 HOLD     writes raw[6] = 77                               ok
+synth-host: field  8 DECAY    writes raw[7] = 41                               ok
+synth-host: field  9 TLEV     writes raw[8] = 99                               ok
+synth-host: field 10 T2       writes raw[9] = 17                               ok
+synth-host: field 11 T2LEV    writes raw[10] = 83                              ok
+synth-host: field 12 CLICK    writes raw[11] = 55                              ok
+synth-host: field 13 NLEV     writes raw[12] = 91                              ok
+synth-host: field 14 NHOLD    writes raw[13] = 23                              ok
+synth-host: field 15 NDEC     writes raw[14] = 67                              ok
+synth-host: field 16 FLT_MODE writes raw[15] = 6                               ok
+synth-host: field 17 FLT_RES  writes raw[15] = 21                              ok
+synth-host: field 18 FCUT     writes raw[16] = 88                              ok
+synth-host: field 19 FENV     writes raw[17] = -60                             ok
+synth-host: field 20 HPF      writes raw[18] = 44                              ok
+synth-host: field 21 CHIP     writes raw[19] = 72                              ok
+synth-host: field 22 DRIVE    writes raw[20] = 29                              ok
+synth-host: field 23 LEVEL    writes raw[21] = 200                             ok
+synth-host: WAVE=1 -> raw[0]                                                   ok
+synth-host: PITCH=60 -> raw[2]                                                 ok
+synth-host: FINE=15 -> raw[3]                                                  ok
+synth-host: BEND=96 -> raw[4]                                                  ok
+synth-host: T2=31 -> raw[9]                                                    ok
+synth-host: LEVEL=255 -> raw[21]                                               ok
+synth-host: FLT_MODE=LP(1)                                                     ok
+synth-host: FLT_RES=31                                                         ok
+synth-host: FLT_RES keeps MODE; raw flt == (31 << 3) | 1                       ok
+synth-host: FLT_MODE=LP+ALL keeps RES                                          ok
+synth-host: FLT_MODE=4 (ALL alone) normalises to OFF, keeps RES                ok
+synth-host: FLT_MODE back to LP                                                ok
+synth-host: SRC=2 -> raw[1] low nibble                                         ok
+synth-host: CLAP=1 sets src bit4, SRC unchanged                                ok
+synth-host: SRC keeps the CLAP bit                                             ok
+synth-host: CLAP=0 clears src bit4                                             ok
+synth-host: HOLD=200 clamps to 127                                             ok
+synth-host: BEND=200 clamps to 96                                              ok
+synth-host: FINE=-5 clamps to 0                                                ok
+synth-host: T2=60 clamps to 31                                                 ok
+synth-host: LEVEL=300 clamps to 255                                            ok
+synth-host: FENV=-128 round-trips as a signed byte                             ok
+synth-host: FENV=200 clamps to 127                                             ok
+synth-host: field_from_sound decodes bytes (and rejects field 24)              ok
+synth-host: dsu_dirty can be cleared (test hook)                               ok
+synth-host: a single set marks dsu_dirty                                       ok
+synth-host: audition queues kit/lane/velocity                                  ok
+synth-host: audition rejects velocity 0                                        ok
+synth-host: audition rejects velocity > 127                                    ok
+synth-host: audition rejects kit 4                                             ok
+synth-host: load_factory(1, 5)                                                 ok
+synth-host: factory kit 1 = DS_KITS[5]                                         ok
+synth-host: crush: load_factory(2, 3)                                          ok
+synth-host: crush 0 round-trips and marks dsu_dirty                            ok
+synth-host: crush 255 round-trips                                              ok
+synth-host: crush 256 clamps to 255                                            ok
+synth-host: crush 300 clamps to 255                                            ok
+synth-host: crush -5 clamps to 0                                               ok
+synth-host: crush 0x5A: dsu_fix_kit keeps 16 lanes/name/src                    ok
+synth-host: crush rejects kit 4                                                ok
+synth-host: crush frozen -> SLOOP_DSYN_INVALID                                 ok
+synth-host: crush takes the engine lock once                                   ok
+synth-host: read rejects kit 4                                                 ok
+synth-host: read rejects lane 16                                               ok
+synth-host: load_factory rejects src 32                                        ok
+synth-host: set rejects field 24                                               ok
+synth-host: invalid field leaves the sound unchanged                           ok
+synth-host: frozen: set/read refused                                           ok
+synth-host: set takes the engine lock once                                     ok
+synth-host: text DECAY ms strictly increases with the DECAY_K index            ok
+synth-host: text DECAY/BTIME/NDEC = 10254/(65536-DECAY_K) ms at 0/32/64/96/127 ok
+synth-host: text FLT_MODE 5 = LP+ALL                                           ok
+synth-host: text FLT_MODE 4 = OFF                                              ok
+synth-host: text FLT_MODE 0..7 = OFF/LP/BP/HP/OFF/LP+ALL/BP+ALL/HP+ALL         ok
+synth-host: FLT_MODE 4 (ALL alone) normalises to OFF on write                  ok
+synth-host: text LEVEL 128 = 0.0dB                                             ok
+synth-host: text LEVEL 152 = +6.0dB                                            ok
+synth-host: text LEVEL 0 = -32.0dB                                             ok
+synth-host: text LEVEL 255 = +31.75dB (quarter dB steps)                       ok
+synth-host: text LEVEL 129 = +0.25dB                                           ok
+synth-host: text FCUT 0 = 30Hz                                                 ok
+synth-host: text FCUT 127 = CUTOFF_HZ[127] = 16.0kHz                           ok
+synth-host: text HPF 0 = CUTOFF_HZ[0] = 30Hz                                   ok
+synth-host: text: CLAP (onoff) defers to the knobs' generic ON/OFF             ok
+synth-host: text DECAY 0 = 5ms                                                 ok
+synth-host: text CHIP 60 = C4                                                  ok
+synth-host: text: enum field defers to knobs' generic formatting               ok
+synth-host: FM6 sizes: 155B, 6 x 21 op fields, 29 global fields                ok
+synth-host: desc: 6 x 21 operator fields in FP_R1..FP_DET order                ok
+synth-host: desc: 29 global fields (19 voice + 10 read-only name bytes)        ok
+synth-host: desc rejects op 7 / field 21 / global field 29 / NULL              ok
+synth-host: desc op: DET 14 / FC 31 / LC 3 / MODE onoff                        ok
+synth-host: desc global: ALG 31 / FB 7 / LFW 5 / TRNSP 48 / PR1 99             ok
+synth-host: desc NAME1: printable 32..126 (read-only)                          ok
+synth-host: desc MODE onoff for all six operators                              ok
+synth-host: desc op 1 / op 5 MODE onoff (OL stays INT)                         ok
+synth-host: desc global LFW/LPMS are enums, not MODE/onoff                     ok
+synth-host: desc ALG: 32 enum names, "1".."32"                                 ok
+synth-host: desc LFW: 6 waves in fm6_lfo_sample order                          ok
+synth-host: desc LPMS: 8 sensitivity levels "0".."7"                           ok
+synth-host: desc LKS: onoff, no enum table                                     ok
+synth-host: desc plain field: no enum table                                    ok
+synth-host: failed desc leaves out untouched (op)                              ok
+synth-host: failed desc leaves out untouched (field)                           ok
+synth-host: failed desc leaves out untouched (global field)                    ok
+synth-host: set op1 R1/L4/OL/DET/FC accepted                                   ok
+synth-host: patch(): op1 bytes at k*FP_OP + field, engine_ok/slot              ok
+synth-host: set op6 writes patch[5*FP_OP + R1] only                            ok
+synth-host: OL=200 clamps to 99                                                ok
+synth-host: DET=99 clamps to 14                                                ok
+synth-host: MODE=5 clamps to 1                                                 ok
+synth-host: R1=-3 clamps to 0                                                  ok
+synth-host: set global PL4 -> patch[133], TRNSP=99 -> 48                       ok
+synth-host: set global ALG=31 -> patch[FP_ALG], clears P_E0 (PAT)              ok
+synth-host: a non-ALG field leaves P_E0 alone                                  ok
+synth-host: patch() before name write                                          ok
+synth-host: set NAME1 / NAME10 are read-only (sentinel, patch unchanged)       ok
+synth-host: field_from_patch decodes offsets, rejects op 7 / field 21 / NULL   ok
+synth-host: field() reads the live patch (name bytes readable)                 ok
+synth-host: patch() on an ANALOG track: ESP_ERR_NOT_ALLOWED, engine_ok=0       ok
+synth-host: set/field on an ANALOG track: sentinel, patch unchanged            ok
+synth-host: rejects track NPART and NULL out                                   ok
+synth-host: rejects op 7 / field 21 / global field 29                          ok
+synth-host: a write sets fm6_slot[track] = p[P_E7]                             ok
+synth-host: the edit survives fm6_poll (PTCH unchanged)                        ok
+synth-host: turning PTCH does reload the slot patch (control: R1 back to 99)   ok
+synth-host: re-edit after the PTCH turn re-syncs fm6_slot                      ok
+synth-host: the edit survives fm6_poll in the new slot                         ok
+synth-host: frozen: set/field/patch refused                                    ok
+synth-host: frozen paths take no engine lock                                   ok
+synth-host: set takes the engine lock once                                     ok
+synth-host: patch takes the engine lock once                                   ok
+synth-host: patch() before pack round-trip                                     ok
+synth-host: fm6_pack/unpack round-trips the edited patch                       ok
+synth-host: sample mirror addressable from SMP_DATA (32-bit zone rebase)       ok
+synth-host: header is 480B, data at +512                                       ok
+synth-host: info: an untouched slot is empty                                   ok
+synth-host: hdr_append/write/end without begin -> state                        ok
+synth-host: upload: begin/hdr/write/end                                        ok
+synth-host: info: used/name/zones/KB after END                                 ok
+synth-host: end scans the slot (nz=1, n=2048, zone off rebased)                ok
+synth-host: mirror == flash after END (whole 80KiB slot)                       ok
+synth-host: reload: flash -> mirror + scan (boot path)                         ok
+synth-host: reload keeps the slot visible                                      ok
+synth-host: begin(0) again on a filled slot                                    ok
+synth-host: re-begin without end: info empty, mirror header 0xFF, nz cleared   ok
+synth-host: re-begin erases the header sector of a filled slot                 ok
+synth-host: recovery upload after an interrupted begin                         ok
+synth-host: recovered: new header, nz rescanned, mirror == flash               ok
+synth-host: begin(1) for boundary cases                                        ok
+synth-host: write: off < 512 -> size                                           ok
+synth-host: write: off not 256-aligned -> size                                 ok
+synth-host: write: off + n past the slot end -> size                           ok
+synth-host: write: n > 256 -> size                                             ok
+synth-host: write: another slot than the open one -> state                     ok
+synth-host: write: the last 256B of the slot is accepted                       ok
+synth-host: hdr_append: past 480B -> size                                      ok
+synth-host: end: short header -> invalid arg                                   ok
+synth-host: a refused end leaves slot 1 empty in the mirror and flash          ok
+synth-host: upload with a wrong CRC -> INVALID_CRC                             ok
+synth-host: CRC failure: slot stays empty, no header committed                 ok
+synth-host: zone n=0 -> invalid arg                                            ok
+synth-host: zone n=0: slot stays empty                                         ok
+synth-host: zone off past data_len -> invalid arg                              ok
+synth-host: wrong magic -> invalid arg                                         ok
+synth-host: begin(1) before the playing cases                                  ok
+synth-host: begin/erase/hdr_append/write while playing -> state                ok
+synth-host: info is readable while playing (and the slot survived)             ok
+synth-host: hdr_append works again after STOP (control: the gate was the transport) ok
+synth-host: begin/hdr_append with a transport request -> state                 ok
+synth-host: begin/erase/hdr_append while frozen -> state                       ok
+synth-host: frozen does not block info                                         ok
+synth-host: not ready -> state                                                 ok
+synth-host: erase(0)                                                           ok
+synth-host: erase: info empty, nz cleared                                      ok
+synth-host: erase: mirror and flash slot both 0xFF                             ok
+synth-host: upload to slot 3 (USR4 @ 0xE7000)                                  ok
+synth-host: slot 3: info, scan and mirror == flash                             ok
+synth-host: erase(3)                                                           ok
+synth-host: slot >= 4 / NULL out -> invalid arg                                ok
+synth-host: begin: one store + one engine lock                                 ok
+synth-host: hdr_append: one store lock, no engine lock                         ok
+synth-host: info: one store lock (no torn header), no engine lock              ok
+synth-host: write: one store lock, no engine lock                              ok
+synth-host: erase: one store + one engine lock                                 ok
+synth-host: reload: one store + one engine lock                                ok
+synth-host: mini upload to slot 2 for the end lock count                       ok
+synth-host: end: one store + one engine lock (commit)                          ok
+synth-host: desc live: ANALOG track 0, every id == static TP[]/edit[] projection ok
+synth-host: desc live: out == NULL is allowed (true, nothing written)          ok
+synth-host: desc live: LOFI default mode keeps edit[] (DUTY/CRSH/CHIP)         ok
+synth-host: desc live: LOFI WAVE=WRAM: edit[2] DUTY -> WAV# (N_WRAM), edit[3] untouched ok
+synth-host: desc live: LOFI CHIP=STEP: edit[3] CRSH -> DCY (N_DCY)             ok
+synth-host: desc live: NOISE ANLG keeps edit[] (DENS/CRSH)                     ok
+synth-host: desc live: NOISE DUST keeps edit[] (DENS)                          ok
+synth-host: desc live: NOISE LFSR: DENS -> LEN (N_NOISE_LONG), CRSH -> CLK (unit st) ok
+synth-host: desc live: NOISE META: DENS -> LEN (N_NOISE_META), CRSH -> CLK     ok
+synth-host: desc live: PHYS SYMP: slot1->CHRD, slot4->SYMP, slot6->BUZZ (BRIT/MODEL from edit[]) ok
+synth-host: desc live: PHYS MEMB: slot1->HARM, slot6->BEND (POS from edit[])   ok
+synth-host: desc live: PHYS MODAL: every slot == edit[]                        ok
+synth-host: desc live: INSERT A/B/C min/max == TP[] for every P_ITYPE (incl. out-of-range) ok
+synth-host: desc live: INSERT OFF keeps TP[] (INS A/B/C)                       ok
+synth-host: desc live: INSERT SOFT: DRIVE/TONE/LEVEL                           ok
+synth-host: desc live: INSERT FUZZ: same table as SOFT (DRIVE)                 ok
+synth-host: desc live: INSERT CRUSH: BITS/RATE(Hz)/LPF                         ok
+synth-host: desc live: INSERT PHASR: RATE/DEPTH/FDBK                           ok
+synth-host: desc live: INSERT CHOR: same table as PHASR (RATE/FDBK)            ok
+synth-host: desc live: ENV SYNC off: ATK/DEC/REL == TP[] (F_TIME)              ok
+synth-host: desc live: ENV SYNC on: ATK/DEC/REL -> F_INT + ESYNC_NAMES, range/def as TP[] ok
+synth-host: desc live: ENV SYNC on leaves SUS/LEVEL on TP[]                    ok
+synth-host: desc live: static sloop_core_desc stays F_TIME while ENV SYNC on   ok
+synth-host: desc live: drum track P_E0 == DRUM_KIT_DESC (KIT, 46 kits)         ok
+synth-host: desc live: drum track P_E1..P_E7 rejected, out untouched           ok
+synth-host: desc live: track >= 4 / id >= P_COUNT rejected, out untouched      ok
+synth-host: desc live: id P_E7 (last) readable on a synth track                ok
+synth-host: sound read: every engine/preset name equals the upstream table (no truncation) ok
+synth-host: sound read: upstream anchor (ANALOG preset 0 = 808 BOOM) unchanged ok
+synth-host: sound read: preset index wraps modulo npresets (upstream convention) ok
+synth-host: sound read: a user preset (t->user = slot+1) shows USER nn, a factory one its name ok
+synth-host: sound read: the drum track never reports a user preset             ok
+synth-host: sound read: drum track reports the kit name (P_E0 clamped), no engine/preset ok
+synth-host: sound read: track >= 4 / out == NULL rejected (out zeroed)         ok
+SYNTH HOST TEST PASSED
+PASS v14
+PASS frame_build
+PASS frame_parse
+PASS push
+PASS info
+PASS pack7_u35
+EDITOR PROTO TEST PASSED (6/6)
+EDITOR PROTO TEST PASSED
+PASS decode
+PASS assemble
+PASS assemble_edge
+PASS encode
+PASS roundtrip
+USB FM1 TEST PASSED (5/5)
+USB FM1 TEST PASSED
+== soak-selftest（无设备）
+  [PASS] 九组且组顺序一致（ui_nav.h = GROUP_PAGES = inject.UI_GROUP_NAMES）
+  [PASS] 组成员与页 id 逐一一致（ui_nav.h UI_GROUP_LIST = GROUP_PAGES）
+  [PASS] 18 页：PAGES 的 id 集合 = 组表平铺 = 0..18 去掉空位 7
+  [PASS] NAV_ORDER 的页 id 序列 = 组表平铺（TAB 扁平轮转顺序）
+  [PASS] NAV_ORDER 的页名 = PAGES 的键（页 id 同值）
+  [PASS] 页签几何与 ui_nav.h 一致且为 16/104/8/176/5（组签 104px）
+  [PASS] POOL_RT_REP = 八个非 PLAY 组，每轮 8 张代表页，各页属于所代表的组
+  [PASS] MIX 代表页按轮交替：偶数轮 tools / 奇数轮 global（GLOBAL 仍有 destroy/rebuild 检查）
+  [PASS] POOL_RT_ROUNDS 内两张 MIX 代表页各被测同样多轮
+  [PASS] save_window 源码顺序 stop(956) < wait_dirty_clear(1013) < 基线(1090)
+   save 窗口前 dirty=0（0.0s）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] 默认：STOP(3) < dirty 轮询(5) < SAVE(8)
+  [PASS] 默认：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] --section-capture：STOP(6) < dirty 轮询(8) < SAVE(13)
+  [PASS] --section-capture：播放中 STORE section A(1) 在 STOP(6) 之前
+  [PASS] --section-capture：停止后轮询 2 次把 dirty 排空（期望 ≥2）
+  [PASS] --section-capture：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+  [PASS] dirty 1→0：返回 True
+  [PASS] dirty 1→0：无 fail
+     [fake FAIL] wait_dirty_clear：期望先观察到 dirty=1，实际一直为 0（排空是空转）
+  [PASS] expect_dirty 但恒 0：返回 False
+  [PASS] expect_dirty 但恒 0：记 1 次 fail
+     [fake FAIL] dirty 回显异常（SEQ SECTION）：'SEQ ERR invalid\nsloop>'
+  [PASS] dirty 回显畸形：返回 False
+  [PASS] dirty 回显畸形：记 fail
+     [fake FAIL] 停止后 0s 内 section/song dirty 未清（section=1 song=0）
+  [PASS] 恒 dirty=1：超时返回 False
+  [PASS] 恒 dirty=1：记 1 次 fail
+  [PASS] ENG POWER ok 行入采样列：{'vbus_mv': 918, 'shunt_uv': -5, 'cur_ma': -1, 'temp_c': 27.1, 'ina': 'ok'}
+  [PASS] ina=err 行：四个读数列为 None、ina=err
+  [PASS] 行缺失/畸形：五列全 None（不判失败）
+  [PASS] 两条记录行且标明「仅记录，不设门禁」
+  [PASS] 功耗记录：min/max 与有效次数 → 功耗记录（仅记录，不设门禁）：INA226 ina=ok 1/3 次；vbus_mv 918..918 mV（1/3 次有效）；shunt_uv -5..-5 µV（1/3 次有效）；cur_ma -1..-1 mA（1/3 次有效）
+  [PASS] 温度记录：首末 → 温度记录（仅记录，不设门禁）：temp_c 27.1..27.1 ℃（1/3 次有效），首 27.1 → 末 27.1
+  [PASS] soak.sample 的既有断言（playing=1）不受 ENG POWER 影响
+  [PASS] verdict 不因功耗/温度列（ina=err、na）产生判定问题（无新门禁）
+  [PASS] 对照：同一组行把 streaming 置 0 仍判 1 项（门禁未被削弱）
+  [PASS] 全程无有效读数：记录行回 na → ['功耗记录（仅记录，不设门禁）：INA226 ina=ok 0/1 次；vbus_mv na（0/1 次有效）；shunt_uv na（0/1 次有效）；cur_ma na（0/1 次有效）', '温度记录（仅记录，不设门禁）：temp_c na（0/1 次有效）']
+
+结果: PASS
+  [fw] boot noise line
+  帧缓冲: 4x2 rgb565 (16 字节)
+已保存: /tmp/tmplk361a2x/out.png
+  帧缓冲: 4x2 rgb565 (16 字节)
+  帧缓冲: 4x2 rgb565 (16 字节)
+  失败证据: /tmp/tmpsbacwevy/x-fail.bin（已收 8 字节）
+  失败证据: /tmp/tmpfgk2d0t4/void-fail.txt（无帧数据，记录错误）
+自测断言全部通过（rgb565/rgb888 解码、噪音跳过、端到端收发、坏尾标记报错、SCR ERR 快速失败、响应头数值非法干净报错、像素抽检、首轮坏次轮好重试恢复、重试耗尽失败证据（含零字节 -fail.txt）、--retry 0 单次尝试、--retry 负数拒绝）
+selftest OK
+自测断言全部通过（14 组样例：3 组全通过 7/7；9 组各恰好一条失败，落在步骤 1 / 2 / 4 / 5 / 7；另 2 组：SET 无回复、操作员中止）
+FM1 SMOKE SELFTEST OK
