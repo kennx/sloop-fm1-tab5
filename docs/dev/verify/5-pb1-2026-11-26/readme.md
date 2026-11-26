@@ -457,3 +457,26 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 真机手指在列表上滑动的手感仍未验证。用户预置检查用了空的槽 0（`STORE PRESET LIST` 的首个 EMPTY），事后擦除。
 `ENG SNAP`/`STATE SNAP` 没有 `user` 字段：用户预置在位的证据是 `UI SOUND PICK 0` 的 `current=0` 与页眉名墨迹，`user` 清掉的证据是
 其后的 `current=1` 与页眉名墨迹变化。
+
+## 15. Task 6 修复轮 2（复审：R16 的 ENTER 条款 + 两项 Minor；固件 `5eee751`，2026-11-27）
+
+> R16 ENTER 条款的最终规则：ENTER 按**焦点所在的那一行**确认（焦点 = 最后一次 ←/→ 或 ↑/↓ 移过的那一行）。焦点在列表 ⇒ 选中
+> 列表高亮行（高亮 = 当前引擎时装载该预置；**预览态下不动作**，面板保持打开）；焦点在 chip 行 ⇒ 确认高亮的 chip ⇒ `CMD_SET_ENGINE`。
+> 修复轮 1 把预览态的 ENTER 做成了「不论焦点都确认 chip」，与裁决相反，本轮改回。Minor：`UI SOUND PICK` 只认四种形式（其余用法错误、
+> rc 1）；裸 `release` 不拿陈旧按下点比对（`ignored (no press)`）。顺带修了预览态提示行从不重绘（高亮变化只失效 chip 行与列表，
+> 提示行画在面板上）。读数脚本 `task-6-check.py`（断言 153 条）。**PNG 人眼未读；手指操作仍无真机验证。**
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-6-fix2-build-1.log`、`task-6-fix2-build-2.log` | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-6-fix2-knob-test.log`、`task-6-fix2-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed` |
+| 3 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-6-fix2-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 4 | 启动日志 | `task-6-check.py` 的两次硬复位 | `task-6-fix2-check.log` 第 29–31 行、第 1619 行起 | ✅ `App version:      5eee751`；E / abort / backtrace 计数 0 |
+| 5 | 之前两轮全部检查回归 | `task-6-check.py` | `task-6-fix2-check.out` | ✅ 仍通过（池 43504 → 42860（644B）；往返 ×5 `43064 → 42448 → 43064`；`est=8704 delta=7308`；`internal_min=71856`） |
+| 6 | R16 ENTER（焦点在列表） | 开 row 1 → DIGITAL chip 高亮（预览）→ ↓ → ENTER | 同上 | ✅ `UI SOUND PICK open=1 row=1 engine=0 highlight=1 rows=22`、`ENG SNAP trk k=0 engine=0 preset=5`（不动作、面板保持打开） |
+| 7 | R16 ENTER（焦点在 chip 行） | → 一次 → ENTER | 同上 | ✅ `open=1 row=1 engine=0 highlight=2 rows=8`（焦点回 chip 行，高亮 LOFI）→ `trk k=0 engine=2 preset=0`、关闭 |
+| 8 | 预览态提示行 | `task-6-fix1-pick-preview.png`（本轮重拍） | 同上 | ✅ 墨迹右缘 1057（≠ 普通 row 1 的 882，≤ 1096 未被裁）：文案换成只读预览 |
+| 9 | Minor a：参数形式 | `UI SOUND PICK press 640` / `a b c` / `0 0` / `0 x` | 同上 | ✅ 四种都打印 `用法: UI SOUND …`、不回显行、不动选择器 |
+| 10 | Minor b：裸 release | 开面板后直接 `UI SOUND PICK release 640 424`；`press`+`release` 之后再 `release` | 同上 | ✅ `UI SOUND PICK release x=640 y=424 ignored (no press)`（四轨行不变、面板仍打开）；用过即清：`release x=640 y=360 ignored (no press)` |
+| 11 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-fix2-selftest-heap.log`、`task-6-fix2-selftest-heap-transcript.log` | ✅ rc=0（325s）：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`；两次 `cases=182/182 identical=182 … result=PASS` |
+| 12 | 还原核对 | 收尾硬复位 + 自检后再硬复位 | `task-6-fix2-check.out`、`task-6-fix2-restore.log` | ✅ `sel=0`、四轨 `0/0/0/104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0`；用户预置槽 0 `EMPTY` |
