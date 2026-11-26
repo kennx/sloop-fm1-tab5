@@ -1786,13 +1786,14 @@ static void param_tap_button(uint8_t index, int8_t delta, sloop_tap_result_t *ou
         /* 仪表盘页：± 作用于卡片区的焦点槽。回显沿用同一格式：slot = 成员表扁平下标、
          * id = 参数 id、value = 写后回读（锁定的槽 = PARAM_LOCKED，未下发）。 */
         uint16_t flat = page_sound_focus_get();
-        bool ok = page_sound_adjust(delta);
-        uint8_t scope = 0, id = 0;
-        (void)page_sound_slot_info(flat, NULL, NULL, &scope, &id, NULL, NULL, NULL);
+        int16_t applied = 0;
+        bool ok = page_sound_adjust_value(delta, &applied);
+        uint8_t id = 0;
+        (void)page_sound_slot_info(flat, NULL, NULL, NULL, &id, NULL, NULL, NULL);
         if (out != NULL) {
             out->a = (uint8_t)flat;
             out->b = ok ? id : 0u;
-            out->v = ok ? (scope == SLOOP_DESC_GLOBAL ? state_read_g(id) : state_read_p(id)) : 0;
+            out->v = ok ? applied : 0;
             out->d = delta;
             out->kind = ok ? SLOOP_TAP_PARAM_STEP : SLOOP_TAP_PARAM_LOCKED;
         }

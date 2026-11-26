@@ -1251,7 +1251,7 @@ esp_err_t sloop_ui_sound_focus_get(uint16_t *flat, uint8_t *card, uint8_t *slot)
     if (!sloop_ui_sound_dashboard_active()) return ESP_ERR_INVALID_STATE;
     uint16_t f = page_sound_focus_get();
     uint8_t c = 0, s = 0;
-    if (f == 0xFFFFu || !sound_layout_slot_locate(f, &c, &s)) return ESP_ERR_NOT_FOUND;
+    if (f == SOUND_SLOT_NONE || !sound_layout_slot_locate(f, &c, &s)) return ESP_ERR_NOT_FOUND;
     if (flat != NULL) *flat = f;
     if (card != NULL) *card = c;
     if (slot != NULL) *slot = s;

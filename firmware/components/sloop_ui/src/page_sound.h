@@ -7,7 +7,8 @@
  * 区，外加两条固定行：右上角的 4 格选轨条与页眉下方的提示/读数行（ZOOM 开时显示焦点槽的
  * 大号读数）。槽按上下文解析成存在位图（不存在的槽是空白格），存在的槽显示值、鼓轨上按
  * drum_ok 锁定，环带内拖动改值；焦点槽画描边，←/→ 在存在槽间环绕移动焦点、↑/↓/ENTER 与
- * 页级 ± 对焦点槽 ±1；点卡片标题行翻折叠位，下一拍重排。
+ * 页级 ± 对焦点槽 ±1；点卡片标题行翻折叠位，下一拍重排（焦点若在被折叠的卡里，按「下一个
+ * 可聚焦的槽」重指；焦点与折叠位都跨页面重建保留）。
  *
  * 坐标：入口收到的 (x, y) 是页面区相对坐标；sound_layout_* 给的是**内容坐标**（原点 = 列 0 /
  * y 0），两者只差「视口左上角 − 滚动量」，换算在 page_sound.c 的一处（content_point）。
@@ -53,12 +54,17 @@ bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
 /* ←/→：焦点移到下/上一个**可聚焦**的槽（存在且所在卡片没折叠），环绕；尚无焦点（或焦点悬空）
  * ⇒ 落到首个存在槽。无存在槽时不动。 */
 void page_sound_focus_move(int8_t delta);
-/* ↑/↓/ENTER、页级 ±：焦点槽 ±1（引擎钳位）。槽不存在/锁定返回 false 且不发命令。 */
+/* ↑/↓/ENTER、页级 ±：焦点槽 ±1（引擎钳位）。槽不存在/锁定/所在卡片折叠，或页面状态说的不是
+ * 此刻的选中轨/引擎（换轨后下一拍之前、页面已销毁）返回 false 且不发命令。 */
 bool page_sound_adjust(int8_t delta);
-/* 焦点槽；恒为一个存在的槽（悬空的焦点按 update 同一条规则就近重指），无存在槽 = SOUND_SLOT_NONE。 */
+bool page_sound_adjust_value(int8_t delta, int16_t *applied); /* 同上；applied（可 NULL）= 写后投影真值 */
+/* 焦点槽；恒为一个可聚焦的槽 = 存在且所在卡片没折叠（悬空的焦点按 update 同一条规则重指：扁平序
+ * 下一个可聚焦的槽，环绕；全部折叠则保持原焦点、编辑惰性）。无存在槽 = SOUND_SLOT_NONE。页面重建后
+ * 首拍重解析之前只回显、不重指。 */
 uint16_t page_sound_focus_get(void);
 void page_sound_focus_set(uint16_t flat); /* 只写焦点（不校验存在性）；滚到可见在下一拍 */
-void page_sound_card_toggle(uint8_t card); /* 翻折叠位；重排卡片在下一拍 */
+/* 焦点与折叠位是页内 UI 局部态：跨组页面重建保留。翻折叠位（调用方持 LVGL 锁）；重排卡片在下一拍 */
+void page_sound_card_toggle(uint8_t card);
 bool page_sound_card_collapsed(uint8_t card);
 /* 把焦点槽滚进视口（持锁）：sloop_ui_sound_focus_set 在写焦点后立即调，不等下一拍 */
 void page_sound_focus_reveal(void);
