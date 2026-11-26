@@ -6,7 +6,7 @@
 > 首轮（12:59 / 13:04）的冒烟与 U 盘监听原始转录曾丢失，已由上述重跑补证；首轮读数作为历史保留（§6）。
 > **除冒烟脚本里由人拧旋钮 / 拔插的步骤外，没有人工验证项**；全部截图只有像素探针 / 锚点结论，没有人做过视觉检查。
 > 5A 本身没有 UI 页面，用户可见面是控制台回显与日志。
-> 分支**尚未合回 `dev`**（`dev`、`main` 都不含 `715fdae`）；dev → main 顺延，时机由用户决定。
+> 分支**已合回 `dev`**（合并提交 `aba1499`，§9）；`main` 未合并，dev → main 顺延，时机由用户决定。
 > 证据：`docs/dev/verify/5-pa-2026-11-26/`（`readme.md`、SHA256 清单）与 `docs/dev/verification-log.md`。
 
 ## 1. 做成了什么
@@ -156,8 +156,16 @@ R9 / R16 带随后的更正。R20 的 ② 与 R21 在实施中真的触发，其
 
 ## 8. 下一步：5B 的入口条件
 
-1. **合并 `dev` 的证据前提已齐**：最终固件上的 `fm1-smoke.py` 转录、U 盘插入、FM-1 已接的 182 + selftest-heap 都已入库（§2）。合并 `dev` 由主控执行；dev → main 不在本阶段。
+1. **合并 `dev` 的证据前提已齐**：最终固件上的 `fm1-smoke.py` 转录、U 盘插入、FM-1 已接的 182 + selftest-heap 都已入库（§2）。合并 `dev` 已执行（§9）；dev → main 不在本阶段。
 2. **回归口径**：自 5A 起设备回归分「FM-1 未接」（独立模式全矩阵）与「FM-1 已接」（`fm1-smoke.py` + 182 + selftest-heap）两种条件，已写入 `docs/dev/reference/verification-gates.md`；soak 须硬复位 + 30s 后起跑。
 3. **5B 只读 5A 已有的能力**（spec §6 5B）：Device 页把 `FM1 STATUS` 的 `link` / `version` / `need_upgrade` 与 `FM1 INFO` 字段搬到屏幕上，不新增协议能力。5A 与 5B 彼此独立。
 4. **带入 5B 的约束**：渲染占空比余量只有 0.57 个百分点（DI-63）——新页面的 est / 池预算照既有框架逐页实测，5A 的 +3.4% 渲染开销在 5B/5C 定位；输入任务栈已在 PSRAM（`fd0ffaf`），`KEY STATS` 的 `input_stack_free` 断言仍只在 `phys>0` 时有意义。
 5. **留给后续子阶段的 DI**：DI-61（5C 开工必须处理）、DI-59（5E 入口条件）、DI-60 / DI-62（各自触发条件）。
+
+## 9. 集成状态
+
+- `feat/phase5-sloop-go` 已合回 `dev`：合并提交 **`aba1499`**（父 `f4b2026` + `00379c0`，保留了合并提交）。
+- 合并后门禁通过：在 `aba1499` 上 `build.sh` ×2（第一遍只有 §5.5 豁免的一对 CMake 提示，第二遍没有任何提示，固件编译 0 警告）+ 离线套件十项全部 PASS（`5-pa-2026-11-26/postmerge-gate.log`）；合并前在 `00379c0` 上跑过同一套离线套件，同样全过（`finish-selftest.log`）。两份日志都不含 MANIFEST 校验的输出——入库时在 `aba1499` 上只读复核 `third_party` 的 MANIFEST 为 320/320 OK。
+- **设备矩阵没有在合并后重跑**：`git diff --stat 715fdae dev -- firmware scripts tools` 为空，合并后的树在固件、脚本与工具上与跑过全矩阵的 `715fdae` 逐字节相同，§2 的设备读数沿用。
+- `main` 未合并（用户 2026-11-24 的决定：dev → main 顺延，时机由用户决定）。
+- 特性分支 `feat/phase5-sloop-go` 保留，本地与 origin 都指向 `00379c0`。
