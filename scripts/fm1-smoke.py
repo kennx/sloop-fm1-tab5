@@ -5,20 +5,26 @@ Usage:
     python3 scripts/fm1-smoke.py --selftest          # 离线自测（无需设备）
     python3 scripts/fm1-smoke.py /dev/ttyACM0        # 真机：FM-1 插在 Tab5 的 USB-A 口，操作员在场
 
-流程（7 步，每步先打印提示再轮询，超时即失败并写明是哪一步）：
-  1. `FM1 STATUS` 轮询到 link=ready（未插则提示插 FM-1，每 2s 一次，最多 120s）；
-  2. `FM1 STATUS` 断言 link=ready / watch=3 / info=yes；`FM1 INFO` 断言版本串前缀
+流程（7 步，超时即失败并写明是哪一步）。需要等待的步骤都是**先发一次命令**：回复已满足就直接过，
+否则打印操作员提示，再按间隔轮询（步骤 2 只有轮询、没有提示）：
+  1. `FM1 STATUS`：已 link=ready 直接过；否则打印「请把刷了 SLOOP 的 FM-1 插到 Tab5 的 USB-A 口」，
+     每 2s 轮询，最多 120s；
+  2. `FM1 STATUS` 轮询（5s）到 link=ready / watch=3 / info=yes；`FM1 INFO` 断言版本串前缀
      `FELUCCA SLOOP 2.`、proto=12、nengines=12、ntrk=4；
   3. `FM1 PING` ×10 全部成功，记录 ms 中位数；
   4. `FM1 GET 0 1`（选中轨 ATK）→ `SET` 成相邻值 → `GET` 读回 → `SET` 原值还原并读回确认
      （失败路径同样尽力还原）；
-  5. `FM1 EVENTS CLEAR` → 提示「请在 FM-1 上拧任意一个旋钮」→ 轮询 `FM1 EVENTS` 到 changed ≥ 1（60s），
-     且该行 `last=` 以 `cmd=23` 开头（拧旋钮 = CHANGED 推送；RELOAD 等不算）；
-  6. 静置 10s（会话层每秒 PING 保活）→ 提示再拧一次 → changed 续增（60s）；
-  7. 提示「请拔掉 FM-1」→ 轮询到 link=none（60s），且报 link=none 的同一行必须是 `watch=0 info=no`
-     （链路断开时会话层遗忘 WATCH 与 INFO）→ `FM1 INFO` 为 `ERR no_link` → 提示「请重新插上」
-     → 轮询到 link=ready watch=3 info=yes（120s）→ `FM1 PING` 成功。
+  5. `FM1 EVENTS CLEAR` → 轮询 `FM1 EVENTS` 到 changed ≥ 1（60s；首次回复未达时打印
+     「请在 FM-1 上拧任意一个旋钮」），且判定的那行 `last=` 是 `cmd=23 …`（拧旋钮 = CHANGED 推送；
+     RELOAD 等不算）；
+  6. 静置 10s（会话层每秒 PING 保活）→ 轮询到 changed 续增（60s；首次未达时打印「请在 FM-1 上再拧一次旋钮」）；
+  7. 轮询到 link=none（60s；首次未达时打印「请拔掉 FM-1」）。判定的那行必须是 `watch=0 info=no`
+     （链路断开时会话层遗忘 WATCH 与 INFO）；首行报 link=none 但尚未归零时，隔 200ms 重读一次、以第二行为准
+     → `FM1 INFO` 为 `ERR no_link` → 轮询到 link=ready watch=3 info=yes（120s；首次未达时打印
+     「请重新插上」）→ `FM1 PING` 成功。
   不断言 `timeouts`/`stray` 为 0：拔线瞬间与 PING 竞争的超时是合法的。
+操作员 Ctrl-C 中止（等待中唯一的退出方式）同样落一条 error 注记，并以 `FM1 SMOKE FAIL` 收尾、退出码 1
+（不打印 traceback）。
 
 断言全部落在纯函数 judge(lines)（输入转录，返回失败说明，空表 = 通过）：转录里
 `# [fm1-smoke] <步> <tag>` 起一段，段内最后一条非回显的 `FM1 ` 回复行是该段的判据；
@@ -81,6 +87,7 @@ RX_PING = re.compile(r"^FM1 PING ms=(\d+)$")
 RX_EVENTS = re.compile(r"^FM1 EVENTS total=\d+ changed=(\d+) reload=\d+ step_changed=\d+ track_changed=\d+"
                        + r" timeouts=\d+ stray=\d+ last=(none|cmd=\d+ scope=\d+ id=\d+ value=-?\d+)$")
 RX_EVENTS_CLEARED = re.compile(r"^FM1 EVENTS cleared$")
+RX_LAST_CHANGED = re.compile(r"cmd=23(?: |$)")  # last= 字段里的 CHANGED；带边界，cmd=230… 不算
 
 # 判据次序：每段一个 tag；段缺失（流程中途失败）只报第一条
 PLAN = [(1, "link"), (2, "ready"), (2, "info")]
@@ -182,7 +189,7 @@ def _check(tag, line, vals):
     if tag == "events1":
         if changed < 1:
             return f"拧旋钮后 changed={changed}（期望 ≥1）：WATCH 推送未到达"
-        if not last.startswith("cmd=23"):
+        if not RX_LAST_CHANGED.match(last):
             return (f"changed={changed} 但 last={last}：最近一条推送不是 CHANGED（cmd=23）"
                     "——这一步证明的是拧旋钮的参数变化推送")
         vals["changed"] = changed
@@ -196,6 +203,11 @@ def _check(tag, line, vals):
 def _verdict(lines):
     """判定转录：(失败说明列表, 未通过的步骤集合)。"""
     blocks, fails, bad, vals = _split(lines), [], set(), {}
+    for line in lines:  # error 注记先入列：操作员中止/串口掉线是因，其后缺的段是果
+        m = RX_ERROR.match(line)
+        if m:
+            fails.append(m.group(1))
+            bad.update(int(s) for s in re.findall(r"步骤 (\d+)", m.group(1)))
     for step, tag in PLAN:
         answers = blocks.get(tag, [])
         if not answers:
@@ -208,11 +220,6 @@ def _verdict(lines):
         if fail:
             fails.append(f"步骤 {step}（{STEPS[step]}）{fail}")
             bad.add(step)
-    for line in lines:
-        m = RX_ERROR.match(line)
-        if m:
-            fails.append(m.group(1))
-            bad.update(int(s) for s in re.findall(r"步骤 (\d+)", m.group(1)))
     return fails, bad
 
 
@@ -268,9 +275,11 @@ class Flow:
         self.ser, self.log = ser, log
         self.buf = bytearray()
         self.restore = None  # 待还原的 ATK 原值
+        self.step = 0  # 当前在跑的步骤（中止时写进 error 注记）
 
     def block(self, step, tag):
         """在转录里起一段（`# [fm1-smoke] <步> <tag>`），之后的回复行归这一段。"""
+        self.step = step
         self.log.note(f"{step} {tag}")
 
     def where(self, step):
@@ -331,8 +340,11 @@ class Flow:
         return int(m.group(1))
 
     def restore_atk(self):
-        """把选中轨的 ATK 还原成原值并读回确认；正常路径与失败路径共用。"""
-        orig, self.restore = self.restore, None
+        """把选中轨的 ATK 还原成原值并读回确认；正常路径与失败路径共用。
+
+        读回确认之前不清 `self.restore`：中途被打断（含 Ctrl-C）时 finally 还能再试一次。
+        """
+        orig = self.restore
         if orig is None:
             return
         self.block(4, "set_restore")
@@ -341,6 +353,7 @@ class Flow:
         if written != orig or int(RX_GET.match(line).group(1)) != orig:
             raise SmokeError(f"步骤 4（{STEPS[4]}）ATK 还原未确认（SET 回显 {written}，{line}，"
                              f"原值 {orig}）——请在 FM-1 上手动把 ATK 调回 {orig}", evidenced=True)
+        self.restore = None
         self.log.note(f"ATK 已还原并读回确认：{orig}")
 
     def run(self):
@@ -374,7 +387,7 @@ class Flow:
         line = self.poll(5, "events1", "FM1 EVENTS", RX_EVENTS, 60, 1.0, "changed ≥ 1",
                          until=lambda m: int(m.group(1)) >= 1, prompt="请在 FM-1 上拧任意一个旋钮")
         first, last = int(RX_EVENTS.match(line).group(1)), RX_EVENTS.match(line).group(2)
-        if not last.startswith("cmd=23"):  # changed 够了但最近一条不是 CHANGED：当场停，不等到末尾判定
+        if not RX_LAST_CHANGED.match(last):  # changed 够了但最近一条不是 CHANGED：当场停，不等到末尾判定
             raise SmokeError(f"{self.where(5)}changed={first} 但 last={last}：最近一条推送不是 CHANGED（cmd=23）",
                              evidenced=True)
         self.log.note(f"第一次推送：changed={first} {last}")
@@ -386,9 +399,14 @@ class Flow:
                       f"{RX_EVENTS.match(line).group(2)}")
         line = self.poll(7, "status_gone", "FM1 STATUS", RX_STATUS_GONE, 60, 1.0, "link=none",
                          prompt="请拔掉 FM-1")
-        if not RX_STATUS_FORGOT.match(line):  # 报 link=none 的同一行就必须已经忘掉 WATCH 与 INFO
-            raise SmokeError(f"{self.where(7)}{line}：link=none 但 watch/info 没有归零（期望 watch=0 info=no）",
-                             evidenced=True)
+        if not RX_STATUS_FORGOT.match(line):
+            # usb_fm1 置 link=false 与会话层清 watch/info 不在同一个临界区：隔 200ms 再读一次，以第二行为准
+            self.log.note("首行已 link=none 但 watch/info 未归零，200ms 后重读一次")
+            time.sleep(0.2)
+            line = self.ask("FM1 STATUS")
+        if not RX_STATUS_FORGOT.match(line):
+            raise SmokeError(f"{self.where(7)}拔线后 FM1 STATUS 应为 link=none watch=0 info=no"
+                             f"（会话层须遗忘 WATCH 与 INFO），实得 {line}", evidenced=True)
         self.expect(7, "info_gone", "FM1 INFO", RX_INFO_NO_LINK, "FM1 INFO ERR no_link")
         self.poll(7, "status_back", "FM1 STATUS", RX_STATUS_READY, 120, 1.0, "link=ready watch=3 info=yes",
                   prompt="请重新插上")
@@ -434,10 +452,15 @@ EVENTS_ZERO = PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 2] + [EVENTS %
 LINK_NONE = [f"{NOTE} 1 link", "sloop>  FM1 STATUS", GONE, f"{NOTE} >>> 请把刷了 SLOOP 的 FM-1 插到 Tab5 的 USB-A 口",
              "sloop>  FM1 STATUS", GONE]
 SET_NO_REPLY = PASS_LINES[:PASS_LINES.index(f"{NOTE} 4 set_tmp") + 1]  # SET 发出后一个字节都没回
+GONE_STALE_LINE = GONE.replace("watch=0 info=no proto=-", "watch=3 info=yes proto=12")
 EVENTS_RELOAD = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 2]
                  + [EVENTS % (1, 1, "cmd=24 scope=1 id=5 value=0")])  # changed 够了，但最近一条是 RELOAD
-GONE_STALE = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 7 status_gone") + 2]
-              + [GONE.replace("watch=0 info=no proto=-", "watch=3 info=yes proto=12")])
+GONE_STALE = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 7 status_gone") + 2] + [GONE_STALE_LINE, f"{NOTE} 首行已 link=none 但 watch/info 未归零，200ms 后重读一次",
+              "sloop>  FM1 STATUS", GONE_STALE_LINE])  # 重读一次仍是旧值：判失败
+_i = PASS_LINES.index(f"{NOTE} 7 status_gone") + 2   # 成功样例的 status_gone 段：READY 的下一条就是 GONE
+PASS_RACE = PASS_LINES[:_i] + [GONE_STALE_LINE, "sloop>  FM1 STATUS"] + PASS_LINES[_i:]  # 首行旧值、重读已归零：通过
+EVENTS_CMD230 = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 2]
+                 + [EVENTS % (1, 1, "cmd=230 scope=0 id=3 value=1")])  # 前缀相同但不是 cmd=23
 
 
 def run_selftest():
@@ -454,6 +477,14 @@ def run_selftest():
         assert needle in fails[0], fails
     # 段内没有回复（命令石沉大海）也要给出判定，而不是在判 verdict 时抛异常
     assert verdict_line(SET_NO_REPLY).startswith("FM1 SMOKE FAIL 3/7 步骤 4（"), verdict_line(SET_NO_REPLY)
+    # 拔线竞态：首行 link=none 但 watch/info 未归零，重读已归零 ⇒ 通过；重读仍是旧值 ⇒ 失败
+    assert verdict_line(PASS_RACE) == "FM1 SMOKE PASS 7/7", verdict_line(PASS_RACE)
+    # last=cmd=230… 与 cmd=23 只是前缀相同，不算 CHANGED
+    assert len(judge(EVENTS_CMD230)) == 1 and "cmd=23" in judge(EVENTS_CMD230)[0], judge(EVENTS_CMD230)
+    # 操作员中止的 error 注记按其所停步骤计数
+    assert verdict_line(PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 1]
+                        + [f"{NOTE} error KeyboardInterrupt: 操作员中止（Ctrl-C），停在步骤 5（WATCH 推送）"]
+                        ).startswith("FM1 SMOKE FAIL 4/7"), "abort note"
     print("自测断言全部通过（全通过 7/7；INFO ERR timeout / EVENTS changed=0 / STATUS link=none / "
           "changed 够但 last=cmd=24 / link=none 但 watch=3 各恰好一条失败，落在步骤 2 / 5 / 1 / 5 / 7）")
 
@@ -484,6 +515,12 @@ def run_device(port):
             log.note(f"firmware {version.group(0).strip()}")
         flow = Flow(ser, log)
         flow.run()
+    except KeyboardInterrupt:
+        # 操作员 Ctrl-C（等待 60s/120s 时唯一的退出方式）：同样落 error 注记并走下面的判定，
+        # 不把 traceback 漏给终端、不丢 FM1 SMOKE FAIL 行
+        step = flow.step if flow is not None else 0
+        log.note(f"error KeyboardInterrupt: 操作员中止（Ctrl-C）"
+                 + (f"，停在步骤 {step}（{STEPS[step]}）" if step else "（复位/启动阶段）"))
     except (OSError, serial.SerialException, RuntimeError) as e:
         if getattr(e, "evidenced", False):
             log.note(str(e))
@@ -491,8 +528,11 @@ def run_device(port):
             log.note(f"error {type(e).__name__}: {e}")
     finally:
         if flow is not None and flow.restore is not None:
+            orig = flow.restore
             try:
                 flow.restore_atk()
+            except KeyboardInterrupt:
+                log.note(f"error 还原 ATK 时再次被中止（Ctrl-C）：请在 FM-1 上手动把 ATK 调回 {orig}")
             except (OSError, serial.SerialException, RuntimeError) as e:
                 log.note(f"{'警告' if getattr(e, 'evidenced', False) else 'error'} {type(e).__name__}: {e}")
         if ser is not None:
