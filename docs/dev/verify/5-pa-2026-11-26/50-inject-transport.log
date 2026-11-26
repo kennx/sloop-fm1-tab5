@@ -1,0 +1,310 @@
+  [fw] SCR
+  [fw] I (330144) sloop_console: SCR: 传输前 PSRAM 剩余 28203640 字节
+  [fw] SCR
+  [fw] I (388294) sloop_console: SCR: 传输前 PSRAM 剩余 28203640 字节
+  [fw] SCR
+  [fw] I (411804) sloop_console: SCR: 传输前 PSRAM 剩余 28203640 字节
+  [fw] SCR
+  [fw] I (438004) sloop_console: SCR: 传输前 PSRAM 剩余 28203640 字节
+  [fw] SCR
+  [fw] I (462274) sloop_console: SCR: 传输前 PSRAM 剩余 28203640 字节
+== inject transport @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818.log
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 归一图案参数：轨 0 id=29=16
+  [PASS] 归一图案参数：轨 0 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] 归一图案参数：轨 1 id=29=16
+  [PASS] 归一图案参数：轨 1 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] 归一图案参数：轨 2 id=29=16
+  [PASS] 归一图案参数：轨 2 id=30=2
+  [PASS] UI transport
+  [PASS] TAP STOP
+  [PASS] STATE SNAP playing = 0
+  [PASS] TAP PLAY
+  [PASS] STATE SNAP playing = 1
+  [PASS] TAP BPM +
+  [PASS] STATE SNAP bpm（+1） = 91
+  [PASS] TAP BPM -
+  [PASS] STATE SNAP bpm（回到基值） = 90
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818-transport.png  (1280x720 rgb565)
+  [PASS] PLAY 按钮底: (108,210) 实测 (56,160,72) ≈ 期望 (56,160,72)（容差 16）
+  [PASS] STOP 按钮底: (460,210) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 16）
+  [PASS] 页签选中（TRANSPORT）: (220,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 页面背景: (640,690) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [PASS] ⑩ UI transport
+  [PASS] ⑩ 停止（工具区的确定性前提）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑩ 归一 LEN/DIV：轨 0 id=29=16
+  [PASS] ⑩ 归一 LEN/DIV：轨 0 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] ⑩ 归一 LEN/DIV：轨 1 id=29=16
+  [PASS] ⑩ 归一 LEN/DIV：轨 1 id=30=2
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] ⑩ 归一 LEN/DIV：轨 2 id=29=16
+  [PASS] ⑩ 归一 LEN/DIV：轨 2 id=30=2
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑩ UI transport（回页）
+  [PASS] ⑩ UI step（归一孤立 TIE 步）
+  [PASS] ⑩ 归一轨 0 步 1 为 REST
+  [PASS] ⑩ 归一轨 0 步 2 为 REST
+  [PASS] ⑩ 归一轨 0 步 3 为 REST
+  [PASS] ⑩ 归一轨 0 步 4 为 REST
+  [PASS] ⑩ 归一轨 0 步 5 为 REST
+  [PASS] ⑩ UI transport（归一后）
+  [PASS] ⑩ 清空轨 0 步 1
+  [PASS] ⑩ 清空轨 0 步 2
+  [PASS] ⑩ 清空轨 0 步 3
+  [PASS] ⑩ 清空轨 0 步 4
+  [PASS] ⑩ 清空轨 0 步 5
+  [PASS] ⑩ UI step（造聚焦步）
+  [PASS] ⑩ 开轨 0 步 2
+  [PASS] ⑩ UI transport
+  [PASS] ⑩ 聚焦步基线 n=1（期望 1）
+  [PASS] ⑩ TAP REC → CMD_REC_TOGGLE
+  [PASS] ⑩ REC 五态：ARMED
+  [PASS] ⑩ TAP REC（再切换）
+  [PASS] ⑩ REC 五态：OFF
+  [PASS] ⑩ TAP FILL → held=1
+  [PASS] ⑩ FILL 保持电平跟随 = 1
+  [PASS] ⑩ TAP FILL（回到基线）
+  [PASS] ⑩ FILL 保持电平回基线 = 0
+  [PASS] ⑩ TAP NEXT → 脉冲
+  [PASS] ⑩ FILL 下一小节待命翻转（脉冲只翻转 arm） = 1
+  [PASS] ⑩ TAP NEXT（再翻转）
+  [PASS] ⑩ FILL 下一小节待命回基线 = 0
+  [PASS] ⑩ NEXT 脉冲不读写保持电平 = 0
+  [PASS] ⑩ TAP LVL → 3
+  [PASS] ⑩ 引擎 lvl=3（期望 3）
+  [PASS] ⑩ TAP LVL → 1
+  [PASS] ⑩ 引擎 lvl=1（期望 1）
+  [PASS] ⑩ TAP LVL → 2
+  [PASS] ⑩ 引擎 lvl=2（期望 2）
+  [PASS] ⑩ TAP LVL → 0
+  [PASS] ⑩ 引擎 lvl=0（期望 0）
+  [PASS] ⑩ TAP LVL chip 同时落键盘焦点（lvl）
+  [PASS] ⑩ TAP RAT → 1
+  [PASS] ⑩ 引擎 rat=1（期望 1）
+  [PASS] ⑩ TAP RAT → 2
+  [PASS] ⑩ 引擎 rat=2（期望 2）
+  [PASS] ⑩ TAP RAT → 3
+  [PASS] ⑩ 引擎 rat=3（期望 3）
+  [PASS] ⑩ TAP RAT → 0
+  [PASS] ⑩ 引擎 rat=0（期望 0）
+  [PASS] ⑩ TAP MIC+ → +1
+  [PASS] ⑩ 引擎 micro=1（期望 1）
+  [PASS] ⑩ TAP MIC- → 0
+  [PASS] ⑩ micro 置 31（上界）
+  [PASS] ⑩ TAP MIC+ 在 31 钳位
+  [PASS] ⑩ 引擎 micro=31（期望 31）
+  [PASS] ⑩ micro 归零
+  [PASS] ⑩ TAP SPAN → 2
+  [PASS] ⑩ TAP SPAN chip 落焦点 = span
+  [PASS] ⑩ 步 3 = TIE（time=1 n=0，期望 time=1 n=0）
+  [PASS] ⑩ 键盘 ↓：SPAN 回到 1（time=2 n=0，期望 time=2 n=0）
+  [PASS] ⑩ TAP SLIDE → ON
+  [PASS] ⑩ 引擎 flags=0x02（期望 SLIDE 位）
+  [PASS] ⑩ TAP SLIDE → OFF
+  [PASS] ⑩ 引擎 flags=0x00（SLIDE 已清）
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 5 = 5
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ 空步 LVL → ERR not_found
+  [PASS] ⑩ 非法动作不改状态（空步逐字段不变）
+  [PASS] ⑩ 空步 SPAN → ERR not_found + 屏幕状态
+  [PASS] ⑩ 空步 SPAN 不改状态
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ ENG FREEZE ON（chip 拒绝路径）
+  [PASS] ⑩ 冻结时 TAP LVL → ERR frozen + 屏幕状态
+  [PASS] ⑩ ENG FREEZE OFF
+  [PASS] ⑩ 冻结期间的 chip 动作不改状态
+  [PASS] UI WINDOW 16 8
+  [PASS] STATE SNAP window_bank = 1
+  [PASS] STATE SNAP window_start = 16
+  [PASS] STATE SNAP window_len = 8
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ UI step（bank1 造音）
+  [PASS] ⑩ TAP 窗口列 2 = 绝对步 18
+  [PASS] ⑩ UI transport（bank1）
+  [PASS] ⑩ bank1 窗口：TAP LVL 写到绝对步
+  [PASS] ⑩ 绝对步 18 lvl=3（期望 3，不是窗口列号 2）
+  [PASS] ⑩ bank1 lvl 还原
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑩ UI step（焦点列）
+  [PASS] ⑩ 焦点列 = 5 = 5
+  [PASS] ⑩ UI transport（焦点列已归一）
+  [PASS] ⑩ 选中鼓 lane 5
+  [PASS] ⑩ 鼓轨 TAP LVL → CMD_DRUM_STEP_WRITE
+  [PASS] ⑩ 鼓 lane 5 lvl=3（期望 3），on 位图不变
+  [PASS] ⑩ 键盘 ↓：鼓 lane 5 lvl 回到 0
+  [PASS] ⑩ 鼓轨 TAP RAT → CMD_DRUM_STEP_WRITE
+  [PASS] ⑩ 鼓 lane 5 rat=1（期望 1）
+  [PASS] ⑩ 鼓 lane 5 rat 回到 0（实得 0）
+  [PASS] ⑩ 鼓轨 SPAN → ignored (not_synth)
+  [PASS] ⑩ 鼓轨 SLIDE → ignored (not_synth)
+  [PASS] ⑩ 不适用动作不改鼓步（逐字节不变）
+  [PASS] ⑩g 工作工程快照 → 诊断槽 3（hash = LIVEHASH）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ TAP ROT+ → rotate +1
+  [PASS] ⑩ 旋转后：步 2 n=0、步 3 note0=60（期望 0 / 60）
+  [PASS] ⑩ TAP ROT- → rotate -1
+  [PASS] ⑩ 反向旋转回位：步 2 note0=60
+  [PASS] ⑩ TAP LEN x2 → LEN 32
+  [PASS] ⑩ ENG SNAP 轨 0 len（×2） = 32
+  [PASS] ⑩ TAP LEN /2 → LEN 16
+  [PASS] ⑩ ENG SNAP 轨 0 len（÷2） = 16
+  [PASS] ⑩ TAP TRANS+ → +1
+  [PASS] ⑩ 移调后 note0=61（期望 61）
+  [PASS] ⑩ TAP TRANS- → -1
+  [PASS] ⑩ 移调回位 note0=60（期望 60）
+  [PASS] ⑩ TAP CLEAR → clear
+  [PASS] ⑩ CLEAR 后步 2 n=0（期望 0）
+  [PASS] ⑩ TAP UNDO → undo
+  [PASS] ⑩ UNDO 恢复步 2（n=1 note0=60）
+  [PASS] ⑩ TAP REDO → redo
+  [PASS] ⑩ REDO 后步 2 n=0（期望 0）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑩ UI transport（鼓轨 TRANSPOSE）
+  [PASS] ⑩ 鼓轨 TRANSPOSE → ERR invalid
+  [PASS] ⑩ 被拒的 TRANSPOSE 不改鼓步
+  [PASS] ⑩g 收口 LOAD 3（工作工程快照）
+  [PASS] ⑩g 收口后 LIVEHASH C7C00EDA == 入口 C7C00EDA（工作工程逐位还原）
+  [PASS] ⑩g 收口擦诊断槽 3
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ UI TOOL 0 → lvl
+  [PASS] ⑩ UI TOOL 越界 → UI ERR tool
+  [PASS] ⑩ 越界不改焦点（仍 lvl）
+  [PASS] ⑩ 键盘 ↑：lvl 0 -> 3（期望 3）
+  [PASS] ⑩ 键盘 ↓：lvl 回到 0（实得 0）
+  [PASS] ⑩ 键盘 →：焦点 = rat
+  [PASS] ⑩ 键盘 ↑：rat 0 -> 1（期望 1）
+  [PASS] ⑩ 键盘 ↓：rat 回到 0（实得 0）
+  [PASS] ⑩ UI TOOL 4 → slide
+  [PASS] ⑩ 键盘 ENTER：SLIDE 0 -> True
+  [PASS] ⑩ 键盘 ENTER（再按）：SLIDE 回到 0
+  [PASS] ⑩ UI TOOL 7 → trans
+  [PASS] ⑩ 键盘 → 在字段环上环绕（trans -> lvl）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑩ 清空轨 2 步 2（焦点轨目标用例）
+  [PASS] ⑩ UI step（给焦点轨造音）
+  [PASS] ⑩ 轨 2 步 2 开音
+  [PASS] ⑩ 焦点轨 = 2（选中轨仍是 0） = 2
+  [PASS] ⑩ 选中轨仍 = 0 = 0
+  [PASS] ⑩ UI transport（焦点轨目标）
+  [PASS] ⑩ 焦点轨 TAP LVL（回显带屏幕状态）
+  [PASS] ⑩ 引擎写入轨 2：lvl=3（期望 3）
+  [PASS] ⑩ 选中轨 0 未被写：lvl=0（期望 0）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818-transport-focus.png  (1280x720 rgb565)
+  [PASS] ⑩ 步摘要文本颜色 = 焦点轨黄 1512 / 选中轨蓝 0（期望黄 ≥100、蓝 0）
+  [PASS] ⑩ 焦点轨 2 lvl 回到 0（实得 0）
+  [PASS] ⑩ 清回轨 2 步 2
+  [PASS] ⑩ UI step（焦点归一）
+  [PASS] ⑩ 焦点轨 = 0 = 0
+  [PASS] ⑩ 焦点列 = 2 = 2
+  [PASS] ⑩ UI transport（焦点已归一）
+  [PASS] ⑩ 截屏前提：REC → ARMED
+  [PASS] ⑩ 截屏前提：REC 已 ARMED
+  [PASS] ⑩ 截屏前提：FILL 保持
+  [PASS] ⑩ 截屏前提：FILL 保持已建立 = 1
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818-transport-tools.png  (1280x720 rgb565)
+  [PASS] REC chip 底（ARMED = UI_ACCENT）: (62,470) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] FILL chip 底（held = UI_ACCENT）: (214,470) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 聚焦步字段 chip 底（UI_PANEL_HI）: (38,578) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
+  [PASS] pattern chip 底（UI_PANEL_HI）: (806,542) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 16）
+  [PASS] 状态行文本（STOPPED + 动作结果）: 区域 (48, 336, 808, 376) 内 (240, 244, 248)±16 像素 1164（阈值 ≥30）
+  [PASS] ⑩ UI MEM TRANSPORT state=built delta=8480 est=9216（0 < delta ≤ est）
+  [PASS] ⑩ UI MEM GROUP SEQ sum_est=32256（期望 STEP 23040 + TRANSPORT 9216）
+  [PASS] ⑩ UI step（SEQ 全建）
+  [PASS] ⑩ UI transport（SEQ 全建）
+  [PASS] ⑩ 过渡前 GROUP SEQ built=2 sum_est=32256（期望 2 / 32,256）
+  [PASS] ⑩ UI presets（SEQ 全建时首建 PRESETS）
+  [PASS] ⑩ 过渡峰值 pool_free=7568B（≥4,096；PRESETS delta=12300 预算=12800）
+  [PASS] ⑩ 过渡后组作用域：SEQ built=0、FILE built=1（期望 0 / 1）
+  [PASS] ⑩ UI TAB FILE
+  [PASS] ⑩ UI SUB 0 → PROJECTS
+  [PASS] ⑩ UI SUB 1 → PRESETS
+  [PASS] ⑩ FILE 两页已建（built=2）
+  [PASS] ⑩ 回 SEQ（重建 TRANSPORT）
+  [PASS] ⑩ 收口：REC OFF
+  [PASS] ⑩ 收口：FILL 释放
+  [PASS] ⑩ 收口：工具焦点 = lvl
+  [PASS] ⑩ 收口：rec=off
+  [PASS] ⑩ 收口：playing=0 = 0
+  [PASS] ⑩ UI transport（回到走带用例）
+  [PASS] ⑩ 工具区收口：停止
+  [PASS] ⑩ 工具区收口：playing=0 = 0
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI step
+  [PASS] step-playhead-a：重新起播 = 1
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818-step-playhead-a.png  (1280x720 rgb565)
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-transport-20261126-132818-step-playhead-b.png  (1280x720 rgb565)
+  [PASS] 播放头描边: 区域 (88, 156, 1256, 632) 内 (224, 176, 40)±16 像素 6024（阈值 ≥100）
+  [PASS] 页签选中（STEP）: (36,42) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 行 0: 帧 A 列 [4]（pos=4）/ 帧 B 列 [6]（pos=5）
+  [PASS] 行 1: 帧 A 列 [4]（pos=4）/ 帧 B 列 [6]（pos=5）
+  [PASS] 行 2: 帧 A 列 [4]（pos=4）/ 帧 B 列 [6]（pos=5）
+  [PASS] 行 3: 帧 A 列 [4]（pos=4）/ 帧 B 列 [6]（pos=5）
+  [PASS] 播放推进：引擎 pos 4 -> 5，帧列 {0: [4], 1: [4], 2: [4], 3: [4]} -> {0: [6], 1: [6], 2: [6], 3: [6]}
+  [PASS] TAP STOP（复位）
+  [PASS] STATE SNAP playing（复位） = 0
+[PASS] transport: 全部断言与像素抽检通过

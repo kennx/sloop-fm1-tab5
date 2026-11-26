@@ -1,0 +1,1309 @@
+== soak 600s @ /dev/ttyACM0（采样 60s，循环 12s）
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-20261126-154139.log
+  [PASS] soak 前置：音频流已开
+  [PASS] soak 前置：步窗归一 0/16
+  [PASS] UI TAB play → play (0) 是 PLAY 的成员页
+  [PASS] UI TAB tracks → tracks (1) 是 TRACKS 的成员页
+  [PASS] UI TAB edit → sound (6) 是 EDIT 的成员页
+  [PASS] UI TAB mix → global (4) 是 MIX 的成员页
+  [PASS] UI TAB synth → sample (8) 是 SYNTH 的成员页
+  [PASS] UI TAB seq → step (2) 是 SEQ 的成员页
+  [PASS] UI TAB song → song (11) 是 SONG 的成员页
+  [PASS] UI TAB file → projects (9) 是 FILE 的成员页
+  [PASS] UI TAB sys → system (14) 是 SYS 的成员页
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI mod
+  [PASS] STATE page（mod） = 15
+  [PASS] UI scale
+  [PASS] STATE page（scale） = 16
+  [PASS] UI voice
+  [PASS] STATE page（voice） = 17
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI fx
+  [PASS] STATE page（fx） = 5
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI sample
+  [PASS] STATE page（sample） = 8
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI fm6p
+  [PASS] STATE page（fm6p） = 13
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI presets
+  [PASS] STATE page（presets） = 10
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] TAP PLAY（恢复播放）
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI tools
+  [PASS] STATE page（tools） = 18
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] UI sound
+  [PASS] STATE page（sound） = 6
+  [PASS] UI global
+  [PASS] STATE page（global） = 4
+  [PASS] UI dsyn
+  [PASS] STATE page（dsyn） = 12
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] UI projects
+  [PASS] STATE page（projects） = 9
+  [PASS] UI system
+  [PASS] STATE page（system） = 14
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+   池检查（PLAY 稳态 ×10 轮）: pool_free 45860 -> 45824 (Δ=-36B, 单次最小 -68B, 容差 ±128B)
+   逐轮: [45860, 45840, 45856, 45844, 45844, 45888, 45820, 45816, 45788, 45820, 45824]
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t=   1s internal_free= 73119B min= 71940B xrun=0 audio_stack_free=3120 render_blocks=13433 duty_mean=22.92% duty_max=85.68% ui_pool_free=39812 key_mean=0us key_max=0us page=3 bpm=120 vbus_mv=994 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t=  61s internal_free= 73095B min= 71892B xrun=0 audio_stack_free=3120 render_blocks=23769 duty_mean=20.71% duty_max=85.68% ui_pool_free=39972 key_mean=224us key_max=349us page=3 bpm=120 vbus_mv=994 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 121s internal_free= 73095B min= 71892B xrun=0 audio_stack_free=3120 render_blocks=34106 duty_mean=19.85% duty_max=85.68% ui_pool_free=39932 key_mean=222us key_max=349us page=3 bpm=120 vbus_mv=995 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 181s internal_free= 73083B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=44443 duty_mean=19.38% duty_max=85.68% ui_pool_free=39884 key_mean=222us key_max=349us page=3 bpm=120 vbus_mv=996 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 241s internal_free= 73115B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=54780 duty_mean=19.11% duty_max=85.68% ui_pool_free=39908 key_mean=219us key_max=371us page=3 bpm=120 vbus_mv=996 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 301s internal_free= 73095B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=65116 duty_mean=18.90% duty_max=85.68% ui_pool_free=39916 key_mean=222us key_max=371us page=3 bpm=120 vbus_mv=998 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 361s internal_free= 73095B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=75452 duty_mean=18.76% duty_max=85.68% ui_pool_free=39892 key_mean=222us key_max=371us page=3 bpm=120 vbus_mv=999 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 421s internal_free= 73103B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=85789 duty_mean=18.66% duty_max=85.68% ui_pool_free=39952 key_mean=223us key_max=371us page=3 bpm=120 vbus_mv=999 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 481s internal_free= 73099B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=96125 duty_mean=18.57% duty_max=97.28% ui_pool_free=39948 key_mean=222us key_max=431us page=3 bpm=120 vbus_mv=1000 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 541s internal_free= 73103B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=106461 duty_mean=18.50% duty_max=97.28% ui_pool_free=39892 key_mean=220us key_max=431us page=3 bpm=120 vbus_mv=1000 temp_c=31.1
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 2
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 3
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 0/2
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 0
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] UI step
+  [PASS] STATE page（step） = 2
+  [PASS] TAP STEP 1/5
+  [PASS] SEQ MICRO
+  [PASS] SEQ FILL
+  [PASS] SEQ LOCK SET
+  [PASS] SEQ LOCK DEL
+  [PASS] UI song
+  [PASS] STATE page（song） = 11
+  [PASS] TAP SONG card
+  [PASS] TAP SONG entry 0
+  [PASS] UI tracks
+  [PASS] STATE page（tracks） = 1
+  [PASS] TAP 卡 1
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+  [PASS] KEY 音符 down
+  [PASS] KEY 音符 up
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak STATE playing = 1
+   t= 601s internal_free= 73103B min= 71876B xrun=0 audio_stack_free=3120 render_blocks=116797 duty_mean=18.45% duty_max=97.28% ui_pool_free=39896 key_mean=220us key_max=431us page=3 bpm=120 vbus_mv=1001 temp_c=31.1
+  [PASS] UI transport
+  [PASS] STATE page（transport） = 3
+  [PASS] soak 收尾 STOP
+  [PASS] soak 收尾：STOP 后 2s 内 playing=0
+   save 窗口前 dirty=0（0.2s）
+  [PASS] UI play
+  [PASS] STATE page（play） = 0
+   摘要: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/soak-summary-20261126-154139.txt
+  [记录] 功耗记录（仅记录，不设门禁）：INA226 ina=ok 11/11 次；vbus_mv 994..1001 mV（11/11 次有效）；shunt_uv -3..0 µV（11/11 次有效）；cur_ma -1..0 mA（11/11 次有效）
+  [记录] 温度记录（仅记录，不设门禁）：temp_c 31.1..31.1 ℃（11/11 次有效），首 31.1 → 末 31.1
+  [FAIL] t=1s 占空比 duty_mean=22.92% > 2×基线 18.88%
+  [FAIL] t=61s 占空比 duty_mean=20.71% > 2×基线 18.88%
+  [FAIL] t=121s 占空比 duty_mean=19.85% > 2×基线 18.88%
+  [FAIL] t=181s 占空比 duty_mean=19.38% > 2×基线 18.88%
+  [FAIL] t=241s 占空比 duty_mean=19.11% > 2×基线 18.88%
+  [FAIL] t=301s 占空比 duty_mean=18.90% > 2×基线 18.88%
+[FAIL] soak: 0 项断言失败，6 项判定问题

@@ -49,14 +49,14 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist、013-usb-midi-host）
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
-│   └── dev/                       #    开发日志/环境/设备档案（device-notes.md、verification-log.md、closeout-phase4.md）
+│   └── dev/                       #    开发日志/环境/设备档案（device-notes.md、verification-log.md、closeout-phase4.md、closeout-phase5a.md）
 │       └── reference/             #    AGENTS.md 拆出的全文参考（本文件只留索引）：firmware-map.md 组件现状 · scripts.md 脚本逐条 ·
 │                                     console-and-injection.md 命令与注入 · verification-gates.md 门禁判据；门禁证据入 dev/verify/
 ├── firmware/                      # ESP-IDF 工程（v5.5.5，target esp32p4，骨架已初始化并真机验证）
 │   ├── main/                      #    应用入口（display / console / keyboard / audio bring-up + sloop_state / sloop_ui 启动；详见 `docs/dev/reference/firmware-map.md`）
-│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui（逐组件现状见 `docs/dev/reference/firmware-map.md`）；【规划】editor_proto / usb_fm1
+│   ├── components/                #    tab5_keyboard / sloop_core / sloop_hal_tab5 / sloop_state / sloop_ui / usb_fm1 / editor_proto（逐组件现状见 `docs/dev/reference/firmware-map.md`）
 │   ├── sdkconfig.defaults         #    含本机批次适配（P4 v1.3 样片，见 docs/dev/device-notes.md）
 │   ├── dependencies.lock          #    组件版本锁（入库，保证 BSP 屏幕批次探测等行为可复现）
 │   └── partitions.csv             #    已落地（单 factory app 8MB + sloopstore 0x810000/0x68000 + FATFS storage 0x878000 + NVS，无 OTA A/B，回滚=重烧；ADR-009 §1）
@@ -64,16 +64,19 @@ sloop-fm1-tab5/
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
 │   ├── inject/                    #    十条注入场景 .sh + inject.py（场景逻辑都在 inject.py；逐脚本见 §5.1）
-│   ├── {knob,state,seq,synth}-test.sh / *-host-test.c   #    host 门禁与其用例源（§5.1）
-│   ├── (其余脚本)                  #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
+│   ├── {knob,state,seq,synth,editor-proto,usb-fm1}-test.sh
+│   ├── *-host-test.c              #    host 门禁（上一行的 *-test.sh）与其用例源；其余用例源在 components/*/test/*_test.c（§5.1）
+│   ├── (其余脚本)                 #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
 │                                     soak.py、soak-selftest.py、screenshot_matrix.py、gen_*_fixtures.py、fixture_host_check.c、
 │                                     store_raw.py、sample_upload.py——逐脚本摘要见 §5.1，全文见 reference/scripts.md
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
 ├── third_party/                   # 第三方源码与完整性清单
 │   ├── sloop-fm1/                 #    vendored 上游 SLOOP 2.8.5（bac9c05）精简子树，只读
+│   ├── sloop-fm1-go/              #    Sloop Go 参考副本（UI 源码 + screenshots，只读）
 │   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
 └── tools/                         # 其他辅助脚本
     ├── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
+    ├── fetch_sloop_go.sh          #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
     └── move_regress_tables.py     #    构建后把 regress 簿记表（512 项 job/golden/CPU）从内部 RAM 移到 PSRAM
 ```
 
@@ -109,6 +112,7 @@ sloop-fm1-tab5/
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 设备全量 `ENG SELFTEST` 182 例，与 golden 严格比对（自动 AUTO OFF / AUDIO OFF→ON） |
 | `scripts/selftest-heap.py PORT [--record-only]` | 连续两次全量自检的内部堆泄漏门禁（原 DI-26 回归；`--record-only` 只记录） |
 | `scripts/desc-check.py [PORT]` | 设备 `ENG DESC` 抽样对照上游描述符表（10 项 + 2 项 live + 越界拒绝） |
+| `scripts/fm1-smoke.py PORT [--selftest]` | FM-1 联动协议冒烟门禁（操作员在环 7 步：接入 → INFO → PING → GET/SET 还原 → 拧旋钮推送 → 保活 → 拔插；`--selftest` 离线） |
 | `scripts/inject/{transport,step_edit,tracks,nav,params,store,song,sequence,synth,sys}.sh [PORT]` | 十条注入场景（`UI`→`TAP`/`KEY`→`STATE`/`ENG` 断言→`SCR`；破坏性、自归一；**逐场景覆盖见参考**） |
 | `scripts/inject/song.sh [PORT]` | SONG 编排页注入矩阵（破坏性、自归一） |
 | `scripts/inject/sequence.sh [PORT]` | sequence 端到端矩阵：深度步/锁/录音/sections/chain/SONG/SONG REC（破坏性、自归一） |
@@ -207,12 +211,12 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 固件代码 | `scripts/build.sh` 退出码 0，且**不新增**编译警告/错误 |
 | 固件代码（烧录验证） | esptool 输出 `Hash of data verified`；启动日志无 fatal/abort/backtrace |
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
-| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`synth-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
+| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 编辑器协议帧·MIDI 流 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
 | 设备自检与堆 | `python3 scripts/device-selftest.py` **182/182**；`python3 scripts/selftest-heap.py` PASS；`python3 scripts/desc-check.py` PASS |
 | 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 十条场景 + 截屏矩阵对真机各跑一遍（`sequence`/`synth`/`sys` 各复跑），退出码均 0；断言不放宽；逐场景判据见参考 |
 | 阶段收口 soak | `python3 scripts/soak.py PORT --duration 1800 --interval 60 --save-window 900`（阶段收口 3h）退出码 0；判据与口径见参考 |
 | 阶段收口 | 全矩阵 + 证据晋升 `docs/dev/verify/<阶段>-<日期>/` + `verification-log.md` 登记（门禁→命令→结论见各包 readme）；dev→main 不在阶段 4 范围（用户 2026-11-24 决定） |
-| 联动协议 | 对真机 FM-1 的协议冒烟（连接 → INFO 版本协商 → WATCH 推送可达；测试脚本待落地） |
+| 联动协议 | `python3 scripts/fm1-smoke.py --selftest` 退出码 0；接有 FM-1 且操作员在场时 `python3 scripts/fm1-smoke.py PORT` 退出码 0（末行 `FM1 SMOKE PASS 7/7`；未跑列为 WAITING_OPERATOR，不等于通过） |
 | scripts/ 工具改动 | `python3 scripts/screenshot.py --selftest` 退出码 0（解码/协议路径离线自测）；`python3 scripts/sample_upload.py --selftest` 退出码 0（采样 header/CRC/zone 与上传序列离线自测）；`python3 scripts/gen_settings_fixture.py --selftest` 退出码 0（PER3/THM2/FAVS fixture 与 CRC 离线自测）；`python3 scripts/screenshot_matrix.py --selftest` 退出码 0（截屏矩阵的离线自测：`MATRIX` 完整性、主题色派生、锚点判定、联系表拼装、CSV 往返） |
 
 > **已知豁免**：kconfig 重新生成后的首个 configure pass 会出现一对 CMake 提示（`build.cmake:631` 警告 + `Missing kconfig option. Re-run the build process...`），紧接的第二次构建即消失——这是 IDF 已知行为，门禁按第二次构建的输出判定。

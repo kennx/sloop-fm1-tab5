@@ -1,0 +1,10 @@
+FM1 STATUS
+FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=322 tx=322 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12 version="FELUCCA SLOOP 2.8.5" need_upgrade=0
+FM1 INFO
+FM1 INFO version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12 engines=ANALOG|DIGITAL|PHASE|LOFI|SAMPLE|VOICE|TRIO|WHEEL|GRAIN|FM6|PHYS|NOISE
+FM1 PING
+FM1 PING ms=1
+FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+ENG MEM
+ENG MEM internal_free=72559 internal_min=71824 psram_free=30065824 psram_min=29344924

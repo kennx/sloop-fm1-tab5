@@ -21,6 +21,7 @@
 #include "esp_heap_caps.h"
 #include "esp_idf_version.h"
 #include "esp_log.h"
+#include "fm1_session.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sloop_core.h"
@@ -29,6 +30,7 @@
 #include "sloop_ui.h"
 #include "sys_selftest.h"
 #include "tab5_keyboard.h"
+#include "usb_fm1.h"
 
 static const char *TAG = "sloop_tab5";
 
@@ -108,6 +110,21 @@ void app_main(void)
         if (audio_ret != ESP_OK) {
             ESP_LOGE(TAG, "音频流启动失败: %s（引擎静默，ENG AUDIO ON 可重试）",
                      esp_err_to_name(audio_ret));
+        }
+    }
+
+    /* USB-A host 常驻（5A Task 1，ADR-002）+ 事务层（5A Task 5：链路建立后 INFO + WATCH 3，
+     * 此后每秒 PING 保活）；任务栈在 PSRAM。失败不阻断启动——联动模式不可用，独立模式照常。 */
+    esp_err_t usb_ret = usb_fm1_start(&(usb_fm1_config_t){
+        .on_frame = fm1_session_on_frame,
+        .on_link = fm1_session_on_link,
+    });
+    if (usb_ret != ESP_OK) {
+        ESP_LOGE(TAG, "USB host 启动失败: %s（FM1 联动不可用）", esp_err_to_name(usb_ret));
+    } else {
+        esp_err_t session_ret = fm1_session_start();
+        if (session_ret != ESP_OK) {
+            ESP_LOGE(TAG, "fm1_session 启动失败: %s（FM1 请求类子命令不可用）", esp_err_to_name(session_ret));
         }
     }
 

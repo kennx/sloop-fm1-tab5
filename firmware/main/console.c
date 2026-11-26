@@ -189,6 +189,8 @@
 #include "sloop_store.h"
 #include "sloop_ui.h"
 #include "tab5_keyboard.h"
+#include "fm1_session.h"
+#include "usb_fm1.h"
 
 static const char *TAG = "sloop_console";
 
@@ -340,6 +342,140 @@ static int disp_command(int argc, char **argv)
     }
     printf("DISP BRIGHT ERR invalid\n用法: DISP BRIGHT [0..100]\n");
     return 1;
+}
+
+static const char FM1_USAGE[] = "用法: FM1 STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>"
+                               "|WATCH <0|1|3>|PING|EVENTS [CLEAR]";
+
+/* 未知子命令 / 参数个数或范围不对：回 invalid 且不发帧 */
+static int fm1_invalid(void)
+{
+    printf("FM1 ERR invalid\n%s\n", FM1_USAGE);
+    return 1;
+}
+
+/* FM1 子命令（5A Task 5，事务层 fm1_session）：STATUS 只读、不发帧，行尾带 INFO 缓存里的版本串与
+ * need_upgrade（版本政策，fm1_session_need_upgrade）；INFO/GET/SET/WATCH/PING 是一问一答（默认超时
+ * 400ms），EVENTS 读推送/超时/杂帧计数。 */
+static bool seq_int(const char *text, int32_t min, int32_t max, int32_t *value);
+
+/* 请求类子命令的失败出口：会话没起来 no_host；链路不在 no_link；超时 timeout；发送失败或
+ * 回复内容不符 bad_reply。ESP_ERR_INVALID_ARG：id 超出协议的 7 位编码（128..199），同参数错误 */
+static int fm1_fail(const char *sub, esp_err_t err)
+{
+    if (err == ESP_ERR_INVALID_ARG) return fm1_invalid();
+    const char *why = err == ESP_ERR_NOT_ALLOWED ? "no_host"
+                    : err == ESP_ERR_INVALID_STATE ? "no_link"
+                    : err == ESP_ERR_TIMEOUT ? "timeout" : "bad_reply";
+    printf("FM1 %s ERR %s\n", sub, why);
+    return 1;
+}
+
+static int fm1_command(int argc, char **argv)
+{
+    const TickType_t timeout = pdMS_TO_TICKS(400);
+
+    if (argc == 2 && strcasecmp(argv[1], "status") == 0) {
+        usb_fm1_status_t st;
+        usb_fm1_get_status(&st);
+        if (!st.host_ok) {
+            printf("FM1 STATUS ERR no_host\n");
+            return 1;
+        }
+        printf("FM1 STATUS link=%s vid=0x%04X pid=0x%04X product=%s rx=%u tx=%u drops=%u open_fail=%u",
+               st.link ? "ready" : "none", st.vid, st.pid, st.product[0] ? st.product : "-",
+               (unsigned)st.rx_frames, (unsigned)st.tx_frames, (unsigned)st.rx_drops,
+               (unsigned)st.open_fail);
+        if (st.link) {
+            printf(" midi_if=%u ep_in=0x%02X ep_out=0x%02X", st.midi_interface, st.ep_in, st.ep_out);
+        }
+        fm1_info_t info;
+        fm1_session_stats_t ss;
+        fm1_session_info_cached(&info);
+        fm1_session_stats(&ss);
+        printf(" watch=%u info=%s proto=", (unsigned)ss.watch_val, info.valid ? "yes" : "no");
+        /* 版本政策（spec §6 5A）：INFO 读出的版本如实显示；不在支持范围 ⇒ need_upgrade=1 */
+        if (info.valid) {
+            printf("%u version=\"%s\" need_upgrade=%d\n", (unsigned)info.proto, info.version,
+                   fm1_session_need_upgrade(info.version, info.proto) ? 1 : 0);
+        } else {
+            printf("- version=- need_upgrade=0\n");
+        }
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "info") == 0) {
+        fm1_info_t info;
+        esp_err_t err = fm1_session_info(&info, timeout);
+        if (err != ESP_OK) return fm1_fail("INFO", err);
+        printf("FM1 INFO version=\"%s\" nengines=%u p_count=%u g_count=%u nstep=%u pe0=%u ntrk=%u proto=%u engines=",
+               info.version, (unsigned)info.nengines, (unsigned)info.p_count, (unsigned)info.g_count,
+               (unsigned)info.nstep, (unsigned)info.pe0, (unsigned)info.ntrk, (unsigned)info.proto);
+        for (int i = 0; i < info.nengines; i++) {
+            printf("%s%s", i ? "|" : "", info.engines[i]);
+        }
+        printf("\n");
+        return 0;
+    }
+    bool is_get = argc > 1 && strcasecmp(argv[1], "get") == 0;
+    bool is_set = argc > 1 && strcasecmp(argv[1], "set") == 0;
+    if ((is_get && argc == 4) || (is_set && argc == 5)) {
+        int32_t scope, id, v = 0;
+        if (!seq_int(argv[2], 0, 1, &scope) || !seq_int(argv[3], 0, 199, &id) ||
+            (is_set && !seq_int(argv[4], -8192, 8191, &v))) {
+            return fm1_invalid();
+        }
+        int16_t value = 0;
+        esp_err_t err = is_set ? fm1_session_set((uint8_t)scope, (uint8_t)id, (int16_t)v, &value, timeout)
+                               : fm1_session_get((uint8_t)scope, (uint8_t)id, &value, timeout);
+        if (err != ESP_OK) return fm1_fail(is_set ? "SET" : "GET", err);
+        printf("FM1 %s scope=%u id=%u value=%d\n", is_set ? "SET" : "GET", (unsigned)scope,
+               (unsigned)id, value);
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "watch") == 0) {
+        int32_t on;
+        if (!seq_int(argv[2], 0, 3, &on) || on == 2) {
+            return fm1_invalid();
+        }
+        uint8_t replied = 0;
+        esp_err_t err = fm1_session_watch((uint8_t)on, &replied, timeout);
+        if (err != ESP_OK) return fm1_fail("WATCH", err);
+        printf("FM1 WATCH on=%u\n", (unsigned)replied);
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "ping") == 0) {
+        uint32_t us = 0;
+        esp_err_t err = fm1_session_ping(&us, timeout);
+        if (err != ESP_OK) return fm1_fail("PING", err);
+        printf("FM1 PING ms=%u\n", (unsigned)((us + 500) / 1000));
+        return 0;
+    }
+    if (argc == 2 && strcasecmp(argv[1], "events") == 0) {
+        usb_fm1_status_t st;
+        fm1_session_stats_t s;
+        usb_fm1_get_status(&st);
+        if (!st.host_ok) {
+            printf("FM1 EVENTS ERR no_host\n");
+            return 1;
+        }
+        fm1_session_stats(&s);
+        printf("FM1 EVENTS total=%u changed=%u reload=%u step_changed=%u track_changed=%u timeouts=%u stray=%u last=",
+               (unsigned)s.total, (unsigned)s.changed, (unsigned)s.reload, (unsigned)s.step_changed,
+               (unsigned)s.track_changed, (unsigned)s.timeouts, (unsigned)s.stray);
+        if (s.has_last) {
+            printf("cmd=%u scope=%u id=%u value=%d\n", (unsigned)s.last_cmd, (unsigned)s.last_a0,
+                   (unsigned)s.last_a1, s.last_v);
+        } else {
+            printf("none\n");
+        }
+        return 0;
+    }
+    if (argc == 3 && strcasecmp(argv[1], "events") == 0 && strcasecmp(argv[2], "clear") == 0) {
+        fm1_session_stats_reset();
+        printf("FM1 EVENTS cleared\n");
+        return 0;
+    }
+    return fm1_invalid();
 }
 
 /* AUD OUT [speaker|headphone]：applied= 以裸 I2C 读回的输出音量寄存器为准——扬声器所在
@@ -4055,6 +4191,18 @@ esp_err_t app_console_init(void)
     ret = esp_console_cmd_register(&disp_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "注册 DISP 命令失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    const esp_console_cmd_t fm1_cmd = {
+        .command = "FM1",
+        .help = "FM-1 联动诊断：STATUS 链路与收发计数；INFO/GET/SET/WATCH/PING 一问一答；EVENTS 推送计数（ADR-002）",
+        .hint = "STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>|WATCH <0|1|3>|PING|EVENTS [CLEAR]",
+        .func = &fm1_command,
+    };
+    ret = esp_console_cmd_register(&fm1_cmd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册 FM1 命令失败: %s", esp_err_to_name(ret));
         return ret;
     }
 

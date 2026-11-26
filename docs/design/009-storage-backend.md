@@ -461,7 +461,7 @@ XIP 必须原样保留；`third_party/sloop-fm1/**` 零修改。
   尾段会被场景的擦除一并清掉；P4-B 无写入者故当时不可达。P4-C Task 7 在**第一次真实
   settings 写入之前**把快照扩成两个完整 4KB 扇区、结束逐字节恢复并校验（§3），`sloop_store.h`
   的 API 契约与 console `STORE TEST` 帮助已同步。
-- `third_party/MANIFEST.sha256` 校验保持 233/233；上游升级只补 `store_tab5.c` 的 shim 清单。
+- `third_party/MANIFEST.sha256` 校验保持 233/233；上游升级只补 `store_tab5.c` 的 shim 清单。（2026-11-26 起 `third_party/sloop-fm1-go` 共用同一份清单，整份校验合计 320 行；其中 `sloop-fm1/` 的 233 行不变。）
 
 ### 9. 失败可见性与诊断面
 

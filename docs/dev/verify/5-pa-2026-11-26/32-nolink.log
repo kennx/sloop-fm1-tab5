@@ -1,0 +1,28 @@
+FM1 STATUS
+FM1 STATUS link=none vid=0x0000 pid=0x0000 product=- rx=0 tx=0 drops=0 open_fail=0 watch=0 info=no proto=- version=- need_upgrade=0
+FM1 INFO
+FM1 INFO ERR no_link
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 GET 0 1
+FM1 GET ERR no_link
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 GET 2 1
+FM1 ERR invalid
+用法: FM1 STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>|WATCH <0|1|3>|PING|EVENTS [CLEAR]
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 SET 0 1 9000
+FM1 ERR invalid
+用法: FM1 STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>|WATCH <0|1|3>|PING|EVENTS [CLEAR]
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 WATCH 2
+FM1 ERR invalid
+用法: FM1 STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>|WATCH <0|1|3>|PING|EVENTS [CLEAR]
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 FOO
+FM1 ERR invalid
+用法: FM1 STATUS|INFO|GET <scope> <id>|SET <scope> <id> <v>|WATCH <0|1|3>|PING|EVENTS [CLEAR]
+Command returned non-zero error code: 0x1 (ERROR)
+FM1 EVENTS
+FM1 EVENTS total=0 changed=0 reload=0 step_changed=0 track_changed=0 timeouts=0 stray=0 last=none
+ENG MEM
+ENG MEM internal_free=73467 internal_min=72288 psram_free=30071420 psram_min=30071420

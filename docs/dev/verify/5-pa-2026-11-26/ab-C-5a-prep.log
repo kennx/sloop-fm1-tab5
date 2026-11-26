@@ -1,0 +1,9 @@
+rows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+Your terminal application does not support escape sequences.
+Line editing and history fSTORE PROJ LOAD 0
+PROJ 0 LOADED hash=02C79E5A
+ENG PERF
+ENG PERF streaming=1 xrun=0 audio_stack_free=3168 render_blocks=5838 render_mean_us=531 render_max_us=2991 duty_mean=9.15% duty_max=51.53% min_free_since_boot_internal=72320 min_free_since_boot_psram=30071420
+ENG MEM
+ENG MEM internal_free=73367 internal_min=72216 psram_free=30071420 psram_min=30071420

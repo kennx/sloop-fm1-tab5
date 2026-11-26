@@ -7,18 +7,6 @@
 
 ---
 
-## DI-1: USB-MIDI host 类驱动缺失（联动模式核心通道）
-
-| 项 | 内容 |
-|---|---|
-| **背景** | ADR-001 依赖核验发现：`usb_host_uac` 1.5.0 仅覆盖 UAC1 音频采集，**不含 USB-MIDI host 类**。FM-1 是组合 USB 设备（MIDI + UAC1），Tab5 做 host 需各自驱动。 |
-| **影响面** | **联动模式全部控制面**：编辑器协议 77 命令下发、CHANGED/RELOAD/STEP_CHANGED/TRACK_CHANGED push 上行（双向同步骨架）、LIVE 遥控、LIVE 页普通音符（按轨通道）——全部走 USB-MIDI，缺驱动则一个字节都发不出。音频采集（usb_host_uac）不受影响；**独立模式零影响**。 |
-| **为何可延迟** | 开发顺序独立模式先行（显示/键盘 bring-up → sloop_core → UI），不碰 USB host；且技术可行性与工作量已知可控（见下）。 |
-| **解决方向** | 新建 `usb_fm1` 组件时先写 **ADR-002** 选型：(a) 基于 ESP-IDF 原生 `usb_host` 栈自写 MIDI 1.0 类驱动——bulk IN/OUT + 4 字节事件包，SysEx 重组参考 Sloop Go `MidiEngine.kt` 与 `docs/research/editor-protocol.md` §8；(b) tinyusb host 路线（MIDI host 成熟度**待查证**）；(c) 社区组件（registry 再查一轮）。**先例**：[fm1-cartridge](https://github.com/andrerezemini/fm1-cartridge)（ESP32-S3 对 FM-1 做 USB-MIDI host + 回传音频）证明链路可行，驱动实现可参考。 |
-| **触发条件** | 进入联动模式开发（`usb_fm1` 组件立项）之前必须解决；在此之前仅按需更新本条目认知。 |
-| **参考** | `docs/design/001-idf-version.md`（缺口首次记录）、`docs/research/editor-protocol.md` §8、`docs/research/sloop-fm1-go.md` §3、`docs/dev/device-notes.md` §3（FM-1 接入状态） |
-| **登记** | 2026-11-19（代码评审会话） |
-
 ## DI-2: sdkconfig.defaults 变更不生效（旧生成物 sdkconfig 掩盖）
 
 | 项 | 内容 |
@@ -455,3 +443,99 @@
 | **触发条件** | 用户反馈想在 SOUND 页看到自定义预置名；或 PRESETS 页/页眉统一做「按名浏览」（DI-54）时一并处理。 |
 | **参考** | `firmware/components/sloop_core/src/desc_tab5.h`（`sloop_core_sound_read`）；`firmware/components/sloop_core/src/store_tab5.c`（`sloop_store_preset_name`）；`third_party/sloop-fm1/firmware/src/ui_draw.c:845-856`；ADR-008 §8.10（SOUND 页眉）。 |
 | **登记** | 2026-11-25（P4-F 终审修复波） |
+
+## DI-58: 开机偶发 BSP `pi4ioe5v6408` "Chip reset failed" abort
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 5A Task 4 探针期间 8 次开机出现 1 次：上电约 1.5s（日志 1.47s）IO 扩展芯片复位失败——`E (1473) pi4ioe5v6408: reset(252): Chip reset failed` → `ESP_ERROR_CHECK failed … bsp_io_expander.c line 23` → `abort()`；自动重启后正常，之后 7 次开机未复现。出错点是 BSP `esp_io_expander_new_i2c_pi4ioe5v6408()` 里的芯片复位检查。时刻早于显示/存储/USB host 的初始化（均 ≥ 约 3s），**与 5A 的改动无关**。 |
+| **影响面** | 开机路径：独立模式与联动模式同样波及。表现为启动期 abort 后自动重启，启动延后数秒；运行期不受影响。冷启动/热复位/供电哪一项相关**未定性**。 |
+| **为何可延迟** | 自动重启后即正常，复现率低（1/8）且无法按需触发；根因在 BSP 的上电时序，需要专项复现（多次冷启动计数 + 复核 PI4IO 复位到寄存器可读的等待），不是 5A 的范围。 |
+| **解决方向** | BSP 升级（查 `espressif/m5stack_tab5` 新版本是否改了 `bsp_io_expander.c` 的复位/就绪等待）或复核上电时序。 |
+| **触发条件** | 再次复现（日常开机、烧录后首启或阶段收口矩阵中出现），或 BSP 升级时。 |
+| **参考** | `.superpowers/sdd/2026-11-26-5a-fm1-connect/task-4-report.md`（原始记录）；`firmware/managed_components/espressif__m5stack_tab5/src/bsp_io_expander.c:23` |
+| **登记** | 2026-11-26（5A Task 4 探针发现，Task 6 文档收口登记） |
+
+## DI-59: `EDP_ARGS_MAX = 384` 小于上游 `DSYN_GET` 回复（约 416 个参数字节）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `editor_proto` 的帧参数上限 `EDP_ARGS_MAX` = 384（`editor_proto.h:20`，`edp_frame_t.args[]` 的大小）；上游 `firmware/src/editor.c` 的发送缓冲 `ed_out[600]`，`DSYN_GET` 的回复约 416 个参数字节。`edp_frame_parse` 对超过 `EDP_ARGS_MAX` 的帧返回 false ⇒ 该回复被判为无效。5A 用到的 INFO/GET/SET/WATCH/PING 回复都远小于 384，且 **5A 不发该命令**。 |
+| **影响面** | 任何参数多于 384 的回复，当前已知只有 `DSYN_GET`（Drum synth 页）。5A 的联动协议面不受影响；Tab5 的 DSYN 页目前走本地引擎（`sloop_core_dsyn_*`），不经 FM-1。 |
+| **为何可延迟** | 属 5E（Drum synth 页）的入口条件：在 Tab5 开始经 FM-1 读写 DSYN 之前不会触发；扩容会连带改 `edp_frame_t` 的大小（回复槽/解析暂存随之上调），需要单独量一次占用。 |
+| **解决方向** | 5E 开工前把 `EDP_ARGS_MAX` 提到 ≥ 416（5A Task 2 裁决记的备选值是 512；上游 `ed_out` 为 600，是否直接对齐 600 届时定）。扩容后必须复核：**栈占用**——`fm1_session.c` 的三个请求函数把 `edp_frame_t reply` 放在栈上（`:229/:256/:284`，当前 387B，上限每加 1 字节栈帧同步加 1），它们跑在调用方任务的栈上（console 等），而解析暂存 `f` 与回复槽 `s_reply` 是 PSRAM 里的静态对象（随 `edp_frame_t` 变大，不占内部堆）；`midi_stream` 的 1,024 字节帧上限是否仍够；`scripts/editor-proto-test.sh` 补一条 416+ 参数的往返与「恰在上限内/外」用例。另记 host 测试缺口（`scripts/usb-fm1-test.sh` 现有用例未覆盖）：CIN 2/3/8/A–E 的解码长度、`out_cap` 恰好等于所需、同一次调用内溢出后接完整短帧、`len=390` 恰好上限。 |
+| **触发条件** | 5E（Drum synth 页）开工前必须处理。 |
+| **参考** | `firmware/components/editor_proto/include/editor_proto.h`（`EDP_ARGS_MAX`）、`firmware/components/editor_proto/src/editor_proto.c`（`edp_frame_parse`）、`third_party/sloop-fm1/firmware/src/editor.c:39`（`ed_out`） |
+| **登记** | 2026-11-26（5A Task 2 终评遗留，Task 6 登记） |
+
+## DI-60: `usb_fm1` 的两处异常路径待加固（OUT transfer 永不完成 / `NEW_DEV` 时旧句柄尚在）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | ① **发送侧**：`usb_fm1_send_frame()` 提交 Bulk OUT 前置位 `s_out_inflight`，只有完成回调（或提交失败）才清；等回复超时只是返回 `ESP_ERR_TIMEOUT`。若该 transfer 永不完成（不回调），`s_out_inflight` 保持置位，之后每次发送直接回 `ESP_ERR_NOT_FINISHED`，而断开清理要求端点无在途 URB，待执行的清理会一直等。② **枚举侧**：`handle_new_dev()` 在 `NEW_DEV` 到达时若旧设备句柄 `s_dev != NULL`（上一次的清理尚未跑完，如快速拔插），新设备被 `usb_host_device_close` 并忽略，需再拔插一次才被接手。5A 冒烟未触发这两条路径。 |
+| **影响面** | 仅联动模式（FM-1 链路）的异常恢复：① 发送侧永久失败直到断开清理完成；② 快速拔插后链路不恢复、`FM1 STATUS` 停在 `link=none`。独立模式零影响。 |
+| **为何可延迟** | 两条都是异常/竞态路径，5A 的多轮真机运行（含探针期间一次偶然的断开/重连）未触发；受控拔插尚待操作员。5C 的主题就是断连恢复，届时一并设计。 |
+| **解决方向** | ① 发送超时后显式取消在途的 OUT transfer（或让在途标记按序号失效——迟到的回调按 seq 丢弃），使清理不依赖「一定会回调」；② `NEW_DEV` 时旧句柄尚在则**排队**而不是丢弃：先对旧设备走完清理，再接手新设备。两条都补 host 侧的可注入测试（故障注入点）。 |
+| **触发条件** | 5C（断连恢复）开工时必须处理；此前若 5A 冒烟的拔插步骤（`scripts/fm1-smoke.py` 步骤 7）出现「重插后不恢复」，立即处理。 |
+| **参考** | `firmware/components/usb_fm1/src/usb_fm1.c`（`usb_fm1_send_frame` 的 `s_out_inflight`、`handle_new_dev` 的 `s_dev != NULL` 分支）；`.superpowers/sdd/2026-11-26-5a-fm1-connect/task-4-report.md` |
+| **登记** | 2026-11-26（5A Task 4 终评遗留，Task 6 登记） |
+
+## DI-61: `fm1_session` 的 `request()` 在「永远等待」超时下无法被链路断开唤醒
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `fm1_session.c` 的 `request()` 把 ≥2^31 tick（含 `portMAX_DELAY`）的 `timeout` 视为一直等：等单在飞互斥、发送、等回复三处都用 `portMAX_DELAY` 阻塞，唯一的出口是对应的信号量。链路断开时 `fm1_session_on_link(false)` 只清链路态、WATCH 与 INFO 缓存并通知 `fm1_session` 任务，不给 `s_reply_sem` 任何信号（它只在 `fm1_session_on_frame` 收到回复时给）。因此一个「永远等待」的请求方在拔线时既等不到回复也没有超时，会一直挂在 `xSemaphoreTake(s_reply_sem, portMAX_DELAY)`；若它还持着 `s_req_mux`，之后的请求方（会话任务协商、console `FM1` 命令）都只能等锁到各自的 400ms 上限后回 `timeout`。发送侧的 `usb_fm1_send_frame` 同样只靠 transfer 完成回调唤醒 `s_tx_done`，`DEV_GONE` 时库是否对在途 transfer 回调 `CANCELED` 未在本仓验证。5A 的全部调用方（console 与会话任务）都传 400ms，没有触发路径。 |
+| **影响面** | 仅联动模式：将来任何以 `timeout=portMAX_DELAY` 调 `fm1_session_info/get/set/watch/ping` 的调用方（5C 的状态同步层与断连恢复最可能）。独立模式零影响。 |
+| **为何可延迟** | 5A 没有调用方；头文件与函数注释已写明该语义，接口没有对外承诺「断线可唤醒」。 |
+| **解决方向** | 二选一：① 链路断开给等待方一个出口——`on_link(false)` 给在等的请求补一次 `xSemaphoreGive(s_reply_sem)`，`request()` 醒来后先核对链路态、已断则回 `ESP_ERR_INVALID_STATE`（回复槽仍按 cmd/argc 核对，不制造假回复），并核实/补齐 `usb_fm1_send_frame` 在 `DEV_GONE` 下的唤醒；② 去掉「一直等」的承诺：`request()` 对 ≥2^31 的 `timeout` 套一个内部上限后回 `ESP_ERR_TIMEOUT`，头文件同步改注释。无论哪种，先补一条 host 侧可注入的断连测试（伪链路 + 永远等待的请求方线程）。 |
+| **触发条件** | 5C（同步层与断连恢复）开工时必须处理；此前只要有调用方开始传 `portMAX_DELAY` 就立即处理。 |
+| **参考** | `firmware/components/usb_fm1/src/fm1_session.c`（`request()` 的 `forever` 分支、`fm1_session_on_frame` / `fm1_session_on_link`）、`firmware/components/usb_fm1/src/usb_fm1.c`（`usb_fm1_send_frame` 的等待循环、`out_xfer_cb`）、`.superpowers/sdd/2026-11-26-5a-fm1-connect/final-fix-findings.md`（M-1） |
+| **登记** | 2026-11-26（5A 终审修复波，final review M-1） |
+
+## DI-62: `scripts/selftest-heap.py` 不捕获 `KeyboardInterrupt`
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `scripts/selftest-heap.py` 的 `main()` 只捕获 `(OSError, serial.SerialException, RuntimeError, TimeoutError)`。两次全量 `ENG SELFTEST` 各约 160s，等待期间操作员 Ctrl-C ⇒ `KeyboardInterrupt` 直接漏成 traceback：transcript 里没有 `# [selftest-heap] FAIL` 收尾行（`finally` 里的 `ENG AUDIO ON` 与关串口仍会执行）。与 `scripts/fm1-smoke.py` 修复前的同款缺陷（提交 63b8756 已为冒烟脚本修掉）。 |
+| **影响面** | 仅门禁脚本的可读性与证据完整性：被中止的 transcript 没有结论行，事后按 transcript 判读的人看不到 FAIL 收尾。判定逻辑与固件零影响。 |
+| **为何可延迟** | 不改变任何判定结果；Ctrl-C 是操作员的显式中止，恢复动作（`ENG AUDIO ON`）在 `finally` 里照常执行。 |
+| **解决方向** | 与 `fm1-smoke.py` 同款：加 `except KeyboardInterrupt` ⇒ `ok = False` 并落一条 `# [selftest-heap] FAIL: KeyboardInterrupt: 操作员中止（Ctrl-C）`；`finally` 里的恢复再包一层 `except KeyboardInterrupt`，提示手动 `ENG AUDIO ON`。 |
+| **触发条件** | 下一次改动 `scripts/selftest-heap.py` 时顺手修；或需要无人值守长跑（soak/阶段收口）之前。 |
+| **参考** | `scripts/selftest-heap.py`（`main()` 的 `except (OSError, …)` 子句与 `finally`）、`scripts/fm1-smoke.py`（`run_device()` 的同款处理） |
+| **登记** | 2026-11-26（5A 终审修复波，final review M-1） |
+
+## DI-63: soak 渲染占空比余量偏紧：起点工程内容未归一 + 5A 渲染均值 +3.4% 待定位
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 5A 收口（2026-11-26，固件 `715fdae`）硬复位后的 30min soak：`duty_mean` 最大 **18.31%**，上限 18.88%（2× 阶段 2 静默渲染基线 9.44%），余量只有 0.57 个百分点；历史各阶段 soak 在 9–13%。同一次收口做了受控 A/B（同一已保存工程槽 0、各 600s、稳态 `render_mean_us` @601s）：5A 之前的 dev `f4b2026` = **1037µs（17.87%）**，5A `715fdae` = **1071 / 1071µs（18.45%）**。两个结论：① 历史 9–13% 与今天 ~18% 的差距来自 **soak 起点工程内容**（dev 固件同样 17.9%）——`soak.py` 不归一起点工程，占空比读数随设备上当时的工作工程而变，跨阶段 / 跨固件不能直接比较；② 5A 使渲染均值 **+34µs（+3.4%，约 +0.6 个百分点占空比）**，可复现（A = C = 1071），来源未定位（候选：USB host 常驻中断、输入任务 PSRAM 栈）。 |
+| **影响面** | `soak.py` 的占空比门禁：读数取决于起点工程，换一份更重的工程就可能越线；5B 起新页面的渲染预算余量（0.57 个百分点）。音频输出与 xrun 不受影响（30min soak `xrun=0`）。 |
+| **为何可延迟** | 门禁通过（30min soak 最大 18.31% < 18.88%；A/B 四次稳态 17.87–18.47% 都低于上限）；+0.6 个百分点的渲染开销已裁定为可接受（`docs/dev/closeout-phase5a.md` R36）；无 panic/WDT。 |
+| **解决方向** | ① soak 起跑前把工作工程归一为固定参照工程（让占空比读数可比，也让上限有确定含义）；② 在 5B/5C 定位 5A 的 +3.4% 渲染开销（候选逐一对照：USB host 常驻中断、输入任务 PSRAM 栈），定位后再决定是压掉它还是把基线 / 上限口径作为门禁变更登记。 |
+| **触发条件** | 占空比门禁再贴近 / 触发（soak 再次出现 `duty_mean` 判定问题），或 5C 断连恢复开工时。 |
+| **参考** | `docs/dev/closeout-phase5a.md` §4 / §5（R35、R36）；`docs/dev/verify/5-pa-2026-11-26/`（`soak-summary-20261126-150834.txt`、`ab-{A-5a,B-dev,C-5a}-summary.txt`、`ab-status.txt`）；`scripts/soak.py`（占空比判定）；`docs/dev/reference/verification-gates.md`「阶段收口 soak」行 |
+| **登记** | 2026-11-26（5A 收口，裁决 R36） |
+
+## DI-64: `ENG SELFTEST` 期间的 task-watchdog 报告（既有现象）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 全量 `ENG SELFTEST`（约 160s，在 console 任务里同步跑完 182 例）期间，task watchdog 报一次：`Task watchdog got triggered. The following tasks/users did not reset the watchdog in time: - IDLE0 (CPU 0)`，随后的 `Tasks currently running` 是 `CPU 0: console_repl`、`CPU 1: IDLE1`。5A 收口的 `selftest-heap.py` 两次全量自检各出一条（`docs/dev/verify/5-pa-2026-11-26/41-selftest-heap.log`，时间戳 166754ms 与 325424ms）；`docs/dev/verification-log.md` 里登记通过的历史转录同款（如 `4-p0-2026-11-21/task-11-selftest-full-transcript.log`、`4-pe-2026-11-23/` 下的设备自检转录）。报告之后设备没有重启：同一会话里第二次自检照常完成，两次均 `result=PASS`。FM-1 已接条件下的同一检查（`5-pa-2026-11-26/att-heap.log`，时间戳 166174ms 与 324194ms）报告的是 `- IDLE1 (CPU 1)`、`console_repl` 在 CPU 1——没喂上狗的是**自检所在核**的 IDLE，核不固定。 |
+| **影响面** | 只在诊断路径（`ENG SELFTEST` / `device-selftest.py` / `selftest-heap.py`）出现，每次多一组 `E (…) task_wdt:` 日志行。判定与运行期行为零影响，两个脚本都不因此失败。 |
+| **为何可延迟** | 既有现象，非 5A 引入；不重启、不改变自检结果；用户操作不经过自检路径。 |
+| **解决方向** | 先确认根因（自检循环长时间不让出所在的核 ⇒ 该核的 IDLE 喂不上狗），再二选一：在自检的用例循环里定期让出 / 复位任务看门狗（不得改变自检的时序语义与 182 例的确定性）；或确认无害后在文档里记为已知噪声并让门禁脚本忽略这几行。 |
+| **触发条件** | 下一次改动 `ENG SELFTEST` 路径（`selftest.c`）或 task watchdog 配置时；或需要让自检期间的日志干净（无人值守长跑、按日志判读的自动化）时。 |
+| **参考** | `firmware/components/sloop_core`（`ENG SELFTEST` 实现）、`firmware/main/console.c`（`ENG SELFTEST` 命令）、`scripts/device-selftest.py`、`scripts/selftest-heap.py`；`docs/dev/closeout-phase5a.md` §6 |
+| **登记** | 2026-11-26（5A 终审修复波记账，收口时登记） |
+
+## DI-65: `scripts/fm1-smoke.py` 的结论行对「无回复」类 error 的步骤归因不准
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 冒烟脚本的末行由 `verdict_line()` 生成：`FM1 SMOKE FAIL n/7 <首条失败>`，其中 `n = min(未通过的步骤集合, default=1) - 1`，即「首个失败步骤之前通过的步数」。`_verdict()` 先把转录里的 error 注记收进失败说明（步骤号从注记文字里的「步骤 N」取），无步骤号的 error 注记（「无回复」一类）不往集合里放任何步骤号；之后逐段检查时，缺失的段因为「已有失败说明」被 `continue` 跳过、也不计入集合。于是集合为空时 `n = 0`，结论行读作 `FM1 SMOKE FAIL 0/7`，而实际停在步骤 k。5A 终审修复波把它列为保持延后的小项（`docs/dev/closeout-phase5a.md` R32），修复波范围没有包含它。 |
+| **影响面** | 仅门禁脚本失败时的可读性：结论行里的步骤计数偏低。退出码（失败 = 1）与 PASS / FAIL 方向不受影响；transcript 是串口原始回显，完整保留了各段的回显与脚本注记，可以人工判读实际停在哪一步。通过时（`FM1 SMOKE PASS 7/7`）不受影响。 |
+| **为何可延迟** | 不改变任何判定结果；只在冒烟失败时才看得到，而失败本来就要人去看 transcript。5A 收口的两次冒烟都是 PASS 7/7，没有触发。 |
+| **解决方向** | 给 error 注记带上步骤号（记录注记发生时的段，写进「步骤 N」的文字里），或在无步骤号时回退到「首个缺失段」——`_verdict()` 在已有 error 注记的情况下仍把第一个缺失的段计入集合，`n` 即为该段之前通过的步数；补一组内嵌样例到 `run_selftest()`（无步骤号 error + 之后各段缺失 ⇒ `FAIL k/7`）。 |
+| **触发条件** | 下一次改冒烟脚本时；或 5C 断连恢复场景把它扩展成多段自动门禁时。 |
+| **参考** | `scripts/fm1-smoke.py`（`verdict_line()`、`_verdict()`、`run_selftest()`）、`docs/dev/reference/verification-gates.md`「联动协议」行、`docs/dev/closeout-phase5a.md` §5（R32）、§6 |
+| **登记** | 2026-11-26（5A 终审修复波记账，补证收口时登记） |

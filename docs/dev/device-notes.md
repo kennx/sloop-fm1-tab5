@@ -37,10 +37,30 @@ BSP 1.3.3 的 `bsp_get_board_version()`（`src/bsp_display.c`）运行时读 TDD
 - 2026-11-19 bring-up 验证（git 8f8e01b）：启动自检 `keyboard: OK (0x6D)`；键盘内部固件 **FW 0x01**（寄存器 0xFE 读回，与 Internal-FW V1.0 预期一致）；console `KB` 可查 probe/事件计数，INT 空闲电平正确（证据 `docs/dev/verify/1-bringup-2026-11-19/console-transcript.txt`）。
 - ⏳ 人测待办（DI-4）：70 键全矩阵逐键 + Shift/Ctrl/Alt/Sym 组合核对。
 
-## 3. M-VAVE FM-1（刷 SLOOP）— ❌ 未连接
+## 3. M-VAVE FM-1（刷 SLOOP）— ✅ 已连接（USB-A，USB-MIDI host）
 
-- 当前 `lsusb` 无 `1209:0001` 设备；接入后应出现 MIDI 端口 "Felucca"。
-- 联动模式开发期接入时在本文登记批次/固件版本（SLOOP 版本号可经编辑器协议 `INFO` 读取）。
+FM-1 插在 **Tab5 的 USB-A 口**上（Tab5 做 USB host，ADR-002 `docs/design/013-usb-midi-host.md`），**不接开发机**——PC 侧 `lsusb` 看不到它，接入与否只能经 Tab5 console 的 `FM1 STATUS` 确认。下表数值除注明外均于 2026-11-26 在本机经 `FM1 STATUS` / `FM1 INFO` 与启动日志（TAG `usb_fm1`）读出。
+
+| 项 | 值 | 备注 |
+|---|---|---|
+| SLOOP 版本 | `FELUCCA SLOOP 2.8.5` | `FM1 INFO` 的 `version=`；与 vendored 上游基线 2.8.5 同一小版本（AGENTS.md §2） |
+| 编辑器协议版本 | 12 | `FM1 INFO` 的 `proto=12`；与 vendored `web/EDITOR_PROTOCOL.md` v12 一致 |
+| 设备参数（INFO） | NENGINES 12 / P_COUNT 71 / G_COUNT 50 / NSTEP 64 / P_E0 63 / NTRK 4 | 引擎 `ANALOG\|DIGITAL\|PHASE\|LOFI\|SAMPLE\|VOICE\|TRIO\|WHEEL\|GRAIN\|FM6\|PHYS\|NOISE` |
+| USB 身份 | VID `0x1209` / PID `0x0001`，iProduct `Felucca`，`bDeviceClass=0x00`（按接口分类的组合设备） | 电脑侧枚举出的 MIDI 端口名 "Felucca" |
+| 接口 0 | Audio Control（class `0x01` / subclass `0x01`），alt 0，0 端点 | UAC；**5A 不 claim**（音频采集属 5E） |
+| 接口 1 | **MIDI Streaming**（class `0x01` / subclass `0x03`），alt 0，2 端点 | Tab5 claim 的接口（`FM1 STATUS` 的 `midi_if=1`） |
+| 接口 2 | Audio Streaming（class `0x01` / subclass `0x02`），alt 0（0 端点）/ alt 1（1 端点）两个 alt setting | UAC；5A 不 claim |
+| Bulk 端点（接口 1） | IN `0x81` / OUT `0x01`（mps 各 64） | IN 缓冲 `mps×4=256` 字节 |
+| 接入方式 | 用户把 FM-1 插到 Tab5 的 **USB-A 口**（5A Task 1 开工时已插好） | **线材类型未记录**（型号/转接形式均未登记，下次上手时补） |
+| Tab5 固件 | 事务层 `1180138` + 修复至 `3f9b09b` | 本机烧录的 bin 构建于 2026-11-26 09:19:03，`App version` 自报 `24c5d22-dirty`——修复 `f1b3eab` 提交前 53s 从同一工作区构建（Task 5 报告记为「修复后的二进制」）；版本串本身证明不了这一点 |
+
+**已验证**（2026-11-26，真机）：
+
+- 枚举与 claim：USB host 启动后约 0.4s `新设备 VID=0x1209 PID=0x0001` → `MIDI Streaming 接口 1 就绪`；稳态 `FM1 STATUS link=ready … midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12`。USB-C 控制台（`/dev/ttyACM0`）与 USB-A host 同时工作，互不影响。
+- 事务层（`python3 scripts/fm1-smoke.py PORT` 的步骤 1–4，transcript `firmware/build/verify/fm1-smoke-20261126-094147.log`，不入库）：`FM1 INFO` 版本协商、`WATCH 3` 自动协商、`FM1 PING` ×10 全部成功（`ms=1`）、`FM1 GET 0 1` / `SET` 往返（选中轨 ATK 50 → 51 读回 51 → 还原 50 读回 50）。
+- 探针期间偶遇一次断开/重连（Bulk IN 出错 → 清理 → 约 2.5s 后重新枚举，内部堆无泄漏；ADR-002「实测登记」）——不是受控操作。
+
+**未做**（需操作员；`fm1-smoke.py` 的步骤 5–7）：在 FM-1 上拧旋钮后的 CHANGED 推送与静置 10s 后的保活；受控拔线（`link=none`、`FM1 INFO ERR no_link`）与重插恢复；拔线后开机的 `no_link` 错误路径与拔线瞬间连发 `FM1 PING`；插普通 USB 设备（U 盘/鼠标）。UAC 音频接口未 claim、音频采集未做（5E）。
 
 ## 4. 历史记录
 

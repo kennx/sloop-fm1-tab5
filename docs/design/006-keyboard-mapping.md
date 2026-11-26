@@ -118,7 +118,7 @@ Task 6 Step 1 要求真机按 `Sym+字母`/`Ctrl+Alt+字母`/`Sym+Aa+字母` 记
   `DRUM_KIT_DESC`）。
 - **fill 条件**：读快照里该步的当前条件 +1（mod 3；raw 3 与 0 同为 NORMAL）后以绝对值下发
   `CMD_FILL_STEP`，与 TRANSPORT/console 的 `CMD_SET_FILL` 是同一个引擎入口；范围同上（R12）。
-- **栈（R13）**：输入任务栈 **8,192B**。`sloop_ui_input_key` 不持整份快照（层键位用
+- **栈（R13）**：输入任务栈 **8,192B**（5A 起栈在 PSRAM：`xTaskCreateWithCaps`，见 ADR-002）。`sloop_ui_input_key` 不持整份快照（层键位用
   `state_read_layer_held` 窄读）；每个动作函数至多在栈上放一份 `app_state_t`（host sizeof
   ≈1.66KB）且动作之间不嵌套（`sloop_ui_step_tool` 发命令后用 `state_get_copy` 原位刷新同一份
   缓冲）；状态层锁命令的加锁/解锁共用一块 142B 缓冲。余量由 `KEY STATS` 的
