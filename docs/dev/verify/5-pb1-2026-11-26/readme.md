@@ -499,3 +499,42 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 | 7 | 鼓轨：列表焦点 + ENTER | 再开 → ↓ ×2 → ENTER | 同上 | ✅ `PARAM track=3 id=63 value=3 min=0 max=45`、关闭（上一轮已通过，本轮加关闭断言） |
 | 8 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-fix3-selftest-heap.log`、`task-6-fix3-selftest-heap-transcript.log` | ✅ rc=0：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`；两次 `cases=182/182 identical=182 … result=PASS` |
 | 9 | 还原核对 | 收尾硬复位 + 自检后再硬复位 | `task-6-fix3-check.out`、`task-6-fix3-restore.log` | ✅ `sel=0`、四轨 `0/0/0/104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0` |
+
+## 17. 5B-1 Task 7：退役五张参数页并同步导航与页表（2026-11-27；固件 `5de0404` + 脚本 `c8305e4`）
+
+> 布局表只剩 SOUND + SAMPLE，EDIT = SOUND、MIX = TOOLS（13 页 / 9 组）。**固件 = `5de0404`、脚本 = `c8305e4`**（提交后构建烧录取证；
+> `task-7-boot.log` 第 29 行自报 `App version:      c8305e4-dirty`：`-dirty` = 未提交的 docs，`git diff c8305e4 -- firmware scripts third_party tools`
+> 为空）。提交前另做过一遍 `--clean` 全量构建（`task-7-build-clean.log`：1,996 个目标、0 警告；源码与 `5de0404` 相同）。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-7-build-1.log`、`task-7-build-2.log`（全量：`task-7-build-clean.log`） | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-7-knob-test.log`、`task-7-sound-test.log` | ✅ `16 passed, 0 failed`（「MOD/SCALE/VOICE/FX/GLOBAL 槽位 = 012 §3」一例随页删除）/ `4 passed, 0 failed` |
+| 3 | 工具自测 | `python3 scripts/soak-selftest.py`、`python3 scripts/screenshot.py --selftest`、`python3 scripts/screenshot_matrix.py --selftest` | `task-7-soak-selftest.log`、`task-7-screenshot-selftest.log`、`task-7-matrix-selftest.log` | ✅ rc=0：`结果: PASS` / `selftest OK` / `screenshot_matrix selftest OK`（MATRIX 20 条目 / 13 页） |
+| 4 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-7-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 5 | 启动日志 | esptool 硬复位后抓 12s | `task-7-boot.log` 第 28–31 行 | ✅ E / abort / backtrace 计数 0 |
+| 6 | 页表（设备） | `UI MEM`、`UI mod` / `scale` / `voice` / `global` / `fx` | `task-7-ui-mem.txt` | ✅ `registered=13`、`sum_est=118784`、`GROUP EDIT sum_est=8704`、`GROUP MIX sum_est=3584`；五个退役页名各回 `UI ERR not_registered <id>`（15 / 16 / 17 / 4 / 5） |
+| 7 | 注入场景 | `bash scripts/inject/{nav,params,store,song,sys}.sh` | `task-7-<场景>-stdout.log`；nav / params 另有 `task-7-nav-transcript.log`、`task-7-params-transcript.log` | ✅ 退出码均 0：`nav` **527 / 0**、`params` **356 / 0**、`store` **901 / 0**、`song` **353 / 0**、`sys` **353 / 0**；末行均为 `[PASS] <场景>: 全部断言与像素抽检通过` |
+| 8 | 有序对与过渡 | `nav` ⑩ | `task-7-nav-stdout.log`、`task-7-nav-transcript.log` | ✅ 72 组对 / 104 目标页全部 ≥4,096：最紧 SEQ→FILE 6,412B；SEQ→EDIT 11,428、EDIT→SEQ 19,192、MIX→SEQ 23,904、SEQ→MIX 16,076B；`lvgl_stack_free=5116B`；SEQ（STEP + TRANSPORT 全建）→ `UI sound`：`页面构建 page=SOUND(6) 池增量=7160B 预算=8704B 池剩余=11428B 耗时=13ms` |
+| 9 | 还原核对 | 场景后 `ENG SNAP` → 还原 → 再读 → 硬复位后再读 | `task-7-after.txt`、`task-7-restore-final.txt`、`task-7-restore.log` | ⚠️ 场景后四轨有残留（见下第 2 条）；按烧录前基线还原后 `sel=0`、四轨 `engine=0 preset=0 level=104 mute=0 len=16 div=2`、轨 0 包络 `20/40/60/70`、`bpm=120` 与基线逐字相同；**鼓轨步位图未能还原** |
+
+偏差与说明：
+
+1. 提交前的工作运行（未提交树）里 `params` 红过两次、`store` 红过一次——证据 `task-7-params-fail1.log`、`task-7-params-fail2.log`、
+   `task-7-store-fail.log`。原因与处置（修复都在 `c8305e4`）：
+   - 「bank 行缺席 ⇒ bank 带 TAP miss」在仪表盘上不成立：行隐藏时页面区 y=76..120 的带被卡片视口盖住，TAP 落在卡片标题行上
+     （回显 `-> SOUND card=0 collapsed=1`，并把 card 0 的折叠位留在了设备上）⇒ 判据改为「带内没有 SAVE / ERASE 按钮色」
+     （`bank_row_absent_probes`：params 的 ANALOG / 鼓轨 / GRAIN 与 store ⓰ 同）；
+   - FM6 段漏了 `select_track(1)` 之后的 `UI sound`（页签停在 TRACKS，页眉 TAP 全部 miss，一次 TAP 还落在 TRACKS 卡上改了选中轨）⇒ 补回；
+   - 参数锁段的前置改经仪表盘时取了 Global 卡的 BPM（全局作用域：`PARAM 0` 读到的是轨道 LEVEL；且 card 0 当时被折叠 ⇒
+     `UI SOUND FOCUS 0` 被重指）⇒ 改为先展开全部折叠卡，再取 Envelope 卡的 ATK 槽（轨道作用域，与旧 MOD·ENV chip 的槽 0 同一个参数）；
+   - store ⓰ 的 `UI SOUND CHIP` 期望 `chip=0`——仪表盘自 Task 3 起回 `chip=255` 且无逐槽行（console-and-injection.md 已写明）⇒ 对齐。
+   fail1 的中止运行里 `STORE BANK ERASE 0` 已执行（FM6 bank 槽 0 被擦；擦前内容未记录——设备当时四轨都是 ANALOG 预置 0 的默认态，
+   槽 0 大概率本就为空，但这是推测）。
+2. 五条场景跑完后 `ENG SNAP trk`（`task-7-after.txt`）与烧录前不同：轨 0 `level=1 mute=1 len=64 div=8 atk=0 dec=112 sus=0 rel=52`、
+   轨 2 `engine=4 preset=5`（基线均为默认值），工程槽 A–D 全 EMPTY，鼓轨步（烧录后、场景前 `on=1` 在 i=0/3/5/6）全部清空。
+   哪条场景留下轨 0 / 轨 2 的改动未定位（store 或 sys 的 fixture 段）；与本任务的页表改动无关。已按基线还原四轨的引擎·预置·LEVEL·
+   mute·LEN·DIV 与轨 0 的包络四值；**鼓轨步的原始位图没有基线，无法还原**；工程槽擦除前的状态也没有基线。autosave 为 ON，
+   还原后的状态由自动存档落盘。
+3. 未做：`screenshot_matrix.py` 的设备全量（只跑 `--selftest`；`sound` 的两条目是占位，等 Task 8）、其余五条场景
+   （transport / step_edit / tracks / sequence / synth）、`device-selftest.py` / `selftest-heap.py` / `desc-check.py`（简报未列）。

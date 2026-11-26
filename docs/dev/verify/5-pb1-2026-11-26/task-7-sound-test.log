@@ -1,0 +1,8 @@
+== sloop_ui sound layout host test
+PASS 卡片成员表（13 卡/109 槽/逐槽 = 期望表/鼓轨规则/引擎门槛）
+PASS 扁平下标（卡片 × 槽 ⇄ 扁平、越界）
+PASS staggered 两列布局（行数/卡高/落列/折叠/不重叠）
+PASS 槽矩形 / 存在位图上的焦点移动 / 环带
+
+4 passed, 0 failed
+SOUND LAYOUT TEST PASSED

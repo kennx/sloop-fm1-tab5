@@ -1,0 +1,32 @@
+$ ENG SNAP
+ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=1 mute=1 armed=0 solo=0 len=64 div=8 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=4 preset=5 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>
+$ STORE SETTINGS INFO
+STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>
+$ UI
+UI
+UI page=system (14)
+sloop>

@@ -1,0 +1,75 @@
+$ UI MEM
+UI MEM
+UI MEM pool_used=14564 pool_free=48292 pool_total=62856 registered=13 built=1 failed=0 sum_est=118784 reserve=-55928 group=PLAY lvgl_stack_free=6024
+UI MEM GROUP PLAY built=1 sum_est=3072 sum_delta=2480 build_ms=5
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=8704 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=3584 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=built est=3072 delta=2480 build_ms=4
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=8704 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+sloop>
+$ UI mod
+UI mod
+UI ERR not_registered 15
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+$ UI scale
+UI scale
+UI ERR not_registered 16
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+$ UI voice
+UI voice
+UI ERR not_registered 17
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+$ UI global
+UI global
+UI ERR not_registered 4
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+$ UI fx
+UI fx
+UI ERR not_registered 5
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>
+$ ENG SNAP
+ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>

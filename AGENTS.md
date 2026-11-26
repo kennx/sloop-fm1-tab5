@@ -126,7 +126,7 @@ sloop-fm1-tab5/
 | `scripts/gen_settings_fixture.py --theme NAME [--out DIR] [--selftest]` | settings（PER3）/ side（THM2 主题）fixture；`--selftest` 离线校验 |
 | `scripts/sample_upload.py [--port PORT] info\|erase SLOT\|load SLOT NAME file.wav[:ROOT[:LO-HI]]…` | `SMP` 采样槽上传（`--sine` fixture、`--selftest` 离线） |
 | `scripts/store_raw.py PORT FILE [--obj project\|settings] [--slot 3] [--side FILE]` | `STORE RAW` 分块上传 payload（默认工程槽 3；可 `--obj settings` / `--side`） |
-| `scripts/screenshot_matrix.py PORT [--out DIR] [--pages a,b,…] [--retry N]` / `--selftest`（另有**仅测试用**的隐藏参数 `--inject-drift`） | 全页面截屏矩阵 + 联系表（18 页 × 状态，锚点抽检，`LIVEHASH` 守卫；`--selftest` 离线） |
+| `scripts/screenshot_matrix.py PORT [--out DIR] [--pages a,b,…] [--retry N]` / `--selftest`（另有**仅测试用**的隐藏参数 `--inject-drift`） | 全页面截屏矩阵 + 联系表（13 页 × 状态，锚点抽检，`LIVEHASH` 守卫；`--selftest` 离线） |
 
 - Python 依赖（screenshot.py / inject.py / soak.py）：`pip install -r scripts/requirements.txt`（pyserial + Pillow；numpy 可选，加速 RGB565 解码）。
 - `flash.sh` 接受 `--clean` 但**忽略**之（构建清理统一走 `build.sh --clean`）；`verify.sh` 不接受额外参数。
@@ -153,7 +153,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 导出帧为**旋转后的横屏逻辑帧**（1280×720）：面板物理为竖扫 720×1280，固件发送前已按 `firmware/main/display.c` 的旋转几何旋出横屏帧——PC 侧拿到的即屏幕所见帧，无需再旋转。
 
-固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。**截屏前的页面选择用 console `UI <play|tracks|step|transport|global|fx|analog|fm6|sample|projects|presets|system>`**（同步切页，成功后会作废待执行的异步切页），`SCR` 不再需要页面参数；接入触摸/键盘注入见 §5.4.1。协议字段后续如扩展，须同步更新本节与 `scripts/screenshot.py`。
+固件实现要求：console 组件注册 `SCR` 命令；从显示控制器的活动帧缓冲取**完整稳定帧**（双缓冲下取非活动帧或暂停刷新），避免撕裂。**截屏前的页面选择用 console `UI <页名>`**（已注册的 13 页，如 `play|tracks|sound|tools|sample|step|song|system`；退役页名 `global|fx|mod|scale|voice` 回 `UI ERR not_registered <id>`；同步切页，成功后会作废待执行的异步切页），`SCR` 不再需要页面参数；接入触摸/键盘注入见 §5.4.1。协议字段后续如扩展，须同步更新本节与 `scripts/screenshot.py`。
 
 ### 5.4 UI 视觉验证标准（涉及 UI 的改动必做）
 
@@ -173,7 +173,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 
 | 命令 | 语义（摘要） |
 |---|---|
-| `UI <play\|tracks\|step\|transport\|global\|fx\|sound\|sample\|dsyn\|fm6p\|projects\|presets\|song\|system\|mod\|scale\|voice\|tools>` | 同步切页（回显页 = 落地页）；无参打印当前页。页签两行 + 组作用域语义见参考 |
+| `UI <play\|tracks\|sound\|tools\|sample\|dsyn\|fm6p\|step\|transport\|song\|projects\|presets\|system>` | 同步切页（回显页 = 落地页）；无参打印当前页。页签两行 + 组作用域语义见参考 |
 | `UI KNOB <slot> <press\|drag> <dx> <dy>` | 参数页旋钮的触摸路径注入（press / drag；环带外 `ignored (ring band)`、锁定页 `ignored (locked)`） |
 | `TAP <x> <y>` | 触摸注入：屏幕绝对坐标，`y < 72` 一律 miss；命中后执行与控件回调**同一动作函数**（各页回显格式见参考） |
 | `UI DSYN [KIT <0..3> \| LANE <0..15> \| PAGE <0..3>]` | DSYN 页选择器（KIT / LANE / PAGE） |

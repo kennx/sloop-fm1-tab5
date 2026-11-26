@@ -1,0 +1,22 @@
+# 还原（基线 = 烧录前的 ENG SNAP trk 四行 + 首个 nav transcript 的 STATE SNAP param 行）
+$ PARAM 1 20
+PARAM track=0 id=1 value=20 applied=20 min=0 max=127
+$ PARAM 2 40
+PARAM track=0 id=2 value=40 applied=40 min=0 max=127
+$ PARAM 3 60
+PARAM track=0 id=3 value=60 applied=60 min=0 max=127
+$ PARAM 4 70
+PARAM track=0 id=4 value=70 applied=70 min=0 max=127
+$ ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+$ STATE SNAP
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+$ STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY

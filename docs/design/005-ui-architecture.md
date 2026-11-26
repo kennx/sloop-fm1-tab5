@@ -187,35 +187,38 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 
 #### 1. 组与子页
 
-顶层 **9 组**（P4-F Task 6 终态，18 个注册页；组表的一处定义在纯数据头 `ui_nav.h` 的
+顶层 **9 组**（5B-1 Task 7 起 13 个注册页；组表的一处定义在纯数据头 `ui_nav.h` 的
 `UI_GROUP_LIST`，ui.c 生成 `k_groups[]`，`scripts/knob-test.sh` 校验顺序/成员/每页可达）：
 
 | 组 | 子页 | Σ est（B） |
 |---|---|---|
 | PLAY | PLAY | 3,072 |
 | TRACKS | TRACKS | 7,168 |
-| EDIT | SOUND / MOD / SCALE / VOICE | 16,896 |
-| MIX | GLOBAL / FX / TOOLS | 10,752 |
+| EDIT | SOUND（5B-1 起卡片仪表盘，单页） | 8,704 |
+| MIX | TOOLS（5B-1 起单页） | 3,584 |
 | SYNTH | SAMPLE / DSYN / FM6P | 20,480 |
 | SEQ | STEP / TRANSPORT | 32,256 |
 | SONG | SONG（P4-C Task 11：独立组，不占 SEQ 稳态） | 12,288 |
 | FILE | PROJECTS / PRESETS | 20,992 |
 | SYS | SYSTEM（P4-E Task 6：独立组单页） | 10,240 |
 
-> **P4-F 的三次重组（2026-11-24/25）**：此前是 8 组（PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE/
+> **组表重组记录（P4-F 三次，2026-11-24/25；5B-1 一次）**：此前是 8 组（PLAY/TRACKS/EDIT/SYNTH/SEQ/SONG/FILE/
 > SYS，EDIT = GLOBAL/FX/ANALOG/FM6）。① **Task 4（裁决 R1）**：参数页 chip 框架给 EDIT 加
 > MOD/SCALE/VOICE 后 EDIT 将有 7 个子签，超过 `UI_GROUP_MAX` 5 ⇒ 新增 MIX 组承接 GLOBAL/FX，
 > 组顺序改为 `PLAY/TRACKS/EDIT/MIX/SYNTH/SEQ/SONG/FILE/SYS`（MIX 插在 EDIT 与 SYNTH 之间，
 > 中间态 18 页见 §5.3）；组表的一处定义同时移到 `ui_nav.h`，几何常量与静态断言随之迁入
 > theme.h。② **Task 5**：SOUND 页取代 ANALOG + FM6 两页（ADR-008 §8.10），EDIT 缩为 4 子签
 > （17 页，§5.4）。③ **Task 6**：MIX 加第 3 张子签 TOOLS ⇒ 18 页终态（§5.5）。页签宽度
-> 随组数 142→122→**104px**（§2）。
+> 随组数 142→122→**104px**（§2）。④ **5B-1 Task 7（2026-11-27）**：SOUND 换成 Sloop-Go 式
+> 卡片仪表盘并承载五张族页的全部参数 ⇒ MOD/SCALE/VOICE 与 GLOBAL/FX 退役（页 id 保留为不注册
+> 的枚举值，`UI <页名>` 回 `not_registered`），EDIT 与 MIX 各收成单页 ⇒ 13 页（§5.6）；组数、组序、
+> 页签几何与单页组「子行留空」规则都不变。
 
 - `app_page_t` 追加 `APP_PAGE_PROJECTS, APP_PAGE_PRESETS`（P4-B），P4-C Task 11 再追加
   `APP_PAGE_SONG`，P4-D Task 8 追加 `APP_PAGE_DSYN, APP_PAGE_FM6P`，P4-E Task 6 追加
   `APP_PAGE_SYSTEM`，P4-F Task 4 在**末尾**追加 `APP_PAGE_MOD=15/SCALE=16/VOICE=17`、Task 6
   追加 `APP_PAGE_TOOLS=18`（`APP_PAGE_FM6`=7 自 Task 5 起是不注册的空位常量，既有 id 全部不变）；
-  `APP_STATE_PAGES` 9→11→12→14→15→**19**（18 个注册页 + 1 个空位 id）。SONG/SYNTH/SYSTEM 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
+  `APP_STATE_PAGES` 9→11→12→14→15→**19**（P4-F：18 个注册页 + 空位 id 7；5B-1 起同是 19 = 13 个注册页 + 空位 7 + 退役的 GLOBAL/FX/MOD/SCALE/VOICE）。SONG/SYNTH/SYSTEM 的 id 排在最后（既有页 id 不变），页签顺序由组表决定
   （SYNTH 在 EDIT 与 SEQ 之间）。console `UI` 页名表、`UI MEM` 的组字段、注册表顺序同源。
 - 页签 = 组签（上行）+ 组内子签（下行）；注册顺序 = 组顺序，组内顺序 = 子页顺序。
 
@@ -256,12 +259,12 @@ P4-B 的候选方向（决策时写入本节，选一个再动代码）：
 `TAB` = 按组顺序的扁平轮转，组内最后一页的下一张 = 下一组第一页：
 
 ```
-PLAY → TRACKS → SOUND → MOD → SCALE → VOICE → GLOBAL → FX → TOOLS → SAMPLE → DSYN
-     → FM6P → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → SYSTEM → PLAY
+PLAY → TRACKS → SOUND → TOOLS → SAMPLE → DSYN → FM6P → STEP → TRANSPORT → SONG
+     → PROJECTS → PRESETS → SYSTEM → PLAY
 ```
-（P4-F Task 6 起 18 页 / 9 组；SOUND 的页 id 沿用 6、不按 id 数值排序，SYSTEM 属最后的 SYS
-单页组。P4-E 及之前的 15 页序列 `PLAY → TRACKS → GLOBAL → FX → ANALOG → FM6 → SAMPLE →
-DSYN → FM6P → STEP → TRANSPORT → SONG → PROJECTS → PRESETS → SYSTEM → PLAY` 已作废。）
+（5B-1 Task 7 起 13 页 / 9 组；SOUND 的页 id 沿用 6、不按 id 数值排序，SYSTEM 属最后的 SYS
+单页组。P4-F Task 6 的 18 页序列 `PLAY → TRACKS → SOUND → MOD → SCALE → VOICE → GLOBAL →
+FX → TOOLS → …` 与 P4-E 的 15 页序列已随族页退役作废。）
 
 - 保留现有「tab 轮转」心智与 `nav.sh` 用例形态，只更新期望序列；未注册的页（实施中途）
   轮转到最后一个已注册页即回 PLAY。
@@ -472,7 +475,8 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
 
 #### 5.5 P4-F 终态 18 页/9 组预算（Task 6；Task 7 有序对全矩阵实测，2026-11-25）
 
-§5.3/§5.4 是 Task 4/5 的中间态，本节是阶段终态（取代 §5 的 12 页口径表）。
+§5.3/§5.4 是 Task 4/5 的中间态，本节是 P4-F 终态（取代 §5 的 12 页口径表）；**5B-1 起的现行
+口径（13 页）见 §5.6**。
 
 - **终态** = §5.4 的 17 页 + MIX 的第 3 张子签 TOOLS（`APP_PAGE_TOOLS=18`、`APP_STATE_PAGES=19`）。
   TAB 序见 §4，组表见 §1。
@@ -538,6 +542,35 @@ base + max(源组 Σ est + 目标组首建页 est) + 4KB ≤ 63,120B
     7,896 < SYNTH→STEP 9,476）与账面不同——账面是 est 之和，实测里各页的 est 余量不同。
   - `lvgl_stack_free`（nav 全场景收尾）5,036 / 5,116B（门禁 ≥2,048）。
   - 复现入口：`bash scripts/inject/nav.sh` 的 ⑩；阶段收口矩阵按同一口径重跑。
+
+#### 5.6 5B-1 13 页/9 组预算（Task 7，2026-11-27；现行口径）
+
+五张族页退役（§1 的 ④）之后的账面；§5.5 保留为 P4-F 终态的历史记录。
+
+- **页表** = 13 个注册页（TAB 序见 §4）；`APP_STATE_PAGES` 仍是 19——空位 7 与退役的
+  GLOBAL/FX/MOD/SCALE/VOICE（4/5/15/16/17）不注册，console `UI <页名>` 回 `UI ERR not_registered <id>`。
+- **组 est**：PLAY 3,072 / TRACKS 7,168 / **EDIT 8,704**（= SOUND）/ **MIX 3,584**（= TOOLS）/ SYNTH 20,480 /
+  SEQ 32,256 / SONG 12,288 / FILE 20,992 / SYS 10,240；Σ est **118,784**（`UI MEM sum_est`）。
+- **有序对账面**（规则同 §5.5：源组全建 Σ est + 目标组最贵目标页 est；EDIT/MIX 是单页组）：
+
+| 源＼目标 | PLAY | TRACKS | EDIT | MIX | SYNTH | SEQ | SONG | FILE | SYS |
+|---|---|---|---|---|---|---|---|---|---|
+| **EDIT** | 11,776 | 15,872 | — | 12,288 | 15,872 | 31,744 | 20,992 | 21,504 | 18,944 |
+| **MIX** | 6,656 | 10,752 | 12,288 | — | 10,752 | 26,624 | 15,872 | 16,384 | 13,824 |
+
+  EDIT / MIX 作**目标**列（最贵目标页 8,704 / 3,584）：PLAY 11,776 / 6,656、TRACKS 15,872 / 10,752、
+  SYNTH 29,184 / 24,064、SEQ **40,960** / 35,840、SONG 20,992 / 15,872、FILE 29,696 / 24,576、
+  SYS 18,944 / 13,824；其余行列与 §5.5 相同。最坏五条不变（SEQ→PRESETS 45,056 ⇒ 63,152，DI-56），
+  新进入前列的只有 SEQ→EDIT 40,960 ⇒ **59,056** ≤ 63,120。退掉族页后 EDIT→STEP 60,592 → **49,840**、
+  MIX→STEP 49,512 → 44,720、SEQ→MIX → 53,936。
+- **实测（Task 7 `nav` ⑩ 有序对全矩阵，72 组对 / 104 目标页全部 `池剩余 ≥ 4,096`；固件 `c8305e4`）**：
+  最紧四条不变（SEQ→FILE 6,468 / SEQ→SONG 7,252 / FILE→SEQ 7,792 / SYNTH→SEQ 9,400B）。涉及
+  EDIT/MIX 的：SEQ→EDIT **11428B**（sound；P4-F 时点 13,164）、EDIT→SEQ **19192B**（step；
+  P4-F 时点 12,092）、MIX→SEQ **23904B**（原 17,832）、SEQ→MIX **16076B**（tools；原 15,596）、
+  MIX→EDIT 38496B、EDIT→MIX 38444B；`lvgl_stack_free` 5116B。
+  `UI TAB SEQ` → `UI sound` 的过渡日志：`页面构建 page=SOUND(6) 池增量=7160B 预算=8704B
+  池剩余=11428B`；只建 PLAY 的稳态 `UI MEM registered=13`、`sum_est=118784`、
+  `GROUP EDIT sum_est=8704`、`GROUP MIX sum_est=3584`。证据 `docs/dev/verify/5-pb1-2026-11-26/task-7-nav-stdout.log、task-7-nav-transcript.log`。
 
 #### 6. 验证入口
 

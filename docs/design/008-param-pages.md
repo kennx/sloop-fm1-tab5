@@ -805,7 +805,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `+` 去该引擎的工厂预置 1、按 `−` 环绕到该引擎的最后一个工厂预置，引擎不变。上游
   PRESETS 页的 KNOB 2 转的是**一条单一列表**（收藏 → 全部工厂音色，跨引擎 → 用户预置，
   整表环绕；`ui.c:781-793`、`ui.c:916-927`、`ui_input.c:1272-1277`），转动会跨引擎换
-  音色。跨引擎的浏览列表在 Tab5 尚未提供（DI-54）。
+  音色。跨引擎的浏览列表自 5B-1 Task 6 起由 SOUND 页眉名字区的选择器提供（原 DI-54，已关闭）。
 - **动作 = 两条状态层命令**（`CMD_SET_ENGINE{a=track,v=engine}` → `sloop_core_set_engine`、
   `CMD_SET_PRESET{a=track,v=preset}` → `sloop_core_apply_preset`；越界/鼓轨/冻结在状态层
   拒且不调引擎，成功即整份刷新投影）。± 都是**环绕**（引擎 0..11、预置 0..npresets−1，
@@ -884,6 +884,10 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   预备/超时/改预备的像素与回显、REC 配置行的三格像素与三项往返、格间缝 miss）。
 
 ### 8.12 P4-F 终态索引与任务栈门禁（Task 4–7 收口）
+
+> **5B-1 Task 7 起**：chip 页整类与 SOUND 的 8 槽旋钮已退役，布局表只剩 SOUND（卡片仪表盘）+
+> SAMPLE 两页（`PARAM_PAGE_COUNT = 2`）；现行口径见文末「Sound 仪表盘」的「族页退役」条，本节保留为
+> P4-F 终态的历史索引（其中 chip 行、旋钮编辑与对应 `params.sh` 段的描述已不再成立）。
 
 **参数页按结构分三类**（下表 7 页；SAMPLE/DSYN/FM6P 三页另见下文；布局表 `page_layout.{h,c}` 是唯一权威）：
 
@@ -1022,7 +1026,7 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   （chip 放不下）。**chip 只高亮/预览，不下发**；再点一次已高亮的 chip 或在 chip 行上按 ENTER 才发 `CMD_SET_ENGINE`（本项目
   换引擎与换预置是两条命令，不像 Sloop Go 的 chip 即换）；列表行选择各发一条 `CMD_SET_ENGINE` / `CMD_SET_PRESET`（仅当前
   引擎）/ `CMD_SET_PARAM`（kit 写鼓轨 `P_E0`）并关闭；chip 高亮 ≠ 当前引擎时列表**只读**（预览：点行不执行、
-  不标当前项，ENTER = 确认 chip），确认的就是当前项（引擎 = 默认值 + 预置 0；预置还要求声音来自工厂预置——
+  不标当前项；ENTER 按焦点所在行——chip 行焦点 = 确认高亮的引擎，row 1 列表焦点 = **不动作**，见下「键盘」），确认的就是当前项（引擎 = 默认值 + 预置 0；预置还要求声音来自工厂预置——
   载入用户预置后下标 0 不是「已选着工厂预置 0」）都**不下发**（回显 `preview engine=<高亮>` / `unchanged`）。键盘：←/→ 移 chip 高亮并把焦点放在 chip 行、↑/↓ 移列表高亮并把焦点放在列表；ENTER 按焦点所在行确认——
   row 0 点行 / ENTER = 用高亮的引擎（鼓轨 = kit）；row 1 列表焦点 = 装载高亮的预置（预览态不动作），chip 焦点 =
   确认高亮的引擎（ENTER 与 ↑ 在输入层是同一个 +1 分支，
@@ -1032,6 +1036,16 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   走（console 的矩形查询把不在视口的行滚进来是唯一例外——命中与矩形必须读同一个滚动量）。12 个 chip 合计约 1,041px 超过
   内宽 928，chip 行横向滚动、高亮 chip 留在行内。按名浏览工厂预置自此可用（原 DI-54）。
 
+- **族页退役（Task 7，2026-11-27）**：仪表盘覆盖了原五张族页的全部参数，MOD/SCALE/VOICE/GLOBAL/FX 自布局表与
+  组表退役——`PARAM_PAGES` 只剩 SOUND（下标 0）与 SAMPLE（下标 1），`PARAM_PAGE_COUNT` 7→2；页 id 保留为不注册的
+  枚举值（`UI <页名>` ⇒ `UI ERR not_registered <id>`），EDIT = SOUND、MIX = TOOLS（13 页，ADR-005 §5.6）。chip 框架
+  （`PARAM_CHIP_WHEN_ANALOG`、chip 行、`UI <page> CHIP` 的多页假设）与鼓轨逐槽规则留在 `page_params.c` /
+  `page_layout.h`，当前没有实例；012 §3 的族页槽位表由 `sound_layout.h` 承载，`knob-test.sh` 里对应它们的槽表断言
+  删除（`sound-test.sh` 逐槽钉住卡片成员；knob-test 16 例）。`params.sh` 的族页段与 SOUND 8 槽段删除（卡片上的设备
+  断言由 `sound` 场景接管，Task 8）；保留的 SOUND 段（页眉 ±、鼓轨 KIT 行、FM6 bank 行）里「bank 行缺席」的判据由
+  「bank 带 TAP miss / 底色」改为「bank 带内没有 SAVE/ERASE 按钮色」（`bank_row_absent_probes`，`store.sh` ⓰ 同）——
+  行隐藏时那一带被卡片视口盖住，TAP 会落在卡片标题行上（翻折叠位），不再有「miss」这个现象。
+
 预算：est 8,704（实测 delta 6,044–6,816B + Task 4 预留两对象，+10%；原估算 12,288 为上限；Task 4 后实测 7,116–7,312B）
 
 > est 于 2026-11-26 按实测校准（主控裁决）：开工估算 12,288 使 EDIT→STEP 的有序对账面 64,176 > 63,120
@@ -1039,6 +1053,9 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
 > 改按 §5 的规则重校准：6,816 + Task 4 的两个对象（约 640B）= 7,456，+10% → 512 对齐 = **8,704**。
 > EDIT Σ est 23,040 → 19,456，EDIT→STEP 账面 60,592 ≤ 63,120（knob-test 17/17，固件 `562c63f`）。
 > 新增对象仍须按 est 校准：实测超出时先改对象设计，不抬 est。
+>
+> 族页退役后（Task 7，固件 `c8305e4`）：EDIT Σ est **8,704**、MIX 3,584，EDIT→STEP 账面 49,840；
+> `nav` ⑩ 实测 SEQ→EDIT `池剩余=11428B`、EDIT→STEP `19192B`（≥4,096）；`UI MEM registered=13`。
 
 实测登记（2026-11-26，Task 2 骨架 = 滚动容器 + 13 张自绘卡片 + 页眉两行 + `−/+` + 常驻隐藏的银行行；
 证据 `docs/dev/verify/5-pb1-2026-11-26/`，读数脚本 `task-2-proto-measure.py` 随包）：
