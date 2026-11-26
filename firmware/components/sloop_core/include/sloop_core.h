@@ -258,6 +258,22 @@ typedef struct {
 } sloop_sound_snapshot_t;
 bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out);
 
+/* ---- 按索引取名（5B-1 Task 5）：引擎 / 工厂预置 / 鼓 kit 名的只读查询 -------------------
+ * SOUND 页的引擎·预置选择器要按索引列出全部名字，而 sloop_core_sound_read 只给选中轨当前
+ * 声音的名字。全部只读、不取引擎锁、冻结态同样可读：只读上游静态表 `ENGINES[]` /
+ * `presets[]` / `DRUM_KIT_DESC.names`（kit 表 = sloop_core_sound_read 的 kit_name 所用的同一张），
+ * 不建镜像表。`sloop_core_nengines()` = SLOOP_CORE_NENGINES；`sloop_core_nkits()` = kit 枚举数
+ * （每 kit 一名）；`sloop_core_npresets()` 越界回 0。名字函数把静态串拷进 buf：截断到 n-1 字符、
+ * **必以 0 结尾**（上游最长的引擎名 7、预置名 10 字符，`SLOOP_PRESET_NAME` 放得下）；下标越界
+ * （含 npresets 为 0 的引擎）时 buf 置空串并回 false；buf == NULL 或 n == 0 回 false 且不写 buf
+ * （没有终止符可放）。 */
+uint8_t sloop_core_nengines(void);
+bool sloop_core_engine_name(uint32_t engine, char *buf, uint32_t n);
+uint8_t sloop_core_npresets(uint32_t engine);
+bool sloop_core_preset_name(uint32_t engine, uint32_t preset, char *buf, uint32_t n);
+uint8_t sloop_core_nkits(void);
+bool sloop_core_kit_name(uint32_t kit, char *buf, uint32_t n);
+
 /* ---- DSYN：SYN1..SYN4 的 22 字节鼓音色（P4-D Task 2，spec §4.1） -------------------
  * 上游 `dsnd_t`（drum_synth.c）是 22 字节整型结构，音色按字节与编辑器协议一致。
  * 编辑面把它拆成 **24 个虚拟字段**（顺序固定，编号即协议）：`flt` 拆成 FLT_MODE

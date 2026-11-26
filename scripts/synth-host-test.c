@@ -1315,6 +1315,76 @@ static void test_sound_read(void)
     trk[TRK_DRUM].p[P_E0] = save_kit;
 }
 
+/* sloop_core_nengines/engine_name/npresets/preset_name/nkits/kit_name（5B-1 Task 5）：按索引取名的
+ * 只读查询——SOUND 页的引擎·预置选择器要列出全部名字，而 sloop_core_sound_read 只给选中轨的当前
+ * 声音。期望 = 上游表本身（ENGINES[e]->name / npresets / presets[p].name、drums.c 的 DRUM_KIT_NAMES，
+ * 不经被测函数的输出）；12 是公开常量 SLOOP_CORE_NENGINES 的锚点。 */
+static void test_sound_names(void)
+{
+    char b[16];
+    uint32_t e, p, k, total = 0;
+    int ok;
+
+    ok = sloop_core_nengines() == 12u && sloop_core_nengines() == SLOOP_CORE_NENGINES;
+    check(ok, "sound names: nengines is 12 (SLOOP_CORE_NENGINES)");
+    ok = sloop_core_engine_name(0, b, sizeof b) && strcmp(b, "ANALOG") == 0;
+    check(ok, "sound names: engine 0 is ANALOG");
+    ok = !sloop_core_engine_name(12u, b, sizeof b);
+    check(ok, "sound names: engine 12 rejected");
+
+    /* 全部引擎 × 全部工厂预置：名字非空且逐字节等于上游静态串（不截断）、npresets 如实；
+     * preset == npresets 拒绝 */
+    ok = 1;
+    for (e = 0; e < 12u; e++) {
+        const engine_t *E = ENGINES[e];
+        uint8_t n = sloop_core_npresets(e);
+        ok = ok && n == E->npresets;
+        ok = ok && sloop_core_engine_name(e, b, sizeof b) && strcmp(b, E->name) == 0;
+        for (p = 0; p < n; p++) {
+            ok = ok && sloop_core_preset_name(e, p, b, sizeof b) && b[0] != '\0';
+            ok = ok && strcmp(b, E->presets[p].name) == 0;
+            total++;
+        }
+        ok = ok && !sloop_core_preset_name(e, n, b, sizeof b);
+    }
+    check(ok, "sound names: every engine/preset name equals the upstream table (no truncation), preset == npresets rejected");
+    check(total > 0, "sound names: the factories have presets at all (total > 0)");
+
+    /* 下标 → 引擎名的锚点（上游 engines.c 的 ENGINES[] 顺序：8 是 GRAIN、FM6 在 9——每个引擎都有
+     * 工厂预置，FM6 是 8 个，没有 npresets == 0 的引擎）；npresets 越界回 0 */
+    {
+        static const char *const names[12] = {"ANALOG", "DIGITAL", "PHASE",  "LOFI",   "SAMPLE", "VOICE",
+                                              "TRIO",   "WHEEL",   "GRAIN",  "FM6",    "PHYS",   "NOISE"};
+        ok = sloop_core_npresets(12u) == 0u && ENGINES[9]->npresets == 8u;
+        for (e = 0; e < 12u; e++)
+            ok = ok && sloop_core_engine_name(e, b, sizeof b) && strcmp(b, names[e]) == 0 && sloop_core_npresets(e) > 0u;
+    }
+    check(ok, "sound names: engine index -> name anchor (8 = GRAIN, FM6 = 9 with 8 presets); npresets(12) is 0");
+
+    /* 鼓 kit：数量 = DRUM_KIT_NAMES 的项数，每 kit 一名（0 ACOUSTIC），kit == nkits 拒绝 */
+    ok = sloop_core_nkits() > 0u && sloop_core_nkits() == DRUM_KITS &&
+         sloop_core_kit_name(0, b, sizeof b) && b[0] != '\0' && strcmp(b, "ACOUSTIC") == 0;
+    for (k = 0; k < DRUM_KITS; k++)
+        ok = ok && sloop_core_kit_name(k, b, sizeof b) && strcmp(b, DRUM_KIT_NAMES[k]) == 0;
+    check(ok, "sound names: nkits = DRUM_KITS, every kit name equals DRUM_KIT_NAMES (0 = ACOUSTIC)");
+    ok = !sloop_core_kit_name(sloop_core_nkits(), b, sizeof b);
+    check(ok, "sound names: kit == nkits rejected");
+
+    /* 缓冲：截断到 n-1 字符且必以 0 结尾；n == 0 / buf == NULL 拒绝（无处可放终止符） */
+    memset(b, 'x', sizeof b);
+    ok = sloop_core_engine_name(0, b, 4u) && strcmp(b, "ANA") == 0;
+    ok = ok && sloop_core_engine_name(0, b, sizeof b) && strcmp(b, "ANALOG") == 0;
+    ok = ok && !sloop_core_engine_name(0, b, 0u) && !sloop_core_preset_name(0, 0, b, 0u) &&
+         !sloop_core_kit_name(0, b, 0u) && !sloop_core_engine_name(0, NULL, sizeof b);
+    check(ok, "sound names: truncation is NUL-terminated; n == 0 / buf == NULL rejected");
+
+    /* 越界时 buf 清成空串（调用方可直接显示），不留上一次的名字 */
+    ok = sloop_core_engine_name(0, b, sizeof b) && strcmp(b, "ANALOG") == 0 &&
+         !sloop_core_engine_name(12u, b, sizeof b) && b[0] == '\0';
+    ok = ok && !sloop_core_preset_name(0, sloop_core_npresets(0), b, sizeof b) && b[0] == '\0';
+    check(ok, "sound names: an out-of-range index leaves an empty string in buf");
+}
+
 int main(void)
 {
     test_dsyn_fields();
@@ -1322,6 +1392,7 @@ int main(void)
     test_sample_slot();
     test_desc_live();
     test_sound_read();
+    test_sound_names();
     if (fails) {
         printf("SYNTH HOST TEST FAILED (%d failure%s)\n", fails, fails == 1 ? "" : "s");
         return 1;

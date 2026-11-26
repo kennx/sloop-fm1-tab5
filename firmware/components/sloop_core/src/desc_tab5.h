@@ -143,4 +143,47 @@ bool sloop_core_sound_read(uint8_t track, sloop_sound_snapshot_t *out)
     return true;
 }
 
+/* 按索引取名（契约见 sloop_core.h）：全部只读上游静态表，不取引擎锁。名字函数同一形：
+ * 越界 ⇒ src = NULL ⇒ sound_copy_name 置空串、回 false；buf == NULL / n == 0 不写 buf。 */
+uint8_t sloop_core_nengines(void)
+{
+    return (uint8_t)NENGINES;
+}
+
+bool sloop_core_engine_name(uint32_t engine, char *buf, uint32_t n)
+{
+    const char *src = engine < NENGINES ? ENGINES[engine]->name : NULL;
+    if (buf == NULL || n == 0u) return false;
+    sound_copy_name(buf, n, src);
+    return src != NULL;
+}
+
+uint8_t sloop_core_npresets(uint32_t engine)
+{
+    return engine < NENGINES ? ENGINES[engine]->npresets : 0u;
+}
+
+bool sloop_core_preset_name(uint32_t engine, uint32_t preset, char *buf, uint32_t n)
+{
+    const engine_t *e = engine < NENGINES ? ENGINES[engine] : NULL;
+    const char *src = (e != NULL && preset < e->npresets) ? e->presets[preset].name : NULL;
+    if (buf == NULL || n == 0u) return false;
+    sound_copy_name(buf, n, src);
+    return src != NULL;
+}
+
+uint8_t sloop_core_nkits(void)
+{
+    return desc_enum_count(&DRUM_KIT_DESC);
+}
+
+bool sloop_core_kit_name(uint32_t kit, char *buf, uint32_t n)
+{
+    uint8_t kits = desc_enum_count(&DRUM_KIT_DESC);
+    const char *src = kit < kits ? DRUM_KIT_DESC.names[kit] : NULL;
+    if (buf == NULL || n == 0u) return false;
+    sound_copy_name(buf, n, src);
+    return src != NULL;
+}
+
 #endif
