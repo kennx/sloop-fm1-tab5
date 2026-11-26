@@ -529,11 +529,15 @@ GONE_STALE = (PASS_LINES[:_at("status_gone") + 2] + [GONE_STALE_LINE, f"{NOTE} �
               "sloop>  FM1 STATUS", GONE_STALE_LINE])  # 重读一次仍是旧值：判失败
 _i = _at("status_gone") + 2   # 成功样例的 status_gone 段：READY 的下一条就是 GONE
 PASS_RACE = PASS_LINES[:_i] + [GONE_STALE_LINE, "sloop>  FM1 STATUS"] + PASS_LINES[_i:]  # 首行旧值、重读已归零：通过
-# 拧旋钮后紧跟一次 RELOAD：最后一条不是 CHANGED，但段内有一条满足 ⇒ 通过；第 6 步基线取段内最大 changed（2）
-CHANGED_THEN_RELOAD = (PASS_LINES[:_at("events2")]
-                       + _block(6, "events2", EVENTS % (1, 1, "cmd=23 scope=0 id=3 value=17"),
-                                f"{NOTE} >>> {KNOB_PROMPT2}", EVENTS % (2, 2, "cmd=24 scope=1 id=5 value=0"))
-                       + PASS_LINES[_at("events2") + 3:])
+# 步骤 5 段内先 CHANGED 后 RELOAD（最后一条不是 CHANGED，但段内有一条满足 ⇒ 通过）；
+# 第 6 步基线取该段最大 changed（2），之后的读数须 >2
+_i = _at("events2")
+CHANGED_THEN_RELOAD = (PASS_LINES[:_i]  # 到步骤 5 段的 CHANGED 行
+                       + [EVENTS % (2, 2, "cmd=24 scope=1 id=5 value=0")]
+                       + PASS_LINES[_i:_i + 2]  # 步骤 6 段头 + 回显
+                       + [EVENTS % (2, 2, "cmd=24 scope=1 id=5 value=0"), f"{NOTE} >>> {KNOB_PROMPT2}",
+                          EVENTS % (3, 3, "cmd=23 scope=0 id=3 value=19")]
+                       + PASS_LINES[_i + 5:])
 PING_GONE_HANG = PASS_LINES[:_at("ping_gone1") + 1]  # 拔线后第一条 PING 石沉大海
 
 PASSING = (PASS_LINES, PASS_RACE, CHANGED_THEN_RELOAD)
