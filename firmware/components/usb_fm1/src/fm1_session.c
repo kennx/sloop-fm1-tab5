@@ -422,11 +422,14 @@ esp_err_t fm1_session_start(void)
 
     portENTER_CRITICAL(&s_mux);
     already = s_ready;
-    s_ready = true; /* 任务一启动就可能协商：先置 s_ready，再建任务 */
     portEXIT_CRITICAL(&s_mux);
     if (already) return ESP_ERR_INVALID_STATE;
     s_req_mux = xSemaphoreCreateMutexStatic(&s_req_mux_mem);
     s_reply_sem = xSemaphoreCreateBinaryStatic(&s_reply_sem_mem);
+    /* 请求要用的互斥量/信号量建好之后才放行请求：此前到达的请求回 ESP_ERR_NOT_ALLOWED */
+    portENTER_CRITICAL(&s_mux);
+    s_ready = true; /* 任务一启动就可能协商：先置 s_ready，再建任务 */
+    portEXIT_CRITICAL(&s_mux);
     if (xTaskCreateWithCaps(session_task, "fm1_session", SESSION_TASK_STACK, NULL, SESSION_TASK_PRIO,
                             &task, MALLOC_CAP_SPIRAM) != pdPASS) {
         portENTER_CRITICAL(&s_mux);
