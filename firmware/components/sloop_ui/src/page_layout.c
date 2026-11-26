@@ -50,8 +50,9 @@
  * MOD 4,544B，会逼 est 到 5,120 并让 EDIT→STEP 有序对账面 63,848 > 63,120；改对象设计
  * 后实测 2,936–3,104B（跨 boot 3,012–3,088B），est = 实测 +15..22%、512 对齐，见 ADR-008
  * §8.9）。SOUND est
- * 12,288 = 卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± 按钮 + 常驻隐藏的
- * bank 行（上限 12,768，5B 规格 §5.6）。est 只在实测超限时改对象设计，不抬。
+ * 8,704 = 卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± 按钮 + 常驻隐藏的
+ * bank 行：实测 6,044–6,816B + Task 4 预留的两个对象，+10%、512 对齐（2026-11-26 校准；开工时的
+ * 估算 12,288 是上限，5B 规格 §5.6）。est 只在实测超限时改对象设计，不抬。
  * 宏体内不放注释（每行都要续行）。
  * 宏参数名不能叫 id/title：designator 的 .id/.title 会被参数替换掉。 */
 #define PARAM_PAGES(X) \
@@ -72,7 +73,7 @@
       CHIP("INSERT", PARAM_CHIP_ALWAYS, TD(L_P_ITYPE), TD(L_P_IA), TD(L_P_IB), TD(L_P_IC)), \
       CHIP("INSERT 2", PARAM_CHIP_ALWAYS, TD(L_P_IMIX)), \
       CHIP_NONE) \
-    X(2, APP_PAGE_ANALOG, 12288, "SOUND", \
+    X(2, APP_PAGE_ANALOG, 8704, "SOUND", \
       PARAM_FEAT_SOUND | PARAM_FEAT_BANK_FM6 | PARAM_FEAT_DASHBOARD, 0, \
       CHIP(NULL, PARAM_CHIP_ALWAYS, TS(L_P_E0), TS(L_P_E0 + 1), TS(L_P_E0 + 2), TS(L_P_E0 + 3), \
            TS(L_P_E0 + 4), TS(L_P_E0 + 5), TS(L_P_E0 + 6), TS(L_P_E0 + 7)), \

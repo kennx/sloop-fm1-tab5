@@ -546,8 +546,9 @@ static void case_layout_pages(void)
         check_ll("page_id → 下标", page_layout_index(ids[i]), i);
         if (i == 2) {
             /* SOUND：卡片仪表盘（5B-1：滚动容器 + 13 张自绘卡片）+ 页眉两行 + ± + 条件
-             * bank 行；est 12,288，上限 12,768（5B 规格 §5.6，不得上抬） */
-            CHECK(pg->est_bytes >= 6144u && pg->est_bytes <= 12768u);
+             * bank 行；est 8,704 = 实测 6,816B 上沿 + Task 4 预留的两个对象 + 10%、512 对齐
+             * （开工估算 12,288 是上限，5B 规格 §5.6）——钉死：改它等于改 EDIT→STEP 账面 */
+            check_ll("SOUND est（实测校准）", pg->est_bytes, 8704u);
         } else if (i == 3) {
             check_ll("SAMPLE（旧式整页）est 不变", pg->est_bytes, 6144u);
         } else {
@@ -571,7 +572,7 @@ static void case_layout_pages(void)
     check_ll("未注册 id → -1", page_layout_index(APP_STATE_PAGES), -1);
     /* 有序对账面 = base + 源组 Σ est + 目标页 est + 4KB ≤ 池可用（ADR-005 §5）；终态全表见
      * §5.5。这里覆盖涉及参数页的三条 + 最坏的 SEQ→PRESETS（不是只查子集）。 */
-    check_ll("EDIT Σ est", edit_est, 12288u + 3u * (mod ? mod->est_bytes : 0));
+    check_ll("EDIT Σ est", edit_est, 8704u + 3u * (mod ? mod->est_bytes : 0));
     check_ll("MIX Σ est", mix_est, 2u * mix_max);
     CHECK((long long)UI_BASE_BYTES + edit_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL); /* EDIT→STEP */
     CHECK((long long)UI_BASE_BYTES + mix_est + UI_STEP_EST + 4096 <= UI_POOL_AVAIL);  /* MIX→STEP */
