@@ -108,6 +108,7 @@ sloop-fm1-tab5/
 | `scripts/seq-test.sh` | host 单测：音序步/锁/pattern 工具 + PER3/DSU 字节层（persist 段）+ sections/chain/SONG（含 `persist-host-test.c`） |
 | `scripts/state-test.sh` | 状态层 host 单测（gcc + stub 引擎，46 例） |
 | `scripts/knob-test.sh` | `sloop_ui` 纯函数 host 单测（旋钮数学/格式化、`input_map` 键表、布局表、导航表、色表） |
+| `scripts/sound-test.sh` | `sloop_ui` Sound 仪表盘纯函数 host 单测（卡片成员表、扁平下标、两列 staggered 布局、焦点移动、环带） |
 | `scripts/synth-test.sh` | host 单测：DSYN 24 字段 / FM6 155B patch / 采样槽适配 |
 | `scripts/device-selftest.py PORT [--case NAME] [--output LOG]` | 设备全量 `ENG SELFTEST` 182 例，与 golden 严格比对（自动 AUTO OFF / AUDIO OFF→ON） |
 | `scripts/selftest-heap.py PORT [--record-only]` | 连续两次全量自检的内部堆泄漏门禁（原 DI-26 回归；`--record-only` 只记录） |
@@ -211,7 +212,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 固件代码 | `scripts/build.sh` 退出码 0，且**不新增**编译警告/错误 |
 | 固件代码（烧录验证） | esptool 输出 `Hash of data verified`；启动日志无 fatal/abort/backtrace |
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
-| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 编辑器协议帧·MIDI 流 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
+| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 编辑器协议帧·MIDI 流 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`sound-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
 | 设备自检与堆 | `python3 scripts/device-selftest.py` **182/182**；`python3 scripts/selftest-heap.py` PASS；`python3 scripts/desc-check.py` PASS |
 | 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 十条场景 + 截屏矩阵对真机各跑一遍（`sequence`/`synth`/`sys` 各复跑），退出码均 0；断言不放宽；逐场景判据见参考 |
 | 阶段收口 soak | `python3 scripts/soak.py PORT --duration 1800 --interval 60 --save-window 900`（阶段收口 3h）退出码 0；判据与口径见参考 |
