@@ -991,7 +991,7 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
 
 登记于 2026-11-26（设计依据：5B 规格 `docs/superpowers/specs/2026-11-26-phase5b-sound-mixer-device-design.md`
 §4.2、§5.2、§5.6）。纯数据层（`sound_layout.{h,c}`，Task 1）与页面骨架（`page_sound.{h,c}`，Task 2）
-已落地；槽的值/锁定/拖动改值、键盘、选择器由 5B-1 后续任务接入。
+已落地，槽的存在位图/值/锁定/拖动改值与 console 注入入口（`UI SOUND …`，Task 3）也已接入；键盘、折叠、选择器由后续任务接入。
 
 - **卡片成员 = 纯数据表 `sound_layout.h`**（X 宏；每个成员 = 作用域 + 参数 id，顺序与分组照 Sloop Go `layout(pe0)`），
   描述符只提供值的形态（§9）。
@@ -1003,8 +1003,11 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   挪到页眉下方 y=76（`BANK_ROW_Y_DASH`），卡片视口顶随它的可见性在 80 ⇄ 128 之间切（`page_sound_update` 挪容器并
   钳位滚动量，零分配）。SAMPLE 页的槽管理行不动。
 - **手势**：容器与卡片都不让 LVGL 自己滚（清 SCROLLABLE / SCROLL_CHAIN / GESTURE_BUBBLE），滚动由卡片的事件回调
-  驱动 `lv_obj_scroll_by_bounded`——按下点落在槽环带里这一次手势就归槽，否则归滚动；LVGL 不因为「我们自己滚了」
-  而取消点击，所以移动过的手势一律不算点击。LVGL 的命中测试不看父对象裁剪，按下点先按视口矩形过滤。
+  驱动 `lv_obj_scroll_by_bounded`——按下点落在**存在**槽的环带里这一次手势就归槽（环带内拖动按相对锚点的
+  角度差改值，`knob.c` 同一套换算），否则归滚动（容器自己可点击：列间空隙、卡片之间、短列下方的空白同样滚）；
+  LVGL 不因为「我们自己滚了」而取消点击，长按也在手指移动后照发（LVGL 只在自己的 `scroll_obj` 存在时才拦），
+  所以点击类动作以「手势未移动」为入口条件、并在最先到达的点击事件里消费一次。LVGL 的命中测试
+  （`lv_indev_search_obj`）只在点落在父对象坐标内时才下探子对象，滚出视口的卡片部分收不到按下。
 
 预算：est 8,704（实测 delta 6,044–6,816B + Task 4 预留两对象，+10%；原估算 12,288 为上限）
 
