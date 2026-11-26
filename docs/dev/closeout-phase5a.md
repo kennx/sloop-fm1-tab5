@@ -1,10 +1,9 @@
 # 阶段 5A（连接打通）收口报告
 
 > 分支 `feat/phase5-sloop-go`，受测固件 **`715fdae`**（boot `App version: 715fdae`，无 `-dirty`）。
-> **状态：机器侧完成（2026-11-26）**——§2 的 FM-1 未接条件全矩阵通过（含复位后的 30min soak PASS）；
-> **一项未闭合**：FM-1 已接条件下的 182 + selftest-heap 尚未执行（§2 末行）。
-> **两条 FM-1 已接证据的原始转录已丢失**（用户冒烟 `FM1 SMOKE PASS 7/7`、U 盘插入监听）：读数出自主控核实的清单，
-> 没有文件可核（§6）。合并 `dev` 之前建议先补齐这两类证据。
+> **状态：机器侧完成（2026-11-26）**——两种条件的门禁全部通过：FM-1 未接的全矩阵（含复位后的 30min soak PASS），
+> 与 FM-1 已接的冒烟 `FM1 SMOKE PASS 7/7` + 182 + selftest-heap（最终固件 `715fdae`，19:05–19:18）。
+> 首轮（12:59 / 13:04）的冒烟与 U 盘监听原始转录曾丢失，已由上述重跑补证；首轮读数作为历史保留（§6）。
 > **除冒烟脚本里由人拧旋钮 / 拔插的步骤外，没有人工验证项**；全部截图只有像素探针 / 锚点结论，没有人做过视觉检查。
 > 5A 本身没有 UI 页面，用户可见面是控制台回显与日志。
 > 分支**尚未合回 `dev`**（`dev`、`main` 都不含 `715fdae`）；dev → main 顺延，时机由用户决定。
@@ -44,9 +43,11 @@
 | soak 首跑（同一次开机，接在截屏矩阵之后） | ❌ FAIL（保留作对照）：0 项断言失败、41 项判定问题 = `xrun=1` + `duty_mean` 29.31%→18.16%——两条都是自开机累计量；原因是驱动脚本没按「硬复位 + 30s 后起跑」 | `70-soak-fail-sameboot.log`、`soak-20261126-143458.log` |
 | soak 复位后重跑（15:08:34 → 15:39:43） | ✅ **PASS**：31 采样 / 1801s、断言失败 0、判定问题无；内部堆 73,119→73,099B（Δ−20B）、`internal_min=71,876B`、`xrun=0`、`duty_mean` 最大 18.31%（上限 18.88%）、池往返 +12B、温度 31.1℃、无 panic/WDT | `71-soak-fresh.log`、`soak-20261126-150834.log`、`soak-summary-20261126-150834.txt` |
 | 渲染占空比 A/B（对照，不计门禁） | dev `f4b2026` 稳态 `render_mean_us` 1037µs（17.87%）vs 5A `715fdae` 1071 / 1071µs（18.45%）：差距来自 soak 起点工程内容，非 5A 回归；5A 使渲染均值 +34µs（+3.4%，约 +0.6 个百分点） | `ab-status.txt`、`ab-*-summary.txt`、`ab-*-soak.log`、`ab-flash-{dev,5a}.log` |
-| 联动协议冒烟 `fm1-smoke.py`（FM-1 已接，用户执行） | ✅ `FM1 SMOKE PASS 7/7`——**⚠️ 原始转录缺失**，读数出自主控核实的清单 | 无文件（原 `fm1-smoke-20261126-125957.log` 已被 `build.sh --clean` 删除） |
-| 非 MIDI 设备插入（U 盘）+ 拔线瞬间的 IN 环错误分支 | ✅ 日志「无 MIDI 接口」、`FM1 STATUS link=none open_fail=1`、无 abort——**⚠️ 原始转录缺失** | 无文件（原 `fm1-nonmidi-20261126-130417.log` 已被 `build.sh --clean` 删除） |
-| `device-selftest.py` + `selftest-heap.py`（**FM-1 已接**） | ⏳ 待补——尚未执行，读数由主控稍后补入 | 无 |
+| 联动协议冒烟 `fm1-smoke.py`（FM-1 已接，最终固件，用户执行，19:05） | ✅ **`FM1 SMOKE PASS 7/7`**：`link=ready … watch=3 info=yes need_upgrade=0`；`FM1 INFO version="FELUCCA SLOOP 2.8.5" … proto=12`；PING ×10 中位数 1ms；ATK 0 → 1 → 0 并读回；拧旋钮后 `changed=1 … last=cmd=23 scope=1 id=0 value=81`，静置 10s 再拧 `changed=2 … value=80`；拔线 `link=none watch=0 info=no` + `FM1 INFO ERR no_link` + 连发 5 次 PING 均 1s 内有回复；重插 `watch=3 info=yes`、`FM1 INFO` / `PING` 恢复 | `fm1-smoke-20261126-190513.log`（头自报 `App version: 715fdae`） |
+| 非 MIDI 设备插入（U 盘；重做，19:07） | ✅ 日志 `设备 addr=3 无 MIDI 接口`、`FM1 STATUS link=none … open_fail=1`、无 abort | `fm1-nonmidi-watch-2.log` |
+| `device-selftest.py`（**FM-1 已接**，19:09:57 → 19:12:41） | ✅ `cases=182 identical=182 mismatch=0 … result=PASS`，rc=0 | `att-182.log`、`att-182-transcript.log`、`att-status.txt` |
+| `selftest-heap.py`（**FM-1 已接**，→ 19:18:07） | ✅ run 1 Δ260B、run 2 Δ44B（上限 1,024B），收尾 `internal_free=72,675B`；之后 `FM1 STATUS link=ready … watch=3 info=yes`、`FM1 PING ms=1` | `att-heap.log`、`att-heap-transcript.log`、`att-fm1.log` |
+| 首轮冒烟与 U 盘监听（12:59 / 13:04；**历史记录**） | 首轮结论 `FM1 SMOKE PASS 7/7`、`link=none open_fail=1` 无 abort——原始转录已丢失，读数出自主控当时核实的清单 | 无文件 |
 
 ## 3. 与 spec 的偏差
 
@@ -63,7 +64,9 @@
 
 ## 4. 实测读数
 
-- **真机 INFO**：`version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12`；接口 1 MIDI Streaming，bulk IN 0x81 / OUT 0x01；PING 1–2ms。（来自用户那次冒烟，转录缺失——§6。）
+- **真机 INFO**：`version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12`；接口 1 MIDI Streaming，bulk IN 0x81 / OUT 0x01；PING ×10 中位数 1ms（1–2）。（`fm1-smoke-20261126-190513.log`。）
+- **FM-1 已接时的内部堆**：selftest-heap 收尾 `internal_free=72675B`；两项检查之后 `ENG MEM internal_free=72559 internal_min=71824`。重插后 claim MIDI 接口使 `internal_free 73155 -> 72775`。
+- **推送计数（19:05 冒烟）**：步骤 5–6 结束时 `FM1 EVENTS total=6 changed=2 reload=4`，两条 CHANGED 都是 `cmd=23 scope=1 id=0`（value 81、80）。
 - **内部堆（FM-1 未接）**：无链路开机 `internal_free=73467 internal_min=72288`；复位后 30min soak 全程 `internal_min=71,876B`，门线 61,440B 不变。
 - **渲染占空比**：30min soak `duty_mean` 最大 18.31%（上限 18.88%，余量 0.57 个百分点）；A/B 稳态 dev 1037µs / 5A 1071µs。历史各阶段 soak 的占空比在 9–13%，今天的 ~18% 不是 5A 带来的（dev 固件在同一工程上同样 17.9%）。
 - **首跑 soak 的两条累计量**：`xrun` 在 t=1s 已为 1 且 31 个采样不变；`duty_mean` 从 29.31% 单调回落到 18.92% 仍高于上限。
@@ -117,13 +120,18 @@ R9 / R16 带随后的更正。R20 的 ② 与 R21 在实施中真的触发，其
 **设计固有限制**
 
 - **协议无序号**：超时后迟到的回复可能被下一次同 cmd 的请求匹配（Sloop Go 同样）；设备静默停推时 `watch=3` 仍显示 Tab5 上次设的值。
-- **只读证、未实测的分支**：`need_upgrade=1`（真机是 2.8.5）与协商失败的指数退避；IN 环错误分支只在用户那次会话的拔线瞬间走过一次（`Bulk IN 出错 status=1` → 重提交失败 → 清理 → `link=none`；这一回是重提交失败后直接清理，不是「连续 3 次错误」触发的断链——后者没有在硬件上演练过）。
+- **只读证、未实测的分支**：`need_upgrade=1`（真机是 2.8.5）与协商失败的指数退避；IN 环错误分支在 19:05 冒烟的拔线里走到了：`Bulk IN 出错 status=1（连续第 1/3 次）` → 重提交失败 `ESP_ERR_INVALID_STATE` → 设备已清理 → `link=none`；19:07 监听的拔线段只留下其后的 `重提交失败`。这是「设备已不在」时的直接清理，不是「连续 3 次错误」触发的断链——后者没有在硬件上演练过。
 - **`fm1_cli` / `usb_lib` 两个任务的栈水位没有实测**（栈各 4096、在 PSRAM）。
 
 **证据缺口**
 
-- **两份 FM-1 已接的原始转录丢失**（§2）：都写在 `firmware/build/verify/`，被全矩阵第一步的 `build.sh --clean` 清掉。读数只有主控的清单，而且用户那次冒烟跑在 `-dirty` 的同源构建上，不是本包的干净烧录。要补：在最终固件 `715fdae` 上重跑 `fm1-smoke.py`（需要操作员拧旋钮 / 拔插）并把转录直接落到不会被抓取暂存区清理的位置；U 盘插入那一步同理。
-- **FM-1 已接条件下的 182 + selftest-heap 未执行**（§2 末行）。
+- **首轮两份 FM-1 已接转录丢失（已补证）**：12:59 的冒烟与 13:04 的 U 盘监听都写在 `firmware/build/verify/`，被全矩阵第一步的
+  `build.sh --clean` 清掉；读数只有主控的清单，而且那次冒烟跑在 `-dirty` 的同源构建上。19:05 起在最终固件 `715fdae` 上重跑
+  并入库（§2），首轮读数只作历史。
+- **FM-1 已接检查没有开机日志**：`att-*` 的固件身份靠同一次开机的冒烟转录头（`App version: 715fdae`）与 `att-status.txt`
+  （没有烧录步骤），不是设备自报。
+- **`ENG SELFTEST` 期间 `psram_min` 掉到约 29.3MB**：未接 `psram_min=29350520`、已接 `29344924`（`psram_free` 约 30.07MB）；
+  P4-F 10c 的堆转录同款（`29373824`）——自检期的既有瞬态，非回归；自检之后 `psram_free` 回到开机值。
 - A/B 四次 600s 的 `VERDICT` 都是 FAIL（累计 `duty_mean` 超限），只作对照；B-dev 轮没有开机日志，受测固件的依据是烧录日志、镜像大小与内部堆签名。
 - 截屏矩阵与十条场景的截图都没有做过视觉检查；`system-selftest.png` 与 `system-default.png` 逐字节相同。
 - `sequence` / `synth` / `sys` 的复跑本轮未做（5A 没有改注入脚本与页面 TAP 路径）。
@@ -131,25 +139,24 @@ R9 / R16 带随后的更正。R20 的 ② 与 R21 在实施中真的触发，其
 **已登记的 deferred issues**（`docs/deferred-issues.md`）
 
 - **DI-63**（本次新增）：soak 渲染占空比余量偏紧——起点工程内容未归一 + 5A 渲染均值 +3.4% 待定位。
-- **DI-64**（本次新增）：`ENG SELFTEST` 期间 IDLE1 / `console_repl` 的 task-watchdog 报告（既有现象）。
+- **DI-64**（本次新增）：`ENG SELFTEST` 期间自检所在核的 IDLE 的 task-watchdog 报告（未接那次是 `IDLE0 (CPU 0)`，已接那次是 `IDLE1 (CPU 1)`；既有现象）。
 - **DI-58** 开机偶发 BSP `pi4ioe5v6408` "Chip reset failed" abort（与本任务无关，自动重启后正常）。
 - **DI-59** `EDP_ARGS_MAX = 384` 小于上游 `DSYN_GET` 回复（5E 的入口条件）。
 - **DI-60** `usb_fm1` 的两处异常路径（OUT transfer 永不完成 / `NEW_DEV` 时旧句柄尚在）。
 - **DI-61** `fm1_session` 的 `request()` 在「永远等待」超时下无法被链路断开唤醒（5C 的入口条件）。
 - **DI-62** `scripts/selftest-heap.py` 不捕获 `KeyboardInterrupt`。
-
-**没有 DI 条目、只在评审里记账的小项**：冒烟结论行对「无回复」类错误的步骤归因不准（结论行可能读作 `FAIL 0/7`，实际停在步骤 k）。
+- **DI-65**（补证时新增）：`scripts/fm1-smoke.py` 的结论行对「无回复」类 error 的步骤归因不准。
 
 ## 7. 需要用户知情的事与开发机状态
 
-- **FM-1 的当前引擎 / 预置被冒烟期间的拧动改过**：冒烟第 5–6 步要人在 FM-1 上拧旋钮。第 4 步 `SET` 过的 ATK 按脚本会还原并读回确认（还原未确认即判失败；该次 PASS 7/7），但转录缺失，读回值无法复核。
+- **FM-1 的当前引擎 / 预置被冒烟期间的拧动改过**：冒烟第 5–6 步要人在 FM-1 上拧旋钮（19:05 那次期间设备推来 `reload=4 changed=2`）。第 4 步 `SET` 过的 ATK 已还原并读回确认（0 → 1 → 0，`fm1-smoke-20261126-190513.log`）。
 - **开发机的工程槽 0 已被今天的 A/B 覆盖**（准备步骤 `STORE PROJ SAVE 0`）；autosave 的工作工程是复位后那次 soak 之后的状态。注入场景按设计是破坏性、自归一的（会擦写工程槽），截屏矩阵会把工作工程还原到起点；要找回之前的工程只能靠工程槽 A–D 里的存档。
 - 设备固件：A/B 结束时已刷回 5A `715fdae`（`ab-flash-5a.log`：hash 3×）。
 - USB-A 口留空时开机即 §2 的「无链路检查」状态：`FM1 STATUS link=none`，独立模式照常。
 
 ## 8. 下一步：5B 的入口条件
 
-1. **补齐两类 FM-1 已接证据**再合并 `dev`：最终固件上的 `fm1-smoke.py` 转录、FM-1 已接的 182 + selftest-heap（§2 末行）。合并 `dev` 由主控执行；dev → main 不在本阶段。
+1. **合并 `dev` 的证据前提已齐**：最终固件上的 `fm1-smoke.py` 转录、U 盘插入、FM-1 已接的 182 + selftest-heap 都已入库（§2）。合并 `dev` 由主控执行；dev → main 不在本阶段。
 2. **回归口径**：自 5A 起设备回归分「FM-1 未接」（独立模式全矩阵）与「FM-1 已接」（`fm1-smoke.py` + 182 + selftest-heap）两种条件，已写入 `docs/dev/reference/verification-gates.md`；soak 须硬复位 + 30s 后起跑。
 3. **5B 只读 5A 已有的能力**（spec §6 5B）：Device 页把 `FM1 STATUS` 的 `link` / `version` / `need_upgrade` 与 `FM1 INFO` 字段搬到屏幕上，不新增协议能力。5A 与 5B 彼此独立。
 4. **带入 5B 的约束**：渲染占空比余量只有 0.57 个百分点（DI-63）——新页面的 est / 池预算照既有框架逐页实测，5A 的 +3.4% 渲染开销在 5B/5C 定位；输入任务栈已在 PSRAM（`fd0ffaf`），`KEY STATS` 的 `input_stack_free` 断言仍只在 `phys>0` 时有意义。
