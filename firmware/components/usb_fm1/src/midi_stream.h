@@ -22,7 +22,7 @@ typedef struct {
     uint8_t buf[MIDI_STREAM_SYSEX_MAX];
     size_t len;
     bool in_sysex;
-    uint32_t drops;            /* 丢弃的事件包数（超长帧被整体丢弃算 1） */
+    uint32_t drops;            /* 丢弃的帧数（超长帧被整体丢弃算 1） */
 } sysex_asm_t;
 
 /* 一个 4 字节 USB-MIDI 事件包 → 0..3 个 MIDI 字节（写入 out，返回个数）。CIN 0x0/0x1 返回 0。 */
