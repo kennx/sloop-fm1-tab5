@@ -338,7 +338,11 @@ def main():
         card_x, card_y = int(r1.group(10)) - 12, int(r1.group(11)) - 36
         t = c.cmd(f"TAP {card_x + 40} {card_y + 18}")
         tc = RE_TAPC.search(t)
-        ck.ok(tc is not None and tc.group(4) == "5" and tc.group(5) == "0", f"滚动后 TAP 卡片标题行 ⇒ {result_line(t)}")
+        # 5B-1 Task 4 起标题行 TAP 翻折叠位：collapsed= 是翻转后的值（Task 3 首版只回显 0）。折叠会把焦点
+        # 重指到别的卡并滚动列表，所以用 console 展开回去，后面的滚动/折叠位断言仍按展开布局。
+        ck.ok(tc is not None and tc.group(4) == "5" and tc.group(5) == "1", f"滚动后 TAP 卡片标题行 ⇒ {result_line(t)}")
+        raw = c.cmd("UI SOUND CARDTOGGLE 5")
+        ck.ok("UI SOUND CARDTOGGLE card=5 collapsed=0" in raw, f"CARDTOGGLE 5 ⇒ 展开：{result_line(raw)}")
         sc = grab(c.cmd("UI SOUND SCROLL 99999"), RE_SCROLL, "UI SOUND SCROLL 99999")
         ck.ok(sc.group(1) == sc.group(2), f"SCROLL 越界钳到底：{sc.group(0)}")
         sc = grab(c.cmd("UI SOUND SCROLL -50"), RE_SCROLL, "UI SOUND SCROLL -50")

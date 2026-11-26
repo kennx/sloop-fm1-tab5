@@ -216,7 +216,7 @@ est 从开工估算 12,288 校准到 **8,704**（6,816 + Task 4 预留的两个�
 | 12 | 折叠 | `UI SOUND CARDTOGGLE 6`、`UI SOUND STATS`、`UI SOUND SCROLL 99999`、`UI SOUND FOCUS 60`、`UI SOUND CARD 6 SLOT 13` | 同上 | ✅ `UI SOUND CARDTOGGLE card=6 collapsed=1`；`UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040`（1932 → 1524）；`y=1524 max=1524`；折叠卡的槽 `present=1 … x=0 y=0 w=0 h=0`；`UI SOUND FOCUS 60` ⇒ `y=1084`（折叠卡标题行 y=1092 可见）；还原 `collapsed=0`、`scroll_max=1932 collapsed=0x0000` |
 | 13 | 标题行 TAP | `TAP 76 358`（Envelope 卡标题行）×2 | 同上 | ✅ `-> SOUND card=2 collapsed=1`，`collapsed=0x0004`、`scroll_max=1712`、`y=0`（焦点在首槽，列表不动）；再 TAP ⇒ `collapsed=0`、`0x0000`、`1932`；`CARDTOGGLE 13` ⇒ `UI ERR sound (invalid)` |
 | 14 | 消失槽 | `UI SOUND FOCUS 37`（P_FTYPE）→ `TAP 283 92`（ENGINE +）→ `UI SOUND FOCUS` → `UI SOUND FOCUS 37` → `KEY 0x4C` → `TAP 37 92` | 同上 | ✅ `-> SOUND ENGINE value=1 name="DIGITAL" status="OK"`；`card=4 slot=8 flat=37 present=0`；焦点重指 `flat=38 card=5 slot=0 label="LVL"`（扁平序下一个存在的槽）；`UI SOUND FOCUS 37` ⇒ `UI ERR sound (absent)`；→ ⇒ `flat=39 … "VCE"`；`-> SOUND ENGINE value=0 name="ANALOG" status="OK"`，`present=1 label="TYPE"`，`slots=109 scroll_max=1932`；无崩溃 |
-| 15 | ZOOM 读数行 | `UI system` → `TAP 374 163`（ZOOM chip）→ `UI sound` → 截屏 → 再 `TAP 374 163` → `STORE SETTINGS SAVE` | `task-4-sound-hint.png`、`task-4-sound-zoom.png`、`task-4-sound-zoom-lvl.png`、`task-4-check.out` | ✅ `-> SYS ZOOM value=ON status="OK"` / `value=OFF status="OK"`，`STORE SETTINGS INFO … zoom=0 … dirty=0`。像素核对（脚本内，MONO 色取 `theme_derive.h`）：ZOOM 关的提示行墨迹 3,866 像素、亮色（`UI_TEXT`）0；选轨条第 1 格选中底色 1,860、其余三格面板底色 1,844 / 1,842 / 1,841；焦点描边（flat 0）强调色 1,004 像素且内区 0、非焦点槽（flat 1）0；ZOOM 开读数行亮色 968 像素（x 19..208、y 117..136，未被 32px 行高裁掉）；焦点换槽后两帧读数行差异 2,068 像素。**人眼读图未做** |
+| 15 | ZOOM 读数行 | `UI system` → `TAP 374 163`（ZOOM chip）→ `UI sound` → 截屏 → 再 `TAP 374 163` → `STORE SETTINGS SAVE` | `task-4-sound-hint.png`、`task-4-sound-zoom.png`、`task-4-sound-zoom-lvl.png`、`task-4-check.out`（⚠️ 三个文件名自修复轮 1 起已改：`task-4-sound-hint-placeholder.png`（提示行含 4 个占位空框，见 §11）、`task-4-fix1-sound-zoom.png`、`task-4-fix1-sound-zoom-lvl.png`；哈希见提交 `a7dc839` 的 `SHA256SUMS`） | ✅ `-> SYS ZOOM value=ON status="OK"` / `value=OFF status="OK"`，`STORE SETTINGS INFO … zoom=0 … dirty=0`。像素核对（脚本内，MONO 色取 `theme_derive.h`）：ZOOM 关的提示行墨迹 3,866 像素、亮色（`UI_TEXT`）0；选轨条第 1 格选中底色 1,860、其余三格面板底色 1,844 / 1,842 / 1,841；焦点描边（flat 0）强调色 1,004 像素且内区 0、非焦点槽（flat 1）0；ZOOM 开读数行亮色 968 像素（x 19..208、y 117..136，未被 32px 行高裁掉）；焦点换槽后两帧读数行差异 2,068 像素。**人眼读图未做** |
 | 16 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-4-selftest-heap.log`（stdout）、`task-4-selftest-heap-transcript.log`（串口） | ✅ rc=0（325s）：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`（≥61,440）；两次 `cases=182/182 identical=182 … result=PASS`；transcript 里 fatal/abort/backtrace 计数 0 |
 | 17 | 还原核对 | `task-4-check.py` 收尾硬复位后的快照 vs 开机基线 | `task-4-check.log`、`task-4-check.out` | ✅ `sel=1 bpm=120`、四轨 `engine=0 preset=0 level=104`、`STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60` 与基线逐字相同；`zoom=0 dirty=0`；`autosave_hash=02C79E5A autosave_writes=0`（`autosave` 开关复位后回 1）。自检堆之后再硬复位一次读数相同 |
 
@@ -248,3 +248,94 @@ est 从开工估算 12,288 校准到 **8,704**（6,816 + Task 4 预留的两个�
    LVGL 回调里 `LV_EVENT_CLICKED` 对选轨条的指针落点分支（TAP 走的是 `page_sound_tap` 的矩形表，不是回调）。
 8. **观察（未改）**：页眉上下文行（`SOUND · TRACK n`，`page_params.c` 的 `header` label）矩形是 x 720..1080，与选轨条 960..1264 在对象层重叠 120px；
    文字实际止于 ~900/720（20pt），不与选轨条相撞，所以没动它。折叠卡里的槽仍可持有焦点（`UI SOUND FOCUS <n>` 接受、读数行与 ± 照常）。
+
+---
+
+## 11. Task 4 修复轮 1（评审「Needs fixes」；固件 `3b3bdf7`，2026-11-27）
+
+> 评审：Critical 1（提示行的 `·` 渲染成占位框）、Important 2–4（焦点/折叠态随页面重建丢失；键盘与 ± 路径的过期上下文写入；
+> R12 折叠卡里的焦点按悬空处理）、Minor a–g。**本节读数都在 `3b3bdf7` 上取**（boot 自报 `App version:      3b3bdf7-dirty`：
+> `-dirty` = 工作树里未提交的 docs/证据改动，`git diff 3b3bdf7 -- firmware scripts third_party tools` 为空）。
+
+### A. 改了什么
+
+| 评审项 | 改动 |
+|---|---|
+| Critical 1 提示占位框 | `SOUND_HINT_TEXT` 的分隔符 `·`（U+00B7）→ `\|`；文案每个字符都在 ASCII 0x20..0x7E（`Drag a knob to edit \| Drag empty space to scroll \| Left/Right focus \| Up/Down value \| Tap header name to choose`） |
+| Important 2 重建保留 | `page_sound_forget` 不再复位 `s_focus_flat`、`page_sound_build` 不再清零 `s_collapsed`；`focus_resolve` 在 `!s_ctx_valid`（重建后首拍重解析之前）只回显、不重指 |
+| Important 3 过期上下文 | `sound_slot_cmd`（唯一写路径）比对 `s_ctx.track/engine` 与此刻的 `state_selected_track()/state_selected_engine()`，不符即拒——拖动、键盘、`−/+`、TAP 同一条纪律 |
+| Important 4 / R12 | `focus_ok` = 存在 ∧ 所在卡片没折叠；`focus_resolve` 每拍保证「焦点 ∈ 可聚焦」：悬空（消失或被折叠）⇒ 扁平序下一个可聚焦的槽（环绕）；全部折叠 ⇒ 保持原焦点，`sound_slot_cmd` 拒写、读数行 `--` |
+| Minor a 滚动方向 | `gesture_move` 的 dy 由 `from − p.y` 改为 `p.y − from`（内容跟手指），证据见 B |
+| Minor b | `s_collapsed` 经 `collapsed_get/set/bit` 在同一把 `s_focus_mux` 临界区读写 |
+| Minor c | 读数行只在 ZOOM 开、或从读数切回提示时重写/失效；ZOOM 关的静态文案画过一次不再失效 |
+| Minor d/e/f/g | `console-and-injection.md` 删掉过时的「焦点槽动作在 Task 4 接入，不发命令」；AGENTS §5.4.1 的 `UI SOUND` 行加 `FOCUS [<flat>]` / `CARDTOGGLE <n>`（31,317B）；`task-3-check.py` 的标题行 TAP 断言改为 `collapsed=1` 并用 `CARDTOGGLE 5` 展开；`param_tap_button` 用 `page_sound_adjust_value` 的 `applied` 回显、`0xFFFFu` → `SOUND_SLOT_NONE` |
+
+### B. 滚动方向的证据（Minor a）
+
+LVGL 9.6 自己的手势滚动：`lv_indev.c:1395` `indev->pointer.vect.y = act_point.y - last_point.y`（指针位移，新 − 旧）→
+`lv_indev_scroll.c:107,119` `diff_y = elastic_diff(…, vect.y, …)`、`lv_obj_scroll_by_raw(scroll_obj, diff_x, diff_y)` →
+`lv_obj_scroll.c:472-475` `scroll.y += y; lv_obj_move_children_by(obj, x, y, true)`（子对象按 dy 平移 = 内容跟手指）。
+`lv_obj_scroll_by`（非动画）直接转 `lv_obj_scroll_by_raw(obj, dx, dy)`，`lv_obj_scroll_by_bounded` 在它外面做钳位。
+本页原先传 `from - p.y`（= −vect.y）⇒ 内容逆着手指走；现传 `p.y - from`。**手指滚动仍未在真机上验证**（console 不能产生连续指针事件）。
+
+### C. 提示行字形检查（Critical 1 的证明）
+
+方法（`task-4-check.py` 的 `hint_glyphs`）：截屏的提示行（屏幕 y 112..144、x 16..1088）取墨迹（与背景色差 > 40），
+8 连通域；**占位框 = 高 ≥ 15px 且内部无墨迹的连通域**。依据：LVGL 缺字形时画的是 `line_height` 高的空框
+（`lv_font.c`：`box_w = line_height / 2`、`box_h = line_height`；14pt ⇒ 10×16），而真字形的连通域 ≤ 14px。
+同一函数跑在修复前后的两张截屏上：
+
+| 截屏 | 连通域 | 最高连通域 | 占位框 |
+|---|---|---|---|
+| 修复前 `task-4-sound-hint-placeholder.png`（`74cde92`，`·` 分隔） | 88 | 16px | **4**（x 162 / 375 / 509 / 640 起，各 10×16 空心框） |
+| 修复后 `task-4-sound-hint.png`（`3b3bdf7`，`\|` 分隔） | 88 | 14px（`\|`） | **0** |
+
+另：脚本从 `page_sound.c` 抠出 `SOUND_HINT_TEXT` 的字面量，断言每个字符在 0x20..0x7E 内。
+
+### D. 命令与输出
+
+```
+scripts/knob-test.sh        → 17 passed, 0 failed            scripts/sound-test.sh → 4 passed, 0 failed
+scripts/build.sh ×2         → rc=0 / rc=0，编译 0 警告 0 错误（第一遍只有 §5.5 豁免的那对 CMake 提示）
+scripts/flash.sh            → rc=0，Hash of data verified ×3
+boot: App version:      3b3bdf7-dirty     ← -dirty = 未提交的 docs；fatal/abort/backtrace 计数 0
+I (7766) sloop_ui: 页面构建 page=SOUND(6) 池增量=7312B 预算=8704B 池剩余=40984B 耗时=11ms
+UI MEM page id=6 title=SOUND state=built est=8704 delta=7312 build_ms=11
+ENG MEM internal_free=72843 internal_min=72032 …   ← 进页面前；72783 / internal_min=71972 ← 进页面后（差 60B）
+
+—— Important 3：Ctrl+2 与 ↑ 一次批写（6 行一写），×5
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）   ×5
+（若 ↑ 落在下一拍之后，它会正常给轨 1 的 LEVEL +1：这条通过 = 5 次都落在窗口里且被拒）
+
+—— Important 4 / R12
+UI SOUND FOCUS 60（card 6 已折叠）⇒ UI SOUND FOCUS flat=69 card=7 slot=0 label="ROOT"；UI SOUND SCROLL y=1164 max=1524
+UI SOUND SLOT card=7 slot=0 flat=69 present=1 scope=0 id=25 label="ROOT" locked=0 value=0 x=28 y=160 w=140 h=132
+焦点 40（card 5）时 CARDTOGGLE 5 ⇒ UI SOUND CARDTOGGLE card=5 collapsed=1；UI SOUND FOCUS flat=47 card=6 slot=0 label="DST"
+全部折叠（CARDTOGGLE 0..12）⇒ UI SOUND STATS cards=13 slots=109 scroll_max=0 collapsed=0x1FFF；UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+全折叠时 ↑/↓ ⇒ 四轨行不变；TAP 1224,132 page=6 -> PARAM slot=0 locked (page or slot N/A)
+全部展开 ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000；焦点不变 flat=0
+
+—— Important 2：重建保留
+UI step → UI sound ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040；UI SOUND FOCUS flat=69 card=7 slot=0 label="ROOT"（与重建前相同）
+
+—— Critical 1
+# [check] PASS 提示行字形：连通域 88 个、最高 14px、占位框 0 个（期望 0）
+# [check] PASS SOUND_HINT_TEXT 全 ASCII 0x20..0x7E：Drag a knob to edit | Drag empty space to scroll | Left/Right focus | Up/Down value | Tap header name to choose
+# [check] PASS 同一检查在修复前的截屏 task-4-sound-hint-placeholder.png 上报出占位框 4 个（最高 16px）
+
+—— 回归（首轮的 72 条全部保留，其中「折叠卡里的 FOCUS 60」一条按 R12 改写）
+# [check] PASS 86/86
+python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（323s）
+# [selftest-heap] run1: before=72987 after=72719 delta=268 result=PASS cases=182/182 identical=182
+# [selftest-heap] run2: before=72719 after=72683 delta=36 result=PASS cases=182/182 identical=182
+```
+
+设备核对脚本仍是 `task-4-check.py`（已更新；可选第 4 个参数 = 修复前截屏，用来证明字形检查分得清占位框）。
+池 delta 7,312B（est 8,704 未抬；本轮没有新增对象）；同一会话重建两次读 7,112 / 7,092B。
+收尾硬复位后：`sel=1`、四轨 `engine=0 preset=0 level=104`、`STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60`、
+`zoom=0 dirty=0`、`autosave_hash=02C79E5A autosave_writes=0`；自检堆之后再硬复位一次读数相同。
+
+### E. 仍然有效的保留项
+
+手指滚动/点击未在真机验证（滚动方向只有 LVGL 源码证据）；PNG 人眼未读；十条注入场景与截屏矩阵未跑（同 §10 第 7 条）；
+换轨窗口的批写测试：`↑` 那条有区分力（窗外会写、窗内不写），拖动那条仍只有「被拒 + 未改写」。

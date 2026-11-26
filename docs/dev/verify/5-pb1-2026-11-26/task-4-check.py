@@ -2,7 +2,10 @@
 """5B-1 Task 4：Sound 仪表盘的键盘焦点 / 页级 ± / 选轨条 / 折叠 / 读数行设备核对（证据脚本，随证据包入库）。
 
 Usage:
-    python3 task-4-check.py PORT TRANSCRIPT.log PNG_DIR
+    python3 task-4-check.py PORT TRANSCRIPT.log PNG_DIR [PLACEHOLDER_REF.png]
+
+第 4 个参数（可选）= 修复前的提示行截屏（含 4 个占位空框）：同一套字形检查必须在它上面**报出**占位框，
+用来证明这套检查分得清「占位框」与「真字形」（修复轮 1，Critical 1）。
 
 写法照 scripts/selftest-heap.py 与 task-3-check.py：pyserial、BAUD 115200、读到 console 提示符
 （sloop>）为止；串口字节逐字节写 TRANSCRIPT（原始回显，不裁剪），工具注记一律 `# [check] ...`
@@ -15,6 +18,7 @@ dirty 不受 STORE AUTO OFF 约束（1s 任务延迟写）：ZOOM 开/关之后�
 （CARDTOGGLE 与标题行 TAP）→ absent（焦点槽随引擎消失后重指）→ zoom（SYSTEM 页 ZOOM 行开/关，
 读数行截屏）→ restore（硬复位后的快照）。全部断言通过退出码 0，末行 `# [check] PASS n/n`。
 """
+import pathlib
 import re
 import sys
 import time
@@ -184,6 +188,60 @@ def flat_pos(flat):
     raise ValueError(flat)
 
 
+def hint_glyphs(png):
+    """提示行的字形检查（代替读图）。Montserrat 缺字形时 LVGL 画的是 line_height 高的**空框**
+    （lv_font.c: box_w = line_height/2、box_h = line_height；14pt ⇒ 10×16，实测占满行的 16 行），
+    而真字形的连通域高度 ≤ 13（大写/上伸 10–11，带下伸 12–13）。返回：连通域数、最高连通域高度、
+    占位框数（高 ≥ 15 且内部无墨迹的连通域）。"""
+    from PIL import Image
+
+    bg = (0x10, 0x14, 0x18)
+    im = Image.open(png).convert("RGB")
+    px = im.load()
+    x0, y0, x1, y1 = 16, 112, 1088, 144  # 提示/读数行：页面区 y 40..72 → 屏幕 112..144
+    ink = [[max(abs(px[x, y][i] - bg[i]) for i in range(3)) > 40 for x in range(x0, x1)] for y in range(y0, y1)]
+    h, w = len(ink), len(ink[0])
+    seen = [[False] * w for _ in range(h)]
+    comps = []
+    for y in range(h):
+        for x in range(w):
+            if not ink[y][x] or seen[y][x]:
+                continue
+            stack, pts = [(x, y)], []
+            seen[y][x] = True
+            while stack:
+                cx, cy = stack.pop()
+                pts.append((cx, cy))
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < w and 0 <= ny < h and ink[ny][nx] and not seen[ny][nx]:
+                            seen[ny][nx] = True
+                            stack.append((nx, ny))
+            xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+            comps.append((min(xs), min(ys), max(xs), max(ys), pts))
+    boxes = 0
+    for bx1, by1, bx2, by2, pts in comps:
+        if by2 - by1 + 1 < 15:
+            continue
+        inner = set(pts)
+        if not any((xx, yy) in inner for yy in range(by1 + 2, by2 - 1) for xx in range(bx1 + 2, bx2 - 1)):
+            boxes += 1
+    return {"components": len(comps), "tallest": max(c[3] - c[1] + 1 for c in comps) if comps else 0,
+            "placeholders": boxes}
+
+
+def hint_text_is_ascii(src):
+    """从 page_sound.c 抠出 SOUND_HINT_TEXT 的字面量：每个字符都必须在 ASCII 0x20..0x7E 内。"""
+    text = pathlib.Path(src).read_text(encoding="utf-8")
+    # 宏体 = 以反斜杠续行的各行；字面量 = 其中所有双引号串
+    m = re.search(r"#define SOUND_HINT_TEXT(?:[^\n]*\\\n)*[^\n]*", text)
+    if m is None:
+        return False, None
+    lit = "".join(re.findall(r'"([^"]*)"', m.group(0)))
+    return all(0x20 <= ord(ch) <= 0x7E for ch in lit), lit
+
+
 def visible(rect_y, rect_h):
     """槽矩形（屏幕坐标）完整落在视口 152..716 内（银行行隐藏时的视口顶 80）。"""
     return rect_y >= 72 + 80 and rect_y + rect_h <= 72 + 644
@@ -191,6 +249,7 @@ def visible(rect_y, rect_h):
 
 def main():
     port, log_path, png_dir = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
+    ref_png = Path(sys.argv[4]) if len(sys.argv) > 4 else None
     log_path.parent.mkdir(parents=True, exist_ok=True)
     png_dir.mkdir(parents=True, exist_ok=True)
     c = Console(port, log_path)
@@ -354,6 +413,18 @@ def main():
         last = [ln for ln in out.splitlines() if "KNOB flat=38 drag" in ln][-1]
         ck.ok("ignored (ring band)" in last and eng_rows(c) == rows_w,
               f"批写 press→选轨→drag ×5 ⇒ {last.strip()}；四轨 ENG SNAP 行不变（批往返最长 {worst * 1000:.0f}ms）")
+        # 键盘路径的同一扇窗（评审 Important 3）：Ctrl+2 与 ↑ 一次批写、设备侧背靠背。↑ 落在换轨之后、
+        # 下一拍重解析之前时，槽状态说的还是轨 0——sound_slot_cmd 比对 s_ctx 与此刻的选中轨，不符不写。
+        # 若 ↑ 落在下一拍之后，它会正常地给轨 1 的 LEVEL +1：这条断言通过 = 五次都落在窗口里。
+        for _ in range(5):
+            select_track(c, 0)
+            c.ser.write(b"KEY 0x40 down\nKEY 0x02 down\nKEY 0x02 up\nKEY 0x40 up\nKEY 0x3B down\nKEY 0x3B up\n")
+            c.ser.flush()
+            out = c.read_until_prompt()
+            time.sleep(0.12)
+            out += c.cmd("")
+            ck.ok(re.search(r"selected_track=1 ", c.cmd("STATE SNAP")) is not None and eng_rows(c) == rows_w,
+                  f"批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）")
         select_track(c, 0)
 
         # ---- selector：选轨条 ----
@@ -385,14 +456,23 @@ def main():
         ck.ok(int(sc.group(1)) == int(sc.group(2)) == int(st.group(3)), f"SCROLL 99999 ⇒ y=max：{sc.group(0)}")
         r = slot(c, 6, 13)
         ck.ok(r.group(4) == "1" and r.group(13) == "0", f"折叠卡的槽仍存在但无矩形：{r.group(0)}")
+        # R12：折叠卡里的槽不可聚焦——把焦点设进折叠卡 6，UI 拍按「扁平序下一个可聚焦的槽」重指
+        # （card 6 覆盖 47..68 ⇒ 69 = card 7 slot 0），并把它滚进视口
         t = c.cmd("UI SOUND FOCUS 60")
         f = RE_FOCUS.search(t)
+        ck.ok(f is not None and f.group(1) != "60" and f.group(2) != "6", f"焦点设进折叠卡 ⇒ 重指：{f.group(0) if f else None}")
+        fr = slot(c, int(f.group(2)), int(f.group(3)))
         sc = scroll(c)
-        cards = layout(0x0040)
-        cy = cards[6][1]
-        ck.ok(f.group(1) == "60" and int(sc.group(1)) + 8 <= cy and cy + TITLE_H <= int(sc.group(1)) + 564 - 8 + 1,
-              f"UI SOUND FOCUS 60 ⇒ {f.group(0)}；{sc.group(0)}（折叠卡标题行 y={cy} 可见）")
-        ck.ok(int(sc.group(1)) < int(sc.group(2)), "滚动量 < max（从底部滚回）")
+        ck.ok(fr.group(4) == "1" and visible(int(fr.group(11)), int(fr.group(13))),
+              f"重指后的槽可见：{fr.group(0)}；{sc.group(0)}")
+        # 页面重建保留焦点与折叠位（评审 Important 2）：离开 EDIT 组再回来
+        c.cmd("UI step")
+        c.cmd("UI sound")
+        st2 = stats(c)
+        f2 = focus(c)
+        ck.ok(st2.group(4) == "0040" and f2.group(1) == f.group(1),
+              f"UI step → UI sound 之后：{st2.group(0)}；{f2.group(0)}（与重建前相同）")
+        st = stats(c)
         t = c.cmd("UI SOUND CARDTOGGLE 6")
         m = RE_TOGGLED.search(t)
         st = stats(c)
@@ -415,6 +495,36 @@ def main():
         ck.ok(m.group(5) == "0" and st.group(4) == "0000", f"再 TAP ⇒ 展开：{result_line(t)}；{st.group(0)}")
         raw = c.cmd("UI SOUND CARDTOGGLE 13")
         ck.ok("UI ERR sound (invalid)" in raw, f"CARDTOGGLE 13 ⇒ {result_line(raw)}")
+
+        # ---- R12：焦点所在的卡被折叠 ⇒ 重指；全部折叠 ⇒ 保持焦点、编辑惰性 ----
+        c.cmd("UI SOUND SCROLL 0")
+        f40 = RE_FOCUS.search(c.cmd("UI SOUND FOCUS 40"))
+        raw = c.cmd("UI SOUND CARDTOGGLE 5")
+        f = focus(c)
+        ck.ok(f40.group(2) == "5" and f.group(1) == "47" and f.group(2) == "6" and f.group(3) == "0",
+              f"焦点 40（card 5）时折叠 card 5 ⇒ {result_line(raw)}；{f.group(0)}（card 5 覆盖 38..46 ⇒ 下一个 47）")
+        st = stats(c)
+        ck.ok(st.group(4) == "0020", f"{st.group(0)}")
+        c.cmd("UI SOUND CARDTOGGLE 5")
+        for n in range(13):
+            c.cmd(f"UI SOUND CARDTOGGLE {n}")
+        st = stats(c)
+        f = focus(c)
+        fr = slot(c, int(f.group(2)), int(f.group(3)))
+        rows_all = eng_rows(c)
+        ck.ok(st.group(4) == "1FFF" and int(f.group(1)) < 109 and fr.group(4) == "1",
+              f"全部折叠 ⇒ {st.group(0)}；焦点保持在某个存在的槽：{f.group(0)}")
+        key(c, 0x3B)
+        key(c, 0x4B)
+        t = c.cmd("TAP 1224 132")
+        m = RE_LOCKED.search(t)
+        ck.ok(eng_rows(c) == rows_all and m is not None and m.group(4) == f.group(1),
+              f"全折叠时 ↑/↓ 不写（四轨行不变）；TAP + ⇒ {result_line(t)}")
+        for n in range(13):
+            c.cmd(f"UI SOUND CARDTOGGLE {n}")
+        st = stats(c)
+        f2 = focus(c)
+        ck.ok(st.group(4) == "0000" and f2.group(1) == f.group(1), f"全部展开 ⇒ {st.group(0)}；焦点不变 {f2.group(0)}")
 
         # ---- absent：焦点槽随引擎消失后重指 ----
         s48 = slot(c, 4, 8)
@@ -476,6 +586,21 @@ def main():
         hint_ink = count(im, hint_box, lambda p: not near(p, bg, 6))
         ck.ok(hint_bright < 40 and hint_ink >= 200,
               f"ZOOM 关：提示行有墨迹（{hint_ink}）且无 28pt 亮色读数（{hint_bright}）")
+        # 字形检查：行里没有占位空框（高 ≥ 15 的空心连通域），最高连通域 < 15；文案全 ASCII；
+        # 同一检查在修复前的截屏上必须报出占位框（第 4 个参数给了才断言）
+        g = hint_glyphs(png_dir / "task-4-sound-hint.png")
+        ck.ok(g["placeholders"] == 0 and g["tallest"] < 15 and g["components"] >= 60,
+              f"提示行字形：连通域 {g['components']} 个、最高 {g['tallest']}px、占位框 {g['placeholders']} 个（期望 0）")
+        ascii_ok, lit = hint_text_is_ascii(ROOT / "firmware/components/sloop_ui/src/page_sound.c")
+        ck.ok(ascii_ok and lit is not None and " · " not in lit,
+              f"SOUND_HINT_TEXT 全 ASCII 0x20..0x7E：{lit}")
+        if ref_png is not None:
+            g0 = hint_glyphs(ref_png)
+            ck.ok(g0["placeholders"] >= 4,
+                  f"同一检查在修复前的截屏 {ref_png.name} 上报出占位框 {g0['placeholders']} 个（最高 {g0['tallest']}px）")
+        c.note(f"字形检查方法：提示行（屏幕 y 112..144、x 16..1088）取墨迹（与背景色差 > 40），8 连通域；"
+               f"占位框 = 高 ≥ 15px 且内部无墨迹的连通域（LVGL 缺字形画的是 line_height 高的空框，14pt ⇒ 16px；"
+               f"真字形 ≤ 13px）。新截屏：{g}；修复前：{hint_glyphs(ref_png) if ref_png else '未给'}")
         cur = count(im, sel_boxes[0], lambda p: near(p, panel_sel, 8))
         others = [count(im, sel_boxes[k], lambda p: near(p, panel, 8)) for k in (1, 2, 3)]
         ck.ok(cur >= 1500 and all(n >= 1500 for n in others),

@@ -1,0 +1,116 @@
+# [check] port=/dev/ttyACM0
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+# [check] 基线：sel=1 bpm=120 zoom=0 dirty=0 autosave=0 autosave_hash=02C79E5A；四轨：ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+# [check] PASS Ctrl+1 后 selected_track=0
+# [check] PASS 轨 0 引擎 ANALOG
+# [check] SOUND 首建 池增量=7312B 预算=8704B 池剩余=40984B 耗时=11ms
+# [check] PASS UI MEM UI MEM page id=6 title=SOUND state=built est=8704 delta=7312 build_ms=11（delta ≤ est，est 不抬）
+# [check] 进入页面前后 internal_free 72843 -> 72783（差 60B）；internal_min=71972
+# [check] PASS internal_min=71972 ≥ 61,440
+# [check] PASS UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+# [check] PASS 首个存在槽：UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS KEY 0x4C（→）⇒ UI SOUND FOCUS flat=1 card=0 slot=1 label="SWING"
+# [check] PASS KEY 0x4A（←）⇒ 回 UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS 再按 ← ⇒ 环绕到末槽：UI SOUND FOCUS flat=108 card=12 slot=6 label="DUCK"
+# [check] PASS 末槽再按 → ⇒ 环绕回 0：UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS 焦点到末槽 ⇒ UI SOUND SCROLL y=1872 max=1932（y > 0）
+# [check] PASS 末槽矩形滚进视口：UI SOUND SLOT card=12 slot=6 flat=108 present=1 scope=1 id=43 label="DUCK" locked=0 value=0 x=308 y=576 w=140 h=132
+# [check] PASS → ×4 ⇒ UI SOUND FOCUS flat=3 card=0 slot=3 label="TUNE"
+# [check] PASS → ×4 后 UI SOUND SCROLL y=28 max=1932（y > 0：焦点槽从底部滚回顶部）
+# [check] PASS UI SOUND SCROLL 0 ⇒ UI SOUND SCROLL y=0 max=1932
+# [check] PASS UI SOUND FOCUS 108 ⇒ UI SOUND FOCUS flat=108 card=12 slot=6 label="DUCK"；UI SOUND SCROLL y=1872 max=1932
+# [check] PASS 末槽矩形可见：UI SOUND SLOT card=12 slot=6 flat=108 present=1 scope=1 id=43 label="DUCK" locked=0 value=0 x=308 y=576 w=140 h=132
+# [check] PASS → 环绕回 0 ⇒ UI SOUND SCROLL y=28 max=1932
+# [check] PASS 首槽矩形可见：UI SOUND SLOT card=0 slot=0 flat=0 present=1 scope=1 id=0 label="BPM" locked=0 value=120 x=28 y=160 w=140 h=132
+# [check] Voice·LEVEL flat=38 初值=104：UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=932 w=140 h=132
+# [check] PASS KEY 0x3B（↑）⇒ ENG SNAP trk k=0 engine=0 preset=0 level=105 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+# [check] PASS ↑ ×3 ⇒ ENG SNAP trk k=0 engine=0 preset=0 level=107 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+# [check] PASS KEY 0x3D（ENTER）⇒ ENG SNAP trk k=0 engine=0 preset=0 level=108 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+# [check] PASS KEY 0x4B（↓）×4 ⇒ 回到原值 ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+# [check] PASS 其余三轨的 ENG SNAP 行不变
+# [check] PASS TAP 细调 + ⇒ TAP 1224,132 page=6 -> PARAM slot=38 id=0 delta=+1 value=105
+# [check] PASS TAP 细调 − ⇒ TAP 1136,132 page=6 -> PARAM slot=38 id=0 delta=-1 value=104
+# [check] PASS ± 往返后 ENG SNAP 四轨行与基线逐字相同
+# [check] PASS CARD 5 SLOT 0 回读 value=104
+# [check] PASS 鼓轨锁定槽 9（ATK locked=1）↑/↓ 不改值
+# [check] PASS 锁定槽 TAP + ⇒ TAP 1224,132 page=6 -> PARAM slot=9 locked (page or slot N/A)
+# [check] PASS 锁定槽可持有焦点：UI SOUND FOCUS flat=9 card=2 slot=0 label="ATK"
+# [check] PASS 批写 press→选轨→drag ×5 ⇒ UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)；四轨 ENG SNAP 行不变（批往返最长 160ms）
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）
+# [check] PASS 批写 Ctrl+2 → ↑ ⇒ selected_track=1，四轨 ENG SNAP 行不变（轨 1 LEVEL 未被写）
+# [check] PASS TAP 998,92（第 1 格）⇒ TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+# [check] PASS TAP 1150,92（第 3 格）⇒ TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+# [check] PASS STATE SNAP selected_track=2
+# [check] PASS UI 仍是 page=sound
+# [check] PASS 换轨后焦点仍是存在的槽：UI SOUND FOCUS flat=9 card=2 slot=0 label="ATK"
+# [check] PASS 还原到轨 0：TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+# [check] PASS UI SOUND CARDTOGGLE card=6 collapsed=1
+# [check] 折叠 FX 卡后 UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040
+# [check] PASS collapsed=0x0040、scroll_max 变小（1932 → 1524）、槽数不变
+# [check] PASS SCROLL 99999 ⇒ y=max：UI SOUND SCROLL y=1524 max=1524
+# [check] PASS 折叠卡的槽仍存在但无矩形：UI SOUND SLOT card=6 slot=13 flat=60 present=1 scope=1 id=8 label="SIZE" locked=0 value=90 x=0 y=0 w=0 h=0
+# [check] PASS 焦点设进折叠卡 ⇒ 重指：UI SOUND FOCUS flat=69 card=7 slot=0 label="ROOT"
+# [check] PASS 重指后的槽可见：UI SOUND SLOT card=7 slot=0 flat=69 present=1 scope=0 id=25 label="ROOT" locked=0 value=0 x=28 y=160 w=140 h=132；UI SOUND SCROLL y=1164 max=1524
+# [check] PASS UI step → UI sound 之后：UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040；UI SOUND FOCUS flat=69 card=7 slot=0 label="ROOT"（与重建前相同）
+# [check] PASS 还原：UI SOUND CARDTOGGLE card=6 collapsed=0；UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+# [check] PASS TAP 标题行 ⇒ 翻为折叠：TAP 76,358 page=6 -> SOUND card=2 collapsed=1
+# [check] PASS UI SOUND STATS cards=13 slots=109 scroll_max=1712 collapsed=0x0004；UI SOUND SCROLL y=0 max=1712（焦点在首槽，列表不动）
+# [check] PASS 再 TAP ⇒ 展开：TAP 76,358 page=6 -> SOUND card=2 collapsed=0；UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+# [check] PASS CARDTOGGLE 13 ⇒ UI ERR sound (invalid)
+# [check] PASS 焦点 40（card 5）时折叠 card 5 ⇒ UI SOUND CARDTOGGLE card=5 collapsed=1；UI SOUND FOCUS flat=47 card=6 slot=0 label="DST"（card 5 覆盖 38..46 ⇒ 下一个 47）
+# [check] PASS UI SOUND STATS cards=13 slots=109 scroll_max=1732 collapsed=0x0020
+# [check] PASS 全部折叠 ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=0 collapsed=0x1FFF；焦点保持在某个存在的槽：UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS 全折叠时 ↑/↓ 不写（四轨行不变）；TAP + ⇒ TAP 1224,132 page=6 -> PARAM slot=0 locked (page or slot N/A)
+# [check] PASS 全部展开 ⇒ UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000；焦点不变 UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS ANALOG：UI SOUND SLOT card=4 slot=8 flat=37 present=1 scope=0 id=58 label="TYPE" locked=0 value=0 x=28 y=1092 w=140 h=132
+# [check] PASS TAP 283,92（ENGINE +）⇒ TAP 283,92 page=6 -> SOUND ENGINE value=1 name="DIGITAL" status="OK"
+# [check] PASS 换引擎后 P_FTYPE 不存在：UI SOUND SLOT card=4 slot=8 flat=37 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+# [check] PASS 焦点重指到存在的槽：UI SOUND FOCUS flat=38 card=5 slot=0 label="LVL"
+# [check] PASS 不存在槽设焦点 ⇒ UI ERR sound (absent)
+# [check] PASS 新引擎上 → 仍落在存在的槽：UI SOUND FOCUS flat=39 card=5 slot=1 label="VCE"
+# [check] PASS TAP 37,92（ENGINE −）⇒ TAP 37,92 page=6 -> SOUND ENGINE value=0 name="ANALOG" status="OK"
+# [check] PASS 轨 0 回到 ANALOG
+# [check] PASS P_FTYPE 重新存在：UI SOUND SLOT card=4 slot=8 flat=37 present=1 scope=0 id=58 label="TYPE" locked=0 value=0 x=28 y=576 w=140 h=132
+# [check] PASS 回到 ANALOG：UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+  [fw] SCR
+  [fw] I (61156) sloop_console: SCR: 传输前 PSRAM 剩余 28194620 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task-4r1/task-4-sound-hint.png
+# [check] 截屏 task-4-sound-hint.png（ZOOM 关：提示行 + 选轨条轨 0 选中 + 焦点描边 flat 0）
+# [check] PASS SYSTEM 页 ZOOM chip ⇒ TAP 374,163 page=14 -> SYS ZOOM value=ON status="OK"
+# [check] ZOOM 开，读数行（焦点 BPM）：截屏 task-4-sound-zoom.png
+  [fw] SCR
+  [fw] I (78676) sloop_console: SCR: 传输前 PSRAM 剩余 28194620 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task-4r1/task-4-sound-zoom.png
+# [check] ZOOM 开，读数行（焦点 LVL，轨 2）：截屏 task-4-sound-zoom-lvl.png
+  [fw] SCR
+  [fw] I (95686) sloop_console: SCR: 传输前 PSRAM 剩余 28194620 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: firmware/build/verify/task-4r1/task-4-sound-zoom-lvl.png
+# [check] PASS ZOOM chip 再点 ⇒ TAP 374,163 page=14 -> SYS ZOOM value=OFF status="OK"
+# [check] PASS ZOOM 回到基线并落盘：zoom=0 dirty=0
+# [check] PASS ZOOM 关：提示行有墨迹（3786）且无 28pt 亮色读数（0）
+# [check] PASS 提示行字形：连通域 88 个、最高 14px、占位框 0 个（期望 0）
+# [check] PASS SOUND_HINT_TEXT 全 ASCII 0x20..0x7E：Drag a knob to edit | Drag empty space to scroll | Left/Right focus | Up/Down value | Tap header name to choose
+# [check] PASS 同一检查在修复前的截屏 task-4-sound-hint-placeholder.png 上报出占位框 4 个（最高 16px）
+# [check] 字形检查方法：提示行（屏幕 y 112..144、x 16..1088）取墨迹（与背景色差 > 40），8 连通域；占位框 = 高 ≥ 15px 且内部无墨迹的连通域（LVGL 缺字形画的是 line_height 高的空框，14pt ⇒ 16px；真字形 ≤ 13px）。新截屏：{'components': 88, 'tallest': 14, 'placeholders': 0}；修复前：{'components': 88, 'tallest': 16, 'placeholders': 4}
+# [check] PASS 选轨条：第 1 格选中底色（1860），其余面板底色（[1844, 1842, 1841]）
+# [check] PASS 焦点描边（flat 0，强调色）在槽矩形内缘：1004 像素（内区 0）
+# [check] PASS 非焦点槽（flat 1）无描边：0 像素
+# [check] PASS ZOOM 开：读数行有 28pt 亮色读数（968 像素）
+# [check] PASS 焦点换槽后读数行重绘（两帧读数行差异像素 2068）
+# [check] PASS ENG MEM internal_free=72667 internal_min=71808（internal_min ≥ 61,440）
+# [check] 收尾 UI MEM page id=6 title=SOUND state=built est=8704 delta=7132 build_ms=11
+# [check] 收尾：硬复位重新载入 autosave 对象
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+# [check] 复位后：sel=1 bpm=120 zoom=0 dirty=0 autosave=1 autosave_hash=02C79E5A autosave_writes=0；四轨：ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0；STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60
+# [check] PASS 复位后 sel 与四轨 ENG SNAP 行与基线逐字相同
+# [check] PASS 复位后 settings zoom/dirty 与基线相同（0/0）
+# [check] PASS 复位后 autosave_hash=02C79E5A autosave_writes=0 与基线相同（autosave 开关复位后回 1）
+# [check] PASS 86/86
