@@ -354,10 +354,14 @@ static int fm1_command(int argc, char **argv)
             printf("FM1 STATUS ERR no_host\n");
             return 1;
         }
-        printf("FM1 STATUS link=%s vid=0x%04X pid=0x%04X product=%s rx=%u tx=%u drops=%u open_fail=%u\n",
+        printf("FM1 STATUS link=%s vid=0x%04X pid=0x%04X product=%s rx=%u tx=%u drops=%u open_fail=%u",
                st.link ? "ready" : "none", st.vid, st.pid, st.product[0] ? st.product : "-",
                (unsigned)st.rx_frames, (unsigned)st.tx_frames, (unsigned)st.rx_drops,
                (unsigned)st.open_fail);
+        if (st.link) {
+            printf(" midi_if=%u ep_in=0x%02X ep_out=0x%02X", st.midi_interface, st.ep_in, st.ep_out);
+        }
+        printf("\n");
         return 0;
     }
     printf("FM1 ERR invalid\n用法: FM1 STATUS\n");

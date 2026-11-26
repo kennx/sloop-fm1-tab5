@@ -18,23 +18,29 @@ extern "C" {
 #endif
 
 typedef struct {
-    void (*on_frame)(const uint8_t *frame, size_t len, void *user); /* 完整 SysEx 帧 F0..F7 */
-    void (*on_link)(bool present, void *user);                       /* present: MIDI 接口已就绪 */
+    /* 完整 SysEx 帧 F0..F7。在 fm1_cli 任务上下文调用，不得阻塞、栈要省（4096B PSRAM 栈）。
+     * frame 指向重组缓冲，下一帧到来即被覆盖：要留住必须自己拷贝。允许为 NULL。 */
+    void (*on_frame)(const uint8_t *frame, size_t len, void *user);
+    /* present: MIDI 接口已就绪 / 设备已拔出或 IN 环已停。同样在 fm1_cli 任务上下文调用，不得阻塞；
+     * present=false 先于设备资源释放。允许为 NULL。 */
+    void (*on_link)(bool present, void *user);
     void *user;
 } usb_fm1_config_t;
 
 typedef struct {
     bool host_ok;
     bool link;                 /* MIDI 接口已 claim、收发环在跑 */
-    uint16_t vid, pid;
+    uint16_t vid, pid;         /* link=false 时 vid/pid=0 */
     char product[32];          /* iProduct；取不到为空串 */
-    uint8_t midi_interface, ep_in, ep_out;
-    uint32_t rx_frames, tx_frames, rx_drops, open_fail;
+    uint8_t midi_interface, ep_in, ep_out; /* 仅 link=true 时有效 */
+    uint32_t rx_frames, tx_frames, rx_drops, open_fail; /* rx/tx 计数跨插拔累计，open_fail 是打开失败次数 */
 } usb_fm1_status_t;
 
 esp_err_t usb_fm1_start(const usb_fm1_config_t *cfg);
 void usb_fm1_get_status(usb_fm1_status_t *out);
-/* 同步发送一个完整 SysEx 帧；timeout 内未完成返回 ESP_ERR_TIMEOUT。 */
+/* 同步发送一个完整 SysEx 帧；timeout 内未完成返回 ESP_ERR_TIMEOUT。多个任务可并发调用
+ * （内部串行化）；链路不在返回 ESP_ERR_INVALID_STATE，传输完成但状态非 COMPLETED 返回
+ * ESP_ERR_INVALID_RESPONSE，上一帧超时后仍在途返回 ESP_ERR_NOT_FINISHED。 */
 esp_err_t usb_fm1_send_frame(const uint8_t *frame, size_t len, TickType_t timeout);
 
 #ifdef __cplusplus
