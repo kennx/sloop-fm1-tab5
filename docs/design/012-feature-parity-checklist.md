@@ -225,7 +225,7 @@ SEL 选轨、EDIT 层擦除（`tracks.sh` 84 / `step_edit.sh` 314）。
    2,936–3,104B）、SOUND 6,144、MIX Σ **10,752**、EDIT Σ **16,896**；spec §3 表已按此修订。
    est 上限的性质不变——实测超限时先改对象设计，不抬 est（ADR-008 §8.12）。
 8. **审计复查修订（评审）**：工厂预置选择/换引擎、REC 配置、鼓轨 kit 选择、参数锁与 fill 条件、八度此前被误标 ✅——它们在 Tab5 上只有 console 入口，违反 A2。处置：前三项进 Task 5/6，参数锁/fill 进 Task 6（键盘层，零新增 LVGL 对象，TRANSPORT est 不变），八度 DI-53、预置列表浏览 DI-54。
-9. **ENTER = 焦点槽 +1**（裁决 R8）：全部参数页（SOUND/MOD/SCALE/VOICE/GLOBAL/FX）生效，
+9. **ENTER = 焦点槽 +1**（裁决 R8）：全部参数页（SOUND/MOD/SCALE/VOICE/GLOBAL/FX；5B-1 Task 7 起只剩 SOUND/SAMPLE，其余五页退役）生效，
    与 DSYN/FM6P 页一致；此前参数页的 ENTER 无动作。锁定槽无动作、不发命令。
 10. **FX 页在鼓轨上逐槽锁定**（裁决 R8）：以本表 §3 为准（TFLT/LEVEL/PAN 可编辑，其余锁）。
    Task 4 之前 Tab5 的 FX 页在鼓轨上整页可编辑，是对上游 `page_for_drum` 的偏离，已纠正；
