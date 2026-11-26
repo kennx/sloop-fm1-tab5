@@ -354,8 +354,9 @@ static int fm1_invalid(void)
     return 1;
 }
 
-/* FM1 子命令（5A Task 5，事务层 fm1_session）：STATUS 只读、不发帧；INFO/GET/SET/WATCH/PING 是
- * 一问一答（默认超时 400ms），EVENTS 读推送/超时/杂帧计数。 */
+/* FM1 子命令（5A Task 5，事务层 fm1_session）：STATUS 只读、不发帧，行尾带 INFO 缓存里的版本串与
+ * need_upgrade（版本政策，fm1_session_need_upgrade）；INFO/GET/SET/WATCH/PING 是一问一答（默认超时
+ * 400ms），EVENTS 读推送/超时/杂帧计数。 */
 static bool seq_int(const char *text, int32_t min, int32_t max, int32_t *value);
 
 /* 请求类子命令的失败出口：会话没起来 no_host；链路不在 no_link；超时 timeout；发送失败或
@@ -393,10 +394,12 @@ static int fm1_command(int argc, char **argv)
         fm1_session_info_cached(&info);
         fm1_session_stats(&ss);
         printf(" watch=%u info=%s proto=", (unsigned)ss.watch_val, info.valid ? "yes" : "no");
+        /* 版本政策（spec §6 5A）：INFO 读出的版本如实显示；不在支持范围 ⇒ need_upgrade=1 */
         if (info.valid) {
-            printf("%u\n", (unsigned)info.proto);
+            printf("%u version=\"%s\" need_upgrade=%d\n", (unsigned)info.proto, info.version,
+                   fm1_session_need_upgrade(info.version, info.proto) ? 1 : 0);
         } else {
-            printf("-\n");
+            printf("- version=- need_upgrade=0\n");
         }
         return 0;
     }
