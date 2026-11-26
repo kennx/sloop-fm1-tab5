@@ -188,3 +188,63 @@ est 从开工估算 12,288 校准到 **8,704**（6,816 + Task 4 预留的两个�
 
 说明：第 5 行的「修复前」读数是在 `c3ea99c` 上只加那一行临时日志测的，为的是给第 6 行一个同口径的对照；§6 的全部读数来自
 修复前的固件，其中**只有「鼓轨 `slots=102` / `P_FTYPE` 在鼓轨上锁定」一条被本轮推翻**，其余不受这两处修复影响。
+
+---
+
+## 9. 5B-1 Task 4：键盘焦点、页级 ±、选轨条、折叠与读数行（2026-11-27；固件 `74cde92`）
+
+> Task 4 在 Task 3 的卡片区上接上：←/→ 焦点（portMUX 保护的 PSRAM 状态，不取 LVGL 锁）、↑/↓/ENTER 与页级 `−/+`
+> 对焦点槽 ±1、焦点槽滚进视口、右上角 4 格选轨条、卡片折叠（标题行点击 / `UI SOUND CARDTOGGLE`）、页眉下方的
+> 提示/读数行（ZOOM 开 = 焦点槽的 28pt 读数），以及 console `UI SOUND FOCUS [<n>]`。设备 Tab5 `/dev/ttyACM0`。
+> **固件 = `74cde92`**（`task-4-check.log` 第 29 行 `App version:      74cde92`，无 `-dirty`：代码先提交、再构建烧录取证）。
+> 读数脚本 `task-4-check.py`（硬复位 → 10 个相位 → 收尾硬复位核对，断言 72 条）。
+> **状态：机器侧全部通过；PNG 人眼未读；手指拖动/点击没有任何真机验证**（TAP 与 `UI SOUND KNOB` 都不能产生连续指针事件）。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-4-build-1.log`、`task-4-build-2.log` | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示（提交改了版本串 ⇒ 重新 configure），第二遍没有 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-4-knob-test.log`、`task-4-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed`（两套测试的源与被测纯数据层本任务未改） |
+| 3 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-4-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 4 | 启动日志 | `task-4-check.py` 开头的硬复位（输出进 transcript） | `task-4-check.log` 第 29–31 行与第 884 行起 | ✅ `App version:      74cde92`、`ELF file SHA256:  5a29f370f…`；fatal / abort() / backtrace / Guru Meditation 计数 0（两次开机） |
+| 5 | 池与内部堆 | `UI sound` → `UI MEM`；进入页面前后 `ENG MEM` | `task-4-check.log`、`task-4-check.out` | ✅ `页面构建 page=SOUND(6) 池增量=7312B 预算=8704B 池剩余=40984B 耗时=11ms`；`UI MEM page id=6 title=SOUND state=built est=8704 delta=7312 build_ms=11`（**est 未抬**；Task 3 实测 6,844B，本任务两个对象 +468B；同一会话里重建两次读 7,176 / 7,116B——首帧文本差，同其它页）；`internal_free` 72827 → 72759（差 **68B**）；`internal_min=71808` |
+| 6 | 键盘焦点 | `UI SOUND FOCUS`、`KEY 0x4C`（→）、`KEY 0x4A`（←） | 同上 | ✅ 首个存在槽 `flat=0 card=0 slot=0 label="BPM"`；→ ⇒ `flat=1 … "SWING"`；← ⇒ 回 0；再 ← ⇒ 环绕到 `flat=108 card=12 slot=6 label="DUCK"`；末槽再 → ⇒ 回 0 |
+| 7 | 焦点滚进视口 | 同上 + `UI SOUND SCROLL`、`UI SOUND CARD 12 SLOT 6` | 同上 | ✅ 焦点到末槽 ⇒ `UI SOUND SCROLL y=1872 max=1932`，末槽矩形 `y=576`（视口 152..716 内）；→ ×4（108 → 0 → 1 → 2 → 3）⇒ `flat=3 "TUNE"`、`y=28`（从底部滚回顶部）；`SCROLL 0` 后 `UI SOUND FOCUS 108` ⇒ `y=1872`；再按 → 环绕回 0 ⇒ `y=28`，首槽矩形 `x=28 y=160` |
+| 8 | 调值（轨 0 · Voice·LVL，flat 38，原值 104） | `KEY 0x3B`（↑）×3、`KEY 0x3D`（ENTER）、`KEY 0x4B`（↓）×4、`TAP 1224 132`（+）、`TAP 1136 132`（−） | 同上 | ✅ `ENG SNAP trk k=0 … level=105` → `107` → ENTER `108` → ↓×4 `104`；`TAP 1224,132 page=6 -> PARAM slot=38 id=0 delta=+1 value=105`；`TAP 1136,132 … delta=-1 value=104`；其余三轨行不变、往返后四轨行与基线逐字相同 |
+| 9 | 锁定槽 | Ctrl+4 鼓轨，焦点 9（ATK `locked=1`）↑/↓、`TAP 1224 132` | 同上 | ✅ 值不变、四轨行不变；`TAP 1224,132 page=6 -> PARAM slot=9 locked (page or slot N/A)`；锁定槽可持有焦点 `flat=9 … "ATK"` |
+| 10 | 换轨后 30ms 窗口内的拖动（Task 3 评审遗留） | 一次批写 `UI SOUND KNOB 38 press 0 -40` → `TAP 1150 92` → `UI SOUND KNOB 38 drag 40 0` → `TAP 998 92`，×5 | 同上 | ✅ ×5 都是 `UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)`，轨 2 的 LEVEL 未被改写。⚠️ 主机侧批往返最长 111ms，**不能证明** drag 落在那 30ms 窗口里——见 §10 第 4 条 |
+| 11 | 选轨条 | `TAP 998 92`（第 1 格）、`TAP 1150 92`（第 3 格）、`STATE SNAP`、`UI` | 同上 | ✅ `TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK`；`TAP 1150,92 … track=2 …`；`selected_track=2`；`UI page=sound (6)`；换轨后焦点仍是存在的槽；还原 `track=0` |
+| 12 | 折叠 | `UI SOUND CARDTOGGLE 6`、`UI SOUND STATS`、`UI SOUND SCROLL 99999`、`UI SOUND FOCUS 60`、`UI SOUND CARD 6 SLOT 13` | 同上 | ✅ `UI SOUND CARDTOGGLE card=6 collapsed=1`；`UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040`（1932 → 1524）；`y=1524 max=1524`；折叠卡的槽 `present=1 … x=0 y=0 w=0 h=0`；`UI SOUND FOCUS 60` ⇒ `y=1084`（折叠卡标题行 y=1092 可见）；还原 `collapsed=0`、`scroll_max=1932 collapsed=0x0000` |
+| 13 | 标题行 TAP | `TAP 76 358`（Envelope 卡标题行）×2 | 同上 | ✅ `-> SOUND card=2 collapsed=1`，`collapsed=0x0004`、`scroll_max=1712`、`y=0`（焦点在首槽，列表不动）；再 TAP ⇒ `collapsed=0`、`0x0000`、`1932`；`CARDTOGGLE 13` ⇒ `UI ERR sound (invalid)` |
+| 14 | 消失槽 | `UI SOUND FOCUS 37`（P_FTYPE）→ `TAP 283 92`（ENGINE +）→ `UI SOUND FOCUS` → `UI SOUND FOCUS 37` → `KEY 0x4C` → `TAP 37 92` | 同上 | ✅ `-> SOUND ENGINE value=1 name="DIGITAL" status="OK"`；`card=4 slot=8 flat=37 present=0`；焦点重指 `flat=38 card=5 slot=0 label="LVL"`（扁平序下一个存在的槽）；`UI SOUND FOCUS 37` ⇒ `UI ERR sound (absent)`；→ ⇒ `flat=39 … "VCE"`；`-> SOUND ENGINE value=0 name="ANALOG" status="OK"`，`present=1 label="TYPE"`，`slots=109 scroll_max=1932`；无崩溃 |
+| 15 | ZOOM 读数行 | `UI system` → `TAP 374 163`（ZOOM chip）→ `UI sound` → 截屏 → 再 `TAP 374 163` → `STORE SETTINGS SAVE` | `task-4-sound-hint.png`、`task-4-sound-zoom.png`、`task-4-sound-zoom-lvl.png`、`task-4-check.out` | ✅ `-> SYS ZOOM value=ON status="OK"` / `value=OFF status="OK"`，`STORE SETTINGS INFO … zoom=0 … dirty=0`。像素核对（脚本内，MONO 色取 `theme_derive.h`）：ZOOM 关的提示行墨迹 3,866 像素、亮色（`UI_TEXT`）0；选轨条第 1 格选中底色 1,860、其余三格面板底色 1,844 / 1,842 / 1,841；焦点描边（flat 0）强调色 1,004 像素且内区 0、非焦点槽（flat 1）0；ZOOM 开读数行亮色 968 像素（x 19..208、y 117..136，未被 32px 行高裁掉）；焦点换槽后两帧读数行差异 2,068 像素。**人眼读图未做** |
+| 16 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-4-selftest-heap.log`（stdout）、`task-4-selftest-heap-transcript.log`（串口） | ✅ rc=0（325s）：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`（≥61,440）；两次 `cases=182/182 identical=182 … result=PASS`；transcript 里 fatal/abort/backtrace 计数 0 |
+| 17 | 还原核对 | `task-4-check.py` 收尾硬复位后的快照 vs 开机基线 | `task-4-check.log`、`task-4-check.out` | ✅ `sel=1 bpm=120`、四轨 `engine=0 preset=0 level=104`、`STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60` 与基线逐字相同；`zoom=0 dirty=0`；`autosave_hash=02C79E5A autosave_writes=0`（`autosave` 开关复位后回 1）。自检堆之后再硬复位一次读数相同 |
+
+
+## 10. Task 4 的偏差、事故与未做项
+
+1. **提示文案是 ASCII，不是简报给的中文。** 简报/规格 §5.2 的提示行是 `拖动旋钮调值 · 拖动空白滚动 · ←→ 焦点 ↑↓ 调值 · 点页眉名字选择`；
+   固件只带 Montserrat 14/16/20/28（`sdkconfig` 的 `CONFIG_LV_FONT_MONTSERRAT_*`），没有 CJK 与箭头字形，`CONFIG_LV_USE_FONT_PLACEHOLDER=y`
+   下中文会画成一排占位框。实际文案：`Drag a knob to edit · Drag empty space to scroll · Left/Right focus · Up/Down value · Tap header name to choose`
+   （`page_sound.c` 的 `SOUND_HINT_TEXT`，一个宏；中文版要等 5F 的字体）。**需要主控裁决**：接受 ASCII，还是 5F 再换。
+2. **简报 Step 4 的「消失槽 ⇒ `card=4 slot≤7`」与派发说明的遗留 2 不一致。** 遗留 2 规定「扁平序里下一个存在的槽，否则首个」，
+   焦点在 `P_FTYPE`（37）上换引擎后落到 **38（Voice·LVL）**，不是 Engine edit 卡的其它槽。按遗留 2 实现。
+3. **简报 Step 4 的「`KEY 0x4C` ×4 后 `y` > 0」只有在接在「← 环绕到 108」之后才成立**（108 → 0 → 1 → 2 → 3，焦点槽从视口底部回到顶部，`y=28`）；
+   若从 `flat=0` 起按 ×4，焦点槽 4 在视口顶部、无需滚动（`y=0`）。脚本按前一种顺序断言。滚进视口的规则用派发说明的「上下留 8px」，不是简报的 `y − 80` / `y + h − 644`。
+4. **换轨窗口内的拖动（遗留 3）只有代码路径与一次尽力而为的批写测试。** 实现：`sound_handle_pressed` 记下锚点所属的 `s_ctx.track/engine`，
+   `sound_handle_pressing` 与**此刻**的 `state_selected_track()/state_selected_engine()` 比对，不符就 `s_drag_flat = -1` 并返回 false。
+   这同时盖住「按下时上下文已换、下一拍还没重解析」（记的是旧上下文）与「按下之后才换」两种情形。批写测试的主机往返最长 111ms，
+   设备侧三行是否背靠背落在 30ms 内没有证据。
+5. **TAP 命中卡片标题行现在翻折叠位**（`collapsed=` 是翻转后的值）。Task 3 时只回显（`task-3-check.log` 里 `TAP 688,542 … card=5 collapsed=0`）；
+   按 AGENTS §5.4.1「TAP 执行与控件回调相同的动作函数」改。**`task-3-check.py` 的那条断言（期望 `collapsed=0`）自此失配**，脚本未改。
+6. **事故：ZOOM 被写进了 flash，已恢复。** 第一次取证运行（固件 `74cde92`，`task-4-zoom-persist-check.{log,out}`，71/72）在收尾复位后读到
+   `settings: flash … zoom=1`：ZOOM 开着截两张屏的 ~35s 里，1s 任务的延迟写把 settings 对象落了盘——settings 的 dirty **不受 `STORE AUTO OFF` 约束**
+   （`store_tab5.c` 的 `sloop_store_sections_tick`：停走带 + 安静 + 输入空闲 ≥1.5s + 距上次尝试 ≥5s；P4-E Task 2 的既定行为），日志里没有一行提示。
+   之前的开发运行恰好没撞上 5s 间隔，复位后是 `zoom=0`，让脚本错误地以为「硬复位会丢弃」。恢复：`STORE SETTINGS SET zoom 0` →
+   `STORE SETTINGS SAVE` → `STORE SETTINGS INFO … zoom=0 … dirty=0` → 硬复位后 `zoom=0`、`autosave_hash=02C79E5A`。脚本照 `inject.py` 的
+   `run_sys ⑦` 改成关掉 ZOOM 后显式 SAVE，第二次运行 72/72。**settings 对象因此多写了两次（内容与基线相同）。**
+7. **未跑**：十条注入场景与截屏矩阵（§5.5「TAP 相关固件改动」那一类；旧 SOUND 页断言在 Task 7/8 前必然失配，同 Task 3 §7 第 7 条）；
+   手指点击标题行/选轨条/± 按钮、手指拖动（只有 TAP 与 `UI SOUND KNOB` 走同一动作函数这一点）；PNG 人眼读图；
+   LVGL 回调里 `LV_EVENT_CLICKED` 对选轨条的指针落点分支（TAP 走的是 `page_sound_tap` 的矩形表，不是回调）。
+8. **观察（未改）**：页眉上下文行（`SOUND · TRACK n`，`page_params.c` 的 `header` label）矩形是 x 720..1080，与选轨条 960..1264 在对象层重叠 120px；
+   文字实际止于 ~900/720（20pt），不与选轨条相撞，所以没动它。折叠卡里的槽仍可持有焦点（`UI SOUND FOCUS <n>` 接受、读数行与 ± 照常）。

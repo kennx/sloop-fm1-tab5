@@ -1,0 +1,1036 @@
+# [check] port=/dev/ttyACM0
+I (105) esp_image: segment 1: paddr=000a86b8 vaddr=30100000 sizeI (275) esp_image: segment 4: paddr=001c1e00 vaddr=4ff078dc size=0f840h ( 63552) load
+I (286) esp_image: segment 5: paddr=001d1648 vaddr=4ff17180 size=04934h ( 18740) load
+I (291) esp_image: segment 6: paddr=001d5f84 vaddr=50108080 size=00020h (    32) load
+I (297) boot: Loaded app from partition at offset 0x10000
+I (297) boot: Disabling RNG early entropy source...
+I (303) hex_psram: vendor id    : 0x0d (AP)
+I (303) hex_psram: Latency      : 0x01 (Fixed)
+I (304) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (304) hex_psram: dev id       : 0x03 (generation 4)
+I (304) hex_psram: density      : 0x07 (256 Mbit)
+I (305) hex_psram: good-die     : 0x06 (Pass)
+I (305) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (305) hex_psram: BurstType    : 0x00 ( Wrap)
+I (306) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (306) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (306) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (307) hex_psram: DriveStrength: 0x00 (1/1)
+I (307) MSPI Timing: Enter psram timing tuning
+I (481) esp_psram: Found 32MB PSRAM device
+I (481) esp_psram: Speed: 200MHz
+I (482) hex_psram: psram CS IO is dedicated
+I (482) cpu_start: Multicore app
+I (1432) esp_psram: SPI SRAM memory test OK
+I (1449) cpu_start: Pro cpu start user code
+I (1449) cpu_start: cpu freq: 360000000 Hz
+I (1449) app_init: Application information:
+I (1449) app_init: Project name:     sloop_fm1_tab5
+I (1449) app_init: App version:      74cde92
+I (1449) app_init: Compile time:     Nov 27 2026 01:33:58
+I (1450) app_init: ELF file SHA256:  5a29f370f...
+I (1450) app_init: ESP-IDF:          v5.5.5
+I (1450) efuse_init: Min chip rev:     v1.0
+I (1450) efuse_init: Max chip rev:     v1.99 
+I (1450) efuse_init: Chip rev:         v1.3
+I (1451) heap_init: Initializing. RAM available for dynamic allocation:
+I (1451) heap_init: At 4FF24AC0 len 00016500 (89 KiB): RETENT_RAM
+I (1451) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1452) heap_init: At 4FF9CD20 len 000032E0 (12 KiB): RAM
+I (1452) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1452) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1453) esp_psram: Adding pool of 32284K of PSRAM memory to heap allocator
+I (1454) spi_flash: detected chip: generic
+I (1454) spi_flash: flash io: dio
+I (1454) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1455) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1456) main_task: Started on CPU0
+I (1456) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1456) main_task: Calling app_main()
+I (1456) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1456) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1456) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1476) sloop_settings: settings: bright=100 vol=70 out=speaker
+I (1476) LVGL: Starting LVGL task
+I (1476) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1986) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1986) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1986) st7123: version: 1.0.2
+I (3006) M5Stack Tab5: Display initialized with resolution 720x1280
+I (3006) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (3006) ST7123: Touch panel create success, version: 1.0.2
+I (3006) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3156) M5Stack Tab5: Setting LCD backlight: 100%
+I (3156) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3156) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  
+sloop>  I (4156) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4156) sloop_tab5: keyboard: OK (0x6D)
+W (4156) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+sloop>  W (4166) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4176) I2S_IF: Paired data: 0x4ff3fb04, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4176) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4176) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4186) ES8388: Start on mode:2
+I (4186) Adev_Codec: Open codec device OK
+
+sloop>  I (4186) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4206) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x401c0000 handle=1341385828 base=0x97000 span=0x68000
+
+sloop>  I (4236) sloop_store: 采样槽装载: 4 槽 flash→镜像
+I (4236) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
+I (4246) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (4246) sloop_store: settings: flash palette=4 lowcut=0 zoom=0 lights=0 reso=0 rec=0/0/0 theme=P4E7
+
+sloop>  I (4246) sloop_store: ready: slots=0x4834653c(15264B) stage=0x4834a140 v3=0x48345af8(2584B) auto=0x4834c148(3816B) base=0x97000 span=0x68000
+I (4246) sloop_store: autosave 恢复：hash=02C79E5A sel=1 bpm=120
+
+sloop>  I (4246) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4256) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2fbc0
+I (4286) usb_fm1: USB host 就绪（USB-A，usb_lib/fm1_cli 栈在 PSRAM）: internal_free 82607 -> 80395 字节
+
+sloop>  I (4286) fm1_session: fm1_session 就绪（栈 4096 字节在 PSRAM）: internal_free 80395 -> 80039 字节
+I (4286) sloop_tab5: UI 启动前内部堆剩余 80039 字节
+I (4306) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=47932B 耗时=4ms
+
+sloop>  I (4306) sloop_ui: 切页 page=PLAY(0) 组=PLAY 组内首建耗时=6ms
+I (4306) sloop_ui: UI 就绪: 18 页注册/1 已建 @1280x720, LVGL 池已用 14964/62856 字节, 内部堆剩余 80039 字节
+
+sloop>  
+sloop>  I (4366) sloop_input: InputManager 就绪：64 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+I (4506) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+I (4506) sys_selftest: stack=0x4ff31c04 size=5632
+I (4666) usb_fm1: 新设备 addr=1 VID=0x1209 PID=0x0001 class=0x00
+I (4666) usb_fm1:   接口 0 alt=0 class=0x01 subclass=0x01 protocol=0x00 eps=0
+I (4666) usb_fm1:   接口 1 alt=0 class=0x01 subclass=0x03 protocol=0x00 eps=2
+I (4676) usb_fm1:   接口 2 alt=0 class=0x01 subclass=0x02 protocol=0x00 eps=0
+I (4676) usb_fm1:   接口 2 alt=1 class=0x01 subclass=0x02 protocol=0x00 eps=1
+I (4676) usb_fm1: MIDI Streaming 接口 1 就绪: ep_in=0x81 mps=64 ep_out=0x01 mps=64 in_buf=256 字节, internal_free 73419 -> 73039
+I (4676) fm1_session: INFO 完成: version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12
+I (4676) fm1_session: WATCH 完成: on=3
+STORE AUTO OFF
+STORE AUTO off
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=1 faults=0 armed=0 autosave=0 autosave_hash=02C79E5A autosave_writes=0 last_xrun=0 last_save_ms=0
+sloop>  # [check] 基线：sel=1 bpm=120 zoom=0 dirty=0 autosave=0 autosave_hash=02C79E5A；四轨：ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=93
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=639
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=65
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=48
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=20 dec=40 sus=60 rel=70 slen=16 mute=0
+STATE SNAP global bpm=120 swing=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG MEM
+ENG MEM internal_free=72827 internal_min=71836 psram_free=30062400 psram_min=30062400
+sloop>  UI sound
+I (7656) sloop_ui: 页面构建 page=SOUND(6) 池增量=7312B 预算=8704B 池剩余=40984B 耗时=10ms
+I (7666) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=14ms
+UI page=sound (6)
+sloop>  # [check] SOUND 首建 池增量=7312B 预算=8704B 池剩余=40984B 耗时=10ms
+UI MEM
+UI MEM pool_used=18752 pool_free=43496 pool_total=62248 registered=18 built=1 failed=0 sum_est=136704 reserve=-74456 group=EDIT lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=1 sum_est=19456 sum_delta=7312 build_ms=14
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=built est=8704 delta=7312 build_ms=10
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  ENG MEM
+ENG MEM internal_free=72759 internal_min=71808 psram_free=30062400 psram_min=30062400
+sloop>  # [check] 进入页面前后 internal_free 72827 -> 72759（差 68B）；internal_min=71808
+UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=161
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=81
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=1 card=0 slot=1 label="SWING"
+sloop>  KEY 0x4A down
+KEY 0x4A down left elapsed_us=107
+sloop>  KEY 0x4A up
+KEY 0x4A up left elapsed_us=78
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  KEY 0x4A down
+KEY 0x4A down left elapsed_us=110
+sloop>  KEY 0x4A up
+KEY 0x4A up left elapsed_us=92
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=108 card=12 slot=6 label="DUCK"
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=154
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=175
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  UI SOUND SCROLL 0
+UI SOUND SCROLL y=0 max=1932
+sloop>  KEY 0x4A down
+KEY 0x4A down left elapsed_us=177
+sloop>  KEY 0x4A up
+KEY 0x4A up left elapsed_us=127
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=108 card=12 slot=6 label="DUCK"
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=1872 max=1932
+sloop>  UI SOUND CARD 12 SLOT 6
+UI SOUND SLOT card=12 slot=6 flat=108 present=1 scope=1 id=43 label="DUCK" locked=0 value=0 x=308 y=576 w=140 h=132
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=153
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=88
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=173
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=77
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=109
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=82
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=110
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=81
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=3 card=0 slot=3 label="TUNE"
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=28 max=1932
+sloop>  UI SOUND SCROLL 0
+UI SOUND SCROLL y=0 max=1932
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=0 max=1932
+sloop>  UI SOUND FOCUS 108
+UI SOUND FOCUS flat=108 card=12 slot=6 label="DUCK"
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=1872 max=1932
+sloop>  UI SOUND CARD 12 SLOT 6
+UI SOUND SLOT card=12 slot=6 flat=108 present=1 scope=1 id=43 label="DUCK" locked=0 value=0 x=308 y=576 w=140 h=132
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=150
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=128
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=28 max=1932
+sloop>  UI SOUND CARD 0 SLOT 0
+UI SOUND SLOT card=0 slot=0 flat=0 present=1 scope=1 id=0 label="BPM" locked=0 value=120 x=28 y=160 w=140 h=132
+sloop>  UI SOUND CARD 5 SLOT 0
+UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=932 w=140 h=132
+sloop>  # [check] Voice·LEVEL flat=38 初值=104：UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=932 w=140 h=132
+UI SOUND FOCUS 38
+UI SOUND FOCUS flat=38 card=5 slot=0 label="LVL"
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=3242
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=77
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=105 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=247
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=82
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=231
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=82
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=107 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  KEY 0x3D down
+KEY 0x3D down enter elapsed_us=257
+sloop>  KEY 0x3D up
+KEY 0x3D up enter elapsed_us=81
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=108 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=238
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=81
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=232
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=81
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=234
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=82
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=839
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=82
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  TAP 1224 132
+TAP 1224,132 page=6 -> PARAM slot=38 id=0 delta=+1 value=105
+sloop>  TAP 1136 132
+TAP 1136,132 page=6 -> PARAM slot=38 id=0 delta=-1 value=104
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  UI SOUND CARD 5 SLOT 0
+UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=576 w=140 h=132
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=104
+sloop>  KEY 0x04 down
+KEY 0x04 down 4 elapsed_us=158
+sloop>  KEY 0x04 up
+KEY 0x04 up 4 elapsed_us=74
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=56
+sloop>  UI SOUND CARD 2 SLOT 0
+UI SOUND SLOT card=2 slot=0 flat=9 present=1 scope=0 id=1 label="ATK" locked=1 value=10 x=28 y=-8 w=140 h=132
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=3 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  UI SOUND FOCUS 9
+UI SOUND FOCUS flat=9 card=2 slot=0 label="ATK"
+sloop>  KEY 0x3B down
+KEY 0x3B down up elapsed_us=245
+sloop>  KEY 0x3B up
+KEY 0x3B up up elapsed_us=19
+sloop>  KEY 0x4B down
+KEY 0x4B down down elapsed_us=30
+sloop>  KEY 0x4B up
+KEY 0x4B up down elapsed_us=18
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=3 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  UI SOUND CARD 2 SLOT 0
+UI SOUND SLOT card=2 slot=0 flat=9 present=1 scope=0 id=1 label="ATK" locked=1 value=10 x=28 y=160 w=140 h=132
+sloop>  TAP 1224 132
+TAP 1224,132 page=6 -> PARAM slot=9 locked (page or slot N/A)
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=9 card=2 slot=0 label="ATK"
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=3 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  UI SOUND KNOB 38 press 0 -40
+UI SOUND KNOB flat=38 press dx=0 dy=-40 value=104
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND KNOB 38 drag 40 0
+UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  
+sloop>  UI SOUND KNOB 38 press 0 -40
+UI SOUND KNOB flat=38 press dx=0 dy=-40 value=104
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND KNOB 38 drag 40 0
+UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  
+sloop>  UI SOUND KNOB 38 press 0 -40
+UI SOUND KNOB flat=38 press dx=0 dy=-40 value=104
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND KNOB 38 drag 40 0
+UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  
+sloop>  UI SOUND KNOB 38 press 0 -40
+UI SOUND KNOB flat=38 press dx=0 dy=-40 value=104
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND KNOB 38 drag 40 0
+UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  
+sloop>  UI SOUND KNOB 38 press 0 -40
+UI SOUND KNOB flat=38 press dx=0 dy=-40 value=104
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND KNOB 38 drag 40 0
+UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=89
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=719
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=12
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=48
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=0
+sloop>  UI
+UI page=sound (6)
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=9 card=2 slot=0 label="ATK"
+sloop>  UI SOUND CARD 2 SLOT 0
+UI SOUND SLOT card=2 slot=0 flat=9 present=1 scope=0 id=1 label="ATK" locked=0 value=10 x=28 y=160 w=140 h=132
+sloop>  TAP 998 92
+TAP 998,92 page=6 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  UI SOUND CARDTOGGLE 6
+UI SOUND CARDTOGGLE card=6 collapsed=1
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040
+sloop>  # [check] 折叠 FX 卡后 UI SOUND STATS cards=13 slots=109 scroll_max=1524 collapsed=0x0040
+UI SOUND SCROLL 99999
+UI SOUND SCROLL y=1524 max=1524
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=1524 max=1524
+sloop>  UI SOUND CARD 6 SLOT 13
+UI SOUND SLOT card=6 slot=13 flat=60 present=1 scope=1 id=8 label="SIZE" locked=0 value=90 x=0 y=0 w=0 h=0
+sloop>  UI SOUND FOCUS 60
+UI SOUND FOCUS flat=60 card=6 slot=13 label="SIZE"
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=1084 max=1524
+sloop>  UI SOUND CARDTOGGLE 6
+UI SOUND CARDTOGGLE card=6 collapsed=0
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+sloop>  UI SOUND SCROLL 0
+UI SOUND SCROLL y=0 max=1932
+sloop>  UI SOUND FOCUS 0
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  TAP 76 358
+TAP 76,358 page=6 -> SOUND card=2 collapsed=1
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1712 collapsed=0x0004
+sloop>  UI SOUND SCROLL
+UI SOUND SCROLL y=0 max=1712
+sloop>  TAP 76 358
+TAP 76,358 page=6 -> SOUND card=2 collapsed=0
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+sloop>  UI SOUND CARDTOGGLE 13
+UI ERR sound (invalid)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 8
+UI SOUND SLOT card=4 slot=8 flat=37 present=1 scope=0 id=58 label="TYPE" locked=0 value=0 x=28 y=1092 w=140 h=132
+sloop>  UI SOUND FOCUS 37
+UI SOUND FOCUS flat=37 card=4 slot=8 label="TYPE"
+sloop>  TAP 283 92
+TAP 283,92 page=6 -> SOUND ENGINE value=1 name="DIGITAL" status="OK"
+sloop>  UI SOUND CARD 4 SLOT 8
+UI SOUND SLOT card=4 slot=8 flat=37 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=38 card=5 slot=0 label="LVL"
+sloop>  UI SOUND CARD 5 SLOT 0
+UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=444 w=140 h=132
+sloop>  UI SOUND FOCUS 37
+UI ERR sound (absent)
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  KEY 0x4C down
+KEY 0x4C down right elapsed_us=172
+sloop>  KEY 0x4C up
+KEY 0x4C up right elapsed_us=77
+sloop>  UI SOUND FOCUS
+UI SOUND FOCUS flat=39 card=5 slot=1 label="VCE"
+sloop>  UI SOUND CARD 5 SLOT 1
+UI SOUND SLOT card=5 slot=1 flat=39 present=1 scope=0 id=37 label="VCE" locked=0 value=0 x=800 y=444 w=140 h=132
+sloop>  TAP 37 92
+TAP 37,92 page=6 -> SOUND ENGINE value=0 name="ANALOG" status="OK"
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  UI SOUND CARD 4 SLOT 8
+UI SOUND SLOT card=4 slot=8 flat=37 present=1 scope=0 id=58 label="TYPE" locked=0 value=0 x=28 y=576 w=140 h=132
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+sloop>  UI SOUND SCROLL 0
+UI SOUND SCROLL y=0 max=1932
+sloop>  UI SOUND FOCUS 0
+UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+sloop>  # [check] 截屏 task-4-sound-hint.png（ZOOM 关：提示行 + 选轨条轨 0 选中 + 焦点描边 flat 0）
+UI system
+I (57426) sloop_ui: 页面构建 page=SYSTEM(14) 池增量=5576B 预算=10240B 池剩余=37928B 耗时=9ms
+I (57426) sloop_ui: 切页 page=SYSTEM(14) 组=SYS 跨组耗时=13ms
+UI page=system (14)
+sloop>  TAP 374 163
+TAP 374,163 page=14 -> SYS ZOOM value=ON status="OK"
+sloop>  UI sound
+I (57866) sloop_ui: 页面构建 page=SOUND(6) 池增量=7176B 预算=8704B 池剩余=37932B 耗时=10ms
+I (57876) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=15ms
+UI page=sound (6)
+sloop>  # [check] ZOOM 开，读数行（焦点 BPM）：截屏 task-4-sound-zoom.png
+TAP 1150 92
+TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  UI SOUND FOCUS 38
+UI SOUND FOCUS flat=38 card=5 slot=0 label="LVL"
+sloop>  # [check] ZOOM 开，读数行（焦点 LVL，轨 2）：截屏 task-4-sound-zoom-lvl.png
+UI system
+I (91756) sloop_ui: 页面构建 page=SYSTEM(14) 池增量=5428B 预算=10240B 池剩余=37792B 耗时=9ms
+I (91756) sloop_ui: 切页 page=SYSTEM(14) 组=SYS 跨组耗时=13ms
+UI page=system (14)
+sloop>  TAP 374 163
+TAP 374,163 page=14 -> SYS ZOOM value=OFF status="OK"
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=P4E7 theme_valid=1
+sloop>  UI sound
+I (92416) sloop_ui: 页面构建 page=SOUND(6) 池增量=7116B 预算=8704B 池剩余=37900B 耗时=11ms
+I (92416) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=16ms
+UI page=sound (6)
+sloop>  UI SOUND SCROLL 0
+UI SOUND SCROLL y=0 max=1932
+sloop>  UI SOUND CARD 0 SLOT 0
+UI SOUND SLOT card=0 slot=0 flat=0 present=1 scope=1 id=0 label="BPM" locked=0 value=120 x=28 y=188 w=140 h=132
+sloop>  UI SOUND CARD 0 SLOT 1
+UI SOUND SLOT card=0 slot=1 flat=1 present=1 scope=1 id=1 label="SWING" locked=0 value=0 x=168 y=188 w=140 h=132
+sloop>  ENG MEM
+ENG MEM internal_free=72703 internal_min=71808 psram_free=30062400 psram_min=28194620
+sloop>  UI MEM
+UI MEM pool_used=18964 pool_free=43144 pool_total=62108 registered=18 built=1 failed=0 sum_est=136704 reserve=-74596 group=EDIT lvgl_stack_free=5372
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=1 sum_est=19456 sum_delta=7116 build_ms=16
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=13
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=built est=8704 delta=7116 build_ms=11
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [check] 收尾 UI MEM page id=6 title=SOUND state=built est=8704 delta=7116 build_ms=11
+# [check] 收尾：硬复位重新载入 autosave 对象
+I (105) esp_image: segment 1: paddr=000a86b8 vaddr=30100000 sizeI (275) esp_image: segment 4: paddr=001c1e00 vaddr=4ff078dc size=0f840h ( 63552) load
+I (286) esp_image: segment 5: paddr=001d1648 vaddr=4ff17180 size=04934h ( 18740) load
+I (291) esp_image: segment 6: paddr=001d5f84 vaddr=50108080 size=00020h (    32) load
+I (297) boot: Loaded app from partition at offset 0x10000
+I (297) boot: Disabling RNG early entropy source...
+I (303) hex_psram: vendor id    : 0x0d (AP)
+I (303) hex_psram: Latency      : 0x01 (Fixed)
+I (304) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (304) hex_psram: dev id       : 0x03 (generation 4)
+I (304) hex_psram: density      : 0x07 (256 Mbit)
+I (305) hex_psram: good-die     : 0x06 (Pass)
+I (305) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (305) hex_psram: BurstType    : 0x00 ( Wrap)
+I (306) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (306) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (306) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (307) hex_psram: DriveStrength: 0x00 (1/1)
+I (307) MSPI Timing: Enter psram timing tuning
+I (481) esp_psram: Found 32MB PSRAM device
+I (481) esp_psram: Speed: 200MHz
+I (482) hex_psram: psram CS IO is dedicated
+I (482) cpu_start: Multicore app
+I (1432) esp_psram: SPI SRAM memory test OK
+I (1448) cpu_start: Pro cpu start user code
+I (1449) cpu_start: cpu freq: 360000000 Hz
+I (1449) app_init: Application information:
+I (1449) app_init: Project name:     sloop_fm1_tab5
+I (1449) app_init: App version:      74cde92
+I (1449) app_init: Compile time:     Nov 27 2026 01:33:58
+I (1450) app_init: ELF file SHA256:  5a29f370f...
+I (1450) app_init: ESP-IDF:          v5.5.5
+I (1450) efuse_init: Min chip rev:     v1.0
+I (1450) efuse_init: Max chip rev:     v1.99 
+I (1450) efuse_init: Chip rev:         v1.3
+I (1451) heap_init: Initializing. RAM available for dynamic allocation:
+I (1451) heap_init: At 4FF24AC0 len 00016500 (89 KiB): RETENT_RAM
+I (1451) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1451) heap_init: At 4FF9CD20 len 000032E0 (12 KiB): RAM
+I (1452) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1452) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1453) esp_psram: Adding pool of 32284K of PSRAM memory to heap allocator
+I (1454) spi_flash: detected chip: generic
+I (1454) spi_flash: flash io: dio
+I (1454) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1455) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1456) main_task: Started on CPU0
+I (1456) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1456) main_task: Calling app_main()
+I (1456) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1456) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1456) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1476) sloop_settings: settings: bright=100 vol=70 out=speaker
+I (1476) LVGL: Starting LVGL task
+I (1476) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1986) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1986) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1986) st7123: version: 1.0.2
+I (3006) M5Stack Tab5: Display initialized with resolution 720x1280
+I (3006) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (3006) ST7123: Touch panel create success, version: 1.0.2
+I (3006) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3156) M5Stack Tab5: Setting LCD backlight: 100%
+I (3156) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3156) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  
+sloop>  I (4156) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4156) sloop_tab5: keyboard: OK (0x6D)
+W (4156) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+sloop>  W (4166) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4176) I2S_IF: Paired data: 0x4ff3fb04, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4176) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4176) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4186) ES8388: Start on mode:2
+I (4186) Adev_Codec: Open codec device OK
+
+sloop>  I (4186) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4206) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x401c0000 handle=1341780384 base=0x97000 span=0x68000
+
+sloop>  I (4236) sloop_store: 采样槽装载: 4 槽 flash→镜像
+I (4236) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
+I (4246) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (4246) sloop_store: settings: flash palette=4 lowcut=0 zoom=1 lights=0 reso=0 rec=0/0/0 theme=P4E7
+
+I (4246) sloop_store: ready: slots=0x4834653c(15264B) stage=0x4834a140 v3=0x48345af8(2584B) auto=0x4834c148(3816B) base=0x97000 span=0x68000
+sloop>  I (4246) sloop_store: autosave 恢复：hash=02C79E5A sel=1 bpm=120
+
+sloop>  I (4246) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4256) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2fcc0
+I (4286) usb_fm1: USB host 就绪（USB-A，usb_lib/fm1_cli 栈在 PSRAM）: internal_free 82627 -> 80415 字节
+
+sloop>  I (4286) fm1_session: fm1_session 就绪（栈 4096 字节在 PSRAM）: internal_free 80415 -> 80059 字节
+I (4286) sloop_tab5: UI 启动前内部堆剩余 80059 字节
+I (4306) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=47932B 耗时=4ms
+
+sloop>  I (4306) sloop_ui: 切页 page=PLAY(0) 组=PLAY 组内首建耗时=6ms
+I (4306) sloop_ui: UI 就绪: 18 页注册/1 已建 @1280x720, LVGL 池已用 14964/62856 字节, 内部堆剩余 80059 字节
+
+sloop>  I (4326) sloop_input: InputManager 就绪：64 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+
+sloop>  
+sloop>  I (4506) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+I (4506) sys_selftest: stack=0x4ff31c04 size=5632
+I (4666) usb_fm1: 新设备 addr=1 VID=0x1209 PID=0x0001 class=0x00
+I (4666) usb_fm1:   接口 0 alt=0 class=0x01 subclass=0x01 protocol=0x00 eps=0
+I (4666) usb_fm1:   接口 1 alt=0 class=0x01 subclass=0x03 protocol=0x00 eps=2
+I (4676) usb_fm1:   接口 2 alt=0 class=0x01 subclass=0x02 protocol=0x00 eps=0
+I (4676) usb_fm1:   接口 2 alt=1 class=0x01 subclass=0x02 protocol=0x00 eps=1
+I (4676) usb_fm1: MIDI Streaming 接口 1 就绪: ep_in=0x81 mps=64 ep_out=0x01 mps=64 in_buf=256 字节, internal_free 73439 -> 73059
+I (4676) fm1_session: INFO 完成: version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12
+I (4676) fm1_session: WATCH 完成: on=3
+ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=1 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=1 faults=0 armed=0 autosave=1 autosave_hash=02C79E5A autosave_writes=0 last_xrun=0 last_save_ms=0
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=1 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=0
+sloop>  # [check] 复位后：sel=1 bpm=120 zoom=1 dirty=0 autosave=1 autosave_hash=02C79E5A autosave_writes=0；四轨：ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0 | ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0；STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60
+# [check] FAIL 71/72
