@@ -29,7 +29,7 @@ size_t edp_frame_build(uint8_t cmd, const uint8_t *args, size_t nargs, uint8_t *
 {
     size_t i, len = nargs + 6;
 
-    if (cap < len) {
+    if (cap < len || cmd > 0x7Fu) {
         return 0;
     }
     for (i = 0; i < nargs; i++) {
@@ -52,7 +52,7 @@ size_t edp_frame_build(uint8_t cmd, const uint8_t *args, size_t nargs, uint8_t *
 bool edp_frame_parse(const uint8_t *raw, size_t len, edp_frame_t *out)
 {
     size_t i;
-    if (!out || len < 6 || len - 6 > EDP_ARGS_MAX) {
+    if (!raw || !out || len < 6 || len - 6 > EDP_ARGS_MAX) {
         return false;
     }
     if (raw[0] != EDP_SYSEX_START || raw[1] != 0x7D || raw[2] != 0x46 || raw[3] != 0x4C ||

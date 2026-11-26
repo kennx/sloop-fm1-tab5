@@ -52,6 +52,7 @@ static void test_frame_build(void)
     n = edp_frame_build(EDP_CMD_SET, set_args, 4, out, sizeof out);
     static const uint8_t set[] = {0xF0,0x7D,0x46,0x4C,0x03,0x00,0x01,0x64,0x40,0xF7};
     ASSERT(n == 10 && memcmp(out, set, 10) == 0);
+    ASSERT(edp_frame_build(0x80, NULL, 0, out, sizeof out) == 0);       /* cmd > 0x7F 同样放不进帧 */
     uint8_t bad = 0x80; ASSERT(edp_frame_build(2, &bad, 1, out, sizeof out) == 0);
     ASSERT(edp_frame_build(EDP_CMD_PING, NULL, 0, out, 5) == 0);      /* 容量不足 */
 }
@@ -71,6 +72,7 @@ static void test_frame_parse(void)
     huge[sizeof huge - 1] = 0xF7;
     ASSERT(edp_frame_parse(huge, sizeof huge, &f) == false);
     ASSERT(edp_frame_parse(get, sizeof get, NULL) == false);                   /* 出参为空 */
+    ASSERT(edp_frame_parse(NULL, sizeof get, &f) == false);                    /* 入参为空 */
 }
 
 static void test_push(void)
