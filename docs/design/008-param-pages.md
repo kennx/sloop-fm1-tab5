@@ -990,14 +990,34 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
 ## Sound 仪表盘（5B-1，进行中）
 
 登记于 2026-11-26（设计依据：5B 规格 `docs/superpowers/specs/2026-11-26-phase5b-sound-mixer-device-design.md`
-§4.2、§5.2、§5.6）。代码尚未落地：本节先登记设计与预算，实测数字由 5B-1 计划 Task 2 回填。
+§4.2、§5.2、§5.6）。纯数据层（`sound_layout.{h,c}`，Task 1）与页面骨架（`page_sound.{h,c}`，Task 2）
+已落地；槽的值/锁定/拖动改值、键盘、选择器由 5B-1 后续任务接入。
 
 - **卡片成员 = 纯数据表 `sound_layout.h`**（X 宏；每个成员 = 作用域 + 参数 id，顺序与分组照 Sloop Go `layout(pe0)`），
   描述符只提供值的形态（§9）。
 - **每张卡片一个自绘 LVGL 对象**：标题与旋钮都画在卡片的 `DRAW_MAIN` 里，不逐旋钮建对象；槽的状态放 PSRAM 静态数组。
 - **整页挂在参数页框架上**：布局表 SOUND 条目的新特征位 `PARAM_FEAT_DASHBOARD`（`page_layout.h`），页眉两行、
   FM6 银行行、页级 `−/+` 细调按钮复用现有代码；读写仍走 §7 的 `CMD_SET_PARAM` / `CMD_SET_GLOBAL`。
+  该页没有 8 槽旋钮与 chip 行，`page_params.c` 里碰它们的路径都按 `page_layout_is_dashboard()` 分流。
+- **固定行的位置（5B 规格 §5.2；实施裁决 R8）**：`−/+` 下移到页面区 y=40（`SOUND_BTN_Y`）；FM6 银行行从页面区底部
+  挪到页眉下方 y=76（`BANK_ROW_Y_DASH`），卡片视口顶随它的可见性在 80 ⇄ 128 之间切（`page_sound_update` 挪容器并
+  钳位滚动量，零分配）。SAMPLE 页的槽管理行不动。
+- **手势**：容器与卡片都不让 LVGL 自己滚（清 SCROLLABLE / SCROLL_CHAIN / GESTURE_BUBBLE），滚动由卡片的事件回调
+  驱动 `lv_obj_scroll_by_bounded`——按下点落在槽环带里这一次手势就归槽，否则归滚动；LVGL 不因为「我们自己滚了」
+  而取消点击，所以移动过的手势一律不算点击。LVGL 的命中测试不看父对象裁剪，按下点先按视口矩形过滤。
 
 预算：est 12,288（上限 12,768）
 
-⏳ 实测登记：池 delta / build_ms / SEQ→SOUND 过渡 pool_free（Task 2）
+实测登记（2026-11-26，Task 2 骨架 = 滚动容器 + 13 张自绘卡片 + 页眉两行 + `−/+` + 常驻隐藏的银行行；
+证据 `docs/dev/verify/5-pb1-2026-11-26/`，读数脚本 `task-2-proto-measure.py` 随包）：
+
+- 池 delta **6,044–6,816B**（66 次构建，est 的 49–55%；`页面构建` 日志的 `池增量` 与 `UI MEM delta` 同值；同一个构建在不同池历史下
+  相差一两百字节，与其它页相同）——**两级退路都不需要**；
+- build_ms **9–13ms**（≤100ms）；切页耗时 PLAY→SOUND 13–14ms、SEQ→SOUND 15–18ms、EDIT 四页全建→STEP 34–37ms；
+- **SEQ→SOUND 过渡**：构建日志 `池剩余=13,452–13,456B`（≥4,096），切完 `UI MEM pool_free=43,084–43,096B`；
+- EDIT 四页全建 → 首建 STEP：构建日志 `池剩余=12,092–12,212B`。账面是 14,000 + 23,040 + 23,040 + 4,096 = 64,176 > 63,120
+  （`knob_test.c` 的 EDIT→STEP 断言因此为红，直到 Task 7 退役三张 chip 页）——实测有余，处置待裁决；
+- 内部堆：进入页面前后 `internal_free` 差 56–60B（≤256；页面状态全在 PSRAM），`internal_min` 71,884–72,124B；
+- 银行行显隐翻转不改池占用（`pool_used=18,320B` 前后相同）；
+- `UI step`↔`UI sound` 往返：硬复位后首 5 轮 `pool_free` −296B / −384B（两次开机），之后每 5 轮 −144 → −52 → −36 → −20 → +4 → −8 → +36B
+  （对照：未改动的 SAMPLE 页冷启动首 5 轮 −200B，之后 −36…+32B）——冷启动形态是框架的，不是本页的；delta 6,048–6,816B。
