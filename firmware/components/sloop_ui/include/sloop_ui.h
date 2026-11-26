@@ -289,7 +289,25 @@ typedef enum {
                              * （作用域与锁定态由 console 经 sloop_ui_sound_slot_info 取）。 */
     SLOOP_TAP_SOUND_CARD,    /* SOUND 仪表盘的卡片标题行（5B-1）：a=卡片 v=**翻转后**的该卡折叠位
                              * （命中即翻折叠位，重排在下一拍）。 */
+    SLOOP_TAP_SOUND_PICK_OPEN, /* SOUND 页眉行的名字区（5B-1 Task 6，中段；左右 42px 仍是 ∓1）：a=行
+                             * （0 = ENGINE，鼓轨 = KIT / 1 = PRESET）。命中即打开选择器。 */
+    SLOOP_TAP_SOUND_PICK,    /* SOUND 选择器（5B-1 Task 6）：a=0 引擎（d=1 时是鼓 kit）/ 1 预置，
+                             * b=下标，v=命令值（**已下发**时；否则 0），d=1 鼓轨，
+                             * err=SLOOP_PICK_ERR_*（0 已下发且状态层回 OK / 1 只移动 chip 高亮 /
+                             * 2 预览别的引擎时点了预置行，未下发 / 3 确认的就是当前项，未下发、
+                             * 已关闭 / 4 上下文已变，未下发、已关闭 / 5 FROZEN / 6 INVALID）。 */
 } sloop_tap_kind_t;
+
+/* SLOOP_TAP_SOUND_PICK 的结果码（sloop_tap_result_t.err） */
+typedef enum {
+    SLOOP_PICK_ERR_NONE = 0,
+    SLOOP_PICK_ERR_HIGHLIGHT, /* 只移动 chip 高亮（预览），未下发 */
+    SLOOP_PICK_ERR_PREVIEW,   /* chip 高亮 ≠ 当前引擎时点预置行：未下发（换引擎与换预置是两条命令） */
+    SLOOP_PICK_ERR_CURRENT,   /* 确认的就是当前引擎/预置/kit：未下发，选择器关闭 */
+    SLOOP_PICK_ERR_CONTEXT,   /* 打开后选中轨/引擎已变：未下发，选择器关闭 */
+    SLOOP_PICK_ERR_FROZEN,
+    SLOOP_PICK_ERR_INVALID,
+} sloop_pick_err_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作
  * 函数；一条动作 = 一条状态层命令（SECTION_* / CHAIN_* / SONG_MODE / SONG_REC /
@@ -428,6 +446,22 @@ esp_err_t sloop_ui_sound_focus_get(uint16_t *flat, uint8_t *card, uint8_t *slot)
 esp_err_t sloop_ui_sound_focus_set(uint16_t flat);
 /* 翻第 card 张卡的折叠位（持锁；卡片重排在下一拍）。card ≥ 13 回 ESP_ERR_INVALID_ARG。 */
 esp_err_t sloop_ui_sound_card_toggle(uint8_t card);
+
+/* Sound 选择器（5B-1 Task 6，逻辑在 page_sound_picker.c）：点页眉行名字区（TAP 回
+ * SLOOP_TAP_SOUND_PICK_OPEN）打开的引擎/预置/鼓 kit 面板；chip 只高亮，列表行选择各发一条
+ * CMD_SET_ENGINE / CMD_SET_PRESET / CMD_SET_PARAM（kit）并关闭。下面三个**不取 LVGL 锁**，给键盘
+ * 路由（输入任务）用：active = 面板打开；confirm = ENTER（最后移动的那一行：chip 行 ⇒ 换引擎，
+ * 列表 ⇒ 选中项）；cancel = ESC（只关面板，不切页）。选择器打开时 ←/→/↑/↓ 仍走
+ * sloop_ui_param_focus_move / sloop_ui_param_adjust，由页面层转给选择器。 */
+bool sloop_ui_sound_picker_active(void);
+void sloop_ui_sound_picker_confirm(void);
+void sloop_ui_sound_picker_cancel(void);
+/* console `UI SOUND PICK [<n>]`（持锁）：第 n 行的文字与是否当前项 / 屏幕矩形（含 72px 页签条），
+ * 以及状态行（打开的行、当前引擎、chip 高亮、列表行数）。未打开（或不在仪表盘页）
+ * ESP_ERR_INVALID_STATE；n ≥ 行数 ESP_ERR_NOT_FOUND；锁超时 ESP_ERR_TIMEOUT。 */
+esp_err_t sloop_ui_sound_pick_rect(uint8_t n, int16_t *x, int16_t *y, int16_t *w, int16_t *h);
+esp_err_t sloop_ui_sound_pick_info(uint8_t n, char *buf, uint32_t buf_n, bool *current);
+esp_err_t sloop_ui_sound_pick_status(uint8_t *row, uint8_t *engine, uint8_t *highlight, uint8_t *rows);
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、

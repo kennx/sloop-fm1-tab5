@@ -19,7 +19,8 @@
  * 8 槽（布局表的 TRACK scope P_E0..P_E7，描述符经 sloop_core_desc_track_live 取该轨引擎的
  * 钩子——LOFI/NOISE/PHYS 的标签随模式换），8 个旋钮对象常驻、按上下文显隐。页眉两行是
  * **三区对象**（同 DSYN 的 LANE / FM6P 的 BANK）：`ENGINE − 名 +` / `PRESET − 名 +`，
- * 左右 42px 是 ∓1 区（环绕）、中段是标签（TAP miss）；名字/下标/预置数全部读状态层的
+ * 左右 42px 是 ∓1 区（环绕）、中段是名字区 = 打开引擎/预置/kit 选择器（5B-1 Task 6，
+ * page_sound_picker.c；与 Sloop Go 点名字开列表一致）；名字/下标/预置数全部读状态层的
  * app_state_t.sound（UI 不读上游 ENGINES[]）。动作 = 两条状态层命令：CMD_SET_ENGINE /
  * CMD_SET_PRESET（a = 选中轨）。选中鼓轨时两行换成单行 `KIT − 名 +`：经 CMD_SET_PARAM 写
  * 鼓轨的 P_E0（上游 DRUMS 屏 KNOB 1），旋钮区按鼓轨逐槽规则全部锁定（页眉标 NO SOUND）。
@@ -104,6 +105,7 @@
 #include "knob.h"
 #include "page_layout.h"
 #include "page_sound.h"
+#include "page_sound_picker.h"
 #include "sloop_store.h"
 #include "theme.h"
 
@@ -895,7 +897,7 @@ static void sound_row_draw(lv_event_t *e)
 
 static bool sound_step(uint8_t index, uint8_t row, int8_t delta, sloop_tap_result_t *out);
 
-/* 点击：左右 42px 是 ∓1 区（与 TAP 同一张几何表）；中段是标签，不动作。 */
+/* 点击：左右 42px 是 ∓1 区（与 TAP 同一张几何表）；中段（名字区）打开选择器。 */
 static void sound_row_event_cb(lv_event_t *e)
 {
     switch (lv_event_get_code(e)) {
@@ -914,7 +916,10 @@ static void sound_row_event_cb(lv_event_t *e)
         lv_obj_get_coords(obj, &a);
         int32_t rel = p.x - a.x1;
         int32_t w = page_layout_sound_row_w(row);
-        if (rel >= SOUND_ROW_ZONE && rel < w - SOUND_ROW_ZONE) return; /* 标签中段 */
+        if (rel >= SOUND_ROW_ZONE && rel < w - SOUND_ROW_ZONE) {
+            page_sound_picker_open(row);
+            break;
+        }
         if (sound_step(index, row, rel < SOUND_ROW_ZONE ? -1 : 1, NULL)) refresh(index);
         break;
     }
@@ -1784,7 +1789,10 @@ static void param_tap_button(uint8_t index, int8_t delta, sloop_tap_result_t *ou
     const param_page_t *pg = page_layout_get(index);
     if (page_layout_is_dashboard(pg)) {
         /* 仪表盘页：± 作用于卡片区的焦点槽。回显沿用同一格式：slot = 成员表扁平下标、
-         * id = 参数 id、value = 写后回读（锁定的槽 = PARAM_LOCKED，未下发）。 */
+         * id = 参数 id、value = 写后回读（锁定的槽 = PARAM_LOCKED，未下发）。
+         * 选择器（page_sound_picker.c）打开时 ± = 列表高亮 ±1（与 btn_cb → page_sound_adjust
+         * 同一条路），回显换成选择器的 `-> SOUND pick … highlight`。 */
+        if (page_sound_picker_plus_tap(delta, out)) return;
         uint16_t flat = page_sound_focus_get();
         int16_t applied = 0;
         bool ok = page_sound_adjust_value(delta, &applied);
@@ -1880,14 +1888,21 @@ bool page_params_tap(uint8_t index, int16_t x, int16_t y, sloop_tap_result_t *ou
         param_tap_button(index, +1, out);
         return true;
     }
-    /* SOUND 页眉行（仅 SOUND 页；矩形与建控件同源）：左右区 = ∓1，中段是标签 ⇒ miss */
+    /* SOUND 页眉行（仅 SOUND 页；矩形与建控件同源）：左右区 = ∓1，中段（名字区）= 打开选择器 */
     if (page_layout_is_sound(pg) && ui->sound_row[0] != NULL && ui->sound_rows_shown > 0) {
         for (uint8_t row = 0; row < (uint8_t)ui->sound_rows_shown; row++) {
             int16_t rx = page_layout_sound_row_x(row);
             int16_t rw = page_layout_sound_row_w(row);
             if (!rect_hit(x, y, rx, SOUND_ROW_Y, rw, SOUND_ROW_H)) continue;
             int32_t rel = x - rx;
-            if (rel >= SOUND_ROW_ZONE && rel < rw - SOUND_ROW_ZONE) return false;
+            if (rel >= SOUND_ROW_ZONE && rel < rw - SOUND_ROW_ZONE) {
+                page_sound_picker_open((uint8_t)row);
+                if (out != NULL) {
+                    out->kind = SLOOP_TAP_SOUND_PICK_OPEN;
+                    out->a = row;
+                }
+                return true;
+            }
             if (sound_step(index, row, rel < SOUND_ROW_ZONE ? -1 : 1, out)) refresh(index);
             return true;
         }

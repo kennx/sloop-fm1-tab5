@@ -1244,8 +1244,8 @@ static int param_command(int argc, char **argv)
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
- * UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE：SOUND 仪表盘的槽定位/滚动/统计/槽级旋钮注入/
- * 焦点读写/卡片折叠（5B-1 Task 3/4，见 ui_sound_command；裸 `UI sound` 仍是切页）。
+ * UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE|PICK：SOUND 仪表盘的槽定位/滚动/统计/槽级旋钮注入/
+ * 焦点读写/卡片折叠/引擎·预置·kit 选择器（5B-1 Task 3/4/6，见 ui_sound_command；裸 `UI sound` 仍是切页）。
  * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建当前页
  * 立即重建到失败态（注入当场消费）；已建非当前页回到未建态（注入待命）；未建页挂起
  * 到下一次构建；off 只撤销未消费的注入。
@@ -1396,10 +1396,12 @@ static int ui_lockhold_command(const char *arg)
 }
 
 /* UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>
- * | FOCUS [<flat>] | CARDTOGGLE <n>（5B-1 Task 3/4）：SOUND 仪表盘的槽定位、滚动、统计、槽级旋钮注入、
+ * | FOCUS [<flat>] | CARDTOGGLE <n> | PICK [<n>]（5B-1 Task 3/4/6）：SOUND 仪表盘的槽定位、滚动、统计、
+ * 槽级旋钮注入、
  * 焦点读写与卡片折叠。槽用成员表的扁平下标；TAP/注入要的矩形是屏幕绝对坐标（含 72px 页签条）。
  * 当前页不是仪表盘 `UI ERR sound (not_dashboard)`、页对象未建 `(not_built)`、参数/下标不合法
- * `(invalid)`、槽在当前上下文不存在（KNOB / FOCUS <n>）`(absent)`。裸 `UI sound` 仍是**切页**、
+ * `(invalid)`、槽在当前上下文不存在（KNOB / FOCUS <n>）或选择器没有这一行（PICK <n>）`(absent)`、
+ * 选择器未打开（PICK <n>）`(not_built)`。裸 `UI sound` 仍是**切页**、
  * `UI sound CHIP` 仍走 chip 段（本函数只在第三个词是这些子命令时被调）。 */
 static int ui_sound_err(esp_err_t ret)
 {
@@ -1567,6 +1569,40 @@ static int ui_sound_command(int argc, char **argv)
         }
         return ui_sound_focus_print();
     }
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "pick") == 0) {
+        /* 选择器（page_sound_picker.c）：无 n = 状态行；有 n = 列表第 n 行的文字/当前项/屏幕矩形 */
+        uint32_t n = 0;
+        if (argc == 4 && !eng_uint(argv[3], UINT8_MAX, &n)) {
+            printf("UI ERR sound (invalid)\n");
+            return 1;
+        }
+        if (!sloop_ui_sound_picker_active()) {
+            if (argc == 3) {
+                printf("UI SOUND PICK open=0\n");
+                return 0;
+            }
+            return ui_sound_err(ESP_ERR_INVALID_STATE);
+        }
+        uint8_t row = 0, engine = 0, highlight = 0, rows = 0;
+        esp_err_t ret = sloop_ui_sound_pick_status(&row, &engine, &highlight, &rows);
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        if (argc == 3) {
+            printf("UI SOUND PICK open=1 row=%u engine=%u highlight=%u rows=%u\n", (unsigned)row,
+                   (unsigned)engine, (unsigned)highlight, (unsigned)rows);
+            return 0;
+        }
+        char text[32];
+        bool current = false;
+        ret = sloop_ui_sound_pick_info((uint8_t)n, text, sizeof(text), &current);
+        if (ret == ESP_ERR_NOT_FOUND) return ui_sound_absent();
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        int16_t x = 0, y = 0, w = 0, h = 0;
+        ret = sloop_ui_sound_pick_rect((uint8_t)n, &x, &y, &w, &h);
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        printf("UI SOUND PICK n=%u text=\"%s\" current=%u x=%d y=%d w=%d h=%d\n", (unsigned)n, text,
+               (unsigned)current, (int)x, (int)y, (int)w, (int)h);
+        return 0;
+    }
     if (argc == 4 && strcasecmp(argv[2], "cardtoggle") == 0) {
         uint32_t card = 0;
         /* 卡片数的判据同 STATS：槽 0 落在成员表里的卡片才存在 */
@@ -1582,7 +1618,7 @@ static int ui_sound_command(int argc, char **argv)
         return 0;
     }
     printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>"
-           " | FOCUS [<flat>] | CARDTOGGLE <n>\n");
+           " | FOCUS [<flat>] | CARDTOGGLE <n> | PICK [<n>]\n");
     return 1;
 }
 
@@ -1598,11 +1634,12 @@ static int ui_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
-    /* UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE …：仪表盘子命令（裸 `UI sound` / `UI sound CHIP` 不走这里） */
+    /* UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE|PICK …：仪表盘子命令（裸 `UI sound` / `UI sound CHIP` 不走这里） */
     if (argc >= 3 && strcasecmp(argv[1], "sound") == 0 &&
         (strcasecmp(argv[2], "card") == 0 || strcasecmp(argv[2], "scroll") == 0 ||
          strcasecmp(argv[2], "stats") == 0 || strcasecmp(argv[2], "knob") == 0 ||
-         strcasecmp(argv[2], "focus") == 0 || strcasecmp(argv[2], "cardtoggle") == 0)) {
+         strcasecmp(argv[2], "focus") == 0 || strcasecmp(argv[2], "cardtoggle") == 0 ||
+         strcasecmp(argv[2], "pick") == 0)) {
         return ui_sound_command(argc, argv);
     }
     if (argc == 6 && strcasecmp(argv[1], "knob") == 0) {
@@ -2587,6 +2624,33 @@ static int tap_command(int argc, char **argv)
         printf("TAP %ld,%ld page=%u -> SOUND card=%u collapsed=%u\n", x, y, page, (unsigned)r.a,
                (unsigned)r.v);
         break;
+    case SLOOP_TAP_SOUND_PICK_OPEN:
+        /* SOUND 页眉行的名字区（5B-1 Task 6）：a = 行（0 = ENGINE / 鼓轨 KIT，1 = PRESET） */
+        printf("TAP %ld,%ld page=%u -> SOUND pick open row=%u\n", x, y, page, (unsigned)r.a);
+        break;
+    case SLOOP_TAP_SOUND_PICK: {
+        /* SOUND 选择器（5B-1 Task 6）：a = 0 引擎（d=1 ⇒ 鼓 kit）/ 1 预置，b = 下标。下发时带命令名
+         * （一条 CMD_SET_ENGINE / CMD_SET_PARAM 写鼓轨 P_E0 / CMD_SET_PRESET）；没下发的情形由 err
+         * 分开：只移动 chip 高亮 / 预览别的引擎时点预置行 / 确认的就是当前项 / 上下文已变 / 冻结·越界。 */
+        const char *what = r.d != 0 ? "kit" : r.a == 0u ? "engine" : "preset";
+        const char *cmd = r.d != 0 ? "CMD_SET_PARAM" : r.a == 0u ? "CMD_SET_ENGINE" : "CMD_SET_PRESET";
+        const char *note = NULL;
+        switch (r.err) {
+        case SLOOP_PICK_ERR_HIGHLIGHT: note = "highlight"; break;
+        case SLOOP_PICK_ERR_PREVIEW: note = "ignored (preview)"; break;
+        case SLOOP_PICK_ERR_CURRENT: note = "unchanged"; break;
+        case SLOOP_PICK_ERR_CONTEXT: note = "ignored (context)"; break;
+        default: break;
+        }
+        if (r.err == SLOOP_PICK_ERR_FROZEN || r.err == SLOOP_PICK_ERR_INVALID) {
+            printf("TAP %ld,%ld page=%u -> SOUND pick %s=%u ERR %s\n", x, y, page, what, (unsigned)r.b,
+                   r.err == SLOOP_PICK_ERR_FROZEN ? "frozen" : "invalid");
+        } else {
+            printf("TAP %ld,%ld page=%u -> SOUND pick %s=%u %s\n", x, y, page, what, (unsigned)r.b,
+                   note != NULL ? note : cmd);
+        }
+        break;
+    }
     default:
         printf("TAP %ld,%ld page=%u -> (unknown)\n", x, y, page);
         break;

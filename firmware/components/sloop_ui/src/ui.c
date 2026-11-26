@@ -69,6 +69,7 @@
 #include "page_layout.h"
 #include "page_params.h"
 #include "page_sound.h"
+#include "page_sound_picker.h"
 #include "page_system.h"
 #include "page_tools.h"
 #include "sound_layout.h"
@@ -440,6 +441,8 @@ static esp_err_t show_page(uint8_t page)
      * 目标页、紧接着的手指点击必须赢（R30）。定时器路径上邮箱在调用前已被取走，
      * 这里是 no-op；同步 console 切页另有入口处的同一次清空（幂等）。 */
     sloop_ui_cancel_pending_page();
+    /* Sound 选择器是页内临时面板：离开 SOUND（含切走再切回）就关掉，不跨页存活 */
+    if (s_page != page) page_sound_picker_close();
     int src = group_of(s_page);
     int dst = group_of(page);
     bool cross = (src >= 0 && dst != src) || (src < 0 && dst >= 0);
@@ -1281,6 +1284,54 @@ esp_err_t sloop_ui_sound_card_toggle(uint8_t card)
     if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
     page_sound_card_toggle(card);
     bsp_display_unlock();
+    return ESP_OK;
+}
+
+/* Sound 选择器（5B-1 Task 6，逻辑在 page_sound_picker.c）。三个键盘入口不取 LVGL 锁：选择器的
+ * 逻辑态是它自己的 portMUX 保护的 PSRAM 静态，confirm 只发一条状态层命令，面板由下一拍
+ * page_sound_update（→ page_sound_picker_tick）删除。 */
+bool sloop_ui_sound_picker_active(void)
+{
+    return s_started && page_sound_picker_active();
+}
+
+void sloop_ui_sound_picker_confirm(void)
+{
+    (void)page_sound_picker_confirm();
+}
+
+void sloop_ui_sound_picker_cancel(void)
+{
+    page_sound_picker_cancel();
+}
+
+/* console `UI SOUND PICK` 的持锁外壳（同上方 Task 3 的几个）：未打开 INVALID_STATE、n 越界
+ * NOT_FOUND 由页面层给出。 */
+esp_err_t sloop_ui_sound_pick_rect(uint8_t n, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_picker_rect(n, x, y, w, h);
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_pick_info(uint8_t n, char *buf, uint32_t buf_n, bool *current)
+{
+    if (buf != NULL && buf_n != 0u) buf[0] = '\0';
+    if (current != NULL) *current = false;
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_picker_info(n, buf, buf_n, current);
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_pick_status(uint8_t *row, uint8_t *engine, uint8_t *highlight, uint8_t *rows)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!page_sound_picker_active()) return ESP_ERR_INVALID_STATE;
+    page_sound_picker_status(row, engine, highlight, rows);
     return ESP_OK;
 }
 

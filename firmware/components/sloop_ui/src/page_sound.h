@@ -22,6 +22,11 @@
  * 事件回调里跑；slot_total / slot_info 不取锁（console 任务直读 PSRAM 里的槽状态）。焦点与折叠
  * 入口（下方一组）同样不取 LVGL 锁——键盘路由在输入任务里调：焦点是 portMUX 保护的 PSRAM
  * 静态，adjust 只发状态层命令；滚动到可见、重排与重绘都留给下一拍 update。
+ *
+ * 选择器（5B-1 Task 6，page_sound_picker.{h,c}）：本文件只做路由——build 把页面对象根挂给它、
+ * forget 清掉它、update 每拍调 page_sound_picker_tick（选中轨/声音变了即关闭）、TAP 先问它；
+ * 选择器打开时 focus_move / adjust（含 adjust_value：页级 ± 的触摸与 TAP 同一条路）不再动卡片的
+ * 焦点槽，转给 page_sound_picker_move。
  */
 #pragma once
 
@@ -40,11 +45,13 @@ lv_obj_t *page_sound_build(lv_obj_t *parent);
 /* 每拍：银行行可见性（调用方的谓词，page_params.c 的 bank_row_visible）翻转 ⇒ 挪容器；
  * 上下文（选中轨/引擎/引擎槽值/ENV SYNC/INSERT TYPE）变 ⇒ 重解析全部槽并整卡重绘；
  * 折叠位变 ⇒ 重排 13 张卡片、重钳滚动；否则只刷值变了的槽。最后保证焦点落在存在的槽上、
- * 焦点变化时滚进视口，并按需重绘选轨条与提示/读数行。 */
+ * 焦点变化时滚进视口，并按需重绘选轨条与提示/读数行。末尾把状态交给选择器（page_sound_picker_tick：
+ * 选中轨或它的声音变了 ⇒ 关闭选择器；键盘改过的高亮在此重绘）。 */
 void page_sound_update(const app_state_t *st, bool bank_visible);
 /* 页面销毁（组作用域 / 构建失败）：清控件指针、手势态、存在位图与焦点。 */
 void page_sound_forget(void);
-/* TAP 注入（页面区相对坐标）：命中选轨条第 k 格 ⇒ 发 CMD_SELECT_TRACK 并回
+/* TAP 注入（页面区相对坐标）：选择器打开时落在其面板内 ⇒ page_sound_picker_tap（面板外照常往下）；
+ * 命中选轨条第 k 格 ⇒ 发 CMD_SELECT_TRACK 并回
  * SLOOP_TAP_TRACK_CARD{a=k}（回显同 TRACKS 页）；命中的卡片标题行 ⇒ 翻该卡折叠位并回
  * SLOOP_TAP_SOUND_CARD{a=卡片 v=翻转后的折叠位}；命中**存在**槽的矩形 ⇒ 设焦点并回
  * SLOOP_TAP_SOUND_FOCUS{a=卡片 b=槽 v=扁平下标}；视口外/空白处/不存在的槽未命中返回 false。 */
@@ -55,7 +62,8 @@ bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out);
  * ⇒ 落到首个存在槽。无存在槽时不动。 */
 void page_sound_focus_move(int8_t delta);
 /* ↑/↓/ENTER、页级 ±：焦点槽 ±1（引擎钳位）。槽不存在/锁定/所在卡片折叠，或页面状态说的不是
- * 此刻的选中轨/引擎（换轨后下一拍之前、页面已销毁）返回 false 且不发命令。 */
+ * 此刻的选中轨/引擎（换轨后下一拍之前、页面已销毁）返回 false 且不发命令。选择器打开时转给它
+ * （列表高亮 ±1；ENTER 的确认另走 sloop_ui_sound_picker_confirm），同样返回 false。 */
 bool page_sound_adjust(int8_t delta);
 bool page_sound_adjust_value(int8_t delta, int16_t *applied); /* 同上；applied（可 NULL）= 写后投影真值 */
 /* 焦点槽；恒为一个可聚焦的槽 = 存在且所在卡片没折叠（悬空的焦点按 update 同一条规则重指：扁平序

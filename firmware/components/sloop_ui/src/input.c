@@ -291,7 +291,14 @@ static void dispatch(const key_binding_t *b, bool down)
         state_apply(&cmd);
         break;
     }
-    case ACT_PAGE_PLAY: sloop_ui_request_page(APP_PAGE_PLAY); break; /* esc：回 PLAY（组随页复位） */
+    case ACT_PAGE_PLAY:
+        /* esc：回 PLAY（组随页复位）。Sound 选择器打开时只关选择器，不切页（5B-1 Task 6）。 */
+        if (sloop_ui_sound_picker_active()) {
+            sloop_ui_sound_picker_cancel();
+            break;
+        }
+        sloop_ui_request_page(APP_PAGE_PLAY);
+        break;
     case ACT_PAGE_NEXT: {
         /* 只记目标页：切页在 30ms UI 定时器（LVGL 上下文）执行，输入路径不等锁。
          * 目标页 = 组顺序扁平轮转的下一张（ADR-005 §4 的 18 页顺序，P4-F Task 6 起：
@@ -328,9 +335,13 @@ static void dispatch(const key_binding_t *b, bool down)
     case ACT_FILE_LOAD:
         /* enter：SYSTEM 页 = 焦点行 +1/切换；STEP 页 = 切换聚焦步的选中 drum lane 位；
          * FILE 页 = LOAD 选中槽；TRANSPORT 页 = 焦点字段 +1（SLIDE 为切换）；
-         * SONG 页 = LOAD 选中 section；参数页 = 焦点槽 +1（P4-F Task 4；锁定槽无动作）。
+         * SONG 页 = LOAD 选中 section；参数页 = 焦点槽 +1（P4-F Task 4；锁定槽无动作）；
+        * Sound 选择器打开时 = 确认选择器里最后移动的那一行（它与 ↑ 走同一个 +1 分支，所以在这条链的
+        * 最前面分流，5B-1 Task 6）。
          * 其它页保持无动作。 */
-        if (sloop_ui_system_page_active()) {
+        if (sloop_ui_sound_picker_active()) {
+            sloop_ui_sound_picker_confirm();
+        } else if (sloop_ui_system_page_active()) {
             (void)sloop_ui_system_key(b->code);
         } else if (sloop_ui_step_page_active()) {
             sloop_ui_step_drum_toggle();

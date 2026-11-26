@@ -31,6 +31,10 @@
  * TAP 不能拖拽：命中存在的槽 = 设焦点、命中标题行 = 翻折叠位、命中选轨条 = 选轨（都与点击
  * 同一动作函数）。
  *
+ * 选择器（5B-1 Task 6，page_sound_picker.c）：点页眉行名字区打开的引擎/预置/kit 面板盖在卡片区之上。
+ * 本文件只路由：build/forget 挂/清它的页面对象根，update 每拍调 page_sound_picker_tick，TAP 先问它；
+ * 它打开时 ←/→/↑/↓/页级 ± 不再动卡片的焦点槽，转给 page_sound_picker_move。
+ *
  * 焦点（5B-1 Task 4）：s_focus_flat 是 portMUX 保护的 PSRAM 静态——键盘路由在输入任务里读写，
  * TAP/绘制在 LVGL 任务里。本文件里凡是**不取 LVGL 锁**的入口（page_sound_focus_move、
  * page_sound_adjust、page_sound_card_toggle 等六个）只读写这份状态（adjust 另发一条状态层
@@ -50,6 +54,7 @@
 
 #include "knob_math.h"
 #include "page_layout.h"
+#include "page_sound_picker.h"
 #include "param_ids.h"
 #include "sound_layout.h"
 #include "theme.h"
@@ -797,6 +802,7 @@ static void resolve_slots(const sound_ctx_t *c, const sound_ctx_t *prev)
 lv_obj_t *page_sound_build(lv_obj_t *parent)
 {
     page_sound_forget();
+    page_sound_picker_attach(parent); /* 选择器面板的父对象：晚于下面全部控件创建 = 最上层 */
     /* 焦点与折叠位是页内 UI 局部态：页面重建保留（同 page_params_forget 保留 s_focus/s_chip） */
     (void)sound_layout_place(collapsed_get(), s_pos);
     s_layout_shown = collapsed_get();
@@ -951,10 +957,13 @@ void page_sound_update(const app_state_t *st, bool bank_visible)
             lv_obj_invalidate(s_hint_obj);
         }
     }
+
+    page_sound_picker_tick(st);
 }
 
 void page_sound_forget(void)
 {
+    page_sound_picker_forget(); /* 面板随页面根已删：只清状态与指针 */
     memset(s_cards, 0, sizeof(s_cards));
     s_scroll_obj = NULL;
     s_sel_obj = NULL;
@@ -983,6 +992,8 @@ static void card_toggle(uint8_t card)
 bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     if (s_scroll_obj == NULL || s_view_top < 0) return false;
+    /* 选择器打开：面板盖住卡片区，落在面板内的点归它（含面板内的空白），面板外照常往下 */
+    if (page_sound_picker_active() && page_sound_picker_tap(x, y, out)) return true;
     /* 选轨条在视口之外：先于视口裁剪命中 */
     if (rect_hit(x, y, SEL_X, SEL_Y, SEL_W, SEL_H)) {
         uint8_t k = (uint8_t)((x - SEL_X) / SEL_CELL_W);
@@ -1134,6 +1145,10 @@ esp_err_t page_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press
 void page_sound_focus_move(int8_t delta)
 {
     if (delta == 0) return;
+    if (page_sound_picker_active()) { /* 选择器打开：←/→ 移 chip 高亮 */
+        page_sound_picker_move(delta, 0);
+        return;
+    }
     uint16_t f = focus_get();
     uint16_t next;
     if (f < SOUND_SLOT_TABLE_MAX && !present_bit(f)) f = focus_resolve(); /* 悬空：先按每拍的规则重指 */
@@ -1147,6 +1162,12 @@ void page_sound_focus_move(int8_t delta)
 
 bool page_sound_adjust_value(int8_t delta, int16_t *applied)
 {
+    if (page_sound_picker_active()) {
+        /* 选择器打开：↑/↓ 与页级 ± 都移列表高亮（触摸与 TAP 同一条路）。delta 是调值口径（↓/− = −1），
+         * 列表高亮按屏幕方向走：↓/− = 下一行 */
+        page_sound_picker_move(0, (int8_t)-delta);
+        return false;
+    }
     uint16_t flat = focus_resolve();
     if (delta == 0 || flat >= SOUND_SLOT_TABLE_MAX) return false;
     uint8_t card, slot;
