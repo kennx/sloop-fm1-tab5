@@ -1569,8 +1569,22 @@ static int ui_sound_command(int argc, char **argv)
         }
         return ui_sound_focus_print();
     }
-    if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "pick") == 0) {
+    if (argc >= 3 && argc <= 6 && strcasecmp(argv[2], "pick") == 0) {
         /* 选择器（page_sound_picker.c）：无 n = 状态行；有 n = 列表第 n 行的文字/当前项/屏幕矩形 */
+        /* `UI SOUND PICK press|release <x> <y>`：触摸注入（屏幕坐标），走与点击回调相同的按下/松手入口 */
+        if (argc == 6 && (strcasecmp(argv[3], "press") == 0 || strcasecmp(argv[3], "release") == 0)) {
+            int32_t x = 0, y = 0;
+            if (!seq_int(argv[4], INT16_MIN, INT16_MAX, &x) || !seq_int(argv[5], INT16_MIN, INT16_MAX, &y)) {
+                printf("UI ERR sound (invalid)\n");
+                return 1;
+            }
+            bool press = strcasecmp(argv[3], "press") == 0;
+            int8_t hit = sloop_ui_sound_picker_touch(press, (int16_t)x, (int16_t)y, NULL);
+            printf("UI SOUND PICK %s x=%ld y=%ld %s\n", press ? "press" : "release", (long)x, (long)y,
+                   hit == SLOOP_PICK_TOUCH_MOVED ? "moved" : hit == SLOOP_PICK_TAP_HIT ? "hit"
+                   : hit == SLOOP_PICK_TAP_OUTSIDE ? "outside" : "blank");
+            return hit == SLOOP_PICK_TAP_HIT ? 0 : 1;
+        }
         uint32_t n = 0;
         if (argc == 4 && !eng_uint(argv[3], UINT8_MAX, &n)) {
             printf("UI ERR sound (invalid)\n");
@@ -1618,7 +1632,7 @@ static int ui_sound_command(int argc, char **argv)
         return 0;
     }
     printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>"
-           " | FOCUS [<flat>] | CARDTOGGLE <n> | PICK [<n>]\n");
+           " | FOCUS [<flat>] | CARDTOGGLE <n> | PICK [<n> | press <x> <y> | release <x> <y>]\n");
     return 1;
 }
 
@@ -2635,9 +2649,15 @@ static int tap_command(int argc, char **argv)
         const char *what = r.d != 0 ? "kit" : r.a == 0u ? "engine" : "preset";
         const char *cmd = r.d != 0 ? "CMD_SET_PARAM" : r.a == 0u ? "CMD_SET_ENGINE" : "CMD_SET_PRESET";
         const char *note = NULL;
+        if (r.err == SLOOP_PICK_ERR_PREVIEW) {
+            /* R16：chip 高亮 ≠ 当前引擎时列表只读——回显高亮的引擎，不带命令 */
+            uint8_t hl = 0;
+            (void)sloop_ui_sound_pick_status(NULL, NULL, &hl, NULL);
+            printf("TAP %ld,%ld page=%u -> SOUND pick preview engine=%u\n", x, y, page, (unsigned)hl);
+            break;
+        }
         switch (r.err) {
         case SLOOP_PICK_ERR_HIGHLIGHT: note = "highlight"; break;
-        case SLOOP_PICK_ERR_PREVIEW: note = "ignored (preview)"; break;
         case SLOOP_PICK_ERR_CURRENT: note = "unchanged"; break;
         case SLOOP_PICK_ERR_CONTEXT: note = "ignored (context)"; break;
         default: break;

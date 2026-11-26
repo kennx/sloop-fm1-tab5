@@ -1327,6 +1327,15 @@ esp_err_t sloop_ui_sound_pick_info(uint8_t n, char *buf, uint32_t buf_n, bool *c
     return ret;
 }
 
+int8_t sloop_ui_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    if (!sound_dash_ready() || !page_sound_picker_active()) return SLOOP_PICK_TAP_OUTSIDE;
+    if (!bsp_display_lock(1000)) return SLOOP_PICK_TAP_OUTSIDE;
+    int8_t hit = page_sound_picker_touch(press, x, y, out);
+    bsp_display_unlock();
+    return hit;
+}
+
 esp_err_t sloop_ui_sound_pick_status(uint8_t *row, uint8_t *engine, uint8_t *highlight, uint8_t *rows)
 {
     if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;

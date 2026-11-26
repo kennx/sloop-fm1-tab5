@@ -992,8 +992,12 @@ static void card_toggle(uint8_t card)
 bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     if (s_scroll_obj == NULL || s_view_top < 0) return false;
-    /* 选择器打开：面板盖住卡片区，落在面板内的点归它（含面板内的空白），面板外照常往下 */
-    if (page_sound_picker_active() && page_sound_picker_tap(x, y, out)) return true;
+    /* 选择器打开：面板盖住卡片区，落在面板内的点归它——命中 = 已执行；空白 = miss 回显但不落到被盖住
+     * 的卡片上；面板外照常往下 */
+    if (page_sound_picker_active()) {
+        int8_t hit = page_sound_picker_tap(x, y, out);
+        if (hit != SLOOP_PICK_TAP_OUTSIDE) return hit == SLOOP_PICK_TAP_HIT;
+    }
     /* 选轨条在视口之外：先于视口裁剪命中 */
     if (rect_hit(x, y, SEL_X, SEL_Y, SEL_W, SEL_H)) {
         uint8_t k = (uint8_t)((x - SEL_X) / SEL_CELL_W);

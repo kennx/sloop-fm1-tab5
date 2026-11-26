@@ -302,7 +302,7 @@ typedef enum {
 typedef enum {
     SLOOP_PICK_ERR_NONE = 0,
     SLOOP_PICK_ERR_HIGHLIGHT, /* 只移动 chip 高亮（预览），未下发 */
-    SLOOP_PICK_ERR_PREVIEW,   /* chip 高亮 ≠ 当前引擎时点预置行：未下发（换引擎与换预置是两条命令） */
+    SLOOP_PICK_ERR_PREVIEW,   /* chip 高亮 ≠ 当前引擎时点预置行：列表只读，未下发（回显 preview engine=<高亮>） */
     SLOOP_PICK_ERR_CURRENT,   /* 确认的就是当前引擎/预置/kit：未下发，选择器关闭 */
     SLOOP_PICK_ERR_CONTEXT,   /* 打开后选中轨/引擎已变：未下发，选择器关闭 */
     SLOOP_PICK_ERR_FROZEN,
@@ -462,6 +462,14 @@ void sloop_ui_sound_picker_cancel(void);
 esp_err_t sloop_ui_sound_pick_rect(uint8_t n, int16_t *x, int16_t *y, int16_t *w, int16_t *h);
 esp_err_t sloop_ui_sound_pick_info(uint8_t n, char *buf, uint32_t buf_n, bool *current);
 esp_err_t sloop_ui_sound_pick_status(uint8_t *row, uint8_t *engine, uint8_t *highlight, uint8_t *rows);
+/* 调试注入（持锁；console `UI SOUND PICK press|release <x> <y>`，屏幕坐标）：一次按下 / 松手，走与
+ * 触摸回调相同的入口，返回下面的落点码；未打开 / 不在仪表盘页 = SLOOP_PICK_TAP_OUTSIDE。 */
+int8_t sloop_ui_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_result_t *out);
+/* 松手点（TAP / 触摸回调 / 注入共用）的落点码：sloop_ui_sound_picker_touch 的返回值 */
+#define SLOOP_PICK_TOUCH_MOVED (-2) /* 松手点离按下点超过 4px：不算点击，未执行任何动作 */
+#define SLOOP_PICK_TAP_OUTSIDE 0    /* 面板外：不归选择器 */
+#define SLOOP_PICK_TAP_HIT     1    /* 命中 chip / 列表行：已执行动作 */
+#define SLOOP_PICK_TAP_BLANK  (-1)  /* 面板内空白：未执行（TAP 注入按 miss 回显） */
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、

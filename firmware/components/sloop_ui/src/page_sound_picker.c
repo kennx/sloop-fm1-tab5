@@ -7,6 +7,7 @@
  *
  * 状态分两半：逻辑态（active / 行 / 两个高亮 / 行数 / 打开时的上下文）是 portMUX 保护的 PSRAM 静态，
  * 输入任务（键盘路由，不取 LVGL 锁）与 LVGL 任务都会读写；对象指针与两个滚动量只在 LVGL 上下文碰。
+ * 触摸只认 CLICKED，且松手点离按下点超过 4px 的不算点击（LVGL 9.6 在手指移动后照发 CLICKED）。
  * 键盘改了高亮只置脏位，滚动量跟上高亮、重绘与「关闭后删对象」都发生在 page_sound_picker_tick（≤30ms）；
  * 唯一能单独动列表滚动量的是 console 的矩形查询（把不在视口里的行滚进来）。唯一例外是
  * 选择器自己的点击回调——那里不能删自己正在派发事件的对象，只清 active，对象留给 tick。
@@ -45,7 +46,9 @@
 #define PICK_LIST_H      (ROW_H * ROWS_VISIBLE)
 /* 鼓轨的 kit = P_E0（上游 DRUMS 屏 KNOB 1；与 page_params.c 的 sound_step 同一条命令） */
 #define KIT_PARAM   (SLOOP_CORE_P_COUNT - 8u)
-#define PICK_ENGINES 12u /* sloop_core_nengines()；chip 宽表的容量 */
+/* 手势门（同 page_sound.c 的卡片区）：LVGL 9.6 在手指移动后照发 CLICKED；按下点记在 PRESSED 里，
+ * 松手点离它超过这个距离的点击一律不算（滑一下不该选中一行）。 */
+#define GESTURE_MOVE_PX 4
 
 /* 键盘焦点：最后移动的是 chip 行还是列表（ENTER 确认它） */
 #define ZONE_CHIPS 0u
@@ -71,7 +74,8 @@ static EXT_RAM_BSS_ATTR lv_obj_t *s_chips;
 static EXT_RAM_BSS_ATTR lv_obj_t *s_list;
 static EXT_RAM_BSS_ATTR uint8_t s_scroll;        /* 列表首行的下标 */
 static EXT_RAM_BSS_ATTR int16_t s_chip_scroll;   /* chip 行横向滚动量 */
-static EXT_RAM_BSS_ATTR int16_t s_chip_w[PICK_ENGINES];
+static EXT_RAM_BSS_ATTR int16_t s_chip_w[SLOOP_CORE_NENGINES];
+static EXT_RAM_BSS_ATTR int16_t s_press_x, s_press_y; /* 按下点（页面区相对坐标） */
 static EXT_RAM_BSS_ATTR char s_text[32];
 
 /* 提示行（R13 的规则写在这里；固件只带 Montserrat：必须全 ASCII）——引擎 / 预置 / kit */
@@ -85,6 +89,7 @@ typedef struct {
     uint8_t row, zone, chip_hl, list_hl, rows, track, kit;
     bool drum;
     uint8_t engine, preset; /* 打开时的当前引擎 / 预置 */
+    uint8_t user;           /* 打开时声音来自用户预置 slot+1（0 = 工厂预置） */
 } pick_view_t;
 
 /* 逻辑态的一次性读（临界区内整份拷出） */
@@ -97,7 +102,7 @@ static bool view_get(pick_view_t *v)
         *v = (pick_view_t){.row = s_row,        .zone = s_zone,       .chip_hl = s_chip_hl,
                            .list_hl = s_list_hl, .rows = s_rows,       .track = s_track,
                            .kit = s_kit,         .drum = s_snd.drum != 0u,
-                           .engine = s_snd.engine, .preset = s_snd.preset};
+                           .engine = s_snd.engine, .preset = s_snd.preset, .user = s_snd.user};
     }
     portEXIT_CRITICAL(&s_mux);
     return on;
@@ -157,19 +162,20 @@ static void draw_box(lv_layer_t *layer, const lv_area_t *a, uint32_t color, int3
 static int16_t chip_x(uint8_t e)
 {
     int16_t x = 0;
-    for (uint8_t i = 0; i < e && i < PICK_ENGINES; i++) x = (int16_t)(x + s_chip_w[i] + CHIP_GAP);
+    for (uint8_t i = 0; i < e && i < SLOOP_CORE_NENGINES; i++) x = (int16_t)(x + s_chip_w[i] + CHIP_GAP);
     return x;
 }
 
 static int16_t chips_total(void)
 {
-    int16_t w = chip_x(sloop_core_nengines());
+    int16_t w = chip_x(SLOOP_CORE_NENGINES);
     return w > 0 ? (int16_t)(w - CHIP_GAP) : 0;
 }
 
 /* 高亮 chip 留在行内（粘滞：只在它越出留白带时才滚；总宽放得下 = 0） */
 static void chips_scroll(const pick_view_t *v)
 {
+    if (v->chip_hl >= SLOOP_CORE_NENGINES) return;
     int16_t max = (int16_t)(chips_total() - INNER_W);
     if (max <= 0) {
         s_chip_scroll = 0;
@@ -188,12 +194,11 @@ static void chips_scroll(const pick_view_t *v)
 /* 行内坐标（已含滚动）落在哪个 chip；不在任何 chip 上 = 引擎数 */
 static uint8_t chip_at(int16_t x)
 {
-    uint8_t n = sloop_core_nengines();
-    for (uint8_t e = 0; e < n && e < PICK_ENGINES; e++) {
+    for (uint8_t e = 0; e < SLOOP_CORE_NENGINES; e++) {
         int16_t x1 = chip_x(e);
         if (x >= x1 && x < x1 + s_chip_w[e]) return e;
     }
-    return n;
+    return SLOOP_CORE_NENGINES;
 }
 
 /* 高亮行留在列表里（粘滞；只由 scroll_sync 调） */
@@ -201,6 +206,17 @@ static void list_scroll(const pick_view_t *v)
 {
     if (v->list_hl < s_scroll) s_scroll = v->list_hl;
     else if (v->list_hl >= s_scroll + ROWS_VISIBLE) s_scroll = (uint8_t)(v->list_hl - ROWS_VISIBLE + 1);
+}
+
+/* 当前项（画强调色、回 current=1、「确认的就是当前项」的判据）；返回 v->rows = 没有当前项。row 1 只在
+ * chip 高亮 == 当前引擎时才有（预览别的引擎时，同下标的预置不是当前项）；预置还要求声音来自工厂预置：
+ * 载入用户预置后 t->preset == 0 只是下标，不是「已选着工厂预置 0」。 */
+static uint8_t current_of(const pick_view_t *v)
+{
+    if (v->drum) return v->kit;
+    if (v->row == 0u) return v->engine;
+    if (v->chip_hl != v->engine || v->user != 0u) return v->rows;
+    return v->preset;
 }
 
 /* 列表第 n 行的文字：预置 `"%2u  %s"`（1 起），引擎 / kit 纯名字 */
@@ -255,8 +271,7 @@ static void chips_draw(lv_event_t *e)
     pick_view_t v;
     if (!view_get(&v)) return;
 
-    uint8_t n = sloop_core_nengines();
-    for (uint8_t eng = 0; eng < n && eng < PICK_ENGINES; eng++) {
+    for (uint8_t eng = 0; eng < SLOOP_CORE_NENGINES; eng++) {
         int32_t x1 = a.x1 + chip_x(eng) - s_chip_scroll, x2 = x1 + s_chip_w[eng] - 1;
         if (x2 < a.x1 || x1 > a.x2) continue; /* 滚出行外的 chip：LVGL 本就按对象矩形裁剪，这里只是省一次绘制 */
         bool hl = eng == v.chip_hl;
@@ -276,7 +291,7 @@ static void list_draw(lv_event_t *e)
     lv_obj_get_coords(obj, &a);
     pick_view_t v;
     if (!view_get(&v)) return;
-    uint8_t cur = v.drum ? v.kit : v.row == 0u ? v.engine : v.preset;
+    uint8_t cur = current_of(&v);
 
     for (uint8_t i = 0; i < ROWS_VISIBLE; i++) {
         uint8_t n = (uint8_t)(s_scroll + i);
@@ -370,7 +385,7 @@ static bool pick_commit(uint8_t kind, uint8_t index, sloop_tap_result_t *out)
     uint8_t err = SLOOP_PICK_ERR_NONE;
     if (state_selected_track() != v.track || (!v.drum && state_selected_engine() != v.engine)) {
         err = SLOOP_PICK_ERR_CONTEXT;
-    } else if (index == (kind == 1u ? v.preset : v.drum ? v.kit : v.engine)) {
+    } else if (index == (kind == 1u ? current_of(&v) : v.drum ? v.kit : v.engine)) {
         err = SLOOP_PICK_ERR_CURRENT;
     } else {
         edit_cmd_t cmd = {0};
@@ -437,63 +452,74 @@ static bool chip_select(uint8_t eng, sloop_tap_result_t *out)
 }
 
 /* ---------------------------------------------------------------- 入口（LVGL） --- */
-static void panel_event_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_DRAW_MAIN) panel_draw(e);
-    /* 点击落在面板空白处：面板可点击，事件到此为止（不传给被盖住的卡片区） */
-}
+/* 松手的结果（TAP / 触摸回调 / 注入共用）= sloop_ui.h 的 SLOOP_PICK_TAP_*：面板外、命中并执行了动作、
+ * 面板内空白（不传给被盖住的卡片） */
 
-static void chips_event_cb(lv_event_t *e)
+/* 松手点落在哪就执行哪（页面区相对坐标）：chip / 列表行走与 TAP 相同的选择函数 */
+static int8_t picker_release(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
-    switch (lv_event_get_code(e)) {
-    case LV_EVENT_DRAW_MAIN:
-        chips_draw(e);
-        break;
-    case LV_EVENT_CLICKED: {
-        lv_indev_t *indev = lv_indev_active();
-        if (indev == NULL) break;
-        lv_point_t p;
-        lv_indev_get_point(indev, &p);
-        lv_area_t a;
-        lv_obj_get_coords(lv_event_get_target_obj(e), &a);
-        pick_view_t v;
-        if (!view_get(&v)) break;
-        uint8_t eng = chip_at((int16_t)(p.x - a.x1 + s_chip_scroll));
-        if (eng < sloop_core_nengines()) {
-            (void)chip_select(eng, NULL);
-            invalidate_all(); /* 若已确认关闭：对象留给下一拍 tick 删 */
+    pick_view_t v;
+    if (s_panel == NULL || !view_get(&v)) return SLOOP_PICK_TAP_OUTSIDE;
+    if (!rect_hit(x, y, PICK_X, PICK_Y, PICK_W, PICK_H)) return SLOOP_PICK_TAP_OUTSIDE;
+    int32_t ly = PICK_Y + list_y(v.drum);
+    if (!v.drum && rect_hit(x, y, PICK_X + PICK_PAD, PICK_Y + CHIP_Y, INNER_W, CHIP_H)) {
+        uint8_t eng = chip_at((int16_t)(x - (PICK_X + PICK_PAD) + s_chip_scroll));
+        if (eng < SLOOP_CORE_NENGINES) {
+            (void)chip_select(eng, out);
+            return SLOOP_PICK_TAP_HIT;
         }
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-static void list_event_cb(lv_event_t *e)
-{
-    switch (lv_event_get_code(e)) {
-    case LV_EVENT_DRAW_MAIN:
-        list_draw(e);
-        break;
-    case LV_EVENT_CLICKED: {
-        lv_indev_t *indev = lv_indev_active();
-        if (indev == NULL) break;
-        lv_point_t p;
-        lv_indev_get_point(indev, &p);
-        lv_area_t a;
-        lv_obj_get_coords(lv_event_get_target_obj(e), &a);
-        pick_view_t v;
-        if (!view_get(&v)) break;
-        uint8_t n = (uint8_t)((p.y - a.y1) / ROW_H + s_scroll);
+    } else if (rect_hit(x, y, PICK_X + PICK_PAD, ly, INNER_W, PICK_LIST_H)) {
+        uint8_t n = (uint8_t)((y - ly) / ROW_H + s_scroll);
         if (n < v.rows) {
-            (void)list_select(n, NULL);
-            invalidate_all();
+            (void)list_select(n, out);
+            return SLOOP_PICK_TAP_HIT;
         }
+    }
+    return SLOOP_PICK_TAP_BLANK;
+}
+
+/* 按下 / 松手点（页面区相对坐标）与「松手点离按下点是否超过死区」 */
+static void press_at(int16_t x, int16_t y)
+{
+    s_press_x = x;
+    s_press_y = y;
+}
+
+static bool moved_since_press(int16_t x, int16_t y)
+{
+    int32_t dx = x - s_press_x, dy = y - s_press_y;
+    return dx > GESTURE_MOVE_PX || dx < -GESTURE_MOVE_PX || dy > GESTURE_MOVE_PX || dy < -GESTURE_MOVE_PX;
+}
+
+/* 面板 / chip 行 / 列表共用：user_data = 对象自己（分发 DRAW_MAIN）。点击只认 CLICKED，且滑过的松手不算
+ * （LVGL 9.6 不替我们拦）；命中后的对象留给下一拍 tick 删（不删正在派发事件的对象）。 */
+static void pointer_event_cb(lv_event_t *e)
+{
+    switch (lv_event_get_code(e)) {
+    case LV_EVENT_DRAW_MAIN:
+        if (lv_event_get_user_data(e) == s_chips) chips_draw(e);
+        else if (lv_event_get_user_data(e) == s_list) list_draw(e);
+        else panel_draw(e);
+        break;
+    case LV_EVENT_PRESSED: {
+        lv_indev_t *indev = lv_indev_active();
+        lv_point_t p = {0, 0};
+        if (indev != NULL) lv_indev_get_point(indev, &p);
+        press_at((int16_t)p.x, (int16_t)(p.y - UI_TAB_BAR_H));
+        break;
+    }
+    case LV_EVENT_CLICKED: {
+        lv_indev_t *indev = lv_indev_active();
+        if (indev == NULL) break;
+        lv_point_t p;
+        lv_indev_get_point(indev, &p);
+        int16_t px = (int16_t)p.x, py = (int16_t)(p.y - UI_TAB_BAR_H);
+        if (moved_since_press(px, py)) break;
+        if (picker_release(px, py, NULL) == SLOOP_PICK_TAP_HIT) invalidate_all();
         break;
     }
     default:
-        break;
+        break; /* SHORT_CLICKED / LONG_PRESSED* 不另有动作 */
     }
 }
 
@@ -518,11 +544,10 @@ void page_sound_picker_open(uint8_t row)
     state_read_sound(&snd);
     if (snd.drum && row != 0u) return; /* 鼓轨没有 PRESET 行 */
     uint8_t track = state_selected_track();
-    uint8_t neng = sloop_core_nengines();
-    int16_t chip_w[PICK_ENGINES];
-    for (uint8_t e = 0; e < PICK_ENGINES; e++) {
+    int16_t chip_w[SLOOP_CORE_NENGINES];
+    for (uint8_t e = 0; e < SLOOP_CORE_NENGINES; e++) {
         uint8_t len = 0;
-        if (e < neng && sloop_core_engine_name(e, s_text, sizeof(s_text))) len = (uint8_t)strlen(s_text);
+        if (sloop_core_engine_name(e, s_text, sizeof(s_text))) len = (uint8_t)strlen(s_text);
         chip_w[e] = (int16_t)(CHIP_CHAR_W * len + CHIP_NAME_PAD);
     }
     int16_t kit = track < APP_STATE_TRACKS ? state_read_p(KIT_PARAM) : 0;
@@ -535,7 +560,7 @@ void page_sound_picker_open(uint8_t row)
     lv_obj_set_pos(s_panel, PICK_X, PICK_Y);
     lv_obj_set_size(s_panel, PICK_W, PICK_H);
     lv_obj_set_clickable(s_panel, true);
-    lv_obj_add_event_cb(s_panel, panel_event_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(s_panel, pointer_event_cb, LV_EVENT_ALL, s_panel);
 
     if (!snd.drum) {
         s_chips = make_plain(s_panel);
@@ -546,7 +571,7 @@ void page_sound_picker_open(uint8_t row)
         lv_obj_set_pos(s_chips, PICK_PAD, CHIP_Y);
         lv_obj_set_size(s_chips, INNER_W, CHIP_H);
         lv_obj_set_clickable(s_chips, true);
-        lv_obj_add_event_cb(s_chips, chips_event_cb, LV_EVENT_ALL, NULL);
+        lv_obj_add_event_cb(s_chips, pointer_event_cb, LV_EVENT_ALL, s_chips);
     }
     s_list = make_plain(s_panel);
     if (s_list == NULL) {
@@ -556,13 +581,13 @@ void page_sound_picker_open(uint8_t row)
     lv_obj_set_pos(s_list, PICK_PAD, (int16_t)list_y(snd.drum != 0u));
     lv_obj_set_size(s_list, INNER_W, PICK_LIST_H);
     lv_obj_set_clickable(s_list, true);
-    lv_obj_add_event_cb(s_list, list_event_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(s_list, pointer_event_cb, LV_EVENT_ALL, s_list);
 
-    memcpy(s_chip_w, chip_w, sizeof(s_chip_w));
-    s_snd = snd;
-    uint8_t rows = snd.drum ? sloop_core_nkits() : row == 0u ? neng : snd.npresets;
+    uint8_t rows = snd.drum ? sloop_core_nkits() : row == 0u ? SLOOP_CORE_NENGINES : snd.npresets;
     uint8_t hl = (uint8_t)(snd.drum ? kit : row == 0u ? snd.engine : snd.preset);
     portENTER_CRITICAL(&s_mux);
+    memcpy(s_chip_w, chip_w, sizeof(s_chip_w));
+    s_snd = snd;
     s_row = row;
     s_track = track;
     s_kit = (uint8_t)(kit < 0 ? 0 : kit > 255 ? 255 : kit);
@@ -614,22 +639,29 @@ void page_sound_picker_tick(const app_state_t *st)
     flush();
 }
 
-/* TAP / 页级 ±（页面区相对坐标 → 页面层换算；这里只收页面区坐标） */
-bool page_sound_picker_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
+/* TAP（页面区相对坐标）：面板外 ⇒ 不归选择器（页面照常往下命中）；面板内 ⇒ 执行命中动作（SLOOP_PICK_TAP_HIT）
+ * 或空白（SLOOP_PICK_TAP_BLANK：调用方按 miss 回显，但不落到被盖住的卡片上）。 */
+int8_t page_sound_picker_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
-    pick_view_t v;
-    if (s_panel == NULL || !view_get(&v)) return false;
-    if (!rect_hit(x, y, PICK_X, PICK_Y, PICK_W, PICK_H)) return false;
-    int32_t ly = PICK_Y + list_y(v.drum);
-    if (!v.drum && rect_hit(x, y, PICK_X + PICK_PAD, PICK_Y + CHIP_Y, INNER_W, CHIP_H)) {
-        uint8_t eng = chip_at((int16_t)(x - (PICK_X + PICK_PAD) + s_chip_scroll));
-        if (eng < sloop_core_nengines()) (void)chip_select(eng, out);
-    } else if (rect_hit(x, y, PICK_X + PICK_PAD, ly, INNER_W, PICK_LIST_H)) {
-        uint8_t n = (uint8_t)((y - ly) / ROW_H + s_scroll);
-        if (n < v.rows) (void)list_select(n, out);
+    int8_t hit = picker_release(x, y, out);
+    if (hit != SLOOP_PICK_TAP_OUTSIDE) flush(); /* 已关闭 ⇒ 立即删对象（TAP 不在选择器自己的事件回调里） */
+    return hit;
+}
+
+/* 调试注入 `UI SOUND PICK press|release <x> <y>`（屏幕坐标，与 TAP 同口径）：走与触摸回调相同的按下 /
+ * 松手入口。release 回 SLOOP_PICK_TAP_*；松手点离按下点超过死区回 SLOOP_PICK_TOUCH_MOVED（不执行任何动作）。 */
+
+int8_t page_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_result_t *out)
+{
+    int16_t px = (int16_t)(x - UI_TAB_BAR_H), py = (int16_t)(y - UI_TAB_BAR_H);
+    if (press) {
+        press_at(px, py);
+        return SLOOP_PICK_TAP_HIT;
     }
-    flush(); /* 面板内的空白处同样吞掉；已关闭 ⇒ 立即删对象（TAP 不在选择器的事件回调里） */
-    return true;
+    if (moved_since_press(px, py)) return SLOOP_PICK_TOUCH_MOVED;
+    int8_t hit = picker_release(px, py, out);
+    if (hit != SLOOP_PICK_TAP_OUTSIDE) flush();
+    return hit;
 }
 
 bool page_sound_picker_plus_tap(int8_t delta, sloop_tap_result_t *out)
@@ -675,7 +707,7 @@ esp_err_t page_sound_picker_info(uint8_t n, char *buf, uint32_t buf_n, bool *cur
     if (s_list == NULL || !view_get(&v)) return ESP_ERR_INVALID_STATE;
     if (n >= v.rows) return ESP_ERR_NOT_FOUND;
     item_text(&v, n, buf, buf_n);
-    if (current != NULL) *current = n == (v.drum ? v.kit : v.row == 0u ? v.engine : v.preset);
+    if (current != NULL) *current = n == current_of(&v);
     return ESP_OK;
 }
 
@@ -698,7 +730,7 @@ void page_sound_picker_move(int8_t dx, int8_t dy)
         return;
     }
     if (dx != 0 && !s_snd.drum) {
-        uint8_t eng = wrap((int32_t)s_chip_hl + dx, sloop_core_nengines());
+        uint8_t eng = wrap((int32_t)s_chip_hl + dx, SLOOP_CORE_NENGINES);
         s_chip_hl = eng;
         s_zone = ZONE_CHIPS;
         if (s_row == 1u) {
@@ -722,6 +754,7 @@ bool page_sound_picker_confirm(void)
 {
     pick_view_t v;
     if (!view_get(&v)) return false;
-    if (v.zone == ZONE_CHIPS && !v.drum) return pick_commit(0u, v.chip_hl, NULL);
+    /* 预览别的引擎时列表只读：ENTER（不论最后移的是哪一行）= 确认高亮的 chip = 换引擎 */
+    if (!v.drum && (v.zone == ZONE_CHIPS || v.chip_hl != v.engine)) return pick_commit(0u, v.chip_hl, NULL);
     return list_select(v.list_hl, NULL);
 }

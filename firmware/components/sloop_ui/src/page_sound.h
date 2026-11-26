@@ -24,7 +24,8 @@
  * 静态，adjust 只发状态层命令；滚动到可见、重排与重绘都留给下一拍 update。
  *
  * 选择器（5B-1 Task 6，page_sound_picker.{h,c}）：本文件只做路由——build 把页面对象根挂给它、
- * forget 清掉它、update 每拍调 page_sound_picker_tick（选中轨/声音变了即关闭）、TAP 先问它；
+ * forget 清掉它、update 每拍调 page_sound_picker_tick（选中轨/声音变了即关闭）、TAP 先问它（面板内
+ * 空白 = miss，不落到被盖住的卡片上）；
  * 选择器打开时 focus_move / adjust（含 adjust_value：页级 ± 的触摸与 TAP 同一条路）不再动卡片的
  * 焦点槽，转给 page_sound_picker_move。
  */

@@ -12,8 +12,13 @@ Usage:
 PNG 没有人眼读（本会话无图像输入能力）：每张截屏做像素核对（面板边框 / chip 行 / 高亮条 /
 当前项强调色文字 / 提示行墨迹落在面板内）。
 
+修复轮 1（R16 + 评审两项 Important 与四项 Minor）：面板空白处 = miss、滑过的松手不算点击（`UI SOUND
+PICK press|release` 注入）、预览态（chip 高亮 ≠ 当前引擎）列表只读且不标当前项、ENTER = 确认 chip、载入
+用户预置后工厂预置 0 不算当前项。
+
 相位：engine（row 0：引擎列表、chip 高亮、TAP 行选引擎、←/→ + ENTER）→ preset（row 1：预置列表、
-TAP 行选预置、↓ + ENTER、ESC、滚入视口、chip 预览规则、当前项守卫、页级 ±）→ context（Ctrl+2 /
+TAP 行选预置、↓ + ENTER、ESC、滚入视口、空白处 miss、滑过不算点击、R16 预览、页级 ±、当前项守卫、
+用户预置）→ context（Ctrl+2 /
 选轨条 / 切页都关闭选择器）→ drum（kit 列表、TAP 行选 kit）→ pool（开/关 ×5 的池往返）
 → restore（硬复位后的快照）。全部断言通过退出码 0，末行 `# [check] PASS n/n`。
 """
@@ -37,6 +42,9 @@ RE_PICKN = re.compile(r'UI SOUND PICK n=(\d+) text="([^"]*)" current=(\d) x=(-?\
 RE_TAP_OPEN = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick open row=(\d)")
 RE_TAP_PICK = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick (engine|kit|preset)=(\d+) ([^\r\n]*)")
 RE_TAP_MISS = re.compile(r"TAP miss (-?\d+),(-?\d+) page=(\d)")
+RE_TAP_PREVIEW = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick preview engine=(\d+)")
+RE_TOUCH = re.compile(r"UI SOUND PICK (press|release) x=(-?\d+) y=(-?\d+) (\w+)")
+RE_PRESET_EMPTY = re.compile(r"PRESET (\d+) EMPTY")
 RE_TRACKSEL = re.compile(r"TAP -?\d+,-?\d+ page=\d+ -> TRACKS select track=(\d) CMD_SELECT_TRACK")
 RE_ENG = re.compile(r"ENG SNAP trk k=(\d) engine=(\d+) preset=(\d+) level=(\d+) mute=\d+ armed=\d+ solo=\d+ "
                     r"len=\d+ div=\d+ voices=\d+")
@@ -188,7 +196,7 @@ def open_row(c, x):
     return c.cmd(f"TAP {x} 92")
 
 
-def panel_pixels(png, drum, hl_row):
+def panel_pixels(png, drum, hl_row, has_current=True):
     """截屏的像素核对（代替读图）。返回 [(cond, what)]。"""
     from PIL import Image
 
@@ -233,7 +241,8 @@ def panel_pixels(png, drum, hl_row):
     ]
     if not drum:
         cur_accent = count((LIST_X, list_y, LIST_X + 400, list_y + ROWS_VISIBLE * ROW_H), is_accent)
-        out.append((cur_accent > 60, f"列表区当前项的强调色文字像素 {cur_accent}（> 60）"))
+        out.append(((cur_accent > 60) if has_current else (cur_accent == 0),
+                    f"列表区当前项的强调色文字像素 {cur_accent}（{'> 60' if has_current else '预览态：没有当前项 ⇒ 0'}）"))
     return out
 
 
@@ -394,40 +403,124 @@ def main():
               f"{r.group(0) if r else '无'}（y 在列表 248..600 内）")
         r = pick_n(c, 0)
         ck.ok(r is not None and int(r.group(5)) == 248, f"回到第 0 行：{r.group(0) if r else '无'}")
-        # chip 预览规则：点 FM6 chip ⇒ 只高亮、列表换成 FM6 的 8 个；此时点预置行不下发
-        t = c.cmd(f"TAP {CHIP_X[9] + (11 * len(ENGINE_NAMES[9]) + 24) // 2} 220")
-        mp = grab(t, RE_TAP_PICK, "pick engine highlight")
-        ck.ok(mp.group(4) == "engine" and mp.group(5) == "9" and mp.group(6) == "highlight", f"{mp.group(0)}（FM6 chip 只高亮）")
+        # ---- 修复轮 1：面板空白处 = 真 miss（不执行、不落到被盖住的卡片）----
+        f0 = RE_FOCUS.search(c.cmd("UI SOUND FOCUS")).group(1)
+        for x, y, what in ((640, 616, "提示行"), (269, 220, "chip 间隙")):
+            t = c.cmd(f"TAP {x} {y}")
+            ck.ok(RE_TAP_MISS.search(t) is not None and "page=6" in t, f"面板空白（{what}）TAP {x},{y} ⇒ {result_line(t)}")
+        ck.ok(RE_FOCUS.search(c.cmd("UI SOUND FOCUS")).group(1) == f0, "空白处 TAP 没有落到被盖住的卡片（焦点槽不变）")
+        ck.ok(pick(c) is not None, "空白处 TAP 后面板仍打开")
+        # 滑过的松手不算点击：按下第 3 行、在右移 60px 处松手 ⇒ moved，不发命令；同点按下/松手 = 命中
+        r = pick_n(c, 3)
+        y3 = int(r.group(5)) + 16
+        t = c.cmd(f"UI SOUND PICK press 640 {y3}")
+        ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "hit", f"按下第 3 行：{result_line(t)}")
+        t = c.cmd(f"UI SOUND PICK release 700 {y3}")
+        ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "moved", f"右移 60px 松手：{result_line(t)}")
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "0" and rows[0][2] == "5", f"滑过的松手不发命令：{' '.join(rows[0][:3])}")
+        ck.ok(pick(c) is not None, "滑过后面板仍打开")
+        r = pick_n(c, 5)
+        y5 = int(r.group(5)) + 16
+        c.cmd(f"UI SOUND PICK press 640 {y5}")
+        t = c.cmd(f"UI SOUND PICK release 640 {y5}")
+        ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "hit", f"同点按下/松手（当前预置行）：{result_line(t)}")
+        rows = eng_rows(c)
+        ck.ok(rows[0][2] == "5" and "UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), f"同点松手 = 命中当前行（不下发、关闭）：{' '.join(rows[0][:3])}")
+
+        # ---- R16 预览：chip 高亮 ≠ 当前引擎 ⇒ 列表只读、不标当前项 ----
+        open_row(c, 512)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "0", "9", "8"), f"{p.group(0) if p else '无'}（engine=0 highlight=9 rows=8）")
-        r = pick_n(c, 0)
-        ck.ok(r is not None and "TINE" in r.group(2) and r.group(3) == "0", f"{r.group(0) if r else '无'}（FM6 的第 1 个预置，非当前项）")
-        rect, t = tap_row(c, 0)
-        mp = grab(t, RE_TAP_PICK, "pick preset preview")
-        ck.ok(mp.group(4) == "preset" and mp.group(5) == "0" and mp.group(6) == "ignored (preview)", f"{mp.group(0)}")
+        ck.ok(p is not None and p.groups() == ("1", "0", "0", "22"), f"再开 row 1（ANALOG，预置 5）：{p.group(0) if p else '无'}")
+        t = c.cmd(f"TAP {CHIP_X[1] + (11 * len(ENGINE_NAMES[1]) + 24) // 2} 220")
+        mp = grab(t, RE_TAP_PICK, "pick engine highlight")
+        ck.ok(mp.group(4) == "engine" and mp.group(5) == "1" and mp.group(6) == "highlight", f"{mp.group(0)}（DIGITAL chip 只高亮）")
+        p = pick(c)
+        ck.ok(p is not None and p.groups() == ("1", "0", "1", "22"), f"{p.group(0) if p else '无'}（engine=0 highlight=1 rows=22）")
+        r = pick_n(c, 5)
+        ck.ok(r is not None and r.group(3) == "0" and r.group(2).startswith(" 6  "), f"{r.group(0) if r else '无'}（与当前预置同下标 5，预览态 current=0）")
+        png_prev = png_dir / "task-6-fix1-pick-preview.png"
+        c.screenshot(png_prev)
+        for cond, what in panel_pixels(png_prev, drum=False, hl_row=0, has_current=False):
+            ck.ok(cond, f"截屏 task-6-fix1-pick-preview.png：{what}")
+        rect, t = tap_row(c, 5)
+        mp = grab(t, RE_TAP_PREVIEW, "pick preview")
+        ck.ok(mp.group(4) == "1", f"{mp.group(0)}")
         rows = eng_rows(c)
         ck.ok(rows[0][1] == "0" and rows[0][2] == "5", f"预览时点预置行不下发：{' '.join(rows[0][:3])}")
-        ck.ok(pick(c) is not None, "预览被忽略后面板保持打开")
-        # chip 上 ← ×9 回到 ANALOG（列表回到 22 个），← 环绕到 NOISE，→ 回 ANALOG；页级 + = 列表高亮上一行
-        for _ in range(9):
-            key(c, KEY_LEFT)
+        ck.ok(pick(c) is not None, "预览时点预置行后面板保持打开")
+        key(c, KEY_DOWN)
+        key(c, KEY_ENTER)
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"预览态 ENTER（最后移的是列表行）= 确认 chip：{' '.join(rows[0][:3])}")
+        ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "ENTER 后选择器关闭")
+        # 现在是 DIGITAL 预置 0：← 进入预览（ANALOG）、← 环绕 NOISE、→ ×2 回 DIGITAL；页级 + = 列表高亮上一行
+        open_row(c, 512)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "0", "0", "22"), f"← ×9 ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "1", "1", "22"), f"再开 row 1（DIGITAL）：{p.group(0) if p else '无'}")
         key(c, KEY_LEFT)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "0", "11", "11"), f"← 环绕到 NOISE ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "1", "0", "22"), f"← ⇒ {p.group(0) if p else '无'}")
+        key(c, KEY_LEFT)
+        p = pick(c)
+        ck.ok(p is not None and p.groups() == ("1", "1", "11", "11"), f"← 环绕到 NOISE ⇒ {p.group(0) if p else '无'}")
+        key(c, KEY_RIGHT)
         key(c, KEY_RIGHT)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "0", "0", "22"), f"→ 回 ANALOG ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "1", "1", "22"), f"→ ×2 回 DIGITAL ⇒ {p.group(0) if p else '无'}")
         t = c.cmd("TAP 1224 132")
         mp = grab(t, RE_TAP_PICK, "pick preset highlight")
         ck.ok(mp.group(4) == "preset" and mp.group(5) == "21" and mp.group(6) == "highlight", f"页级 +：{mp.group(0)}")
-        # 当前预置行（5）：TAP = unchanged
-        rect, t = tap_row(c, 5)
+        rect, t = tap_row(c, 0)
         mp = grab(t, RE_TAP_PICK, "pick preset unchanged")
-        ck.ok(mp.group(4) == "preset" and mp.group(5) == "5" and mp.group(6) == "unchanged", f"{mp.group(0)}")
-        ck.ok(eng_rows(c)[0][2] == "5", "确认当前预置不下发：轨 0 预置仍是 5")
+        ck.ok(mp.group(4) == "preset" and mp.group(5) == "0" and mp.group(6) == "unchanged", f"{mp.group(0)}")
+        ck.ok(eng_rows(c)[0][2] == "0", "确认当前预置不下发：轨 0 预置仍是 0")
         ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "确认当前预置后选择器关闭")
+
+        # ---- 修复轮 1：载入用户预置后工厂预置 0 不算当前项 ----
+        empty = [int(k) for k in RE_PRESET_EMPTY.findall(c.cmd("STORE PRESET LIST"))]
+        ck.ok(len(empty) > 0, f"有空的用户预置槽（{len(empty)} 个）")
+        slot = empty[0]
+        t = c.cmd(f"STORE PRESET SAVE {slot}")
+        ck.ok(f"PRESET {slot} SAVED" in t, f"存轨 0 的声音到用户预置槽 {slot}：{result_line(t)}")
+        t = c.cmd(f"STORE PRESET LOAD {slot} 0")
+        ck.ok(f"PRESET {slot} LOADED track=0" in t, f"载入到轨 0：{result_line(t)}")
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"载入用户预置后 t->preset = 0：{' '.join(rows[0][:3])}")
+        open_row(c, 512)
+        r = pick_n(c, 0)
+        ck.ok(r is not None and r.group(3) == "0", f"{r.group(0) if r else '无'}（用户预置在位：工厂预置 0 不再是当前项）")
+        png_user = png_dir / "task-6-fix1-user-preset.png"
+        c.screenshot(png_user)
+        rect, t = tap_row(c, 0)
+        mp = grab(t, RE_TAP_PICK, "pick preset")
+        ck.ok(mp.group(4) == "preset" and mp.group(5) == "0" and mp.group(6) == "CMD_SET_PRESET", f"{mp.group(0)}")
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"选择工厂预置 0：{' '.join(rows[0][:3])}")
+        open_row(c, 512)
+        r = pick_n(c, 0)
+        ck.ok(r is not None and r.group(3) == "1", f"再开：{r.group(0) if r else '无'}（工厂预置 0 = 当前项 ⇒ user 已清）")
+        png_fac = png_dir / "task-6-fix1-factory-preset.png"
+        c.screenshot(png_fac)
+
+        # 页眉 PRESET 名（强调色、右对齐止于 x=650）：用户预置名 "USER nn" → 工厂预置名，两张截屏的墨迹必须不同
+        def header_name_ink(png):
+            from PIL import Image
+
+            im = Image.open(png).convert("RGB")
+            px = im.load()
+            return {(x, y) for y in range(78, 106) for x in range(380, 652)
+                    if px[x, y][0] > 180 and px[x, y][1] > 140 and px[x, y][2] < 90}
+
+        ink_user, ink_fac = header_name_ink(png_user), header_name_ink(png_fac)
+        diff = len(ink_user ^ ink_fac)
+        ck.ok(len(ink_user) > 20 and len(ink_fac) > 20 and diff > 30,
+              f"页眉 PRESET 名从用户预置名换成工厂预置名（强调色墨迹 {len(ink_user)} → {len(ink_fac)} 像素，不同 {diff}）")
+        key(c, KEY_ESC)
+        ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "ESC 关闭")
+        t = c.cmd(f"STORE PRESET ERASE {slot}")
+        ck.ok(f"PRESET {slot} ERASED" in t, f"还原用户预置槽 {slot}：{result_line(t)}")
+        ck.ok(f"PRESET {slot} EMPTY" in c.cmd("STORE PRESET LIST"), f"槽 {slot} 回到 EMPTY")
 
         # ---- context：上下文变化关闭 ----
         c.cmd("UI sound")
