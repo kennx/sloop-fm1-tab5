@@ -1,0 +1,389 @@
+# [proto] phase=drift port=/dev/ttyACM0
+
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位前 engine/preset[轨1..4]=0/0,0/0,0/0,0/0
+UI step
+I (23675) sloop_ui: 页面构建 page=STEP(2) 池增量=21820B 预算=23040B 池剩余=23576B 耗时=32ms
+I (23685) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=36ms
+UI page=step (2)
+sloop>  # [proto] BUILD[drift-sample r1] 页面构建 page=STEP(2) 池增量=21820B 预算=23040B 池剩余=23576B 耗时=32ms
+UI sample
+I (23975) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=3956B 预算=6144B 池剩余=23900B 耗时=8ms
+I (23985) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=13ms
+UI page=sample (8)
+sloop>  # [proto] BUILD[drift-sample r1] 页面构建 page=SAMPLE(8) 池增量=3956B 预算=6144B 池剩余=23900B 耗时=8ms
+UI MEM
+UI MEM pool_used=16748 pool_free=45412 pool_total=62160 registered=18 built=1 failed=0 sum_est=140288 reserve=-78128 group=SYNTH lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=23040 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=3956 build_ms=13
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=36
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=3956 build_ms=8
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[drift-sample r1] pool_used=16748 pool_free=45412 pool_total=62160 registered=18 built=1 failed=0
+# [proto] UI MEM[drift-sample r1] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=8 title=SAMPLE state=built est=6144 delta=3956 build_ms=8
+# [proto] UI MEM[drift-sample r1] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r1] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP EDIT built=0 sum_est=23040 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP SYNTH built=1 sum_est=20480 sum_delta=3956
+# [proto] UI MEM[drift-sample r1] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[drift-sample r1] GROUP SYS built=0 sum_est=10240 sum_delta=0
+# [proto] drift[sample] round1: delta=3956 pool_free=45412
+UI step
+I (24375) sloop_ui: 页面构建 page=STEP(2) 池增量=21840B 预算=23040B 池剩余=23572B 耗时=31ms
+I (24375) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=36ms
+UI page=step (2)
+sloop>  # [proto] BUILD[drift-sample r2] 页面构建 page=STEP(2) 池增量=21840B 预算=23040B 池剩余=23572B 耗时=31ms
+UI sample
+I (24665) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=3964B 预算=6144B 池剩余=23836B 耗时=9ms
+I (24665) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=14ms
+UI page=sample (8)
+sloop>  # [proto] BUILD[drift-sample r2] 页面构建 page=SAMPLE(8) 池增量=3964B 预算=6144B 池剩余=23836B 耗时=9ms
+UI MEM
+UI MEM pool_used=16748 pool_free=45424 pool_total=62172 registered=18 built=1 failed=0 sum_est=140288 reserve=-78116 group=SYNTH lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=23040 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=3964 build_ms=14
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=36
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=3964 build_ms=9
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[drift-sample r2] pool_used=16748 pool_free=45424 pool_total=62172 registered=18 built=1 failed=0
+# [proto] UI MEM[drift-sample r2] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=8 title=SAMPLE state=built est=6144 delta=3964 build_ms=9
+# [proto] UI MEM[drift-sample r2] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r2] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP EDIT built=0 sum_est=23040 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP SYNTH built=1 sum_est=20480 sum_delta=3964
+# [proto] UI MEM[drift-sample r2] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[drift-sample r2] GROUP SYS built=0 sum_est=10240 sum_delta=0
+# [proto] drift[sample] round2: delta=3964 pool_free=45424
+UI step
+I (25055) sloop_ui: 页面构建 page=STEP(2) 池增量=21752B 预算=23040B 池剩余=23672B 耗时=31ms
+I (25055) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+UI page=step (2)
+sloop>  # [proto] BUILD[drift-sample r3] 页面构建 page=STEP(2) 池增量=21752B 预算=23040B 池剩余=23672B 耗时=31ms
+UI sample
+I (25345) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=3940B 预算=6144B 池剩余=24008B 耗时=9ms
+I (25355) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=15ms
+UI page=sample (8)
+sloop>  # [proto] BUILD[drift-sample r3] 页面构建 page=SAMPLE(8) 池增量=3940B 预算=6144B 池剩余=24008B 耗时=9ms
+UI MEM
+UI MEM pool_used=16720 pool_free=45444 pool_total=62164 registered=18 built=1 failed=0 sum_est=140288 reserve=-78124 group=SYNTH lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=23040 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=3940 build_ms=15
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=35
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=3940 build_ms=9
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[drift-sample r3] pool_used=16720 pool_free=45444 pool_total=62164 registered=18 built=1 failed=0
+# [proto] UI MEM[drift-sample r3] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=8 title=SAMPLE state=built est=6144 delta=3940 build_ms=9
+# [proto] UI MEM[drift-sample r3] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r3] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP EDIT built=0 sum_est=23040 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP SYNTH built=1 sum_est=20480 sum_delta=3940
+# [proto] UI MEM[drift-sample r3] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[drift-sample r3] GROUP SYS built=0 sum_est=10240 sum_delta=0
+# [proto] drift[sample] round3: delta=3940 pool_free=45444
+UI step
+I (25735) sloop_ui: 页面构建 page=STEP(2) 池增量=21772B 预算=23040B 池剩余=23672B 耗时=31ms
+I (25735) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=35ms
+UI page=step (2)
+sloop>  # [proto] BUILD[drift-sample r4] 页面构建 page=STEP(2) 池增量=21772B 预算=23040B 池剩余=23672B 耗时=31ms
+UI sample
+I (26035) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=3932B 预算=6144B 池剩余=23964B 耗时=8ms
+I (26035) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=14ms
+UI page=sample (8)
+sloop>  # [proto] BUILD[drift-sample r4] 页面构建 page=SAMPLE(8) 池增量=3932B 预算=6144B 池剩余=23964B 耗时=8ms
+UI MEM
+UI MEM pool_used=16712 pool_free=45456 pool_total=62168 registered=18 built=1 failed=0 sum_est=140288 reserve=-78120 group=SYNTH lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=23040 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=3932 build_ms=14
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=35
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=3932 build_ms=8
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[drift-sample r4] pool_used=16712 pool_free=45456 pool_total=62168 registered=18 built=1 failed=0
+# [proto] UI MEM[drift-sample r4] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=8 title=SAMPLE state=built est=6144 delta=3932 build_ms=8
+# [proto] UI MEM[drift-sample r4] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r4] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP EDIT built=0 sum_est=23040 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP SYNTH built=1 sum_est=20480 sum_delta=3932
+# [proto] UI MEM[drift-sample r4] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[drift-sample r4] GROUP SYS built=0 sum_est=10240 sum_delta=0
+# [proto] drift[sample] round4: delta=3932 pool_free=45456
+UI step
+I (26405) sloop_ui: 页面构建 page=STEP(2) 池增量=21788B 预算=23040B 池剩余=23668B 耗时=31ms
+I (26415) sloop_ui: 切页 page=STEP(2) 组=SEQ 跨组耗时=36ms
+UI page=step (2)
+sloop>  # [proto] BUILD[drift-sample r5] 页面构建 page=STEP(2) 池增量=21788B 预算=23040B 池剩余=23668B 耗时=31ms
+UI sample
+I (26705) sloop_ui: 页面构建 page=SAMPLE(8) 池增量=3944B 预算=6144B 池剩余=23940B 耗时=8ms
+I (26715) sloop_ui: 切页 page=SAMPLE(8) 组=SYNTH 跨组耗时=14ms
+UI page=sample (8)
+sloop>  # [proto] BUILD[drift-sample r5] 页面构建 page=SAMPLE(8) 池增量=3944B 预算=6144B 池剩余=23940B 耗时=8ms
+UI MEM
+UI MEM pool_used=16724 pool_free=45444 pool_total=62168 registered=18 built=1 failed=0 sum_est=140288 reserve=-78120 group=SYNTH lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=0 sum_est=23040 sum_delta=0 build_ms=0
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=1 sum_est=20480 sum_delta=3944 build_ms=14
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=36
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=8 title=SAMPLE state=built est=6144 delta=3944 build_ms=8
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[drift-sample r5] pool_used=16724 pool_free=45444 pool_total=62168 registered=18 built=1 failed=0
+# [proto] UI MEM[drift-sample r5] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=6 title=SOUND state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=8 title=SAMPLE state=built est=6144 delta=3944 build_ms=8
+# [proto] UI MEM[drift-sample r5] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[drift-sample r5] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP EDIT built=0 sum_est=23040 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP SYNTH built=1 sum_est=20480 sum_delta=3944
+# [proto] UI MEM[drift-sample r5] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[drift-sample r5] GROUP SYS built=0 sum_est=10240 sum_delta=0
+# [proto] drift[sample] round5: delta=3944 pool_free=45444
+# [proto] drift[sample] 5 轮：delta 3956 -> 3944；pool_free 45412 -> 45444（差 +32B）
+ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位后 engine/preset[轨1..4]=0/0,0/0,0/0,0/0

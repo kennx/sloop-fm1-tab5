@@ -1,0 +1,58 @@
+PASS 分辨率 1280x720 1280x720
+最常见颜色: [('#182020', 679993), ('#101418', 116203), ('#202830', 98499), ('#E0B028', 8060)]
+PASS 背景/面板色 = MONO 主题 
+内容总高 2496px（视口高 564px）
+PASS card 0 体=面板色 / 左右 4px 带=背景 / 视口底边以下=背景 内容矩形 (0,0,616,180) 可见高 180
+PASS card 0 标题墨迹 / 右端折叠标记 title=296 mark=62
+PASS card 0 slot 0 环 / 名称 / 值占位 ring=1392 name=178 value=28 屏幕矩形 (28,188,140,132)
+PASS card 0 slot 1 环 / 名称 / 值占位 ring=1392 name=242 value=28 屏幕矩形 (168,188,140,132)
+PASS card 0 slot 2 环 / 名称 / 值占位 ring=1392 name=173 value=28 屏幕矩形 (308,188,140,132)
+PASS card 0 slot 3 环 / 名称 / 值占位 ring=1392 name=173 value=28 屏幕矩形 (448,188,140,132)
+PASS card 1 体=面板色 / 左右 4px 带=背景 / 视口底边以下=背景 内容矩形 (632,0,616,312) 可见高 312
+PASS card 1 标题墨迹 / 右端折叠标记 title=335 mark=62
+PASS card 1 slot 0 环 / 名称 / 值占位 ring=1392 name=169 value=28 屏幕矩形 (660,188,140,132)
+PASS card 1 slot 1 环 / 名称 / 值占位 ring=1392 name=182 value=28 屏幕矩形 (800,188,140,132)
+PASS card 1 slot 2 环 / 名称 / 值占位 ring=1392 name=112 value=28 屏幕矩形 (940,188,140,132)
+PASS card 1 slot 3 环 / 名称 / 值占位 ring=1392 name=156 value=28 屏幕矩形 (1080,188,140,132)
+PASS card 1 slot 4 环 / 名称 / 值占位 ring=1392 name=112 value=28 屏幕矩形 (660,320,140,132)
+PASS card 2 体=面板色 / 左右 4px 带=背景 / 视口底边以下=背景 内容矩形 (0,188,616,444) 可见高 376
+PASS card 2 标题墨迹 / 右端折叠标记 title=430 mark=62
+PASS card 2 slot 0 环 / 名称 / 值占位 ring=1392 name=123 value=28 屏幕矩形 (28,376,140,132)
+PASS card 2 slot 1 环 / 名称 / 值占位 ring=1392 name=141 value=28 屏幕矩形 (168,376,140,132)
+PASS card 2 slot 2 环 / 名称 / 值占位 ring=1392 name=131 value=28 屏幕矩形 (308,376,140,132)
+PASS card 2 slot 3 环 / 名称 / 值占位 ring=1392 name=125 value=28 屏幕矩形 (448,376,140,132)
+PASS card 2 slot 4 环 / 名称 / 值占位 ring=1392 name=94 value=28 屏幕矩形 (28,508,140,132)
+PASS card 2 slot 5 环 / 名称 / 值占位 ring=1392 name=101 value=28 屏幕矩形 (168,508,140,132)
+PASS card 2 slot 6 环 / 名称 / 值占位 ring=1392 name=143 value=28 屏幕矩形 (308,508,140,132)
+PASS card 2 slot 7 环 / 名称 / 值占位 ring=1392 name=169 value=28 屏幕矩形 (448,508,140,132)
+PASS card 2 slot 8 环 / 名称 / 值占位（被视口底边裁切） ring=1136 name=225 value=-1 屏幕矩形 (28,640,140,132)
+PASS card 3 体=面板色 / 左右 4px 带=背景 / 视口底边以下=背景 内容矩形 (632,320,616,444) 可见高 244
+PASS card 3 标题墨迹 / 右端折叠标记 title=189 mark=62
+PASS card 3 slot 0 环 / 名称 / 值占位 ring=1392 name=179 value=28 屏幕矩形 (660,508,140,132)
+PASS card 3 slot 1 环 / 名称 / 值占位 ring=1392 name=211 value=28 屏幕矩形 (800,508,140,132)
+PASS card 3 slot 2 环 / 名称 / 值占位 ring=1392 name=143 value=28 屏幕矩形 (940,508,140,132)
+PASS card 3 slot 3 环 / 名称 / 值占位 ring=1392 name=184 value=28 屏幕矩形 (1080,508,140,132)
+PASS card 3 slot 4 环 / 名称 / 值占位（被视口底边裁切） ring=1136 name=179 value=-1 屏幕矩形 (660,640,140,132)
+PASS card 3 slot 5 环 / 名称 / 值占位（被视口底边裁切） ring=1136 name=152 value=-1 屏幕矩形 (800,640,140,132)
+PASS card 3 slot 6 环 / 名称 / 值占位（被视口底边裁切） ring=1136 name=129 value=-1 屏幕矩形 (940,640,140,132)
+PASS card 3 slot 7 环 / 名称 / 值占位（被视口底边裁切） ring=1136 name=101 value=-1 屏幕矩形 (1080,640,140,132)
+SKIP card 4（在视口之下：内容矩形 (0,640,616,444)）
+SKIP card 5（在视口之下：内容矩形 (632,772,616,444)）
+SKIP card 6（在视口之下：内容矩形 (0,1092,616,840)）
+SKIP card 7（在视口之下：内容矩形 (632,1224,616,312)）
+SKIP card 8（在视口之下：内容矩形 (632,1544,616,312)）
+SKIP card 9（在视口之下：内容矩形 (632,1864,616,180)）
+SKIP card 10（在视口之下：内容矩形 (0,1940,616,180)）
+SKIP card 11（在视口之下：内容矩形 (632,2052,616,444)）
+SKIP card 12（在视口之下：内容矩形 (0,2128,616,312)）
+视口内可见卡片 4/13
+PASS 页眉与视口之间的带（页面区 y=36..80，按钮左侧）= 背景 
+PASS 列间空隙 x 632..648 = 背景 
+PASS 左右页边 = 背景 
+PASS 视口底边以下 = 背景 
+PASS 页眉 ENGINE 行 面板 8023
+PASS 页眉 PRESET 行 面板 10965
+PASS 按钮 − 在页面区 y=40 2278
+PASS 按钮 + 在页面区 y=40 2233
+PASS 银行行隐藏：BANK 标签处（页面区 y=76..120）没有按钮面板 
+PNG CHECK PASS

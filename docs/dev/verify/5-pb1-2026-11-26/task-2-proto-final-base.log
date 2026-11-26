@@ -1,0 +1,279 @@
+# [proto] phase=base port=/dev/ttyACM0
+rows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history f
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位前 engine/preset[轨1..4]=0/0,0/0,0/0,0/0
+STORE AUTO OFF
+STORE AUTO off
+sloop>  ENG MEM
+ENG MEM internal_free=73019 internal_min=72028 psram_free=30065184 psram_min=30065184
+sloop>  # [proto] 进入页面前 internal_free=73019 internal_min=72028
+UI sound
+I (13440) sloop_ui: 页面构建 page=SOUND(6) 池增量=6808B 预算=12288B 池剩余=41484B 耗时=11ms
+I (13440) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=14ms
+UI page=sound (6)
+sloop>  # [proto] BUILD[sound-first] page=SOUND(6) delta=6808 est=12288 pool_free_after=41484 build_ms=11
+# [proto] SWITCH[sound-first] page=SOUND(6) group=EDIT 跨组 ms=14
+UI MEM
+UI MEM pool_used=18320 pool_free=44008 pool_total=62328 registered=18 built=1 failed=0 sum_est=140288 reserve=-77960 group=EDIT lvgl_stack_free=6024
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=1 sum_est=23040 sum_delta=6808 build_ms=14
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=0
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=built est=12288 delta=6808 build_ms=11
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[sound] pool_used=18320 pool_free=44008 pool_total=62328 registered=18 built=1 failed=0
+# [proto] UI MEM[sound] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=6 title=SOUND state=built est=12288 delta=6808 build_ms=11
+# [proto] UI MEM[sound] page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[sound] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[sound] GROUP EDIT built=1 sum_est=23040 sum_delta=6808
+# [proto] UI MEM[sound] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[sound] GROUP SYNTH built=0 sum_est=20480 sum_delta=0
+# [proto] UI MEM[sound] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[sound] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[sound] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[sound] GROUP SYS built=0 sum_est=10240 sum_delta=0
+ENG MEM
+ENG MEM internal_free=72963 internal_min=71972 psram_free=30065184 psram_min=30065184
+sloop>  # [proto] 进入页面后 internal_free=72963 internal_min=71972 差=56B（门限 ≤256）
+TAP 100 200
+TAP 100,200 page=6 -> SOUND focus card=0 slot=0 flat=0
+sloop>  TAP 22 160
+TAP 22,160 page=6 -> SOUND card=0
+sloop>  TAP 636 272
+TAP miss 636,272 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 900 122
+TAP miss 900,122 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 1106 122
+TAP 1106,122 page=6 -> PARAM slot=0 locked (page or slot N/A)
+sloop>  TAP 1272 52
+TAP miss 1272,52 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI KNOB 0 press 0 -40
+UI ERR knob_slot 0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI sound CHIP
+UI sound chip=255
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位后 engine/preset[轨1..4]=0/0,0/0,0/0,0/0
+# [proto] phase=base port=/dev/ttyACM0
+
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位前 engine/preset[轨1..4]=0/0,0/0,0/0,0/0
+STORE AUTO OFF
+STORE AUTO off
+sloop>  ENG MEM
+ENG MEM internal_free=72771 internal_min=71824 psram_free=30065184 psram_min=30065184
+sloop>  # [proto] 进入页面前 internal_free=72771 internal_min=71824
+UI sound
+UI page=sound (6)
+sloop>  UI MEM
+UI MEM pool_used=19076 pool_free=42556 pool_total=61632 registered=18 built=1 failed=0 sum_est=140288 reserve=-78656 group=EDIT lvgl_stack_free=5644
+UI MEM GROUP PLAY built=0 sum_est=3072 sum_delta=0 build_ms=6
+UI MEM GROUP TRACKS built=0 sum_est=7168 sum_delta=0 build_ms=0
+UI MEM GROUP EDIT built=1 sum_est=23040 sum_delta=6152 build_ms=17
+UI MEM GROUP MIX built=0 sum_est=10752 sum_delta=0 build_ms=0
+UI MEM GROUP SYNTH built=0 sum_est=20480 sum_delta=0 build_ms=0
+UI MEM GROUP SEQ built=0 sum_est=32256 sum_delta=0 build_ms=35
+UI MEM GROUP SONG built=0 sum_est=12288 sum_delta=0 build_ms=0
+UI MEM GROUP FILE built=0 sum_est=20992 sum_delta=0 build_ms=0
+UI MEM GROUP SYS built=0 sum_est=10240 sum_delta=0 build_ms=0
+UI MEM page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+UI MEM page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+UI MEM page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+UI MEM page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+UI MEM page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+UI MEM page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+UI MEM page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+UI MEM page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+UI MEM page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=6 title=SOUND state=built est=12288 delta=6152 build_ms=11
+UI MEM page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+UI MEM page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+UI MEM page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+sloop>  # [proto] UI MEM[sound] pool_used=19076 pool_free=42556 pool_total=61632 registered=18 built=1 failed=0
+# [proto] UI MEM[sound] page id=0 title=PLAY state=unbuilt est=3072 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=1 title=TRACKS state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=2 title=STEP state=unbuilt est=23040 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=3 title=TRANSPORT state=unbuilt est=9216 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=9 title=PROJECTS state=unbuilt est=8192 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=10 title=PRESETS state=unbuilt est=12800 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=11 title=SONG state=unbuilt est=12288 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=12 title=DSYN state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=13 title=FM6P state=unbuilt est=7168 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=14 title=SYSTEM state=unbuilt est=10240 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=18 title=TOOLS state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=4 title=GLOBAL state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=5 title=FX state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=6 title=SOUND state=built est=12288 delta=6152 build_ms=11
+# [proto] UI MEM[sound] page id=8 title=SAMPLE state=unbuilt est=6144 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=15 title=MOD state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=16 title=SCALE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] page id=17 title=VOICE state=unbuilt est=3584 delta=0 build_ms=0
+# [proto] UI MEM[sound] GROUP PLAY built=0 sum_est=3072 sum_delta=0
+# [proto] UI MEM[sound] GROUP TRACKS built=0 sum_est=7168 sum_delta=0
+# [proto] UI MEM[sound] GROUP EDIT built=1 sum_est=23040 sum_delta=6152
+# [proto] UI MEM[sound] GROUP MIX built=0 sum_est=10752 sum_delta=0
+# [proto] UI MEM[sound] GROUP SYNTH built=0 sum_est=20480 sum_delta=0
+# [proto] UI MEM[sound] GROUP SEQ built=0 sum_est=32256 sum_delta=0
+# [proto] UI MEM[sound] GROUP SONG built=0 sum_est=12288 sum_delta=0
+# [proto] UI MEM[sound] GROUP FILE built=0 sum_est=20992 sum_delta=0
+# [proto] UI MEM[sound] GROUP SYS built=0 sum_est=10240 sum_delta=0
+ENG MEM
+ENG MEM internal_free=72771 internal_min=71824 psram_free=30065184 psram_min=30065184
+sloop>  # [proto] 进入页面后 internal_free=72771 internal_min=71824 差=0B（门限 ≤256）
+TAP 100 200
+TAP 100,200 page=6 -> SOUND focus card=0 slot=0 flat=0
+sloop>  TAP 22 160
+TAP 22,160 page=6 -> SOUND card=0
+sloop>  TAP 636 272
+TAP miss 636,272 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 900 122
+TAP miss 900,122 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  TAP 1106 122
+TAP 1106,122 page=6 -> PARAM slot=0 locked (page or slot N/A)
+sloop>  TAP 1272 52
+TAP miss 1272,52 page=6
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI KNOB 0 press 0 -40
+UI ERR knob_slot 0
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI sound CHIP
+UI sound chip=255
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=1 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=1 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=1 lvl=0 rat=0
+ENG SNAP dstep i=6 on=1 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  # [proto] 相位后 engine/preset[轨1..4]=0/0,0/0,0/0,0/0
