@@ -12,15 +12,19 @@ Usage:
   3. `FM1 PING` ×10 全部成功，记录 ms 中位数；
   4. `FM1 GET 0 1`（选中轨 ATK）→ `SET` 成相邻值 → `GET` 读回 → `SET` 原值还原并读回确认
      （失败路径同样尽力还原）；
-  5. `FM1 EVENTS CLEAR` → 提示「请在 FM-1 上拧任意一个旋钮」→ 轮询 `FM1 EVENTS` 到 changed ≥ 1（60s）；
+  5. `FM1 EVENTS CLEAR` → 提示「请在 FM-1 上拧任意一个旋钮」→ 轮询 `FM1 EVENTS` 到 changed ≥ 1（60s），
+     且该行 `last=` 以 `cmd=23` 开头（拧旋钮 = CHANGED 推送；RELOAD 等不算）；
   6. 静置 10s（会话层每秒 PING 保活）→ 提示再拧一次 → changed 续增（60s）；
-  7. 提示「请拔掉 FM-1」→ 轮询到 link=none（60s）→ `FM1 INFO` 为 `ERR no_link` → 提示「请重新插上」
+  7. 提示「请拔掉 FM-1」→ 轮询到 link=none（60s），且报 link=none 的同一行必须是 `watch=0 info=no`
+     （链路断开时会话层遗忘 WATCH 与 INFO）→ `FM1 INFO` 为 `ERR no_link` → 提示「请重新插上」
      → 轮询到 link=ready watch=3 info=yes（120s）→ `FM1 PING` 成功。
+  不断言 `timeouts`/`stray` 为 0：拔线瞬间与 PING 竞争的超时是合法的。
 
 断言全部落在纯函数 judge(lines)（输入转录，返回失败说明，空表 = 通过）：转录里
 `# [fm1-smoke] <步> <tag>` 起一段，段内最后一条非回显的 `FM1 ` 回复行是该段的判据；
-GET/SET 的值关系与 EVENTS 的 changed 续增跨段比对。`--selftest` 用四组内嵌样例调 judge
-（全通过 / `FM1 INFO ERR timeout` / `FM1 EVENTS` changed=0 / `FM1 STATUS` link=none）。
+GET/SET 的值关系与 EVENTS 的 changed 续增跨段比对。`--selftest` 用六组内嵌样例调 judge
+（全通过 / `FM1 INFO ERR timeout` / `FM1 EVENTS` changed=0 / `FM1 STATUS` link=none /
+changed 够但 `last=cmd=24` / `link=none` 但 `watch=3`）。
 
 transcript（原始回显 + `# [fm1-smoke] ...` 工具注记）落
 `firmware/build/verify/fm1-smoke-<时间戳>.log`；
@@ -49,9 +53,9 @@ STEPS = {
     2: "就绪与版本协商：STATUS watch=3 info=yes + FM1 INFO",
     3: "PING ×10",
     4: "GET/SET 往返并还原 ATK",
-    5: "WATCH 推送：拧旋钮后 changed ≥ 1",
+    5: "WATCH 推送：拧旋钮后 changed ≥ 1 且 last=cmd=23",
     6: "静置 10s 后保活：再拧 changed 续增",
-    7: "拔线/重插：link=none → ERR no_link → 重新就绪",
+    7: "拔线/重插：link=none watch=0 info=no → ERR no_link → 重新就绪",
 }
 
 # 期望：每条都是整行正则（console-and-injection.md 的 FM1 行，输出格式逐字固定）
@@ -64,6 +68,9 @@ RX_STATUS_READY = re.compile(r"^FM1 STATUS link=ready " + _STATUS_DEV + _STATUS_
 RX_STATUS_GONE = re.compile(r"^FM1 STATUS link=none " + _STATUS_DEV
                             + r"(?: midi_if=\d+ ep_in=0x[0-9A-F]{2} ep_out=0x[0-9A-F]{2})?"
                             + r" watch=[013] info=(?:yes|no) proto=(?:\d+|-)$")
+RX_STATUS_FORGOT = re.compile(r"^FM1 STATUS link=none " + _STATUS_DEV
+                              + r"(?: midi_if=\d+ ep_in=0x[0-9A-F]{2} ep_out=0x[0-9A-F]{2})?"
+                              + r" watch=0 info=no proto=(?:\d+|-)$")
 RX_INFO = re.compile(r'^FM1 INFO version="FELUCCA SLOOP 2\.[^"]*" nengines=12 p_count=\d+ g_count=\d+'
                      + r" nstep=\d+ pe0=\d+ ntrk=4 proto=12 engines=\S+$")
 RX_INFO_NO_LINK = re.compile(r"^FM1 INFO ERR no_link$")
@@ -94,7 +101,6 @@ SIMPLE = {
     "ready": (RX_STATUS_READY, "FM1 STATUS link=ready … watch=3 info=yes proto=<n>"),
     "info": (RX_INFO, 'FM1 INFO version="FELUCCA SLOOP 2.…" … nengines=12 … ntrk=4 proto=12 …'),
     "events_clear": (RX_EVENTS_CLEARED, "FM1 EVENTS cleared"),
-    "status_gone": (RX_STATUS_GONE, "FM1 STATUS link=none …"),
     "info_gone": (RX_INFO_NO_LINK, "FM1 INFO ERR no_link"),
     "status_back": (RX_STATUS_READY, "FM1 STATUS link=ready … watch=3 info=yes proto=<n>"),
     "ping_back": (RX_PING, "FM1 PING ms=<n>"),
@@ -140,6 +146,13 @@ def _split(lines):
 
 def _check(tag, line, vals):
     """一段最后一条回复的判据：通过回 None，否则回失败说明（跨段的值放 vals）。"""
+    if tag == "status_gone":
+        if not RX_STATUS_GONE.match(line):
+            return f"期望 FM1 STATUS link=none …，实得 {line}"
+        if not RX_STATUS_FORGOT.match(line):
+            return (f"{line}：link=none 但 watch/info 没有归零（期望同一行 watch=0 info=no）"
+                    "——链路断开时会话层必须遗忘 WATCH 与 INFO")
+        return None
     if tag in SIMPLE:
         rx, desc = SIMPLE[tag]
         return None if rx.match(line) else f"{CMDS[tag]}：期望 {desc}，实得 {line}"
@@ -165,10 +178,15 @@ def _check(tag, line, vals):
     m = RX_EVENTS.match(line)
     if not m:
         return f"期望 FM1 EVENTS total=<n> changed=<n> … last=…，实得 {line}"
-    changed = int(m.group(1))
+    changed, last = int(m.group(1)), m.group(2)
     if tag == "events1":
+        if changed < 1:
+            return f"拧旋钮后 changed={changed}（期望 ≥1）：WATCH 推送未到达"
+        if not last.startswith("cmd=23"):
+            return (f"changed={changed} 但 last={last}：最近一条推送不是 CHANGED（cmd=23）"
+                    "——这一步证明的是拧旋钮的参数变化推送")
         vals["changed"] = changed
-        return None if changed >= 1 else f"拧旋钮后 changed={changed}（期望 ≥1）：WATCH 推送未到达"
+        return None
     if "changed" not in vals:
         return "缺少第一次 changed 读数"
     return (None if changed > vals["changed"]
@@ -355,22 +373,29 @@ class Flow:
         self.expect(5, "events_clear", "FM1 EVENTS CLEAR", RX_EVENTS_CLEARED, "FM1 EVENTS cleared")
         line = self.poll(5, "events1", "FM1 EVENTS", RX_EVENTS, 60, 1.0, "changed ≥ 1",
                          until=lambda m: int(m.group(1)) >= 1, prompt="请在 FM-1 上拧任意一个旋钮")
-        first = int(RX_EVENTS.match(line).group(1))
-        self.log.note(f"第一次推送：changed={first} {RX_EVENTS.match(line).group(2)}")
+        first, last = int(RX_EVENTS.match(line).group(1)), RX_EVENTS.match(line).group(2)
+        if not last.startswith("cmd=23"):  # changed 够了但最近一条不是 CHANGED：当场停，不等到末尾判定
+            raise SmokeError(f"{self.where(5)}changed={first} 但 last={last}：最近一条推送不是 CHANGED（cmd=23）",
+                             evidenced=True)
+        self.log.note(f"第一次推送：changed={first} {last}")
         self.log.note("静置 10s（会话层每秒 PING 保活）")
         time.sleep(10)
         line = self.poll(6, "events2", "FM1 EVENTS", RX_EVENTS, 60, 1.0, f"changed > {first}",
                          until=lambda m: int(m.group(1)) > first, prompt="请在 FM-1 上再拧一次旋钮")
         self.log.note(f"第二次推送：changed={RX_EVENTS.match(line).group(1)} "
                       f"{RX_EVENTS.match(line).group(2)}")
-        self.poll(7, "status_gone", "FM1 STATUS", RX_STATUS_GONE, 60, 1.0, "link=none", prompt="请拔掉 FM-1")
+        line = self.poll(7, "status_gone", "FM1 STATUS", RX_STATUS_GONE, 60, 1.0, "link=none",
+                         prompt="请拔掉 FM-1")
+        if not RX_STATUS_FORGOT.match(line):  # 报 link=none 的同一行就必须已经忘掉 WATCH 与 INFO
+            raise SmokeError(f"{self.where(7)}{line}：link=none 但 watch/info 没有归零（期望 watch=0 info=no）",
+                             evidenced=True)
         self.expect(7, "info_gone", "FM1 INFO", RX_INFO_NO_LINK, "FM1 INFO ERR no_link")
         self.poll(7, "status_back", "FM1 STATUS", RX_STATUS_READY, 120, 1.0, "link=ready watch=3 info=yes",
                   prompt="请重新插上")
         self.expect(7, "ping_back", "FM1 PING", RX_PING, "FM1 PING ms=<n>")
 
 
-# ---- 离线自测：四组内嵌样例转录（数值取自 2026-11-26 的真机读数） ----
+# ---- 离线自测：六组内嵌样例转录（数值取自 2026-11-26 的真机读数） ----
 
 READY = ("FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=5 tx=5 drops=0 open_fail=0"
          " midi_if=1 ep_in=0x81 ep_out=0x01 watch=3 info=yes proto=12")
@@ -409,24 +434,28 @@ EVENTS_ZERO = PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 2] + [EVENTS %
 LINK_NONE = [f"{NOTE} 1 link", "sloop>  FM1 STATUS", GONE, f"{NOTE} >>> 请把刷了 SLOOP 的 FM-1 插到 Tab5 的 USB-A 口",
              "sloop>  FM1 STATUS", GONE]
 SET_NO_REPLY = PASS_LINES[:PASS_LINES.index(f"{NOTE} 4 set_tmp") + 1]  # SET 发出后一个字节都没回
+EVENTS_RELOAD = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 5 events1") + 2]
+                 + [EVENTS % (1, 1, "cmd=24 scope=1 id=5 value=0")])  # changed 够了，但最近一条是 RELOAD
+GONE_STALE = (PASS_LINES[:PASS_LINES.index(f"{NOTE} 7 status_gone") + 2]
+              + [GONE.replace("watch=0 info=no proto=-", "watch=3 info=yes proto=12")])
 
 
 def run_selftest():
-    """四组样例：① 全通过；②③④ 各恰好一条失败且落在对应步骤。"""
+    """六组样例：① 全通过；②–⑥ 各恰好一条失败且落在对应步骤。"""
     assert verdict_line(PASS_LINES) == "FM1 SMOKE PASS 7/7", verdict_line(PASS_LINES)
-    for lines, failed in ((INFO_TIMEOUT, "FM1 SMOKE FAIL 1/7 步骤 2（"),
-                          (EVENTS_ZERO, "FM1 SMOKE FAIL 4/7 步骤 5（"),
-                          (LINK_NONE, "FM1 SMOKE FAIL 0/7 步骤 1（")):
+    for lines, failed, needle in ((INFO_TIMEOUT, "FM1 SMOKE FAIL 1/7 步骤 2（", "FM1 INFO ERR timeout"),
+                                  (EVENTS_ZERO, "FM1 SMOKE FAIL 4/7 步骤 5（", "changed=0"),
+                                  (LINK_NONE, "FM1 SMOKE FAIL 0/7 步骤 1（", "link=none"),
+                                  (EVENTS_RELOAD, "FM1 SMOKE FAIL 4/7 步骤 5（", "cmd=23"),
+                                  (GONE_STALE, "FM1 SMOKE FAIL 6/7 步骤 7（", "watch=0 info=no")):
         fails = judge(lines)
         assert len(fails) == 1, (len(fails), fails)
         assert verdict_line(lines).startswith(failed), verdict_line(lines)
-    assert "FM1 INFO ERR timeout" in judge(INFO_TIMEOUT)[0]
-    assert "changed=0" in judge(EVENTS_ZERO)[0]
-    assert "link=none" in judge(LINK_NONE)[0]
+        assert needle in fails[0], fails
     # 段内没有回复（命令石沉大海）也要给出判定，而不是在判 verdict 时抛异常
     assert verdict_line(SET_NO_REPLY).startswith("FM1 SMOKE FAIL 3/7 步骤 4（"), verdict_line(SET_NO_REPLY)
-    print("自测断言全部通过（全通过 7/7；INFO ERR timeout / EVENTS changed=0 / STATUS link=none "
-          "各恰好一条失败，落在步骤 2 / 5 / 1）")
+    print("自测断言全部通过（全通过 7/7；INFO ERR timeout / EVENTS changed=0 / STATUS link=none / "
+          "changed 够但 last=cmd=24 / link=none 但 watch=3 各恰好一条失败，落在步骤 2 / 5 / 1 / 5 / 7）")
 
 
 def run_device(port):
