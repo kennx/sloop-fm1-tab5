@@ -12,6 +12,9 @@ Usage:
 PNG 没有人眼读（本会话无图像输入能力）：每张截屏做像素核对（面板边框 / chip 行 / 高亮条 /
 当前项强调色文字 / 提示行墨迹落在面板内）。
 
+修复轮 2：预览态、焦点在列表时 ENTER 不动作（→ 回 chip 行后 ENTER 才换引擎）、预览态提示行换文案、
+`UI SOUND PICK` 只认四种形式、裸 release 不算点击。
+
 修复轮 1（R16 + 评审两项 Important 与四项 Minor）：面板空白处 = miss、滑过的松手不算点击（`UI SOUND
 PICK press|release` 注入）、预览态（chip 高亮 ≠ 当前引擎）列表只读且不标当前项、ENTER = 确认 chip、载入
 用户预置后工厂预置 0 不算当前项。
@@ -43,7 +46,7 @@ RE_TAP_OPEN = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick open row=
 RE_TAP_PICK = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick (engine|kit|preset)=(\d+) ([^\r\n]*)")
 RE_TAP_MISS = re.compile(r"TAP miss (-?\d+),(-?\d+) page=(\d)")
 RE_TAP_PREVIEW = re.compile(r"TAP (-?\d+),(-?\d+) page=(\d) -> SOUND pick preview engine=(\d+)")
-RE_TOUCH = re.compile(r"UI SOUND PICK (press|release) x=(-?\d+) y=(-?\d+) (\w+)")
+RE_TOUCH = re.compile(r"UI SOUND PICK (press|release) x=(-?\d+) y=(-?\d+) (\S+)")
 RE_PRESET_EMPTY = re.compile(r"PRESET (\d+) EMPTY")
 RE_TRACKSEL = re.compile(r"TAP -?\d+,-?\d+ page=\d+ -> TRACKS select track=(\d) CMD_SELECT_TRACK")
 RE_ENG = re.compile(r"ENG SNAP trk k=(\d) engine=(\d+) preset=(\d+) level=(\d+) mute=\d+ armed=\d+ solo=\d+ "
@@ -410,6 +413,17 @@ def main():
             ck.ok(RE_TAP_MISS.search(t) is not None and "page=6" in t, f"面板空白（{what}）TAP {x},{y} ⇒ {result_line(t)}")
         ck.ok(RE_FOCUS.search(c.cmd("UI SOUND FOCUS")).group(1) == f0, "空白处 TAP 没有落到被盖住的卡片（焦点槽不变）")
         ck.ok(pick(c) is not None, "空白处 TAP 后面板仍打开")
+        # 修复轮 2 Minor a：只认 PICK / PICK <n> / PICK press|release <x> <y>，其余形式一律用法错误（rc 1）
+        for bad in ("UI SOUND PICK press 640", "UI SOUND PICK a b c", "UI SOUND PICK 0 0", "UI SOUND PICK 0 x"):
+            t = c.cmd(bad)
+            ck.ok("用法: UI SOUND" in t and "UI SOUND PICK open=1" not in t and "n=0 text" not in t,
+                  f"`{bad}` ⇒ 用法错误（{result_line(t)[:40]}…）")
+        ck.ok(pick(c) is not None, "用法错误不动选择器")
+        # 修复轮 2 Minor b：没有在前的按下点 ⇒ 裸 release 不算点击（open() 已清掉上一次的按下点）
+        rows = eng_rows(c)
+        t = c.cmd("UI SOUND PICK release 640 424")
+        ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "ignored", f"裸 release：{result_line(t)}")
+        ck.ok(eng_rows(c) == rows and pick(c) is not None, "裸 release 不发命令、面板仍打开")
         # 滑过的松手不算点击：按下第 3 行、在右移 60px 处松手 ⇒ moved，不发命令；同点按下/松手 = 命中
         r = pick_n(c, 3)
         y3 = int(r.group(5)) + 16
@@ -417,6 +431,8 @@ def main():
         ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "hit", f"按下第 3 行：{result_line(t)}")
         t = c.cmd(f"UI SOUND PICK release 700 {y3}")
         ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "moved", f"右移 60px 松手：{result_line(t)}")
+        t = c.cmd("UI SOUND PICK release 640 360")
+        ck.ok(RE_TOUCH.search(t) is not None and RE_TOUCH.search(t).group(4) == "ignored", f"用过即清：再 release ⇒ {result_line(t)}")
         rows = eng_rows(c)
         ck.ok(rows[0][1] == "0" and rows[0][2] == "5", f"滑过的松手不发命令：{' '.join(rows[0][:3])}")
         ck.ok(pick(c) is not None, "滑过后面板仍打开")
@@ -443,34 +459,50 @@ def main():
         c.screenshot(png_prev)
         for cond, what in panel_pixels(png_prev, drum=False, hl_row=0, has_current=False):
             ck.ok(cond, f"截屏 task-6-fix1-pick-preview.png：{what}")
+        # 提示行随预览态换文案：普通 row 1 的提示墨迹右缘 882（task-6-pick-preset.png），预览态的更短
+        from PIL import Image as _I
+        _px = _I.open(png_prev).convert("RGB").load()
+        _xs = [x for y in range(600, 630) for x in range(176, 1104) if sum(_px[x, y]) > 300]
+        ck.ok(_xs and max(_xs) != 882 and max(_xs) <= 1096, f"预览态提示行换成只读预览文案（墨迹右缘 {max(_xs) if _xs else None}：≠ 普通 row 1 的 882，且 ≤ 1096 未被裁）")
         rect, t = tap_row(c, 5)
         mp = grab(t, RE_TAP_PREVIEW, "pick preview")
         ck.ok(mp.group(4) == "1", f"{mp.group(0)}")
         rows = eng_rows(c)
         ck.ok(rows[0][1] == "0" and rows[0][2] == "5", f"预览时点预置行不下发：{' '.join(rows[0][:3])}")
         ck.ok(pick(c) is not None, "预览时点预置行后面板保持打开")
+        # R16（修复轮 2）：焦点在列表（刚 ↓ 过）时预览态的 ENTER 什么都不做；→ 一次把焦点移回 chip 行后 ENTER = 换引擎
         key(c, KEY_DOWN)
         key(c, KEY_ENTER)
         rows = eng_rows(c)
-        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"预览态 ENTER（最后移的是列表行）= 确认 chip：{' '.join(rows[0][:3])}")
+        p = pick(c)
+        ck.ok(p is not None and p.group(1) == "1" and rows[0][1] == "0" and rows[0][2] == "5",
+              f"预览态、焦点在列表：ENTER 不动作 ⇒ {p.group(0) if p else '无'}；{' '.join(rows[0][:3])}")
+        key(c, KEY_RIGHT)
+        p = pick(c)
+        ck.ok(p is not None and p.groups() == ("1", "0", "2", "8"), f"→ 一次：焦点回 chip 行（高亮 LOFI）⇒ {p.group(0) if p else '无'}")
+        key(c, KEY_ENTER)
+        rows = eng_rows(c)
+        ck.ok(rows[0][1] == "2" and rows[0][2] == "0", f"焦点在 chip 行：ENTER ⇒ 换引擎：{' '.join(rows[0][:3])}")
         ck.ok("UI SOUND PICK open=0" in c.cmd("UI SOUND PICK"), "ENTER 后选择器关闭")
-        # 现在是 DIGITAL 预置 0：← 进入预览（ANALOG）、← 环绕 NOISE、→ ×2 回 DIGITAL；页级 + = 列表高亮上一行
+        # 现在是 LOFI 预置 0：← 进入预览（DIGITAL）、←（ANALOG）、← 环绕 NOISE、→ ×3 回 LOFI；页级 + = 列表高亮上一行
         open_row(c, 512)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "1", "1", "22"), f"再开 row 1（DIGITAL）：{p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "2", "2", "8"), f"再开 row 1（LOFI）：{p.group(0) if p else '无'}")
         key(c, KEY_LEFT)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "1", "0", "22"), f"← ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "2", "1", "22"), f"← ⇒ {p.group(0) if p else '无'}")
+        key(c, KEY_LEFT)
         key(c, KEY_LEFT)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "1", "11", "11"), f"← 环绕到 NOISE ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "2", "11", "11"), f"← ×2 环绕到 NOISE ⇒ {p.group(0) if p else '无'}")
+        key(c, KEY_RIGHT)
         key(c, KEY_RIGHT)
         key(c, KEY_RIGHT)
         p = pick(c)
-        ck.ok(p is not None and p.groups() == ("1", "1", "1", "22"), f"→ ×2 回 DIGITAL ⇒ {p.group(0) if p else '无'}")
+        ck.ok(p is not None and p.groups() == ("1", "2", "2", "8"), f"→ ×3 回 LOFI ⇒ {p.group(0) if p else '无'}")
         t = c.cmd("TAP 1224 132")
         mp = grab(t, RE_TAP_PICK, "pick preset highlight")
-        ck.ok(mp.group(4) == "preset" and mp.group(5) == "21" and mp.group(6) == "highlight", f"页级 +：{mp.group(0)}")
+        ck.ok(mp.group(4) == "preset" and mp.group(5) == "7" and mp.group(6) == "highlight", f"页级 +：{mp.group(0)}")
         rect, t = tap_row(c, 0)
         mp = grab(t, RE_TAP_PICK, "pick preset unchanged")
         ck.ok(mp.group(4) == "preset" and mp.group(5) == "0" and mp.group(6) == "unchanged", f"{mp.group(0)}")
@@ -486,7 +518,7 @@ def main():
         t = c.cmd(f"STORE PRESET LOAD {slot} 0")
         ck.ok(f"PRESET {slot} LOADED track=0" in t, f"载入到轨 0：{result_line(t)}")
         rows = eng_rows(c)
-        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"载入用户预置后 t->preset = 0：{' '.join(rows[0][:3])}")
+        ck.ok(rows[0][1] == "2" and rows[0][2] == "0", f"载入用户预置后 t->preset = 0：{' '.join(rows[0][:3])}")
         open_row(c, 512)
         r = pick_n(c, 0)
         ck.ok(r is not None and r.group(3) == "0", f"{r.group(0) if r else '无'}（用户预置在位：工厂预置 0 不再是当前项）")
@@ -496,7 +528,7 @@ def main():
         mp = grab(t, RE_TAP_PICK, "pick preset")
         ck.ok(mp.group(4) == "preset" and mp.group(5) == "0" and mp.group(6) == "CMD_SET_PRESET", f"{mp.group(0)}")
         rows = eng_rows(c)
-        ck.ok(rows[0][1] == "1" and rows[0][2] == "0", f"选择工厂预置 0：{' '.join(rows[0][:3])}")
+        ck.ok(rows[0][1] == "2" and rows[0][2] == "0", f"选择工厂预置 0：{' '.join(rows[0][:3])}")
         open_row(c, 512)
         r = pick_n(c, 0)
         ck.ok(r is not None and r.group(3) == "1", f"再开：{r.group(0) if r else '无'}（工厂预置 0 = 当前项 ⇒ user 已清）")

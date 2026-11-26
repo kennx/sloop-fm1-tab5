@@ -1569,7 +1569,8 @@ static int ui_sound_command(int argc, char **argv)
         }
         return ui_sound_focus_print();
     }
-    if (argc >= 3 && argc <= 6 && strcasecmp(argv[2], "pick") == 0) {
+    /* 只认四种形式：PICK / PICK <n> / PICK press <x> <y> / PICK release <x> <y>，其余一律用法错误 */
+    if (argc >= 3 && strcasecmp(argv[2], "pick") == 0) {
         /* 选择器（page_sound_picker.c）：无 n = 状态行；有 n = 列表第 n 行的文字/当前项/屏幕矩形 */
         /* `UI SOUND PICK press|release <x> <y>`：触摸注入（屏幕坐标），走与点击回调相同的按下/松手入口 */
         if (argc == 6 && (strcasecmp(argv[3], "press") == 0 || strcasecmp(argv[3], "release") == 0)) {
@@ -1581,10 +1582,11 @@ static int ui_sound_command(int argc, char **argv)
             bool press = strcasecmp(argv[3], "press") == 0;
             int8_t hit = sloop_ui_sound_picker_touch(press, (int16_t)x, (int16_t)y, NULL);
             printf("UI SOUND PICK %s x=%ld y=%ld %s\n", press ? "press" : "release", (long)x, (long)y,
-                   hit == SLOOP_PICK_TOUCH_MOVED ? "moved" : hit == SLOOP_PICK_TAP_HIT ? "hit"
-                   : hit == SLOOP_PICK_TAP_OUTSIDE ? "outside" : "blank");
+                   hit == SLOOP_PICK_TOUCH_MOVED ? "moved" : hit == SLOOP_PICK_TOUCH_NO_PRESS ? "ignored (no press)"
+                   : hit == SLOOP_PICK_TAP_HIT ? "hit" : hit == SLOOP_PICK_TAP_OUTSIDE ? "outside" : "blank");
             return hit == SLOOP_PICK_TAP_HIT ? 0 : 1;
         }
+        if (argc != 3 && argc != 4) goto pick_usage;
         uint32_t n = 0;
         if (argc == 4 && !eng_uint(argv[3], UINT8_MAX, &n)) {
             printf("UI ERR sound (invalid)\n");
@@ -1631,6 +1633,7 @@ static int ui_sound_command(int argc, char **argv)
                (unsigned)((sloop_ui_sound_collapsed() >> card) & 1u));
         return 0;
     }
+pick_usage:
     printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>"
            " | FOCUS [<flat>] | CARDTOGGLE <n> | PICK [<n> | press <x> <y> | release <x> <y>]\n");
     return 1;

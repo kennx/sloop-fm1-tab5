@@ -450,8 +450,8 @@ esp_err_t sloop_ui_sound_card_toggle(uint8_t card);
 /* Sound 选择器（5B-1 Task 6，逻辑在 page_sound_picker.c）：点页眉行名字区（TAP 回
  * SLOOP_TAP_SOUND_PICK_OPEN）打开的引擎/预置/鼓 kit 面板；chip 只高亮，列表行选择各发一条
  * CMD_SET_ENGINE / CMD_SET_PRESET / CMD_SET_PARAM（kit）并关闭。下面三个**不取 LVGL 锁**，给键盘
- * 路由（输入任务）用：active = 面板打开；confirm = ENTER（最后移动的那一行：chip 行 ⇒ 换引擎，
- * 列表 ⇒ 选中项）；cancel = ESC（只关面板，不切页）。选择器打开时 ←/→/↑/↓ 仍走
+ * 路由（输入任务）用：active = 面板打开；confirm = ENTER（焦点在列表 ⇒ 选中该行，预览态不动作；
+ * 焦点在 chip 行 ⇒ 换引擎）；cancel = ESC（只关面板，不切页）。选择器打开时 ←/→/↑/↓ 仍走
  * sloop_ui_param_focus_move / sloop_ui_param_adjust，由页面层转给选择器。 */
 bool sloop_ui_sound_picker_active(void);
 void sloop_ui_sound_picker_confirm(void);
@@ -467,6 +467,7 @@ esp_err_t sloop_ui_sound_pick_status(uint8_t *row, uint8_t *engine, uint8_t *hig
 int8_t sloop_ui_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_result_t *out);
 /* 松手点（TAP / 触摸回调 / 注入共用）的落点码：sloop_ui_sound_picker_touch 的返回值 */
 #define SLOOP_PICK_TOUCH_MOVED (-2) /* 松手点离按下点超过 4px：不算点击，未执行任何动作 */
+#define SLOOP_PICK_TOUCH_NO_PRESS (-3) /* 没有在前的按下点：裸 release 不算点击 */
 #define SLOOP_PICK_TAP_OUTSIDE 0    /* 面板外：不归选择器 */
 #define SLOOP_PICK_TAP_HIT     1    /* 命中 chip / 列表行：已执行动作 */
 #define SLOOP_PICK_TAP_BLANK  (-1)  /* 面板内空白：未执行（TAP 注入按 miss 回显） */

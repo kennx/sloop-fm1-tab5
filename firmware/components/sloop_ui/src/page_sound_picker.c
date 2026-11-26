@@ -79,10 +79,12 @@ static EXT_RAM_BSS_ATTR int16_t s_press_x, s_press_y; /* 按下点（页面区�
 static EXT_RAM_BSS_ATTR char s_text[32];
 
 /* 提示行（R13 的规则写在这里；固件只带 Montserrat：必须全 ASCII）——引擎 / 预置 / kit */
-static const char *const k_hints[3] = {
+static const char *const k_hints[4] = {
     "Left/Right or Up/Down: move | ENTER or tap a row: use engine | ESC: close",
     "Up/Down: move | ENTER or tap a row: load preset | Chip: preview, again: switch engine | ESC: close",
     "Up/Down: move | ENTER or tap a row: use kit | ESC: close",
+    /* row 1 且 chip 高亮 ≠ 当前引擎（R16 只读预览） */
+    "Preview: rows are read-only | ENTER or tap a row: nothing | Left/Right + ENTER or tap chip again: switch engine | ESC: close",
 };
 
 typedef struct {
@@ -259,7 +261,7 @@ static void panel_draw(lv_event_t *e)
     if (!view_get(&v)) return;
     lv_area_t ta = {.x1 = a.x1 + PICK_PAD, .y1 = a.y1 + list_y(v.drum) + PICK_LIST_H + 6, .x2 = a.x2 - PICK_PAD, .y2 = a.y2};
     draw_text(layer, &lv_font_montserrat_14, UI_TEXT_DIM, LV_TEXT_ALIGN_LEFT, &ta,
-              k_hints[v.drum ? 2 : v.row > 0u ? 1 : 0]);
+              k_hints[v.drum ? 2 : v.row == 0u ? 0 : v.chip_hl != v.engine ? 3 : 1]);
 }
 
 static void chips_draw(lv_event_t *e)
@@ -330,8 +332,8 @@ static void destroy(void)
 
 static void invalidate_all(void)
 {
-    if (s_chips != NULL) lv_obj_invalidate(s_chips);
-    if (s_list != NULL) lv_obj_invalidate(s_list);
+    /* 整个面板：提示行画在面板上、内容随 chip 高亮变（预览态换文案），子对象随区域一起重绘 */
+    if (s_panel != NULL) lv_obj_invalidate(s_panel);
 }
 
 /* 滚动量只有一个主人：高亮变了才在这里跟着高亮走（粘滞），绘制与命中只读它——否则「矩形查询把
@@ -479,10 +481,18 @@ static int8_t picker_release(int16_t x, int16_t y, sloop_tap_result_t *out)
 }
 
 /* 按下 / 松手点（页面区相对坐标）与「松手点离按下点是否超过死区」 */
+#define PRESS_NONE INT16_MIN /* 没有按下点：松手一律不算点击（注入的裸 release 不拿陈旧按下点比对） */
+
 static void press_at(int16_t x, int16_t y)
 {
     s_press_x = x;
     s_press_y = y;
+}
+
+static void press_reset(void)
+{
+    s_press_x = PRESS_NONE;
+    s_press_y = PRESS_NONE;
 }
 
 static bool moved_since_press(int16_t x, int16_t y)
@@ -514,7 +524,9 @@ static void pointer_event_cb(lv_event_t *e)
         lv_point_t p;
         lv_indev_get_point(indev, &p);
         int16_t px = (int16_t)p.x, py = (int16_t)(p.y - UI_TAB_BAR_H);
-        if (moved_since_press(px, py)) break;
+        bool moved = s_press_x == PRESS_NONE || moved_since_press(px, py);
+        press_reset();
+        if (moved) break;
         if (picker_release(px, py, NULL) == SLOOP_PICK_TAP_HIT) invalidate_all();
         break;
     }
@@ -599,6 +611,7 @@ void page_sound_picker_open(uint8_t row)
     s_chip_scroll = 0;
     s_dirty = false;
     s_active = true;
+    press_reset(); /* 临界区里只是两个对齐的 16 位写；面板重开 ⇒ 上一次的按下点作废 */
     portEXIT_CRITICAL(&s_mux);
 
     scroll_sync();
@@ -649,7 +662,8 @@ int8_t page_sound_picker_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 }
 
 /* 调试注入 `UI SOUND PICK press|release <x> <y>`（屏幕坐标，与 TAP 同口径）：走与触摸回调相同的按下 /
- * 松手入口。release 回 SLOOP_PICK_TAP_*；松手点离按下点超过死区回 SLOOP_PICK_TOUCH_MOVED（不执行任何动作）。 */
+ * 松手入口。release 回 SLOOP_PICK_TAP_*；松手点离按下点超过死区回 SLOOP_PICK_TOUCH_MOVED、没有按下点回
+ * SLOOP_PICK_TOUCH_NO_PRESS（都不执行任何动作）；按下点用后即清。 */
 
 int8_t page_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_result_t *out)
 {
@@ -658,7 +672,10 @@ int8_t page_sound_picker_touch(bool press, int16_t x, int16_t y, sloop_tap_resul
         press_at(px, py);
         return SLOOP_PICK_TAP_HIT;
     }
-    if (moved_since_press(px, py)) return SLOOP_PICK_TOUCH_MOVED;
+    if (s_press_x == PRESS_NONE) return SLOOP_PICK_TOUCH_NO_PRESS;
+    bool moved = moved_since_press(px, py);
+    press_reset();
+    if (moved) return SLOOP_PICK_TOUCH_MOVED;
     int8_t hit = picker_release(px, py, out);
     if (hit != SLOOP_PICK_TAP_OUTSIDE) flush();
     return hit;
@@ -754,7 +771,9 @@ bool page_sound_picker_confirm(void)
 {
     pick_view_t v;
     if (!view_get(&v)) return false;
-    /* 预览别的引擎时列表只读：ENTER（不论最后移的是哪一行）= 确认高亮的 chip = 换引擎 */
-    if (!v.drum && (v.zone == ZONE_CHIPS || v.chip_hl != v.engine)) return pick_commit(0u, v.chip_hl, NULL);
+    /* R16：预览别的引擎时列表只读——焦点在列表上的 ENTER 什么都不做（面板保持打开）；只有焦点在 chip 行
+     * （←/→ 之后）ENTER 才确认高亮的 chip = 换引擎 */
+    if (!v.drum && v.chip_hl != v.engine) return v.zone == ZONE_CHIPS ? pick_commit(0u, v.chip_hl, NULL) : false;
+    if (v.zone == ZONE_CHIPS && !v.drum) return pick_commit(0u, v.chip_hl, NULL);
     return list_select(v.list_hl, NULL);
 }
