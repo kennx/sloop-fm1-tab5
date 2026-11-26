@@ -7,10 +7,11 @@
  * 容器内即内容坐标。
  *
  * 槽：成员表（sound_layout.h）的每个成员按当前上下文（选中轨、引擎、引擎槽值、ENV SYNC、
- * INSERT TYPE）解析成存在位图 s_present + PSRAM 里的描述符/值/锁定态 s_slot。存在的槽画
- * 环 + 名称 + 值；鼓轨上锁定的轨道参数（drum_ok == 0）无环、值 `--`、拒绝拖动；不存在的槽
- * 是空白格——不画、不命中、也不拦滚动。写值只有一条路：sound_slot_write → 状态层命令 →
- * 窄读回填。
+ * INSERT TYPE）解析成存在位图 s_present + PSRAM 里的描述符/值/锁定态 s_slot。键变了才重解析，
+ * 且只重绘「有槽的描述符/锁定态变了」的卡片（换轨/换引擎才全部重绘——拖引擎槽/ITYPE/ESYNC
+ * 旋钮本身就会改键，不能每次移动都重画整页）。存在的槽画环 + 名称 + 值；鼓轨上锁定的轨道参数
+ * （drum_ok == 0）无环、值 `--`、拒绝拖动；不存在的槽是空白格——不画、不命中、也不拦滚动。
+ * 写值只有一条路：sound_slot_write → 状态层命令 → 窄读回填。
  *
  * 手势（LVGL 9.6）：容器与卡片都关掉 SCROLLABLE/SCROLL_CHAIN/GESTURE_BUBBLE，不让 LVGL
  * 自己滚，滚动由本文件的事件回调驱动（容器与卡片共用同一个回调）——
@@ -59,8 +60,9 @@
 
 typedef struct { sloop_desc_t desc; int16_t value; bool shown, locked; } sound_slot_state_t;
 /* 上下文键：槽的描述符/值/锁定态随它变的全部输入（= page_params.c 的参数页上下文键，另含
- * 引擎槽值——上游引擎钩子读该轨自己的 p[P_E0..P_E7] 决定其余槽的标签/格式）。 */
-typedef struct { uint8_t track, engine, itype, esync, edit[8]; } sound_ctx_t;
+ * 引擎槽值——上游引擎钩子读该轨自己的 p[P_E0..P_E7] 决定其余槽的标签/格式）。鼓轨没有引擎
+ * （engine 记 0），所以单列 drum：引擎门槛只对合成轨的 ANALOG 生效。 */
+typedef struct { uint8_t track, engine, itype, esync, edit[8]; bool drum; } sound_ctx_t;
 /* 无主题装饰的容器/卡片（同 ui.c 的 make_plain；那是 static，这里按同一写法另写一个） */
 static lv_obj_t *make_plain(lv_obj_t *parent)
 {
@@ -95,6 +97,7 @@ static EXT_RAM_BSS_ATTR uint32_t s_present[4];
 static EXT_RAM_BSS_ATTR sound_slot_state_t s_slot[SOUND_SLOT_TABLE_MAX];
 static EXT_RAM_BSS_ATTR sound_ctx_t s_ctx;
 static EXT_RAM_BSS_ATTR bool s_ctx_valid;
+static EXT_RAM_BSS_ATTR char s_value_text[24]; /* 值文本：绘制任务在 lv_draw_label 内就被派发完，静态缓冲即可 */
 static EXT_RAM_BSS_ATTR uint16_t s_focus_flat; /* 焦点槽（扁平下标）；键盘路由与焦点描边在 Task 4 接 */
 
 /* 页面区相对坐标 → 内容坐标（全文件唯一一处：手势、TAP 与注入都走这里） */
@@ -165,7 +168,7 @@ static void invalidate_slot(uint16_t flat)
 
 /* ------------------------------------------------------------------ 自绘 --- */
 static void draw_text(lv_layer_t *layer, const lv_font_t *font, uint32_t color, lv_text_align_t align,
-                      const lv_area_t *area, const char *text, bool text_local)
+                      const lv_area_t *area, const char *text)
 {
     lv_draw_label_dsc_t d;
     lv_draw_label_dsc_init(&d);
@@ -174,9 +177,8 @@ static void draw_text(lv_layer_t *layer, const lv_font_t *font, uint32_t color, 
     d.color = lv_color_hex(color);
     d.align = align;
     d.text = text;
-    /* 名称/标题是静态串（上游描述符/字面量）：text_local = 0，不让 LVGL 为每帧复制一份；
-     * 值是栈缓冲：绘制任务可能在本函数返回后才被 draw unit 消费，让 LVGL 复制一份（同 knob.c） */
-    d.text_local = text_local;
+    /* 文本都指向生命周期长于本次绘制的数据（上游描述符/字面量、s_value_text）：text_local = 0，
+     * 不让 LVGL 每帧为每个槽 lv_strndup 一份 */
     lv_draw_label(layer, &d, area);
 }
 
@@ -216,12 +218,11 @@ static void card_draw(lv_event_t *e)
 
     lv_area_t ta = {.x1 = a.x1 + TITLE_TEXT_X, .y1 = a.y1 + TITLE_TEXT_Y,
                     .x2 = a.x2 - TITLE_TEXT_X - TITLE_MARK_W - 8, .y2 = a.y1 + TITLE_TEXT_Y + TITLE_TEXT_H};
-    draw_text(layer, &lv_font_montserrat_16, UI_TEXT, LV_TEXT_ALIGN_LEFT, &ta, k_sound_cards[card].title,
-              false);
+    draw_text(layer, &lv_font_montserrat_16, UI_TEXT, LV_TEXT_ALIGN_LEFT, &ta, k_sound_cards[card].title);
     /* 折叠标记（字体里没有 U+25BE，用 LVGL 自带的下箭头字形；折叠/展开动作在后续任务） */
     ta.x1 = a.x2 - TITLE_TEXT_X - TITLE_MARK_W;
     ta.x2 = a.x2 - TITLE_TEXT_X;
-    draw_text(layer, &lv_font_montserrat_16, UI_TEXT_DIM, LV_TEXT_ALIGN_RIGHT, &ta, LV_SYMBOL_DOWN, false);
+    draw_text(layer, &lv_font_montserrat_16, UI_TEXT_DIM, LV_TEXT_ALIGN_RIGHT, &ta, LV_SYMBOL_DOWN);
 
     /* 卡片内容原点（内容坐标）：槽矩形减去它就是对象内坐标 */
     int32_t ox = card_origin_x(card);
@@ -247,14 +248,18 @@ static void card_draw(lv_event_t *e)
         }
 
         lv_area_t cell = {.x1 = cell_x, .y1 = cell_y, .x2 = cell_x + w - 1, .y2 = cell_y + SLOT_NAME_H};
-        draw_text(layer, &lv_font_montserrat_14, UI_TEXT_DIM, LV_TEXT_ALIGN_CENTER, &cell, sl->desc.label,
-                  false);
+        draw_text(layer, &lv_font_montserrat_14, UI_TEXT_DIM, LV_TEXT_ALIGN_CENTER, &cell, sl->desc.label);
 
-        char val[24] = "--";
-        if (!sl->locked) knob_format_value(&sl->desc, sl->value, val, sizeof(val));
+        /* LVGL 9.6 在 lv_draw_finalize_task_creation 里就地 lv_draw_dispatch（lv_draw.c），上一个
+         * 值的绘制任务在下一次格式化之前已经消费完 ⇒ 全部槽共用一个缓冲 */
+        if (sl->locked) {
+            strcpy(s_value_text, "--");
+        } else {
+            knob_format_value(&sl->desc, sl->value, s_value_text, sizeof(s_value_text));
+        }
         lv_area_t va = {.x1 = cx - SOUND_KNOB_D / 2, .y1 = cy - SLOT_VALUE_H / 2,
                         .x2 = cx + SOUND_KNOB_D / 2, .y2 = cy + SLOT_VALUE_H / 2};
-        draw_text(layer, &lv_font_montserrat_16, UI_TEXT, LV_TEXT_ALIGN_CENTER, &va, val, true);
+        draw_text(layer, &lv_font_montserrat_16, UI_TEXT, LV_TEXT_ALIGN_CENTER, &va, s_value_text);
     }
 }
 
@@ -416,6 +421,14 @@ static void gesture_click(void)
     s_gesture_flat = -1;
 }
 
+/* 长按的唯一入口：移动过的手势不算长按。LVGL 9.6 在手指移动后照发 LONG_PRESSED（它只在自己的
+ * scroll_obj 存在时才拦，本页手动滚动 ⇒ 恒空），s_gesture_moved 在按压期间有效。本页还没有长按
+ * 动作；接入时动作放在这里，入口条件就是这个判断。 */
+static void gesture_long_press(void)
+{
+    if (s_gesture_moved) return;
+}
+
 static void card_event_cb(lv_event_t *e)
 {
     switch (lv_event_get_code(e)) {
@@ -442,9 +455,11 @@ static void card_event_cb(lv_event_t *e)
     case LV_EVENT_CLICKED:
         gesture_click();
         break;
+    case LV_EVENT_LONG_PRESSED:
+    case LV_EVENT_LONG_PRESSED_REPEAT:
+        gesture_long_press();
+        break;
     default:
-        /* LONG_PRESSED / LONG_PRESSED_REPEAT 在手指移动后照常触发：本页没有长按动作，接入时
-         * 必须先判 s_gesture_moved（它在按压期间有效，点击事件/PRESS_LOST 才清）。 */
         break;
     }
 }
@@ -454,42 +469,58 @@ static void card_event_cb(lv_event_t *e)
 static void context_of(const app_state_t *st, sound_ctx_t *c)
 {
     uint8_t track = st->core.selected_track < APP_STATE_TRACKS ? st->core.selected_track : 0u;
-    bool drum = track >= APP_STATE_TRACKS - 1u;
     c->track = track;
-    c->engine = drum ? 0u : (uint8_t)st->core.trk[track].engine;
+    c->drum = track >= APP_STATE_TRACKS - 1u;
+    c->engine = c->drum ? 0u : (uint8_t)st->core.trk[track].engine;
     c->itype = (uint8_t)st->p[L_P_ITYPE];
     c->esync = st->p[L_P_ESYNC] != 0;
     for (uint8_t i = 0; i < 8u; i++) c->edit[i] = st->p[L_P_E0 + i];
 }
 
-/* 上下文变了才重解析：门槛不满足（TA 槽只在新 ANALOG 引擎出现）、描述符取不到、名称为空
- * 或值域退化（min == max 且无枚举）⇒ 槽不存在；TRACK 取选中轨的动态描述符，GLOBAL 取静态
- * 表；鼓轨上未标 drum_ok 的轨道参数锁定。 */
-static void resolve_slots(const sound_ctx_t *c)
+/* 两份描述符在屏幕上是否有差别（只比会画出来/会影响拖动的字段） */
+static bool desc_same(const sloop_desc_t *a, const sloop_desc_t *b)
 {
-    memset(s_present, 0, sizeof(s_present));
+    return a->label == b->label && a->unit == b->unit && a->fmt == b->fmt && a->min == b->min &&
+           a->max == b->max && a->enums == b->enums && a->enum_count == b->enum_count;
+}
+
+/* 上下文变了才重解析：门槛不满足（TA 槽只在 ANALOG **合成轨**出现，同 page_layout_chip_visible）、
+ * 描述符取不到、名称为空或值域退化（min == max 且无枚举）⇒ 槽不存在；TRACK 取选中轨的动态描述符，
+ * GLOBAL 取静态表；鼓轨上未标 drum_ok 的轨道参数锁定。
+ * 重绘范围：换轨/换引擎（全部值都变）⇒ 整页；否则只有「存在性/描述符/锁定态变了的槽」所在的卡片。
+ * 拖引擎槽、ITYPE、ESYNC 旋钮本身就会改上下文键，每次移动都会走到这里。 */
+static void resolve_slots(const sound_ctx_t *c, const sound_ctx_t *prev)
+{
+    bool all = prev->track != c->track || prev->engine != c->engine;
+    uint16_t dirty = all ? (uint16_t)((1u << SOUND_CARDS_MAX) - 1u) : 0u;
+    uint32_t present[4] = {0};
+
     for (uint8_t card = 0; card < SOUND_CARDS_MAX; card++) {
         for (uint8_t slot = 0; slot < k_sound_cards[card].slot_count; slot++) {
             uint16_t flat = sound_layout_slot_index(card, slot);
             const sound_slot_t *m = &k_sound_cards[card].slots[slot];
             sloop_desc_t d;
-            bool ok = (m->gate == 0u || c->engine == 0u) &&
+            bool ok = (m->gate == 0u || (!c->drum && c->engine == 0u)) &&
                       (m->scope == SLOOP_DESC_GLOBAL
                            ? sloop_core_desc(SLOOP_DESC_GLOBAL, 0, m->id, &d)
                            : sloop_core_desc_track_live(c->track, m->id, &d)) &&
                       d.label != NULL && d.label[0] != '\0' && (d.min != d.max || d.enum_count != 0u);
+            bool locked = ok && c->drum && m->scope != SLOOP_DESC_GLOBAL && m->drum_ok == 0u;
             sound_slot_state_t *sl = &s_slot[flat];
-            if (!ok) {
-                sl->shown = false;
-                continue;
-            }
-            sl->desc = d;
-            sl->locked = c->track >= APP_STATE_TRACKS - 1u && m->scope != SLOOP_DESC_GLOBAL &&
-                         m->drum_ok == 0u;
-            sl->shown = true;
-            s_present[flat >> 5] |= 1u << (flat & 31);
+            bool was = sl->shown;
+            bool desc_changed = ok && (!was || !desc_same(&sl->desc, &d));
+            bool changed = ok != was || desc_changed || (ok && locked != sl->locked);
+            /* 不持锁的 console 读路径可能插在中间：字段按「先描述符、后锁定态与 shown」的顺序写 */
+            if (desc_changed) sl->desc = d;
+            sl->locked = locked;
+            sl->shown = ok;
+            if (ok) present[flat >> 5] |= 1u << (flat & 31);
+            if (changed) dirty |= (uint16_t)(1u << card);
         }
-        if (s_cards[card] != NULL) lv_obj_invalidate(s_cards[card]);
+    }
+    memcpy(s_present, present, sizeof(s_present));
+    for (uint8_t card = 0; card < SOUND_CARDS_MAX; card++) {
+        if ((dirty & (uint16_t)(1u << card)) != 0u && s_cards[card] != NULL) lv_obj_invalidate(s_cards[card]);
     }
 }
 
@@ -541,9 +572,15 @@ void page_sound_update(const app_state_t *st, bool bank_visible)
     sound_ctx_t ctx;
     context_of(st, &ctx);
     if (!s_ctx_valid || memcmp(&ctx, &s_ctx, sizeof(ctx)) != 0) {
+        /* 换轨/换引擎：旧锚点作废（键盘在拖动中途换了轨，不能拿旧轨的锚点写新轨）。ITYPE/ESYNC/
+         * 引擎槽值的变化是拖动本身造成的，不打断。 */
+        if (!s_ctx_valid || ctx.track != s_ctx.track || ctx.engine != s_ctx.engine) s_drag_flat = -1;
+        sound_ctx_t prev = s_ctx;
         s_ctx = ctx;
+        bool first = !s_ctx_valid;
         s_ctx_valid = true;
-        resolve_slots(&ctx);
+        if (first) memset(&prev, 0xFF, sizeof(prev)); /* 建页/重建后的首拍：整页 */
+        resolve_slots(&ctx, &prev);
     }
     /* 每拍只取值：变化的槽失效自己的矩形 */
     for (uint16_t flat = 0; flat < SOUND_SLOT_TABLE_MAX; flat++) {

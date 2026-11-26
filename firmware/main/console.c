@@ -1451,7 +1451,8 @@ static int ui_sound_command(int argc, char **argv)
         if (ret != ESP_OK) return ui_sound_err(ret);
         printf("UI SOUND SCROLL y=%d max=%d\n", (int)y, (int)max);
         return 0;
-    }    if (argc == 6 && strcasecmp(argv[2], "card") == 0 && strcasecmp(argv[4], "slot") == 0) {
+    }
+    if (argc == 6 && strcasecmp(argv[2], "card") == 0 && strcasecmp(argv[4], "slot") == 0) {
         uint32_t card = 0, slot = 0;
         if (!eng_uint(argv[3], UINT8_MAX, &card) || !eng_uint(argv[5], UINT8_MAX, &slot)) {
             printf("UI ERR sound (invalid)\n");
