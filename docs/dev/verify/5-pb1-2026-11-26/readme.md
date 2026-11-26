@@ -480,3 +480,22 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 | 10 | Minor b：裸 release | 开面板后直接 `UI SOUND PICK release 640 424`；`press`+`release` 之后再 `release` | 同上 | ✅ `UI SOUND PICK release x=640 y=424 ignored (no press)`（四轨行不变、面板仍打开）；用过即清：`release x=640 y=360 ignored (no press)` |
 | 11 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-fix2-selftest-heap.log`、`task-6-fix2-selftest-heap-transcript.log` | ✅ rc=0（325s）：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`；两次 `cases=182/182 identical=182 … result=PASS` |
 | 12 | 还原核对 | 收尾硬复位 + 自检后再硬复位 | `task-6-fix2-check.out`、`task-6-fix2-restore.log` | ✅ `sel=0`、四轨 `0/0/0/104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0`；用户预置槽 0 `EMPTY` |
+
+## 16. Task 6 修复轮 3（复审：row 0 回归；固件 `2ac1f3a`，2026-11-27）
+
+> 修复轮 2 把 R16 的预览门写成 `!drum && chip_hl != engine`，没限定 row：row 0 的 ↓/↑/页级 ± 把焦点放到列表并把 `list_hl` 抄进
+> `chip_hl`，其后的 ENTER 被当成「预览态 + 列表焦点」拒绝。本轮给预览分支加 `row == 1`；row 0 / 鼓轨的列表焦点 ENTER = 用高亮的那一项。
+> **固件 = `2ac1f3a`**（`task-6-fix3-check.log` 第 29 行自报 `App version:      2ac1f3a-dirty`：`-dirty` = 上一轮核对重拍的 3 张 PNG
+> （docs），`git diff 2ac1f3a -- firmware scripts third_party tools` 为空）。读数脚本 `task-6-check.py`（断言 161 条）。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-6-fix3-build-1.log`、`task-6-fix3-build-2.log` | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-6-fix3-knob-test.log`、`task-6-fix3-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed` |
+| 3 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-6-fix3-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 4 | 启动日志 | `task-6-check.py` 的两次硬复位 | `task-6-fix3-check.log` 第 29–31 行、第 1743 行起 | ✅ E / abort / backtrace 计数 0 |
+| 5 | 之前三轮全部检查回归 | `task-6-check.py` | `task-6-fix3-check.out` | ✅ 仍通过（池 43504 → 42860（644B）；往返 ×5 `43064 → 42448 → 43064`；`est=8704 delta=7308`；`internal_min=71808`） |
+| 6 | row 0：列表焦点 + ENTER（本轮回归） | 开 row 0 → `KEY 0x4B`（↓）→ `KEY 0x3D`；还原后再开 → `TAP 1136 132`（页级 −）→ ENTER | 同上 | ✅ `open=1 row=0 engine=0 highlight=1 rows=12` → ENTER ⇒ `ENG SNAP trk k=0 engine=1 preset=0`、关闭；还原 `-> SOUND pick engine=0 CMD_SET_ENGINE`；页级 − ⇒ `-> SOUND pick engine=1 highlight` → ENTER ⇒ `engine=1`；还原 |
+| 7 | 鼓轨：列表焦点 + ENTER | 再开 → ↓ ×2 → ENTER | 同上 | ✅ `PARAM track=3 id=63 value=3 min=0 max=45`、关闭（上一轮已通过，本轮加关闭断言） |
+| 8 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-fix3-selftest-heap.log`、`task-6-fix3-selftest-heap-transcript.log` | ✅ rc=0：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`；两次 `cases=182/182 identical=182 … result=PASS` |
+| 9 | 还原核对 | 收尾硬复位 + 自检后再硬复位 | `task-6-fix3-check.out`、`task-6-fix3-restore.log` | ✅ `sel=0`、四轨 `0/0/0/104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0` |
