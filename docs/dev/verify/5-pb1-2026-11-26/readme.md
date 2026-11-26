@@ -427,3 +427,33 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 4. 12 个引擎 chip（11px/字符 + 24、间距 8）合计约 1,041px，比面板内宽 928 长：chip 行横向滚动，高亮 chip 始终留在行内（`→ ×9` 后 FM6 可见）。
    真机的手指横向拖动 chip 行**没有验证**——chip 行不接受拖动，只能靠高亮带动。
 5. 池差 608–644B 随开的是 row 0 / row 1 与池历史浮动（三个对象 + 样式/事件簿记）；关后逐轮回到原值。
+
+## 14. Task 6 修复轮 1（评审：R16 预览语义 + 两项 Important + 四项 Minor；固件 `9e537bd`，2026-11-27）
+
+> R16（取代 R13 的措辞）：row 0 = 引擎列表 + chip 行；row 1 = chip 行 + **高亮引擎**的预置列表；chip 高亮 ≠ 当前引擎时列表**只读**
+> （点行不执行、回 `-> SOUND pick preview engine=<高亮>`，`current` 恒 0；ENTER 不论最后移的是哪一行都是确认 chip ⇒ `CMD_SET_ENGINE`）。
+> 评审 Important：① 预览态同下标的预置被画成/回报为当前项；② 载入用户预置后 `t->preset == 0`，工厂预置 0 被 `unchanged` 守卫拒绝。
+> Minor：面板空白处 TAP 回 `(unknown)`；CLICKED 没有「手指移动过不算点击」的门；`PICK_ENGINES` 重复核心常量；`open()` 的快照写在临界区外。
+> 本节读数都在 `9e537bd` 上取（boot 自报 `App version:      9e537bd`，无 `-dirty`：代码与 `task-6-check.py` 同一提交）。读数脚本仍是
+> `task-6-check.py`（断言 142 条：首轮 109 条全部保留 + 本轮 33 条）。**PNG 人眼未读；手指拖动/点击仍无真机验证。**
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-6-fix1-build-1.log`、`task-6-fix1-build-2.log` | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示，第二遍没有 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-6-fix1-knob-test.log`、`task-6-fix1-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed` |
+| 3 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-6-fix1-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 4 | 启动日志 | `task-6-check.py` 的两次硬复位 | `task-6-fix1-check.log` 第 29–31 行、第 1511 行起 | ✅ `App version:      9e537bd`；E / abort / backtrace / Guru Meditation 计数 0 |
+| 5 | 首轮 109 条回归 | `task-6-check.py` | `task-6-fix1-check.out` | ✅ 全部仍通过（池 43504 → 42860（644B）；往返 ×5 `43064 → 42448 → 43064`；`UI MEM page id=6 … est=8704 delta=7308`；`internal_min=71864`） |
+| 6 | 面板空白处 = miss（Minor a） | 开 row 1 → `TAP 640 616`（提示行）、`TAP 269 220`（chip 间隙）→ `UI SOUND FOCUS` | 同上 | ✅ `TAP miss 640,616 page=6`、`TAP miss 269,220 page=6`（返回非零）；焦点槽不变、面板仍打开 |
+| 7 | 滑过的松手不算点击（Minor b） | `UI SOUND PICK press 640 360` → `UI SOUND PICK release 700 360`；对照：`press 640 424` → `release 640 424`（当前预置行） | 同上 | ✅ `UI SOUND PICK press x=640 y=360 hit` → `UI SOUND PICK release x=700 y=360 moved`，`ENG SNAP trk k=0 engine=0 preset=5` 不变、面板仍打开；对照 `release x=640 y=424 hit` ⇒ 命中当前行（`unchanged`，关闭） |
+| 8 | R16 预览态 | 开 row 1（ANALOG，预置 5）→ `TAP 324 220`（DIGITAL chip）→ `UI SOUND PICK 5` → 行 TAP → `KEY 0x4B`（↓）→ `KEY 0x3D` | 同上、`task-6-fix1-pick-preview.png` | ✅ `-> SOUND pick engine=1 highlight`；`open=1 row=1 engine=0 highlight=1 rows=22`；`n=5 text=" 6  AFRO KEYS" current=0`（与当前预置同下标，**不再** current=1）；像素：列表区强调色文字 0 像素、chip 行 3125；行 TAP ⇒ `TAP 640,424 page=6 -> SOUND pick preview engine=1`，`engine=0 preset=5` 不变、面板仍打开；ENTER ⇒ `engine=1 preset=0`、关闭 |
+| 9 | 预览态 chip 环绕 / 页级 ± / 当前项 | 开 row 1（DIGITAL）→ ←、←、→ ×2 → `TAP 1224 132` → 行 0 TAP | 同上 | ✅ `highlight=0 rows=22` → `highlight=11 rows=11` → `highlight=1 rows=22`；`-> SOUND pick preset=21 highlight`；`TAP 640,264 … preset=0 unchanged` |
+| 10 | 用户预置后工厂预置 0 可选（Important ②） | `STORE PRESET LIST` → `STORE PRESET SAVE 0` → `STORE PRESET LOAD 0 0` → 开 row 1 → `PICK 0` → 行 TAP → 再开 `PICK 0` → `STORE PRESET ERASE 0` | 同上、`task-6-fix1-user-preset.png`、`task-6-fix1-factory-preset.png` | ✅ `PRESET 0 SAVED DIGITAL DIGITAL 01`、`PRESET 0 LOADED track=0`；`n=0 text=" 1  RHODES" current=0`（用户预置在位）；`TAP 640,264 page=6 -> SOUND pick preset=0 CMD_SET_PRESET`（修复前是 `unchanged`）；再开 `current=1`；页眉 PRESET 名的强调色墨迹 174 → 195 像素、不同 271（`USER 01` → 工厂名）；`PRESET 0 ERASED`、`PRESET 0 EMPTY` |
+| 11 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-fix1-selftest-heap.log`、`task-6-fix1-selftest-heap-transcript.log` | ✅ rc=0（325s）：run 1 `delta=260`、run 2 `delta=44`（门限 ≤1,024B），收尾 `internal_free=72659B`；两次 `cases=182/182 identical=182 … result=PASS`。transcript 里的 `task_wdt … IDLE1` 与 Task 4 的同形（既有现象） |
+| 12 | 还原核对 | `task-6-check.py` 收尾硬复位 + 自检堆之后再硬复位 | `task-6-fix1-check.out`、`task-6-fix1-restore.log` | ✅ `sel=0 bpm=120`、四轨 `0/0/0/104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0`；用户预置槽 0 回到 EMPTY；自检后复位读数相同 |
+
+说明：`UI SOUND PICK press|release <x> <y>` 是本轮新增的触摸注入（评审 Minor b 的验证路径）：没有它，TAP 只能注入一次松手，
+造不出「按下后移动再松手」。它与 CLICKED 回调走同一个 `picker_release()` / 同一个 4px 死区，但**不是**原始指针事件——
+真机手指在列表上滑动的手感仍未验证。用户预置检查用了空的槽 0（`STORE PRESET LIST` 的首个 EMPTY），事后擦除。
+`ENG SNAP`/`STATE SNAP` 没有 `user` 字段：用户预置在位的证据是 `UI SOUND PICK 0` 的 `current=0` 与页眉名墨迹，`user` 清掉的证据是
+其后的 `current=1` 与页眉名墨迹变化。
