@@ -503,3 +503,27 @@
 | **触发条件** | 下一次改动 `scripts/selftest-heap.py` 时顺手修；或需要无人值守长跑（soak/阶段收口）之前。 |
 | **参考** | `scripts/selftest-heap.py`（`main()` 的 `except (OSError, …)` 子句与 `finally`）、`scripts/fm1-smoke.py`（`run_device()` 的同款处理） |
 | **登记** | 2026-11-26（5A 终审修复波，final review M-1） |
+
+## DI-63: soak 渲染占空比余量偏紧：起点工程内容未归一 + 5A 渲染均值 +3.4% 待定位
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 5A 收口（2026-11-26，固件 `715fdae`）硬复位后的 30min soak：`duty_mean` 最大 **18.31%**，上限 18.88%（2× 阶段 2 静默渲染基线 9.44%），余量只有 0.57 个百分点；历史各阶段 soak 在 9–13%。同一次收口做了受控 A/B（同一已保存工程槽 0、各 600s、稳态 `render_mean_us` @601s）：5A 之前的 dev `f4b2026` = **1037µs（17.87%）**，5A `715fdae` = **1071 / 1071µs（18.45%）**。两个结论：① 历史 9–13% 与今天 ~18% 的差距来自 **soak 起点工程内容**（dev 固件同样 17.9%）——`soak.py` 不归一起点工程，占空比读数随设备上当时的工作工程而变，跨阶段 / 跨固件不能直接比较；② 5A 使渲染均值 **+34µs（+3.4%，约 +0.6 个百分点占空比）**，可复现（A = C = 1071），来源未定位（候选：USB host 常驻中断、输入任务 PSRAM 栈）。 |
+| **影响面** | `soak.py` 的占空比门禁：读数取决于起点工程，换一份更重的工程就可能越线；5B 起新页面的渲染预算余量（0.57 个百分点）。音频输出与 xrun 不受影响（30min soak `xrun=0`）。 |
+| **为何可延迟** | 门禁通过（30min soak 最大 18.31% < 18.88%；A/B 四次稳态 17.87–18.47% 都低于上限）；+0.6 个百分点的渲染开销已裁定为可接受（`docs/dev/closeout-phase5a.md` R36）；无 panic/WDT。 |
+| **解决方向** | ① soak 起跑前把工作工程归一为固定参照工程（让占空比读数可比，也让上限有确定含义）；② 在 5B/5C 定位 5A 的 +3.4% 渲染开销（候选逐一对照：USB host 常驻中断、输入任务 PSRAM 栈），定位后再决定是压掉它还是把基线 / 上限口径作为门禁变更登记。 |
+| **触发条件** | 占空比门禁再贴近 / 触发（soak 再次出现 `duty_mean` 判定问题），或 5C 断连恢复开工时。 |
+| **参考** | `docs/dev/closeout-phase5a.md` §4 / §5（R35、R36）；`docs/dev/verify/5-pa-2026-11-26/`（`soak-summary-20261126-150834.txt`、`ab-{A-5a,B-dev,C-5a}-summary.txt`、`ab-status.txt`）；`scripts/soak.py`（占空比判定）；`docs/dev/reference/verification-gates.md`「阶段收口 soak」行 |
+| **登记** | 2026-11-26（5A 收口，裁决 R36） |
+
+## DI-64: `ENG SELFTEST` 期间的 task-watchdog 报告（既有现象）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 全量 `ENG SELFTEST`（约 160s，在 console 任务里同步跑完 182 例）期间，task watchdog 报一次：`Task watchdog got triggered. The following tasks/users did not reset the watchdog in time: - IDLE0 (CPU 0)`，随后的 `Tasks currently running` 是 `CPU 0: console_repl`、`CPU 1: IDLE1`。5A 收口的 `selftest-heap.py` 两次全量自检各出一条（`docs/dev/verify/5-pa-2026-11-26/41-selftest-heap.log`，时间戳 166754ms 与 325424ms）；`docs/dev/verification-log.md` 里登记通过的历史转录同款（如 `4-p0-2026-11-21/task-11-selftest-full-transcript.log`、`4-pe-2026-11-23/` 下的设备自检转录）。报告之后设备没有重启：同一会话里第二次自检照常完成，两次均 `result=PASS`。 |
+| **影响面** | 只在诊断路径（`ENG SELFTEST` / `device-selftest.py` / `selftest-heap.py`）出现，每次多一组 `E (…) task_wdt:` 日志行。判定与运行期行为零影响，两个脚本都不因此失败。 |
+| **为何可延迟** | 既有现象，非 5A 引入；不重启、不改变自检结果；用户操作不经过自检路径。 |
+| **解决方向** | 先确认根因（自检循环长时间不让出 CPU 0 ⇒ `IDLE0` 喂不上狗），再二选一：在自检的用例循环里定期让出 / 复位任务看门狗（不得改变自检的时序语义与 182 例的确定性）；或确认无害后在文档里记为已知噪声并让门禁脚本忽略这几行。 |
+| **触发条件** | 下一次改动 `ENG SELFTEST` 路径（`selftest.c`）或 task watchdog 配置时；或需要让自检期间的日志干净（无人值守长跑、按日志判读的自动化）时。 |
+| **参考** | `firmware/components/sloop_core`（`ENG SELFTEST` 实现）、`firmware/main/console.c`（`ENG SELFTEST` 命令）、`scripts/device-selftest.py`、`scripts/selftest-heap.py`；`docs/dev/closeout-phase5a.md` §6 |
+| **登记** | 2026-11-26（5A 终审修复波记账，收口时登记） |
