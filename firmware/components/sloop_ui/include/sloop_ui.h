@@ -287,7 +287,8 @@ typedef enum {
     SLOOP_TAP_SOUND_FOCUS,   /* SOUND 仪表盘的槽（5B-1）：a=卡片 b=卡内槽 v=成员表扁平下标
                              * （sound_layout_slot_index）。命中**存在**槽的矩形：只设焦点、不改值
                              * （作用域与锁定态由 console 经 sloop_ui_sound_slot_info 取）。 */
-    SLOOP_TAP_SOUND_CARD,    /* SOUND 仪表盘的卡片标题行（5B-1）：a=卡片。折叠动作在后续任务。 */
+    SLOOP_TAP_SOUND_CARD,    /* SOUND 仪表盘的卡片标题行（5B-1）：a=卡片 v=**翻转后**的该卡折叠位
+                             * （命中即翻折叠位，重排在下一拍）。 */
 } sloop_tap_kind_t;
 
 /* SONG 页动作（P4-C Task 11）：控件回调与 console `TAP` 共用同一编号与同一个动作
@@ -417,6 +418,16 @@ esp_err_t sloop_ui_sound_scroll_set(int16_t y);                /* 持锁；钳�
  * 相同的处理路径。ESP_OK = 接受；ESP_ERR_NOT_FOUND = 环带外/无锚点或槽不存在；
  * ESP_ERR_NOT_ALLOWED = 锁定槽。*value 回填槽当前值（可 NULL）。持锁 */
 esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press, int16_t *value);
+
+/* Sound 仪表盘的焦点与折叠（5B-1 Task 4，逻辑在 page_sound.c）。焦点槽恒为一个存在的槽：悬空的
+ * 焦点（换轨/换引擎后描述符消失）按「扁平序里下一个可聚焦的槽，否则首个存在槽」重指；折叠卡片
+ * 里的槽仍是焦点（± 与读数行照常），←/→ 跳过折叠卡片。滚动到可见与重排都在其后的 30ms 拍里。 */
+esp_err_t sloop_ui_sound_focus_get(uint16_t *flat, uint8_t *card, uint8_t *slot); /* 无锁；flat/card/slot 可 NULL */
+/* 写焦点并立即滚到可见（持锁）。flat 越界 ESP_ERR_INVALID_ARG；当前上下文不存在的槽
+ * ESP_ERR_NOT_FOUND；页对象未建 ESP_ERR_INVALID_STATE；锁超时 ESP_ERR_TIMEOUT。 */
+esp_err_t sloop_ui_sound_focus_set(uint16_t flat);
+/* 翻第 card 张卡的折叠位（持锁；卡片重排在下一拍）。card ≥ 13 回 ESP_ERR_INVALID_ARG。 */
+esp_err_t sloop_ui_sound_card_toggle(uint8_t card);
 
 /* STEP 页聚焦步与鼓 lane（P4-C Task 9；InputManager 与 console `UI LANE` 共用）：
  *  - 焦点环 = T1,T2,T3,DRM L1..L16（↑/↓ 在三条合成轨间环绕；从 T3 向下进入 lane 1、

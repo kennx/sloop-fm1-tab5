@@ -1244,8 +1244,8 @@ static int param_command(int argc, char **argv)
  * UI QUIESCE <on|off>：手动复验诊断期静默（`ENG SELFTEST` 内部同一入口）——
  * 用于验证 KEY/TAP 在静默期被拒、恢复后 UI 定时器重新刷新。
  * UI MEM：页面注册表/懒建池水位（ADR-008；每页 est 预算 vs 实测 delta）。
- * UI SOUND CARD|SCROLL|STATS|KNOB：SOUND 仪表盘的槽定位/滚动/统计/槽级旋钮注入
- * （5B-1 Task 3，见 ui_sound_command；裸 `UI sound` 仍是切页）。
+ * UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE：SOUND 仪表盘的槽定位/滚动/统计/槽级旋钮注入/
+ * 焦点读写/卡片折叠（5B-1 Task 3/4，见 ui_sound_command；裸 `UI sound` 仍是切页）。
  * UI FORCEFAIL <page> [on|off]：强制该页构建失败（验证失败可见性）。已建当前页
  * 立即重建到失败态（注入当场消费）；已建非当前页回到未建态（注入待命）；未建页挂起
  * 到下一次构建；off 只撤销未消费的注入。
@@ -1396,11 +1396,11 @@ static int ui_lockhold_command(const char *arg)
 }
 
 /* UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>
- * （5B-1 Task 3）：SOUND 仪表盘的槽定位、滚动、统计与槽级旋钮注入。槽用成员表的扁平下标；
- * TAP/注入要的矩形是屏幕绝对坐标（含 72px 页签条）。当前页不是仪表盘 `UI ERR sound
- * (not_dashboard)`、页对象未建 `(not_built)`、参数/下标不合法 `(invalid)`、槽在当前上下文
- * 不存在（KNOB）`(absent)`。裸 `UI sound` 仍是**切页**、`UI sound CHIP` 仍走 chip 段（本函数
- * 只在第三个词是上面四个子命令时被调）。 */
+ * | FOCUS [<flat>] | CARDTOGGLE <n>（5B-1 Task 3/4）：SOUND 仪表盘的槽定位、滚动、统计、槽级旋钮注入、
+ * 焦点读写与卡片折叠。槽用成员表的扁平下标；TAP/注入要的矩形是屏幕绝对坐标（含 72px 页签条）。
+ * 当前页不是仪表盘 `UI ERR sound (not_dashboard)`、页对象未建 `(not_built)`、参数/下标不合法
+ * `(invalid)`、槽在当前上下文不存在（KNOB / FOCUS <n>）`(absent)`。裸 `UI sound` 仍是**切页**、
+ * `UI sound CHIP` 仍走 chip 段（本函数只在第三个词是这些子命令时被调）。 */
 static int ui_sound_err(esp_err_t ret)
 {
     if (ret == ESP_ERR_TIMEOUT) {
@@ -1409,6 +1409,27 @@ static int ui_sound_err(esp_err_t ret)
         printf("UI ERR sound (%s)\n", ret == ESP_ERR_INVALID_STATE ? "not_built" : "invalid");
     }
     return 1;
+}
+
+/* 焦点不存在（当前上下文没有这个槽 / 没有任何存在槽）：与「参数写错」分开的令牌 */
+static int ui_sound_absent(void)
+{
+    printf("UI ERR sound (absent)\n");
+    return 1;
+}
+
+/* `UI SOUND FOCUS` 的读回显：焦点槽（页面层保证是存在的槽）+ 卡片/卡内槽 + 名称 */
+static int ui_sound_focus_print(void)
+{
+    uint16_t flat = 0;
+    uint8_t card = 0, slot = 0;
+    esp_err_t ret = sloop_ui_sound_focus_get(&flat, &card, &slot);
+    if (ret == ESP_ERR_NOT_FOUND) return ui_sound_absent();
+    const char *label = "-";
+    (void)sloop_ui_sound_slot_info(flat, NULL, NULL, NULL, NULL, &label, NULL, NULL);
+    printf("UI SOUND FOCUS flat=%u card=%u slot=%u label=\"%s\"\n", (unsigned)flat, (unsigned)card,
+           (unsigned)slot, label != NULL ? label : "-");
+    return 0;
 }
 
 static int ui_sound_command(int argc, char **argv)
@@ -1533,7 +1554,35 @@ static int ui_sound_command(int argc, char **argv)
         }
         return ui_sound_err(ret);
     }
-    printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>\n");
+    if ((argc == 3 || argc == 4) && strcasecmp(argv[2], "focus") == 0) {
+        if (argc == 4) {
+            uint32_t flat = 0;
+            if (!eng_uint(argv[3], 0xFFFF, &flat)) {
+                printf("UI ERR sound (invalid)\n");
+                return 1;
+            }
+            esp_err_t ret = sloop_ui_sound_focus_set((uint16_t)flat);
+            if (ret == ESP_ERR_NOT_FOUND) return ui_sound_absent();
+            if (ret != ESP_OK) return ui_sound_err(ret);
+        }
+        return ui_sound_focus_print();
+    }
+    if (argc == 4 && strcasecmp(argv[2], "cardtoggle") == 0) {
+        uint32_t card = 0;
+        /* 卡片数的判据同 STATS：槽 0 落在成员表里的卡片才存在 */
+        if (!eng_uint(argv[3], UINT8_MAX, &card) ||
+            sloop_ui_sound_slot_index((uint8_t)card, 0) == 0xFFFFu) {
+            printf("UI ERR sound (invalid)\n");
+            return 1;
+        }
+        esp_err_t ret = sloop_ui_sound_card_toggle((uint8_t)card);
+        if (ret != ESP_OK) return ui_sound_err(ret);
+        printf("UI SOUND CARDTOGGLE card=%u collapsed=%u\n", (unsigned)card,
+               (unsigned)((sloop_ui_sound_collapsed() >> card) & 1u));
+        return 0;
+    }
+    printf("用法: UI SOUND CARD <n> SLOT <m> | SCROLL [<y>] | STATS | KNOB <flat> <press|drag> <dx> <dy>"
+           " | FOCUS [<flat>] | CARDTOGGLE <n>\n");
     return 1;
 }
 
@@ -1549,10 +1598,11 @@ static int ui_command(int argc, char **argv)
         return 0;
     }
     if (argc == 2 && strcasecmp(argv[1], "mem") == 0) return ui_mem_dump();
-    /* UI SOUND CARD|SCROLL|STATS|KNOB …：仪表盘子命令（裸 `UI sound` / `UI sound CHIP` 不走这里） */
+    /* UI SOUND CARD|SCROLL|STATS|KNOB|FOCUS|CARDTOGGLE …：仪表盘子命令（裸 `UI sound` / `UI sound CHIP` 不走这里） */
     if (argc >= 3 && strcasecmp(argv[1], "sound") == 0 &&
         (strcasecmp(argv[2], "card") == 0 || strcasecmp(argv[2], "scroll") == 0 ||
-         strcasecmp(argv[2], "stats") == 0 || strcasecmp(argv[2], "knob") == 0)) {
+         strcasecmp(argv[2], "stats") == 0 || strcasecmp(argv[2], "knob") == 0 ||
+         strcasecmp(argv[2], "focus") == 0 || strcasecmp(argv[2], "cardtoggle") == 0)) {
         return ui_sound_command(argc, argv);
     }
     if (argc == 6 && strcasecmp(argv[1], "knob") == 0) {

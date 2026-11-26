@@ -1244,6 +1244,46 @@ esp_err_t sloop_ui_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool p
     return ret;
 }
 
+/* 焦点读（console `UI SOUND FOCUS`，无锁）：悬空的焦点按页面层同一条规则重指后返回。
+ * 页对象未建（含非仪表盘页）= INVALID_STATE；没有任何存在槽 = NOT_FOUND。 */
+esp_err_t sloop_ui_sound_focus_get(uint16_t *flat, uint8_t *card, uint8_t *slot)
+{
+    if (!sloop_ui_sound_dashboard_active()) return ESP_ERR_INVALID_STATE;
+    uint16_t f = page_sound_focus_get();
+    uint8_t c = 0, s = 0;
+    if (f == 0xFFFFu || !sound_layout_slot_locate(f, &c, &s)) return ESP_ERR_NOT_FOUND;
+    if (flat != NULL) *flat = f;
+    if (card != NULL) *card = c;
+    if (slot != NULL) *slot = s;
+    return ESP_OK;
+}
+
+/* 写焦点并立即滚到可见（持锁）。存在性在这里判：不存在的槽不动焦点、回 NOT_FOUND。 */
+esp_err_t sloop_ui_sound_focus_set(uint16_t flat)
+{
+    if (!sloop_ui_sound_dashboard_active()) return ESP_ERR_INVALID_STATE;
+    if (flat >= SOUND_SLOT_TABLE_MAX) return ESP_ERR_INVALID_ARG;
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = page_sound_slot_info(flat, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+    if (ret == ESP_OK) {
+        page_sound_focus_set(flat);
+        page_sound_focus_reveal();
+    }
+    bsp_display_unlock();
+    return ret;
+}
+
+esp_err_t sloop_ui_sound_card_toggle(uint8_t card)
+{
+    if (!sound_dash_ready()) return ESP_ERR_INVALID_STATE;
+    if (card >= SOUND_CARDS_MAX) return ESP_ERR_INVALID_ARG;
+    if (!bsp_display_lock(1000)) return ESP_ERR_TIMEOUT;
+    page_sound_card_toggle(card);
+    bsp_display_unlock();
+    return ESP_OK;
+}
+
 /* FILE 页路由（InputManager 调用，不取 LVGL 锁）：只读单字节 s_page（与
  * sloop_ui_current_page 同一纪律）+ 改页内局部态；控件由 30ms 定时器刷新。 */
 bool sloop_ui_file_page_active(void)

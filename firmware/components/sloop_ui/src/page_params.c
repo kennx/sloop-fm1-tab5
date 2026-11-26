@@ -89,7 +89,8 @@
  * 槽管理行不动，仍在 SAMPLE_ROW_Y）。本文件里凡是碰 knobs[]/present[]/chip 状态的路径都按
  * `page_layout_is_dashboard()` 分流：update 跳过 apply_focus/sound_sync_slots/槽循环/
  * sloop_ui_zoom_knob（ZOOM 大读数画在页面区顶部，会盖住本页可操作的页眉），改调
- * page_sound_update；TAP 先走按钮/页眉行/银行行，未命中再交 page_sound_tap；± 细调、
+ * page_sound_update；TAP 先走按钮/页眉行/银行行，未命中再交 page_sound_tap；± 细调与键盘
+ * ←/→/↑/↓/ENTER 转调 page_sound.c 的焦点入口（焦点槽在卡片区，不在本文件的 8 槽焦点表里）；
  * `UI KNOB`、`UI <page> CHIP` 的逐槽诊断在仪表盘页没有对象可作用，一律不动作（槽级注入走
  * `UI SOUND KNOB`，在 page_sound.c）。
  */
@@ -542,12 +543,13 @@ static void apply_focus(uint8_t index, uint8_t focus)
 }
 
 /* ---------------------------------------------------------------- 动作函数 --- */
-/* 焦点槽 ±1（控件回调、TAP 与键盘 ↑/↓/ENTER 的共同路径）。返回 false = 槽位锁定/无值。 */
+/* 焦点槽 ±1（控件回调、TAP 与键盘 ↑/↓/ENTER 的共同路径）。返回 false = 槽位锁定/无值。
+ * 仪表盘页：焦点槽在 page_sound.c（卡片区），转调它的 adjust（不碰本文件的槽表）。 */
 static bool param_step(uint8_t index, int8_t delta, int16_t *applied)
 {
     const param_page_t *pg = page_layout_get(index);
-    /* 仪表盘页没有 8 槽旋钮：焦点槽的 ± 由卡片区的后续任务接入，这里不碰槽表、不发命令 */
-    if (pg == NULL || page_layout_is_dashboard(pg)) return false;
+    if (pg == NULL) return false;
+    if (page_layout_is_dashboard(pg)) return page_sound_adjust(delta);
     uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t v;
@@ -1050,6 +1052,11 @@ void sloop_ui_param_focus_move(int8_t delta)
     int idx = current_index();
     if (idx < 0 || delta == 0) return;
     const param_page_t *pg = page_layout_get((uint8_t)idx);
+    /* 仪表盘页：焦点在卡片区的槽之间移（page_sound.c），不碰本文件的 8 槽焦点 */
+    if (page_layout_is_dashboard(pg)) {
+        page_sound_focus_move(delta);
+        return;
+    }
     uint8_t chip = chip_get((uint8_t)idx);
     uint8_t f = focus_get((uint8_t)idx);
     for (uint8_t n = 0; n < PARAM_PAGE_SLOTS; n++) {
@@ -1775,6 +1782,23 @@ static bool rect_hit(int16_t x, int16_t y, int32_t rx, int32_t ry, int32_t rw, i
 static void param_tap_button(uint8_t index, int8_t delta, sloop_tap_result_t *out)
 {
     const param_page_t *pg = page_layout_get(index);
+    if (page_layout_is_dashboard(pg)) {
+        /* 仪表盘页：± 作用于卡片区的焦点槽。回显沿用同一格式：slot = 成员表扁平下标、
+         * id = 参数 id、value = 写后回读（锁定的槽 = PARAM_LOCKED，未下发）。 */
+        uint16_t flat = page_sound_focus_get();
+        bool ok = page_sound_adjust(delta);
+        uint8_t scope = 0, id = 0;
+        (void)page_sound_slot_info(flat, NULL, NULL, &scope, &id, NULL, NULL, NULL);
+        if (out != NULL) {
+            out->a = (uint8_t)flat;
+            out->b = ok ? id : 0u;
+            out->v = ok ? (scope == SLOOP_DESC_GLOBAL ? state_read_g(id) : state_read_p(id)) : 0;
+            out->d = delta;
+            out->kind = ok ? SLOOP_TAP_PARAM_STEP : SLOOP_TAP_PARAM_LOCKED;
+        }
+        refresh(index);
+        return;
+    }
     uint8_t chip = chip_get(index);
     uint8_t slot = focus_get(index);
     int16_t applied = 0;

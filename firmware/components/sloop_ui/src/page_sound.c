@@ -28,12 +28,23 @@
  * LVGL 的命中测试（lv_indev_search_obj）只在点落在父对象坐标内时才下探子对象，滚出视口的
  * 卡片部分收不到按下。
  *
- * TAP 不能拖拽：命中存在的槽 = 设焦点（与点击同一动作函数），命中卡片标题行只回显。
+ * TAP 不能拖拽：命中存在的槽 = 设焦点、命中标题行 = 翻折叠位、命中选轨条 = 选轨（都与点击
+ * 同一动作函数）。
+ *
+ * 焦点（5B-1 Task 4）：s_focus_flat 是 portMUX 保护的 PSRAM 静态——键盘路由在输入任务里读写，
+ * TAP/绘制在 LVGL 任务里。本文件里凡是**不取 LVGL 锁**的入口（page_sound_focus_move、
+ * page_sound_adjust、page_sound_card_toggle 等六个）只读写这份状态（adjust 另发一条状态层
+ * 命令），滚动到可见、重排、重绘全部留给下一拍 update（LVGL 上下文）。焦点槽恒是存在的槽：
+ * 上下文变化让它消失时，update 按 focus_resolve 就近重指。
  */
 #include "page_sound.h"
 
 #include <esp_attr.h>
+#include <stdio.h>
 #include <string.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "knob_math.h"
 #include "page_layout.h"
@@ -57,6 +68,23 @@
 #define GESTURE_MOVE_PX  4
 /* 事件回调的 user data：卡片 = 下标 0..12，容器 = 这个哨兵（手势恒为滚动） */
 #define CONTAINER_UD     0xFFu
+/* 选轨条 / 提示·读数行（页面区相对坐标；建控件、自绘与 TAP 命中同源）：选轨条 4 格各 76px，
+ * 提示行在 ± 按钮左侧（x 16..1088，按钮 1096 起） */
+#define SEL_X        960
+#define SEL_Y        4
+#define SEL_W        304
+#define SEL_H        32
+#define SEL_CELL_W   76
+#define HINT_X       16
+#define HINT_Y       40
+#define HINT_W       1072
+#define HINT_H       32
+/* 焦点槽滚进视口时四周留的边距 */
+#define REVEAL_MARGIN 8
+/* ZOOM 关时的提示文案。固件只带 Montserrat（无 CJK、无箭头字形），文案只能是 ASCII。 */
+#define SOUND_HINT_TEXT                                                                 \
+    "Drag a knob to edit \xC2\xB7 Drag empty space to scroll \xC2\xB7 Left/Right focus \xC2\xB7 " \
+    "Up/Down value \xC2\xB7 Tap header name to choose"
 
 typedef struct { sloop_desc_t desc; int16_t value; bool shown, locked; } sound_slot_state_t;
 /* 上下文键：槽的描述符/值/锁定态随它变的全部输入（= page_params.c 的参数页上下文键，另含
@@ -90,15 +118,52 @@ static EXT_RAM_BSS_ATTR int32_t s_gesture_press_x, s_gesture_press_y;
 static EXT_RAM_BSS_ATTR int32_t s_gesture_last_y;
 static EXT_RAM_BSS_ATTR bool s_gesture_moved;
 static EXT_RAM_BSS_ATTR bool s_gesture_click_used; /* 本次松手的点击已被消费 */
+static EXT_RAM_BSS_ATTR int8_t s_gesture_title_card; /* 本次手势按在谁的标题行上；-1 = 否 */
 static EXT_RAM_BSS_ATTR int16_t s_drag_flat; /* 有拖动锚点的槽；-1 = 无 */
 static EXT_RAM_BSS_ATTR int32_t s_anchor_deg;
 static EXT_RAM_BSS_ATTR int16_t s_anchor_value;
+static EXT_RAM_BSS_ATTR uint8_t s_anchor_track, s_anchor_engine; /* 锚点值/描述符所属的上下文 */
 static EXT_RAM_BSS_ATTR uint32_t s_present[4];
 static EXT_RAM_BSS_ATTR sound_slot_state_t s_slot[SOUND_SLOT_TABLE_MAX];
 static EXT_RAM_BSS_ATTR sound_ctx_t s_ctx;
 static EXT_RAM_BSS_ATTR bool s_ctx_valid;
-static EXT_RAM_BSS_ATTR char s_value_text[24]; /* 值文本：绘制任务在 lv_draw_label 内就被派发完，静态缓冲即可 */
-static EXT_RAM_BSS_ATTR uint16_t s_focus_flat; /* 焦点槽（扁平下标）；键盘路由与焦点描边在 Task 4 接 */
+/* 值文本：一个缓冲给全部槽共用。前提 = 软件绘制单元 + CONFIG_LV_USE_OS=0 ⇒ LVGL 9.6 在
+ * lv_draw_finalize_task_creation 里就地 lv_draw_dispatch，lv_draw_label 返回前文本已被消费。
+ * 换成异步/多线程绘制单元后这个前提不成立：届时要么 text_local = 1，要么每个槽各给缓冲。 */
+static EXT_RAM_BSS_ATTR char s_value_text[24];
+/* 焦点槽（扁平下标）；SOUND_SLOT_NONE = 尚无。临界区保护：输入任务（键盘）与 LVGL 任务（TAP/
+ * 绘制/每拍重指）都会写。 */
+static portMUX_TYPE s_focus_mux = portMUX_INITIALIZER_UNLOCKED;
+static EXT_RAM_BSS_ATTR uint16_t s_focus_flat;
+static EXT_RAM_BSS_ATTR int16_t s_focus_shown; /* 最近一拍落地的焦点；-1 = 尚无（首拍强制） */
+static EXT_RAM_BSS_ATTR uint16_t s_layout_shown; /* s_pos 对应的折叠位；≠ s_collapsed ⇒ 重排 */
+static EXT_RAM_BSS_ATTR lv_obj_t *s_sel_obj;    /* 选轨条 */
+static EXT_RAM_BSS_ATTR lv_obj_t *s_hint_obj;   /* 提示 / 读数行 */
+static EXT_RAM_BSS_ATTR int8_t s_sel_track_shown; /* 选轨条最近渲染的选中轨；-1 = 尚未 */
+static EXT_RAM_BSS_ATTR bool s_hint_zoom_shown; /* 读数行最近渲染的模式：true = ZOOM 读数 */
+static EXT_RAM_BSS_ATTR char s_readout_text[64]; /* 读数行文本：自用缓冲，不与 s_value_text 共用 */
+/* 读数行最近渲染的（焦点 / 值 / 模式 / 存在性 / 锁定态）：任一项变了才重写文本并失效 */
+typedef struct { uint16_t flat; int16_t value; bool zoom, shown, locked; } hint_key_t;
+static EXT_RAM_BSS_ATTR hint_key_t s_hint_shown;
+static EXT_RAM_BSS_ATTR bool s_hint_valid;
+
+static const char *const k_sel_labels[4] = {"1", "2", "3", "4"};
+
+/* 焦点读写（临界区；page_params.c 的 focus_get/focus_set 同一写法） */
+static uint16_t focus_get(void)
+{
+    portENTER_CRITICAL(&s_focus_mux);
+    uint16_t f = s_focus_flat;
+    portEXIT_CRITICAL(&s_focus_mux);
+    return f;
+}
+
+static void focus_set(uint16_t flat)
+{
+    portENTER_CRITICAL(&s_focus_mux);
+    s_focus_flat = flat;
+    portEXIT_CRITICAL(&s_focus_mux);
+}
 
 /* 页面区相对坐标 → 内容坐标（全文件唯一一处：手势、TAP 与注入都走这里） */
 static void content_point(int32_t x, int32_t y, int32_t *cx, int32_t *cy)
@@ -166,6 +231,57 @@ static void invalidate_slot(uint16_t flat)
     lv_obj_invalidate_area(s_cards[card], &r);
 }
 
+/* 焦点描边画在槽矩形之内，所以失效槽矩形就够了；折叠卡没有槽矩形（整卡随尺寸变化重绘）。 */
+static void invalidate_focus(int16_t flat)
+{
+    if (flat >= 0 && flat < SOUND_SLOT_TABLE_MAX) invalidate_slot((uint16_t)flat);
+}
+
+/* 焦点悬空的处置（update 每拍与 focus_get 共用这一条规则）：尚无焦点 ⇒ 首个存在槽；焦点槽已
+ * 不存在（换轨/换引擎后描述符消失）⇒ 扁平序里下一个可聚焦的槽（环绕），一个也没有 ⇒ 首个
+ * 存在槽；没有存在槽 ⇒ NONE。会把结果写回焦点。 */
+static uint16_t focus_resolve(void)
+{
+    uint16_t f = focus_get();
+    uint16_t next = f;
+    if (f >= SOUND_SLOT_TABLE_MAX) {
+        (void)sound_layout_first_present(s_present, &next);
+    } else if (present_bit(f)) {
+        return f;
+    } else {
+        next = SOUND_SLOT_NONE;
+        if (!sound_layout_flat_move(s_present, s_collapsed, (int16_t)f, 1, &next)) {
+            (void)sound_layout_first_present(s_present, &next);
+        }
+    }
+    if (next != f) focus_set(next);
+    return next;
+}
+
+/* 焦点槽滚进视口（LVGL 上下文）：槽矩形（所在卡折叠 = 标题行）越过视口上下缘（留
+ * REVEAL_MARGIN）才滚；lv_obj_scroll_by_bounded 自己钳到内容范围。 */
+static void focus_reveal(uint16_t flat)
+{
+    uint8_t card, slot;
+    int16_t x, y;
+    int32_t h = SOUND_TITLE_H; /* 所在卡折叠：只保证标题行可见 */
+    if (!sound_layout_slot_locate(flat, &card, &slot)) return;
+    if (flat_rect(flat, &x, &y)) h = SOUND_CELL_H;
+    else y = s_pos[card].y;
+    int32_t view_h = page_layout_sound_view_h(s_view_top == SOUND_VIEW_Y_BANK);
+    int32_t scroll = lv_obj_get_scroll_y(s_scroll_obj);
+    int32_t target = scroll;
+    if ((int32_t)y < scroll + REVEAL_MARGIN) {
+        target = (int32_t)y - REVEAL_MARGIN;
+    } else if ((int32_t)y + h > scroll + view_h - REVEAL_MARGIN) {
+        target = (int32_t)y + h - view_h + REVEAL_MARGIN;
+    }
+    if (target == scroll) return;
+    /* dy 是「手指位移」口径（同 gesture_move）：负值 = 内容上卷 = scroll_y 增大 */
+    lv_obj_scroll_by_bounded(s_scroll_obj, 0, scroll - target, LV_ANIM_OFF);
+    s_scroll = (int16_t)lv_obj_get_scroll_y(s_scroll_obj);
+}
+
 /* ------------------------------------------------------------------ 自绘 --- */
 static void draw_text(lv_layer_t *layer, const lv_font_t *font, uint32_t color, lv_text_align_t align,
                       const lv_area_t *area, const char *text)
@@ -219,14 +335,16 @@ static void card_draw(lv_event_t *e)
     lv_area_t ta = {.x1 = a.x1 + TITLE_TEXT_X, .y1 = a.y1 + TITLE_TEXT_Y,
                     .x2 = a.x2 - TITLE_TEXT_X - TITLE_MARK_W - 8, .y2 = a.y1 + TITLE_TEXT_Y + TITLE_TEXT_H};
     draw_text(layer, &lv_font_montserrat_16, UI_TEXT, LV_TEXT_ALIGN_LEFT, &ta, k_sound_cards[card].title);
-    /* 折叠标记（字体里没有 U+25BE，用 LVGL 自带的下箭头字形；折叠/展开动作在后续任务） */
+    /* 折叠标记（字体里没有 U+25BE，用 LVGL 自带的箭头字形） */
     ta.x1 = a.x2 - TITLE_TEXT_X - TITLE_MARK_W;
     ta.x2 = a.x2 - TITLE_TEXT_X;
-    draw_text(layer, &lv_font_montserrat_16, UI_TEXT_DIM, LV_TEXT_ALIGN_RIGHT, &ta, LV_SYMBOL_DOWN);
+    draw_text(layer, &lv_font_montserrat_16, UI_TEXT_DIM, LV_TEXT_ALIGN_RIGHT, &ta,
+              (s_collapsed >> card) & 1u ? LV_SYMBOL_UP : LV_SYMBOL_DOWN);
 
     /* 卡片内容原点（内容坐标）：槽矩形减去它就是对象内坐标 */
     int32_t ox = card_origin_x(card);
     int32_t oy = pos->y;
+    uint16_t focus = focus_get();
     for (uint8_t s = 0; s < k_sound_cards[card].slot_count; s++) {
         uint16_t flat = sound_layout_slot_index(card, s);
         const sound_slot_state_t *sl = &s_slot[flat];
@@ -237,6 +355,20 @@ static void card_draw(lv_event_t *e)
         int32_t cell_y = a.y1 + y - oy;
         int32_t cx = cell_x + w / 2;
         int32_t cy = cell_y + SLOT_RING_TOP + SOUND_KNOB_D / 2;
+
+        /* 焦点描边：贴槽矩形内缘一圈，不越出矩形（失效槽矩形即可刷新） */
+        if (flat == focus) {
+            lv_draw_rect_dsc_t frame;
+            lv_draw_rect_dsc_init(&frame);
+            frame.base.layer = layer;
+            frame.bg_opa = LV_OPA_TRANSP;
+            frame.border_color = lv_color_hex(UI_ACCENT);
+            frame.border_width = 2;
+            frame.border_opa = LV_OPA_COVER;
+            frame.radius = 8;
+            lv_area_t fa = {.x1 = cell_x + 1, .y1 = cell_y + 1, .x2 = cell_x + w - 2, .y2 = cell_y + h - 2};
+            lv_draw_rect(layer, &frame, &fa);
+        }
 
         /* 锁定槽：无环、值 --（鼓轨逐槽规则，同参数页旋钮） */
         if (!sl->locked) {
@@ -264,9 +396,9 @@ static void card_draw(lv_event_t *e)
 }
 
 /* ------------------------------------------------------------ 值与焦点 --- */
-/* 写槽值：一条状态层命令 + 窄读回填（applied 可 NULL = 写后投影里的真值，钳位/冻结都反映
- * 在这里）。槽不存在/锁定返回 false 且不发命令。调用方已持 LVGL 锁。 */
-static bool sound_slot_write(uint16_t flat, int16_t v, int16_t *applied)
+/* 槽值命令（唯一的写路径；不碰 LVGL，任何任务都可调）：一条状态层命令，applied（可 NULL）=
+ * 写后投影里的真值（钳位/冻结都反映在这里）。槽不存在/锁定返回 false 且不发命令。 */
+static bool sound_slot_cmd(uint16_t flat, int16_t v, int16_t *applied)
 {
     sound_slot_state_t *sl = &s_slot[flat];
     if (!sl->shown || sl->locked) return false;
@@ -286,9 +418,18 @@ static bool sound_slot_write(uint16_t flat, int16_t v, int16_t *applied)
         cmd.v = (uint16_t)v;
     }
     state_apply(&cmd);
-    sl->value = m->scope == SLOOP_DESC_GLOBAL ? state_read_g(m->id) : state_read_p(m->id);
-    if (applied != NULL) *applied = sl->value;
+    if (applied != NULL) *applied = m->scope == SLOOP_DESC_GLOBAL ? state_read_g(m->id) : state_read_p(m->id);
+    return true;
+}
+
+/* 写槽值并刷新这个槽（LVGL 上下文：拖动用） */
+static bool sound_slot_write(uint16_t flat, int16_t v, int16_t *applied)
+{
+    int16_t got = 0;
+    if (!sound_slot_cmd(flat, v, &got)) return false;
+    s_slot[flat].value = got;
     invalidate_slot(flat);
+    if (applied != NULL) *applied = got;
     return true;
 }
 
@@ -302,12 +443,6 @@ static bool slot_value(uint16_t flat, const app_state_t *st, int16_t *out)
     return true;
 }
 
-/* 设焦点（TAP 与点击共用）。本阶段只记在 s_focus_flat。 */
-static void focus_set(uint16_t flat)
-{
-    s_focus_flat = flat;
-}
-
 /* 槽手势的两步（物理触摸与 `UI SOUND KNOB` 注入共用；点是页面区相对坐标）。按下：槽存在
  * 且未锁、点在环带 ⇒ 记锚点角度与锚点值，**不改值**；环带外/锁定只清锚点。 */
 static bool sound_handle_pressed(uint16_t flat, int32_t px, int32_t py)
@@ -319,6 +454,9 @@ static bool sound_handle_pressed(uint16_t flat, int32_t px, int32_t py)
     if (!flat_center(flat, &cx, &cy) || !sound_ring_hit(x - cx, y - cy)) return false;
     s_anchor_deg = (int32_t)lv_atan2(y - cy, x - cx);
     s_anchor_value = s_slot[flat].value;
+    /* 锚点值/描述符属于上一拍解析的上下文（s_ctx）：记下，pressing 里与**此刻**的选中轨/引擎比对 */
+    s_anchor_track = s_ctx.track;
+    s_anchor_engine = s_ctx.engine;
     s_drag_flat = (int16_t)flat;
     return true;
 }
@@ -327,6 +465,12 @@ static bool sound_handle_pressed(uint16_t flat, int32_t px, int32_t py)
 static bool sound_handle_pressing(uint16_t flat, int32_t px, int32_t py)
 {
     if (s_drag_flat != (int16_t)flat) return false;
+    /* 键盘换轨/换引擎之后、下一拍清锚点之前（≤30ms）的窗口：锚点还是旧轨的，这一次拖动
+     * 不得写进新轨——结束拖动，不写。 */
+    if (state_selected_track() != s_anchor_track || state_selected_engine() != s_anchor_engine) {
+        s_drag_flat = -1;
+        return false;
+    }
     int32_t cx, cy, x, y;
     content_point(px, py, &x, &y);
     if (!flat_center(flat, &cx, &cy) || !sound_ring_hit(x - cx, y - cy)) return false;
@@ -344,6 +488,7 @@ static void gesture_start(lv_event_t *e)
     s_gesture_flat = -1;
     s_gesture_moved = false;
     s_gesture_click_used = false;
+    s_gesture_title_card = -1;
     s_drag_flat = -1;
     lv_indev_t *indev = lv_indev_active();
     if (indev == NULL || s_scroll_obj == NULL) return;
@@ -359,6 +504,9 @@ static void gesture_start(lv_event_t *e)
     int32_t cx, cy;
     /* indev 给的是屏幕绝对坐标；content_point 收页面区相对坐标（差 UI_TAB_BAR_H） */
     content_point(p.x, p.y - UI_TAB_BAR_H, &cx, &cy);
+    if (rect_hit(cx, cy, card_origin_x(card), s_pos[card].y, SOUND_COL_W, SOUND_TITLE_H)) {
+        s_gesture_title_card = (int8_t)card; /* 松手时没移动过 ⇒ 翻折叠位 */
+    }
     for (uint8_t s = 0; s < k_sound_cards[card].slot_count; s++) {
         int32_t sx, sy;
         uint16_t flat = sound_layout_slot_index(card, s);
@@ -410,15 +558,19 @@ static void gesture_end(void)
 
 /* 点击类动作的唯一入口。SHORT_CLICKED 先于 CLICKED 派发（长按之后只有 CLICKED）：先按
  * s_gesture_moved 判、再清标志，否则被清掉的标志会让随后的 CLICKED 把滚动手势当成点击；
- * 同一次松手只消费一次。 */
+ * 同一次松手只消费一次。点击槽 = 设焦点；点击卡片标题行 = 翻折叠位（重排在下一拍）。 */
 static void gesture_click(void)
 {
-    bool click = !s_gesture_moved && !s_gesture_click_used && s_gesture_flat >= 0;
+    bool click = !s_gesture_moved && !s_gesture_click_used;
+    int16_t slot = s_gesture_flat;
+    int8_t title = s_gesture_title_card;
     s_gesture_click_used = true;
     s_gesture_moved = false;
-    if (!click) return;
-    focus_set((uint16_t)s_gesture_flat);
     s_gesture_flat = -1;
+    s_gesture_title_card = -1;
+    if (!click) return;
+    if (slot >= 0) focus_set((uint16_t)slot);
+    else if (title >= 0) page_sound_card_toggle((uint8_t)title);
 }
 
 /* 长按的唯一入口：移动过的手势不算长按。LVGL 9.6 在手指移动后照发 LONG_PRESSED（它只在自己的
@@ -449,6 +601,7 @@ static void card_event_cb(lv_event_t *e)
         /* 丢失按压后不会再有 CLICKED：标志一并清掉，免得吞掉下一次点击 */
         s_gesture_moved = false;
         s_gesture_flat = -1;
+        s_gesture_title_card = -1;
         gesture_end();
         break;
     case LV_EVENT_SHORT_CLICKED:
@@ -462,6 +615,80 @@ static void card_event_cb(lv_event_t *e)
     default:
         break;
     }
+}
+
+/* ------------------------------------------------- 选轨条 / 提示·读数行 --- */
+/* 选轨（控件回调与 TAP 的唯一共同路径，同 page_tracks.c 的 tracks_select） */
+static void sound_select_track(uint8_t k)
+{
+    const edit_cmd_t cmd = {.type = CMD_SELECT_TRACK, .a = k};
+    state_apply(&cmd);
+}
+
+/* 4 格：当前轨那格 UI_PANEL_SEL 底 + 轨色数字，其余 UI_PANEL 底 + 次级文字色。选中轨读
+ * s_sel_track_shown（update 在选中轨变化时先写它再失效本对象）。 */
+static void sel_draw(lv_event_t *e)
+{
+    lv_layer_t *layer = lv_event_get_layer(e);
+    const lv_obj_t *obj = lv_event_get_target_obj(e);
+    lv_area_t a;
+    lv_obj_get_coords(obj, &a);
+    for (uint8_t k = 0; k < 4u; k++) {
+        bool cur = (int8_t)k == s_sel_track_shown;
+        /* 左右各缩 2px：相邻格之间留一道缝 */
+        lv_area_t cell = {.x1 = a.x1 + k * SEL_CELL_W + 2, .y1 = a.y1,
+                          .x2 = a.x1 + (k + 1) * SEL_CELL_W - 3, .y2 = a.y2};
+        lv_draw_rect_dsc_t rect;
+        lv_draw_rect_dsc_init(&rect);
+        rect.base.layer = layer;
+        rect.bg_color = lv_color_hex(cur ? UI_PANEL_SEL : UI_PANEL);
+        rect.bg_opa = LV_OPA_COVER;
+        rect.radius = 8;
+        lv_draw_rect(layer, &rect, &cell);
+        /* 16pt 行高 ≈20px：文字区从行顶 +6 起 */
+        lv_area_t ta = {.x1 = cell.x1, .y1 = a.y1 + 6, .x2 = cell.x2, .y2 = a.y2};
+        draw_text(layer, &lv_font_montserrat_16, cur ? ui_track_color(k) : UI_TEXT_DIM,
+                  LV_TEXT_ALIGN_CENTER, &ta, k_sel_labels[k]);
+    }
+}
+
+/* 点击：按指针落在哪一格（区间与绘制/TAP 同源）选轨 */
+static void sel_event_cb(lv_event_t *e)
+{
+    switch (lv_event_get_code(e)) {
+    case LV_EVENT_DRAW_MAIN:
+        sel_draw(e);
+        break;
+    case LV_EVENT_CLICKED: {
+        lv_indev_t *indev = lv_indev_active();
+        if (indev == NULL) return;
+        lv_point_t p;
+        lv_indev_get_point(indev, &p);
+        lv_area_t a;
+        lv_obj_get_coords(lv_event_get_target_obj(e), &a);
+        int32_t rel = p.x - a.x1;
+        if (rel < 0 || rel >= SEL_W) return;
+        sound_select_track((uint8_t)(rel / SEL_CELL_W));
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+/* ZOOM 关：14pt 提示；ZOOM 开：焦点槽的 28pt 读数（文本在 update 里格式化进 s_readout_text） */
+static void hint_draw(lv_event_t *e)
+{
+    lv_layer_t *layer = lv_event_get_layer(e);
+    const lv_obj_t *obj = lv_event_get_target_obj(e);
+    lv_area_t a;
+    lv_obj_get_coords(obj, &a);
+    if (s_hint_zoom_shown) {
+        draw_text(layer, &lv_font_montserrat_28, UI_TEXT, LV_TEXT_ALIGN_LEFT, &a, s_readout_text);
+        return;
+    }
+    lv_area_t ta = {.x1 = a.x1, .y1 = a.y1 + 6, .x2 = a.x2, .y2 = a.y2};
+    draw_text(layer, &lv_font_montserrat_14, UI_TEXT_DIM, LV_TEXT_ALIGN_LEFT, &ta, SOUND_HINT_TEXT);
 }
 
 /* ------------------------------------------------------------------ 页面 --- */
@@ -529,6 +756,26 @@ lv_obj_t *page_sound_build(lv_obj_t *parent)
     page_sound_forget();
     s_collapsed = 0;
     (void)sound_layout_place(s_collapsed, s_pos);
+    s_layout_shown = 0;
+
+    /* 选轨条与提示/读数行：先于滚动容器建（后建的对象在上面），它们与视口不重叠 */
+    s_sel_obj = make_plain(parent);
+    if (s_sel_obj == NULL) return NULL;
+    lv_obj_set_pos(s_sel_obj, SEL_X, SEL_Y);
+    lv_obj_set_size(s_sel_obj, SEL_W, SEL_H);
+    lv_obj_set_clickable(s_sel_obj, true);
+    lv_obj_add_event_cb(s_sel_obj, sel_event_cb, LV_EVENT_ALL, NULL);
+    s_sel_track_shown = -1;
+
+    s_hint_obj = make_plain(parent);
+    if (s_hint_obj == NULL) return NULL;
+    lv_obj_set_pos(s_hint_obj, HINT_X, HINT_Y);
+    lv_obj_set_size(s_hint_obj, HINT_W, HINT_H);
+    /* 28pt 行高略超过 32px 的行高：允许描边溢出几像素，不被对象矩形裁掉 */
+    lv_obj_set_ext_draw_size(s_hint_obj, 4);
+    lv_obj_add_event_cb(s_hint_obj, hint_draw, LV_EVENT_DRAW_MAIN, NULL);
+    s_hint_zoom_shown = false;
+    s_hint_valid = false;
 
     s_scroll_obj = make_plain(parent);
     if (s_scroll_obj == NULL) return NULL;
@@ -569,6 +816,21 @@ void page_sound_update(const app_state_t *st, bool bank_visible)
         s_scroll = (int16_t)lv_obj_get_scroll_y(s_scroll_obj);
     }
 
+    /* 折叠位变了（标题行点击 / `UI SOUND CARDTOGGLE`）：按新折叠位重排，挪/缩 13 张卡片
+     * （lv_obj_set_pos/size 自己失效新旧区域），滚动量按缩小后的内容高度重钳 */
+    bool reveal = s_layout_shown != s_collapsed;
+    if (reveal) {
+        (void)sound_layout_place(s_collapsed, s_pos);
+        for (uint8_t c = 0; c < SOUND_CARDS_MAX; c++) {
+            if (s_cards[c] == NULL) continue;
+            lv_obj_set_pos(s_cards[c], card_origin_x(c), s_pos[c].y);
+            lv_obj_set_size(s_cards[c], SOUND_COL_W, s_pos[c].h);
+        }
+        lv_obj_scroll_to_y(s_scroll_obj, s_scroll, LV_ANIM_OFF);
+        s_scroll = (int16_t)lv_obj_get_scroll_y(s_scroll_obj);
+        s_layout_shown = s_collapsed;
+    }
+
     sound_ctx_t ctx;
     context_of(st, &ctx);
     if (!s_ctx_valid || memcmp(&ctx, &s_ctx, sizeof(ctx)) != 0) {
@@ -593,28 +855,96 @@ void page_sound_update(const app_state_t *st, bool bank_visible)
             invalidate_slot(flat);
         }
     }
+
+    /* 焦点：悬空的重指（换轨/换引擎后描述符消失）；变了只失效旧/新两个槽的矩形（描边画在
+     * 矩形内），并滚进视口。重排之后也再滚一次——折叠可能把焦点槽挤出视口或挪近。 */
+    uint16_t focus = focus_resolve();
+    if ((int16_t)focus != s_focus_shown) {
+        invalidate_focus(s_focus_shown);
+        s_focus_shown = (int16_t)focus;
+        invalidate_focus(s_focus_shown);
+        reveal = true;
+    }
+    if (reveal && focus < SOUND_SLOT_TABLE_MAX) focus_reveal(focus);
+
+    /* 选轨条：选中轨变了才失效重绘 */
+    if ((int8_t)ctx.track != s_sel_track_shown) {
+        s_sel_track_shown = (int8_t)ctx.track;
+        lv_obj_invalidate(s_sel_obj);
+    }
+
+    /* 提示 / 读数行：模式（ZOOM）、焦点、焦点槽的值/存在性/锁定态变了才重写文本并失效。
+     * 读数 = 标签 + 与槽里同一格式化的值（knob_format_value）；焦点槽锁定/不存在 = `--`。 */
+    const sound_slot_state_t *fs = focus < SOUND_SLOT_TABLE_MAX ? &s_slot[focus] : NULL;
+    bool zoom = st->settings.zoom != 0;
+    int16_t fval = fs != NULL ? fs->value : 0;
+    bool fshown = fs != NULL && fs->shown;
+    bool flocked = fs != NULL && fs->locked;
+    if (!s_hint_valid || s_hint_shown.flat != focus || s_hint_shown.value != fval ||
+        s_hint_shown.zoom != zoom || s_hint_shown.shown != fshown || s_hint_shown.locked != flocked) {
+        s_hint_shown.flat = focus;
+        s_hint_shown.value = fval;
+        s_hint_shown.zoom = zoom;
+        s_hint_shown.shown = fshown;
+        s_hint_shown.locked = flocked;
+        s_hint_valid = true;
+        s_hint_zoom_shown = zoom;
+        if (zoom) {
+            if (fshown && !flocked) {
+                char value[24];
+                knob_format_value(&fs->desc, fs->value, value, sizeof(value));
+                snprintf(s_readout_text, sizeof(s_readout_text), "%s  %s",
+                         fs->desc.label != NULL ? fs->desc.label : "?", value);
+            } else {
+                snprintf(s_readout_text, sizeof(s_readout_text), "%s  --",
+                         fs != NULL && fs->desc.label != NULL ? fs->desc.label : "");
+            }
+        }
+        lv_obj_invalidate(s_hint_obj);
+    }
 }
 
 void page_sound_forget(void)
 {
     memset(s_cards, 0, sizeof(s_cards));
     s_scroll_obj = NULL;
+    s_sel_obj = NULL;
+    s_hint_obj = NULL;
     s_scroll = 0;
     s_view_top = -1;
     s_gesture_active = false;
     s_gesture_flat = -1;
     s_gesture_moved = false;
     s_gesture_click_used = false;
+    s_gesture_title_card = -1;
     s_drag_flat = -1;
     memset(s_present, 0, sizeof(s_present));
     for (uint16_t flat = 0; flat < SOUND_SLOT_TABLE_MAX; flat++) s_slot[flat].shown = false;
     s_ctx_valid = false;
-    s_focus_flat = SOUND_SLOT_NONE;
+    focus_set(SOUND_SLOT_NONE);
+    s_focus_shown = -1;
+    s_hint_valid = false;
+}
+
+/* 标题行点击 / TAP / `UI SOUND CARDTOGGLE` 的唯一共同路径：只翻位，重排在下一拍 */
+static void card_toggle(uint8_t card)
+{
+    s_collapsed ^= (uint16_t)(1u << card);
 }
 
 bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
 {
     if (s_scroll_obj == NULL || s_view_top < 0) return false;
+    /* 选轨条在视口之外：先于视口裁剪命中 */
+    if (rect_hit(x, y, SEL_X, SEL_Y, SEL_W, SEL_H)) {
+        uint8_t k = (uint8_t)((x - SEL_X) / SEL_CELL_W);
+        sound_select_track(k);
+        if (out != NULL) {
+            out->kind = SLOOP_TAP_TRACK_CARD;
+            out->a = k;
+        }
+        return true;
+    }
     /* 这里是手工矩形表（不走 LVGL 命中测试）：滚出视口的卡片仍占着内容坐标，视口外一律不算 */
     int16_t top = s_view_top;
     int16_t bottom = (int16_t)(top + page_layout_sound_view_h(top == SOUND_VIEW_Y_BANK));
@@ -628,10 +958,11 @@ bool page_sound_tap(int16_t x, int16_t y, sloop_tap_result_t *out)
         int32_t ox = card_origin_x(c);
         if (!rect_hit(cx, cy, ox, pos->y, SOUND_COL_W, pos->h)) continue;
         if (rect_hit(cx, cy, ox, pos->y, SOUND_COL_W, SOUND_TITLE_H)) {
+            card_toggle(c);
             if (out != NULL) {
                 out->kind = SLOOP_TAP_SOUND_CARD;
                 out->a = c;
-                out->v = (int16_t)((s_collapsed >> c) & 1u);
+                out->v = (int16_t)((s_collapsed >> c) & 1u); /* 翻转后的折叠位 */
             }
             return true;
         }
@@ -745,4 +1076,62 @@ esp_err_t page_sound_test_knob(uint16_t flat, int32_t dx, int32_t dy, bool press
     bool ok = press ? sound_handle_pressed(flat, px, py) : sound_handle_pressing(flat, px, py);
     if (value != NULL) *value = s_slot[flat].value;
     return ok ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
+
+/* ------------------------------------------- 焦点 / 折叠（都不取 LVGL 锁） --- */
+/* 键盘路由在输入任务里调，TAP/console 在 LVGL 任务里调：以下只读写页面状态（焦点经临界区、
+ * adjust 发一条状态层命令），对象由下一拍 update 处理。键盘路由不碰折叠位：card_toggle 的调用方
+ * （标题行回调、TAP、console）都在 LVGL 锁内，读改写不与别的任务竞争。 */
+
+void page_sound_focus_move(int8_t delta)
+{
+    if (delta == 0) return;
+    uint16_t f = focus_get();
+    uint16_t next;
+    if (f < SOUND_SLOT_TABLE_MAX && !present_bit(f)) f = focus_resolve(); /* 悬空：先按每拍的规则重指 */
+    if (f >= SOUND_SLOT_TABLE_MAX) {
+        /* 尚无焦点：落到首个存在槽（不把 SOUND_SLOT_NONE 强转成 flat_move 的 int16 起点） */
+        if (sound_layout_first_present(s_present, &next)) focus_set(next);
+        return;
+    }
+    if (sound_layout_flat_move(s_present, s_collapsed, (int16_t)f, delta, &next)) focus_set(next);
+}
+
+bool page_sound_adjust(int8_t delta)
+{
+    uint16_t flat = focus_resolve();
+    if (delta == 0 || flat >= SOUND_SLOT_TABLE_MAX) return false;
+    uint8_t card, slot;
+    (void)sound_layout_slot_locate(flat, &card, &slot);
+    const sound_slot_t *m = &k_sound_cards[card].slots[slot];
+    /* 窄读当前值（输入任务里没有状态副本）；越界由引擎钳位，同参数页的 param_step */
+    int16_t v = m->scope == SLOOP_DESC_GLOBAL ? state_read_g(m->id) : state_read_p(m->id);
+    return sound_slot_cmd(flat, (int16_t)(v + delta), NULL);
+}
+
+uint16_t page_sound_focus_get(void)
+{
+    return focus_resolve();
+}
+
+void page_sound_focus_set(uint16_t flat)
+{
+    focus_set(flat < SOUND_SLOT_TABLE_MAX ? flat : SOUND_SLOT_NONE);
+}
+
+void page_sound_card_toggle(uint8_t card)
+{
+    if (card < SOUND_CARDS_MAX) card_toggle(card);
+}
+
+bool page_sound_card_collapsed(uint8_t card)
+{
+    return card < SOUND_CARDS_MAX && (s_collapsed >> card) & 1u;
+}
+
+void page_sound_focus_reveal(void)
+{
+    if (s_scroll_obj == NULL || s_view_top < 0) return;
+    uint16_t f = focus_resolve();
+    if (f < SOUND_SLOT_TABLE_MAX) focus_reveal(f);
 }
