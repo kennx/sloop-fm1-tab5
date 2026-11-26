@@ -1,6 +1,6 @@
 # 阶段 5B 设计：单轨编辑仪表盘（Sound）+ Mixer + Device 页
 
-> 状态：**草案，待用户确认**（确认后才写实施计划、才动代码）｜ 日期：2026-11-26
+> 状态：**已接受**（2026-11-26，用户确认）｜ 日期：2026-11-26
 > 关联：总设计 `docs/superpowers/specs/2026-11-26-phase5-sloop-go-alignment-design.md`（§2.2 差距表、§5.2、§6 5B、§7）、
 > ADR-005（UI 架构/导航/池预算）、ADR-008（参数页与旋钮）、ADR-006（键盘映射）、
 > `docs/design/012-feature-parity-checklist.md` §3（槽位权威表与鼓轨逐槽规则）、

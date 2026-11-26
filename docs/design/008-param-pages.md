@@ -986,3 +986,18 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   （单对象自绘旋钮），**不要**退回 `lv_arc`+`lv_label`（会撑爆池）。新增参数页的
   步骤：布局表加一行 X 宏（id/title/est + 8 槽）→ `PARAM_PAGE_COUNT` 与
   `app_page_t`/`APP_STATE_PAGES` 同步 → console 页名表 → 实测 est。
+
+## Sound 仪表盘（5B-1，进行中）
+
+登记于 2026-11-26（设计依据：5B 规格 `docs/superpowers/specs/2026-11-26-phase5b-sound-mixer-device-design.md`
+§4.2、§5.2、§5.6）。代码尚未落地：本节先登记设计与预算，实测数字由 5B-1 计划 Task 2 回填。
+
+- **卡片成员 = 纯数据表 `sound_layout.h`**（X 宏；每个成员 = 作用域 + 参数 id，顺序与分组照 Sloop Go `layout(pe0)`），
+  描述符只提供值的形态（§9）。
+- **每张卡片一个自绘 LVGL 对象**：标题与旋钮都画在卡片的 `DRAW_MAIN` 里，不逐旋钮建对象；槽的状态放 PSRAM 静态数组。
+- **整页挂在参数页框架上**：布局表 SOUND 条目的新特征位 `PARAM_FEAT_DASHBOARD`（`page_layout.h`），页眉两行、
+  FM6 银行行、页级 `−/+` 细调按钮复用现有代码；读写仍走 §7 的 `CMD_SET_PARAM` / `CMD_SET_GLOBAL`。
+
+预算：est 12,288（上限 12,768）
+
+⏳ 实测登记：池 delta / build_ms / SEQ→SOUND 过渡 pool_free（Task 2）

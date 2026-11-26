@@ -22,7 +22,7 @@
 | 2 | sloop_core 引擎移植 | 上游引擎在 Tab5 上**正确**运行（golden 对齐） | `host-test.sh`；设备哈希/误差度量比对；可听触发 | 🔶 机器侧完成（设备/host 182/182 同源哈希 + PERF；人耳待办，见下注） |
 | 3 | 独立模式 MVP | 可玩闭环：选 kit → 键盘演奏 → 步进编排 → 循环出声 | 截屏矩阵 + 注入式交互 + 端到端试玩 | 🔶 机器侧完成（2026-11-21，`feat/mvp-ui` → dev）；人测 4 项（见下注） |
 | 4 | 独立模式功能对齐 | 完整 SLOOP 体验（全页面/全特性/预置存取） | 全页面截屏套件 + 稳定性 soak | 🔶 P4-0/P4-A 完成（2026-11-21，`feat/phase4`）；P4-B 完成（2026-11-22，`feat/phase4b`）；P4-C **机器侧完成**（2026-11-23，`feat/phase4c`；ADR-010）；P4-D **机器侧完成**（2026-11-23，`feat/phase4d`；ADR-011）；P4-E **机器侧完成**（2026-11-24，`feat/phase4e`；ADR-005 §5.2 / ADR-009 §6.4；收口复核缺口已在修复轮关闭）；P4-F **机器侧完成**（2026-11-26，`feat/phase4f`：Task 0–10 完成；最终设备矩阵在终审后的固件 `d317a72` 上通过——十场景 5,007/0、10c3 最终回归 **5,017/0**、截屏矩阵 481/0、最终 3h soak PASS；人测项待办、dev→main 不在本阶段；收口报告 `docs/dev/closeout-phase4.md`；ADR-005 §5.5 / ADR-008 §8.9–§8.12 / ADR-010 §11 / 012） |
-| 5 | 联动模式 | 对齐 Sloop Go（界面重构 + 联动模式） | 真机协议冒烟 + 前后截屏 diff | 🔶 进行中（5A ✅，2026-11-26） |
+| 5 | 联动模式 | 对齐 Sloop Go（界面重构 + 联动模式） | 真机协议冒烟 + 前后截屏 diff | 🔶 进行中（5A ✅，2026-11-26；5B 进行中，2026-11-26，`feat/phase5b`） |
 
 > 排序与门禁优先于日历估时（不设假精度的工期）：阶段 2 与阶段 4 体量最大（引擎对齐 / 功能对齐），阶段 1、3 次之，阶段 5 含 DI-1 驱动自研的不确定面。
 >
@@ -166,15 +166,16 @@
 
 **目标**：刷 SLOOP 的 FM-1 经 USB 接入后，达到 Sloop Go 级别的双机同步体验（AGENTS §1.2）。
 
-阶段 5 同时把界面对齐 Sloop Go（设计规格 `docs/superpowers/specs/2026-11-26-phase5-sloop-go-alignment-design.md`，子阶段划分见其 §6）。原 P5-0…P5-5 任务表拆成 5A–5E 五个子阶段，连接先行：
+阶段 5 同时把界面对齐 Sloop Go（设计规格 `docs/superpowers/specs/2026-11-26-phase5-sloop-go-alignment-design.md`，子阶段划分见其 §6）。原 P5-0…P5-5 任务表拆成 5A–5F 六个子阶段（5F 为 2026-11-26 增补，排在 5E 之后），连接先行：
 
 | 子阶段 | 目标 | 对应原任务 | 状态 |
 |---|---|---|---|
 | **5A 连接打通** | FM-1 插入 USB-A → Tab5 识别设备 → INFO 版本协商 → WATCH/PING 保活，设备上的旋钮改动以 CHANGED 推送到 Tab5；全部状态经 console 命令可读、可脚本断言。不做 UI 页面 | P5-0、P5-1、P5-2 的编解码/INFO 子集 | ✅（2026-11-26，`715fdae`，证据 `docs/dev/verify/5-pa-2026-11-26/`；收口报告 `docs/dev/closeout-phase5a.md`） |
-| **5B 新壳 + Sound + Mixer + Device 页** | 按 Sloop Go 换壳（左上固定簇 + 下拉页菜单 + 每页页眉）；Sound 页（单轨编辑）、Mixer、Device 页；旧 SOUND/MOD/SCALE/VOICE/GLOBAL/FX 与 TRACKS 页退役 | P5-4 的连接状态页；其余为新增的界面重构 | ⬜ |
+| **5B Sound + Mixer + Device 页** | Sound 单轨仪表盘 + Mixer + Device 页；外壳/主题/字体移出（→ 5F）。三张新页挂进现有页签条；旧 SOUND/MOD/SCALE/VOICE/GLOBAL/FX 与 TRACKS 页退役 | P5-4 的连接状态页；其余为新增的界面重构 | 🔶 进行中（5B-1，2026-11-26，`feat/phase5b`） |
 | **5C 同步层 + 双模式** | DeviceController / DeviceState 语义移植（请求队列、瞬时 SET 合并、断连丢弃）；双模式调度 ADR；编辑页直驱 FM-1；LIVE 轮询 | P5-2 的 one-in-flight 队列与 LIVE 遥控、P5-3、P5-4 | ⬜ |
 | **5D Sequencer + Live + Song** | 音序页（鼓格 / 钢琴卷帘）、Live 页（punch-in 垫、混音卡）、Song 页；旧 STEP / TRANSPORT / PLAY / TOOLS 页退役；吸收阶段 4 的大部分 DI | LIVE 遥控的 Now/Late 与 SEND 随音序页落地；其余为新增的界面重构 | ⬜ |
 | **5E 声音设计页 + Pattern 库 + Recorder** | Drum synth / FM6 / Samples（含 Chop）页、MIDI patterns、Recorder（UAC1 采集 → WAV，FLAC 可选） | P5-5 | ⬜ |
+| **5F 新壳 + 主题 + 字体** | 页面全部重建后一次性换壳：Sloop Go 的壳（左上固定簇 + 下拉页菜单 + 每页页眉）、Sloop Go 主题、等宽字体；脚本只围绕最终导航模型改写一次。入口条件：5D、5E 的页面全部过门禁，旧页清零 | 新增的界面重构（原 5B 的壳/主题/字体后移） | ⬜ |
 
 > 阶段 5 的决策登记：**ADR-002** USB-MIDI host 选型（`docs/design/013-usb-midi-host.md`，5A Task 0 落档，关闭 DI-1 的选型部分）；双模式调度 ADR 随 5C 落档。硬件前置不变：USB-A 口须先使能 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`，不开则总线无电、表现为静默无设备，tab5-hardware §3.11）；FM-1 接入状态登记在 `docs/dev/device-notes.md` §3。
 
@@ -203,3 +204,4 @@
 | 2026-11-21 | 阶段 3 收口：§1 阶段 3 → 🔶 机器侧完成（四屏截屏矩阵 + 三条注入脚本 + 30min soak），列人测 4 项；P3-5 记录 `SCR <page>` 已评估未采纳；soak 工具落地为 `scripts/soak.py`（AGENTS §5.1/§5.5） |
 | 2026-11-26 | 阶段 5 规划改写（设计规格 `2026-11-26-phase5-sloop-go-alignment-design.md`）：§1 阶段 5 目标改为「对齐 Sloop Go（界面重构 + 联动模式）」；§7 的 P5-0…P5-5 任务表改为 5A–5E 子阶段表（5A 连接打通开工）；完成判据追加「新界面的人眼对照目检通过」；ADR-002 USB-MIDI host 选型落档（`013-usb-midi-host.md`） |
 | 2026-11-26 | 5A 连接打通收口：§7 的 5A 行 → ✅、§1 阶段 5 → 进行中（5A ✅）。受测固件 `715fdae`：FM-1 未接条件的全矩阵通过（含硬复位后的 30min soak PASS），证据 `docs/dev/verify/5-pa-2026-11-26/`，收口报告 `docs/dev/closeout-phase5a.md`；FM-1 已接条件的冒烟 `FM1 SMOKE PASS 7/7` + 182 + 堆门禁亦已通过（同日补证） |
+| 2026-11-26 | 阶段 5 子阶段重排为「页面先行、外壳收尾」（用户确认；5B 规格 `2026-11-26-phase5b-sound-mixer-device-design.md` §4.1/§5.1）：§7 的 5B 行改为 Sound 单轨仪表盘 + Mixer + Device 页（外壳/主题/字体移出）并开工（5B-1，`feat/phase5b`），5E 之后新增 5F 行「新壳 + 主题 + 字体」（子阶段 5A–5E → 5A–5F）；§1 阶段 5 → 进行中（5A ✅；5B 进行中）。Sound 仪表盘的池预算登记在 ADR-008 文末 |
