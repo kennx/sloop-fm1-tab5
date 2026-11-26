@@ -49,7 +49,7 @@ sloop-fm1-tab5/
 │   │   ├── sloop-fm1-go.md
 │   │   └── editor-protocol.md
 │   ├── deferred-issues.md         # 延迟处理问题清单（活文档：条目解决即删，见 §6）
-│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist、013-usb-midi-host.md）
+│   ├── design/                    # 架构决策与移植路线图（001-idf-version、002-port-roadmap、003-phase2-entry、004-upstream-import、005-ui-architecture、006-keyboard-mapping、007-audio-lifecycle、008-param-pages、009-storage-backend、010-sequencer-arranger、011-sound-design、012-feature-parity-checklist、013-usb-midi-host）
 │   ├── superpowers/               # AI 协作工作流产物：specs/（移植设计规格）与 plans/（分阶段详细实施计划）
 │   └── dev/                       #    开发日志/环境/设备档案（device-notes.md、verification-log.md、closeout-phase4.md）
 │       └── reference/             #    AGENTS.md 拆出的全文参考（本文件只留索引）：firmware-map.md 组件现状 · scripts.md 脚本逐条 ·
@@ -64,8 +64,9 @@ sloop-fm1-tab5/
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
 │   ├── inject/                    #    十条注入场景 .sh + inject.py（场景逻辑都在 inject.py；逐脚本见 §5.1）
-│   ├── {knob,state,seq,synth,editor-proto,usb-fm1}-test.sh / *-host-test.c   #    host 门禁与其用例源（§5.1）
-│   ├── (其余脚本)                  #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
+│   ├── {knob,state,seq,synth,editor-proto,usb-fm1}-test.sh
+│   ├── *-host-test.c              #    host 门禁（上一行的 *-test.sh）与其用例源；其余用例源在 components/*/test/*_test.c（§5.1）
+│   ├── (其余脚本)                 #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
 │                                     soak.py、soak-selftest.py、screenshot_matrix.py、gen_*_fixtures.py、fixture_host_check.c、
 │                                     store_raw.py、sample_upload.py——逐脚本摘要见 §5.1，全文见 reference/scripts.md
 │   └── requirements.txt           #    Python 依赖（pyserial/Pillow/numpy 可选）
@@ -75,7 +76,7 @@ sloop-fm1-tab5/
 │   └── MANIFEST.sha256            #    全部 vendored 文件的 SHA256（在 third_party/ 下校验）
 └── tools/                         # 其他辅助脚本
     ├── fetch_upstream.sh          #    上游固定 commit 抓取、许可文件保留与 MANIFEST 生成/校验
-    ├── fetch_sloop_go.sh         #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
+    ├── fetch_sloop_go.sh          #    Sloop Go 参考副本抓取（固定 commit；清单保留 sloop-fm1/ 行）
     └── move_regress_tables.py     #    构建后把 regress 簿记表（512 项 job/golden/CPU）从内部 RAM 移到 PSRAM
 ```
 
@@ -210,7 +211,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | 固件代码 | `scripts/build.sh` 退出码 0，且**不新增**编译警告/错误 |
 | 固件代码（烧录验证） | esptool 输出 `Hash of data verified`；启动日志无 fatal/abort/backtrace |
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
-| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`synth-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
+| host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 编辑器协议帧·MIDI 流 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
 | 设备自检与堆 | `python3 scripts/device-selftest.py` **182/182**；`python3 scripts/selftest-heap.py` PASS；`python3 scripts/desc-check.py` PASS |
 | 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 十条场景 + 截屏矩阵对真机各跑一遍（`sequence`/`synth`/`sys` 各复跑），退出码均 0；断言不放宽；逐场景判据见参考 |
 | 阶段收口 soak | `python3 scripts/soak.py PORT --duration 1800 --interval 60 --save-window 900`（阶段收口 3h）退出码 0；判据与口径见参考 |

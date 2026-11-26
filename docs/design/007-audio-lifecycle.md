@@ -162,7 +162,7 @@ TCB 后 IDLE 的 `uxListRemove` 会摘掉**新任务**的状态表项；等不�
 |---|---|---|
 | audio | 4,096B，`MALLOC_CAP_INTERNAL\|MALLOC_CAP_DMA` 分配 + 静态 TCB | 本节上文（必须整块在 L2MEM） |
 | LVGL（定时器拍/页面构建/全部控件回调） | **10,240B** | 裁决 R10：原 7,168B 被叠放的 `app_state_t` 副本压穿；余量经 `UI MEM lvgl_stack_free` 暴露，门禁 ≥2,048 |
-| input（键盘轮询与派发） | **8,192B** | 裁决 R13：原 4,096B，键盘路径同样会叠副本；`KEY STATS input_stack_free` 仅在 `phys>0` 时有意义 |
+| input（键盘轮询与派发） | **8,192B**（5A 起栈在 PSRAM：`xTaskCreateWithCaps`，见 ADR-002） | 裁决 R13：原 4,096B，键盘路径同样会叠副本；`KEY STATS input_stack_free` 仅在 `phys>0` 时有意义 |
 | sys_selftest worker（SYSTEM 页 SELFTEST chip） | 5,632B | Task 2 由 16,384 收缩；高水位 1,484 字节（峰值 ≈4.1KB），栈落在 L2MEM |
 | console REPL | 16,384B | 既有；`TAP`/`KEY` 注入在这个任务上执行，**量不到** LVGL/input 任务的栈 |
 

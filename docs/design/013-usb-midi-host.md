@@ -92,6 +92,7 @@ USB-A 口的 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`）从未驱动——「插上 FM
     5A 的第一道关口，不通则影响面大、须立即上报（spec §6 5A 风险 ①）。
   - USB-A 口须先使能 VBUS，否则表现为静默无设备。
   - 内部 RAM 余量小，host 常驻的固定占用是已知风险（见上条）。
+  - 协议无序号：超时后迟到的回复可能被下一次同 cmd 的请求匹配（Sloop Go 同）。
 - **被否决方案**：TinyUSB host（整栈替换、与 `usb_host_uac` 不同栈）、CherryUSB（整栈替换且无 MIDI host 类）、
   现成组件（不存在）。
 - **验证**：host 单测覆盖事件包 ⇄ SysEx 的分段/粘包/坏帧/超长与帧编解码；设备侧以「枚举到 `1209:0001` →
@@ -108,7 +109,7 @@ USB-A 口的 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`）从未驱动——「插上 FM
     - 接口 1：MIDI Streaming（`class=0x01 subclass=0x03`，eps=2）——**claim 这个**（alt 0）：`ep_in=0x81 mps=64`、`ep_out=0x01 mps=64`、IN 缓冲 `mps*4=256` 字节
     - 接口 2：Audio Streaming（`class=0x01 subclass=0x02`，alt 0 eps=0 / alt 1 eps=1）——UAC，不 claim（音频采集属 5E）
   - `FM1 STATUS link=ready vid=0x1209 pid=0x0001 product=Felucca rx=0 tx=0 drops=0 open_fail=0 midi_if=1 ep_in=0x81 ep_out=0x01`
-  - **收发路径尚未被数据走过**：`rx=0 tx=0`——FM-1 不主动发 SysEx，5A 到本任务为止也没有 `on_frame`/`on_link` 的注册方和 `usb_fm1_send_frame` 的调用方，Bulk IN 环只是空转、Bulk OUT transfer 只分配未提交；第一批真实帧由 Task 5 的事务层发出。
+  - **收发路径（Task 4 时 `rx=0 tx=0`，Task 5 起已通）**：当时 FM-1 不主动发 SysEx、`on_frame`/`on_link` 还没有注册方、`usb_fm1_send_frame` 也没有调用方，Bulk IN 环只是空转、Bulk OUT transfer 只分配未提交。现状：`main.c` 把两个回调接到 `fm1_session`，会话层在链路建立时发 INFO / WATCH、此后每秒 PING；真机上 INFO 已被应答（Task 5 读数见 `docs/dev/reference/firmware-map.md` 的 `usb_fm1` 条目「实测」：`INFO 完成: version="FELUCCA SLOOP 2.8.5" … proto=12`）。
   - **IN 环规则**（Task 4 评审修正）：`COMPLETED` 重提交并清零连续错误；瞬时错误（`ERROR`/`TIMED_OUT`/`OVERFLOW`/`SKIPPED`）先清 halt 再重提交（库出错后只 flush，pipe 停在 HALTED，直接提交会被拒）并累计连续错误，连续满 3 次才 link down；`STALL`/`NO_DEVICE`/`CANCELED` 不重提交、立即 link down。出错分支只经代码核对，真机未触发过——下文那次 `status=1` 发生在修正之前、走的是旧的立即停环路径——留待操作员拔插步骤与 Task 5 覆盖。
   - **共存与稳定**：控制台可用、`UI` 照常应答、`SCR` 截屏 1280×720 成功（PLAY 页，与 Task 1 固件同页截图 SHA256 相同）；`ENG PERF` xrun 计数 claim 前（Task 1 固件、FM-1 已枚举未打开）`xrun=0`，claim 后各次读数均 `xrun=0`。
   - **拔出/重插的一次旁证**（探针期间的偶然事件，不是受控操作员步骤；同时段有物理按键 `KB 0x4D down space`，物理原因未确认）：`W usb_fm1: Bulk IN 出错 status=1` → `I usb_fm1: 设备已清理（rx/tx 计数保留）` → 约 2.5s 后 `新设备 addr=2 VID=0x1209 PID=0x0001` → `MIDI Streaming 接口 1 就绪`，再次 `link=ready`，重 claim 前 `internal_free` 回到与首次 claim 前相同的值（清理无泄漏）。只此一例，是否与 claim 有关无定论，Task 5 留意复发。
@@ -117,3 +118,7 @@ USB-A 口的 VBUS（PI4IO 0x44 E2.P3 `USB5V_EN`）从未驱动——「插上 FM
     - ② 开 `CONFIG_USB_HOST_DWC_DMA_CAP_MEMORY_IN_PSRAM=y`（`sdkconfig.defaults`；重生成的 `sdkconfig` 与旧文件只差这一行）：claim 一次降到 −380B（`65931 -> 65551`），稳态 `internal_free=65467 internal_min=64232`，`selftest-heap.py` 退出码 0（两次 182/182、收尾 65,119B）；但余量只有 2,792B，低于要求的 4,096B。
     - ③ 再把 `sloop_input` 任务（8KB 栈，非音频、不写 flash）的栈挪到 PSRAM（`xTaskCreateWithCaps`，`components/sloop_ui/src/input.c`）：claim 一次 `74127 -> 73747`（−380B），稳态 `internal_free=73643 internal_min=72408`（余量 10,968B）；`scripts/inject/tracks.sh` 0 FAIL（84 PASS，`KEY` 注入经 input 任务派发），`KEY STATS input_stack_free=7884`（与内部栈时相同），xrun 仍 0；`selftest-heap.py` 退出码 0（两次 182/182、收尾 73,335B）。
   - **操作员步骤**：拔掉 FM-1（受控复跑：`FM1 STATUS` 回 `link=none`、`rx/tx` 保留、再插回 `link=ready`）未做（待操作员）；普通 USB 设备（U 盘/鼠标）未做（待操作员）
+
+## 版本政策落地
+
+spec §6 5A 的版本政策（只支持 SLOOP 2.8.x / 协议 12）自终审修复波起落地：会话层协商时用纯函数 `fm1_session_need_upgrade(version, proto)` 判定——版本串不以 `FELUCCA SLOOP 2.8` 开头或 `proto != 12` 即需升级，`FM1 STATUS` 行尾以 `version="…"`（info 无效时 `version=-`）与 `need_upgrade=<0|1>` 如实显示，并在每段链路最多打一条「请升级 FM-1 固件到 SLOOP 2.8.x」的 WARNING；同一轮给协商失败加了 1000ms 起翻倍、上限 30000ms 的重试退避（接口判定不区分 SLOOP，任何 MIDI Streaming 设备都会被 claim，非 SLOOP 设备不该每秒刷一条 WARN）。需要升级的分支只有代码阅读与冒烟脚本离线样例的覆盖，真机上接的是 2.8.5、未触发过。

@@ -463,7 +463,7 @@
 | **背景** | `editor_proto` 的帧参数上限 `EDP_ARGS_MAX` = 384（`editor_proto.h:20`，`edp_frame_t.args[]` 的大小）；上游 `firmware/src/editor.c` 的发送缓冲 `ed_out[600]`，`DSYN_GET` 的回复约 416 个参数字节。`edp_frame_parse` 对超过 `EDP_ARGS_MAX` 的帧返回 false ⇒ 该回复被判为无效。5A 用到的 INFO/GET/SET/WATCH/PING 回复都远小于 384，且 **5A 不发该命令**。 |
 | **影响面** | 任何参数多于 384 的回复，当前已知只有 `DSYN_GET`（Drum synth 页）。5A 的联动协议面不受影响；Tab5 的 DSYN 页目前走本地引擎（`sloop_core_dsyn_*`），不经 FM-1。 |
 | **为何可延迟** | 属 5E（Drum synth 页）的入口条件：在 Tab5 开始经 FM-1 读写 DSYN 之前不会触发；扩容会连带改 `edp_frame_t` 的大小（回复槽/解析暂存随之上调），需要单独量一次占用。 |
-| **解决方向** | 5E 开工前把 `EDP_ARGS_MAX` 提到 ≥ 416（5A Task 2 裁决记的备选值是 512；上游 `ed_out` 为 600，是否直接对齐 600 届时定）。扩容后必须复核：**栈占用**——`fm1_session.c` 的三个请求函数把 `edp_frame_t reply` 放在栈上（`:216/:243/:271`，当前 387B，上限每加 1 字节栈帧同步加 1），它们跑在调用方任务的栈上（console 等），而解析暂存 `f` 与回复槽 `s_reply` 是 PSRAM 里的静态对象（随 `edp_frame_t` 变大，不占内部堆）；`midi_stream` 的 1,024 字节帧上限是否仍够；`scripts/editor-proto-test.sh` 补一条 416+ 参数的往返与「恰在上限内/外」用例。 |
+| **解决方向** | 5E 开工前把 `EDP_ARGS_MAX` 提到 ≥ 416（5A Task 2 裁决记的备选值是 512；上游 `ed_out` 为 600，是否直接对齐 600 届时定）。扩容后必须复核：**栈占用**——`fm1_session.c` 的三个请求函数把 `edp_frame_t reply` 放在栈上（`:229/:256/:284`，当前 387B，上限每加 1 字节栈帧同步加 1），它们跑在调用方任务的栈上（console 等），而解析暂存 `f` 与回复槽 `s_reply` 是 PSRAM 里的静态对象（随 `edp_frame_t` 变大，不占内部堆）；`midi_stream` 的 1,024 字节帧上限是否仍够；`scripts/editor-proto-test.sh` 补一条 416+ 参数的往返与「恰在上限内/外」用例。另记 host 测试缺口（`scripts/usb-fm1-test.sh` 现有用例未覆盖）：CIN 2/3/8/A–E 的解码长度、`out_cap` 恰好等于所需、同一次调用内溢出后接完整短帧、`len=390` 恰好上限。 |
 | **触发条件** | 5E（Drum synth 页）开工前必须处理。 |
 | **参考** | `firmware/components/editor_proto/include/editor_proto.h`（`EDP_ARGS_MAX`）、`firmware/components/editor_proto/src/editor_proto.c`（`edp_frame_parse`）、`third_party/sloop-fm1/firmware/src/editor.c:39`（`ed_out`） |
 | **登记** | 2026-11-26（5A Task 2 终评遗留，Task 6 登记） |
@@ -479,3 +479,27 @@
 | **触发条件** | 5C（断连恢复）开工时必须处理；此前若 5A 冒烟的拔插步骤（`scripts/fm1-smoke.py` 步骤 7）出现「重插后不恢复」，立即处理。 |
 | **参考** | `firmware/components/usb_fm1/src/usb_fm1.c`（`usb_fm1_send_frame` 的 `s_out_inflight`、`handle_new_dev` 的 `s_dev != NULL` 分支）；`.superpowers/sdd/2026-11-26-5a-fm1-connect/task-4-report.md` |
 | **登记** | 2026-11-26（5A Task 4 终评遗留，Task 6 登记） |
+
+## DI-61: `fm1_session` 的 `request()` 在「永远等待」超时下无法被链路断开唤醒
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `fm1_session.c` 的 `request()` 把 ≥2^31 tick（含 `portMAX_DELAY`）的 `timeout` 视为一直等：等单在飞互斥、发送、等回复三处都用 `portMAX_DELAY` 阻塞，唯一的出口是对应的信号量。链路断开时 `fm1_session_on_link(false)` 只清链路态、WATCH 与 INFO 缓存并通知 `fm1_session` 任务，不给 `s_reply_sem` 任何信号（它只在 `fm1_session_on_frame` 收到回复时给）。因此一个「永远等待」的请求方在拔线时既等不到回复也没有超时，会一直挂在 `xSemaphoreTake(s_reply_sem, portMAX_DELAY)`；若它还持着 `s_req_mux`，之后的请求方（会话任务协商、console `FM1` 命令）都只能等锁到各自的 400ms 上限后回 `timeout`。发送侧的 `usb_fm1_send_frame` 同样只靠 transfer 完成回调唤醒 `s_tx_done`，`DEV_GONE` 时库是否对在途 transfer 回调 `CANCELED` 未在本仓验证。5A 的全部调用方（console 与会话任务）都传 400ms，没有触发路径。 |
+| **影响面** | 仅联动模式：将来任何以 `timeout=portMAX_DELAY` 调 `fm1_session_info/get/set/watch/ping` 的调用方（5C 的状态同步层与断连恢复最可能）。独立模式零影响。 |
+| **为何可延迟** | 5A 没有调用方；头文件与函数注释已写明该语义，接口没有对外承诺「断线可唤醒」。 |
+| **解决方向** | 二选一：① 链路断开给等待方一个出口——`on_link(false)` 给在等的请求补一次 `xSemaphoreGive(s_reply_sem)`，`request()` 醒来后先核对链路态、已断则回 `ESP_ERR_INVALID_STATE`（回复槽仍按 cmd/argc 核对，不制造假回复），并核实/补齐 `usb_fm1_send_frame` 在 `DEV_GONE` 下的唤醒；② 去掉「一直等」的承诺：`request()` 对 ≥2^31 的 `timeout` 套一个内部上限后回 `ESP_ERR_TIMEOUT`，头文件同步改注释。无论哪种，先补一条 host 侧可注入的断连测试（伪链路 + 永远等待的请求方线程）。 |
+| **触发条件** | 5C（同步层与断连恢复）开工时必须处理；此前只要有调用方开始传 `portMAX_DELAY` 就立即处理。 |
+| **参考** | `firmware/components/usb_fm1/src/fm1_session.c`（`request()` 的 `forever` 分支、`fm1_session_on_frame` / `fm1_session_on_link`）、`firmware/components/usb_fm1/src/usb_fm1.c`（`usb_fm1_send_frame` 的等待循环、`out_xfer_cb`）、`.superpowers/sdd/2026-11-26-5a-fm1-connect/final-fix-findings.md`（M-1） |
+| **登记** | 2026-11-26（5A 终审修复波，final review M-1） |
+
+## DI-62: `scripts/selftest-heap.py` 不捕获 `KeyboardInterrupt`
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `scripts/selftest-heap.py` 的 `main()` 只捕获 `(OSError, serial.SerialException, RuntimeError, TimeoutError)`。两次全量 `ENG SELFTEST` 各约 160s，等待期间操作员 Ctrl-C ⇒ `KeyboardInterrupt` 直接漏成 traceback：transcript 里没有 `# [selftest-heap] FAIL` 收尾行（`finally` 里的 `ENG AUDIO ON` 与关串口仍会执行）。与 `scripts/fm1-smoke.py` 修复前的同款缺陷（提交 63b8756 已为冒烟脚本修掉）。 |
+| **影响面** | 仅门禁脚本的可读性与证据完整性：被中止的 transcript 没有结论行，事后按 transcript 判读的人看不到 FAIL 收尾。判定逻辑与固件零影响。 |
+| **为何可延迟** | 不改变任何判定结果；Ctrl-C 是操作员的显式中止，恢复动作（`ENG AUDIO ON`）在 `finally` 里照常执行。 |
+| **解决方向** | 与 `fm1-smoke.py` 同款：加 `except KeyboardInterrupt` ⇒ `ok = False` 并落一条 `# [selftest-heap] FAIL: KeyboardInterrupt: 操作员中止（Ctrl-C）`；`finally` 里的恢复再包一层 `except KeyboardInterrupt`，提示手动 `ENG AUDIO ON`。 |
+| **触发条件** | 下一次改动 `scripts/selftest-heap.py` 时顺手修；或需要无人值守长跑（soak/阶段收口）之前。 |
+| **参考** | `scripts/selftest-heap.py`（`main()` 的 `except (OSError, …)` 子句与 `finally`）、`scripts/fm1-smoke.py`（`run_device()` 的同款处理） |
+| **登记** | 2026-11-26（5A 终审修复波，final review M-1） |
