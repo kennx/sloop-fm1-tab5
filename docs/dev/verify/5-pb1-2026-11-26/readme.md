@@ -161,3 +161,30 @@ est 从开工估算 12,288 校准到 **8,704**（6,816 + Task 4 预留的两个�
    （`locked=1`）和 012 §3「旋钮区锁；KIT 行写 `P_E0`」一致，但仪表盘上这个旋钮永远是 `--`，主控可考虑在 Task 4+ 改成可编辑。
 9. **读数脚本自身的三处错**（首版第一次运行 47/52 就是它们；那份 transcript 已被重跑覆盖，现存两份都是修正后的 53/53）：label 对照把 `scope` 当 `id` 用、
    INSERT A 的槽下标写成 14（应为 18）、锁定/不存在槽的 TAP 点在视口之外（`y=828 > 644`）。修正后的两次运行（提交前与 `f60c790`）都是 53/53。
+
+## 8. Task 3 修复轮 1（评审「Needs fixes」；固件 `be06161`，2026-11-27）
+
+> 两处 Important：① 鼓轨的 ANALOG 引擎门槛（`P_FTYPE` 在鼓轨上「存在但锁定」，`slots=102`）；② 上下文键一变就整页重绘
+> （拖引擎槽 / ITYPE / ESYNC 每次移动都改键）。五处 Minor：`console.c` 两条语句误连一行、换轨后拖动锚点不失效、值文本每帧
+> `lv_strndup`、长按抑制不显式、AGENTS.md 索引缺 `UI SOUND …` 一行。**本节读数都在 `be06161` 上取**（boot 自报
+> `App version: be06161-dirty`，`-dirty` = 工作树里未提交的 docs 改动；`git diff be06161 -- firmware scripts third_party tools` 为空）。
+> 测量用了一行**临时**固件日志 `TEMP-FIX1 重解析 失效卡片=N`（`task-3-fix1-measure.py` 靠它读数），测完即从源码删除：
+> 提交里 `grep -rn TEMP-FIX1 firmware/` 为空。§6 第 10 行的「鼓轨 `slots=102`」自此作废，以本节为准。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | `scripts/build.sh` ×2（提交前同源）、提交后再 ×1 | `task-3-fix1-build-1.log`、`task-3-fix1-build-2.log`、`task-3-fix1-commit-build.log` | ✅ rc=0、编译 0 警告 0 错误 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-3-fix1-knob-test.log`、`task-3-fix1-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed` |
+| 3 | 烧录 + 启动日志 | `scripts/flash.sh`；`task-3-check.py` 开头的硬复位 | `task-3-fix1-commit-flash.log`、`task-3-fix1-check.log`（第 29 行起） | ✅ `Hash of data verified` ×3；`App version: be06161-dirty`；fatal / abort / backtrace 计数 0 |
+| 4 | 鼓轨引擎门槛（Important ①） | 轨 0 ANALOG：`UI SOUND STATS`、`UI SOUND CARD 4 SLOT 8`；Ctrl+4 后同样两条 | `task-3-fix1-check.log` | ✅ 轨 0：`UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000`、`UI SOUND SLOT card=4 slot=8 flat=37 present=1 … label="TYPE" locked=0 …`；鼓轨：`UI SOUND STATS cards=13 slots=101 …`、`UI SOUND SLOT card=4 slot=8 flat=37 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0` |
+| 5 | 重绘范围（Important ②）——**修复前** | `python3 docs/dev/verify/5-pb1-2026-11-26/task-3-fix1-measure.py /dev/ttyACM0 …`（固件 `c3ea99c` + 只有那行临时日志） | `task-3-fix1-baseline.log` | ❌ 待修行为：Engine edit·WAVE（`P_E0`，flat 29）4 次改值移动每次 `失效卡片=13`；ITYPE（flat 64）5 次改值移动每次 `失效卡片=13`（其余移动值没变、不触发重解析） |
+| 6 | 重绘范围——**修复后** | 同一脚本（修复后固件 + 同一行临时日志） | `task-3-fix1-after.log` | ✅ WAVE：8 次移动的失效卡片数 `[0, 0, 0, 0, 0, 0, 0, 0]`——4 次改值移动**每次 0 张卡**（`失效卡片=0 all=0`）；ITYPE：5 次改值移动 `[1, 0, 0, 1, 1]`——只在 INSERT A 的标签真的换了的移动（`INS A → DRIVE`、`DRIVE → BITS`、`BITS → INS A`）失效 1 张（FX 卡），标签没换的移动 0 张 |
+| 7 | 拖动后值仍刷新 | 同上，每次移动后 `UI SOUND CARD n SLOT m` 读回 | 同上 | ✅ 两个槽 16 次移动全部「读回 value == KNOB 回显」（脚本逐条核对）；ITYPE 换档时 `card 6 slot 18` 的标签跟着换（`INS A` / `DRIVE` / `BITS`） |
+| 8 | 换轨打断拖动（Minor b） | 轨 0 上 `UI SOUND KNOB 38 press 0 -40` → Ctrl+4 → `drag 40 0` → Ctrl+1 → `drag 40 0` | `task-3-fix1-check.log` | ✅ 两次都 `UI SOUND KNOB flat=38 drag dx=40 dy=0 ignored (ring band)`；鼓轨 `ENG SNAP trk k=3 … level=104` 未被改写 |
+| 9 | 回归：拖动 / 冻结 / 锁定 / 不存在 / 滚动 / TAP / 守卫 | `python3 docs/dev/verify/5-pb1-2026-11-26/task-3-check.py /dev/ttyACM0 …`（新增第 4、8 行的断言） | `task-3-fix1-check.log`、`task-3-check.py`（已更新） | ✅ **57/57**：`press 0 -40` 值不变 → `drag 40 0` ⇒ 127 → `drag 0 -40` ⇒ 104 → `press 0 0` ⇒ `ignored (ring band)`；`card=4 slot=0 … label="KIT" locked=1` 且 `ignored (locked)`；`card=4 slot=1 … present=0`、`UI ERR sound (absent)`；`ENG FREEZE on` 期间 `… drag dx=40 dy=0 value=0`、`ENG SNAP` 不变、解冻后回 104；`UI SOUND SCROLL y=400`、滚动后 TAP 命中 |
+| 10 | 池与内部堆 | `UI sound` → `UI MEM`；进入前后 `ENG MEM` | `task-3-fix1-check.log` | ✅ `页面构建 page=SOUND(6) 池增量=6844B 预算=8704B 池剩余=41452B 耗时=11ms`；`UI MEM page id=6 title=SOUND state=built est=8704 delta=6844 build_ms=11`（≤8,704）；`internal_free` 差 128B；`internal_min=71824` |
+| 11 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-3-fix1-selftest-heap.log`、`task-3-fix1-selftest-heap-transcript.log` | ✅ rc=0（324s）：run 1 `delta=260`、run 2 `delta=36`（门限 ≤1,024B），收尾 `internal_free=72683B`；两次 `cases=182/182 identical=182 … result=PASS`（跑在与 `be06161` 只差一处注释换行的同源构建上） |
+| 12 | UI 截屏（值文本共用静态缓冲后） | `python3 scripts/screenshot.py …` + `task-3-pngcheck.py` | `task-3-fix1-sound-20261127-003838.png`、`task-3-fix1-screenshot.log`、`task-3-fix1-pngcheck.txt` | ✅ `PNG CHECK PASS`（21 个槽环在位、值墨迹 ≥ 占位、BPM 值弧 / SWING 底环）；Global 卡 4 个槽的值墨迹 `791 / 412 / 550 / 424` 各不相同（共用的 `s_value_text` 没有把上一个槽的文本留给下一个槽）。**人眼读图未做** |
+
+说明：第 5 行的「修复前」读数是在 `c3ea99c` 上只加那一行临时日志测的，为的是给第 6 行一个同口径的对照；§6 的全部读数来自
+修复前的固件，其中**只有「鼓轨 `slots=102` / `P_FTYPE` 在鼓轨上锁定」一条被本轮推翻**，其余不受这两处修复影响。

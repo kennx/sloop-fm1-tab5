@@ -1,0 +1,429 @@
+I (108) esp_image: segment 1: paddr=000a85d8 vaddr=30100000 sizeI (277) esp_image: segment 4: paddr=001c0e68 vaddr=4ff079bc size=0f760h ( 63328) load
+I (289) esp_image: segment 5: paddr=001d05d0 vaddr=4ff17180 size=04924h ( 18724) load
+I (293) esp_image: segment 6: paddr=001d4efc vaddr=50108080 size=00020h (    32) load
+I (299) boot: Loaded app from partition at offset 0x10000
+I (300) boot: Disabling RNG early entropy source...
+I (305) hex_psram: vendor id    : 0x0d (AP)
+I (305) hex_psram: Latency      : 0x01 (Fixed)
+I (306) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (306) hex_psram: dev id       : 0x03 (generation 4)
+I (307) hex_psram: density      : 0x07 (256 Mbit)
+I (307) hex_psram: good-die     : 0x06 (Pass)
+I (307) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (308) hex_psram: BurstType    : 0x00 ( Wrap)
+I (308) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (308) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (309) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (309) hex_psram: DriveStrength: 0x00 (1/1)
+I (309) MSPI Timing: Enter psram timing tuning
+I (483) esp_psram: Found 32MB PSRAM device
+I (483) esp_psram: Speed: 200MHz
+I (484) hex_psram: psram CS IO is dedicated
+I (485) cpu_start: Multicore app
+I (1434) esp_psram: SPI SRAM memory test OK
+I (1451) cpu_start: Pro cpu start user code
+I (1451) cpu_start: cpu freq: 360000000 Hz
+I (1451) app_init: Application information:
+I (1452) app_init: Project name:     sloop_fm1_tab5
+I (1452) app_init: App version:      c3ea99c-dirty
+I (1452) app_init: Compile time:     Nov 27 2026 00:30:02
+I (1452) app_init: ELF file SHA256:  2dffa8eff...
+I (1452) app_init: ESP-IDF:          v5.5.5
+I (1453) efuse_init: Min chip rev:     v1.0
+I (1453) efuse_init: Max chip rev:     v1.99 
+I (1453) efuse_init: Chip rev:         v1.3
+I (1453) heap_init: Initializing. RAM available for dynamic allocation:
+I (1454) heap_init: At 4FF24AB0 len 00016510 (89 KiB): RETENT_RAM
+I (1454) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1454) heap_init: At 4FF9CD20 len 000032E0 (12 KiB): RAM
+I (1455) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1455) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1455) esp_psram: Adding pool of 32284K of PSRAM memory to heap allocator
+I (1456) spi_flash: detected chip: generic
+I (1457) spi_flash: flash io: dio
+I (1457) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1458) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1458) main_task: Started on CPU0
+I (1458) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1458) main_task: Calling app_main()
+I (1458) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1458) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1458) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1478) sloop_settings: settings: bright=100 vol=70 out=speaker
+I (1478) LVGL: Starting LVGL task
+I (1478) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1988) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1988) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1988) st7123: version: 1.0.2
+I (3008) M5Stack Tab5: Display initialized with resolution 720x1280
+I (3008) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (3008) ST7123: Touch panel create success, version: 1.0.2
+I (3008) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3158) M5Stack Tab5: Setting LCD backlight: 100%
+I (3158) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3158) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  
+sloop>  I (4158) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4158) sloop_tab5: keyboard: OK (0x6D)
+W (4158) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+sloop>  W (4168) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4178) I2S_IF: Paired data: 0x4ff3fb04, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4178) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4178) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4188) ES8388: Start on mode:2
+I (4188) Adev_Codec: Open codec device OK
+
+sloop>  I (4188) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4208) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x401c0000 handle=1341385828 base=0x97000 span=0x68000
+
+sloop>  I (4238) sloop_store: 采样槽装载: 4 槽 flash→镜像
+I (4238) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
+I (4248) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (4248) sloop_store: settings: flash palette=4 lowcut=0 zoom=0 lights=0 reso=0 rec=0/0/0 theme=P4E7
+
+sloop>  I (4248) sloop_store: ready: slots=0x483464dc(15264B) stage=0x4834a0e0 v3=0x48345a98(2584B) auto=0x4834c0e8(3816B) base=0x97000 span=0x68000
+I (4248) sloop_store: autosave 恢复：hash=02C79E5A sel=1 bpm=120
+
+sloop>  I (4248) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4258) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2fbc0
+I (4288) usb_fm1: USB host 就绪（USB-A，usb_lib/fm1_cli 栈在 PSRAM）: internal_free 82623 -> 80411 字节
+
+sloop>  I (4288) fm1_session: fm1_session 就绪（栈 4096 字节在 PSRAM）: internal_free 80411 -> 80055 字节
+I (4288) sloop_tab5: UI 启动前内部堆剩余 80055 字节
+I (4308) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=47932B 耗时=4ms
+
+sloop>  I (4308) sloop_ui: 切页 page=PLAY(0) 组=PLAY 组内首建耗时=6ms
+I (4308) sloop_ui: UI 就绪: 18 页注册/1 已建 @1280x720, LVGL 池已用 14964/62856 字节, 内部堆剩余 80055 字节
+
+sloop>  I (4328) sloop_input: InputManager 就绪：64 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+
+sloop>  
+sloop>  # [measure] ----
+I (4508) sloop_display: 触摸反馈 OFF（准星 + 坐标日志）
+I (4508) sys_selftest: stack=0x4ff31c04 size=5632
+I (4668) usb_fm1: 新设备 addr=1 VID=0x1209 PID=0x0001 class=0x00
+I (4668) usb_fm1:   接口 0 alt=0 class=0x01 subclass=0x01 protocol=0x00 eps=0
+I (4668) usb_fm1:   接口 1 alt=0 class=0x01 subclass=0x03 protocol=0x00 eps=2
+I (4668) usb_fm1:   接口 2 alt=0 class=0x01 subclass=0x02 protocol=0x00 eps=0
+I (4668) usb_fm1:   接口 2 alt=1 class=0x01 subclass=0x02 protocol=0x00 eps=1
+I (4678) usb_fm1: MIDI Streaming 接口 1 就绪: ep_in=0x81 mps=64 ep_out=0x01 mps=64 in_buf=256 字节, internal_free 73435 -> 73055
+I (4678) fm1_session: INFO 完成: version="FELUCCA SLOOP 2.8.5" nengines=12 p_count=71 g_count=50 nstep=64 pe0=63 ntrk=4 proto=12
+I (4678) fm1_session: WATCH 完成: on=3
+STORE AUTO OFF
+STORE AUTO off
+sloop>  # [measure] ----
+KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=97
+sloop>  # [measure] ----
+KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=124
+sloop>  # [measure] ----
+KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=77
+sloop>  # [measure] ----
+KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=42
+sloop>  # [measure] ----
+UI sound
+I (6278) sloop_ui: 页面构建 page=SOUND(6) 池增量=6844B 预算=8704B 池剩余=41452B 耗时=10ms
+I (6278) page_sound: TEMP-FIX1 重解析 失效卡片=13 all=1
+I (6278) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=15ms
+UI page=sound (6)
+sloop>  # [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=0 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] Engine edit WAVE (P_E0): flat=29 初值 value=0 label=WAVE
+UI SOUND KNOB 29 press 0 -40
+UI SOUND KNOB flat=29 press dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+UI SOUND KNOB 29 drag 0 -40
+UI SOUND KNOB flat=29 drag dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=0 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag   0 -40 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致
+UI SOUND KNOB 29 drag 28 -28
+UI SOUND KNOB flat=29 drag dx=28 dy=-28 value=1
+sloop>  I (7608) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=1 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  28 -28 ⇒ KNOB value=1 失效卡片=[0] 读回 value=1 一致
+UI SOUND KNOB 29 drag 40 0
+UI SOUND KNOB flat=29 drag dx=40 dy=0 value=1
+sloop>  # [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=1 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  40   0 ⇒ KNOB value=1 失效卡片=[] 读回 value=1 一致
+UI SOUND KNOB 29 drag 28 28
+UI SOUND KNOB flat=29 drag dx=28 dy=28 value=2
+sloop>  I (8608) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=2 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  28  28 ⇒ KNOB value=2 失效卡片=[0] 读回 value=2 一致
+UI SOUND KNOB 29 drag 0 40
+UI SOUND KNOB flat=29 drag dx=0 dy=40 value=3
+sloop>  I (9128) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=3 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag   0  40 ⇒ KNOB value=3 失效卡片=[0] 读回 value=3 一致
+UI SOUND KNOB 29 drag -28 28
+UI SOUND KNOB flat=29 drag dx=-28 dy=28 value=0
+sloop>  I (9608) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=0 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -28  28 ⇒ KNOB value=0 失效卡片=[0] 读回 value=0 一致
+UI SOUND KNOB 29 drag -40 0
+UI SOUND KNOB flat=29 drag dx=-40 dy=0 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=0 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -40   0 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致
+UI SOUND KNOB 29 drag -28 -28
+UI SOUND KNOB flat=29 drag dx=-28 dy=-28 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="WAVE" locked=0 value=0 x=28 y=828 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -28 -28 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致
+# [measure] Engine edit WAVE (P_E0): 8 次移动的失效卡片数 = [0, 0, 0, 0, 0, 0, 0, 0]（每次重解析一张卡片计一次；0 = 该次移动没触发重解析）
+# [measure] Engine edit WAVE (P_E0): 每次移动后读回值与 KNOB 回显一致 = True
+UI SOUND KNOB 29 drag 0 -40
+UI SOUND KNOB flat=29 drag dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+# [measure] Engine edit WAVE (P_E0): 拖回锚点 ⇒ value=0（初值 0）
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] FX ITYPE (P_ITYPE): flat=64 初值 value=0 label=INSRT
+UI SOUND KNOB 64 press 0 -40
+UI SOUND KNOB flat=64 press dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+UI SOUND KNOB 64 drag 0 -40
+UI SOUND KNOB flat=64 drag dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag   0 -40 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致 | INSERT A label=INS A
+UI SOUND KNOB 64 drag 28 -28
+UI SOUND KNOB flat=64 drag dx=28 dy=-28 value=1
+sloop>  I (12648) page_sound: TEMP-FIX1 重解析 失效卡片=1 all=0
+# [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=1 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="DRIVE" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  28 -28 ⇒ KNOB value=1 失效卡片=[1] 读回 value=1 一致 | INSERT A label=DRIVE
+UI SOUND KNOB 64 drag 40 0
+UI SOUND KNOB flat=64 drag dx=40 dy=0 value=3
+sloop>  I (13408) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=3 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="DRIVE" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  40   0 ⇒ KNOB value=3 失效卡片=[0] 读回 value=3 一致 | INSERT A label=DRIVE
+UI SOUND KNOB 64 drag 28 28
+UI SOUND KNOB flat=64 drag dx=28 dy=28 value=4
+sloop>  I (14128) page_sound: TEMP-FIX1 重解析 失效卡片=0 all=0
+# [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=4 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="DRIVE" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag  28  28 ⇒ KNOB value=4 失效卡片=[0] 读回 value=4 一致 | INSERT A label=DRIVE
+UI SOUND KNOB 64 drag 0 40
+UI SOUND KNOB flat=64 drag dx=0 dy=40 value=5
+sloop>  I (14888) page_sound: TEMP-FIX1 重解析 失效卡片=1 all=0
+# [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=5 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="BITS" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag   0  40 ⇒ KNOB value=5 失效卡片=[1] 读回 value=5 一致 | INSERT A label=BITS
+UI SOUND KNOB 64 drag -28 28
+UI SOUND KNOB flat=64 drag dx=-28 dy=28 value=0
+sloop>  I (15648) page_sound: TEMP-FIX1 重解析 失效卡片=1 all=0
+# [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -28  28 ⇒ KNOB value=0 失效卡片=[1] 读回 value=0 一致 | INSERT A label=INS A
+UI SOUND KNOB 64 drag -40 0
+UI SOUND KNOB flat=64 drag dx=-40 dy=0 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -40   0 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致 | INSERT A label=INS A
+UI SOUND KNOB 64 drag -28 -28
+UI SOUND KNOB flat=64 drag dx=-28 dy=-28 value=0
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  # [measure] ----
+UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  # [measure] ----
+# [measure] drag -28 -28 ⇒ KNOB value=0 失效卡片=[] 读回 value=0 一致 | INSERT A label=INS A
+# [measure] FX ITYPE (P_ITYPE): 8 次移动的失效卡片数 = [0, 1, 0, 0, 1, 1, 0, 0]（每次重解析一张卡片计一次；0 = 该次移动没触发重解析）
+# [measure] FX ITYPE (P_ITYPE): 每次移动后读回值与 KNOB 回显一致 = True
+UI SOUND KNOB 64 drag 0 -40
+UI SOUND KNOB flat=64 drag dx=0 dy=-40 value=0
+sloop>  # [measure] ----
+# [measure] FX ITYPE (P_ITYPE): 拖回锚点 ⇒ value=0（初值 0）
+# [measure] 收尾：硬复位重新载入 autosave 对象
+I (105) esp_image: segment 1: paddr=000a85d8 vaddr=30100000 sizeI (117) esp_image: segment 3: paddr=000b0020 vaddr=40000020 size=110e40h (1117760) map
+I (274) esp_image: segment 4: paddr=001c0e68 vaddr=4ff079bc size=0f760h ( 63328) load
+I (286) esp_image: segment 5: paddr=001d05d0 vaddr=4ff17180 size=04924h ( 18724) load
+I (290) esp_image: segment 6: paddr=001d4efc vaddr=50108080 size=00020h (    32) load
+I (297) boot: Loaded app from partition at offset 0x10000
+I (297) boot: Disabling RNG early entropy source...
+I (303) hex_psram: vendor id    : 0x0d (AP)
+I (303) hex_psram: Latency      : 0x01 (Fixed)
+I (303) hex_psram: DriveStr.    : 0x00 (25 Ohm)
+I (303) hex_psram: dev id       : 0x03 (generation 4)
+I (304) hex_psram: density      : 0x07 (256 Mbit)
+I (304) hex_psram: good-die     : 0x06 (Pass)
+I (304) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (305) hex_psram: BurstType    : 0x00 ( Wrap)
+I (305) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (306) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (306) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (306) hex_psram: DriveStrength: 0x00 (1/1)
+I (307) MSPI Timing: Enter psram timing tuning
+I (480) esp_psram: Found 32MB PSRAM device
+I (481) esp_psram: Speed: 200MHz
+I (482) hex_psram: psram CS IO is dedicated
+I (482) cpu_start: Multicore app
+I (1432) esp_psram: SPI SRAM memory test OK
+I (1448) cpu_start: Pro cpu start user code
+I (1448) cpu_start: cpu freq: 360000000 Hz
+I (1449) app_init: Application information:
+I (1449) app_init: Project name:     sloop_fm1_tab5
+I (1449) app_init: App version:      c3ea99c-dirty
+I (1449) app_init: Compile time:     Nov 27 2026 00:30:02
+I (1449) app_init: ELF file SHA256:  2dffa8eff...
+I (1450) app_init: ESP-IDF:          v5.5.5
+I (1450) efuse_init: Min chip rev:     v1.0
+I (1450) efuse_init: Max chip rev:     v1.99 
+I (1450) efuse_init: Chip rev:         v1.3
+I (1451) heap_init: Initializing. RAM available for dynamic allocation:
+I (1451) heap_init: At 4FF24AB0 len 00016510 (89 KiB): RETENT_RAM
+I (1451) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1451) heap_init: At 4FF9CD20 len 000032E0 (12 KiB): RAM
+I (1452) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1452) heap_init: At 3010007C len 00001F84 (7 KiB): SPM
+I (1453) esp_psram: Adding pool of 32284K of PSRAM memory to heap allocator
+I (1454) spi_flash: detected chip: generic
+I (1454) spi_flash: flash io: dio
+I (1454) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1455) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1456) main_task: Started on CPU0
+I (1456) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations
+I (1456) main_task: Calling app_main()
+I (1456) sloop_tab5: sloop-fm1-tab5 bootstrap (IDF v5.5.5)
+I (1456) sloop_tab5: SoC: ESP32-P4 rev v1.3, 2 cores
+I (1456) sloop_tab5: Flash: 16 MB external, PSRAM: enabled
+I (1476) sloop_settings: settings: bright=100 vol=70 out=speaker
+I (1476) LVGL: Starting LVGL task
+I (1476) M5Stack Tab5: MIPI DSI PHY Powered on
+I (1986) M5Stack Tab5: Discovered board version 3 (LCD ST7121, Touch ST712x, FW 1)
+I (1986) M5Stack Tab5: Install MIPI DSI LCD control panel
+I (1986) st7123: version: 1.0.2
+I (3006) M5Stack Tab5: Display initialized with resolution 720x1280
+I (3006) ST7123: Firmware version: 1(1.80.1.16), Max.X: 720, Max.Y: 1280, Max.Touchs: 10
+I (3006) ST7123: Touch panel create success, version: 1.0.2
+I (3006) sloop_display: 触摸 indev 已挂接（随显示旋转映射到横屏坐标）
+I (3156) M5Stack Tab5: Setting LCD backlight: 100%
+I (3156) sloop_display: 显示就绪: 1280x720 横屏, bring-up 测试图已绘制
+I (3156) sloop_display: 触摸反馈就绪: 30ms 轮询, 准星待命（初始隐藏）, 坐标日志 ≥8px 限流
+[5n
+Type 'help' to get the list of commands.
+Use UP/DOWN arrows to navigate through command history.
+Press TAB when typing command name to auto-complete.
+
+Your terminal application does not support escape sequences.
+
+Line editing and history features are disabled.
+
+On Windows, try using Windows Terminal or Putty instead.
+sloop>  
+sloop>  I (4156) tab5_kb: 键盘就绪：0x6D @ G0/G1，INT=G50，FW 0x01
+I (4156) sloop_tab5: keyboard: OK (0x6D)
+W (4156) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+
+sloop>  W (4166) i2s_common: dma frame num is adjusted to 256 to align the dma buffer with 64, bufsize = 512
+I (4176) I2S_IF: Paired data: 0x4ff3fb04, current mode: playback, paired in_enable: 0, paired out_enable: 0
+
+sloop>  I (4176) I2S_IF: STD: TX, data_bit: 16, slot_bit: 16, ws_width: 16, slot_mode: STEREO, slot_mask: 0x3
+I (4176) I2S_IF: STD: TX, sample_rate_hz: 44100, mclk_multiple: 256, clk_src: 0
+I (4186) ES8388: Start on mode:2
+I (4186) Adev_Codec: Open codec device OK
+
+sloop>  I (4186) sloop_audio_stream: codec 44100Hz/2ch/16bit ready
+I (4206) sloop_hal_store: sloopstore ready: part=0x810000 size=0x68000 map=0x401c0000 handle=1341385828 base=0x97000 span=0x68000
+
+sloop>  I (4236) sloop_store: 采样槽装载: 4 槽 flash→镜像
+I (4236) sloop_store: 歌曲设置: 来源=1 count=4 loop=0
+I (4246) sloop_store: SYN kit: settings 88..1551（settings len=1552）
+I (4246) sloop_store: settings: flash palette=4 lowcut=0 zoom=0 lights=0 reso=0 rec=0/0/0 theme=P4E7
+
+sloop>  I (4246) sloop_store: ready: slots=0x483464dc(15264B) stage=0x4834a0e0 v3=0x48345a98(2584B) auto=0x4834c0e8(3816B) base=0x97000 span=0x68000
+I (4246) sloop_store: autosave 恢复：hash=02C79E5A sel=1 bpm=120
+
+sloop>  I (4246) sloop_tab5: SLOOP 引擎初始化完成: rate=44100 frames=256
+I (4256) sloop_audio_stream: stream started, half=256 frames stack=0x4ff2fbc0
+I (4286) usb_fm1: USB host 就绪（USB-A，usb_lib/fm1_cli 栈在 PSRAM）: internal_free 82623 -> 80411 字节
+
+sloop>  I (4286) fm1_session: fm1_session 就绪（栈 4096 字节在 PSRAM）: internal_free 80411 -> 80055 字节
+I (4286) sloop_tab5: UI 启动前内部堆剩余 80055 字节
+I (4296) sloop_ui: 页面构建 page=PLAY(0) 池增量=2480B 预算=3072B 池剩余=47932B 耗时=4ms
+
+sloop>  I (4306) sloop_ui: 切页 page=PLAY(0) 组=PLAY 组内首建耗时=5ms
+I (4306) sloop_ui: UI 就绪: 18 页注册/1 已建 @1280x720, LVGL 池已用 14964/62856 字节, 内部堆剩余 80055 字节
+
+sloop>  I (4326) sloop_input: InputManager 就绪：64 条映射，轮询 10ms（1 tick @100Hz），任务优先级 4
+
+sloop>  

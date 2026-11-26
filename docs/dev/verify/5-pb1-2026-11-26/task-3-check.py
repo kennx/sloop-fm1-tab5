@@ -262,7 +262,21 @@ def main():
         ck.ok(s00.group(4) == "1" and s00.group(8) == "0", f"鼓轨上 GLOBAL 槽不锁：{s00.group(0)}")
         stats = grab(c.cmd("UI SOUND STATS"), RE_STATS, "UI SOUND STATS")
         c.note(f"鼓轨 {stats.group(0)}")
-        ck.ok(int(stats.group(2)) == sum(SLOT_COUNTS) - 7, "鼓轨存在槽数 = 102（P_E1..P_E7 无描述符）")
+        ck.ok(int(stats.group(2)) == sum(SLOT_COUNTS) - 8, "鼓轨存在槽数 = 101（P_E1..P_E7 无描述符、P_FTYPE 的 ANALOG 门槛不含鼓轨）")
+        s48d = slot(c, 4, 8)
+        ck.ok(s48d.group(4) == "0" and s48d.group(5) == "-", f"鼓轨上 CARD 4 SLOT 8（P_FTYPE）不存在：{s48d.group(0)}")
+        # 换轨打断拖动：轨 0 上按下建锚点 → Ctrl+4 → 拖动必须被拒（旧锚点不能写新轨）
+        select_track(c, 0)
+        knob(c, flat, "press", 0, -40)
+        rows_t0 = eng_rows(c)
+        select_track(c, 3)
+        k = knob(c, flat, "drag", 40, 0)
+        ck.ok(k is not None and k.group(6) == "ring band", f"换轨后继续拖 ⇒ {k.group(0)}")
+        ck.ok(eng_rows(c)[3] == rows_t0[3], "鼓轨 LEVEL 未被旧锚点改写")
+        select_track(c, 0)
+        k = knob(c, flat, "drag", 40, 0)
+        ck.ok(k is not None and k.group(6) == "ring band", f"换回轨 0 仍无锚点 ⇒ {k.group(0)}")
+        select_track(c, 3)  # 回到鼓轨：下面的「不存在的槽」检查还在鼓轨上做
         s41 = slot(c, 4, 1)
         ck.ok(s41.group(4) == "0" and s41.group(5) == "-" and s41.group(6) == "-" and s41.group(8) == "0",
               f"CARD 4 SLOT 1（鼓轨不存在）⇒ {s41.group(0)}")

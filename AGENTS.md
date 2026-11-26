@@ -179,6 +179,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | `UI DSYN [KIT <0..3> \| LANE <0..15> \| PAGE <0..3>]` | DSYN 页选择器（KIT / LANE / PAGE） |
 | `UI <参数页名> CHIP [<n>]` | 参数页 chip 框架的选择器 + 逐槽诊断 |
 | `UI FM6P [OP <0..5> \| PAGE <0..5>]` | FM6P 页选择器（OP / PAGE） |
+| `UI SOUND CARD <n> SLOT <m> \| SCROLL [<y>] \| STATS \| KNOB <flat> <press\|drag> <dx> <dy>` | SOUND 仪表盘：槽定位（扁平下标 + 屏幕矩形）/ 滚动 / 统计 / 槽级旋钮注入（与物理触摸同一处理路径） |
 | `KEY <code> <down\|up>` / `KEY PANIC` / `KEY STATS` | 键盘注入（与物理键盘同入口）；`KEY PANIC` / `KEY STATS` |
 | `UI TAB <group>` / `UI SUB <index>` | 手指导航注入（与物理组签/子签同一动作函数） |
 | `UI MEM` / `UI FORCEFAIL <page> [on\|off]` | 页面注册表与池水位（含分组行）；`UI FORCEFAIL` 强制页面构建失败 |
