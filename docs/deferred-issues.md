@@ -520,10 +520,22 @@
 
 | 项 | 内容 |
 |---|---|
-| **背景** | 全量 `ENG SELFTEST`（约 160s，在 console 任务里同步跑完 182 例）期间，task watchdog 报一次：`Task watchdog got triggered. The following tasks/users did not reset the watchdog in time: - IDLE0 (CPU 0)`，随后的 `Tasks currently running` 是 `CPU 0: console_repl`、`CPU 1: IDLE1`。5A 收口的 `selftest-heap.py` 两次全量自检各出一条（`docs/dev/verify/5-pa-2026-11-26/41-selftest-heap.log`，时间戳 166754ms 与 325424ms）；`docs/dev/verification-log.md` 里登记通过的历史转录同款（如 `4-p0-2026-11-21/task-11-selftest-full-transcript.log`、`4-pe-2026-11-23/` 下的设备自检转录）。报告之后设备没有重启：同一会话里第二次自检照常完成，两次均 `result=PASS`。 |
+| **背景** | 全量 `ENG SELFTEST`（约 160s，在 console 任务里同步跑完 182 例）期间，task watchdog 报一次：`Task watchdog got triggered. The following tasks/users did not reset the watchdog in time: - IDLE0 (CPU 0)`，随后的 `Tasks currently running` 是 `CPU 0: console_repl`、`CPU 1: IDLE1`。5A 收口的 `selftest-heap.py` 两次全量自检各出一条（`docs/dev/verify/5-pa-2026-11-26/41-selftest-heap.log`，时间戳 166754ms 与 325424ms）；`docs/dev/verification-log.md` 里登记通过的历史转录同款（如 `4-p0-2026-11-21/task-11-selftest-full-transcript.log`、`4-pe-2026-11-23/` 下的设备自检转录）。报告之后设备没有重启：同一会话里第二次自检照常完成，两次均 `result=PASS`。FM-1 已接条件下的同一检查（`5-pa-2026-11-26/att-heap.log`，时间戳 166174ms 与 324194ms）报告的是 `- IDLE1 (CPU 1)`、`console_repl` 在 CPU 1——没喂上狗的是**自检所在核**的 IDLE，核不固定。 |
 | **影响面** | 只在诊断路径（`ENG SELFTEST` / `device-selftest.py` / `selftest-heap.py`）出现，每次多一组 `E (…) task_wdt:` 日志行。判定与运行期行为零影响，两个脚本都不因此失败。 |
 | **为何可延迟** | 既有现象，非 5A 引入；不重启、不改变自检结果；用户操作不经过自检路径。 |
-| **解决方向** | 先确认根因（自检循环长时间不让出 CPU 0 ⇒ `IDLE0` 喂不上狗），再二选一：在自检的用例循环里定期让出 / 复位任务看门狗（不得改变自检的时序语义与 182 例的确定性）；或确认无害后在文档里记为已知噪声并让门禁脚本忽略这几行。 |
+| **解决方向** | 先确认根因（自检循环长时间不让出所在的核 ⇒ 该核的 IDLE 喂不上狗），再二选一：在自检的用例循环里定期让出 / 复位任务看门狗（不得改变自检的时序语义与 182 例的确定性）；或确认无害后在文档里记为已知噪声并让门禁脚本忽略这几行。 |
 | **触发条件** | 下一次改动 `ENG SELFTEST` 路径（`selftest.c`）或 task watchdog 配置时；或需要让自检期间的日志干净（无人值守长跑、按日志判读的自动化）时。 |
 | **参考** | `firmware/components/sloop_core`（`ENG SELFTEST` 实现）、`firmware/main/console.c`（`ENG SELFTEST` 命令）、`scripts/device-selftest.py`、`scripts/selftest-heap.py`；`docs/dev/closeout-phase5a.md` §6 |
 | **登记** | 2026-11-26（5A 终审修复波记账，收口时登记） |
+
+## DI-65: `scripts/fm1-smoke.py` 的结论行对「无回复」类 error 的步骤归因不准
+
+| 项 | 内容 |
+|---|---|
+| **背景** | 冒烟脚本的末行由 `verdict_line()` 生成：`FM1 SMOKE FAIL n/7 <首条失败>`，其中 `n = min(未通过的步骤集合, default=1) - 1`，即「首个失败步骤之前通过的步数」。`_verdict()` 先把转录里的 error 注记收进失败说明（步骤号从注记文字里的「步骤 N」取），无步骤号的 error 注记（「无回复」一类）不往集合里放任何步骤号；之后逐段检查时，缺失的段因为「已有失败说明」被 `continue` 跳过、也不计入集合。于是集合为空时 `n = 0`，结论行读作 `FM1 SMOKE FAIL 0/7`，而实际停在步骤 k。5A 终审修复波把它列为保持延后的小项（`docs/dev/closeout-phase5a.md` R32），修复波范围没有包含它。 |
+| **影响面** | 仅门禁脚本失败时的可读性：结论行里的步骤计数偏低。退出码（失败 = 1）与 PASS / FAIL 方向不受影响；transcript 是串口原始回显，完整保留了各段的回显与脚本注记，可以人工判读实际停在哪一步。通过时（`FM1 SMOKE PASS 7/7`）不受影响。 |
+| **为何可延迟** | 不改变任何判定结果；只在冒烟失败时才看得到，而失败本来就要人去看 transcript。5A 收口的两次冒烟都是 PASS 7/7，没有触发。 |
+| **解决方向** | 给 error 注记带上步骤号（记录注记发生时的段，写进「步骤 N」的文字里），或在无步骤号时回退到「首个缺失段」——`_verdict()` 在已有 error 注记的情况下仍把第一个缺失的段计入集合，`n` 即为该段之前通过的步数；补一组内嵌样例到 `run_selftest()`（无步骤号 error + 之后各段缺失 ⇒ `FAIL k/7`）。 |
+| **触发条件** | 下一次改冒烟脚本时；或 5C 断连恢复场景把它扩展成多段自动门禁时。 |
+| **参考** | `scripts/fm1-smoke.py`（`verdict_line()`、`_verdict()`、`run_selftest()`）、`docs/dev/reference/verification-gates.md`「联动协议」行、`docs/dev/closeout-phase5a.md` §5（R32）、§6 |
+| **登记** | 2026-11-26（5A 终审修复波记账，补证收口时登记） |
