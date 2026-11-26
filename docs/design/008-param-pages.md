@@ -991,7 +991,7 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
 
 登记于 2026-11-26（设计依据：5B 规格 `docs/superpowers/specs/2026-11-26-phase5b-sound-mixer-device-design.md`
 §4.2、§5.2、§5.6）。纯数据层（`sound_layout.{h,c}`，Task 1）与页面骨架（`page_sound.{h,c}`，Task 2）
-已落地，槽的存在位图/值/锁定/拖动改值与 console 注入入口（`UI SOUND …`，Task 3）与键盘焦点 / 页级 ± / 选轨条 / 折叠 / 读数行（Task 4）也已接入；名字选择器由后续任务接入。
+已落地，槽的存在位图/值/锁定/拖动改值与 console 注入入口（`UI SOUND …`，Task 3）与键盘焦点 / 页级 ± / 选轨条 / 折叠 / 读数行（Task 4）与引擎 / 预置 / 鼓 kit 选择器（Task 6）也已接入。
 
 - **卡片成员 = 纯数据表 `sound_layout.h`**（X 宏；每个成员 = 作用域 + 参数 id，顺序与分组照 Sloop Go `layout(pe0)`），
   描述符只提供值的形态（§9）。
@@ -1016,6 +1016,18 @@ SAMPLE / DSYN / FM6P 保持 P4-D 的整页结构（§8.5–§8.8）；TRANSPORT 
   （`sound_slot_cmd`），它拒「槽状态说的不是此刻的选中轨/引擎」（换轨后下一拍之前的 30ms 窗口），拖动、键盘、± 同纪律。右上角 4 格选轨条发 `CMD_SELECT_TRACK`；页眉下方一行 ZOOM 关 = 提示文案、ZOOM 开 =
   焦点槽的 28pt 读数（屏幕级的 ZOOM 大读数标签在本页不显示，它会盖住可操作的页眉）。提示文案只能是 ASCII：固件只带
   Montserrat，没有 CJK 字形（规格 §5.2 的中文提示需等 5F 的字体）。
+- **选择器（Task 6，`page_sound_picker.{h,c}`）**：点页眉行的**名字区**（三区对象的中段；左右 42px 仍是 ∓1，不加 `▾`）打开，
+  与 Sloop Go 点名字开列表一致。面板是页面根的临时子对象（页面区 (160,120) 960×440，开时建、关时删，实测池差 608–644B，
+  不进页预算），合成轨 = 引擎 chip 行 + 列表（row 0 列 12 个引擎、row 1 列**当前引擎**的工厂预置），鼓轨 = 46 个 kit 的列表
+  （chip 放不下）。**chip 只高亮/预览，不下发**；再点一次已高亮的 chip 或在 chip 行上按 ENTER 才发 `CMD_SET_ENGINE`（本项目
+  换引擎与换预置是两条命令，不像 Sloop Go 的 chip 即换）；列表行选择各发一条 `CMD_SET_ENGINE` / `CMD_SET_PRESET`（仅当前
+  引擎）/ `CMD_SET_PARAM`（kit 写鼓轨 `P_E0`）并关闭；预览别的引擎时点预置行、确认的就是当前项（引擎 = 默认值 + 预置 0）都
+  **不下发**（回显 `ignored (preview)` / `unchanged`）。键盘：←/→ 移 chip 高亮、↑/↓ 移列表高亮、ENTER 确认最后移动的那一行
+  （ENTER 与 ↑ 在输入层是同一个 +1 分支，所以在 `dispatch` 的最前面分流）、ESC 只关面板不切页；页级 `−/+` 在面板打开时 =
+  列表高亮 ∓1（触摸与 TAP 同一条路）。选中轨或该轨声音变化、切走 SOUND 都关闭。选择器的逻辑态是它自己的 portMUX 保护的
+  PSRAM 静态（键盘路由在输入任务里调，不取 LVGL 锁），删对象/重绘留给下一拍 `page_sound_update`；滚动量只在那一拍跟着高亮
+  走（console 的矩形查询把不在视口的行滚进来是唯一例外——命中与矩形必须读同一个滚动量）。12 个 chip 合计约 1,041px 超过
+  内宽 928，chip 行横向滚动、高亮 chip 留在行内。按名浏览工厂预置自此可用（原 DI-54）。
 
 预算：est 8,704（实测 delta 6,044–6,816B + Task 4 预留两对象，+10%；原估算 12,288 为上限；Task 4 后实测 7,116–7,312B）
 

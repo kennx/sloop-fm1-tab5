@@ -1,0 +1,141 @@
+# [check] port=/dev/ttyACM0
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+# [check] 基线：sel=0 bpm=120 zoom=0 dirty=0 autosave=0 autosave_hash=FBC5F2C7；四轨：0/0/0/104 | 1/0/0/104 | 2/0/0/104 | 3/0/0/104
+# [check] PASS 基线轨 0 = ANALOG 预置 0（0 0 0）
+# [check] PASS Ctrl+1 后 selected_track=0
+# [check] 进页前 ENG MEM internal_free=72859 internal_min=72048；UI MEM page id=6 title=SOUND state=built est=8704 delta=7308 build_ms=10；pool_free=43504
+# [check] PASS SOUND 页已建：UI MEM page id=6 title=SOUND state=built est=8704 delta=7308 build_ms=10
+# [check] PASS TAP 160,92 page=6 -> SOUND pick open row=0
+# [check] PASS row 0：UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12（期望 open=1 row=0 engine=0 highlight=0 rows=12）
+# [check] PASS UI SOUND PICK n=0 text="ANALOG" current=1 x=176 y=248 w=928 h=32（ANALOG，当前项，矩形 x=176 y=248 w=928 h=32）
+# [check] PASS 池：打开前 pool_free=43504 → 打开后 42860（差 644B，0 < 差 ≤ 4,096）
+  [fw] SCR
+  [fw] I (9447) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: docs/dev/verify/5-pb1-2026-11-26/task-6-pick-engine.png
+# [check] PASS 截屏 task-6-pick-engine.png：面板上方 (640,180)=(16, 20, 24) 不是面板底/描边；面板底 (24, 32, 32) 在内部均匀
+# [check] PASS 截屏 task-6-pick-engine.png：四边 2px 描边同色 (32, 40, 48)（≠面板底、≠背景）
+# [check] PASS 截屏 task-6-pick-engine.png：第 0 行有高亮条 (32, 40, 48)（= UI_PANEL_HI，同描边；面板底 (24, 32, 32)）
+# [check] PASS 截屏 task-6-pick-engine.png：非高亮行无条 (24, 32, 32)
+# [check] PASS 截屏 task-6-pick-engine.png：chip 行强调色像素 3125（合成轨 > 300 = 一个高亮 chip；鼓轨面板顶带 0 = 没有 chip 行）
+# [check] PASS 截屏 task-6-pick-engine.png：提示行墨迹 (178, 606, 711, 621) 落在面板内（右缘 ≤ 1096）
+# [check] PASS 截屏 task-6-pick-engine.png：列表区当前项的强调色文字像素 186（> 60）
+# [check] PASS UI SOUND PICK n=8 text="GRAIN" current=0 x=176 y=504 w=928 h=32
+# [check] PASS UI SOUND PICK n=9 text="FM6" current=0 x=176 y=536 w=928 h=32
+# [check] PASS UI SOUND PICK n=11 text="NOISE" current=0 x=176 y=568 w=928 h=32
+# [check] PASS UI SOUND PICK n=11 text="NOISE" current=0 x=176 y=568 w=928 h=32（滚入后 y=568）
+# [check] PASS 第 0 行的查询把列表滚回顶部：UI SOUND PICK n=0 text="ANALOG" current=1 x=176 y=248 w=928 h=32
+# [check] PASS UI SOUND PICK 12 ⇒ UI ERR sound (absent)
+# [check] PASS UI SOUND PICK x ⇒ UI ERR sound (invalid)
+# [check] PASS 选择器打开时仍是 SOUND 页
+# [check] PASS 卡片的焦点槽照常可读：UI SOUND FOCUS flat=0 card=0 slot=0 label="BPM"
+# [check] PASS 卡片统计不受影响：UI SOUND STATS cards=13 slots=109 scroll_max=1932 collapsed=0x0000
+# [check] PASS → ×9：UI SOUND PICK open=1 row=0 engine=0 highlight=9 rows=12（highlight=9）
+# [check] PASS → 只移动高亮：轨 0 引擎仍是 0
+  [fw] SCR
+  [fw] I (32687) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: docs/dev/verify/5-pb1-2026-11-26/task-6-pick-engine-chip-hl.png
+# [check] PASS ENTER ⇒ 轨 0 换到 FM6：0 9 0
+# [check] PASS ENTER 后选择器关闭：UI SOUND PICK open=0
+# [check] PASS FM6 下再开 row 0：UI SOUND PICK open=1 row=0 engine=9 highlight=9 rows=12
+# [check] PASS TAP 640,520 page=6 -> SOUND pick engine=8 CMD_SET_ENGINE
+# [check] PASS 轨 0 引擎 = GRAIN：0 8 0
+# [check] PASS TAP 行选后选择器关闭
+# [check] PASS TAP 324,220 page=6 -> SOUND pick engine=1 highlight
+# [check] PASS UI SOUND PICK open=1 row=0 engine=8 highlight=1 rows=12
+# [check] PASS chip 第一次点不下发：轨 0 引擎仍是 GRAIN
+# [check] PASS TAP 324,220 page=6 -> SOUND pick engine=1 CMD_SET_ENGINE
+# [check] PASS chip 再点一次 ⇒ 轨 0 引擎 = DIGITAL
+# [check] PASS ← + ENTER ⇒ 回 ANALOG：0 0 0
+# [check] PASS TAP 640,264 page=6 -> SOUND pick engine=0 unchanged
+# [check] PASS 确认当前项不下发：轨 0 引擎仍是 ANALOG
+# [check] PASS 确认当前项后选择器关闭
+# [check] PASS TAP 512,92 page=6 -> SOUND pick open row=1
+# [check] PASS row 1：UI SOUND PICK open=1 row=1 engine=0 highlight=0 rows=22
+# [check] PASS UI SOUND PICK n=0 text=" 1  808 BOOM" current=1 x=176 y=248 w=928 h=32
+# [check] PASS TAP 640,360 page=6 -> SOUND pick preset=3 CMD_SET_PRESET
+# [check] PASS 轨 0 预置 = 3：0 0 3
+# [check] PASS TAP 行选预置后选择器关闭
+# [check] PASS 再开 row 1：UI SOUND PICK n=3 text=" 4  808 SLIDE" current=1 x=176 y=344 w=928 h=32
+  [fw] SCR
+  [fw] I (57197) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: docs/dev/verify/5-pb1-2026-11-26/task-6-pick-preset.png
+# [check] PASS 截屏 task-6-pick-preset.png：面板上方 (640,180)=(16, 20, 24) 不是面板底/描边；面板底 (24, 32, 32) 在内部均匀
+# [check] PASS 截屏 task-6-pick-preset.png：四边 2px 描边同色 (32, 40, 48)（≠面板底、≠背景）
+# [check] PASS 截屏 task-6-pick-preset.png：第 3 行有高亮条 (32, 40, 48)（= UI_PANEL_HI，同描边；面板底 (24, 32, 32)）
+# [check] PASS 截屏 task-6-pick-preset.png：非高亮行无条 (24, 32, 32)
+# [check] PASS 截屏 task-6-pick-preset.png：chip 行强调色像素 3125（合成轨 > 300 = 一个高亮 chip；鼓轨面板顶带 0 = 没有 chip 行）
+# [check] PASS 截屏 task-6-pick-preset.png：提示行墨迹 (178, 606, 882, 621) 落在面板内（右缘 ≤ 1096）
+# [check] PASS 截屏 task-6-pick-preset.png：列表区当前项的强调色文字像素 259（> 60）
+# [check] PASS ↓ ↓ ENTER ⇒ 轨 0 预置 = 5：0 0 5
+# [check] PASS ENTER 后选择器关闭
+# [check] PASS 再开 row 1
+# [check] PASS ESC ⇒ 关闭：UI SOUND PICK open=0
+# [check] PASS ESC 不切页：UI page=sound (6)
+# [check] PASS UI SOUND PICK n=21 text="22  SINE PAD" current=0 x=176 y=568 w=928 h=32（y 在列表 248..600 内）
+# [check] PASS 回到第 0 行：UI SOUND PICK n=0 text=" 1  808 BOOM" current=0 x=176 y=248 w=928 h=32
+# [check] PASS TAP 1009,220 page=6 -> SOUND pick engine=9 highlight（FM6 chip 只高亮）
+# [check] PASS UI SOUND PICK open=1 row=1 engine=0 highlight=9 rows=8（engine=0 highlight=9 rows=8）
+# [check] PASS UI SOUND PICK n=0 text=" 1  TINE EP" current=0 x=176 y=248 w=928 h=32（FM6 的第 1 个预置，非当前项）
+# [check] PASS TAP 640,264 page=6 -> SOUND pick preset=0 ignored (preview)
+# [check] PASS 预览时点预置行不下发：0 0 5
+# [check] PASS 预览被忽略后面板保持打开
+# [check] PASS ← ×9 ⇒ UI SOUND PICK open=1 row=1 engine=0 highlight=0 rows=22
+# [check] PASS ← 环绕到 NOISE ⇒ UI SOUND PICK open=1 row=1 engine=0 highlight=11 rows=11
+# [check] PASS → 回 ANALOG ⇒ UI SOUND PICK open=1 row=1 engine=0 highlight=0 rows=22
+# [check] PASS 页级 +：TAP 1224,132 page=6 -> SOUND pick preset=21 highlight
+# [check] PASS TAP 640,264 page=6 -> SOUND pick preset=5 unchanged
+# [check] PASS 确认当前预置不下发：轨 0 预置仍是 5
+# [check] PASS 确认当前预置后选择器关闭
+# [check] PASS 开 row 0
+# [check] PASS Ctrl+2 后：UI SOUND PICK open=0
+# [check] PASS Ctrl+2 后 selected_track=1
+# [check] PASS 轨 1 上再开 row 0
+# [check] PASS 选轨条：TAP 1150,92 page=6 -> TRACKS select track=2 CMD_SELECT_TRACK
+# [check] PASS 选轨条换轨后选择器关闭
+# [check] PASS 开 row 0 后切页
+# [check] PASS TRACKS 页：UI ERR sound (not_dashboard)
+# [check] PASS 切回 SOUND：选择器没有跨页存活
+# [check] PASS 仍在 SOUND 页
+# [check] PASS 鼓轨没有 PRESET 行：TAP miss 512,92 page=6
+# [check] PASS TAP 160,92 page=6 -> SOUND pick open row=0
+# [check] PASS 鼓轨：UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=46
+# [check] PASS UI SOUND PICK n=0 text="ACOUSTIC" current=1 x=176 y=216 w=928 h=32
+# [check] PASS 基线 kit：PARAM track=3 id=63 value=0 min=0 max=45
+  [fw] SCR
+  [fw] I (92557) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+已保存: docs/dev/verify/5-pb1-2026-11-26/task-6-pick-kit.png
+# [check] PASS 截屏 task-6-pick-kit.png：面板上方 (640,180)=(16, 20, 24) 不是面板底/描边；面板底 (24, 32, 32) 在内部均匀
+# [check] PASS 截屏 task-6-pick-kit.png：四边 2px 描边同色 (32, 40, 48)（≠面板底、≠背景）
+# [check] PASS 截屏 task-6-pick-kit.png：第 0 行有高亮条 (32, 40, 48)（= UI_PANEL_HI，同描边；面板底 (24, 32, 32)）
+# [check] PASS 截屏 task-6-pick-kit.png：非高亮行无条 (24, 32, 32)
+# [check] PASS 截屏 task-6-pick-kit.png：chip 行强调色像素 0（合成轨 > 300 = 一个高亮 chip；鼓轨面板顶带 0 = 没有 chip 行）
+# [check] PASS 截屏 task-6-pick-kit.png：提示行墨迹 (178, 574, 582, 589) 落在面板内（右缘 ≤ 1096）
+# [check] PASS TAP 640,264 page=6 -> SOUND pick kit=1 CMD_SET_PARAM
+# [check] PASS kit 选择写进鼓轨 P_E0：PARAM track=3 id=63 value=1 min=0 max=45
+# [check] PASS kit 选择后选择器关闭
+# [check] PASS 再开：高亮 = 当前 kit：UI SOUND PICK n=1 text="DEEP" current=1 x=176 y=248 w=928 h=32
+# [check] PASS 鼓轨 ↓ ↓ ENTER ⇒ P_E0 = 3：PARAM track=3 id=63 value=3 min=0 max=45
+# [check] PASS 还原 kit：PARAM track=3 id=63 value=0 min=0 max=45
+# [check] 往返 1：before=43064 open=42448 after=43064
+# [check] 往返 2：before=43064 open=42448 after=43064
+# [check] 往返 3：before=43064 open=42448 after=43064
+# [check] 往返 4：before=43064 open=42448 after=43064
+# [check] 往返 5：before=43064 open=42448 after=43064
+# [check] PASS ×5 打开时的池差最大 616B（0 < 差 ≤ 4,096）
+# [check] PASS ×5 关闭后 pool_free 与打开前差最大 0B（≤ 128）
+# [check] PASS ENG MEM internal_free=72755 internal_min=71896（internal_min ≥ 61,440）
+# [check] 收尾 UI MEM page id=6 title=SOUND state=built est=8704 delta=7156 build_ms=11；进页前 ENG MEM internal_free=72859 internal_min=72048 → 收尾 ENG MEM internal_free=72755 internal_min=71896
+# [check] PASS 未打开时 UI SOUND PICK 0 ⇒ UI ERR sound (not_built)
+# [check] 收尾：硬复位重新载入 autosave 对象
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+# [check] 复位后：sel=0 bpm=120 zoom=0 dirty=0 autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0；四轨：0/0/0/104 | 1/0/0/104 | 2/0/0/104 | 3/0/0/104
+# [check] PASS 复位后 sel 与四轨 ENG SNAP 行与基线逐字相同
+# [check] PASS 复位后 settings zoom/dirty 与基线相同（0/0）
+# [check] PASS 复位后 autosave_hash=FBC5F2C7 autosave_writes=0 与基线相同
+# [check] PASS 109/109

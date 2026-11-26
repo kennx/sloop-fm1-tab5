@@ -379,3 +379,51 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 还原：收尾硬复位后 `sel=1`、四轨 `engine=0 preset=0 level=104`、`STATE SNAP param trk=1 level=104 atk=10 dec=70 sus=90 rel=60`、
 `zoom=0 dirty=0`、`autosave_hash=02C79E5A autosave_writes=0`；自检堆之后再硬复位一次读数相同。池 delta 7,312B（est 8,704 未抬）。
 证据：`task-4-fix2-{build-1,build-2,flash,check,knob-test,sound-test,selftest-heap,selftest-heap-transcript}.log`、`task-4-fix2-check.out`、`task-4-fix2-sound-hint.png`。
+
+## 13. 5B-1 Task 6：引擎 / 预置 / 鼓 kit 选择器（2026-11-27；固件 `792a5a0`）
+
+> 点 SOUND 页眉行的**名字区**（中段；左右 42px 仍是 ∓1）打开的面板：合成轨 row 0 = 引擎 chip 行 + 12 个引擎的列表、row 1 = chip 行 +
+> **当前引擎**的预置列表；鼓轨 row 0 = 46 个 kit 的列表（没有 chip 行）。chip 只高亮/预览，再点一次或 ENTER 才换引擎；列表行选择各发一条
+> `CMD_SET_ENGINE` / `CMD_SET_PRESET` / `CMD_SET_PARAM`（kit）。逻辑在 `page_sound_picker.{h,c}`，`page_sound.c` 只路由。
+> 设备 Tab5 `/dev/ttyACM0`。**固件 = `792a5a0`**（`task-6-check.log` 第 29 行 `App version:      792a5a0`，无 `-dirty`：代码先提交、再构建烧录取证）。
+> 读数脚本 `task-6-check.py`（硬复位 → 6 个相位 → 收尾硬复位核对，断言 109 条）。
+> **状态：机器侧全部通过；PNG 人眼未读（只有像素核对）；手指点击/拖动 chip 行的横向滚动没有任何真机验证**（TAP 不能产生连续指针事件）。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | 固件代码（构建） | 提交后 `scripts/build.sh` ×2 | `task-6-build-1.log`、`task-6-build-2.log` | ✅ 两遍 rc=0、编译 0 警告 0 错误；第一遍只有 §5.5 豁免的那对 CMake 提示（提交改了版本串 ⇒ 重新 configure），第二遍没有 |
+| 2 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-6-knob-test.log`、`task-6-sound-test.log` | ✅ `17 passed, 0 failed` / `4 passed, 0 failed`（两套测试的源与被测纯数据层本任务未改） |
+| 3 | 固件代码（烧录验证） | `scripts/flash.sh` | `task-6-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 4 | 启动日志 | `task-6-check.py` 开头/收尾的两次硬复位 | `task-6-check.log` 第 29–31 行与第 1290 行起 | ✅ `App version:      792a5a0`、`ELF file SHA256:  b2553dcba…`；E / abort() / backtrace / Guru Meditation 计数 0（两次开机） |
+| 5 | 池与内部堆 | `UI sound` → `UI MEM`；进入页面前后 `ENG MEM` | `task-6-check.out` | ✅ `页面构建 page=SOUND(6) 池增量=7308B 预算=8704B 池剩余=40984B 耗时=10ms`（est 未抬；选择器的对象开时才建）；`internal_free` 72859 → 72755（差 **104B**）；`internal_min=71896` |
+| 6 | 打开 row 0（引擎） | `TAP 160 92`、`UI SOUND PICK` | 同上 | ✅ `TAP 160,92 page=6 -> SOUND pick open row=0`；`UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12`；`UI SOUND PICK 0` ⇒ `text="ANALOG" current=1 x=176 y=248 w=928 h=32`；`PICK 8` ⇒ `"GRAIN"`、`PICK 9` ⇒ `"FM6"`、`PICK 11` ⇒ `"NOISE"`（`current=0`）；`PICK 12` ⇒ `UI ERR sound (absent)`、`PICK x` ⇒ `(invalid)`；`UI` 仍 `page=sound (6)`；`UI SOUND FOCUS` / `UI SOUND STATS`（109 槽、`collapsed=0x0000`）不受影响 |
+| 7 | 池：打开时 | 打开前后 `UI MEM` | 同上 | ✅ `pool_free` 43504 → 42860（差 **644B**，≤ 4,096） |
+| 8 | 矩形查询滚入视口 | `UI SOUND PICK 11` → `PICK 0` | 同上 | ✅ 第 11 行（第 12 个，一屏 11 行之外）⇒ `y=568`（列表上移一行）；`PICK 0` ⇒ 列表滚回顶部 `y=248` |
+| 9 | 键盘：引擎 | `KEY 0x4C`（→）×9、`KEY 0x3D` | 同上 | ✅ `→ ×9` ⇒ `highlight=9`（轨 0 引擎仍 0）；ENTER ⇒ `ENG SNAP trk k=0 engine=9 preset=0`；`UI SOUND PICK open=0` |
+| 10 | TAP 行选引擎 | 再开 row 0（`engine=9 highlight=9 rows=12`）→ `PICK 8` 的矩形中心 `TAP` | 同上 | ✅ `TAP 640,520 page=6 -> SOUND pick engine=8 CMD_SET_ENGINE`；轨 0 `engine=8`；选择器关闭 |
+| 11 | chip：先高亮、再确认 | `TAP 324 220`（DIGITAL chip 中心）×2 | 同上 | ✅ 第一次 `-> SOUND pick engine=1 highlight`、`open=1 row=0 engine=8 highlight=1`、轨 0 引擎仍 GRAIN；第二次 `-> SOUND pick engine=1 CMD_SET_ENGINE`、轨 0 `engine=1` |
+| 12 | 确认当前项不下发 | `KEY 0x4A`（←）+ ENTER 回 ANALOG；再开 row 0，`PICK 0` 的行 TAP | 同上 | ✅ `← + ENTER` ⇒ `engine=0`；`TAP 640,264 page=6 -> SOUND pick engine=0 unchanged`；轨 0 引擎仍 ANALOG；选择器关闭 |
+| 13 | 打开 row 1（预置） | `TAP 512 92`、`PICK 0`、`PICK 3` 的行 TAP | 同上 | ✅ `-> SOUND pick open row=1`；`open=1 row=1 engine=0 highlight=0 rows=22`；`text=" 1  808 BOOM" current=1`；`TAP 640,360 page=6 -> SOUND pick preset=3 CMD_SET_PRESET`；`ENG SNAP trk k=0 … preset=3`；关闭 |
+| 14 | 键盘：预置 | 再开 row 1（`PICK 3` ⇒ `current=1`）→ `KEY 0x4B`（↓）×2 → ENTER | 同上 | ✅ 轨 0 `preset=5`；关闭 |
+| 15 | ESC | 开 row 1 → `KEY 0x00` | 同上 | ✅ `UI SOUND PICK open=0`；`UI page=sound (6)`（不切页） |
+| 16 | 预览规则 | `TAP 1009 220`（FM6 chip）→ `PICK 0` 的行 TAP | 同上 | ✅ `-> SOUND pick engine=9 highlight`；`open=1 row=1 engine=0 highlight=9 rows=8`（FM6 的 8 个预置：`" 1  TINE EP"`，`current=0`）；行 TAP ⇒ `-> SOUND pick preset=0 ignored (preview)`；轨 0 仍 `engine=0 preset=5`；面板保持打开 |
+| 17 | chip 环绕与页级 ± | `KEY 0x4A` ×10、`KEY 0x4C`、`TAP 1224 132` | 同上 | ✅ `← ×9` ⇒ `highlight=0 rows=22`；再 ← ⇒ `highlight=11 rows=11`（NOISE）；→ ⇒ 回 `highlight=0 rows=22`；页级 `+` ⇒ `-> SOUND pick preset=21 highlight`（列表高亮上一行，同 ↑） |
+| 18 | 上下文变化关闭 | 开 row 0 → Ctrl+2；轨 1 上开 → `TAP 1150 92`；开 → `UI tracks` → `UI sound` | 同上 | ✅ Ctrl+2 ⇒ `open=0`、`selected_track=1`；选轨条 ⇒ `-> TRACKS select track=2`、`open=0`；TRACKS 页 `UI SOUND PICK` ⇒ `(not_dashboard)`，切回 SOUND ⇒ `open=0`（不跨页存活） |
+| 19 | 鼓轨 kit 列表 | Ctrl+4 → `TAP 512 92`、`TAP 160 92`、`PICK 0`、`PICK 1` 的行 TAP、`PARAM 63` | 同上 | ✅ `TAP miss 512,92`（没有 PRESET 行）；`-> SOUND pick open row=0`；`open=1 row=0 engine=0 highlight=0 rows=46`；`PICK 0` ⇒ `text="ACOUSTIC" current=1 … y=216`；基线 `PARAM track=3 id=63 value=0 min=0 max=45`；`TAP 640,264 page=6 -> SOUND pick kit=1 CMD_SET_PARAM` ⇒ `value=1`；关闭 |
+| 20 | 鼓轨键盘 | 再开（`PICK 1` ⇒ `"DEEP" current=1`）→ ↓ ×2 → ENTER | 同上 | ✅ `PARAM track=3 id=63 value=3`；KIT 行 `−` ×3 还原 `value=0` |
+| 21 | 池往返 | 开 / `UI MEM` / ESC / `UI MEM` ×5（row 0 与 row 1 交替） | 同上 | ✅ 五轮都是 `before=43064 open=42448 after=43064`（打开差 **616B**；关闭后差 **0B**，判据 ≤ 128） |
+| 22 | 未打开时的读 | ESC 后 `UI SOUND PICK 0` | 同上 | ✅ `UI ERR sound (not_built)` |
+| 23 | UI 截屏 ×4 | `scripts/screenshot.py`（经 `task-6-check.py`） | `task-6-pick-engine.png`（row 0，ANALOG 高亮）、`task-6-pick-engine-chip-hl.png`（→ ×9 后 FM6 chip 高亮）、`task-6-pick-preset.png`（row 1，预置 3 高亮）、`task-6-pick-kit.png`（鼓轨 kit 列表） | ✅ 像素核对（脚本内，逐点精确比对）：四边 2px 描边同色 `(32,40,48)` 且 ≠ 面板底 `(24,32,32)` / 背景；高亮行有 `UI_PANEL_HI` 条、非高亮行没有；合成轨 chip 行强调色像素 3125（一个高亮 chip），鼓轨面板顶带 0；列表区当前项强调色文字 186 / 259 像素；提示行墨迹右缘 711 / 882 / 582 ≤ 1096（未被面板裁掉）。**人眼读图未做** |
+| 24 | 自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-6-selftest-heap.log`（stdout）、`task-6-selftest-heap-transcript.log`（串口） | ✅ rc=0（324s）：run 1 `delta=268`、run 2 `delta=36`（门限 ≤1,024B），收尾 `internal_free=72683B`（≥61,440）；两次 `cases=182/182 identical=182 … result=PASS`。transcript 里的 `task_wdt … IDLE1` 与 Task 4 的 transcript 同形（自检期间 console_repl 占住 CPU 1，既有现象） |
+| 25 | 还原核对 | `task-6-check.py` 收尾硬复位 + 自检堆之后再硬复位一次 | `task-6-check.out`、`task-6-restore.log` | ✅ `sel=0 bpm=120`、四轨 `engine=0 preset=0 level=104` 与基线逐字相同；`autosave=1 autosave_hash=FBC5F2C7 autosave_writes=0`；`zoom=0 dirty=0` |
+
+### 偏差与说明
+
+1. **row 0 的列表是 12 个引擎，不是「高亮引擎的预置」**（`rows=12`、`PICK 8` ⇒ `GRAIN`，与派发说明的更正期望一致；主控 R13 的文字写的是预置列表）。
+   两种读法互斥，按可核对的设备期望实现；row 1 才是预置列表（chip 预览别的引擎时换成该引擎的预置）。换成 R13 的字面读法只需改
+   `page_sound_picker_open()` 里 row 0 的 `rows`/高亮与 `list_select()` 的一条判断。
+2. **确认当前项不下发**（`unchanged`）：引擎 = 默认值 + 预置 0、预置 = 整份声音，打开面板后误触 ENTER 不该复位当前声音。R13 未规定这一条。
+3. `UI SOUND PICK <n>` 对不在一屏 11 行里的行会**先把列表滚到该行**再报矩形（否则报出的矩形在面板外，TAP 够不着）；高亮再变时列表才回去跟着高亮走。
+4. 12 个引擎 chip（11px/字符 + 24、间距 8）合计约 1,041px，比面板内宽 928 长：chip 行横向滚动，高亮 chip 始终留在行内（`→ ×9` 后 FM6 可见）。
+   真机的手指横向拖动 chip 行**没有验证**——chip 行不接受拖动，只能靠高亮带动。
+5. 池差 608–644B 随开的是 row 0 / row 1 与池历史浮动（三个对象 + 样式/事件簿记）；关后逐轮回到原值。

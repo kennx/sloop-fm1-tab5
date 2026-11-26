@@ -396,18 +396,6 @@
 | **参考** | `docs/design/012-feature-parity-checklist.md` §5、ADR-006 |
 | **登记** | 2026-11-24（P4-F Task 1 评审复查） |
 
-## DI-54: 工厂预置无按名浏览列表
-
-| 项 | 内容 |
-|---|---|
-| **背景** | 上游 PRESETS 页按名浏览全部工厂预置（KNOB 1 选、KNOB 2 换引擎）。P4-F Task 5 只在 SOUND 页眉提供 `ENGINE −/+` 与 `PRESET −/+` 步进选择（审计发现此前连步进都没有、只有 console `ENG TRACK`）。 |
-| **影响面** | 几百个工厂预置里找一个要靠步进；数据与换音功能本身已可达。 |
-| **为何可延迟** | 列表浏览需要名字列表投影 API 与一页可滚动 UI（池预算另评），不是「能不能换音」的问题。 |
-| **解决方向** | `sloop_core_preset_name(engine, k)` 投影上游名字表；PRESETS 页增「工厂」视图（按引擎分组的可滚动列表，est 另评）。 |
-| **触发条件** | 用户反馈步进选择太慢；或 PRESETS 页下次改版。 |
-| **参考** | `docs/design/012-feature-parity-checklist.md` §5、P4-F spec §4 SOUND 行 |
-| **登记** | 2026-11-24（P4-F Task 1 评审复查） |
-
 ## DI-55: 诊断期静默（`UI QUIESCE on/off`）每次转换泄漏约 40B 内部堆
 
 | 项 | 内容 |
