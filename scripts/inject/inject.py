@@ -609,7 +609,13 @@ def run_transport(s: Session) -> None:
     """① TRANSPORT：播放 + BPM 步进 → 截屏；再切 STEP 截播放头；最后复位为停止。
 
     前置：`normalize_pattern()`（LEN=16/DIV=2）——播放头「各轨同列」的判据依赖它，
-    设备上的 autosave 可能带着别的工程的 LEN/DIV（场景假设，原 DI-23 已按此思路收口）。"""
+    设备上的 autosave 可能带着别的工程的 LEN/DIV。诊断槽 3 的快照包住整个场景，
+    末尾 LOAD + LIVEHASH 核对后恢复入口选轨。"""
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
+    ensure_stopped(s)
+    # 快照覆盖整个 transport：入口归一与⑩g 之前的工具用例也会改工程，不能只保存⑩g 的中途态。
+    proj_snapshot_open(s, "transport.pattern", 3, "⑩g")
     normalize_pattern(s)
     s.cmd("UI transport")
     s.expect(r"UI page=transport \(3\)", "UI transport")
@@ -720,12 +726,14 @@ def run_transport(s: Session) -> None:
         f"播放推进：引擎 pos {pre_a} -> {pre_b}，帧列 {cls_a} -> {cls_b}"
         if advanced else f"两帧均未推进（pos={pre_a} 列={cls_a}）")
 
-    # 复位：停止并回 PLAY 页（脚本可重复运行）
+    # 复位：停止，LOAD 全场景入口快照并逐位核对，再恢复入口选轨与 PLAY 页。
     s.cmd("UI transport")
     s.cmd("TAP %d %d" % TRANSPORT_STOP)
     s.expect(r"-> TRANSPORT CMD_STOP", "TAP STOP（复位）")
     s.cmd("STATE SNAP")
     s.expect_int(r"playing=(\d)", 0, "STATE SNAP playing（复位）")
+    proj_snapshot_close(s, "transport.pattern", 3, "⑩g")
+    select_track(s, entry_sel)
     s.cmd("UI play")
 
 
@@ -1040,10 +1048,8 @@ def run_transport_tools(s: Session) -> None:
              "⑩ 鼓轨 SLIDE → ignored (not_synth)")
     (s.ok if seq_dstep(s, 5) == d4 else s.fail)("⑩ 不适用动作不改鼓步（逐字节不变）")
 
-    # ---------- ⑩g pattern 工具（先快照工程：CLEAR 会清 lock/micro/fill，UNDO 不含它们） ----------
-    # **破坏性**：占用诊断槽 3（入口非空则被工作工程快照覆盖）；基线跨截屏复位重跑保持
-    # （proj_snapshot_open，终审 C-I1）。
-    proj_snapshot_open(s, "transport.pattern", 3, "⑩g")
+    # ---------- ⑩g pattern 工具（外层已快照：CLEAR 会清 lock/micro/fill，UNDO 不含它们） ----------
+    # 诊断槽 3 的入口快照由 run_transport 持有，覆盖入口归一与⑩g 之前的全部工程改动。
     select_track(s, 0)
     tr_focus_step(s, 0, 2)
 
@@ -1100,9 +1106,18 @@ def run_transport_tools(s: Session) -> None:
              "⑩ 鼓轨 TRANSPOSE → ERR invalid")
     (s.ok if seq_dstep(s, 5) == d_before else s.fail)("⑩ 被拒的 TRANSPOSE 不改鼓步")
 
-    # 工程还原（诊断槽 3 的 LOAD 连 lock/micro/fill 一起回原状态）+ 槽收口（入口为空才擦：
-    # 入口非空的槽留着快照——它原来的内容已被覆盖，擦掉只是再丢一份）
-    proj_snapshot_close(s, "transport.pattern", 3, "⑩g")
+    # ⑩h 依赖 CLEAR/UNDO/REDO 之前的步内容：中途 LOAD 入口快照，但不关闭/擦除外层括号；
+    # 全场景末尾再由 proj_snapshot_close 做最终 LOAD 与槽收口。
+    hash0 = s.snapshots["transport.pattern"][0]
+    store_cmd(s, "STORE PROJ LOAD 3", rf"^PROJ 3 LOADED hash={hash0:08X}\r?$",
+              "⑩g 中途 LOAD 3（恢复步内容，保留外层快照）")
+    hash1 = live_hash(s)
+    (s.ok if hash1 == hash0 else s.fail)(f"⑩g 中途 LIVEHASH {hash1:08X} == 入口 {hash0:08X}")
+    if hash1 != hash0:
+        raise InjectError(f"⑩g 中途 LIVEHASH {hash1:08X} != 入口 {hash0:08X}；快照保留在槽 3")
+    # 原⑩g 快照是在 normalize_pattern 之后拍的；中途 LOAD 后恢复同样的测试几何，
+    # 否则入口的非默认 LEN/DIV 会泄漏到⑩h 与播放头用例。最终外层 close 仍恢复真实入口。
+    normalize_pattern(s, "⑩g 中途后恢复测试 LEN/DIV")
 
     # ---------- ⑩h 键盘：←/→ 移工具焦点、↑/↓ 调焦点字段、ENTER 切换 ----------
     select_track(s, 0)
