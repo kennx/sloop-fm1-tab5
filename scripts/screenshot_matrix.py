@@ -1073,6 +1073,14 @@ def run_matrix(port: str, out_root: Path, pages: set, retries: int, inject_drift
     interrupted = complete = False
     try:
         s.wait_ready()
+        # 清掉 DSYN/FM6P 选择器与 TRANSPORT 状态色等 UI 局部缓存；先证明复位没有丢工程编辑。
+        # 在首次 bracket_begin/AUTO OFF 之前执行：若 hash 变了，close_bracket 不会写任何状态。
+        entry_hash = inject.live_hash(s)
+        s.reboot()
+        boot_hash = inject.live_hash(s)
+        if boot_hash != entry_hash:
+            raise RebootLost(f"启动归一复位丢弃未落盘编辑：{entry_hash:08X} → {boot_hash:08X}")
+        s.ser.note(f"启动归一：硬复位前后 LIVEHASH 相同（{boot_hash:08X}），UI 局部态回默认值")
         run_no = 0
         while True:
             r.rows = []
