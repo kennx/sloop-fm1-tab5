@@ -2002,6 +2002,8 @@ def run_step_drum_lanes(s: Session) -> None:
 
 def run_tracks(s: Session) -> None:
     """③ TRACKS：点卡 2 → 断言选轨 → 截屏（选中态 = 6px 描边 + 亮底）。"""
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
     s.cmd("UI tracks")
     s.expect(r"UI page=tracks \(1\)", "UI tracks")
 
@@ -2023,6 +2025,7 @@ def run_tracks(s: Session) -> None:
 
 
     run_tracks_keys(s)
+    select_track(s, entry_sel)
 
 
 # 卡内 "MUTE x   SOLO y" 文本（page_tracks.c：卡内 (24,250)，宽 248）：屏幕绝对坐标的像素区。
