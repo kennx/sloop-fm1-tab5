@@ -15,7 +15,8 @@
 #   ④ UI：SAMPLE/DSYN/FM6P 三页截屏 + 像素抽检、`UI MEM` 的 SYNTH Σ 20,480 与逐页
 #      delta ≤ est、TAP 回显与屏幕状态行同源
 #   ⑤ 池：SYNTH 三页全建 → STEP 首建 `pool_free ≥4,096`；SYNTH/PLAY/SONG/FILE 往返 ≤128B
-#   ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 0/ANALOG、STORE AUTO ON
+#   ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 0/ANALOG、STORE AUTO ON；
+#      随后恢复入口轨 0/1 的引擎/预置与参数向量，最后恢复入口选轨
 # 用法: bash scripts/inject/synth.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 synth 场景里；本脚本只是入口。

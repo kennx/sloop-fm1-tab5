@@ -8813,7 +8813,8 @@ def run_synth(s: Session) -> None:
     ④ UI：三页截屏 + 像素抽检（组签/子签/SAMPLE 槽行/DSYN 字段页/FM6P 锁定 `--`）、
        `UI MEM` SYNTH Σ 20,480 与逐页 delta ≤ est、TAP 回显与屏幕状态行同源
     ⑤ 池：SYNTH 三页全建 → STEP 首建 `pool_free ≥4,096`；SYNTH/PLAY/SONG/FILE 往返 ≤128B
-    ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 1/0 → ANALOG、AUTO ON
+    ⑥ 收口：擦 USR1、DSYN 工厂 808 + STORE、银行槽擦除、轨 1/0 → ANALOG、AUTO ON；
+       随后恢复入口轨 0/1 的引擎/预置与参数向量，最后恢复入口选轨。
 
     **破坏性**（占用 USR1、SYN kit 0、银行槽 1、可能改写 autosave 工程），自带归一、可重复。
     注：DSYN 的 AUDITION 只断言命令/状态行——鼓引擎的 voices 不在 `ENG SNAP` 里
@@ -8821,6 +8822,13 @@ def run_synth(s: Session) -> None:
     """
     # ---------- ⓪ 归一 ----------
     s.ser.note("⓪ 归一：AUTO OFF / 停走带 / 轨 0 / USR1 空 / DSYN 工厂 808 / 银行 0..2 空")
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
+    eng0, vec0 = [], []
+    for track in range(2):
+        select_track(s, track)
+        eng0.append(sound_eng(s, track))
+        vec0.append(sound_read_vector(s))
     s.cmd("STORE AUTO OFF")
     s.expect(r"^STORE AUTO off", "⓪ STORE AUTO OFF")
     ensure_window(s, 0, 16)
@@ -9231,6 +9239,17 @@ def run_synth(s: Session) -> None:
     s.cmd("ENG SNAP")
     for k in (0, 1):
         s.expect(rf"^ENG SNAP trk k={k} engine=0 ", f"⑥ ENG SNAP 轨 {k} engine=0（无 FM6 泄漏）")
+
+    # 上述 ANALOG 归一断言之后恢复真实入口：引擎/预置先于参数，入口选轨最后。
+    for track in range(2):
+        select_track(s, track)
+        if sound_eng(s, track) != eng0[track]:
+            s.cmd(f"ENG TRACK {track} {eng0[track][0]} {eng0[track][1]}")
+            s.expect(rf"ENG TRACK k={track} engine={eng0[track][0]} preset={eng0[track][1]} OK",
+                     f"收口：轨 {track} 引擎·预置回入口")
+        sound_write_vector(s, vec0[track], f"收口：轨 {track} 参数向量回入口")
+        (s.ok if sound_read_vector(s) == vec0[track] else s.fail)(f"收口：轨 {track} 参数读回与入口一致")
+    select_track(s, entry_sel)
 
 
 # ---- sys 场景（P4-E 设置页）：存储/状态/SYSTEM 页/持久化/golden/池全矩阵 -----------
