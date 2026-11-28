@@ -1,0 +1,734 @@
+
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=120 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=127 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  UI WINDOW
+UI WINDOW bank=0 start=0 len=16
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=95
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=100
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=15
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=43
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0
+PARAM track=0 id=0 value=127 min=0 max=127
+sloop>  PARAM 1
+PARAM track=0 id=1 value=0 min=0 max=127
+sloop>  PARAM 2
+PARAM track=0 id=2 value=112 min=0 max=127
+sloop>  PARAM 3
+PARAM track=0 id=3 value=0 min=0 max=127
+sloop>  PARAM 4
+PARAM track=0 id=4 value=52 min=0 max=127
+sloop>  PARAM 5
+PARAM track=0 id=5 value=0 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=0 id=6 value=18 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=0 id=7 value=0 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=0 id=8 value=-9 min=-64 max=63
+sloop>  PARAM 9
+PARAM track=0 id=9 value=60 min=0 max=127
+sloop>  PARAM 10
+PARAM track=0 id=10 value=0 min=0 max=4
+sloop>  PARAM 11
+PARAM track=0 id=11 value=0 min=0 max=127
+sloop>  PARAM 12
+PARAM track=0 id=12 value=0 min=0 max=127
+sloop>  PARAM 13
+PARAM track=0 id=13 value=0 min=-64 max=63
+sloop>  PARAM 14
+PARAM track=0 id=14 value=0 min=-64 max=63
+sloop>  PARAM 15
+PARAM track=0 id=15 value=0 min=-64 max=63
+sloop>  PARAM 16
+PARAM track=0 id=16 value=0 min=0 max=127
+sloop>  PARAM 17
+PARAM track=0 id=17 value=14 min=0 max=14
+sloop>  PARAM 18
+PARAM track=0 id=18 value=5 min=0 max=5
+sloop>  PARAM 19
+PARAM track=0 id=19 value=4 min=1 max=4
+sloop>  PARAM 20
+PARAM track=0 id=20 value=61 min=1 max=127
+sloop>  PARAM 21
+PARAM track=0 id=21 value=51 min=0 max=100
+sloop>  PARAM 22
+PARAM track=0 id=22 value=67 min=0 max=127
+sloop>  PARAM 23
+PARAM track=0 id=23 value=1 min=0 max=1
+sloop>  PARAM 24
+PARAM track=0 id=24 value=1 min=0 max=1
+sloop>  PARAM 25
+PARAM track=0 id=25 value=11 min=0 max=11
+sloop>  PARAM 26
+PARAM track=0 id=26 value=15 min=0 max=15
+sloop>  PARAM 27
+PARAM track=0 id=27 value=2 min=0 max=2
+sloop>  PARAM 28
+PARAM track=0 id=28 value=-24 min=-24 max=24
+sloop>  PARAM 29
+PARAM track=0 id=29 value=16 min=1 max=64
+sloop>  PARAM 30
+PARAM track=0 id=30 value=2 min=0 max=8
+sloop>  PARAM 31
+PARAM track=0 id=31 value=75 min=0 max=100
+sloop>  PARAM 32
+PARAM track=0 id=32 value=97 min=1 max=127
+sloop>  PARAM 33
+PARAM track=0 id=33 value=0 min=0 max=127
+sloop>  PARAM 34
+PARAM track=0 id=34 value=0 min=0 max=127
+sloop>  PARAM 35
+PARAM track=0 id=35 value=0 min=0 max=127
+sloop>  PARAM 36
+PARAM track=0 id=36 value=0 min=0 max=127
+sloop>  PARAM 37
+PARAM track=0 id=37 value=2 min=0 max=3
+sloop>  PARAM 38
+PARAM track=0 id=38 value=59 min=0 max=127
+sloop>  PARAM 39
+PARAM track=0 id=39 value=63 min=-64 max=63
+sloop>  PARAM 40
+PARAM track=0 id=40 value=0 min=0 max=1
+sloop>  PARAM 41
+PARAM track=0 id=41 value=1 min=0 max=1
+sloop>  PARAM 42
+PARAM track=0 id=42 value=0 min=0 max=2
+sloop>  PARAM 43
+PARAM track=0 id=43 value=0 min=0 max=1
+sloop>  PARAM 44
+PARAM track=0 id=44 value=40 min=0 max=127
+sloop>  PARAM 45
+PARAM track=0 id=45 value=0 min=0 max=2
+sloop>  PARAM 46
+PARAM track=0 id=46 value=1 min=1 max=16
+sloop>  PARAM 47
+PARAM track=0 id=47 value=1 min=0 max=5
+sloop>  PARAM 48
+PARAM track=0 id=48 value=127 min=0 max=127
+sloop>  PARAM 49
+PARAM track=0 id=49 value=0 min=0 max=5
+sloop>  PARAM 50
+PARAM track=0 id=50 value=0 min=-64 max=63
+sloop>  PARAM 51
+PARAM track=0 id=51 value=0 min=-60 max=60
+sloop>  PARAM 52
+PARAM track=0 id=52 value=0 min=0 max=1
+sloop>  PARAM 53
+PARAM track=0 id=53 value=0 min=0 max=8
+sloop>  PARAM 54
+PARAM track=0 id=54 value=64 min=0 max=127
+sloop>  PARAM 55
+PARAM track=0 id=55 value=96 min=0 max=127
+sloop>  PARAM 56
+PARAM track=0 id=56 value=96 min=0 max=127
+sloop>  PARAM 57
+PARAM track=0 id=57 value=127 min=0 max=127
+sloop>  PARAM 58
+PARAM track=0 id=58 value=0 min=0 max=2
+sloop>  PARAM 59
+PARAM track=0 id=59 value=0 min=0 max=1
+sloop>  PARAM 60
+PARAM track=0 id=60 value=0 min=0 max=10
+sloop>  PARAM 61
+PARAM track=0 id=61 value=0 min=0 max=1
+sloop>  PARAM 62
+PARAM track=0 id=62 value=0 min=0 max=1
+sloop>  PARAM 63
+PARAM track=0 id=63 value=3 min=0 max=4
+sloop>  PARAM 64
+PARAM track=0 id=64 value=0 min=0 max=127
+sloop>  PARAM 65
+PARAM track=0 id=65 value=0 min=0 max=127
+sloop>  PARAM 66
+PARAM track=0 id=66 value=0 min=0 max=127
+sloop>  PARAM 67
+PARAM track=0 id=67 value=127 min=0 max=127
+sloop>  PARAM 68
+PARAM track=0 id=68 value=0 min=0 max=127
+sloop>  PARAM 69
+PARAM track=0 id=69 value=48 min=0 max=127
+sloop>  PARAM 70
+PARAM track=0 id=70 value=0 min=0 max=127
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=73
+sloop>  KEY 0x02 down
+KEY 0x02 down 2 elapsed_us=105
+sloop>  KEY 0x02 up
+KEY 0x02 up 2 elapsed_us=65
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=58
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0
+PARAM track=1 id=0 value=104 min=0 max=127
+sloop>  PARAM 1
+PARAM track=1 id=1 value=0 min=0 max=127
+sloop>  PARAM 2
+PARAM track=1 id=2 value=112 min=0 max=127
+sloop>  PARAM 3
+PARAM track=1 id=3 value=0 min=0 max=127
+sloop>  PARAM 4
+PARAM track=1 id=4 value=52 min=0 max=127
+sloop>  PARAM 5
+PARAM track=1 id=5 value=0 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=1 id=6 value=18 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=1 id=7 value=0 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=1 id=8 value=-9 min=-64 max=63
+sloop>  PARAM 9
+PARAM track=1 id=9 value=60 min=0 max=127
+sloop>  PARAM 10
+PARAM track=1 id=10 value=0 min=0 max=4
+sloop>  PARAM 11
+PARAM track=1 id=11 value=0 min=0 max=127
+sloop>  PARAM 12
+PARAM track=1 id=12 value=0 min=0 max=127
+sloop>  PARAM 13
+PARAM track=1 id=13 value=0 min=-64 max=63
+sloop>  PARAM 14
+PARAM track=1 id=14 value=0 min=-64 max=63
+sloop>  PARAM 15
+PARAM track=1 id=15 value=0 min=-64 max=63
+sloop>  PARAM 16
+PARAM track=1 id=16 value=0 min=0 max=127
+sloop>  PARAM 17
+PARAM track=1 id=17 value=0 min=0 max=14
+sloop>  PARAM 18
+PARAM track=1 id=18 value=2 min=0 max=5
+sloop>  PARAM 19
+PARAM track=1 id=19 value=1 min=1 max=4
+sloop>  PARAM 20
+PARAM track=1 id=20 value=64 min=1 max=127
+sloop>  PARAM 21
+PARAM track=1 id=21 value=0 min=0 max=100
+sloop>  PARAM 22
+PARAM track=1 id=22 value=127 min=0 max=127
+sloop>  PARAM 23
+PARAM track=1 id=23 value=0 min=0 max=1
+sloop>  PARAM 24
+PARAM track=1 id=24 value=0 min=0 max=1
+sloop>  PARAM 25
+PARAM track=1 id=25 value=0 min=0 max=11
+sloop>  PARAM 26
+PARAM track=1 id=26 value=0 min=0 max=15
+sloop>  PARAM 27
+PARAM track=1 id=27 value=0 min=0 max=2
+sloop>  PARAM 28
+PARAM track=1 id=28 value=-24 min=-24 max=24
+sloop>  PARAM 29
+PARAM track=1 id=29 value=16 min=1 max=64
+sloop>  PARAM 30
+PARAM track=1 id=30 value=2 min=0 max=8
+sloop>  PARAM 31
+PARAM track=1 id=31 value=0 min=0 max=100
+sloop>  PARAM 32
+PARAM track=1 id=32 value=64 min=1 max=127
+sloop>  PARAM 33
+PARAM track=1 id=33 value=0 min=0 max=127
+sloop>  PARAM 34
+PARAM track=1 id=34 value=0 min=0 max=127
+sloop>  PARAM 35
+PARAM track=1 id=35 value=0 min=0 max=127
+sloop>  PARAM 36
+PARAM track=1 id=36 value=0 min=0 max=127
+sloop>  PARAM 37
+PARAM track=1 id=37 value=2 min=0 max=3
+sloop>  PARAM 38
+PARAM track=1 id=38 value=59 min=0 max=127
+sloop>  PARAM 39
+PARAM track=1 id=39 value=0 min=-64 max=63
+sloop>  PARAM 40
+PARAM track=1 id=40 value=0 min=0 max=1
+sloop>  PARAM 41
+PARAM track=1 id=41 value=1 min=0 max=1
+sloop>  PARAM 42
+PARAM track=1 id=42 value=0 min=0 max=2
+sloop>  PARAM 43
+PARAM track=1 id=43 value=0 min=0 max=1
+sloop>  PARAM 44
+PARAM track=1 id=44 value=40 min=0 max=127
+sloop>  PARAM 45
+PARAM track=1 id=45 value=0 min=0 max=2
+sloop>  PARAM 46
+PARAM track=1 id=46 value=1 min=1 max=16
+sloop>  PARAM 47
+PARAM track=1 id=47 value=1 min=0 max=5
+sloop>  PARAM 48
+PARAM track=1 id=48 value=127 min=0 max=127
+sloop>  PARAM 49
+PARAM track=1 id=49 value=0 min=0 max=5
+sloop>  PARAM 50
+PARAM track=1 id=50 value=0 min=-64 max=63
+sloop>  PARAM 51
+PARAM track=1 id=51 value=0 min=-60 max=60
+sloop>  PARAM 52
+PARAM track=1 id=52 value=0 min=0 max=1
+sloop>  PARAM 53
+PARAM track=1 id=53 value=0 min=0 max=8
+sloop>  PARAM 54
+PARAM track=1 id=54 value=64 min=0 max=127
+sloop>  PARAM 55
+PARAM track=1 id=55 value=96 min=0 max=127
+sloop>  PARAM 56
+PARAM track=1 id=56 value=96 min=0 max=127
+sloop>  PARAM 57
+PARAM track=1 id=57 value=127 min=0 max=127
+sloop>  PARAM 58
+PARAM track=1 id=58 value=0 min=0 max=2
+sloop>  PARAM 59
+PARAM track=1 id=59 value=0 min=0 max=1
+sloop>  PARAM 60
+PARAM track=1 id=60 value=0 min=0 max=10
+sloop>  PARAM 61
+PARAM track=1 id=61 value=0 min=0 max=1
+sloop>  PARAM 62
+PARAM track=1 id=62 value=0 min=0 max=1
+sloop>  PARAM 63
+PARAM track=1 id=63 value=3 min=0 max=4
+sloop>  PARAM 64
+PARAM track=1 id=64 value=0 min=0 max=127
+sloop>  PARAM 65
+PARAM track=1 id=65 value=0 min=0 max=127
+sloop>  PARAM 66
+PARAM track=1 id=66 value=0 min=0 max=127
+sloop>  PARAM 67
+PARAM track=1 id=67 value=127 min=0 max=127
+sloop>  PARAM 68
+PARAM track=1 id=68 value=0 min=0 max=127
+sloop>  PARAM 69
+PARAM track=1 id=69 value=48 min=0 max=127
+sloop>  PARAM 70
+PARAM track=1 id=70 value=0 min=0 max=127
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=80
+sloop>  KEY 0x03 down
+KEY 0x03 down 3 elapsed_us=96
+sloop>  KEY 0x03 up
+KEY 0x03 up 3 elapsed_us=69
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=47
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=2 focus_step=5 layer_held=0x00 selected_track=2 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0
+PARAM track=2 id=0 value=104 min=0 max=127
+sloop>  PARAM 1
+PARAM track=2 id=1 value=0 min=0 max=127
+sloop>  PARAM 2
+PARAM track=2 id=2 value=112 min=0 max=127
+sloop>  PARAM 3
+PARAM track=2 id=3 value=0 min=0 max=127
+sloop>  PARAM 4
+PARAM track=2 id=4 value=52 min=0 max=127
+sloop>  PARAM 5
+PARAM track=2 id=5 value=0 min=-64 max=63
+sloop>  PARAM 6
+PARAM track=2 id=6 value=18 min=-64 max=63
+sloop>  PARAM 7
+PARAM track=2 id=7 value=0 min=-64 max=63
+sloop>  PARAM 8
+PARAM track=2 id=8 value=-9 min=-64 max=63
+sloop>  PARAM 9
+PARAM track=2 id=9 value=60 min=0 max=127
+sloop>  PARAM 10
+PARAM track=2 id=10 value=0 min=0 max=4
+sloop>  PARAM 11
+PARAM track=2 id=11 value=0 min=0 max=127
+sloop>  PARAM 12
+PARAM track=2 id=12 value=0 min=0 max=127
+sloop>  PARAM 13
+PARAM track=2 id=13 value=0 min=-64 max=63
+sloop>  PARAM 14
+PARAM track=2 id=14 value=0 min=-64 max=63
+sloop>  PARAM 15
+PARAM track=2 id=15 value=0 min=-64 max=63
+sloop>  PARAM 16
+PARAM track=2 id=16 value=0 min=0 max=127
+sloop>  PARAM 17
+PARAM track=2 id=17 value=0 min=0 max=14
+sloop>  PARAM 18
+PARAM track=2 id=18 value=2 min=0 max=5
+sloop>  PARAM 19
+PARAM track=2 id=19 value=1 min=1 max=4
+sloop>  PARAM 20
+PARAM track=2 id=20 value=64 min=1 max=127
+sloop>  PARAM 21
+PARAM track=2 id=21 value=0 min=0 max=100
+sloop>  PARAM 22
+PARAM track=2 id=22 value=127 min=0 max=127
+sloop>  PARAM 23
+PARAM track=2 id=23 value=0 min=0 max=1
+sloop>  PARAM 24
+PARAM track=2 id=24 value=0 min=0 max=1
+sloop>  PARAM 25
+PARAM track=2 id=25 value=0 min=0 max=11
+sloop>  PARAM 26
+PARAM track=2 id=26 value=0 min=0 max=15
+sloop>  PARAM 27
+PARAM track=2 id=27 value=0 min=0 max=2
+sloop>  PARAM 28
+PARAM track=2 id=28 value=-24 min=-24 max=24
+sloop>  PARAM 29
+PARAM track=2 id=29 value=16 min=1 max=64
+sloop>  PARAM 30
+PARAM track=2 id=30 value=2 min=0 max=8
+sloop>  PARAM 31
+PARAM track=2 id=31 value=0 min=0 max=100
+sloop>  PARAM 32
+PARAM track=2 id=32 value=64 min=1 max=127
+sloop>  PARAM 33
+PARAM track=2 id=33 value=0 min=0 max=127
+sloop>  PARAM 34
+PARAM track=2 id=34 value=0 min=0 max=127
+sloop>  PARAM 35
+PARAM track=2 id=35 value=0 min=0 max=127
+sloop>  PARAM 36
+PARAM track=2 id=36 value=0 min=0 max=127
+sloop>  PARAM 37
+PARAM track=2 id=37 value=2 min=0 max=3
+sloop>  PARAM 38
+PARAM track=2 id=38 value=59 min=0 max=127
+sloop>  PARAM 39
+PARAM track=2 id=39 value=0 min=-64 max=63
+sloop>  PARAM 40
+PARAM track=2 id=40 value=0 min=0 max=1
+sloop>  PARAM 41
+PARAM track=2 id=41 value=1 min=0 max=1
+sloop>  PARAM 42
+PARAM track=2 id=42 value=0 min=0 max=2
+sloop>  PARAM 43
+PARAM track=2 id=43 value=0 min=0 max=1
+sloop>  PARAM 44
+PARAM track=2 id=44 value=40 min=0 max=127
+sloop>  PARAM 45
+PARAM track=2 id=45 value=0 min=0 max=2
+sloop>  PARAM 46
+PARAM track=2 id=46 value=1 min=1 max=16
+sloop>  PARAM 47
+PARAM track=2 id=47 value=1 min=0 max=5
+sloop>  PARAM 48
+PARAM track=2 id=48 value=127 min=0 max=127
+sloop>  PARAM 49
+PARAM track=2 id=49 value=0 min=0 max=5
+sloop>  PARAM 50
+PARAM track=2 id=50 value=0 min=-64 max=63
+sloop>  PARAM 51
+PARAM track=2 id=51 value=0 min=-60 max=60
+sloop>  PARAM 52
+PARAM track=2 id=52 value=0 min=0 max=1
+sloop>  PARAM 53
+PARAM track=2 id=53 value=0 min=0 max=8
+sloop>  PARAM 54
+PARAM track=2 id=54 value=64 min=0 max=127
+sloop>  PARAM 55
+PARAM track=2 id=55 value=96 min=0 max=127
+sloop>  PARAM 56
+PARAM track=2 id=56 value=96 min=0 max=127
+sloop>  PARAM 57
+PARAM track=2 id=57 value=127 min=0 max=127
+sloop>  PARAM 58
+PARAM track=2 id=58 value=0 min=0 max=2
+sloop>  PARAM 59
+PARAM track=2 id=59 value=0 min=0 max=1
+sloop>  PARAM 60
+PARAM track=2 id=60 value=0 min=0 max=10
+sloop>  PARAM 61
+PARAM track=2 id=61 value=0 min=0 max=1
+sloop>  PARAM 62
+PARAM track=2 id=62 value=0 min=0 max=1
+sloop>  PARAM 63
+PARAM track=2 id=63 value=3 min=0 max=4
+sloop>  PARAM 64
+PARAM track=2 id=64 value=0 min=0 max=127
+sloop>  PARAM 65
+PARAM track=2 id=65 value=0 min=0 max=127
+sloop>  PARAM 66
+PARAM track=2 id=66 value=0 min=0 max=127
+sloop>  PARAM 67
+PARAM track=2 id=67 value=127 min=0 max=127
+sloop>  PARAM 68
+PARAM track=2 id=68 value=0 min=0 max=127
+sloop>  PARAM 69
+PARAM track=2 id=69 value=48 min=0 max=127
+sloop>  PARAM 70
+PARAM track=2 id=70 value=0 min=0 max=127
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=74
+sloop>  KEY 0x04 down
+KEY 0x04 down 4 elapsed_us=112
+sloop>  KEY 0x04 up
+KEY 0x04 up 4 elapsed_us=72
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=49
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=3 focus_step=5 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 63
+PARAM track=3 id=63 value=0 min=0 max=45
+sloop>  PARAM GLOBAL 0
+PARAM GLOBAL id=0 value=120 min=40 max=240
+sloop>  PARAM GLOBAL 1
+PARAM GLOBAL id=1 value=40 min=0 max=100
+sloop>  PARAM GLOBAL 2
+PARAM GLOBAL id=2 value=1 min=0 max=2
+sloop>  PARAM GLOBAL 3
+PARAM GLOBAL id=3 value=0 min=-50 max=50
+sloop>  PARAM GLOBAL 4
+PARAM GLOBAL id=4 value=0 min=0 max=8
+sloop>  PARAM GLOBAL 5
+PARAM GLOBAL id=5 value=0 min=0 max=120
+sloop>  PARAM GLOBAL 6
+PARAM GLOBAL id=6 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 7
+PARAM GLOBAL id=7 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 8
+PARAM GLOBAL id=8 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 9
+PARAM GLOBAL id=9 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 10
+PARAM GLOBAL id=10 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 11
+PARAM GLOBAL id=11 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 12
+PARAM GLOBAL id=12 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 13
+PARAM GLOBAL id=13 value=0 min=0 max=2
+sloop>  PARAM GLOBAL 14
+PARAM GLOBAL id=14 value=0 min=0 max=17
+sloop>  PARAM GLOBAL 15
+PARAM GLOBAL id=15 value=0 min=0 max=0
+sloop>  PARAM GLOBAL 16
+PARAM GLOBAL id=16 value=1 min=1 max=4
+sloop>  PARAM GLOBAL 17
+PARAM GLOBAL id=17 value=0 min=0 max=0
+sloop>  PARAM GLOBAL 18
+PARAM GLOBAL id=18 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 19
+PARAM GLOBAL id=19 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 20
+PARAM GLOBAL id=20 value=0 min=0 max=11
+sloop>  PARAM GLOBAL 21
+PARAM GLOBAL id=21 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 22
+PARAM GLOBAL id=22 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 23
+PARAM GLOBAL id=23 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 24
+PARAM GLOBAL id=24 value=10 min=0 max=16
+sloop>  PARAM GLOBAL 25
+PARAM GLOBAL id=25 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 26
+PARAM GLOBAL id=26 value=77 min=0 max=127
+sloop>  PARAM GLOBAL 27
+PARAM GLOBAL id=27 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 28
+PARAM GLOBAL id=28 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 29
+PARAM GLOBAL id=29 value=0 min=-64 max=63
+sloop>  PARAM GLOBAL 30
+PARAM GLOBAL id=30 value=1 min=0 max=4
+sloop>  PARAM GLOBAL 31
+PARAM GLOBAL id=31 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 32
+PARAM GLOBAL id=32 value=0 min=0 max=127
+sloop>  PARAM GLOBAL 33
+PARAM GLOBAL id=33 value=1 min=0 max=16
+sloop>  PARAM GLOBAL 34
+PARAM GLOBAL id=34 value=2 min=0 max=16
+sloop>  PARAM GLOBAL 35
+PARAM GLOBAL id=35 value=3 min=0 max=16
+sloop>  PARAM GLOBAL 36
+PARAM GLOBAL id=36 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 37
+PARAM GLOBAL id=37 value=0 min=0 max=10
+sloop>  PARAM GLOBAL 38
+PARAM GLOBAL id=38 value=64 min=0 max=127
+sloop>  PARAM GLOBAL 39
+PARAM GLOBAL id=39 value=0 min=-64 max=63
+sloop>  PARAM GLOBAL 40
+PARAM GLOBAL id=40 value=40 min=0 max=127
+sloop>  PARAM GLOBAL 41
+PARAM GLOBAL id=41 value=2 min=0 max=4
+sloop>  PARAM GLOBAL 42
+PARAM GLOBAL id=42 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 43
+PARAM GLOBAL id=43 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 44
+PARAM GLOBAL id=44 value=2 min=1 max=12
+sloop>  PARAM GLOBAL 45
+PARAM GLOBAL id=45 value=0 min=0 max=16
+sloop>  PARAM GLOBAL 46
+PARAM GLOBAL id=46 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 47
+PARAM GLOBAL id=47 value=0 min=0 max=16
+sloop>  PARAM GLOBAL 48
+PARAM GLOBAL id=48 value=0 min=0 max=1
+sloop>  PARAM GLOBAL 49
+PARAM GLOBAL id=49 value=0 min=0 max=15
+sloop>  PARAM GLOBAL 50
+PARAM ERR global id=50 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 51
+PARAM ERR global id=51 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 52
+PARAM ERR global id=52 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 53
+PARAM ERR global id=53 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 54
+PARAM ERR global id=54 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  PARAM GLOBAL 55
+PARAM ERR global id=55 reason=invalid_id
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=5576F15C autosave_writes=31 last_xrun=0 last_save_ms=70
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  STORE PRESET LIST
+PRESET 0 EMPTY
+PRESET 1 EMPTY
+PRESET 2 EMPTY
+PRESET 3 EMPTY
+PRESET 4 EMPTY
+PRESET 5 EMPTY
+PRESET 6 EMPTY
+PRESET 7 EMPTY
+PRESET 8 EMPTY
+PRESET 9 EMPTY
+PRESET 10 EMPTY
+PRESET 11 EMPTY
+PRESET 12 EMPTY
+PRESET 13 EMPTY
+PRESET 14 EMPTY
+PRESET 15 EMPTY
+PRESET 16 EMPTY
+PRESET 17 EMPTY
+PRESET 18 EMPTY
+PRESET 19 EMPTY
+PRESET 20 EMPTY
+PRESET 21 EMPTY
+PRESET 22 EMPTY
+PRESET 23 EMPTY
+PRESET 24 EMPTY
+PRESET 25 EMPTY
+PRESET 26 EMPTY
+PRESET 27 EMPTY
+PRESET 28 EMPTY
+PRESET 29 EMPTY
+PRESET 30 EMPTY
+PRESET 31 EMPTY
+PRESET COUNT used=0 total=32
+sloop>  STORE BANK LIST
+B0 EMPTY
+B1 EMPTY
+B2 EMPTY
+B3 EMPTY
+B4 EMPTY
+B5 EMPTY
+B6 EMPTY
+B7 EMPTY
+B8 EMPTY
+B9 EMPTY
+B10 EMPTY
+B11 EMPTY
+B12 EMPTY
+B13 EMPTY
+B14 EMPTY
+B15 EMPTY
+B16 EMPTY
+B17 EMPTY
+B18 EMPTY
+B19 EMPTY
+B20 EMPTY
+B21 EMPTY
+B22 EMPTY
+B23 EMPTY
+B24 EMPTY
+B25 EMPTY
+B26 EMPTY
+BANK COUNT used=0 total=27
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=95
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=148
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=65
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=50
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH 4E898759
+sloop>  # [baseline] # 结论：RESTORE MISMATCH（差异 6 项）

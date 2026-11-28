@@ -562,7 +562,7 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 - `task-8-sound-fail3-*`：预热起点离群造成首末 −140B（仅超 12B），所以加上述起点稳定条件；最终 clean run 为 −88B，阈值仍 128B。
 - `task-8-matrix-fail1-stdout.log`：`ensure_engine/select_track` 会落 TRACKS，`sound_reset` 在错误页发 `UI SOUND`；在 reset 入口显式 `UI sound` 后六态全过。
 - `task-8-step_edit-fail{1,2,3}-*`：发声探针的音频工作可见性是异步的。隔离按键 `task-8-voice-probe-*` 首次读数 voices=2；发声观察窗改为 1.0s。ENTER no-op 的 21 行引擎快照仍逐字比较，只排除异步 `voices=` 字段（`page_step.c:1118` 已证明合成轨直接返回），其它引擎/预置/步/lock 字段不放宽。
-- 六张 clean PNG 与 `sheet-edit.png` 已用视觉能力逐张读取：卡片、滚动、折叠重排、选择器、鼓轨锁定态均符合预期，无花屏、撕裂、错位或残留脏区。
+- 首轮六图与 `sheet-edit.png` 的视觉检查曾发现页眉占位框：`page_params.c` 的 `·`/`—` 不在 Montserrat 字形表，显示为 `SOUND □ TRACK`、`□ NO SOUND`；因此「全部视觉干净」不成立。fix round 1 已改为 ASCII `-`，并以 `task-8-fix1-sound-matrix/matrix-20261128-161533/` 重新抓取六图逐张复核：占位框消失，卡片、滚动、折叠、选择器与鼓轨锁定态正常。
 
 ### 开放项（不计为已闭合）
 
@@ -592,3 +592,36 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 - 歌曲顺序与 REC 配置也逐项回入口；入口 D 为空时擦快照，非空则保留。
 
 随后重新写回全部可恢复基线字段并等 autosave/settings 落盘（`task-8-final-restore-live-*`），再硬复位（`task-8-final-restore-{stdout,transcript}.log`）：**294/295 项仍相同，唯一差异仍是 `30117351 → 351646DB`**。`task-8-restore.txt` 已用这次最终对照更新。现在可以确定的永久差异是修复前 `sequence` 清掉的原始 pattern 内容（steps / locks / micro / fill）；没有入口备份，不能伪造或清空更多内容来制造一致。新修复保证后续 `sequence` 不再扩大这类损失。
+
+### 18b. Task 8 fix round 1：快照安全、独立 SOUND 判据与全场景 hash 门禁（2026-11-28）
+
+代码提交：`f5b4353`（脚本快照/SOUND）、`dae4b75`（固件页眉）、`197bdaf`（params 入口恢复）、`7223a5c`（tracks 选轨）、`ad34c63`（银行读取重试）。
+
+- **Critical #1**：`proj_snapshot_close` 在 LOAD 后 hash 不等时记 FAIL 并抛 `InjectError`，不再擦 D；消息明确「工作工程已改变、良好快照保留、`STORE PROJ LOAD <slot>` 可恢复」。`run_sequence` 包上异常清理：先停走带，D 仍是入口快照才 LOAD 并核 hash，歌曲/REC/autosave 各自尽力恢复；未验证步骤记 FAIL，原异常继续上抛；`ScenarioRestart` 明确跳过清理。`task-8-fix1-snapshot-selftest.log` 用 fake Session 证明「不符不擦/保留快照」与「原异常上抛 + restart 不清理」。
+- **Important #2**：12 引擎存在槽数钉完整元组 `(109,107,107,108,106,108,108,108,108,108,108,108)`；`task-8-fix1-sound-stdout.log` 实得完全一致。
+- **Important #3**：R12 在折叠最后一张展开卡之前读 flat，折叠后与跨拍读数都须等于该值；实得 flat=102（卡 12 槽 0）一致，锁定/值不变断言仍通过。
+- **Important #4**：SOUND 的 `try/finally` 前移到第一次选轨/设置写入之前；记录并恢复入口 collapsed mask，ZOOM 与选轨在早退也恢复。clean run 回显 `collapsed=0x0000（入口 0x0000）`。
+- **Minor #5**：`sound.sh` / scripts.md 改为「无破坏性工程/银行 STORE 操作」，不再把 ZOOM 的 `STORE SETTINGS SET` 说成零写；sequence docstring 与 console-and-injection 的十一场景清单同步。
+- **Minor #6**：`page_params.c:521-535` 的 `·`/`—` 全部改 ASCII `-`；第二遍构建 0 警告、3× Hash verified、启动无 fatal/abort/backtrace。新矩阵 6/6、31/31 锚点全中，像素坐标没有因文字变化而调整；新图目检无占位框。
+
+全场景结果（PASS 含末行总 PASS；原始 transcript 与 stdout 同包；每个 stdout 末尾有入口/出口 hash）：
+
+| 场景 | PASS / FAIL | 首次入口 → 出口 | 修复/复跑后的稳定证明 |
+|---|---:|---|---|
+| sound | 404 / 0 | 351646DB → 351646DB | 不变；新增四项判据均过 |
+| nav | 527 / 0 | 351646DB → 351646DB | 不变 |
+| params | 369 / 0 | 修复前 351646DB → 4E898759 | 修复后 **4E898759 → 4E898759**；轨 0 全 71 参数/引擎/预置/选轨回入口 |
+| store | 902 / 0 | 4E898759 → B17A591C（既有归一） | 复跑 `store-2`：**B17A591C → B17A591C** |
+| song | 353 / 0 | B17A591C → B17A591C | 不变 |
+| sys | 353 / 0 | B17A591C → B17A591C | 不变 |
+| tracks | 87 / 0 | 修复前 B17A591C → 216B5ABA | 修复后 **216B5ABA → 216B5ABA**；选轨回最外层入口 |
+| sequence ×2 | 各 567 / 0 | 两轮均 **216B5ABA → 216B5ABA** | 快照 LOAD + hash、歌曲/REC 均回入口 |
+| synth | 794 / 0 | 216B5ABA → 769D9D1C（既有归一） | 银行重试后 `synth-2`：**769D9D1C → 769D9D1C**；两次失败证据保留（USB 日志交错），第三次完整 PASS |
+| step_edit | 319 / 0 | 769D9D1C → 80F8C6F0（既有归一） | 复跑 `step_edit-2`：**80F8C6F0 → 80F8C6F0** |
+| transport | 288 / 0 | 80F8C6F0 → 4114C0AC（既有归一） | 复跑 `transport-2`：**4114C0AC → 4114C0AC** |
+
+补充修复的根因证据：`task-8-fix1-params-fields.txt` 显示 ATK/DEC/SUS/REL 残留；`tracks` 的局部入口在点卡 2 之后才拍，选轨因此残留；`synth-2-fail{1,2}-*` 记录 USB host 日志插入 256-hex 行，银行读取改为有界三次重试，不放宽长度/字节断言。归一化场景首次改变工程的情况按上表逐项保留，没有伪装成首次也不变。
+
+矩阵 `task-8-fix1-sound-matrix/matrix-20261128-161533/` 六条目的 LIVEHASH 均为 **4114C0AC**。`selftest-heap` 两次均 182/182，run 1/2 Δ260/44B，`internal_min=75,136B`，收尾 75,987B。最终 `task-8-restore.txt` 是**不修改当前工程来迎合旧 hash**的硬复位对照：当前 `4114C0AC`，与原基线有 38 项字段差异（原 `30117351`；其中原始 pattern 已永久丢失）。本轮证明的是修复/归一后各场景的入口/出口稳定，而不是恢复原工程。
+
+其它仍无异常清理的快照使用者已登记 **DI-66**：`transport.pattern`、`step_edit.erase`、`params.tools`。按评审要求未在本轮统一重构；它们正常路径的 LIVEHASH 断言不受影响。

@@ -1,0 +1,2 @@
+PASS proj_snapshot_close mismatch preserves snapshot and rejects erase
+PASS run_sequence cleanup rethrows original exception and excludes ScenarioRestart

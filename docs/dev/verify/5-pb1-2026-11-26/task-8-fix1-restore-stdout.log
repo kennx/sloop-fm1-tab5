@@ -1,0 +1,4 @@
+# [baseline] esptool 硬复位（flash_id --after hard_reset，不写 flash）；以下至存储就绪为启动日志原始回显
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+# [baseline] # 结论：RESTORE MISMATCH（差异 38 项）

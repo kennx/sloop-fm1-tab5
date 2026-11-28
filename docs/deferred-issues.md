@@ -527,3 +527,15 @@
 | **触发条件** | 下一次改冒烟脚本时；或 5C 断连恢复场景把它扩展成多段自动门禁时。 |
 | **参考** | `scripts/fm1-smoke.py`（`verdict_line()`、`_verdict()`、`run_selftest()`）、`docs/dev/reference/verification-gates.md`「联动协议」行、`docs/dev/closeout-phase5a.md` §5（R32）、§6 |
 | **登记** | 2026-11-26（5A 终审修复波记账，补证收口时登记） |
+
+## DI-66: 其余工程快照场景缺少异常收口（评审明确要求不在本轮统一重构）
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `proj_snapshot_close` 已改为 hash 不符不擦诊断槽；`sequence` 也已有异常尽力还原。但另外三处使用 `proj_snapshot_open`/`close` 的场景没有 `try/finally` 或等价的异常清理：`transport.pattern`（`inject.py` 约 1046–1105）、`step_edit.erase`（约 1569–1703）、`params.tools`（约 3788–3941）。 |
+| **影响面** | 超时、串口错误或其它 `InjectError` 提前退出时，工作工程可能停在测试中途态，歌曲/REC/autosave 也可能未恢复。诊断槽里的入口快照仍在时，可手动 `STORE PROJ LOAD <slot>` 恢复；正常 PASS 路径不受影响。 |
+| **为何可延迟** | Task 8 fix round 1 的评审只要求修 `sequence`，并明确「do NOT refactor them all」。这些路径已有正常路径的 LIVEHASH 断言与跨 `ScenarioRestart` 的快照基线，统一异常清理需要各自的故障注入验证，不能机械复制。 |
+| **解决方向** | 给三处分别加 best-effort 异常收口：先确认诊断槽仍是入口快照再 LOAD，hash 不符不擦；随后还原歌曲/REC/autosave，并 loud-fail 未验证步骤。复用 `sequence` 的模式但不为共享 helper 改变现有场景语义；补超时/LOAD 失败/快照被覆盖三类测试。 |
+| **触发条件** | 下一次修改这三段或其公共 snapshot helper 时处理；若真机在这些路径发生异常中止，优先处理并记录恢复证据。 |
+| **参考** | `scripts/inject/inject.py` 的 `run_transport`、`run_step_edit`、`param_tools`、`proj_snapshot_close`；`run_sequence` / `_sequence_cleanup_on_error`（已实现的异常路径示例） |
+| **登记** | 2026-11-28（Task 8 fix round 1，Critical #1 的明确范围外项） |
