@@ -1310,7 +1310,14 @@ def run_transport_tools(s: Session) -> None:
 def run_step_edit(s: Session) -> None:
     """② STEP：窗口列编辑闭环 + 分窗（bank1 绝对步号/隐藏列/播放头映射）+ 截屏。
     可重复运行：目标格已亮先经同一 TAP 路径点灭；结束复位默认窗口与停止态。"""
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
+    select_track(s, 0)
+    eng0 = sound_eng(s, 0)
+    vec0 = sound_read_vector(s)
     ensure_stopped(s)
+    # 快照必须包住整个 step_edit：②a–②f 也在②g 之前改步，不能只保存②g 的中途入口。
+    proj_snapshot_open(s, "step_edit.erase", 3, "②g")
     normalize_pattern(s)  # LEN=16：bank1 的 DIM 判据（绝对步 ≥ LEN 才暗显）
     ensure_window(s, 0, 16)  # 归一到默认窗口：注入几何由此派生（列 c = 绝对步 c）
     # ②e 的 CONT 前提是轨 0 为 POLY：`normalize_pattern` 末尾选中轨 2，且设备可能从
@@ -1481,6 +1488,15 @@ def run_step_edit(s: Session) -> None:
     # ②g EDIT 层 a–g（Aa + 音名键）擦除聚焦步里的同名音（P4-F Task 7）
     run_step_edit_erase(s)
 
+    # ②g 的快照覆盖步内容；这里恢复它之外被入口归一修改的轨 0 参数与选中轨。
+    select_track(s, 0)
+    if sound_eng(s, 0) != eng0:
+        s.cmd(f"ENG TRACK 0 {eng0[0]} {eng0[1]}")
+        s.expect(rf"ENG TRACK k=0 engine={eng0[0]} preset={eng0[1]} OK", "收口：轨 0 引擎·预置回入口")
+    sound_write_vector(s, vec0, "收口：轨 0 参数向量回入口")
+    (s.ok if sound_read_vector(s) == vec0 else s.fail)("收口：轨 0 参数读回与入口一致")
+    proj_snapshot_close(s, "step_edit.erase", 3, "②g")
+    select_track(s, entry_sel)
     s.cmd("UI play")
 
 
@@ -1556,17 +1572,15 @@ def run_step_edit_erase(s: Session) -> None:
     `CMD_ERASE_NOTE`，`input.c` 的 act_erase）。断言引擎真值 `ENG STEP`：命中的音消失、
     同步其余音（和弦）与其余步不变；无匹配音级 ⇒ 步不变；不按 Aa 时 c 是演奏键（聚焦在持
     C4 的步 8 上按住 c：音符发声、步表不变）；鼓轨无此语义（聚焦鼓轨时 no-op）；诊断冻结时
-    同一个会擦的键（Aa+f 对准 F4 步）不写引擎。收口：`STORE PROJ LOAD 3` 把工作工程还原成
-    入口快照（LIVEHASH 逐位证明；入口为空的诊断槽 D 擦回空）、last_note 回 60（C4，其余场景
-    TAP 建音的缺省音高）、焦点回 T1 入口列。"""
+    同一个会擦的键（Aa+f 对准 F4 步）不写引擎。工作工程由 run_step_edit 入口的
+    快照包住②a–②g 并在全场景收口还原（LIVEHASH 逐位证明）；本段另把 last_note 回 60
+    （C4，其余场景 TAP 建音的缺省音高）、焦点回 T1 入口列。"""
     s.ser.note("②g EDIT 层擦除：Aa + 音名键 ⇒ 聚焦步的同名音消失（ENG STEP 真值）")
     ensure_stopped(s)
     s.cmd("STATE SNAP")
     focus0 = s.snap_int(r"focus_step=(\d+)")
-    # 工作工程快照（诊断槽 D = 3，与 transport/sequence 的约定一致）：本段在轨 0 造/擦音符，
-    # 收口 LOAD 还原。入口槽 D 若非空，其内容被本快照覆盖（注记）；入口为空则收口擦回空。
+    # 工作工程快照由 run_step_edit 的入口持有（诊断槽 D = 3），覆盖②a–②g 全部步编辑；
     # 基线跨截屏复位重跑保持（proj_snapshot_open，终审 C-I1）。
-    proj_snapshot_open(s, "step_edit.erase", 3, "②g")
     audible0 = erase_audible_norm(s)
     ensure_window(s, 0, 16)
     s.cmd("UI step")
@@ -1698,9 +1712,7 @@ def run_step_edit_erase(s: Session) -> None:
         "②g 冻结期间 Aa+f 未写引擎：步 14 逐字段不变" if frozen1 == frozen0 else
         f"②g 冻结期间步 14 被改写：{frozen0} → {frozen1}")
 
-    # 收口：LOAD 入口快照还原工作工程（本段造/擦的音随之消失），LIVEHASH 逐位证明；
-    # last_note 回 60、焦点回 T1 入口列。槽 D 入口为空则擦回空。
-    proj_snapshot_close(s, "step_edit.erase", 3, "②g")
+    # 工作工程由 run_step_edit 的外层快照统一还原；这里只恢复本段发声前提与 UI 局部态。
     erase_audible_restore(s, audible0)
     s.cmd("KEY 0x%02X down" % KEY_NOTE_C4)
     s.expect(rf"KEY 0x{KEY_NOTE_C4:02X} down", "②g 收口 last_note = 60")
