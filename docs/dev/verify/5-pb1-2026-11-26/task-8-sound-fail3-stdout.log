@@ -1,0 +1,433 @@
+  [fw] SCR
+  [fw] I (91096467) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (91113497) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (91132267) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (91156177) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (91174427) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (91222337) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+== inject sound @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728.log
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] Ctrl+4 选轨 3: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4 选轨 3: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ① 归一轨 0 = ANALOG 预置 0
+  [PASS] ① UI sound
+  [PASS] ①: 全部卡片展开 collapsed=0x0000
+  [PASS] ① UI SOUND SCROLL 0 → y=0
+  [PASS] ① `UI sound CHIP` → chip=255（仪表盘没有 chip 行）
+  [PASS] ① `UI sound CHIP` 没有逐槽行
+  [PASS] ② UI MEM SOUND state=built est=8704（期望 built / 8,704）
+  [PASS] ② UI MEM SOUND delta=6512（0 < delta ≤ 8,704）
+  [PASS] ② UI MEM EDIT built=1 sum_est=8704 build_ms=15ms（期望 1 / 8,704 / 0 < x ≤ 100）
+  [PASS] ③ UI SOUND STATS cards=13 scroll_max=1932（期望 13 / 1932）
+  [PASS] ③ ANALOG：Global 卡 4 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Master 卡 5 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Envelope 卡 9 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：LFO 卡 11 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Engine edit 卡 9 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Voice 卡 9 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：FX 卡 22 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Scale 卡 7 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Arp 卡 8 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Pattern 卡 4 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Drums 卡 4 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：MIDI 卡 10 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG：Texture 卡 7 槽 flat/present/label 与成员表·ENG DESC 一致
+  [PASS] ③ ANALOG: UI SOUND STATS cards=13 slots=109（期望 13 / 109 = 逐槽核对的存在数）
+  [PASS] ③ ANALOG 存在槽 109/109
+  [PASS] ③ P_FTYPE（Engine edit 卡槽 8）present=1 flat=37 label='TYPE'（期望 present=1 / flat=37）
+  [PASS] ④ Global 卡 BPM: KNOB press (0, -40) → value 120（期望 value 120：按下只记锚点、不改值）
+  [PASS] ④ Global 卡 BPM: KNOB drag (40, 0)（+90°）→ value 187（期望 value 187 = 120 +90°×[40..240]/270）
+  [PASS] ④ Global 卡 BPM 拖后: PARAM 真值 187（期望 187）
+  [PASS] ④ Global 卡 BPM 拖后: STATE SNAP bpm=187（期望 187）
+  [PASS] ④ Global 卡 BPM 拖回: KNOB press (0, -40) → value 187（期望 value 187）
+  [PASS] ④ Global 卡 BPM 拖回: KNOB drag (-40, 0)（-90°）→ value 120（期望 value 120）
+  [PASS] ④ Master 卡 DUST: KNOB press (0, -40) → value 0（期望 value 0：按下只记锚点、不改值）
+  [PASS] ④ Master 卡 DUST: KNOB drag (40, 0)（+90°）→ value 42（期望 value 42 = 0 +90°×[0..127]/270）
+  [PASS] ④ Master 卡 DUST 拖后: PARAM 真值 42（期望 42）
+  [PASS] ④ Master 卡 DUST 拖回: KNOB press (0, -40) → value 42（期望 value 42）
+  [PASS] ④ Master 卡 DUST 拖回: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ④ Envelope 卡 ATK: KNOB press (0, -40) → value 0（期望 value 0：按下只记锚点、不改值）
+  [PASS] ④ Envelope 卡 ATK: KNOB drag (40, 0)（+90°）→ value 42（期望 value 42 = 0 +90°×[0..127]/270）
+  [PASS] ④ Envelope 卡 ATK 拖后: PARAM 真值 42（期望 42）
+  [PASS] ④ Envelope 卡 ATK 拖后: STATE SNAP atk=42（期望 42）
+  [PASS] ④ Envelope 卡 ATK 拖回: KNOB press (0, -40) → value 42（期望 value 42）
+  [PASS] ④ Envelope 卡 ATK 拖回: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ④ LFO 卡 RATE: KNOB press (0, -40) → value 60（期望 value 60：按下只记锚点、不改值）
+  [PASS] ④ LFO 卡 RATE: KNOB drag (40, 0)（+90°）→ value 102（期望 value 102 = 60 +90°×[0..127]/270）
+  [PASS] ④ LFO 卡 RATE 拖后: PARAM 真值 102（期望 102）
+  [PASS] ④ LFO 卡 RATE 拖回: KNOB press (0, -40) → value 102（期望 value 102）
+  [PASS] ④ LFO 卡 RATE 拖回: KNOB drag (-40, 0)（-90°）→ value 60（期望 value 60）
+  [PASS] ④ Engine edit 卡 WAVE: KNOB press (0, -40) → value 3（期望 value 3：按下只记锚点、不改值）
+  [PASS] ④ Engine edit 卡 WAVE: KNOB drag (40, 0)（+90°）→ value 4（期望 value 4 = 3 +90°×[0..4]/270）
+  [PASS] ④ Engine edit 卡 WAVE 拖后: PARAM 真值 4（期望 4）
+  [PASS] ④ Engine edit 卡 WAVE 拖回: KNOB press (0, -40) → value 4（期望 value 4）
+  [PASS] ④ Engine edit 卡 WAVE 拖回: KNOB drag (-40, 0)（-90°）→ value 3（期望 value 3）
+  [PASS] ④ Voice 卡 LVL: KNOB press (0, -40) → value 127（期望 value 127：按下只记锚点、不改值）
+  [PASS] ④ Voice 卡 LVL: KNOB drag (-40, 0)（-90°）→ value 85（期望 value 85 = 127 -90°×[0..127]/270）
+  [PASS] ④ Voice 卡 LVL 拖后: PARAM 真值 85（期望 85）
+  [PASS] ④ Voice 卡 LVL 拖后: STATE SNAP level=85（期望 85）
+  [PASS] ④ Voice 卡 LVL 拖回: KNOB press (0, -40) → value 85（期望 value 85）
+  [PASS] ④ Voice 卡 LVL 拖回: KNOB drag (40, 0)（+90°）→ value 127（期望 value 127）
+  [PASS] ④ FX 卡 DST: KNOB press (0, -40) → value 0（期望 value 0：按下只记锚点、不改值）
+  [PASS] ④ FX 卡 DST: KNOB drag (40, 0)（+90°）→ value 42（期望 value 42 = 0 +90°×[0..127]/270）
+  [PASS] ④ FX 卡 DST 拖后: PARAM 真值 42（期望 42）
+  [PASS] ④ FX 卡 DST 拖回: KNOB press (0, -40) → value 42（期望 value 42）
+  [PASS] ④ FX 卡 DST 拖回: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ④ Scale 卡 ROOT: KNOB press (0, -40) → value 11（期望 value 11：按下只记锚点、不改值）
+  [PASS] ④ Scale 卡 ROOT: KNOB drag (-40, 0)（-90°）→ value 7（期望 value 7 = 11 -90°×[0..11]/270）
+  [PASS] ④ Scale 卡 ROOT 拖后: PARAM 真值 7（期望 7）
+  [PASS] ④ Scale 卡 ROOT 拖回: KNOB press (0, -40) → value 7（期望 value 7）
+  [PASS] ④ Scale 卡 ROOT 拖回: KNOB drag (40, 0)（+90°）→ value 11（期望 value 11）
+  [PASS] ④ Arp 卡 MODE: KNOB press (0, -40) → value 14（期望 value 14：按下只记锚点、不改值）
+  [PASS] ④ Arp 卡 MODE: KNOB drag (-40, 0)（-90°）→ value 9（期望 value 9 = 14 -90°×[0..14]/270）
+  [PASS] ④ Arp 卡 MODE 拖后: PARAM 真值 9（期望 9）
+  [PASS] ④ Arp 卡 MODE 拖回: KNOB press (0, -40) → value 9（期望 value 9）
+  [PASS] ④ Arp 卡 MODE 拖回: KNOB drag (40, 0)（+90°）→ value 14（期望 value 14）
+  [PASS] ④ Pattern 卡 LEN: KNOB press (0, -40) → value 16（期望 value 16：按下只记锚点、不改值）
+  [PASS] ④ Pattern 卡 LEN: KNOB drag (40, 0)（+90°）→ value 37（期望 value 37 = 16 +90°×[1..64]/270）
+  [PASS] ④ Pattern 卡 LEN 拖后: PARAM 真值 37（期望 37）
+  [PASS] ④ Pattern 卡 LEN 拖后: STATE SNAP slen=37（期望 37）
+  [PASS] ④ Pattern 卡 LEN 拖回: KNOB press (0, -40) → value 37（期望 value 37）
+  [PASS] ④ Pattern 卡 LEN 拖回: KNOB drag (-40, 0)（-90°）→ value 16（期望 value 16）
+  [PASS] ④ Drums 卡 CH4: KNOB press (0, -40) → value 10（期望 value 10：按下只记锚点、不改值）
+  [PASS] ④ Drums 卡 CH4: KNOB drag (40, 0)（+90°）→ value 15（期望 value 15 = 10 +90°×[0..16]/270）
+  [PASS] ④ Drums 卡 CH4 拖后: PARAM 真值 15（期望 15）
+  [PASS] ④ Drums 卡 CH4 拖回: KNOB press (0, -40) → value 15（期望 value 15）
+  [PASS] ④ Drums 卡 CH4 拖回: KNOB drag (-40, 0)（-90°）→ value 10（期望 value 10）
+  [PASS] ④ MIDI 卡 CH1: KNOB press (0, -40) → value 1（期望 value 1：按下只记锚点、不改值）
+  [PASS] ④ MIDI 卡 CH1: KNOB drag (40, 0)（+90°）→ value 6（期望 value 6 = 1 +90°×[0..16]/270）
+  [PASS] ④ MIDI 卡 CH1 拖后: PARAM 真值 6（期望 6）
+  [PASS] ④ MIDI 卡 CH1 拖回: KNOB press (0, -40) → value 6（期望 value 6）
+  [PASS] ④ MIDI 卡 CH1 拖回: KNOB drag (-40, 0)（-90°）→ value 1（期望 value 1）
+  [PASS] ④ Texture 卡 SRC: KNOB press (0, -40) → value 0（期望 value 0：按下只记锚点、不改值）
+  [PASS] ④ Texture 卡 SRC: KNOB drag (40, 0)（+90°）→ value 3（期望 value 3 = 0 +90°×[0..10]/270）
+  [PASS] ④ Texture 卡 SRC 拖后: PARAM 真值 3（期望 3）
+  [PASS] ④ Texture 卡 SRC 拖回: KNOB press (0, -40) → value 3（期望 value 3）
+  [PASS] ④ Texture 卡 SRC 拖回: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ⑤ 环带内缘之内: UI SOUND KNOB press (0,20) → ring band（期望 ring band）
+  [PASS] ⑤ 环带外按下之后的 drag: UI SOUND KNOB drag (40,0) → ring band（期望 ring band）
+  [PASS] ⑤ 环带外缘之外: UI SOUND KNOB press (0,60) → ring band（期望 ring band）
+  [PASS] ⑤ 环带外两次注入之后: PARAM 真值 0（期望 0）
+  [PASS] ⑤ 环带外两次注入之后: STATE SNAP atk=0（期望 0）
+  [PASS] Ctrl+2 选轨 1: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+2 选轨 1: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑤ 无锚点（换轨后）的 drag: UI SOUND KNOB drag (40,0) → ring band（期望 ring band）
+  [PASS] ⑤ 无锚点 drag 之后: PARAM 真值 0（期望 0）
+  [PASS] ⑤ 无锚点 drag 之后: STATE SNAP atk=0（期望 0）
+  [PASS] ⑥ ←: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ←：焦点 flat=8 'FILT'（期望 8）
+  [PASS] ⑥ → →: KEY 回显 4/4 行、顺序一致
+  [PASS] ⑥ → →：焦点 flat=10 'DEC'（期望 10）
+  [PASS] ⑥ 焦点在首槽按 ←: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ← 环绕：flat=108（期望 108 = 末槽）
+  [PASS] ⑥ 焦点在末槽按 →: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ → 环绕：flat=0（期望 0）
+  [PASS] ⑥ ATK 入口值在端点：先挪到中值: PARAM 写回 63（没有一步到位的拖动方向）
+  [PASS] ⑥ ATK 基线 63 在 (0..127) 内（±1 都有判别力）
+  [PASS] ⑥ ↑: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ↑ = +1: PARAM 真值 64（期望 64）
+  [PASS] ⑥ ↑ = +1: STATE SNAP atk=64（期望 64）
+  [PASS] ⑥ ↓: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ↓ = −1（回基线）: PARAM 真值 63（期望 63）
+  [PASS] ⑥ ↓ = −1（回基线）: STATE SNAP atk=63（期望 63）
+  [PASS] ⑥ ENTER: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ENTER = +1: PARAM 真值 64（期望 64）
+  [PASS] ⑥ ENTER = +1: STATE SNAP atk=64（期望 64）
+  [PASS] ⑥ TAP −（焦点槽）
+  [PASS] ⑥ TAP − 之后: PARAM 真值 63（期望 63）
+  [PASS] ⑥ TAP − 之后: STATE SNAP atk=63（期望 63）
+  [PASS] ⑥ TAP +（焦点槽）
+  [PASS] ⑥ TAP + 之后: PARAM 真值 64（期望 64）
+  [PASS] ⑥ TAP + 之后: STATE SNAP atk=64（期望 64）
+  [PASS] ⑥ TAP −（回基线）
+  [PASS] ⑥ TAP − 回基线: PARAM 真值 63（期望 63）
+  [PASS] ⑥ TAP − 回基线: STATE SNAP atk=63（期望 63）
+  [PASS] ⑥ ATK 回入口值: KNOB press (40, 0) → value 63（期望 value 63）
+  [PASS] ⑥ ATK 回入口值: KNOB drag (-28, -28)（-135°）→ value 0（期望 value 0）
+  [PASS] ⑥ 折叠 Envelope 卡
+  [PASS] ⑥ 焦点槽被折叠：重指到 flat=18 'RATE'（期望 18）
+  [PASS] ⑥ ←（跳过折叠卡）: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ ← 跳过折叠的 Envelope 卡：flat=8（期望 8）
+  [PASS] ⑥ →（跳过折叠卡）: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑥ → 跳过折叠的 Envelope 卡：flat=18（期望 18）
+  [PASS] ⑥ 展开 Envelope 卡
+  [PASS] ⑥ 全部折叠：collapsed=0x1FFF（期望 0x1FFF）
+  [PASS] ⑥ 全折叠下焦点保持：flat=102 'SRC'（存在的槽；跨拍读回 102）
+  [PASS] ⑥ 全折叠下 ↑ ↓ ENTER: KEY 回显 6/6 行、顺序一致
+  [PASS] ⑥ 全折叠下 TAP + → locked
+  [PASS] ⑥ 全折叠下 ↑↓/ENTER/+ 之后（值不变）: PARAM 真值 0（期望 0）
+  [PASS] ⑥: 全部卡片展开 collapsed=0x0000
+  [PASS] ⑦ SCROLL 0 → y=0 max=1932（期望 0 / 1932 = 内容高 − 视口高）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-default.png  (1280x720 rgb565)
+  [PASS] ⑦ 默认帧：Global 卡底（UI_PANEL）: (21,252) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 默认帧：Master 卡底（UI_PANEL）: (653,252) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 默认帧：卡间 8px 缝是页面背景: (116,336) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] ⑦ 默认帧：列间 16px 缝是页面背景: (640,400) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] ⑦ 默认帧：选轨条第 1 格（当前轨）UI_PANEL_SEL: (972,92) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 10）
+  [PASS] ⑦ 默认帧：选轨条第 2 格 UI_PANEL: (1048,92) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 默认帧：提示行灰字: 区域 (16, 118, 1088, 144) 内 (144, 148, 160)±24 像素 1270（阈值 ≥40）
+  [PASS] ⑦ 槽 0 矩形 (28, 188, 140, 132)（期望 (28, 188, 140, 132)：页面区 + 视口顶 + 标题行）
+  [PASS] ⑦ 默认帧：焦点槽（BPM）描边 UI_ACCENT: (30,254) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑦ 默认帧：BPM 环顶 UI_PANEL_HI: (67,279) 实测 (24,32,32) ≈ 期望 (32,40,48)（容差 16）
+  [PASS] ⑦ 默认帧：BPM 值文本（UI_TEXT）: 区域 (58, 239, 138, 257) 内 (240, 244, 248)±24 像素 156（阈值 ≥20）
+  [PASS] ⑦ 默认帧：BPM 名称灰字: 区域 (58, 188, 138, 204) 内 (144, 148, 160)±24 像素 84（阈值 ≥12）
+  [PASS] ⑦ SCROLL 99999 钳到底：y=1932（期望 max=1932）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-scrolled.png  (1280x720 rgb565)
+  [PASS] ⑦ 滚到底：Texture 卡底（UI_PANEL）: (21,448) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 滚到底：MIDI 卡底（UI_PANEL）: (653,372) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 滚到底：Drums/Texture 卡间缝是页面背景: (116,344) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] ⑦ 滚到底：提示行灰字（不随卡片滚动）: 区域 (16, 118, 1088, 144) 内 (144, 148, 160)±24 像素 1270（阈值 ≥40）
+  [PASS] ⑦ 滚到底后 Engine edit 卡槽 0 矩形 (28, -1104, 140, 132)（期望 (28, -1104, 140, 132)）
+  [PASS] ⑦ SCROLL -5 钳到顶：y=0
+  [PASS] ⑦ SCROLL 500 → y=500
+  [PASS] ⑦ 滚动 500 后 Engine edit 卡槽 0 矩形 (28, 328, 140, 132)（期望 (28, 328, 140, 132)）
+  [PASS] ⑦ 焦点落到 ATK：自动滚入视口 y=216，槽矩形顶 160（期望 y=216 = 内容 y 224 − 8、顶 160 ≥ 视口顶 152）
+  [PASS] ⑦ 折叠 Envelope + LFO：scroll_max=1512 collapsed=0x000C（期望 1512 / 0x000C）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-collapsed.png  (1280x720 rgb565)
+  [PASS] ⑦ 折叠卡 Envelope 的槽仍有描述符但无矩形：present=1 rect=(0, 0, 0, 0)（期望 present=1 / (0, 0, 0, 0)）
+  [PASS] ⑦ 折叠帧：Envelope 卡折成标题行（UI_PANEL）: (21,364) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 折叠卡 LFO 的槽仍有描述符但无矩形：present=1 rect=(0, 0, 0, 0)（期望 present=1 / (0, 0, 0, 0)）
+  [PASS] ⑦ 折叠帧：LFO 卡折成标题行（UI_PANEL）: (21,408) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑦ 折叠后重排：Engine edit 卡槽 0 矩形 (28, 464, 140, 132)（期望 (28, 464, 140, 132)：原 (28, 828, 140, 132)）
+  [PASS] ⑦ 折叠帧：LFO 卡与其下 Engine edit 卡之间是页面背景: (116,424) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] ⑦ 折叠帧：上移后的 Engine edit 首槽环顶 UI_PANEL_HI: (67,555) 实测 (24,32,32) ≈ 期望 (32,40,48)（容差 16）
+  [PASS] ⑦: 全部卡片展开 collapsed=0x0000
+  [PASS] ⑦ 重新展开：scroll_max=1932（期望 1932）
+  [PASS] ⑧ TAP 选轨条第 2 格
+  [PASS] ⑧ 选轨后仍在 SOUND 页
+  [PASS] ⑧ STATE SNAP selected_track=1 = 1
+  [PASS] ⑧ 轨 1 的仪表盘 slots=109（轨 1 = ANALOG ⇒ 109）
+  [PASS] ⑧ TAP 选轨条第 1 格回轨 0
+  [PASS] ⑧ STATE SNAP selected_track=0 = 0
+  [PASS] ⑧ TAP 页眉 ENGINE 行名字区 → 选择器 row 0
+  [PASS] ⑧ 打开引擎选择器: UI SOUND PICK {'open': True, 'row': 0, 'engine': 0, 'highlight': 0, 'rows': 12}（期望 open row=0 engine=0 highlight=0 rows=12）
+  [PASS] ⑧ 引擎列表 12 行：ANALOG / DIGITAL / PHASE / LOFI / SAMPLE / VOICE / TRIO / WHEEL / GRAIN / FM6 / PHYS / NOISE（期望 ANALOG 起、FM6 = 第 10 行、互不重名）
+  [PASS] ⑧ `UI SOUND PICK 12`（越界）→ absent
+  [PASS] ⑧ `UI SOUND PICK x` → invalid
+  [PASS] ⑧ 引擎行 0（ANALOG）current=1
+  [PASS] ⑧ TAP 当前引擎行 → unchanged（不下发）
+  [PASS] ⑧ 确认当前项后选择器关闭
+  [PASS] ⑧ unchanged 之后 ENG SNAP 轨 0 = (0, 0)
+  [PASS] ⑧ 再开引擎选择器
+  [PASS] ⑧ TAP chip DIGITAL → 只高亮
+  [PASS] ⑧ chip 高亮 ≠ 当前引擎: UI SOUND PICK {'open': True, 'row': 0, 'engine': 0, 'highlight': 1, 'rows': 12}（期望 open row=0 engine=0 highlight=1 rows=12）
+  [PASS] ⑧ chip 高亮不下发（ENG SNAP 轨 0 仍 ANALOG）
+  [PASS] ⑧ 再 TAP 已高亮的 chip → CMD_SET_ENGINE
+  [PASS] ⑧ 换引擎后 ENG SNAP 轨 0 = (1, 0)，选择器关闭
+  [PASS] ⑧ 当前 = DIGITAL 时再开: UI SOUND PICK {'open': True, 'row': 0, 'engine': 1, 'highlight': 1, 'rows': 12}（期望 open row=0 engine=1 highlight=1 rows=12）
+  [PASS] ⑧ 引擎行 1：{'n': 1, 'text': 'DIGITAL', 'current': True, 'xy': (640, 296), 'rect': (176, 280, 928, 32)}
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-picker-engine.png  (1280x720 rgb565)
+  [PASS] ⑧ 选择器帧：面板左缘 2px 描边 UI_PANEL_HI: (160,420) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 选择器帧：面板顶缘 2px 描边 UI_PANEL_HI: (600,192) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 选择器帧：面板底 UI_PANEL（列表右端的空白）: (1000,420) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑧ 选择器帧：面板外的页眉行底 UI_PANEL_HI: (19,80) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 选择器帧：高亮 chip（DIGITAL）UI_ACCENT: 区域 (304, 204, 344, 236) 内 (224, 176, 40)±24 像素 1049（阈值 ≥200）
+  [PASS] ⑧ 选择器帧：未高亮 chip（ANALOG）UI_PANEL_HI: (200,204) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 选择器帧：高亮行（DIGITAL）条 UI_PANEL_HI: (1000,296) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 选择器帧：非高亮行（ANALOG）是面板底: (1000,264) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑧ 选择器帧：当前项强调色文字: 区域 (188, 284, 376, 310) 内 (224, 176, 40)±24 像素 157（阈值 ≥20）
+  [PASS] ⑧ 选择器帧：底行提示灰字: 区域 (176, 604, 1104, 628) 内 (144, 148, 160)±24 像素 1138（阈值 ≥40）
+  [PASS] ⑧ TAP 引擎行 0（ANALOG）
+  [PASS] ⑧ TAP 引擎行后 ENG SNAP 轨 0 = (0, 0)
+  [PASS] ⑧ 选择器里 ↑（列表高亮环绕）: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ ↑ 之后高亮 NOISE: UI SOUND PICK {'open': True, 'row': 0, 'engine': 0, 'highlight': 11, 'rows': 12}（期望 open row=0 engine=0 highlight=11 rows=12）
+  [PASS] ⑧ 选择器里 ENTER: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ row 0 列表焦点 ENTER ⇒ ENG SNAP 轨 0 = (11, 0)，选择器关闭
+  [PASS] ⑧ TAP 引擎行 0 回 ANALOG
+  [PASS] ⑧ TAP 页眉 PRESET 行名字区 → 选择器 row 1
+  [PASS] ⑧ 打开预置选择器（ANALOG 22 个预置）: UI SOUND PICK {'open': True, 'row': 1, 'engine': 0, 'highlight': 0, 'rows': 22}（期望 open row=1 engine=0 highlight=0 rows=22）
+  [PASS] ⑧ 预置行 0：{'n': 0, 'text': ' 1  808 BOOM', 'current': True, 'xy': (640, 264), 'rect': (176, 248, 928, 32)}
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-picker-preset.png  (1280x720 rgb565)
+  [PASS] ⑧ 预置选择器帧：面板左缘描边 UI_PANEL_HI: (160,420) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 预置选择器帧：高亮 chip（ANALOG）UI_ACCENT: 区域 (201, 204, 241, 236) 内 (224, 176, 40)±24 像素 1056（阈值 ≥200）
+  [PASS] ⑧ 预置选择器帧：高亮行（预置 1）条 UI_PANEL_HI: (1000,264) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑧ 预置选择器帧：非高亮行（预置 2）是面板底: (1000,296) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 10）
+  [PASS] ⑧ 预置选择器帧：当前项强调色文字: 区域 (188, 252, 376, 278) 内 (224, 176, 40)±24 像素 244（阈值 ≥20）
+  [PASS] ⑧ TAP 预置行 3
+  [PASS] ⑧ TAP 预置行后 ENG SNAP 轨 0 = (0, 3)
+  [PASS] ⑧ 再开：预置行 3 current=1
+  [PASS] ⑧ TAP 当前预置行 → unchanged
+  [PASS] ⑧ unchanged 之后预置仍 3
+  [PASS] ⑧ 预置选择器里 →（chip 高亮到 DIGITAL）: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ → 之后 {'open': True, 'row': 1, 'engine': 0, 'highlight': 1, 'rows': 22}（row 1 / 当前引擎 0 / 高亮 1）
+  [PASS] ⑧ 预览态：预置行 0 ' 1  RHODES' current=0
+  [PASS] ⑧ 预览态 TAP 预置行 → preview（不下发）
+  [PASS] ⑧ 预览态点行后面板保持打开: UI SOUND PICK {'open': True, 'row': 1, 'engine': 0, 'highlight': 1, 'rows': 22}（期望 open row=1 engine=0 highlight=1 rows=22）
+  [PASS] ⑧ 预览态点行：ENG SNAP 轨 0 仍 ANALOG 预置 3
+  [PASS] ⑧ 预览态 ↓ + ENTER（焦点在列表）: KEY 回显 4/4 行、顺序一致
+  [PASS] ⑧ 列表焦点的 ENTER 不动作（面板仍开）: UI SOUND PICK {'open': True, 'row': 1, 'engine': 0, 'highlight': 1, 'rows': 22}（期望 open row=1 engine=0 highlight=1 rows=22）
+  [PASS] ⑧ 列表焦点的 ENTER：轨 0 仍 ANALOG 预置 3
+  [PASS] ⑧ 预览态 →（焦点回 chip 行；高亮 1 → 2）: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ → 之后 {'open': True, 'row': 1, 'engine': 0, 'highlight': 2, 'rows': 8}（期望 row 1 / 当前引擎 0 / 高亮 2；rows = 高亮引擎的预置数）
+  [PASS] ⑧ 预览态 chip 焦点 ENTER: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ chip 焦点 ENTER ⇒ ENG SNAP 轨 0 = (2, 0)（期望 (2, 0)：CMD_SET_ENGINE），选择器关闭
+  [PASS] ⑧ 轨 0 回 ANALOG 预置 0
+  [PASS] ⑧ 再开选择器（ESC 用例）
+  [PASS] ⑧ ESC: KEY 回显 2/2 行、顺序一致
+  [PASS] ⑧ ESC 关闭选择器
+  [PASS] ⑧ ESC 不切页（仍 SOUND）
+  [PASS] Ctrl+4 选轨 3: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4 选轨 3: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] ⑨ Ctrl+4 后仍在 SOUND 页
+  [PASS] ⑨ 鼓轨 UI SOUND STATS slots=101（期望 101 = 109 − E1..E7 − FTYPE）
+  [PASS] ⑨ 鼓轨：101 个存在槽 present/label/locked 与 ENG DESC 一致
+  [PASS] ⑨ 鼓轨: UI SOUND STATS cards=13 slots=101（期望 13 / 101 = 逐槽核对的存在数）
+  [PASS] ⑨ 鼓轨存在槽 101/101
+  [PASS] ⑨ Engine edit 卡：KIT/L -/e -/e -/e -/e -/e -/e -/e -/e（期望只有 KIT present 且 locked；E1..E7 与 P_FTYPE absent）
+  [PASS] ⑨ Pattern 卡：LEN/e DIV/e SWG/e GATE/e（期望 4 个 present 且可编辑）
+  [PASS] ⑨ 鼓轨 ATK 槽 locked=1
+  [PASS] ⑤/⑨ 锁定槽 press: UI SOUND KNOB press (0,-40) → locked（期望 locked）
+  [PASS] ⑤/⑨ 锁定槽 drag: UI SOUND KNOB drag (40,0) → locked（期望 locked）
+  [PASS] ⑨ 锁定槽 ↑ ENTER: KEY 回显 4/4 行、顺序一致
+  [PASS] ⑨ 锁定槽 TAP + → locked
+  [PASS] ⑨ STATE SNAP atk（锁定槽注入后不变） = 10
+  [PASS] ⑤/⑨ 锁定槽注入之后: PARAM 真值 10（期望 10）
+  [PASS] ⑤/⑨ 锁定槽注入之后: STATE SNAP atk=10（期望 10）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑）: KNOB press (0, -40) → value 16（期望 value 16：按下只记锚点、不改值）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑）: KNOB drag (40, 0)（+90°）→ value 37（期望 value 37 = 16 +90°×[1..64]/270）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑） 拖后: PARAM 真值 37（期望 37）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑） 拖后: STATE SNAP slen=37（期望 37）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑） 拖回: KNOB press (0, -40) → value 37（期望 value 37）
+  [PASS] ⑨ Pattern 卡 LEN（鼓轨可编辑） 拖回: KNOB drag (-40, 0)（-90°）→ value 16（期望 value 16）
+  [PASS] ⑨ 鼓轨没有 PRESET 行：其名字区 TAP miss
+  [PASS] ⑨ TAP 页眉 KIT 行名字区 → 选择器 row 0
+  [PASS] ⑨ 打开 kit 选择器（46 个 kit）: UI SOUND PICK {'open': True, 'row': 0, 'engine': 0, 'highlight': 0, 'rows': 46}（期望 open row=0 engine=0 highlight=0 rows=46）
+  [PASS] ⑨ kit 行 1：{'n': 1, 'text': 'DEEP', 'current': False, 'xy': (640, 264), 'rect': (176, 248, 928, 32)}（鼓轨列表从面板顶起、非当前项）
+  [PASS] ⑨ TAP kit 行
+  [PASS] ⑨ TAP kit 行后 PARAM 63 = 1（期望 1）
+  [PASS] ⑨ 再开：kit 行 1 current=1
+  [PASS] ⑨ TAP 当前 kit 行 → unchanged
+  [PASS] ⑨ unchanged 之后 kit 不变
+  [PASS] ⑨ kit 回入口值
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sound-20261128-083728-drum.png  (1280x720 rgb565)
+  [PASS] ⑨ 鼓轨帧：KIT 行底色 UI_PANEL_HI: (19,80) 实测 (32,40,48) ≈ 期望 (32,40,48)（容差 10）
+  [PASS] ⑨ 鼓轨帧：PRESET 行缺席（页面背景）: (323,80) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 10）
+  [PASS] ⑨ 鼓轨帧：页眉红字（NO SOUND）: 区域 (320, 80, 1080, 108) 内 (224, 84, 40)±16 像素 1218（阈值 ≥200）
+  [PASS] ⑨ 鼓轨帧：选轨条第 4 格（当前轨）UI_PANEL_SEL: (1200,92) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 10）
+  [PASS] ⑨ 鼓轨帧：锁定槽（ATK）环位是卡片底 UI_PANEL: (67,467) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 16）
+  [PASS] ⑨ 鼓轨帧：锁定槽的值 `--`（UI_TEXT）: 区域 (78, 427, 118, 445) 内 (240, 244, 248)±24 像素 8（阈值 ≥8）
+  [PASS] ⑨ 鼓轨帧：可编辑槽（FILT）环顶 UI_PANEL_HI: (699,411) 实测 (24,32,32) ≈ 期望 (32,40,48)（容差 16）
+  [PASS] ⑨ 鼓轨帧：焦点槽（FILT）描边 UI_ACCENT: (662,386) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 10）
+  [PASS] ⑨ 鼓轨 PRESET 行矩形 TAP miss
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ⑨ 回轨 0（SOUND 页）
+  [PASS] ⑨ 回合成轨：slots=109（期望 109）
+  [PASS] ⑩ ITYPE 槽改值: KNOB press (0, -40) → value 0（期望 value 0）
+  [PASS] ⑩ ITYPE 槽改值: KNOB drag (28, -28)（+45°）→ value 1（期望 value 1）
+  [PASS] ⑩ ITYPE 0 → 1（PARAM 53）
+  [PASS] ⑩ ITYPE 改后 INS A / INS B / INS C / MIX 四槽 present/label 重解析 == ENG DESC live：'INS A'→'DRIVE' | 'INS B'→'TONE' | 'INS C'→'LEVEL' | 'MIX'→'MIX'
+  [PASS] ⑩ ITYPE 改后至少一个 INSERT 槽的标签变了（随 ITYPE 重解析）
+  [PASS] ⑩ ITYPE 槽拖回: KNOB press (0, -40) → value 1（期望 value 1）
+  [PASS] ⑩ ITYPE 槽拖回: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ⑩ ITYPE 还原后四槽标签回到入口值：'INS A' | 'INS B' | 'INS C' | 'MIX'
+  [PASS] ⑩ ATK 经 KNOB 改值: KNOB press (0, -40) → value 0（期望 value 0：按下只记锚点、不改值）
+  [PASS] ⑩ ATK 经 KNOB 改值: KNOB drag (40, 0)（+90°）→ value 42（期望 value 42 = 0 +90°×[0..127]/270）
+  [PASS] ⑩ ATK 经 KNOB 改值 拖后: PARAM 真值 42（期望 42）
+  [PASS] ⑩ ATK 经 KNOB 改值 拖后: STATE SNAP atk=42（期望 42）
+  [PASS] ⑩ UI step
+  [PASS] ⑩ UI transport
+  [PASS] ⑩ UI sound
+  [PASS] ⑩ 切页回来槽显示 ATK value=42（期望 42）
+  [PASS] ⑩ 切页回来: PARAM 真值 42（期望 42）
+  [PASS] ⑩ 切页回来: STATE SNAP atk=42（期望 42）
+  [PASS] ⑩ ATK 还原: KNOB press (0, -40) → value 42（期望 value 42）
+  [PASS] ⑩ ATK 还原: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+  [PASS] ③ 换引擎 0（ANALOG）
+  [PASS] ③ 引擎 0（ANALOG）：109 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 0（ANALOG）: UI SOUND STATS cards=13 slots=109（期望 13 / 109 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 0（ANALOG）：P_FTYPE present=1（期望 1：仅 ANALOG）；slots=109
+  [PASS] ③ 换引擎 1（DIGITAL）
+  [PASS] ③ 引擎 1（DIGITAL）：107 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 1（DIGITAL）: UI SOUND STATS cards=13 slots=107（期望 13 / 107 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 1（DIGITAL）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=107
+  [PASS] ③ 换引擎 2（PHASE）
+  [PASS] ③ 引擎 2（PHASE）：107 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 2（PHASE）: UI SOUND STATS cards=13 slots=107（期望 13 / 107 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 2（PHASE）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=107
+  [PASS] ③ 换引擎 3（LOFI）
+  [PASS] ③ 引擎 3（LOFI）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 3（LOFI）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 3（LOFI）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 4（SAMPLE）
+  [PASS] ③ 引擎 4（SAMPLE）：106 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 4（SAMPLE）: UI SOUND STATS cards=13 slots=106（期望 13 / 106 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 4（SAMPLE）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=106
+  [PASS] ③ 换引擎 5（VOICE）
+  [PASS] ③ 引擎 5（VOICE）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 5（VOICE）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 5（VOICE）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 6（TRIO）
+  [PASS] ③ 引擎 6（TRIO）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 6（TRIO）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 6（TRIO）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 7（WHEEL）
+  [PASS] ③ 引擎 7（WHEEL）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 7（WHEEL）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 7（WHEEL）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 8（GRAIN）
+  [PASS] ③ 引擎 8（GRAIN）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 8（GRAIN）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 8（GRAIN）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 9（FM6）
+  [PASS] ③ 引擎 9（FM6）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 9（FM6）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 9（FM6）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 10（PHYS）
+  [PASS] ③ 引擎 10（PHYS）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 10（PHYS）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 10（PHYS）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ 换引擎 11（NOISE）
+  [PASS] ③ 引擎 11（NOISE）：108 个存在槽 present/label 与 ENG DESC 一致
+  [PASS] ③ 引擎 11（NOISE）: UI SOUND STATS cards=13 slots=108（期望 13 / 108 = 逐槽核对的存在数）
+  [PASS] ③ 引擎 11（NOISE）：P_FTYPE present=0（期望 0：仅 ANALOG）；slots=108
+  [PASS] ③ FM6（引擎 9）slots=108（期望 108）
+  [PASS] ③ 回 ANALOG
+  [PASS] ③ 回 ANALOG：slots=109 scroll_max=1932
+  [PASS] ⑪ UI step
+  [PASS] ⑪ UI transport
+  [PASS] ⑪ 有序对 SEQ（STEP + TRANSPORT 全建）→ SOUND：构建日志 池剩余=12760B（≥4096）
+  [PASS] ⑪ SOUND 构建日志 池增量=7144B 预算=8704B 耗时=11ms（期望 0 < 增量 ≤ 8,704、≤100ms）
+  [PASS] ⑪ 预热：UI sound
+  [FAIL] ⑪ 10 次 SOUND↔STEP 往返后 pool_free 变化 42128 → 41988（Δ=-140B，允许 |Δ| ≤ 128B）
+  [PASS] ⑪ 单次往返的最大池下降 68B ≤ 128B（无逐次增长）
+  [PASS] ⑪ 往返后重建的仪表盘：slots=109 collapsed=0x0000（焦点/折叠位跨重建保留）
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 收口：轨 0 参数向量: 参数向量回写 71/71
+  [PASS] 收口核对：轨 0 参数 71/71 回到入口值
+  [PASS] 收口核对：全局参数 50/50 回到入口值
+  [PASS] Ctrl+4 选轨 3: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4 选轨 3: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] 收口: 全部卡片展开 collapsed=0x0000
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 收口：回入口页
+[FAIL] sound: 1 项断言/抽检未通过（见上）

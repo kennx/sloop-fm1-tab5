@@ -1,0 +1,26 @@
+
+sloop>  UI sound
+I (90399457) sloop_ui: 页面构建 page=SOUND(6) 池增量=7244B 预算=8704B 池剩余=40848B 耗时=11ms
+I (90399457) sloop_ui: 切页 page=SOUND(6) 组=EDIT 跨组耗时=19ms
+UI page=sound (6)
+sloop>  ENG TRACK 0 2 0
+ENG TRACK k=0 engine=2 preset=0 OK
+sloop>  ENG TRACK 0 0 0
+ENG TRACK k=0 engine=0 preset=0 OK
+sloop>  TAP 160 92
+TAP 160,92 page=6 -> SOUND pick open row=0
+sloop>  UI SOUND PICK
+UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12
+sloop>  UI SOUND PICK
+UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12
+sloop>  KEY 0x00 down
+KEY 0x00 down esc elapsed_us=89
+sloop>  KEY 0x00 up
+KEY 0x00 up esc elapsed_us=89
+sloop>  UI SOUND PICK
+UI SOUND PICK open=0
+sloop>  UI
+UI page=sound (6)
+sloop>  UI
+UI page=sound (6)
+sloop>  

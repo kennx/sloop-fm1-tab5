@@ -1,0 +1,20 @@
+== sloop_ui knob math host test
+PASS k=1 值 ↔ 弧线值往返与钳位
+PASS k=2 环带判定（55..95px）
+PASS k=3 角度差归一化（跨死区/负角）
+PASS k=4 相对拖拽换算与钳位
+PASS k=5 格式化表（上游生成表口径）
+PASS k=6 鼓演奏 16 lane 键位（不回落合成轨）
+PASS k=7 演奏键路由（释放永远回原轨）
+PASS k=8 MONO 色表恰等于现行常量
+PASS k=9 GREEN accent 与固定字段
+PASS k=10 自定义 theme 覆盖颜色
+PASS k=11 参数页布局表：页数/页 id/est 与 EDIT/MIX 有序对账面
+PASS k=12 参数页布局表：chip 完整性（槽数/id/唯一名/枚举）
+PASS k=13 SOUND 页：8 引擎槽/页眉行/bank 行仅 FM6 可见（A10）
+PASS k=14 条件 chip 可见性与鼓轨逐槽锁定规则
+PASS k=15 九组导航：组表顺序/成员/13 页扁平轮转/104px 组签
+PASS k=16 EDIT 层步工具键：k/l/9/; 唯一且不占其它层
+
+16 passed, 0 failed
+KNOB TEST PASSED

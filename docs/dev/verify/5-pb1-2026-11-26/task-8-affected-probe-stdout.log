@@ -1,0 +1,15 @@
+  [PASS] Ctrl+4 选轨 3: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4 选轨 3: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] 鼓轨修正复核：101 个存在槽 present/label/locked 与 ENG DESC 一致
+  [PASS] 鼓轨修正复核: UI SOUND STATS cards=13 slots=101（期望 13 / 101 = 逐槽核对的存在数）
+  [PASS] Engine edit 仅 KIT present+locked；总存在槽 101
+  [PASS] Ctrl+1 选轨 0: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1 选轨 0: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ITYPE 修正复核: KNOB press (0, -40) → value 0（期望 value 0）
+  [PASS] ITYPE 修正复核: KNOB drag (28, -28)（+45°）→ value 1（期望 value 1）
+  [PASS] ITYPE flat=64 id=53 labels ['INS A', 'INS B', 'INS C', 'MIX'] -> ['DRIVE', 'TONE', 'LEVEL', 'MIX']
+  [PASS] ITYPE 修正复核还原: KNOB press (0, -40) → value 1（期望 value 1）
+  [PASS] ITYPE 修正复核还原: KNOB drag (-40, 0)（-90°）→ value 0（期望 value 0）
+affected probe failures 0

@@ -1,0 +1,52 @@
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原轨 0 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] 还原轨 1 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] 还原轨 2 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] 还原鼓轨 kit
+  [PASS] 还原鼓轨 level
+  [PASS] 还原鼓轨 mute
+  [PASS] 还原鼓轨 len
+  [PASS] 还原鼓轨 div
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原全局 0
+  [PASS] 还原全局 1
+  [PASS] 还原全局 2
+  [PASS] 还原全局 4
+  [PASS] 还原全局 5
+  [PASS] 还原全局 6
+  [PASS] 还原全局 7
+  [PASS] 还原全局 8
+  [PASS] 还原全局 9
+  [PASS] 还原全局 10
+  [PASS] 还原全局 11
+  [PASS] 还原全局 25
+  [PASS] 还原全局 26
+  [PASS] 还原 settings.palette
+  [PASS] 还原 settings.lowcut
+  [PASS] 还原 settings.zoom
+  [PASS] 还原 settings.lights
+  [PASS] 还原 settings.theme_on
+  [PASS] 还原 settings.reso
+  [FAIL] 还原 settings.rec_tempo（响应未匹配，见日志）
+  [FAIL] 还原 settings.rec_count（响应未匹配，见日志）
+  [FAIL] 还原 settings.rec_quant（响应未匹配，见日志）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原 autosave 开关
+Traceback (most recent call last):
+  File "<stdin>", line 62, in <module>
+inject.InjectError: 还原过程有 3 条断言失败

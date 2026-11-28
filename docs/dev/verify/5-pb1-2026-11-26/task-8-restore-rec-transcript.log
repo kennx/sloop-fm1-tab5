@@ -1,0 +1,23 @@
+
+sloop>  SEQ REC CONFIG 0 0 0
+SEQ REC state=off track=0 quant=on tempo=free count=note take=none fill_held=0 fill_arm=0
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=351646DB autosave_writes=1 last_xrun=1 last_save_ms=69
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=351646DB autosave_writes=1 last_xrun=1 last_save_ms=69
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=351646DB autosave_writes=1 last_xrun=1 last_save_ms=69
+sloop>  STORE SETTINGS INFO
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=1 theme=P4E7 theme_valid=1
+sloop>  STORE STATS
+STORE STATS ready=1 base=0x97000 span=0x68000 map=0x401C0000 objects=0 faults=0 armed=0 autosave=1 autosave_hash=351646DB autosave_writes=1 last_xrun=1 last_save_ms=69
+sloop>  STORE SETTINGS INFO
+I (456388) sloop_store: 歌曲已保存 len=1552 来源=1
+STORE SETTINGS INFO kind=per3 len=1552 side=1 palette=4 lowcut=0 zoom=0 lights=0 theme_on=0 reso=0 rec_tempo=0 rec_count=0 rec_quant=0 dirty=0 theme=P4E7 theme_valid=1
+sloop>  STORE AUTO ON
+STORE AUTO on
+sloop>  

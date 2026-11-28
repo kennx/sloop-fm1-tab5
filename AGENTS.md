@@ -63,7 +63,7 @@ sloop-fm1-tab5/
 ├── scripts/                       # 构建/烧录/截屏验证脚本（用法见 §5）
 │   ├── env.sh                     #    ESP-IDF 环境探测（被各脚本 source）
 │   ├── build.sh                   #    构建（可 --clean）
-│   ├── inject/                    #    十条注入场景 .sh + inject.py（场景逻辑都在 inject.py；逐脚本见 §5.1）
+│   ├── inject/                    #    十一条注入场景 .sh + inject.py（场景逻辑都在 inject.py；逐脚本见 §5.1）
 │   ├── {knob,state,seq,synth,editor-proto,usb-fm1}-test.sh
 │   ├── *-host-test.c              #    host 门禁（上一行的 *-test.sh）与其用例源；其余用例源在 components/*/test/*_test.c（§5.1）
 │   ├── (其余脚本)                 #    build/flash/screenshot/verify、device-selftest.py、selftest-heap.py、desc-check.py、
@@ -114,7 +114,7 @@ sloop-fm1-tab5/
 | `scripts/selftest-heap.py PORT [--record-only]` | 连续两次全量自检的内部堆泄漏门禁（原 DI-26 回归；`--record-only` 只记录） |
 | `scripts/desc-check.py [PORT]` | 设备 `ENG DESC` 抽样对照上游描述符表（10 项 + 2 项 live + 越界拒绝） |
 | `scripts/fm1-smoke.py PORT [--selftest]` | FM-1 联动协议冒烟门禁（操作员在环 7 步：接入 → INFO → PING → GET/SET 还原 → 拧旋钮推送 → 保活 → 拔插；`--selftest` 离线） |
-| `scripts/inject/{transport,step_edit,tracks,nav,params,store,song,sequence,synth,sys}.sh [PORT]` | 十条注入场景（`UI`→`TAP`/`KEY`→`STATE`/`ENG` 断言→`SCR`；破坏性、自归一；**逐场景覆盖见参考**） |
+| `scripts/inject/{transport,step_edit,tracks,nav,params,store,song,sequence,synth,sys,sound}.sh [PORT]` | 十一条注入场景（`UI`→`TAP`/`KEY`→`STATE`/`ENG` 断言→`SCR`；破坏性、自归一；**逐场景覆盖见参考**） |
 | `scripts/inject/song.sh [PORT]` | SONG 编排页注入矩阵（破坏性、自归一） |
 | `scripts/inject/sequence.sh [PORT]` | sequence 端到端矩阵：深度步/锁/录音/sections/chain/SONG/SONG REC（破坏性、自归一） |
 | `scripts/inject/synth.sh [PORT]` | SYNTH 组矩阵：采样上传 / DSYN / FM6P（破坏性、自归一） |
@@ -215,7 +215,7 @@ Tab5 无操作系统级截屏能力，约定由固件 console 提供帧缓冲导
 | UI 相关 | §5.4 全流程：截屏成功 + 视觉检查通过 |
 | host 单测（引擎 / 音序 / 状态层 / UI 纯函数 / DSYN·FM6·采样 / 编辑器协议帧·MIDI 流 / 工具自测） | `scripts/host-test.sh`、`seq-test.sh`、`state-test.sh`、`knob-test.sh`、`sound-test.sh`、`synth-test.sh`、`editor-proto-test.sh`、`usb-fm1-test.sh` 与 `*.py --selftest` 退出码均 0；逐项判据见参考 |
 | 设备自检与堆 | `python3 scripts/device-selftest.py` **182/182**；`python3 scripts/selftest-heap.py` PASS；`python3 scripts/desc-check.py` PASS |
-| 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 十条场景 + 截屏矩阵对真机各跑一遍（`sequence`/`synth`/`sys` 各复跑），退出码均 0；断言不放宽；逐场景判据见参考 |
+| 注入脚本（`scripts/inject/`）/ TAP 相关固件改动 | 十一条场景 + 截屏矩阵对真机各跑一遍（`sequence`/`synth`/`sys` 各复跑），退出码均 0；断言不放宽；逐场景判据见参考 |
 | 阶段收口 soak | `python3 scripts/soak.py PORT --duration 1800 --interval 60 --save-window 900`（阶段收口 3h）退出码 0；判据与口径见参考 |
 | 阶段收口 | 全矩阵 + 证据晋升 `docs/dev/verify/<阶段>-<日期>/` + `verification-log.md` 登记（门禁→命令→结论见各包 readme）；dev→main 不在阶段 4 范围（用户 2026-11-24 决定） |
 | 联动协议 | `python3 scripts/fm1-smoke.py --selftest` 退出码 0；接有 FM-1 且操作员在场时 `python3 scripts/fm1-smoke.py PORT` 退出码 0（末行 `FM1 SMOKE PASS 7/7`；未跑列为 WAITING_OPERATOR，不等于通过） |

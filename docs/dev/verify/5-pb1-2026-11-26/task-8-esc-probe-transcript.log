@@ -1,0 +1,22 @@
+
+sloop>  UI sound
+UI page=sound (6)
+sloop>  TAP 160 92
+TAP 160,92 page=6 -> SOUND pick open row=0
+sloop>  UI SOUND PICK
+UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12
+sloop>  UI SOUND PICK
+UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12
+sloop>  UI
+UI page=sound (6)
+sloop>  KEY 0x00 down
+KEY 0x00 down esc elapsed_us=95
+sloop>  KEY 0x00 up
+KEY 0x00 up esc elapsed_us=141
+sloop>  UI SOUND PICK
+UI SOUND PICK open=0
+sloop>  UI
+UI page=sound (6)
+sloop>  UI
+UI page=sound (6)
+sloop>  

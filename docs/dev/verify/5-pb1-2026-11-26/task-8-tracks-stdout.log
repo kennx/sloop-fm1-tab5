@@ -1,0 +1,102 @@
+  [fw] SCR
+  [fw] I (23808) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (42348) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (58658) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  [fw] SCR
+  [fw] I (76738) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+== inject tracks @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261128-093035.log
+  [PASS] UI tracks
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track = 2
+  [PASS] STATE SNAP focus_track = 2
+  [PASS] TAP 卡缝 miss
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261128-093035-tracks-sel3.png  (1280x720 rgb565)
+  [PASS] 卡 2 选中描边（6px）: (644,347) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡 2 选中底: (800,552) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
+  [PASS] 卡 0 未选中底: (304,552) 实测 (24,32,32) ≈ 期望 (24,32,32)（容差 8）
+  [PASS] 页签选中（TRACKS）: (148,8) 实测 (224,176,40) ≈ 期望 (224,176,40)（容差 16）
+  [PASS] 卡间缝背景: (640,260) 实测 (16,20,24) ≈ 期望 (16,20,24)（容差 16）
+  [PASS] 层键：UI tracks
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] 无层键：1 / 5: KEY 回显 4/4 行、顺序一致
+  [PASS] 无层键：1 / 5: 按下期间 layer_held=00/00（期望 0x00 → 0x00）
+  [PASS] 无层键时 1 / 5 不改混音 前后一致
+  [PASS] 无层键时 1 / 5 不改选轨 = 3
+  [PASS] 层键：KEY PANIC（收口按键状态）
+  [PASS] Alt+1..4: KEY 回显 10/10 行、顺序一致
+  [PASS] Alt+1..4: 按下期间 layer_held=08/00（期望 0x08 → 0x00）
+  [PASS] Alt+1 ⇒ 轨 0 mute 1 → 0（REC 位/solo 不变：(0, 0)）
+  [PASS] Alt+2 ⇒ 轨 1 mute 0 → 1（REC 位/solo 不变：(0, 0)）
+  [PASS] Alt+3 ⇒ 轨 2 mute 0 → 1（REC 位/solo 不变：(0, 0)）
+  [PASS] Alt+4 ⇒ 轨 3 mute 0 → 1（REC 位/solo 不变：(0, 0)）
+  [PASS] Alt+5..8: KEY 回显 10/10 行、顺序一致
+  [PASS] Alt+5..8: 按下期间 layer_held=08/00（期望 0x08 → 0x00）
+  [PASS] Alt+5 ⇒ 轨 0 solo 0 → 1（mute/armed 不变）
+  [PASS] Alt+6 ⇒ 轨 1 solo 0 → 1（mute/armed 不变）
+  [PASS] Alt+7 ⇒ 轨 2 solo 0 → 1（mute/armed 不变）
+  [PASS] Alt+8 ⇒ 轨 3 solo 0 → 1（mute/armed 不变）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261128-093035-tracks-keys-before.png  (1280x720 rgb565)
+  [PASS] Alt+2（卡 1 静音回翻）: KEY 回显 4/4 行、顺序一致
+  [PASS] Alt+2（卡 1 静音回翻）: 按下期间 layer_held=08/00（期望 0x08 → 0x00）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261128-093035-tracks-keys-after.png  (1280x720 rgb565)
+  [PASS] Alt+2 后 TRACKS 卡 1 的 MUTE/SOLO 文本像素区变化
+  [PASS] Alt+2 后卡 0 像素区逐字节不变
+  [PASS] Alt+2 后卡 2 像素区逐字节不变
+  [PASS] Alt+2 后卡 3 像素区逐字节不变
+  [PASS] Alt+2 回翻：轨 1 mute=0（期望 0）
+  [PASS] Alt+Ctrl 同按: KEY 回显 8/8 行、顺序一致
+  [PASS] Alt+Ctrl 同按: 按下期间 layer_held=0C/00（期望 0x0c → 0x00）
+  [PASS] Alt+Ctrl 同按：1 / 5 走 GLO（轨 0 mute 与 solo 翻转），不选轨
+  [PASS] Alt+Ctrl 同按：选轨不变 = 3
+  [PASS] Ctrl+3: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+3: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] Ctrl+3 ⇒ selected_track = 2
+  [PASS] Ctrl+3 ⇒ focus_track = 2
+  [PASS] Ctrl+1: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] Ctrl+1 ⇒ selected_track = 0
+  [PASS] Ctrl+1 ⇒ focus_track = 0
+  [PASS] Ctrl+1: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+1: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] Ctrl+1 ⇒ selected_track = 0
+  [PASS] Ctrl+1 ⇒ focus_track = 0
+  [PASS] Ctrl+4: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] Ctrl+4 ⇒ selected_track = 3
+  [PASS] Ctrl+4 ⇒ focus_track = 3
+  [PASS] Ctrl+2: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+2: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] Ctrl+2 ⇒ selected_track = 1
+  [PASS] Ctrl+2 ⇒ focus_track = 1
+  [PASS] SEL 层不改混音 前后一致
+  [PASS] 松开 Ctrl 后按 4（基础层无绑定：不出声）
+  [PASS] 松开 Ctrl 后 layer_held = 0 = 0
+  [PASS] 松开 Ctrl 后 4 键不选轨（仍轨 1） = 1
+  [PASS] Ctrl+4（像素）: KEY 回显 4/4 行、顺序一致
+  [PASS] Ctrl+4（像素）: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-tracks-20261128-093035-tracks-keys-sel4.png  (1280x720 rgb565)
+  [PASS] Ctrl+4 卡 3 选中描边（6px）: (956,347) 实测 (224,104,24) ≈ 期望 (224,104,24)（容差 16）
+  [PASS] Ctrl+4 卡 3 选中底: (1108,552) 实测 (40,52,64) ≈ 期望 (40,52,64)（容差 8）
+  [PASS] 收口 GLO: KEY 回显 12/12 行、顺序一致
+  [PASS] 收口 GLO: 按下期间 layer_held=08/00（期望 0x08 → 0x00）
+  [PASS] 收口后四轨 mute/armed/solo 回基线 前后一致
+  [PASS] 收口 SEL: KEY 回显 4/4 行、顺序一致
+  [PASS] 收口 SEL: 按下期间 layer_held=04/00（期望 0x04 → 0x00）
+  [PASS] 收口 selected_track = 2
+  [PASS] 收口 last_note 回 60
+  [PASS] 收口松键
+  [PASS] 收口 last_note = 60
+  [PASS] 层键：收口 KEY PANIC
+[PASS] tracks: 全部断言与像素抽检通过

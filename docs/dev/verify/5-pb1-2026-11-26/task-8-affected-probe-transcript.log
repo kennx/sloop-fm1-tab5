@@ -1,0 +1,563 @@
+
+sloop>  UI sound
+UI page=sound (6)
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=98
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=0 focus_step=0 layer_held=0x04 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  KEY 0x04 down
+KEY 0x04 down 4 elapsed_us=100
+sloop>  KEY 0x04 up
+KEY 0x04 up 4 elapsed_us=21
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=26
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=3 focus_step=0 layer_held=0x00 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  UI SOUND CARD 0 SLOT 0
+UI SOUND SLOT card=0 slot=0 flat=0 present=1 scope=1 id=0 label="BPM" locked=0 value=120 x=28 y=188 w=140 h=132
+sloop>  ENG DESC global 0 0
+ENG DESC scope=global engine=0 id=0 label="BPM" fmt=9 min=40 max=240 def=90 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 0 SLOT 1
+UI SOUND SLOT card=0 slot=1 flat=1 present=1 scope=1 id=1 label="SWING" locked=0 value=40 x=168 y=188 w=140 h=132
+sloop>  ENG DESC global 0 1
+ENG DESC scope=global engine=0 id=1 label="SWING" fmt=14 min=0 max=100 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 0 SLOT 2
+UI SOUND SLOT card=0 slot=2 flat=2 present=1 scope=1 id=2 label="CLICK" locked=0 value=1 x=308 y=188 w=140 h=132
+sloop>  ENG DESC global 0 2
+ENG DESC scope=global engine=0 id=2 label="CLICK" fmt=8 min=0 max=2 def=0 unit="-" enums=3 first="OFF" last="ON"
+sloop>  UI SOUND CARD 0 SLOT 3
+UI SOUND SLOT card=0 slot=3 flat=3 present=1 scope=1 id=3 label="TUNE" locked=0 value=0 x=448 y=188 w=140 h=132
+sloop>  ENG DESC global 0 3
+ENG DESC scope=global engine=0 id=3 label="TUNE" fmt=0 min=-50 max=50 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 1 SLOT 0
+UI SOUND SLOT card=1 slot=0 flat=4 present=1 scope=1 id=27 label="DUST" locked=0 value=0 x=660 y=188 w=140 h=132
+sloop>  ENG DESC global 0 27
+ENG DESC scope=global engine=0 id=27 label="DUST" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 1 SLOT 1
+UI SOUND SLOT card=1 slot=1 flat=5 present=1 scope=1 id=28 label="DUCK" locked=0 value=0 x=800 y=188 w=140 h=132
+sloop>  ENG DESC global 0 28
+ENG DESC scope=global engine=0 id=28 label="DUCK" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 1 SLOT 2
+UI SOUND SLOT card=1 slot=2 flat=6 present=1 scope=1 id=29 label="FILT" locked=0 value=0 x=940 y=188 w=140 h=132
+sloop>  ENG DESC global 0 29
+ENG DESC scope=global engine=0 id=29 label="FILT" fmt=15 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 1 SLOT 3
+UI SOUND SLOT card=1 slot=3 flat=7 present=1 scope=1 id=30 label="ROLL" locked=0 value=1 x=1080 y=188 w=140 h=132
+sloop>  ENG DESC global 0 30
+ENG DESC scope=global engine=0 id=30 label="ROLL" fmt=8 min=0 max=4 def=1 unit="-" enums=5 first="1/8" last="1/64"
+sloop>  UI SOUND CARD 1 SLOT 4
+UI SOUND SLOT card=1 slot=4 flat=8 present=1 scope=0 id=50 label="FILT" locked=0 value=0 x=660 y=320 w=140 h=132
+sloop>  ENG DESC live 3 50
+ENG DESC scope=live track=3 id=50 label="FILT" fmt=15 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 0
+UI SOUND SLOT card=2 slot=0 flat=9 present=1 scope=0 id=1 label="ATK" locked=1 value=10 x=28 y=376 w=140 h=132
+sloop>  ENG DESC live 3 1
+ENG DESC scope=live track=3 id=1 label="ATK" fmt=3 min=0 max=127 def=10 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 1
+UI SOUND SLOT card=2 slot=1 flat=10 present=1 scope=0 id=2 label="DEC" locked=1 value=70 x=168 y=376 w=140 h=132
+sloop>  ENG DESC live 3 2
+ENG DESC scope=live track=3 id=2 label="DEC" fmt=3 min=0 max=127 def=70 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 2
+UI SOUND SLOT card=2 slot=2 flat=11 present=1 scope=0 id=3 label="SUS" locked=1 value=90 x=308 y=376 w=140 h=132
+sloop>  ENG DESC live 3 3
+ENG DESC scope=live track=3 id=3 label="SUS" fmt=1 min=0 max=127 def=90 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 3
+UI SOUND SLOT card=2 slot=3 flat=12 present=1 scope=0 id=4 label="REL" locked=1 value=60 x=448 y=376 w=140 h=132
+sloop>  ENG DESC live 3 4
+ENG DESC scope=live track=3 id=4 label="REL" fmt=3 min=0 max=127 def=60 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 4
+UI SOUND SLOT card=2 slot=4 flat=13 present=1 scope=0 id=5 label="FLT" locked=1 value=0 x=28 y=508 w=140 h=132
+sloop>  ENG DESC live 3 5
+ENG DESC scope=live track=3 id=5 label="FLT" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 5
+UI SOUND SLOT card=2 slot=5 flat=14 present=1 scope=0 id=6 label="PIT" locked=1 value=0 x=168 y=508 w=140 h=132
+sloop>  ENG DESC live 3 6
+ENG DESC scope=live track=3 id=6 label="PIT" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 6
+UI SOUND SLOT card=2 slot=6 flat=15 present=1 scope=0 id=7 label="SHP" locked=1 value=0 x=308 y=508 w=140 h=132
+sloop>  ENG DESC live 3 7
+ENG DESC scope=live track=3 id=7 label="SHP" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 7
+UI SOUND SLOT card=2 slot=7 flat=16 present=1 scope=0 id=8 label="TRIM" locked=1 value=0 x=448 y=508 w=140 h=132
+sloop>  ENG DESC live 3 8
+ENG DESC scope=live track=3 id=8 label="TRIM" fmt=0 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 2 SLOT 8
+UI SOUND SLOT card=2 slot=8 flat=17 present=1 scope=0 id=59 label="ESYNC" locked=1 value=0 x=28 y=640 w=140 h=132
+sloop>  ENG DESC live 3 59
+ENG DESC scope=live track=3 id=59 label="ESYNC" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="ON"
+sloop>  UI SOUND CARD 3 SLOT 0
+UI SOUND SLOT card=3 slot=0 flat=18 present=1 scope=0 id=9 label="RATE" locked=1 value=60 x=660 y=508 w=140 h=132
+sloop>  ENG DESC live 3 9
+ENG DESC scope=live track=3 id=9 label="RATE" fmt=4 min=0 max=127 def=60 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 1
+UI SOUND SLOT card=3 slot=1 flat=19 present=1 scope=0 id=10 label="WAVE" locked=1 value=0 x=800 y=508 w=140 h=132
+sloop>  ENG DESC live 3 10
+ENG DESC scope=live track=3 id=10 label="WAVE" fmt=8 min=0 max=4 def=0 unit="-" enums=5 first="SIN" last="S&H"
+sloop>  UI SOUND CARD 3 SLOT 2
+UI SOUND SLOT card=3 slot=2 flat=20 present=1 scope=0 id=11 label="PHS" locked=1 value=0 x=940 y=508 w=140 h=132
+sloop>  ENG DESC live 3 11
+ENG DESC scope=live track=3 id=11 label="PHS" fmt=0 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 3
+UI SOUND SLOT card=3 slot=3 flat=21 present=1 scope=0 id=12 label="FADE" locked=1 value=0 x=1080 y=508 w=140 h=132
+sloop>  ENG DESC live 3 12
+ENG DESC scope=live track=3 id=12 label="FADE" fmt=3 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 4
+UI SOUND SLOT card=3 slot=4 flat=22 present=1 scope=0 id=60 label="SYNC" locked=1 value=0 x=660 y=640 w=140 h=132
+sloop>  ENG DESC live 3 60
+ENG DESC scope=live track=3 id=60 label="SYNC" fmt=8 min=0 max=10 def=0 unit="-" enums=11 first="OFF" last="1/32"
+sloop>  UI SOUND CARD 3 SLOT 5
+UI SOUND SLOT card=3 slot=5 flat=23 present=1 scope=0 id=61 label="TRIG" locked=1 value=0 x=800 y=640 w=140 h=132
+sloop>  ENG DESC live 3 61
+ENG DESC scope=live track=3 id=61 label="TRIG" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="NOTE" last="FREE"
+sloop>  UI SOUND CARD 3 SLOT 6
+UI SOUND SLOT card=3 slot=6 flat=24 present=1 scope=0 id=62 label="POL" locked=1 value=0 x=940 y=640 w=140 h=132
+sloop>  ENG DESC live 3 62
+ENG DESC scope=live track=3 id=62 label="POL" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="BI" last="UNI"
+sloop>  UI SOUND CARD 3 SLOT 7
+UI SOUND SLOT card=3 slot=7 flat=25 present=1 scope=0 id=13 label="PIT" locked=1 value=0 x=1080 y=640 w=140 h=132
+sloop>  ENG DESC live 3 13
+ENG DESC scope=live track=3 id=13 label="PIT" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 8
+UI SOUND SLOT card=3 slot=8 flat=26 present=1 scope=0 id=14 label="FLT" locked=1 value=0 x=660 y=772 w=140 h=132
+sloop>  ENG DESC live 3 14
+ENG DESC scope=live track=3 id=14 label="FLT" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 9
+UI SOUND SLOT card=3 slot=9 flat=27 present=1 scope=0 id=15 label="SHP" locked=1 value=0 x=800 y=772 w=140 h=132
+sloop>  ENG DESC live 3 15
+ENG DESC scope=live track=3 id=15 label="SHP" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 3 SLOT 10
+UI SOUND SLOT card=3 slot=10 flat=28 present=1 scope=0 id=16 label="AMP" locked=1 value=0 x=940 y=772 w=140 h=132
+sloop>  ENG DESC live 3 16
+ENG DESC scope=live track=3 id=16 label="AMP" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="KIT" locked=1 value=0 x=28 y=828 w=140 h=132
+sloop>  ENG DESC live 3 63
+ENG DESC scope=live track=3 id=63 label="KIT" fmt=8 min=0 max=45 def=0 unit="-" enums=46 first="ACOUSTIC" last="SYN4"
+sloop>  UI SOUND CARD 4 SLOT 1
+UI SOUND SLOT card=4 slot=1 flat=30 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 64
+ENG DESC ERR scope=live track=3 id=64
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 2
+UI SOUND SLOT card=4 slot=2 flat=31 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 65
+ENG DESC ERR scope=live track=3 id=65
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 3
+UI SOUND SLOT card=4 slot=3 flat=32 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 66
+ENG DESC ERR scope=live track=3 id=66
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 4
+UI SOUND SLOT card=4 slot=4 flat=33 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 67
+ENG DESC ERR scope=live track=3 id=67
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 5
+UI SOUND SLOT card=4 slot=5 flat=34 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 68
+ENG DESC ERR scope=live track=3 id=68
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 6
+UI SOUND SLOT card=4 slot=6 flat=35 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 69
+ENG DESC ERR scope=live track=3 id=69
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 7
+UI SOUND SLOT card=4 slot=7 flat=36 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 70
+ENG DESC ERR scope=live track=3 id=70
+Command returned non-zero error code: 0x1 (ERROR)
+sloop>  UI SOUND CARD 4 SLOT 8
+UI SOUND SLOT card=4 slot=8 flat=37 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  ENG DESC live 3 58
+ENG DESC scope=live track=3 id=58 label="TYPE" fmt=8 min=0 max=2 def=0 unit="-" enums=3 first="LP" last="HP"
+sloop>  UI SOUND CARD 5 SLOT 0
+UI SOUND SLOT card=5 slot=0 flat=38 present=1 scope=0 id=0 label="LVL" locked=0 value=104 x=660 y=960 w=140 h=132
+sloop>  ENG DESC live 3 0
+ENG DESC scope=live track=3 id=0 label="LVL" fmt=6 min=0 max=127 def=104 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 5 SLOT 1
+UI SOUND SLOT card=5 slot=1 flat=39 present=1 scope=0 id=37 label="VCE" locked=1 value=0 x=800 y=960 w=140 h=132
+sloop>  ENG DESC live 3 37
+ENG DESC scope=live track=3 id=37 label="VCE" fmt=8 min=0 max=3 def=0 unit="-" enums=4 first="POLY" last="UNI"
+sloop>  UI SOUND CARD 5 SLOT 2
+UI SOUND SLOT card=5 slot=2 flat=40 present=1 scope=0 id=38 label="GLD" locked=1 value=0 x=940 y=960 w=140 h=132
+sloop>  ENG DESC live 3 38
+ENG DESC scope=live track=3 id=38 label="GLD" fmt=3 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 5 SLOT 3
+UI SOUND SLOT card=5 slot=3 flat=41 present=1 scope=0 id=41 label="GLMOD" locked=1 value=0 x=1080 y=960 w=140 h=132
+sloop>  ENG DESC live 3 41
+ENG DESC scope=live track=3 id=41 label="GLMOD" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="RATE" last="TIME"
+sloop>  UI SOUND CARD 5 SLOT 4
+UI SOUND SLOT card=5 slot=4 flat=42 present=1 scope=0 id=42 label="PRIO" locked=1 value=0 x=660 y=1092 w=140 h=132
+sloop>  ENG DESC live 3 42
+ENG DESC scope=live track=3 id=42 label="PRIO" fmt=8 min=0 max=2 def=0 unit="-" enums=3 first="LAST" last="HIGH"
+sloop>  UI SOUND CARD 5 SLOT 5
+UI SOUND SLOT card=5 slot=5 flat=43 present=1 scope=0 id=43 label="ALLOC" locked=1 value=0 x=800 y=1092 w=140 h=132
+sloop>  ENG DESC live 3 43
+ENG DESC scope=live track=3 id=43 label="ALLOC" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="ROT" last="REUSE"
+sloop>  UI SOUND CARD 5 SLOT 6
+UI SOUND SLOT card=5 slot=6 flat=44 present=1 scope=0 id=44 label="DTUNE" locked=1 value=40 x=940 y=1092 w=140 h=132
+sloop>  ENG DESC live 3 44
+ENG DESC scope=live track=3 id=44 label="DTUNE" fmt=0 min=0 max=127 def=40 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 5 SLOT 7
+UI SOUND SLOT card=5 slot=7 flat=45 present=1 scope=0 id=39 label="PAN" locked=0 value=0 x=1080 y=1092 w=140 h=132
+sloop>  ENG DESC live 3 39
+ENG DESC scope=live track=3 id=39 label="PAN" fmt=2 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 5 SLOT 8
+UI SOUND SLOT card=5 slot=8 flat=46 present=1 scope=0 id=40 label="MUTE" locked=1 value=0 x=660 y=1224 w=140 h=132
+sloop>  ENG DESC live 3 40
+ENG DESC scope=live track=3 id=40 label="MUTE" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="ON"
+sloop>  UI SOUND CARD 6 SLOT 0
+UI SOUND SLOT card=6 slot=0 flat=47 present=1 scope=0 id=33 label="DST" locked=1 value=0 x=28 y=1280 w=140 h=132
+sloop>  ENG DESC live 3 33
+ENG DESC scope=live track=3 id=33 label="DST" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 1
+UI SOUND SLOT card=6 slot=1 flat=48 present=1 scope=0 id=34 label="CHO" locked=1 value=0 x=168 y=1280 w=140 h=132
+sloop>  ENG DESC live 3 34
+ENG DESC scope=live track=3 id=34 label="CHO" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 2
+UI SOUND SLOT card=6 slot=2 flat=49 present=1 scope=0 id=35 label="DLY" locked=1 value=0 x=308 y=1280 w=140 h=132
+sloop>  ENG DESC live 3 35
+ENG DESC scope=live track=3 id=35 label="DLY" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 3
+UI SOUND SLOT card=6 slot=3 flat=50 present=1 scope=0 id=36 label="REV" locked=1 value=0 x=448 y=1280 w=140 h=132
+sloop>  ENG DESC live 3 36
+ENG DESC scope=live track=3 id=36 label="REV" fmt=1 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 4
+UI SOUND SLOT card=6 slot=4 flat=51 present=1 scope=0 id=45 label="SLCR" locked=0 value=0 x=28 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 45
+ENG DESC scope=live track=3 id=45 label="SLCR" fmt=8 min=0 max=2 def=0 unit="-" enums=3 first="OFF" last="STUT"
+sloop>  UI SOUND CARD 6 SLOT 5
+UI SOUND SLOT card=6 slot=5 flat=52 present=1 scope=0 id=46 label="PAT" locked=0 value=1 x=168 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 46
+ENG DESC scope=live track=3 id=46 label="PAT" fmt=0 min=1 max=16 def=1 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 6
+UI SOUND SLOT card=6 slot=6 flat=53 present=1 scope=0 id=47 label="RATE" locked=0 value=1 x=308 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 47
+ENG DESC scope=live track=3 id=47 label="RATE" fmt=8 min=0 max=5 def=1 unit="-" enums=6 first="1/8" last="32T"
+sloop>  UI SOUND CARD 6 SLOT 7
+UI SOUND SLOT card=6 slot=7 flat=54 present=1 scope=0 id=48 label="DEPTH" locked=0 value=127 x=448 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 48
+ENG DESC scope=live track=3 id=48 label="DEPTH" fmt=1 min=0 max=127 def=127 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 8
+UI SOUND SLOT card=6 slot=8 flat=55 present=1 scope=1 id=49 label="FADE" locked=0 value=0 x=28 y=1544 w=140 h=132
+sloop>  ENG DESC global 0 49
+ENG DESC scope=global engine=0 id=49 label="FADE" fmt=0 min=0 max=15 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 9
+UI SOUND SLOT card=6 slot=9 flat=56 present=1 scope=1 id=4 label="TIME" locked=0 value=0 x=168 y=1544 w=140 h=132
+sloop>  ENG DESC global 0 4
+ENG DESC scope=global engine=0 id=4 label="TIME" fmt=8 min=0 max=8 def=1 unit="-" enums=9 first="1/4" last="1/4D"
+sloop>  UI SOUND CARD 6 SLOT 10
+UI SOUND SLOT card=6 slot=10 flat=57 present=1 scope=1 id=5 label="FDBK" locked=0 value=0 x=308 y=1544 w=140 h=132
+sloop>  ENG DESC global 0 5
+ENG DESC scope=global engine=0 id=5 label="FDBK" fmt=1 min=0 max=120 def=60 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 11
+UI SOUND SLOT card=6 slot=11 flat=58 present=1 scope=1 id=6 label="COLR" locked=0 value=0 x=448 y=1544 w=140 h=132
+sloop>  ENG DESC global 0 6
+ENG DESC scope=global engine=0 id=6 label="COLR" fmt=1 min=0 max=127 def=70 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 12
+UI SOUND SLOT card=6 slot=12 flat=59 present=1 scope=1 id=7 label="MIX" locked=0 value=0 x=28 y=1676 w=140 h=132
+sloop>  ENG DESC global 0 7
+ENG DESC scope=global engine=0 id=7 label="MIX" fmt=1 min=0 max=127 def=90 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 13
+UI SOUND SLOT card=6 slot=13 flat=60 present=1 scope=1 id=8 label="SIZE" locked=0 value=0 x=168 y=1676 w=140 h=132
+sloop>  ENG DESC global 0 8
+ENG DESC scope=global engine=0 id=8 label="SIZE" fmt=1 min=0 max=127 def=90 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 14
+UI SOUND SLOT card=6 slot=14 flat=61 present=1 scope=1 id=9 label="DAMP" locked=0 value=0 x=308 y=1676 w=140 h=132
+sloop>  ENG DESC global 0 9
+ENG DESC scope=global engine=0 id=9 label="DAMP" fmt=1 min=0 max=127 def=60 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 15
+UI SOUND SLOT card=6 slot=15 flat=62 present=1 scope=1 id=10 label="CRT" locked=0 value=0 x=448 y=1676 w=140 h=132
+sloop>  ENG DESC global 0 10
+ENG DESC scope=global engine=0 id=10 label="CRT" fmt=4 min=0 max=127 def=40 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 16
+UI SOUND SLOT card=6 slot=16 flat=63 present=1 scope=1 id=11 label="CDP" locked=0 value=0 x=28 y=1808 w=140 h=132
+sloop>  ENG DESC global 0 11
+ENG DESC scope=global engine=0 id=11 label="CDP" fmt=1 min=0 max=127 def=60 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  ENG DESC live 3 53
+ENG DESC scope=live track=3 id=53 label="INSRT" fmt=8 min=0 max=8 def=0 unit="-" enums=9 first="OFF" last="CHOR"
+sloop>  UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  ENG DESC live 3 54
+ENG DESC scope=live track=3 id=54 label="INS A" fmt=1 min=0 max=127 def=64 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 19
+UI SOUND SLOT card=6 slot=19 flat=66 present=1 scope=0 id=55 label="INS B" locked=0 value=96 x=448 y=1808 w=140 h=132
+sloop>  ENG DESC live 3 55
+ENG DESC scope=live track=3 id=55 label="INS B" fmt=1 min=0 max=127 def=96 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 20
+UI SOUND SLOT card=6 slot=20 flat=67 present=1 scope=0 id=56 label="INS C" locked=0 value=96 x=28 y=1940 w=140 h=132
+sloop>  ENG DESC live 3 56
+ENG DESC scope=live track=3 id=56 label="INS C" fmt=1 min=0 max=127 def=96 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 6 SLOT 21
+UI SOUND SLOT card=6 slot=21 flat=68 present=1 scope=0 id=57 label="MIX" locked=0 value=127 x=168 y=1940 w=140 h=132
+sloop>  ENG DESC live 3 57
+ENG DESC scope=live track=3 id=57 label="MIX" fmt=1 min=0 max=127 def=127 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 7 SLOT 0
+UI SOUND SLOT card=7 slot=0 flat=69 present=1 scope=0 id=25 label="ROOT" locked=1 value=0 x=660 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 25
+ENG DESC scope=live track=3 id=25 label="ROOT" fmt=10 min=0 max=11 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 7 SLOT 1
+UI SOUND SLOT card=7 slot=1 flat=70 present=1 scope=0 id=26 label="SCL" locked=1 value=0 x=800 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 26
+ENG DESC scope=live track=3 id=26 label="SCL" fmt=8 min=0 max=15 def=0 unit="-" enums=16 first="CHR" last="DIMWH"
+sloop>  UI SOUND CARD 7 SLOT 2
+UI SOUND SLOT card=7 slot=2 flat=71 present=1 scope=0 id=27 label="QNT" locked=1 value=0 x=940 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 27
+ENG DESC scope=live track=3 id=27 label="QNT" fmt=8 min=0 max=2 def=0 unit="-" enums=3 first="OFF" last="WHITE"
+sloop>  UI SOUND CARD 7 SLOT 3
+UI SOUND SLOT card=7 slot=3 flat=72 present=1 scope=0 id=49 label="CHORD" locked=1 value=0 x=1080 y=1412 w=140 h=132
+sloop>  ENG DESC live 3 49
+ENG DESC scope=live track=3 id=49 label="CHORD" fmt=8 min=0 max=5 def=0 unit="-" enums=6 first="OFF" last="POWER"
+sloop>  UI SOUND CARD 7 SLOT 4
+UI SOUND SLOT card=7 slot=4 flat=73 present=1 scope=0 id=28 label="TRN" locked=1 value=0 x=660 y=1544 w=140 h=132
+sloop>  ENG DESC live 3 28
+ENG DESC scope=live track=3 id=28 label="TRN" fmt=7 min=-24 max=24 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 7 SLOT 5
+UI SOUND SLOT card=7 slot=5 flat=74 present=1 scope=0 id=51 label="STRUM" locked=1 value=0 x=800 y=1544 w=140 h=132
+sloop>  ENG DESC live 3 51
+ENG DESC scope=live track=3 id=51 label="STRUM" fmt=0 min=-60 max=60 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 7 SLOT 6
+UI SOUND SLOT card=7 slot=6 flat=75 present=1 scope=0 id=52 label="VLEAD" locked=1 value=0 x=940 y=1544 w=140 h=132
+sloop>  ENG DESC live 3 52
+ENG DESC scope=live track=3 id=52 label="VLEAD" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="ON"
+sloop>  UI SOUND CARD 8 SLOT 0
+UI SOUND SLOT card=8 slot=0 flat=76 present=1 scope=0 id=17 label="MODE" locked=1 value=0 x=660 y=1732 w=140 h=132
+sloop>  ENG DESC live 3 17
+ENG DESC scope=live track=3 id=17 label="MODE" fmt=8 min=0 max=14 def=0 unit="-" enums=15 first="OFF" last="CHORD"
+sloop>  UI SOUND CARD 8 SLOT 1
+UI SOUND SLOT card=8 slot=1 flat=77 present=1 scope=0 id=18 label="RATE" locked=1 value=2 x=800 y=1732 w=140 h=132
+sloop>  ENG DESC live 3 18
+ENG DESC scope=live track=3 id=18 label="RATE" fmt=8 min=0 max=5 def=2 unit="-" enums=6 first="1/4" last="16T"
+sloop>  UI SOUND CARD 8 SLOT 2
+UI SOUND SLOT card=8 slot=2 flat=78 present=1 scope=0 id=19 label="OCT" locked=1 value=1 x=940 y=1732 w=140 h=132
+sloop>  ENG DESC live 3 19
+ENG DESC scope=live track=3 id=19 label="OCT" fmt=0 min=1 max=4 def=1 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 8 SLOT 3
+UI SOUND SLOT card=8 slot=3 flat=79 present=1 scope=0 id=20 label="GATE" locked=1 value=64 x=1080 y=1732 w=140 h=132
+sloop>  ENG DESC live 3 20
+ENG DESC scope=live track=3 id=20 label="GATE" fmt=1 min=1 max=127 def=64 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 8 SLOT 4
+UI SOUND SLOT card=8 slot=4 flat=80 present=1 scope=0 id=21 label="SWG" locked=1 value=0 x=660 y=1864 w=140 h=132
+sloop>  ENG DESC live 3 21
+ENG DESC scope=live track=3 id=21 label="SWG" fmt=14 min=0 max=100 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 8 SLOT 5
+UI SOUND SLOT card=8 slot=5 flat=81 present=1 scope=0 id=22 label="PROB" locked=1 value=127 x=800 y=1864 w=140 h=132
+sloop>  ENG DESC live 3 22
+ENG DESC scope=live track=3 id=22 label="PROB" fmt=1 min=0 max=127 def=127 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 8 SLOT 6
+UI SOUND SLOT card=8 slot=6 flat=82 present=1 scope=0 id=23 label="HOLD" locked=1 value=0 x=940 y=1864 w=140 h=132
+sloop>  ENG DESC live 3 23
+ENG DESC scope=live track=3 id=23 label="HOLD" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="ON"
+sloop>  UI SOUND CARD 8 SLOT 7
+UI SOUND SLOT card=8 slot=7 flat=83 present=1 scope=0 id=24 label="ORD" locked=1 value=0 x=1080 y=1864 w=140 h=132
+sloop>  ENG DESC live 3 24
+ENG DESC scope=live track=3 id=24 label="ORD" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="NOTE" last="PLAY"
+sloop>  UI SOUND CARD 9 SLOT 0
+UI SOUND SLOT card=9 slot=0 flat=84 present=1 scope=0 id=29 label="LEN" locked=0 value=16 x=660 y=2052 w=140 h=132
+sloop>  ENG DESC live 3 29
+ENG DESC scope=live track=3 id=29 label="LEN" fmt=13 min=1 max=64 def=16 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 9 SLOT 1
+UI SOUND SLOT card=9 slot=1 flat=85 present=1 scope=0 id=30 label="DIV" locked=0 value=2 x=800 y=2052 w=140 h=132
+sloop>  ENG DESC live 3 30
+ENG DESC scope=live track=3 id=30 label="DIV" fmt=8 min=0 max=8 def=2 unit="-" enums=9 first="1/4" last="2BAR"
+sloop>  UI SOUND CARD 9 SLOT 2
+UI SOUND SLOT card=9 slot=2 flat=86 present=1 scope=0 id=31 label="SWG" locked=0 value=0 x=940 y=2052 w=140 h=132
+sloop>  ENG DESC live 3 31
+ENG DESC scope=live track=3 id=31 label="SWG" fmt=14 min=0 max=100 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 9 SLOT 3
+UI SOUND SLOT card=9 slot=3 flat=87 present=1 scope=0 id=32 label="GATE" locked=0 value=64 x=1080 y=2052 w=140 h=132
+sloop>  ENG DESC live 3 32
+ENG DESC scope=live track=3 id=32 label="GATE" fmt=1 min=1 max=127 def=64 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 10 SLOT 0
+UI SOUND SLOT card=10 slot=0 flat=88 present=1 scope=1 id=24 label="CH4" locked=0 value=10 x=28 y=2128 w=140 h=132
+sloop>  ENG DESC global 0 24
+ENG DESC scope=global engine=0 id=24 label="CH4" fmt=8 min=0 max=16 def=10 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 10 SLOT 1
+UI SOUND SLOT card=10 slot=1 flat=89 present=1 scope=1 id=25 label="LVL" locked=0 value=0 x=168 y=2128 w=140 h=132
+sloop>  ENG DESC global 0 25
+ENG DESC scope=global engine=0 id=25 label="LVL" fmt=0 min=0 max=127 def=100 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 10 SLOT 2
+UI SOUND SLOT card=10 slot=2 flat=90 present=1 scope=1 id=26 label="REV" locked=0 value=77 x=308 y=2128 w=140 h=132
+sloop>  ENG DESC global 0 26
+ENG DESC scope=global engine=0 id=26 label="REV" fmt=0 min=0 max=127 def=16 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 10 SLOT 3
+UI SOUND SLOT card=10 slot=3 flat=91 present=1 scope=1 id=32 label="DLY" locked=0 value=0 x=448 y=2128 w=140 h=132
+sloop>  ENG DESC global 0 32
+ENG DESC scope=global engine=0 id=32 label="DLY" fmt=0 min=0 max=127 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 11 SLOT 0
+UI SOUND SLOT card=11 slot=0 flat=92 present=1 scope=1 id=33 label="CH1" locked=0 value=1 x=660 y=2240 w=140 h=132
+sloop>  ENG DESC global 0 33
+ENG DESC scope=global engine=0 id=33 label="CH1" fmt=8 min=0 max=16 def=1 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 1
+UI SOUND SLOT card=11 slot=1 flat=93 present=1 scope=1 id=34 label="CH2" locked=0 value=2 x=800 y=2240 w=140 h=132
+sloop>  ENG DESC global 0 34
+ENG DESC scope=global engine=0 id=34 label="CH2" fmt=8 min=0 max=16 def=2 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 2
+UI SOUND SLOT card=11 slot=2 flat=94 present=1 scope=1 id=35 label="CH3" locked=0 value=3 x=940 y=2240 w=140 h=132
+sloop>  ENG DESC global 0 35
+ENG DESC scope=global engine=0 id=35 label="CH3" fmt=8 min=0 max=16 def=3 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 3
+UI SOUND SLOT card=11 slot=3 flat=95 present=1 scope=1 id=24 label="CH4" locked=0 value=10 x=1080 y=2240 w=140 h=132
+sloop>  ENG DESC global 0 24
+ENG DESC scope=global engine=0 id=24 label="CH4" fmt=8 min=0 max=16 def=10 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 4
+UI SOUND SLOT card=11 slot=4 flat=96 present=1 scope=1 id=36 label="OTHER" locked=0 value=0 x=660 y=2372 w=140 h=132
+sloop>  ENG DESC global 0 36
+ENG DESC scope=global engine=0 id=36 label="OTHER" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="SEL" last="OFF"
+sloop>  UI SOUND CARD 11 SLOT 5
+UI SOUND SLOT card=11 slot=5 flat=97 present=1 scope=1 id=44 label="BEND" locked=0 value=2 x=800 y=2372 w=140 h=132
+sloop>  ENG DESC global 0 44
+ENG DESC scope=global engine=0 id=44 label="BEND" fmt=7 min=1 max=12 def=2 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 11 SLOT 6
+UI SOUND SLOT card=11 slot=6 flat=98 present=1 scope=1 id=45 label="FX CH" locked=0 value=0 x=940 y=2372 w=140 h=132
+sloop>  ENG DESC global 0 45
+ENG DESC scope=global engine=0 id=45 label="FX CH" fmt=8 min=0 max=16 def=0 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 7
+UI SOUND SLOT card=11 slot=7 flat=99 present=1 scope=1 id=46 label="DR MAP" locked=0 value=0 x=1080 y=2372 w=140 h=132
+sloop>  ENG DESC global 0 46
+ENG DESC scope=global engine=0 id=46 label="DR MAP" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="GM" last="1-16"
+sloop>  UI SOUND CARD 11 SLOT 8
+UI SOUND SLOT card=11 slot=8 flat=100 present=1 scope=1 id=47 label="REMOTE" locked=0 value=0 x=660 y=2504 w=140 h=132
+sloop>  ENG DESC global 0 47
+ENG DESC scope=global engine=0 id=47 label="REMOTE" fmt=8 min=0 max=16 def=0 unit="-" enums=17 first="OFF" last="16"
+sloop>  UI SOUND CARD 11 SLOT 9
+UI SOUND SLOT card=11 slot=9 flat=101 present=1 scope=1 id=48 label="CLOCK" locked=0 value=0 x=800 y=2504 w=140 h=132
+sloop>  ENG DESC global 0 48
+ENG DESC scope=global engine=0 id=48 label="CLOCK" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="OUT"
+sloop>  UI SOUND CARD 12 SLOT 0
+UI SOUND SLOT card=12 slot=0 flat=102 present=1 scope=1 id=37 label="SRC" locked=0 value=0 x=28 y=2316 w=140 h=132
+sloop>  ENG DESC global 0 37
+ENG DESC scope=global engine=0 id=37 label="SRC" fmt=8 min=0 max=10 def=0 unit="-" enums=11 first="OFF" last="USR4"
+sloop>  UI SOUND CARD 12 SLOT 1
+UI SOUND SLOT card=12 slot=1 flat=103 present=1 scope=1 id=38 label="LEVEL" locked=0 value=64 x=168 y=2316 w=140 h=132
+sloop>  ENG DESC global 0 38
+ENG DESC scope=global engine=0 id=38 label="LEVEL" fmt=1 min=0 max=127 def=64 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 12 SLOT 2
+UI SOUND SLOT card=12 slot=2 flat=104 present=1 scope=1 id=39 label="TONE" locked=0 value=0 x=308 y=2316 w=140 h=132
+sloop>  ENG DESC global 0 39
+ENG DESC scope=global engine=0 id=39 label="TONE" fmt=15 min=-64 max=63 def=0 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 12 SLOT 3
+UI SOUND SLOT card=12 slot=3 flat=105 present=1 scope=1 id=40 label="MOVE" locked=0 value=40 x=448 y=2316 w=140 h=132
+sloop>  ENG DESC global 0 40
+ENG DESC scope=global engine=0 id=40 label="MOVE" fmt=1 min=0 max=127 def=40 unit="-" enums=0 first="-" last="-"
+sloop>  UI SOUND CARD 12 SLOT 4
+UI SOUND SLOT card=12 slot=4 flat=106 present=1 scope=1 id=41 label="RATE" locked=0 value=2 x=28 y=2448 w=140 h=132
+sloop>  ENG DESC global 0 41
+ENG DESC scope=global engine=0 id=41 label="RATE" fmt=8 min=0 max=4 def=2 unit="-" enums=5 first="1BAR" last="16BAR"
+sloop>  UI SOUND CARD 12 SLOT 5
+UI SOUND SLOT card=12 slot=5 flat=107 present=1 scope=1 id=42 label="WHEN" locked=0 value=0 x=168 y=2448 w=140 h=132
+sloop>  ENG DESC global 0 42
+ENG DESC scope=global engine=0 id=42 label="WHEN" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="PLAY" last="ALWAYS"
+sloop>  UI SOUND CARD 12 SLOT 6
+UI SOUND SLOT card=12 slot=6 flat=108 present=1 scope=1 id=43 label="DUCK" locked=0 value=0 x=308 y=2448 w=140 h=132
+sloop>  ENG DESC global 0 43
+ENG DESC scope=global engine=0 id=43 label="DUCK" fmt=8 min=0 max=1 def=0 unit="-" enums=2 first="OFF" last="ON"
+sloop>  UI SOUND STATS
+UI SOUND STATS cards=13 slots=101 scroll_max=1932 collapsed=0x0000
+sloop>  UI SOUND CARD 4 SLOT 0
+UI SOUND SLOT card=4 slot=0 flat=29 present=1 scope=0 id=63 label="KIT" locked=1 value=0 x=28 y=828 w=140 h=132
+sloop>  UI SOUND CARD 4 SLOT 1
+UI SOUND SLOT card=4 slot=1 flat=30 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 2
+UI SOUND SLOT card=4 slot=2 flat=31 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 3
+UI SOUND SLOT card=4 slot=3 flat=32 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 4
+UI SOUND SLOT card=4 slot=4 flat=33 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 5
+UI SOUND SLOT card=4 slot=5 flat=34 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 6
+UI SOUND SLOT card=4 slot=6 flat=35 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 7
+UI SOUND SLOT card=4 slot=7 flat=36 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  UI SOUND CARD 4 SLOT 8
+UI SOUND SLOT card=4 slot=8 flat=37 present=0 scope=- id=- label="-" locked=0 value=0 x=0 y=0 w=0 h=0
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=94
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=3 focus_step=0 layer_held=0x04 selected_track=3 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=3 level=104 atk=10 dec=70 sus=90 rel=60 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=108
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=15
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=26
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  STATE SNAP
+STATE SNAP page=6 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=127 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  UI SOUND CARD 6 SLOT 17
+UI SOUND SLOT card=6 slot=17 flat=64 present=1 scope=0 id=53 label="INSRT" locked=0 value=0 x=168 y=1808 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="INS A" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 19
+UI SOUND SLOT card=6 slot=19 flat=66 present=1 scope=0 id=55 label="INS B" locked=0 value=96 x=448 y=1808 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 20
+UI SOUND SLOT card=6 slot=20 flat=67 present=1 scope=0 id=56 label="INS C" locked=0 value=96 x=28 y=1940 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 21
+UI SOUND SLOT card=6 slot=21 flat=68 present=1 scope=0 id=57 label="MIX" locked=0 value=127 x=168 y=1940 w=140 h=132
+sloop>  PARAM 53
+PARAM track=0 id=53 value=0 min=0 max=8
+sloop>  PARAM 53
+PARAM track=0 id=53 value=0 min=0 max=8
+sloop>  UI SOUND KNOB 64 press 0 -40
+UI SOUND KNOB flat=64 press dx=0 dy=-40 value=0
+sloop>  UI SOUND KNOB 64 drag 28 -28
+UI SOUND KNOB flat=64 drag dx=28 dy=-28 value=1
+sloop>  UI SOUND CARD 6 SLOT 18
+UI SOUND SLOT card=6 slot=18 flat=65 present=1 scope=0 id=54 label="DRIVE" locked=0 value=64 x=308 y=1808 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 19
+UI SOUND SLOT card=6 slot=19 flat=66 present=1 scope=0 id=55 label="TONE" locked=0 value=96 x=448 y=1808 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 20
+UI SOUND SLOT card=6 slot=20 flat=67 present=1 scope=0 id=56 label="LEVEL" locked=0 value=96 x=28 y=1940 w=140 h=132
+sloop>  UI SOUND CARD 6 SLOT 21
+UI SOUND SLOT card=6 slot=21 flat=68 present=1 scope=0 id=57 label="MIX" locked=0 value=127 x=168 y=1940 w=140 h=132
+sloop>  PARAM 53
+PARAM track=0 id=53 value=1 min=0 max=8
+sloop>  UI SOUND KNOB 64 press 0 -40
+UI SOUND KNOB flat=64 press dx=0 dy=-40 value=1
+sloop>  UI SOUND KNOB 64 drag -40 0
+UI SOUND KNOB flat=64 drag dx=-40 dy=0 value=0
+sloop>  

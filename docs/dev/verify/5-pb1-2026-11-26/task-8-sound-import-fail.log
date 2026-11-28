@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/kenn/projects/sloop-fm1-tab5/scripts/inject/inject.py", line 9922, in <module>
+    _G, _T = SOUND_SCOPE_GLOBAL, SOUND_SCOPE_TRACK
+             ^^^^^^^^^^^^^^^^^^
+NameError: name 'SOUND_SCOPE_GLOBAL' is not defined

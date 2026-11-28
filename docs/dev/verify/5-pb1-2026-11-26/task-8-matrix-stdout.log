@@ -1,0 +1,163 @@
+== screenshot_matrix @ /dev/ttyACM0
+   产物目录: docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657
+  [PASS] STORE AUTO OFF
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] sound-default: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92206727) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-default.png  (1280x720 rgb565)
+  [PASS] sound-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-default.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-default.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (19,80) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (21,252) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-default.png: (67,279) panel_hi 实测 (24, 32, 32) 期望 (32, 40, 48)（容差 16）
+  [PASS] sound-default.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND SCROLL 99999
+  [PASS] sound-scrolled: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92225137) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-scrolled.png  (1280x720 rgb565)
+  [PASS] sound-scrolled.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-scrolled.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-scrolled.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-scrolled.png: (21,448) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-scrolled.png: (116,344) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 10）
+  [PASS] sound-scrolled.png: region(16,118,1088,144) text_dim 命中 1760（≥24） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] sound-scrolled.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] TAP 160 92
+  [PASS] UI SOUND PICK
+  [PASS] sound-picker-engine: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92244087) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-picker-engine.png  (1280x720 rgb565)
+  [PASS] sound-picker-engine.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-picker-engine.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-picker-engine.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: (160,420) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: region(201,204,241,236) accent 命中 1056（≥200） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-engine.png: (298,204) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: region(188,252,376,278) accent 命中 178（≥20） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-engine.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] TAP 512 92
+  [PASS] UI SOUND PICK
+  [PASS] sound-picker-preset: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92263327) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-picker-preset.png  (1280x720 rgb565)
+  [PASS] sound-picker-preset.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-picker-preset.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-picker-preset.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-preset.png: (160,420) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-preset.png: region(201,204,241,236) accent 命中 1056（≥200） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-preset.png: region(188,252,676,568) accent 命中 244（≥20） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-preset.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND FOCUS 8
+  [PASS] UI SOUND STATS
+  [PASS] sound-drum: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92282057) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-drum.png  (1280x720 rgb565)
+  [PASS] sound-drum.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-drum.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-drum.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-drum.png: region(320,80,1080,108) error 命中 1218（≥200） 最近 (224, 84, 40) 期望 (224, 84, 40)
+  [PASS] sound-drum.png: (1200,92) panel_sel 实测 (40, 52, 64) 期望 (40, 52, 64)（容差 10）
+  [PASS] sound-drum.png: (67,467) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] sound-drum.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND CARDTOGGLE 2
+  [PASS] UI SOUND CARDTOGGLE 12
+  [PASS] UI SOUND STATS
+  [PASS] sound-collapsed: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92300757) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657/sound-collapsed.png  (1280x720 rgb565)
+  [PASS] sound-collapsed.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-collapsed.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-collapsed.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-collapsed.png: (21,364) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-collapsed.png: (748,468) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 10）
+  [PASS] sound-collapsed.png: (699,599) panel_hi 实测 (24, 32, 32) 期望 (32, 40, 48)（容差 16）
+  [PASS] sound-collapsed.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI sound
+  [PASS] 四轨引擎·预置回到起点：{0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0)}（期望 {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0)}）
+  [PASS] 选轨/步窗/页/palette/theme 回到起点：(0, (0, 16), 6, 4, 0)（期望 (0, (0, 16), 6, 4, 0)）
+  [PASS] LIVEHASH 9303B7DF == 起点 9303B7DF
+  [PASS] STORE AUTO on
+[INFO] PNG 6/6 张；锚点 31 个；截屏复位重试 0 次
+[INFO] 工作工程已核对回到起点（LIVEHASH 9303B7DF）；autosave 回到原来的 on
+[INFO] 联系表 2 张
+[PASS] screenshot_matrix: 6 条目全部解码、锚点命中、每条目后 LIVEHASH 不变、起点还原（docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085657）

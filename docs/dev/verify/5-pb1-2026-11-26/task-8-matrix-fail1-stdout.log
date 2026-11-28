@@ -1,0 +1,69 @@
+== screenshot_matrix @ /dev/ttyACM0
+   产物目录: docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085553
+  [PASS] STORE AUTO OFF
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] sound-default: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92142387) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085553/sound-default.png  (1280x720 rgb565)
+  [PASS] sound-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-default.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-default.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (19,80) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (21,252) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-default.png: (67,279) panel_hi 实测 (24, 32, 32) 期望 (32, 40, 48)（容差 16）
+  [PASS] sound-default.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND SCROLL 99999
+  [PASS] sound-scrolled: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (92160607) sloop_console: SCR: 传输前 PSRAM 剩余 28194460 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085553/sound-scrolled.png  (1280x720 rgb565)
+  [PASS] sound-scrolled.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-scrolled.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-scrolled.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-scrolled.png: (21,448) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-scrolled.png: (116,344) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 10）
+  [PASS] sound-scrolled.png: region(16,118,1088,144) text_dim 命中 1760（≥24） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] sound-scrolled.png: 条目后 LIVEHASH 9303B7DF == 归一起点 9303B7DF
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI sound
+  [PASS] 四轨引擎·预置回到起点：{0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0)}（期望 {0: (0, 0), 1: (0, 0), 2: (0, 0), 3: (0, 0)}）
+  [PASS] 选轨/步窗/页/palette/theme 回到起点：(0, (0, 16), 6, 4, 0)（期望 (0, (0, 16), 6, 4, 0)）
+  [PASS] LIVEHASH 9303B7DF == 起点 9303B7DF
+  [PASS] STORE AUTO on
+[INFO] PNG 2/6 张；锚点 10 个；截屏复位重试 0 次
+[INFO] 工作工程已核对回到起点（LIVEHASH 9303B7DF）；autosave 回到原来的 on
+[FAIL] screenshot_matrix: UI SOUND PICK 回显异常：'UI SOUND PICK\r\nUI ERR sound (not_dashboard)\r\nCommand returned non-zero error code: 0x1 (ERROR)\r\nsloop>'；工作工程已核对回到起点（LIVEHASH 9303B7DF）；autosave 回到原来的 on；已出的 PNG 与 matrix.csv 在 docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix/matrix-20261128-085553

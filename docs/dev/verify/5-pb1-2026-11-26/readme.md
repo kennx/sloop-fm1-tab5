@@ -538,3 +538,32 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
    还原后的状态由自动存档落盘。
 3. 未做：`screenshot_matrix.py` 的设备全量（只跑 `--selftest`；`sound` 的两条目是占位，等 Task 8）、其余五条场景
    （transport / step_edit / tracks / sequence / synth）、`device-selftest.py` / `selftest-heap.py` / `desc-check.py`（简报未列）。
+
+## 18. 5B-1 Task 8：SOUND 仪表盘注入场景与六态矩阵（2026-11-28；脚本 `a19a2f9`）
+
+> 固件未改（仍为 Task 7 的 `5de0404`），因此本任务没有重建或重烧。下表的 PASS/FAIL 计数按 stdout 里的 `[PASS]` / `[FAIL]` 行计，含场景末行总 PASS。所有真机场景都同时保留 tee 的 stdout 与原始串口 transcript。
+
+| # | 门禁项 | 命令 | 证据文件 | 结论 / 读数 |
+|---|---|---|---|---|
+| 1 | host 单测 | `scripts/knob-test.sh`、`scripts/sound-test.sh` | `task-8-knob-test.log`、`task-8-sound-test.log` | ✅ `16 passed, 0 failed` / `4 passed, 0 failed` |
+| 2 | 工具自测 | `python3 scripts/soak-selftest.py`、`python3 scripts/screenshot.py --selftest`、`python3 scripts/screenshot_matrix.py --selftest` | `task-8-soak-selftest.log`、`task-8-screenshot-selftest.log`、`task-8-matrix-selftest.log` | ✅ 均 rc=0；矩阵自测为 **24 条目 / 13 页**，SOUND 六态均为必需状态，`sound/editing` 占位已删 |
+| 3 | SOUND 注入场景 | `bash scripts/inject/sound.sh /dev/ttyACM0` | `task-8-sound-stdout.log`、`task-8-sound-transcript.log`、`task-8-sound-{default,scrolled,collapsed,picker-engine,picker-preset,drum}.png` | ✅ **407 PASS / 0 FAIL**；est=8,704，② delta=6,484B；SEQ→SOUND 池增量=7,164B、池剩余=12,852B、build=12ms；最终 `UI MEM` delta=6,576B / build_ms=9ms；10 次 SOUND↔STEP `pool_free 42060→41972`（Δ=−88B，单次最大下降 80B） |
+| 4 | 逐槽结构 / 动态标签 | `sound` ③、⑨、⑩、③b | 同上 stdout/transcript；定点 `task-8-affected-probe-{stdout,transcript}.log` | ✅ ANALOG 109、鼓轨 101；12 引擎存在槽数 `109/107/107/108/106/108/108/108/108/108/108/108`；鼓轨 Engine edit 只有 KIT present+locked，16 个 TD 槽可编辑；ITYPE = FX 卡槽 17 / flat 64，改值后 `INS A/B/C/MIX` 正确重解析 |
+| 5 | SOUND 六态设备矩阵 | `python3 scripts/screenshot_matrix.py /dev/ttyACM0 --pages sound --out docs/dev/verify/5-pb1-2026-11-26/task-8-sound-matrix` | `task-8-matrix-stdout.log`、`task-8-sound-matrix/matrix-20261128-085657/`（6 PNG、matrix.csv、matrix.log、联系表） | ✅ **6/6 PNG、31/31 锚点、6/6 条目后 LIVEHASH 不变、0 次重试**，起点还原；stdout 共 134 PASS / 0 FAIL |
+| 6 | 共享 inject.py 十条回归 | 顺序 `nav → params → store → song → sys → tracks → sequence → synth → step_edit → transport` | `task-8-<场景>-stdout.log`、`task-8-<场景>-transcript.log` | ✅ nav **527/0**、params **363/0**、store **901/0**、song **353/0**、sys **353/0**、tracks **84/0**、sequence **562/0**、synth **794/0**、step_edit **321/0**、transport **288/0** |
+| 7 | 全量自检堆泄漏 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-8-selftest-heap.log`、`task-8-selftest-heap-transcript.log` | ✅ 两次均 182/182；run 1 Δ=260B、run 2 Δ=44B（≤1,024B）；`internal_min=75,136B`（≥61,440B），收尾 free=75,987B |
+| 8 | 基线还原 + 硬复位 | `task-8-baseline.py verify … --reset` | `task-8-baseline.txt`、`task-8-restore-live-stdout.log`、`task-8-restore.txt`、`task-8-restore-transcript.log` | ⚠️ **294/295 项相同，唯一差异是 LIVEHASH `30117351 → 351646DB`**；详见下方开放项，未记为 RESTORE OK |
+
+### 失败运行与断言出处
+
+- `task-8-sound-import-fail.log`：继承代码在 import 时先使用 `SOUND_SCOPE_*` 后定义，且卡槽数断言对 int 调 `len()`；分别改为先定义常量、直接比较槽数列表。`_unused_tail` 已删除。
+- `task-8-sound-fail1-*`：① 150° 环点落在数值弧上。`page_sound.c:415-418` 先画整圈 UI_PANEL_HI、再从 135° 叠值弧，故探针改到 **135° 左下起点 `(cx−31,cy+31)`**，不是改期望色；fail PNG 离线复判两点容差内通过。② `ENG TRACK` 直写 core（`console.c:830`），立刻重开选择器会拍到旧 sound 投影，下一拍关闭（`page_sound_picker.c:646-650`），ESC 随后按 `input.c:294-300` 回 PLAY；场景在该诊断命令后等 0.1s。隔离 RED 见 `task-8-esc-engine-probe-*`，GREEN 见 `task-8-esc-engine-fixed-*`。
+- `task-8-sound-fail2-*`：成员镜像漏 `TD(L_P_ITYPE)`（`sound_layout.c:46`），补齐后鼓轨可编辑槽恰 16；Engine edit 在鼓轨只有 P_E0/KIT 的描述符，E1..E7 与 FTYPE 均 absent；ITYPE 是 FX 槽 17（base 47 + 17 = **flat 64**），不是继承稿的 65。定点复核 `task-8-affected-probe-*` 全过。池判据未放宽：先预热并以相邻两轮 ≤128B 证明起点稳定，再量同样 10 轮；独立 `task-8-pool-probe-*` / `task-8-pool-stable-probe-*` 分别为 −56B / −12B。
+- `task-8-sound-fail3-*`：预热起点离群造成首末 −140B（仅超 12B），所以加上述起点稳定条件；最终 clean run 为 −88B，阈值仍 128B。
+- `task-8-matrix-fail1-stdout.log`：`ensure_engine/select_track` 会落 TRACKS，`sound_reset` 在错误页发 `UI SOUND`；在 reset 入口显式 `UI sound` 后六态全过。
+- `task-8-step_edit-fail{1,2,3}-*`：发声探针的音频工作可见性是异步的。隔离按键 `task-8-voice-probe-*` 首次读数 voices=2；发声观察窗改为 1.0s。ENTER no-op 的 21 行引擎快照仍逐字比较，只排除异步 `voices=` 字段（`page_step.c:1118` 已证明合成轨直接返回），其它引擎/预置/步/lock 字段不放宽。
+- 六张 clean PNG 与 `sheet-edit.png` 已用视觉能力逐张读取：卡片、滚动、折叠重排、选择器、鼓轨锁定态均符合预期，无花屏、撕裂、错位或残留脏区。
+
+### 开放项（不计为已闭合）
+
+基线工具只记录四轨引擎/参数、全局、kit、settings、槽清单与整份 LIVEHASH，没有记录步表/锁/section/arrangement 的可恢复内容。旧十条场景按自身设计含有诊断性工程操作；全部可恢复字段已逐项写回并落盘，但整份工程的 hash 未回到入口。入口四个工程槽又全为 EMPTY，没有可加载的入口备份。按本任务「不再清 pattern/lane、不再做 STORE 写/擦除」约束，无法从现有数据重建那部分工程，故硬复位后仍只有上述一项 `RESTORE MISMATCH`。没有再用 NEW/CLEAR/ERASE 掩盖差异；`task-8-restore-pre-reset.txt` 与 `task-8-restore.txt` 都保留完整 295 项对照。后续必须从包含入口工程的备份恢复，或扩充基线为完整可重放的工程数据后重做还原。

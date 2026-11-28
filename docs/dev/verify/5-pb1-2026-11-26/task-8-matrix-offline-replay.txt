@@ -1,0 +1,6 @@
+default anchors 5 PASS firmware/build/verify/inject-sound-20261128-083728-default.png
+scrolled anchors 5 PASS firmware/build/verify/inject-sound-20261128-083728-scrolled.png
+picker-engine anchors 6 PASS docs/dev/verify/5-pb1-2026-11-26/task-6-pick-engine.png
+picker-preset anchors 5 PASS firmware/build/verify/inject-sound-20261128-083728-picker-preset.png
+drum anchors 5 PASS firmware/build/verify/inject-sound-20261128-083728-drum.png
+offline replay PASS; collapsed uses distinct mask 0x1004 and requires on-device capture
