@@ -641,3 +641,27 @@ track-1 的判别性前置值：轨 0 的 LEVEL/ATK/DEC/SUS/REL = `55/11/22/33/4
 开发失败证据未覆盖：`task-8-fix2-params-track0-stdout.log` 是仅轨 0 恢复时的 0 断言失败但 hash 漂移（`4114C0AC → 58DFFDEF`）；`-2` / `-3` 保留三轨快照后误停轨 2 造成的七项页眉失败，对应原始 transcript 同包。最终修复来自这些记录，不是放宽断言。
 
 离线复核：`python3 -m py_compile scripts/inject/inject.py scripts/inject/snapshot-selftest.py` 退出码 0；`task-8-fix2-{snapshot,soak,matrix}-selftest.log` 均 PASS。保留的 `scripts/inject/snapshot-selftest.py` 无设备可重跑，明确覆盖 hash-mismatch/no-erase/recovery-message、`ScenarioRestart` 清理排除，以及普通 `InjectError` 清理后原样上抛。固件文件未改，本轮不重建、不重烧。
+
+
+## 19. Task 9 leg A：最终源码的主机侧门禁（2026-11-28；基线 `51d687a`）
+
+本段只覆盖 Task 9 Step 1 的 1–3 项；固件、脚本与第三方源码均为 `51d687a`，未烧录、未访问设备串口。文档清理与这些日志在同一证据提交中；设备段与阶段收口结论留待后续 leg。
+
+| 门禁 | 命令 | 日志 | 结果 |
+|---|---|---|---|
+| 构建 ×3 | `scripts/build.sh --clean && scripts/build.sh && scripts/build.sh` | `task-9-build.log` | ✅ rc=0；首次 clean configure 只有 AGENTS §5.5 豁免的 CMake/kconfig 提示对；第二、三遍均 **0 warnings** |
+| DSP / golden | `scripts/host-test.sh` | `task-9-host-test.log` | ✅ rc=0；182 golden renders（0 changed / 0 gone）、0 health failures、0 voice/routing failures、0 CPU entries over budget；`ALL HOST TESTS PASSED (subset)` |
+| 状态层 | `scripts/state-test.sh` | `task-9-state-test.log` | ✅ rc=0；46 passed / 0 failed |
+| UI 纯函数 / 页表 | `scripts/knob-test.sh` | `task-9-knob-test.log` | ✅ rc=0；16 passed / 0 failed |
+| Sound 布局 | `scripts/sound-test.sh` | `task-9-sound-test.log` | ✅ rc=0；4 passed / 0 failed |
+| 音序 / persist | `scripts/seq-test.sh` | `task-9-seq-test.log` | ✅ rc=0；617 条 `ok`，`SEQ HOST TEST PASSED (0 failures)`、`persist-host: PASS (0 failures)` |
+| DSYN / FM6 / 采样 | `scripts/synth-test.sh` | `task-9-synth-test.log` | ✅ rc=0；246 条 `ok`，`SYNTH HOST TEST PASSED` |
+| 编辑器协议 | `scripts/editor-proto-test.sh` | `task-9-editor-proto-test.log` | ✅ rc=0；6/6 |
+| USB-MIDI 流 | `scripts/usb-fm1-test.sh` | `task-9-usb-fm1-test.log` | ✅ rc=0；5/5 |
+| soak 工具 | `python3 scripts/soak-selftest.py` | `task-9-soak-selftest.log` | ✅ rc=0；`结果: PASS` |
+| 截屏工具 | `python3 scripts/screenshot.py --selftest` | `task-9-screenshot-selftest.log` | ✅ rc=0；`selftest OK` |
+| 截屏矩阵 | `python3 scripts/screenshot_matrix.py --selftest` | `task-9-matrix-selftest.log` | ✅ rc=0；24 条目 / 13 页，`screenshot_matrix selftest OK` |
+| FM-1 冒烟判定 | `python3 scripts/fm1-smoke.py --selftest` | `task-9-fm1-smoke-selftest.log` | ✅ rc=0；14 组样例，`FM1 SMOKE SELFTEST OK`（不是设备冒烟） |
+| 快照异常路径 | `python3 scripts/inject/snapshot-selftest.py` | `task-9-snapshot-selftest.log` | ✅ rc=0；3/3，`snapshot selftest OK` |
+
+文档遗留同步：DI-54 的现行引用指向 Task 6 的 `page_sound_picker.c`，012 的按名浏览行补 Task 8 `sound.sh` 设备证据；ADR-008 的预览 ENTER 描述核对为 R16 的按焦点分流语义；门禁参考补 settings 显式还原要求；DI-66 核对保留；新增 DI-67 记录 SOUND 静态文本缓冲的同步软件绘制前提。`scripts/inject/snapshot-selftest.py` 已在 scripts 参考中，无需重复添加。

@@ -78,7 +78,7 @@ SEL 选轨、EDIT 层擦除（`tracks.sh` 84 / `step_edit.sh` 314）。
 | MIDI / MIDI 2 / MIDI 3 | 三页 | — | 非目标 | — | 阶段 5（DI-1） |
 | 用户预置 32 槽存取（USER 页） | USER 页 | PRESETS 页（SAVE/LOAD/ERASE） | ✅ | `store.sh` | — |
 | **工厂预置选择 + 换引擎**（PRESETS 页 KNOB 1/2） | PRESETS 页 | SOUND 页眉 `ENGINE − 名 +` / `PRESET − 名 +`（`CMD_SET_ENGINE`/`CMD_SET_PRESET`） | ✅ | `params.sh`（TAP ± 的回读与名字、`ENG SNAP`）、`state-test.sh` | P4-F Task 5；按名浏览见下行（5B-1 Task 6） |
-| 按名浏览全部工厂预置（列表） | PRESETS 页 | SOUND 页眉名字区的引擎/预置选择器（5B-1 Task 6；点名字区打开，row 1 列高亮引擎的预置） | ✅ | `task-6-check.py`（`docs/dev/verify/5-pb1-2026-11-26/`，161/161） | 5B-1 Task 6（原 DI-54，已删除） |
+| 按名浏览全部工厂预置（列表） | PRESETS 页 | SOUND 页眉名字区的引擎/预置选择器（5B-1 Task 6；点名字区打开，row 1 列高亮引擎的预置） | ✅ | `task-6-check.py`（`docs/dev/verify/5-pb1-2026-11-26/`，161/161）；设备回归 → `sound.sh`（Task 8） | 5B-1 Task 6（原 DI-54，已删除） |
 | 收藏（fav，PRESETS KNOB 4，16 个） | PRESETS 页 | — | ○ | — | DI-44 |
 | SECTION / PROJECT（A–D） | SECTION 页 | PROJECTS 页 + SONG 页 | ✅ | `store.sh`、`song.sh` | — |
 

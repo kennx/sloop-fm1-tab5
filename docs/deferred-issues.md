@@ -425,7 +425,7 @@
 | 项 | 内容 |
 |---|---|
 | **背景** | 终审 A1 修复（`b7c915a`）后，`sloop_core_sound_read` 投影 `t->user`，SOUND 页 PRESET 行与 `TAP` 回显在载入用户预置后显示 `USER nn`（nn = 槽号+1，同 PRESETS 页 `U01..U32`），不再是工厂预置名。上游页眉显示的是该槽的**名字**（`ui_draw.c:850` `up_name(user_of(t))`，默认名 `<ENGINE> <槽号>`，可自定义）。槽名在 flash 银行索引里，唯一入口 `sloop_store_preset_name` = 存储锁 + `up_boot()` 重扫；而投影在 30ms sync（LVGL 任务）里无锁读 `trk[]`，每次都去抢存储锁会在 flash 擦写期间卡住 UI 任务，故未取。 |
-| **影响面** | 仅标签信息量：用户看到的是槽号而非自己起的名字；槽号可在 PRESETS 页对上名字。载入用户预置、PRESET ± 清 `user` 与上游一致；PRESET ± 只在当前引擎的工厂预置里步进是 Tab5 的按引擎设计（上游转的是跨引擎的单一列表，ADR-008 §8.10 / 终审 R19），跨引擎浏览列表见 DI-54。 |
+| **影响面** | 仅标签信息量：用户看到的是槽号而非自己起的名字；槽号可在 PRESETS 页对上名字。载入用户预置、PRESET ± 清 `user` 与上游一致；PRESET ± 只在当前引擎的工厂预置里步进是 Tab5 的按引擎设计（上游转的是跨引擎的单一列表，ADR-008 §8.10 / 终审 R19），跨引擎浏览列表由 5B-1 Task 6 的 SOUND 选择器（`page_sound_picker.c`）提供。 |
 | **为何可延迟** | 不是错误标签（修复前才是——显示成工厂预置名）；阶段收口不新增依赖。 |
 | **解决方向** | 在 `sloop_core_sound_read` 之外做「user 变化时取一次」：页面侧（`page_params.c` 的 update）在 `sound.user` 变化时调 `sloop_store_preset_name(user-1, buf)` 填一个页内缓冲，取不到（存储未就绪/槽空）回退 `USER nn`；注意这会让 LVGL 任务在 flash 擦写期间等存储锁（≤ 一次写窗口，量级同 SAMPLE 页的同步擦除），需在 `params.sh` 里加一条断言 `xrun` 增量 0 并评估 `lvgl_stack_free`。`preset_name[16]` 放得下 `USER nn` 与 12 字符槽名之一，但放不下 `U01 <名字>`（需 17 字节）。 |
 | **触发条件** | 用户反馈想在 SOUND 页看到自定义预置名；或 PRESETS 页/页眉统一做「按名浏览」（原 DI-54，5B-1 Task 6 已由 SOUND 选择器关闭）时一并处理。 |
@@ -539,3 +539,15 @@
 | **触发条件** | 下一次修改这三段或其公共 snapshot helper 时处理；若真机在这些路径发生异常中止，优先处理并记录恢复证据。 |
 | **参考** | `scripts/inject/inject.py` 的 `run_transport`、`run_step_edit`、`param_tools`、`proj_snapshot_close`；`run_sequence` / `_sequence_cleanup_on_error`（已实现的异常路径示例） |
 | **登记** | 2026-11-28（Task 8 fix round 1，Critical #1 的明确范围外项） |
+
+## DI-67: SOUND 静态值文本缓冲依赖同步软件绘制
+
+| 项 | 内容 |
+|---|---|
+| **背景** | `page_sound.c` 用静态 `s_value_text` 给全部槽格式化值文本，并以 `text_local=0` 交给 LVGL，避免逐槽逐帧分配；另有页内静态 `s_readout_text`。正确性依赖当前渲染配置：软件绘制单元、`LV_USE_OS=0`，LVGL 每帧同步 dispatch，下一槽改写共享缓冲前本次文本已消费。 |
+| **影响面** | 若改为线程化/异步绘制或启用其它异步绘制单元，共享缓冲可能在绘制消费前被后续槽覆盖，导致值文本串槽或读取竞争；当前配置下不受影响。 |
+| **为何可延迟** | 当前固件固定为软件绘制且 `LV_USE_OS=0`，同步 dispatch 前提成立，已有逐槽值显示设备证据；这是未来渲染配置变更的前置约束，不是现行缺陷。 |
+| **解决方向** | 渲染改为异步/多线程时，给每槽独立文本缓冲，或改用 `text_local=1` 让 LVGL 持有副本，并复核生命周期、锁与内存开销；同步更新 `page_sound.c` 中描述此前提的注释。 |
+| **触发条件** | 修改 `LV_USE_OS`、启用 GPU/DMA2D 等异步绘制单元、把绘制 dispatch 移到其它任务，或观察到值文本串槽时。 |
+| **参考** | `firmware/components/sloop_ui/src/page_sound.c`（`s_value_text`、`s_readout_text`、`draw_text` 与槽绘制） |
+| **登记** | 2026-11-28（5B-1 Task 9，Task 3 评审遗留） |

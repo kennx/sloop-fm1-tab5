@@ -809,7 +809,7 @@ UI MEM page id=2 title=STEP state=built est=23040 delta=21316 build_ms=26
   `+` 去该引擎的工厂预置 1、按 `−` 环绕到该引擎的最后一个工厂预置，引擎不变。上游
   PRESETS 页的 KNOB 2 转的是**一条单一列表**（收藏 → 全部工厂音色，跨引擎 → 用户预置，
   整表环绕；`ui.c:781-793`、`ui.c:916-927`、`ui_input.c:1272-1277`），转动会跨引擎换
-  音色。跨引擎的浏览列表自 5B-1 Task 6 起由 SOUND 页眉名字区的选择器提供（原 DI-54，已关闭）。
+  音色。跨引擎的浏览列表自 5B-1 Task 6 起由 SOUND 页眉名字区的选择器（`page_sound_picker.c`）提供（原 DI-54，已关闭）。
 - **动作 = 两条状态层命令**（`CMD_SET_ENGINE{a=track,v=engine}` → `sloop_core_set_engine`、
   `CMD_SET_PRESET{a=track,v=preset}` → `sloop_core_apply_preset`；越界/鼓轨/冻结在状态层
   拒且不调引擎，成功即整份刷新投影）。± 都是**环绕**（引擎 0..11、预置 0..npresets−1，

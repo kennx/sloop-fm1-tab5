@@ -1,0 +1,45 @@
+== soak-selftest（无设备）
+  [PASS] 九组且组顺序一致（ui_nav.h = GROUP_PAGES = inject.UI_GROUP_NAMES）
+  [PASS] 组成员与页 id 逐一一致（ui_nav.h UI_GROUP_LIST = GROUP_PAGES）
+  [PASS] 13 页：PAGES 的 id 集合 = 组表平铺 = 0..18 去掉空位 7 与退役页 4/5/15/16/17
+  [PASS] NAV_ORDER 的页 id 序列 = 组表平铺（TAB 扁平轮转顺序）
+  [PASS] NAV_ORDER 的页名 = PAGES 的键（页 id 同值）
+  [PASS] 页签几何与 ui_nav.h 一致且为 16/104/8/176/5（组签 104px）
+  [PASS] POOL_RT_REP = 八个非 PLAY 组，每轮 8 张代表页，各页属于所代表的组
+  [PASS] MIX 代表页 = tools（5B-1 起 MIX 只有 TOOLS，不再按轮交替）
+  [PASS] POOL_RT_ROUNDS 内每轮都是同样 8 张代表页
+  [PASS] save_window 源码顺序 stop(956) < wait_dirty_clear(1013) < 基线(1090)
+   save 窗口前 dirty=0（0.0s）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] 默认：STOP(3) < dirty 轮询(5) < SAVE(8)
+  [PASS] 默认：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+   save 窗口 0s: xrun 0 -> 0（增量 0 ≤ 16）, streaming=1, 恢复后 t=0s
+  [PASS] --section-capture：STOP(6) < dirty 轮询(8) < SAVE(13)
+  [PASS] --section-capture：播放中 STORE section A(1) 在 STOP(6) 之前
+  [PASS] --section-capture：停止后轮询 2 次把 dirty 排空（期望 ≥2）
+  [PASS] --section-capture：save_window 全断言通过（failures=0, xrun 增量=0）
+   save 窗口前 dirty=0（0.0s，已观察到 dirty=1）
+  [PASS] dirty 1→0：返回 True
+  [PASS] dirty 1→0：无 fail
+     [fake FAIL] wait_dirty_clear：期望先观察到 dirty=1，实际一直为 0（排空是空转）
+  [PASS] expect_dirty 但恒 0：返回 False
+  [PASS] expect_dirty 但恒 0：记 1 次 fail
+     [fake FAIL] dirty 回显异常（SEQ SECTION）：'SEQ ERR invalid\nsloop>'
+  [PASS] dirty 回显畸形：返回 False
+  [PASS] dirty 回显畸形：记 fail
+     [fake FAIL] 停止后 0s 内 section/song dirty 未清（section=1 song=0）
+  [PASS] 恒 dirty=1：超时返回 False
+  [PASS] 恒 dirty=1：记 1 次 fail
+  [PASS] ENG POWER ok 行入采样列：{'vbus_mv': 918, 'shunt_uv': -5, 'cur_ma': -1, 'temp_c': 27.1, 'ina': 'ok'}
+  [PASS] ina=err 行：四个读数列为 None、ina=err
+  [PASS] 行缺失/畸形：五列全 None（不判失败）
+  [PASS] 两条记录行且标明「仅记录，不设门禁」
+  [PASS] 功耗记录：min/max 与有效次数 → 功耗记录（仅记录，不设门禁）：INA226 ina=ok 1/3 次；vbus_mv 918..918 mV（1/3 次有效）；shunt_uv -5..-5 µV（1/3 次有效）；cur_ma -1..-1 mA（1/3 次有效）
+  [PASS] 温度记录：首末 → 温度记录（仅记录，不设门禁）：temp_c 27.1..27.1 ℃（1/3 次有效），首 27.1 → 末 27.1
+  [PASS] soak.sample 的既有断言（playing=1）不受 ENG POWER 影响
+  [PASS] verdict 不因功耗/温度列（ina=err、na）产生判定问题（无新门禁）
+  [PASS] 对照：同一组行把 streaming 置 0 仍判 1 项（门禁未被削弱）
+  [PASS] 全程无有效读数：记录行回 na → ['功耗记录（仅记录，不设门禁）：INA226 ina=ok 0/1 次；vbus_mv na（0/1 次有效）；shunt_uv na（0/1 次有效）；cur_ma na（0/1 次有效）', '温度记录（仅记录，不设门禁）：temp_c na（0/1 次有效）']
+
+结果: PASS

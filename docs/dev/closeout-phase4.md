@@ -125,7 +125,7 @@
 | # | 裁决 | 若错的代价 |
 |---|---|---|
 | R1 | 导航重组（9 组 / 104px / MIX 组）提前到 Task 4，而不是等 Task 7 | 任务间门禁红 |
-| R2 | 清单复查把 6 行误标 ✅ 改回缺口并重新处置（工厂预置/换引擎 → SOUND 页眉；鼓轨 kit → KIT 行；REC 配置 → TRANSPORT chip；参数锁/fill → 键盘 EDIT 层；八度 → DI-53；预置列表 → DI-54） | 范围估计偏差 |
+| R2 | 清单复查把 6 行误标 ✅ 改回缺口并重新处置（工厂预置/换引擎 → SOUND 页眉；鼓轨 kit → KIT 行；REC 配置 → TRANSPORT chip；参数锁/fill → 键盘 EDIT 层；八度 → DI-53；预置列表当时登记为 DI-54，后由 5B-1 Task 6 的 SOUND 选择器关闭） | 范围估计偏差 |
 | R3 | mute/solo 行保持 ✅（设备证据由 Task 7 的 KEY 注入补） | 仅证据时点 |
 | R4 | TOOLS 的走带守卫按上游（CLRSEQ/INITSOUND 走带中允许；NEW 仅 SONG 播放时拒绝） | 走带中清轨/初始化声音的预期行为不同 |
 | R5 | `project_new` 逐行镜像并引用上游行号 | NEW 的副作用清单漏项 |

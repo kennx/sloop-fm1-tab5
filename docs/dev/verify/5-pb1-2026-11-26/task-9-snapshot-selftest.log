@@ -1,0 +1,4 @@
+[PASS] LOAD hash mismatch raises, preserves D, names recovery command
+[PASS] ScenarioRestart skips exception cleanup
+[PASS] exception cleanup runs and original InjectError re-raises
+snapshot selftest OK
