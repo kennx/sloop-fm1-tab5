@@ -3954,21 +3954,19 @@ def run_params(s: Session) -> None:
     退役页的 not_registered、页眉 ENGINE/PRESET ±（鼓轨 KIT 行）、FM6 引擎才出现的 bank 行；
     SAMPLE/DSYN/FM6P（SYNTH 组）；TOOLS / TRANSPORT 的 REC 配置行 / STEP 键盘参数锁。"""
     # 族页（GLOBAL/FX/MOD/SCALE/VOICE）与 SOUND 8 槽旋钮段的断言由 sound 场景接管（Task 8）。
-    # 归一前先拍轨 0 的完整声音与选中轨：后半场景会写包络/引擎，不能只还原 TOOLS 子括号里的状态。
+    # 归一前逐轨选中并拍三条合成轨的完整声音、全局与入口选中轨；PARAM 只读当前选中轨。
     s.cmd("STATE SNAP")
     entry_sel = s.snap_int(r"selected_track=(\d+)")
-    eng0 = sound_eng(s, 0)
-    vec0 = sound_read_vector(s)
-    # 归一到轨 0（页眉行按选中轨显示；TRACKS 卡 0 = x=24+148, y=72+40+235）
-    s.cmd("UI tracks")
-    s.expect(r"UI page=tracks \(1\)", "UI tracks（归一选轨）")
-    s.cmd("TAP 172 347")
-    s.expect(r"-> TRACKS select track=0 CMD_SELECT_TRACK", "TAP 卡 0")
-    s.cmd("STATE SNAP")
-    s.expect_int(r"selected_track=(\d+)", 0, "STATE SNAP selected_track=0")
+    eng0, vec0 = [], []
+    for track in range(3):
+        select_track(s, track)
+        eng0.append(sound_eng(s, track))
+        vec0.append(sound_read_vector(s))
+    glob0 = sound_read_globals(s)
     # 引擎归一到 ANALOG 预置 0：页眉 ± 的环绕断言（ENGINE − → NOISE、PRESET 的 808 DIRTY /
     # 808 BOOM）按 ANALOG 的预置表写；上一轮会话（store 场景的工程载入 / autosave resume）
     # 可能把轨 0 留在别的引擎上。引擎已经是 0 时该命令可能无操作。
+    select_track(s, 0)
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "归一轨 0 引擎 = ANALOG 预置 0")
 
@@ -4426,13 +4424,19 @@ def run_params(s: Session) -> None:
     (s.ok if lv_end >= LVGL_STACK_FLOOR else s.fail)(
         f"LVGL 任务栈最小余量（全场景）lvgl_stack_free={lv_end}B（≥{LVGL_STACK_FLOOR}）")
 
-    # 复位：轨 0 的完整声音与入口选中轨，再回 PLAY 页（脚本可重复运行且不改 LIVEHASH）
-    select_track(s, 0)
-    if sound_eng(s, 0) != eng0:
-        s.cmd(f"ENG TRACK 0 {eng0[0]} {eng0[1]}")
-        s.expect(rf"ENG TRACK k=0 engine={eng0[0]} preset={eng0[1]} OK", "收口：轨 0 引擎·预置回入口")
-    sound_write_vector(s, vec0, "收口：轨 0 参数向量回入口")
-    (s.ok if sound_read_vector(s) == vec0 else s.fail)("收口：轨 0 参数读回与入口一致")
+    # 复位：三条合成轨的完整声音、全局与入口选中轨，再回 PLAY 页（入口 hash 不因场景改变）
+    for track in range(3):
+        select_track(s, track)
+        if sound_eng(s, track) != eng0[track]:
+            s.cmd(f"ENG TRACK {track} {eng0[track][0]} {eng0[track][1]}")
+            s.expect(rf"ENG TRACK k={track} engine={eng0[track][0]} preset={eng0[track][1]} OK",
+                     f"收口：轨 {track} 引擎·预置回入口")
+        sound_write_vector(s, vec0[track], f"收口：轨 {track} 参数向量回入口")
+        (s.ok if sound_read_vector(s) == vec0[track] else s.fail)(f"收口：轨 {track} 参数读回与入口一致")
+    for gid, value in sound_read_globals(s).items():
+        if gid in glob0 and value != glob0[gid]:
+            s.cmd(f"PARAM GLOBAL {gid} {glob0[gid]}")
+    (s.ok if sound_read_globals(s) == glob0 else s.fail)("收口：全局参数读回与入口一致")
     select_track(s, entry_sel)
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "复位 UI play")
