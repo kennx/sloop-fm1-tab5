@@ -1,0 +1,15 @@
+song entry 693042AB
+song exit 693042AB rc=0
+sys entry 693042AB
+sys exit E616E90E rc=0
+tracks entry 693042AB
+tracks exit 693042AB rc=0
+sequence entry 693042AB
+sequence exit 693042AB rc=0
+TRACKS/SEQUENCE PASSED ENTRY==EXIT
+synth entry 693042AB
+synth exit 3324B3E7 rc=0
+step_edit entry 693042AB
+step_edit exit 3191E6AA rc=0
+transport entry B0FCDCEB
+transport exit F5AC8FEC rc=0

@@ -1,0 +1,33 @@
+
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=60 bpm=90 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=90 swing=0
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  UI tracks
+I (9128338) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5744B 预算=7168B 池剩余=40144B 耗时=10ms
+I (9128348) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=13ms
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=85 sus=35 rel=55 slen=16 mute=0
+STATE SNAP global bpm=137 swing=0
+sloop>  STORE LIVEHASH
+LIVEHASH 505A56B0
+sloop>  

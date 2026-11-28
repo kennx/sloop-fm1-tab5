@@ -1,0 +1,6 @@
+
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  STORE LIVEHASH
+LIVEHASH 693042AB
+sloop>  

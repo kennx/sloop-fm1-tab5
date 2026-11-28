@@ -698,3 +698,51 @@ FM-1 全程未接；boot 后 `FM1 STATUS link=none`。构建、烧录、启动�
 | store | 902 / 0 | `5FB1EDD1` | `B17A591C` | ❌ 漂移；停止，不重跑 |
 
 本段不构成 Task 9 通过结论。后续须先裁定/修复 `store` 的入口还原缺口，再从未完成的设备矩阵继续；不得把本次部分证据记为全矩阵通过。
+
+
+## 21. Task 9 leg B1 完成段（2026-11-29；固件 `65f3e65`，FM-1 未接）
+
+§20 的首次停止与后续诊断均保留。本段是修复后的最终场景与截屏矩阵结果。**所有十一场景最终均 0 FAIL，但 nav/store 仍有本节末尾披露的状态相关 LIVEHASH 漂移；因此不声称「入口工程逐位不变」全绿。** 烧录、启动、182 自检与堆门禁沿用 §20 的有效读数；最终段另在 `task-9-final-reset.log` 证明硬复位后 `App version=65f3e65` 且 LIVEHASH 保持 `505A56B0`。
+
+| 门禁 | 命令 / 范围 | 证据 | 结果 / 读数 |
+|---|---|---|---|
+| 十一注入场景 | 顺序 `sound → nav → params → store → song → sys → tracks → sequence → synth → step_edit → transport`；每条前后 `STORE LIVEHASH` | `task-9-<场景>-stdout.log` / `-transcript.log`、`-entry-transcript.log` / `-exit-transcript.log`、`task-9-livehashes.log` | 全部 rc=0（transport 为定点修复后复跑）、**0 FAIL**；逐条计数/hash 见下表；nav/store 有残余漂移 |
+| store 当前态复核 | 场景运行前后各拍 295 字段 + 192 合成步 + 16 鼓 lane + 锁表 | `task-9-store-current-{before,after}.txt`、`task-9-store-steps-{before,after}.json`、`task-9-store-current-run2-*` | 连续两次均 931/0、`F31869BB → F31869BB`；其中一轮全字段/步/锁差异均 0。未为当前无差异的状态再改代码 |
+| 全量截屏矩阵 | `python3 scripts/screenshot_matrix.py /dev/ttyACM0` | `task-9-matrix-fix1-stdout.log`、`task-9-matrix-fix1-transcript.log`、`task-9-matrix-fix1.csv`、十张 `task-9-sheet-*.png`、六张 `task-9-sound-*.png` | ✅ rc=0；24/24 条目 / 13 页、**123/123 锚点**、10 联系表、0 重试、0 FAIL；起点/终点 LIVEHASH `F31869BB`、AUTO ON |
+| 矩阵首轮失败 | 同命令，未修脚本时 | `task-9-matrix-stdout.log`、`task-9-matrix-transcript.log`、`task-9-{dsyn-default,fm6p-engine,transport-default}-fail.png` | ❌ 24 图齐全但 4 锚点失败（DSYN ×1 / FM6P ×2 / TRANSPORT ×1）；保留为修复前证据，未静默重跑 |
+| 视觉复核 | 读取全部六张 Sound PNG、sheet-all / synth / seq 与修复后三张页面 | 本节列出的 PNG | 无花屏、错位、缺色、占位框或残留脏区；选择器/折叠/鼓轨状态与预期一致。首轮三张 `-fail` 图也保留供对照 |
+
+### 最终场景表
+
+| 场景 | PASS / FAIL | 入口 LIVEHASH | 出口 LIVEHASH | 备注 |
+|---|---:|---|---|---|
+| sound | 416 / 0 | `F31869BB` | `F31869BB` | 不变 |
+| nav | 527 / 0 | `F31869BB` | `1CF836D9` | **残余漂移** |
+| params | 396 / 0 | `1CF836D9` | `1CF836D9` | 不变；包含 71a93f1 的前段步/选轨修复 |
+| store | 931 / 0 | `1CF836D9` | `F31869BB` | **残余漂移**；见下方范围说明 |
+| song | 353 / 0 | `F31869BB` | `F31869BB` | 不变 |
+| sys | 354 / 0 | `F31869BB` | `F31869BB` | 不变；5278e85 恢复入口 BPM |
+| tracks | 87 / 0 | `F31869BB` | `F31869BB` | 不变 |
+| sequence | 567 / 0 | `F31869BB` | `F31869BB` | 不变；Task 8 的快照恢复仍有效 |
+| synth | 814 / 0 | `F31869BB` | `F31869BB` | 不变；184a7ac 恢复轨 0/1 |
+| step_edit | 330 / 0 | `F31869BB` | `F31869BB` | 不变；213fe11 的全场景快照覆盖②a–②g |
+| transport | 317 / 0 | `F31869BB` | `F31869BB` | 定点修复后复跑；首次全pass的 rc=1 证据保留在 fix4/fix5 日志 |
+
+### 本段修复与双跑证明
+
+| 提交 | 根因 → 修复 | 证明 |
+|---|---|---|
+| `7f2a4b8` | store 复位/归一化在入口捕获之外 → 入口拍三轨引擎/预置、参数、全局、选轨，末尾恢复 | 非归一化 `693042AB` 两轮均 931/0、入口=出口；run 1 的 295 字段差异 0 |
+| `5278e85` | sys 自检段留下 BPM=120 → AUTO ON 前恢复入口 BPM | `693042AB` 两轮 355/0、354/0，均入口=出口；run 1 字段差异 0 |
+| `184a7ac` | synth 固定留下 ANALOG/轨 0 → 恢复入口轨 0/1 与选轨 | 两轮均 813/0、`693042AB` 不变；run 1 字段差异 0 |
+| `213fe11` | step_edit 的②g 快照漏掉②a–②f → 同一快照扩到全场景，并恢复轨 0 字段/选轨 | 最终 `B0FCDCEB` 两轮均 332/0、入口=出口；字段-only 失败证据保留 |
+| `71a93f1` | params 前段步编辑在 param_tools 快照之外；param_tools 快照与 D 的选轨还可能不同 → 外层入口括号 + 内部快照前选轨 0 | 非归一化 `505A56B0` 两轮均 396/0、入口=出口；控制运行另含全部步/lane/锁对照 |
+| `90d303a` + `d0f0eb5` | transport 快照太窄；中途恢复还漏测试步与采样相位 → 全场景快照 + 中途恢复测试步 + 条件等待播放头 | 最终 `F31869BB` 两轮均 317/0、入口=出口；没有放宽播放头或编辑断言 |
+| `c698906` | sound ⑧ 未建立轨 1=ANALOG 前提 → 非 ANALOG 时归一，并在既有 finally 恢复轨 1 | `505A56B0` 两次 0 FAIL、入口=出口；修复后 ⑧ 为 109 槽 |
+| `673d496` | 矩阵继承前场景的 UI 局部态 → 首次写入前 guarded reset，复位前后 LIVEHASH 不同即拒绝 | selftest PASS；设备复跑 24 条目、123 锚点全过、0 重试 |
+
+### 残余漂移与范围
+
+- `nav`：本轮 `F31869BB → 1CF836D9`，rc=0 / 527/0；`store` 随后 `1CF836D9 → F31869BB`，rc=0 / 931/0。它们体现的是**当前工作工程内容**的残余状态依赖，不只是存储槽清单。没有凭本轮 hash 推断具体字段；各场景的 stdout 与原始回显均保留。
+- store 的当前态双跑（`F31869BB` 稳定）与本轮从 `1CF836D9` 的漂移必须同时阅读，不能只引用前者。295 字段工具不含全部步/锁内容，后续修复须用全内容快照/对照；store ① 擦四个工程槽本身仍是诊断面的既有破坏范围，不计入 LIVEHASH 字段归因。
+- 没有为上述残余再扩大本轮修复范围，也没有通过重跑隐藏它们。soak、FM-1 已接条件的冒烟/自检，以及最终收口报告留后续 leg。

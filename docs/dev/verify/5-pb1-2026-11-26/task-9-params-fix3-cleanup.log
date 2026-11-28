@@ -1,0 +1,8 @@
+STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 USED hash=85502A19
+sloop>    [PASS] clean failed-run diagnostic slot D
+  [PASS] non-normalized BPM entry
+ENTRY_LIVEHASH=85502A19; diagnostic_slot=empty

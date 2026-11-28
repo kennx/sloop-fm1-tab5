@@ -1,10 +1,26 @@
-sound entry 5FB1EDD1
-sound exit 5FB1EDD1 rc=0
-nav entry 5FB1EDD1
-nav exit 5FB1EDD1 rc=0
-params entry 5FB1EDD1
-params exit 5FB1EDD1 rc=0
-store entry 5FB1EDD1
-store exit B17A591C rc=0
-# [task9] LIVEHASH DRIFT: store entry=5FB1EDD1 exit=B17A591C; scenario rc=0 but leg-B1 gate FAIL
-# [task9] Stopped before song; sys/tracks/sequence/synth/step_edit/transport and screenshot matrix not run; serial closed
+sound entry F31869BB
+sound exit F31869BB rc=0
+nav entry F31869BB
+nav exit 1CF836D9 rc=0
+# residual drift: nav entry=F31869BB exit=1CF836D9
+params entry 1CF836D9
+params exit 1CF836D9 rc=0
+store entry 1CF836D9
+store exit F31869BB rc=0
+# residual drift: store entry=1CF836D9 exit=F31869BB
+song entry F31869BB
+song exit F31869BB rc=0
+sys entry F31869BB
+sys exit F31869BB rc=0
+tracks entry F31869BB
+tracks exit F31869BB rc=0
+sequence entry F31869BB
+sequence exit F31869BB rc=0
+synth entry F31869BB
+synth exit F31869BB rc=0
+step_edit entry F31869BB
+step_edit exit F31869BB rc=0
+transport entry F31869BB
+transport exit F31869BB rc=0
+# transport rerun after fix4/fix5: F31869BB -> F31869BB, 317/0; earlier full-pass rc=1 evidence retained
+FULL PASS COMPLETE AFTER TRANSPORT TARGETED RERUN (nav/store residual drift annotated above)

@@ -1,0 +1,463 @@
+== screenshot_matrix @ /dev/ttyACM0
+   产物目录: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+  [PASS] STORE AUTO OFF
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI play
+  [PASS] play-default: 落地页 page=0（期望 0）
+  [fw] SCR
+  [fw] I (6647) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/play-default.png  (1280x720 rgb565)
+  [PASS] play-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] play-default.png: (36,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] play-default.png: (148,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] play-default.png: (960,140) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] play-default.png: region(48,96,228,126) track0 命中 532（≥10） 最近 (56, 120, 216) 期望 (56, 120, 216)
+  [PASS] play-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks
+  [PASS] tracks-default: 落地页 page=1（期望 1）
+  [fw] SCR
+  [fw] I (24247) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/tracks-default.png  (1280x720 rgb565)
+  [PASS] tracks-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] tracks-default.png: (148,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] tracks-default.png: (260,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] tracks-default.png: (20,347) track0 实测 (56, 120, 216) 期望 (56, 120, 216)（容差 16）
+  [PASS] tracks-default.png: (172,552) panel_sel 实测 (40, 52, 64) 期望 (40, 52, 64)（容差 8）
+  [PASS] tracks-default.png: (484,552) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 8）
+  [PASS] tracks-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] sound-default: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (42197) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-default.png  (1280x720 rgb565)
+  [PASS] sound-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-default.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-default.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (19,80) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-default.png: (21,252) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-default.png: (67,279) panel_hi 实测 (24, 32, 32) 期望 (32, 40, 48)（容差 16）
+  [PASS] sound-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND SCROLL 99999
+  [PASS] sound-scrolled: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (60667) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-scrolled.png  (1280x720 rgb565)
+  [PASS] sound-scrolled.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-scrolled.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-scrolled.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-scrolled.png: (21,448) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-scrolled.png: (116,344) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 10）
+  [PASS] sound-scrolled.png: region(16,118,1088,144) text_dim 命中 1760（≥24） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] sound-scrolled.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] TAP 160 92
+  [PASS] UI SOUND PICK
+  [PASS] sound-picker-engine: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (79577) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-picker-engine.png  (1280x720 rgb565)
+  [PASS] sound-picker-engine.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-picker-engine.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-picker-engine.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: (160,420) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: region(201,204,241,236) accent 命中 1056（≥200） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-engine.png: (298,204) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-engine.png: region(188,252,376,278) accent 命中 178（≥20） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-engine.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] TAP 512 92
+  [PASS] UI SOUND PICK
+  [PASS] sound-picker-preset: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (98837) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-picker-preset.png  (1280x720 rgb565)
+  [PASS] sound-picker-preset.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-picker-preset.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-picker-preset.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-preset.png: (160,420) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-picker-preset.png: region(201,204,241,236) accent 命中 1056（≥200） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-preset.png: region(188,252,676,568) accent 命中 244（≥20） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sound-picker-preset.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND FOCUS 8
+  [PASS] UI SOUND STATS
+  [PASS] sound-drum: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (117967) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-drum.png  (1280x720 rgb565)
+  [PASS] sound-drum.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-drum.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-drum.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-drum.png: region(320,80,1080,108) error 命中 1124（≥200） 最近 (224, 84, 40) 期望 (224, 84, 40)
+  [PASS] sound-drum.png: (1200,92) panel_sel 实测 (40, 52, 64) 期望 (40, 52, 64)（容差 10）
+  [PASS] sound-drum.png: (67,467) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] sound-drum.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sound
+  [PASS] UI sound
+  [PASS] UI SOUND SCROLL 0
+  [PASS] UI SOUND FOCUS 0
+  [PASS] UI SOUND CARDTOGGLE 2
+  [PASS] UI SOUND CARDTOGGLE 12
+  [PASS] UI SOUND STATS
+  [PASS] sound-collapsed: 落地页 page=6（期望 6）
+  [fw] SCR
+  [fw] I (136407) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sound-collapsed.png  (1280x720 rgb565)
+  [PASS] sound-collapsed.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sound-collapsed.png: (260,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sound-collapsed.png: (372,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sound-collapsed.png: (21,364) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 10）
+  [PASS] sound-collapsed.png: (748,468) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 10）
+  [PASS] sound-collapsed.png: (699,599) panel_hi 实测 (24, 32, 32) 期望 (32, 40, 48)（容差 16）
+  [PASS] sound-collapsed.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tools
+  [PASS] tools-default: 落地页 page=18（期望 18）
+  [fw] SCR
+  [fw] I (153147) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/tools-default.png  (1280x720 rgb565)
+  [PASS] tools-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] tools-default.png: (372,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] tools-default.png: (484,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] tools-default.png: (54,210) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 16）
+  [PASS] tools-default.png: region(24,92,700,130) text_dim 命中 531（≥40） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] tools-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tools
+  [PASS] TAP CLRSEQ → armed status="AGAIN TO CONFIRM"
+  [PASS] TOOLS CLRSEQ 只预备：armed=True status='AGAIN TO CONFIRM'
+  [PASS] tools-armed: 落地页 page=18（期望 18）
+  [fw] SCR
+  [fw] I (170687) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/tools-armed.png  (1280x720 rgb565)
+  [PASS] tools-armed.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] tools-armed.png: (372,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] tools-armed.png: (484,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] tools-armed.png: (54,210) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] tools-armed.png: (438,210) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 16）
+  [PASS] tools-armed.png: region(24,92,700,130) accent 命中 1304（≥40） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] 预备超时未执行：LIVEHASH D7141C2A == D7141C2A
+  [PASS] TAP CLRSEQ → armed status="AGAIN TO CONFIRM"
+  [PASS] 再次点 CLRSEQ 仍是预备（上一次已过期）：armed=True status='AGAIN TO CONFIRM'
+  [PASS] 第二次预备也已过期：LIVEHASH D7141C2A == D7141C2A
+  [PASS] tools-armed.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI sample
+  [PASS] sample-default: 落地页 page=8（期望 8）
+  [fw] SCR
+  [fw] I (194647) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sample-default.png  (1280x720 rgb565)
+  [PASS] sample-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sample-default.png: (36,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sample-default.png: (220,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sample-default.png: region(24,80,600,108) error 命中 985（≥40） 最近 (224, 84, 40) 期望 (224, 84, 40)
+  [PASS] sample-default.png: (482,454) bg 实测 (16, 20, 24) 期望 (16, 20, 24)（容差 12）
+  [PASS] sample-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] UI sample
+  [PASS] TAP 116 646
+  [PASS] sample-usr: 落地页 page=8（期望 8）
+  [fw] SCR
+  [fw] I (211947) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/sample-usr.png  (1280x720 rgb565)
+  [PASS] sample-usr.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] sample-usr.png: (36,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] sample-usr.png: (220,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] sample-usr.png: region(16,624,216,668) accent 命中 172（≥30） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] sample-usr.png: region(972,624,1264,668) track1 命中 204（≥30） 最近 (56, 160, 72) 期望 (56, 160, 72)
+  [PASS] PARAM 63 5
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] sample-usr.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI dsyn
+  [PASS] dsyn-default: 落地页 page=12（期望 12）
+  [fw] SCR
+  [fw] I (229307) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/dsyn-default.png  (1280x720 rgb565)
+  [PASS] dsyn-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] dsyn-default.png: (220,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] dsyn-default.png: (404,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] dsyn-default.png: (36,80) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] dsyn-default.png: (546,80) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] dsyn-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI fm6p
+  [PASS] fm6p-default: 落地页 page=13（期望 13）
+  [fw] SCR
+  [fw] I (246897) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/fm6p-default.png  (1280x720 rgb565)
+  [PASS] fm6p-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] fm6p-default.png: (404,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] fm6p-default.png: (36,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] fm6p-default.png: region(1004,76,1264,108) error 命中 167（≥40） 最近 (224, 84, 40) 期望 (224, 84, 40)
+  [PASS] fm6p-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ENG TRACK 0 9 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI fm6p
+  [PASS] fm6p-engine: 落地页 page=13（期望 13）
+  [fw] SCR
+  [fw] I (272267) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/fm6p-engine.png  (1280x720 rgb565)
+  [PASS] fm6p-engine.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] fm6p-engine.png: (404,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] fm6p-engine.png: (36,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] fm6p-engine.png: (36,80) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] fm6p-engine.png: (400,80) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] fm6p-engine.png: region(100,214,232,244) text 命中 80（≥30） 最近 (240, 244, 248) 期望 (240, 244, 248)
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] ENG TRACK 0 0 0
+  [PASS] 轨 0 参数向量回写 14/14
+  [PASS] 轨 0 参数向量回写 14/14
+  [PASS] 轨 0 参数向量回写 14/14
+  [PASS] 轨 0 参数向量回写 14/14
+  [PASS] 轨 0 参数向量回写 14/14
+  [PASS] 轨 0 参数向量回写 1/1
+  [PASS] fm6p-engine.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI step
+  [PASS] step-default: 落地页 page=2（期望 2）
+  [fw] SCR
+  [fw] I (290287) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/step-default.png  (1280x720 rgb565)
+  [PASS] step-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] step-default.png: (36,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] step-default.png: (220,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] step-default.png: (89,208) text 实测 (240, 244, 248) 期望 (240, 244, 248)（容差 10）
+  [PASS] step-default.png: region(1040,82,1258,112) track0 命中 205（≥30） 最近 (56, 120, 216) 期望 (56, 120, 216)
+  [PASS] step-default.png: count(88, 156, 1250, 160) accent absent 命中 0（=0） 最近 (128, 132, 136) 期望 (224, 176, 40)
+  [PASS] step-default.png: count(88, 280, 1250, 284) accent absent 命中 0（=0） 最近 (32, 40, 48) 期望 (224, 176, 40)
+  [PASS] step-default.png: count(88, 528, 1250, 532) accent absent 命中 0（=0） 最近 (32, 40, 48) 期望 (224, 176, 40)
+  [PASS] step-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] UI step
+  [PASS] UI transport
+  [PASS] TAP 208 210
+  [PASS] 起播: STATE SNAP playing=1（期望 1）
+  [PASS] UI step
+  [PASS] 截屏前 playing=1（期望 1）
+  [PASS] step-playing: 落地页 page=2（期望 2）
+  [fw] SCR
+  [fw] I (308307) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/step-playing.png  (1280x720 rgb565)
+  [PASS] step-playing.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] step-playing.png: (36,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] step-playing.png: (220,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] step-playing.png: count(88, 156, 1250, 160) accent present 命中 224（≥100） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] step-playing.png: count(88, 280, 1250, 284) accent present 命中 224（≥100） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] step-playing.png: count(88, 528, 1250, 532) accent present 命中 224（≥100） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] step-playing.png: region(24,86,560,116) track0 命中 1002（≥300） 最近 (56, 120, 216) 期望 (56, 120, 216)
+  [PASS] step-playing.png: region(24,194,84,224) track0 命中 43（≥20） 最近 (56, 120, 216) 期望 (56, 120, 216)
+  [PASS] step-playing.png: region(112,638,152,662) text_dim 命中 15（≥6） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] step-playing.png: region(24,682,900,706) text_dim 命中 2507（≥600） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] step-playing.png: region(1040,82,1258,112) track0 命中 205（≥30） 最近 (56, 120, 216) 期望 (56, 120, 216)
+  [PASS] UI transport
+  [PASS] TAP 停止
+  [PASS] STATE SNAP playing = 0
+  [PASS] step-playing.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI transport
+  [PASS] transport-default: 落地页 page=3（期望 3）
+  [fw] SCR
+  [fw] I (326397) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/transport-default.png  (1280x720 rgb565)
+  [PASS] transport-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] transport-default.png: (220,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] transport-default.png: (36,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] transport-default.png: (208,210) track1 实测 (56, 160, 72) 期望 (56, 160, 72)（容差 16）
+  [PASS] transport-default.png: (560,210) track3 实测 (224, 104, 24) 期望 (224, 104, 24)（容差 16）
+  [PASS] transport-default.png: region(48,336,808,376) text_dim 命中 2270（≥30） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] transport-default.png: count(48, 336, 808, 376) text absent 命中 0（=0） 最近 (136, 148, 152) 期望 (240, 244, 248)
+  [PASS] transport-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI transport
+  [PASS] TAP 208 210
+  [PASS] 起播: STATE SNAP playing=1（期望 1）
+  [PASS] 截屏前 playing=1（期望 1）
+  [PASS] transport-playing: 落地页 page=3（期望 3）
+  [fw] SCR
+  [fw] I (344187) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/transport-playing.png  (1280x720 rgb565)
+  [PASS] transport-playing.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] transport-playing.png: (220,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] transport-playing.png: (36,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] transport-playing.png: (208,210) track1 实测 (56, 160, 72) 期望 (56, 160, 72)（容差 16）
+  [PASS] transport-playing.png: (560,210) track3 实测 (224, 104, 24) 期望 (224, 104, 24)（容差 16）
+  [PASS] transport-playing.png: region(48,336,808,376) text 命中 2038（≥30） 最近 (240, 244, 248) 期望 (240, 244, 248)
+  [PASS] transport-playing.png: count(48, 336, 808, 376) text present 命中 2038（≥300） 最近 (240, 244, 248) 期望 (240, 244, 248)
+  [PASS] UI transport
+  [PASS] TAP 停止
+  [PASS] STATE SNAP playing = 0
+  [PASS] transport-playing.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI song
+  [PASS] song-default: 落地页 page=11（期望 11）
+  [fw] SCR
+  [fw] I (362327) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/song-default.png  (1280x720 rgb565)
+  [PASS] song-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] song-default.png: (708,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] song-default.png: (820,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] song-default.png: (44,180) panel_sel 实测 (40, 52, 64) 期望 (40, 52, 64)（容差 14）
+  [PASS] song-default.png: (44,294) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 14）
+  [PASS] song-default.png: region(24,92,1000,152) text_dim 命中 2312（≥40） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] song-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI projects
+  [PASS] projects-default: 落地页 page=9（期望 9）
+  [fw] SCR
+  [fw] I (379037) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/projects-default.png  (1280x720 rgb565)
+  [PASS] projects-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] projects-default.png: (36,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] projects-default.png: (220,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] projects-default.png: (64,372) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 8）
+  [PASS] projects-default.png: (134,362) track1 实测 (56, 160, 72) 期望 (56, 160, 72)（容差 16）
+  [PASS] projects-default.png: region(24,90,720,134) text_dim 命中 968（≥20） 最近 (136, 148, 152) 期望 (136, 148, 152)
+  [PASS] projects-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI presets
+  [PASS] presets-default: 落地页 page=10（期望 10）
+  [fw] SCR
+  [fw] I (395917) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/presets-default.png  (1280x720 rgb565)
+  [PASS] presets-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] presets-default.png: (220,42) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] presets-default.png: (36,42) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] presets-default.png: (36,552) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] presets-default.png: (152,552) track1 实测 (56, 160, 72) 期望 (56, 160, 72)（容差 16）
+  [PASS] presets-default.png: (102,196) panel_sel 实测 (40, 52, 64) 期望 (40, 52, 64)（容差 8）
+  [PASS] presets-default.png: (254,196) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 8）
+  [PASS] presets-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI system
+  [PASS] system-default: 落地页 page=14（期望 14）
+  [fw] SCR
+  [fw] I (412877) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/system-default.png  (1280x720 rgb565)
+  [PASS] system-default.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] system-default.png: (932,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] system-default.png: (36,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] system-default.png: (424,108) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] system-default.png: (324,152) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 16）
+  [PASS] system-default.png: (144,586) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] system-default.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI system
+  [PASS] SYS SELFTEST ARM
+  [PASS] SELFTEST chip 起跑：status='SELFTEST RUNNING'
+  [PASS] SYSTEM 状态行数据 SELFTEST 182/182
+  [PASS] ENG AUDIO
+  [PASS] system-selftest: 落地页 page=14（期望 14）
+  [fw] SCR
+  [fw] I (591997) sloop_console: SCR: 传输前 PSRAM 剩余 28200056 字节
+  帧缓冲: 1280x720 rgb565 (1843200 字节)
+  [SHOT] /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146/system-selftest.png  (1280x720 rgb565)
+  [PASS] system-selftest.png 解码 size=(1280, 720) mode=RGB（期望 1280×720 RGB）
+  [PASS] system-selftest.png: (932,8) accent 实测 (224, 176, 40) 期望 (224, 176, 40)（容差 16）
+  [PASS] system-selftest.png: (36,8) panel_hi 实测 (32, 40, 48) 期望 (32, 40, 48)（容差 10）
+  [PASS] system-selftest.png: region(24,672,700,712) accent 命中 681（≥40） 最近 (224, 176, 40) 期望 (224, 176, 40)
+  [PASS] system-selftest.png: (144,586) panel 实测 (24, 32, 32) 期望 (24, 32, 32)（容差 16）
+  [PASS] STORE AUTO OFF
+  [PASS] system-selftest.png: 条目后 LIVEHASH D7141C2A == 归一起点 D7141C2A
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] UI WINDOW 0 16
+  [PASS] STATE SNAP window_bank = 0
+  [PASS] STATE SNAP window_start = 0
+  [PASS] STATE SNAP window_len = 16
+  [PASS] UI play
+  [PASS] 四轨引擎·预置回到起点：{0: (0, 0), 1: (1, 0), 2: (4, 5), 3: (0, 0)}（期望 {0: (0, 0), 1: (1, 0), 2: (4, 5), 3: (0, 0)}）
+  [PASS] 选轨/步窗/页/palette/theme 回到起点：(1, (0, 16), 0, 4, 0)（期望 (1, (0, 16), 0, 4, 0)）
+  [PASS] LIVEHASH F31869BB == 起点 F31869BB
+  [PASS] STORE AUTO on
+[INFO] PNG 24/24 张；锚点 123 个；截屏复位重试 0 次
+[INFO] 工作工程已核对回到起点（LIVEHASH F31869BB）；autosave 回到原来的 on
+[INFO] 联系表 10 张
+[PASS] screenshot_matrix: 24 条目全部解码、锚点命中、每条目后 LIVEHASH 不变、起点还原（/home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/matrix-20261129-020146）

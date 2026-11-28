@@ -1,0 +1,91 @@
+
+sloop>  UI tracks
+I (1944188) sloop_ui: é¡µé¢æž„å»º page=TRACKS(1) æ± å¢žé‡=5808B é¢„ç®—=7168B æ± å‰©ä½™=40364B è€—æ—¶=9ms
+I (1944188) sloop_ui: åˆ‡é¡µ page=TRACKS(1) ç»„=TRACKS è·¨ç»„è€—æ—¶=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=55 atk=11 dec=22 sus=33 rel=44 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  PARAM 29 24
+PARAM track=0 id=29 value=24 applied=24 min=1 max=64
+sloop>  PARAM 30 4
+PARAM track=0 id=30 value=4 applied=4 min=0 max=8
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=2 layer_held=0x00 selected_track=1 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH CA9C1BAB
+sloop>  ££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=60 bpm=137 playing=1 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=7 dec=8 sus=9 rel=10 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  UI transport
+UI page=transport (3)
+sloop>  TAP 560 210
+TAP 560,210 page=3 -> TRANSPORT CMD_STOP
+sloop>  STATE SNAP
+STATE SNAP page=3 focus_track=2 focus_step=2 layer_held=0x00 selected_track=2 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=7 dec=8 sus=9 rel=10 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  UI tracks
+I (2059488) sloop_ui: é¡µé¢æž„å»º page=TRACKS(1) æ± å¢žé‡=5620B é¢„ç®—=7168B æ± å‰©ä½™=34612B è€—æ—¶=8ms
+I (2059498) sloop_ui: åˆ‡é¡µ page=TRACKS(1) ç»„=TRACKS è·¨ç»„è€—æ—¶=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=2 layer_held=0x00 selected_track=0 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=55 atk=11 dec=22 sus=33 rel=44 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  PARAM 29 24
+PARAM track=0 id=29 value=24 applied=24 min=1 max=64
+sloop>  PARAM 30 4
+PARAM track=0 id=30 value=4 applied=4 min=0 max=8
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=2 layer_held=0x00 selected_track=1 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH CA9C1BAB
+sloop>  

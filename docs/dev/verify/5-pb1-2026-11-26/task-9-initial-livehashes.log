@@ -1,0 +1,10 @@
+sound entry 5FB1EDD1
+sound exit 5FB1EDD1 rc=0
+nav entry 5FB1EDD1
+nav exit 5FB1EDD1 rc=0
+params entry 5FB1EDD1
+params exit 5FB1EDD1 rc=0
+store entry 5FB1EDD1
+store exit B17A591C rc=0
+# [task9] LIVEHASH DRIFT: store entry=5FB1EDD1 exit=B17A591C; scenario rc=0 but leg-B1 gate FAIL
+# [task9] Stopped before song; sys/tracks/sequence/synth/step_edit/transport and screenshot matrix not run; serial closed

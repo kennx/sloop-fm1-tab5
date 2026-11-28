@@ -1,0 +1,50 @@
+
+sloop>  UI tracks
+I (348728) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5756B 预算=7168B 池剩余=40728B 耗时=9ms
+I (348728) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=0 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=64 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM BATCH 0 55 1 11 2 22 3 33 4 44 17 0 23 0 29 24 30 4 40 0
+PARAM BATCH track=0 n=10 id=0 value=55 applied=55 id=1 value=11 applied=11 id=2 value=22 applied=22 id=3 value=33 applied=33 id=4 value=44 applied=44 id=17 value=0 applied=0 id=23 value=0 applied=0 id=29 value=24 applied=24 id=30 value=4 applied=4 id=40 value=0 applied=0
+sloop>  ENG TRACK 2 0 0
+ENG TRACK k=2 engine=0 preset=0 OK
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=0 layer_held=0x00 selected_track=2 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM BATCH 1 7 2 8 3 9 4 10 6 -7 8 -5 12 13 13 -2 28 7 34 11 35 12 36 13 38 14 41 1
+PARAM BATCH track=2 n=14 id=1 value=7 applied=7 id=2 value=8 applied=8 id=3 value=9 applied=9 id=4 value=10 applied=10 id=6 value=-7 applied=-7 id=8 value=-5 applied=-5 id=12 value=13 applied=13 id=13 value=-2 applied=-2 id=28 value=7 applied=7 id=34 value=11 applied=11 id=35 value=12 applied=12 id=36 value=13 applied=13 id=38 value=14 applied=14 id=41 value=1 applied=1
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=0 layer_held=0x00 selected_track=1 last_note=0 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=0 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH 693042AB
+sloop>  

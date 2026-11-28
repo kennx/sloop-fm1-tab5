@@ -1,0 +1,3 @@
+  复位设备: /home/kenn/.espressif/python_env/idf5.5_py3.12_env/bin/esptool.py --chip esp32p4 -p /dev/ttyACM0 -b 460800 --after hard_reset flash_id
+  设备已重启，console 就绪（4.3s）
+APP_VERSION=65f3e65; LIVEHASH=505A56B0

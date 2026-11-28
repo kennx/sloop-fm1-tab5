@@ -1,0 +1,21 @@
+round=1 pool_free=41004
+round=2 pool_free=40928
+round=3 pool_free=40828
+round=4 pool_free=40792
+round=5 pool_free=40740
+round=6 pool_free=40716
+round=7 pool_free=40684
+round=8 pool_free=40604
+round=9 pool_free=40676
+round=10 pool_free=40668
+round=11 pool_free=40652
+round=12 pool_free=40648
+round=13 pool_free=40672
+round=14 pool_free=40672
+round=15 pool_free=40652
+round=16 pool_free=40668
+round=17 pool_free=40668
+round=18 pool_free=40640
+round=19 pool_free=40584
+round=20 pool_free=40604
+PROBE first=41004 last=40604 delta=-400; last10_delta=-48

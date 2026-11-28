@@ -1,0 +1,158 @@
+
+sloop>  UI tracks
+I (513428) sloop_ui: 页面构建 page=TRACKS(1) 池增量=5772B 预算=7168B 池剩余=40572B 耗时=9ms
+I (513438) sloop_ui: 切页 page=TRACKS(1) 组=TRACKS 跨组耗时=12ms
+UI page=tracks (1)
+sloop>  TAP 172 347
+TAP 172,347 page=1 -> TRACKS select track=0 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=6 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=0 level=55 atk=11 dec=22 sus=33 rel=44 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=137 sel=0 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=55 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  PARAM BATCH 0 55 1 11 2 22 3 33 4 44 5 0 6 18 7 0 8 -9 9 60 10 0 11 0 12 0 13 0
+PARAM BATCH track=0 n=14 id=0 value=55 applied=55 id=1 value=11 applied=11 id=2 value=22 applied=22 id=3 value=33 applied=33 id=4 value=44 applied=44 id=5 value=0 applied=0 id=6 value=18 applied=18 id=7 value=0 applied=0 id=8 value=-9 applied=-9 id=9 value=60 applied=60 id=10 value=0 applied=0 id=11 value=0 applied=0 id=12 value=0 applied=0 id=13 value=0 applied=0
+sloop>  PARAM BATCH 14 0 15 0 16 0 17 0 18 5 19 4 20 61 21 51 22 67 23 0 24 1 25 11 26 15 27 2
+PARAM BATCH track=0 n=14 id=14 value=0 applied=0 id=15 value=0 applied=0 id=16 value=0 applied=0 id=17 value=0 applied=0 id=18 value=5 applied=5 id=19 value=4 applied=4 id=20 value=61 applied=61 id=21 value=51 applied=51 id=22 value=67 applied=67 id=23 value=0 applied=0 id=24 value=1 applied=1 id=25 value=11 applied=11 id=26 value=15 applied=15 id=27 value=2 applied=2
+sloop>  PARAM BATCH 28 -24 29 24 30 4 31 75 32 97 33 0 34 0 35 0 36 0 37 2 38 59 39 63 40 0 41 1
+PARAM BATCH track=0 n=14 id=28 value=-24 applied=-24 id=29 value=24 applied=24 id=30 value=4 applied=4 id=31 value=75 applied=75 id=32 value=97 applied=97 id=33 value=0 applied=0 id=34 value=0 applied=0 id=35 value=0 applied=0 id=36 value=0 applied=0 id=37 value=2 applied=2 id=38 value=59 applied=59 id=39 value=63 applied=63 id=40 value=0 applied=0 id=41 value=1 applied=1
+sloop>  PARAM BATCH 42 0 43 0 44 40 45 0 46 1 47 1 48 127 49 0 50 0 51 0 52 0 53 0 54 64 55 96
+PARAM BATCH track=0 n=14 id=42 value=0 applied=0 id=43 value=0 applied=0 id=44 value=40 applied=40 id=45 value=0 applied=0 id=46 value=1 applied=1 id=47 value=1 applied=1 id=48 value=127 applied=127 id=49 value=0 applied=0 id=50 value=0 applied=0 id=51 value=0 applied=0 id=52 value=0 applied=0 id=53 value=0 applied=0 id=54 value=64 applied=64 id=55 value=96 applied=96
+sloop>  PARAM BATCH 56 96 57 127 58 0 59 0 60 0 61 0 62 0 63 3 64 0 65 0 66 0 67 127 68 0 69 48
+PARAM BATCH track=0 n=14 id=56 value=96 applied=96 id=57 value=127 applied=127 id=58 value=0 applied=0 id=59 value=0 applied=0 id=60 value=0 applied=0 id=61 value=0 applied=0 id=62 value=0 applied=0 id=63 value=3 applied=3 id=64 value=0 applied=0 id=65 value=0 applied=0 id=66 value=0 applied=0 id=67 value=127 applied=127 id=68 value=0 applied=0 id=69 value=48 applied=48
+sloop>  PARAM BATCH 70 0
+PARAM BATCH track=0 n=1 id=70 value=0 applied=0
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=6 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=137 sel=1 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=55 mute=0 armed=0 solo=0 len=24 div=4 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  PARAM BATCH 0 104 1 0 2 112 3 0 4 52 5 0 6 18 7 0 8 -9 9 60 10 0 11 0 12 0 13 0
+PARAM BATCH track=1 n=14 id=0 value=104 applied=104 id=1 value=0 applied=0 id=2 value=112 applied=112 id=3 value=0 applied=0 id=4 value=52 applied=52 id=5 value=0 applied=0 id=6 value=18 applied=18 id=7 value=0 applied=0 id=8 value=-9 applied=-9 id=9 value=60 applied=60 id=10 value=0 applied=0 id=11 value=0 applied=0 id=12 value=0 applied=0 id=13 value=0 applied=0
+sloop>  PARAM BATCH 14 0 15 0 16 0 17 0 18 2 19 1 20 64 21 0 22 127 23 0 24 0 25 0 26 0 27 0
+PARAM BATCH track=1 n=14 id=14 value=0 applied=0 id=15 value=0 applied=0 id=16 value=0 applied=0 id=17 value=0 applied=0 id=18 value=2 applied=2 id=19 value=1 applied=1 id=20 value=64 applied=64 id=21 value=0 applied=0 id=22 value=127 applied=127 id=23 value=0 applied=0 id=24 value=0 applied=0 id=25 value=0 applied=0 id=26 value=0 applied=0 id=27 value=0 applied=0
+sloop>  PARAM BATCH 28 -24 29 16 30 2 31 0 32 64 33 0 34 0 35 0 36 0 37 2 38 59 39 0 40 0 41 1
+PARAM BATCH track=1 n=14 id=28 value=-24 applied=-24 id=29 value=16 applied=16 id=30 value=2 applied=2 id=31 value=0 applied=0 id=32 value=64 applied=64 id=33 value=0 applied=0 id=34 value=0 applied=0 id=35 value=0 applied=0 id=36 value=0 applied=0 id=37 value=2 applied=2 id=38 value=59 applied=59 id=39 value=0 applied=0 id=40 value=0 applied=0 id=41 value=1 applied=1
+sloop>  PARAM BATCH 42 0 43 0 44 40 45 0 46 1 47 1 48 127 49 0 50 0 51 0 52 0 53 0 54 64 55 96
+PARAM BATCH track=1 n=14 id=42 value=0 applied=0 id=43 value=0 applied=0 id=44 value=40 applied=40 id=45 value=0 applied=0 id=46 value=1 applied=1 id=47 value=1 applied=1 id=48 value=127 applied=127 id=49 value=0 applied=0 id=50 value=0 applied=0 id=51 value=0 applied=0 id=52 value=0 applied=0 id=53 value=0 applied=0 id=54 value=64 applied=64 id=55 value=96 applied=96
+sloop>  PARAM BATCH 56 96 57 127 58 0 59 0 60 0 61 0 62 0 63 3 64 0 65 0 66 0 67 127 68 0 69 48
+PARAM BATCH track=1 n=14 id=56 value=96 applied=96 id=57 value=127 applied=127 id=58 value=0 applied=0 id=59 value=0 applied=0 id=60 value=0 applied=0 id=61 value=0 applied=0 id=62 value=0 applied=0 id=63 value=3 applied=3 id=64 value=0 applied=0 id=65 value=0 applied=0 id=66 value=0 applied=0 id=67 value=127 applied=127 id=68 value=0 applied=0 id=69 value=48 applied=48
+sloop>  PARAM BATCH 70 0
+PARAM BATCH track=1 n=1 id=70 value=0 applied=0
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 796 347
+TAP 796,347 page=1 -> TRACKS select track=2 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=2 focus_step=5 layer_held=0x00 selected_track=2 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=6 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=2 level=104 atk=7 dec=8 sus=9 rel=10 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  ENG SNAP
+ENG SNAP playing=0 bpm=137 sel=2 pos=0,0,0,0
+ENG SNAP trk k=0 engine=0 preset=0 level=55 mute=0 armed=0 solo=0 len=24 div=4 voices=0
+ENG SNAP trk k=1 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=2 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP trk k=3 engine=0 preset=0 level=104 mute=0 armed=0 solo=0 len=16 div=2 voices=0
+ENG SNAP dstep i=0 on=0 lvl=0 rat=0
+ENG SNAP dstep i=1 on=0 lvl=0 rat=0
+ENG SNAP dstep i=2 on=0 lvl=0 rat=0
+ENG SNAP dstep i=3 on=0 lvl=0 rat=0
+ENG SNAP dstep i=4 on=0 lvl=0 rat=0
+ENG SNAP dstep i=5 on=0 lvl=0 rat=0
+ENG SNAP dstep i=6 on=0 lvl=0 rat=0
+ENG SNAP dstep i=7 on=0 lvl=0 rat=0
+ENG SNAP dstep i=8 on=0 lvl=0 rat=0
+ENG SNAP dstep i=9 on=0 lvl=0 rat=0
+ENG SNAP dstep i=10 on=0 lvl=0 rat=0
+ENG SNAP dstep i=11 on=0 lvl=0 rat=0
+ENG SNAP dstep i=12 on=0 lvl=0 rat=0
+ENG SNAP dstep i=13 on=0 lvl=0 rat=0
+ENG SNAP dstep i=14 on=0 lvl=0 rat=0
+ENG SNAP dstep i=15 on=0 lvl=0 rat=0
+sloop>  PARAM BATCH 0 104 1 7 2 8 3 9 4 10 5 0 6 -7 7 0 8 -5 9 60 10 0 11 0 12 13 13 -2
+PARAM BATCH track=2 n=14 id=0 value=104 applied=104 id=1 value=7 applied=7 id=2 value=8 applied=8 id=3 value=9 applied=9 id=4 value=10 applied=10 id=5 value=0 applied=0 id=6 value=-7 applied=-7 id=7 value=0 applied=0 id=8 value=-5 applied=-5 id=9 value=60 applied=60 id=10 value=0 applied=0 id=11 value=0 applied=0 id=12 value=13 applied=13 id=13 value=-2 applied=-2
+sloop>  PARAM BATCH 14 0 15 0 16 0 17 0 18 2 19 1 20 64 21 0 22 127 23 0 24 0 25 0 26 0 27 0
+PARAM BATCH track=2 n=14 id=14 value=0 applied=0 id=15 value=0 applied=0 id=16 value=0 applied=0 id=17 value=0 applied=0 id=18 value=2 applied=2 id=19 value=1 applied=1 id=20 value=64 applied=64 id=21 value=0 applied=0 id=22 value=127 applied=127 id=23 value=0 applied=0 id=24 value=0 applied=0 id=25 value=0 applied=0 id=26 value=0 applied=0 id=27 value=0 applied=0
+sloop>  PARAM BATCH 28 7 29 16 30 2 31 0 32 64 33 0 34 11 35 12 36 13 37 2 38 14 39 0 40 0 41 1
+PARAM BATCH track=2 n=14 id=28 value=7 applied=7 id=29 value=16 applied=16 id=30 value=2 applied=2 id=31 value=0 applied=0 id=32 value=64 applied=64 id=33 value=0 applied=0 id=34 value=11 applied=11 id=35 value=12 applied=12 id=36 value=13 applied=13 id=37 value=2 applied=2 id=38 value=14 applied=14 id=39 value=0 applied=0 id=40 value=0 applied=0 id=41 value=1 applied=1
+sloop>  PARAM BATCH 42 0 43 0 44 40 45 0 46 1 47 1 48 127 49 0 50 0 51 0 52 0 53 0 54 64 55 96
+PARAM BATCH track=2 n=14 id=42 value=0 applied=0 id=43 value=0 applied=0 id=44 value=40 applied=40 id=45 value=0 applied=0 id=46 value=1 applied=1 id=47 value=1 applied=1 id=48 value=127 applied=127 id=49 value=0 applied=0 id=50 value=0 applied=0 id=51 value=0 applied=0 id=52 value=0 applied=0 id=53 value=0 applied=0 id=54 value=64 applied=64 id=55 value=96 applied=96
+sloop>  PARAM BATCH 56 96 57 127 58 0 59 0 60 0 61 0 62 0 63 3 64 0 65 0 66 0 67 127 68 0 69 48
+PARAM BATCH track=2 n=14 id=56 value=96 applied=96 id=57 value=127 applied=127 id=58 value=0 applied=0 id=59 value=0 applied=0 id=60 value=0 applied=0 id=61 value=0 applied=0 id=62 value=0 applied=0 id=63 value=3 applied=3 id=64 value=0 applied=0 id=65 value=0 applied=0 id=66 value=0 applied=0 id=67 value=127 applied=127 id=68 value=0 applied=0 id=69 value=48 applied=48
+sloop>  PARAM BATCH 70 0
+PARAM BATCH track=2 n=1 id=70 value=0 applied=0
+sloop>  PARAM GLOBAL 0 137
+PARAM GLOBAL id=0 value=137 applied=137 min=40 max=240
+sloop>  UI tracks
+UI page=tracks (1)
+sloop>  TAP 484 347
+TAP 484,347 page=1 -> TRACKS select track=1 CMD_SELECT_TRACK
+sloop>  STATE SNAP
+STATE SNAP page=1 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=60 bpm=137 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=6 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=0 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=0 solo=0
+STATE SNAP trk k=3 mute=0 solo=0
+STATE SNAP param trk=1 level=104 atk=0 dec=112 sus=0 rel=52 slen=16 mute=0
+STATE SNAP global bpm=137 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH B0FCDCEB
+sloop>  

@@ -1,0 +1,5 @@
+  [PASS] non-normalized BPM entry
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+ENTRY_LIVEHASH=505A56B0; selected_track=1; diagnostic_slot=empty

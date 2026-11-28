@@ -1,0 +1,17 @@
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] track 0 non-normalized vector: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] track 1 non-normalized vector: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] track 2 non-normalized vector: 参数向量回写 71/71
+  [PASS] BPM 137 entry
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+ENTRY_LIVEHASH=B0FCDCEB; expected=693042AB

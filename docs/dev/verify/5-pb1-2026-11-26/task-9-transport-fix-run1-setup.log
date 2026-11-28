@@ -1,0 +1,13 @@
+  [PASS] UI transport
+  [PASS] TAP 停止
+  [PASS] STATE SNAP playing = 0
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] non-normalized LEN=24
+  [PASS] non-normalized DIV=4
+  [PASS] non-normalized BPM=137
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+ENTRY_LIVEHASH=CA9C1BAB; selected_track=1
