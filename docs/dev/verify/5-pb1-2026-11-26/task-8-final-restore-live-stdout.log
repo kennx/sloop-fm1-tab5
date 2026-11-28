@@ -1,0 +1,35 @@
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原轨 0 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 1
+  [PASS] STATE SNAP selected_track=1 = 1
+  [PASS] 还原轨 1 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 2
+  [PASS] STATE SNAP selected_track=2 = 2
+  [PASS] 还原轨 2 参数向量: 参数向量回写 71/71
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 3
+  [PASS] STATE SNAP selected_track=3 = 3
+  [PASS] 还原鼓轨 kit
+  [PASS] 还原鼓轨 level
+  [PASS] 还原鼓轨 mute
+  [PASS] 还原鼓轨 len
+  [PASS] 还原鼓轨 div
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原 settings.palette
+  [PASS] 还原 settings.lowcut
+  [PASS] 还原 settings.zoom
+  [PASS] 还原 settings.lights
+  [PASS] 还原 settings.theme_on
+  [PASS] 还原 settings.reso
+  [PASS] 还原 REC 配置
+  [PASS] UI tracks（选轨）
+  [PASS] TAP 卡 0
+  [PASS] STATE SNAP selected_track=0 = 0
+  [PASS] 还原 autosave 开关
+RESTORE LIVE OK: autosave_hash == LIVEHASH 351646DB, settings dirty=0

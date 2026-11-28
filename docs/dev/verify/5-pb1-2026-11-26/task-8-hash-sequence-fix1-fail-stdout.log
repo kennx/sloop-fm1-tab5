@@ -1,0 +1,17 @@
+== inject sequence @ /dev/ttyACM0
+   串口原始日志: /home/kenn/projects/sloop-fm1-tab5/firmware/build/verify/inject-sequence-20261128-102901.log
+  [PASS] ⓪ STORE AUTO OFF
+Traceback (most recent call last):
+  File "/home/kenn/projects/sloop-fm1-tab5/scripts/inject/inject.py", line 11078, in <module>
+    main()
+    ~~~~^^
+  File "/home/kenn/projects/sloop-fm1-tab5/scripts/inject/inject.py", line 11053, in main
+    SCENARIOS[args.scenario](s)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/kenn/projects/sloop-fm1-tab5/scripts/inject/inject.py", line 7756, in run_sequence
+    rec0 = session_once(s, "sequence.rec", seq_rec_fields, "⓪ REC 配置快照")
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kenn/projects/sloop-fm1-tab5/scripts/inject/inject.py", line 4498, in session_once
+    s.snapshots[key] = produce()
+                       ~~~~~~~^^
+TypeError: seq_rec_fields() missing 1 required positional argument: 's'

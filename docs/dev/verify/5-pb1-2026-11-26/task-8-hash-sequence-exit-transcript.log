@@ -1,0 +1,10 @@
+
+sloop>  STORE LIVEHASH
+LIVEHASH 21124915
+sloop>  ENG STEP 0 0
+ENG STEP k=0 i=0 n=0 note=0,0,0,0 vel=0 time=2 flags=0 lvl=0 rat=0 micro=0 fill=0
+sloop>  SEQ LOCK LIST 0
+SEQ LOCK LIST track=0 count=0
+sloop>  SEQ DSTEP 5
+SEQ DSTEP step=5 on=00,00 lvl=00,00,00,00 rat=00,00,00,00
+sloop>  

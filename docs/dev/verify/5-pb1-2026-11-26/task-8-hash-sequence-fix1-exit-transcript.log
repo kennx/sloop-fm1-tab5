@@ -1,0 +1,11 @@
+
+sloop>  STORE LIVEHASH
+LIVEHASH 21124915
+sloop>  STORE PROJ LIST
+PROJ 0 EMPTY
+PROJ 1 EMPTY
+PROJ 2 EMPTY
+PROJ 3 EMPTY
+sloop>  SEQ REC
+SEQ REC state=off track=0 quant=on tempo=tempo count=note take=none fill_held=0 fill_arm=0
+sloop>  

@@ -567,3 +567,28 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 ### 开放项（不计为已闭合）
 
 基线工具只记录四轨引擎/参数、全局、kit、settings、槽清单与整份 LIVEHASH，没有记录步表/锁/section/arrangement 的可恢复内容。旧十条场景按自身设计含有诊断性工程操作；全部可恢复字段已逐项写回并落盘，但整份工程的 hash 未回到入口。入口四个工程槽又全为 EMPTY，没有可加载的入口备份。按本任务「不再清 pattern/lane、不再做 STORE 写/擦除」约束，无法从现有数据重建那部分工程，故硬复位后仍只有上述一项 `RESTORE MISMATCH`。没有再用 NEW/CLEAR/ERASE 掩盖差异；`task-8-restore-pre-reset.txt` 与 `task-8-restore.txt` 都保留完整 295 项对照。后续必须从包含入口工程的备份恢复，或扩充基线为完整可重放的工程数据后重做还原。
+
+### 18a. LIVEHASH 漂移根因与 sequence 修复（2026-11-28；`4c1fcf8`）
+
+`LIVEHASH` 的输入不是 arrangement/section 对象本身。`sloop_store_live_hash()`（`store_tab5.c:517-526`）调用上游 `proj_capture()`（`third_party/sloop-fm1/firmware/src/project.c:460-483`），覆盖：
+
+- 32 个项目全局 `song.g[0..31]`、选中轨 `song.sel`，以及打包进保留字段的 TEXTURE SRC/WHEN/DUCK/RATE/LVL/TONE/MOVE；
+- 四轨全部 `P_COUNT` 参数、引擎请求、预置、合成步或 16-lane 鼓步、每步 micro/fill、参数锁；
+- 每 lane 的 drum TUNE/DECAY（`drum_tw_put`）。FNV-1a 覆盖 `project_t` 除末尾 `sum` 外的全部字节。
+
+逐场景入口/出口测量（stdout + transcript 均以 `task-8-hash-*` 入库）：
+
+| 场景 | 入口 | 出口 | 结论 |
+|---|---|---|---|
+| `sound` | `351646DB` | `351646DB` | ✅ 稳定；本轮 404 PASS / 0 FAIL |
+| `sequence`（修复前） | `351646DB` | `21124915` | ❌ 可复现漂移；562 PASS / 0 FAIL 但工程被改写 |
+
+`task-8-hash-sequence-fields.txt` 的 295 项对照进一步给出 8 项差异：`p0.0 127→104`、`p0.17 14→0`、`p0.23 1→0`、`p0.37 2→0`、`rec_tempo 0→1`（另反映到 `state.param`、`trk0` 与 hash）。直接原因是 `run_sequence` ⓪/⑨ 的 `SEQ PATTERN CLEAR 0..3` 清空四轨 steps/locks/micro/fill，以及 `seq_set_track_param` 的归一写，均没有外层工程还原括号。修复前的原始步/锁/micro/fill 因此不可由参数表恢复。
+
+修复 `4c1fcf8`：⓪ 先用既有 `session_once` 保存歌曲/REC，再用 `proj_snapshot_open` 把整份工作工程存入诊断槽 D；内部只用 A–C，D 的 ready 位明确视为入口快照；⑨ `proj_snapshot_close` 执行 LOAD 并断言 `LIVEHASH == 入口`，再还原歌曲顺序和 REC 配置。连续两轮（`task-8-hash-sequence-fix{1,2}-*`）均为：
+
+- 入口 `21124915` → 出口 `21124915`；每轮 **567 PASS / 0 FAIL**；
+- `⑨ 收口后 LIVEHASH 21124915 == 入口 21124915（工作工程逐位还原）`；
+- 歌曲顺序与 REC 配置也逐项回入口；入口 D 为空时擦快照，非空则保留。
+
+随后重新写回全部可恢复基线字段并等 autosave/settings 落盘（`task-8-final-restore-live-*`），再硬复位（`task-8-final-restore-{stdout,transcript}.log`）：**294/295 项仍相同，唯一差异仍是 `30117351 → 351646DB`**。`task-8-restore.txt` 已用这次最终对照更新。现在可以确定的永久差异是修复前 `sequence` 清掉的原始 pattern 内容（steps / locks / micro / fill）；没有入口备份，不能伪造或清空更多内容来制造一致。新修复保证后续 `sequence` 不再扩大这类损失。
