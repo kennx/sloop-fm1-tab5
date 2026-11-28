@@ -247,6 +247,28 @@ SOUND_ROW_Y = inject.SOUND_ROW_Y                         # 76：SOUND 页眉两�
 SOUND_ROW_BG = (16 + 3, SOUND_ROW_Y + 4, "panel_hi", 10)   # 页眉行底色（行对象不建时该点是 bg）
 SOUND_ENGINE_NAME = (16 + 130, SOUND_ROW_Y + 4, 16 + 288 - 54, SOUND_ROW_Y + 32, "accent", 12, 24)
 SOUND_PRESET_NAME = (320 + 130, SOUND_ROW_Y + 4, 320 + 384 - 54, SOUND_ROW_Y + 32, "accent", 12, 24)
+SOUND_COLLAPSE_MASK = (1 << inject.SOUND_CARD_ENV) | (1 << 12)       # Envelope + Texture：scroll_max 1,688
+SOUND_SCROLL_END = inject.sound_scroll_max(0)                        # 全展开：1,932
+SOUND_PICK_NAMES = ("ANALOG", "DIGITAL")                            # chip 几何只需前两个名字
+SOUND_PICK_CHIP0 = inject.sound_chip_xy(SOUND_PICK_NAMES, 0)
+SOUND_PICK_CHIP0_BOX = (SOUND_PICK_CHIP0[0] - 20, SOUND_PICK_CHIP0[1] - 16,
+                        SOUND_PICK_CHIP0[0] + 20, SOUND_PICK_CHIP0[1] + 16, "accent", 200, 24)
+SOUND_PICK_Y0 = TABCAT + inject.SOUND_PICK_Y + inject.SOUND_PICK_LIST_Y_SYNTH
+SOUND_PICK_ENGINE_TEXT = (inject.SOUND_PICK_LIST_X + 12, SOUND_PICK_Y0 + 4,
+                          inject.SOUND_PICK_LIST_X + 200, SOUND_PICK_Y0 + inject.SOUND_PICK_ROW_H - 2,
+                          "accent", 20, 24)
+SOUND_PICK_PRESET_TEXT = (inject.SOUND_PICK_LIST_X + 12, SOUND_PICK_Y0 + 4,
+                          inject.SOUND_PICK_LIST_X + 500, SOUND_PICK_Y0 + 320, "accent", 20, 24)
+SOUND_STATES = ("default", "scrolled", "picker-engine", "picker-preset", "drum", "collapsed")
+
+
+def sound_ring_anchor(card: int, slot: int, cls: str, collapsed: int = 0, scroll: int = 0) -> tuple:
+    """与 inject.sound_ring_probe 同一点：135° 环起点，避开名称字形与数值弧的 rounded 起点帽。"""
+    rect = inject.sound_slot_rect(collapsed, scroll, card, slot)
+    cx, cy = inject.sound_slot_xy(rect)
+    return (cx - 31, cy + 31, cls, 16)
+
+
 SAMPLE_HEADER_ERR = (24, SOUND_ROW_Y + 4, 600, SOUND_ROW_Y + 32, "error", 40)
 TOOLS_FILL = lambda i: (inject.TOOLS_CHIP[i][0] - 150, inject.TOOLS_CHIP[i][1] - 52)  # noqa: E731
 TR_STATUS = (48, TABCAT + 264, 808, TABCAT + 264 + 40)   # TRANSPORT 状态行 label (48,264) 28pt
@@ -349,12 +371,25 @@ MATRIX = [
     E("tracks", "default", [_page_cmd("tracks")], [
         (24 - 4, 347, "track0"),                                                # 卡 0 选中描边
         (24 + 148, 552, "panel_sel", 8), (24 + inject.TRACKS_CARD_PITCH + 148, 552, "panel", 8)]),
-    # SOUND 卡片仪表盘（5B-1）占位两条：原五张族页（MOD/SCALE/VOICE/GLOBAL/FX）与旧 SOUND 的
-    # 8 槽条目退役，这里只钉仍成立的页级锚点（页签 + 页眉两行）；卡片、鼓轨 KIT 行、FM6 bank
-    # 行、选择器与 editing 的置态宏由 sound 场景任务（Task 8）补齐。
-    E("sound", "default", ["@track0", _page_cmd("sound")],
-      [SOUND_ROW_BG, SOUND_ENGINE_NAME, SOUND_PRESET_NAME]),
-    E("sound", "editing", ["@track0", _page_cmd("sound")], [SOUND_ENGINE_NAME, SOUND_PRESET_NAME]),
+    # SOUND 卡片仪表盘：六态均由独立宏置态；锚点与 sound 场景共用布局/环带几何。
+    E("sound", "default", ["@track0", _page_cmd("sound"), "@sound_default"], [
+        SOUND_ROW_BG, (*inject.sound_card_probe(0, 0, 0), "panel", 10), sound_ring_anchor(0, 0, "panel_hi")]),
+    E("sound", "scrolled", ["@track0", _page_cmd("sound"), "@sound_scrolled"], [
+        (*inject.sound_card_probe(0, SOUND_SCROLL_END, 12), "panel", 10),
+        (*inject.sound_gap_probe(0, SOUND_SCROLL_END, 12), "bg", 10),
+        (16, TABCAT + 46, 1088, TABCAT + 72, "text_dim", 24, 40)]),
+    E("sound", "picker-engine", ["@track0", _page_cmd("sound"), "@sound_picker_engine"], [
+        (inject.SOUND_PICK_X, 420, "panel_hi", 10), SOUND_PICK_CHIP0_BOX,
+        (*inject.sound_chip_probe(SOUND_PICK_NAMES, 1), "panel_hi", 10), SOUND_PICK_ENGINE_TEXT]),
+    E("sound", "picker-preset", ["@track0", _page_cmd("sound"), "@sound_picker_preset"], [
+        (inject.SOUND_PICK_X, 420, "panel_hi", 10), SOUND_PICK_CHIP0_BOX, SOUND_PICK_PRESET_TEXT]),
+    E("sound", "drum", ["@track0", _page_cmd("sound"), "@sound_drum"], [
+        (320, SOUND_ROW_Y + 4, 1080, SOUND_ROW_Y + 32, "error", 200, 16),
+        (*inject.sound_sel_xy(3), "panel_sel", 10), sound_ring_anchor(inject.SOUND_CARD_ENV, 0, "panel")]),
+    E("sound", "collapsed", ["@track0", _page_cmd("sound"), "@sound_collapsed"], [
+        (*inject.sound_card_probe(SOUND_COLLAPSE_MASK, 0, inject.SOUND_CARD_ENV), "panel", 10),
+        (*inject.sound_gap_probe(SOUND_COLLAPSE_MASK, 0, inject.SOUND_CARD_ENGINE), "bg", 10),
+        sound_ring_anchor(inject.SOUND_CARD_ENGINE, 0, "panel_hi", SOUND_COLLAPSE_MASK)]),
     E("tools", "default", [_page_cmd("tools")], [
         (*TOOLS_FILL(0), "panel_hi"), (*inject.TOOLS_STATUS_BOX, "text_dim", 40)]),
     E("tools", "armed", [_page_cmd("tools"), "@armed"], [
@@ -688,6 +723,60 @@ def macro_auto_off(r: Runner) -> None:
     r.run("STORE AUTO OFF", r"STORE AUTO off")
 
 
+def sound_reset(r: Runner) -> None:
+    """SOUND 六态的共同起点：选择器关、13 卡全展开、滚动 0、焦点在全局 BPM。"""
+    r.run("UI sound", r"UI page=sound \(6\)")       # ensure_engine/select_track 会经 TRACKS 选轨
+    if inject.sound_pick_status(r.s)["open"]:
+        r.run("KEY 0x00 down")
+        r.run("KEY 0x00 up")
+        r.run("UI SOUND PICK", r"UI SOUND PICK open=0")
+    collapsed = inject.sound_stats(r.s)["collapsed"]
+    for card in range(len(inject.SOUND_CARD_SLOTS)):
+        if collapsed >> card & 1:
+            r.run(f"UI SOUND CARDTOGGLE {card}", rf"UI SOUND CARDTOGGLE card={card} collapsed=0")
+    r.run("UI SOUND SCROLL 0", r"UI SOUND SCROLL y=0 max=\d+")
+    r.run("UI SOUND FOCUS 0", r"UI SOUND FOCUS flat=0 ")
+
+
+def macro_sound_default(r: Runner) -> None:
+    sound_reset(r)
+
+
+def macro_sound_scrolled(r: Runner) -> None:
+    sound_reset(r)
+    r.run("UI SOUND SCROLL 99999", rf"UI SOUND SCROLL y={SOUND_SCROLL_END} max={SOUND_SCROLL_END}")
+
+
+def macro_sound_collapsed(r: Runner) -> None:
+    sound_reset(r)
+    for card in (inject.SOUND_CARD_ENV, 12):
+        r.run(f"UI SOUND CARDTOGGLE {card}", rf"UI SOUND CARDTOGGLE card={card} collapsed=1")
+    r.run("UI SOUND STATS", rf"UI SOUND STATS cards=13 slots=\d+ "
+          rf"scroll_max={inject.sound_scroll_max(SOUND_COLLAPSE_MASK)} collapsed=0x{SOUND_COLLAPSE_MASK:04X}")
+
+
+def macro_sound_picker_engine(r: Runner) -> None:
+    ensure_engine(r, 0)
+    sound_reset(r)
+    r.run("TAP %d %d" % inject.SOUND_NAME_ROW0, r"-> SOUND pick open row=0")
+    r.run("UI SOUND PICK", r"UI SOUND PICK open=1 row=0 engine=0 highlight=0 rows=12")
+
+
+def macro_sound_picker_preset(r: Runner) -> None:
+    ensure_engine(r, 0)
+    sound_reset(r)
+    r.run("TAP %d %d" % inject.SOUND_NAME_ROW1, r"-> SOUND pick open row=1")
+    r.run("UI SOUND PICK", r"UI SOUND PICK open=1 row=1 engine=0 highlight=0 rows=22")
+
+
+def macro_sound_drum(r: Runner) -> None:
+    select_track(r, 3)
+    sound_reset(r)
+    flat = inject.SOUND_CARD_BASE[1] + 4       # Master / FILT：鼓轨可编辑槽，作焦点对照
+    r.run(f"UI SOUND FOCUS {flat}", rf"UI SOUND FOCUS flat={flat} ")
+    r.run("UI SOUND STATS", r"UI SOUND STATS cards=13 slots=101 scroll_max=\d+ collapsed=0x0000")
+
+
 def macro_selftest(r: Runner) -> None:
     """SYSTEM 页的 SELFTEST chip（plan Task 8 Step 1 的「SELFTEST PASS 结果行」）：本 boot 已有
     结果则直接截缓存行；否则点 chip 走 worker 全路径（RESET FIRST 时先 `SYS SELFTEST ARM`）。"""
@@ -725,7 +814,10 @@ MACROS = {
     "track0": macro_track0, "fm6": macro_fm6, "sample": macro_sample,
     "play": macro_play, "playing": macro_playing, "stop": macro_stop,
     "armed": macro_armed, "armed_timeout": macro_armed_timeout, "selftest": macro_selftest,
-    "auto_off": macro_auto_off,
+    "auto_off": macro_auto_off, "sound_default": macro_sound_default,
+    "sound_scrolled": macro_sound_scrolled, "sound_collapsed": macro_sound_collapsed,
+    "sound_picker_engine": macro_sound_picker_engine, "sound_picker_preset": macro_sound_picker_preset,
+    "sound_drum": macro_sound_drum,
 }
 
 
@@ -1113,7 +1205,7 @@ def _check_matrix() -> None:
         for item in e["setup"] + e["post"]:
             name = item[1:] if isinstance(item, str) and item.startswith("@") else None
             assert name is None or name in MACROS, f"{(e['page'], e['state'])} 引用了未定义的宏 @{name}"
-    required = ({(p, "default") for p in PAGES} | {("sound", "editing")}
+    required = ({(p, "default") for p in PAGES} | {("sound", state) for state in SOUND_STATES}
                 | {("step", "playing"), ("transport", "playing"), ("tools", "armed")})
     have = {(e["page"], e["state"]) for e in MATRIX}
     assert required <= have, f"MATRIX 缺少派单要求的状态：{sorted(required - have)}"

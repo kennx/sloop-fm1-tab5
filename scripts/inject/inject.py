@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """inject.py — Tab5 固件串口注入序列（AGENTS.md §5.4 注入约定）
 
-十条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
-song.sh / sequence.sh / synth.sh / sys.sh）是本文的薄封装。每个场景：
+十一条场景脚本（transport.sh / step_edit.sh / tracks.sh / nav.sh / params.sh / store.sh /
+song.sh / sequence.sh / synth.sh / sys.sh / sound.sh）是本文的薄封装。每个场景：
   1. `UI <page>` 同步切页（步窗场景用 `UI WINDOW <start> <len>` 落窗口）；
   2. 若干 `TAP <x> <y>`（或 `KEY`）注入，逐条断言固件回显；STEP 的注入坐标由
      页面布局宏派生（step_cell_xy），列语义对齐当前窗口——列 c = 引擎绝对步
@@ -1591,7 +1591,7 @@ def run_step_edit_erase(s: Session) -> None:
     nav_set_focus(s, 0, 8)
     s.cmd("KEY 0x44 down")
     s.expect(r"KEY 0x44 down c elapsed_us=", "②g 无 Aa：c 是演奏键")
-    voices = eng_voices_max(s, 0, 0.15)
+    voices = eng_voices_max(s, 0, 1.0)
     s.cmd("KEY 0x44 up")
     s.expect(r"KEY 0x44 up c elapsed_us=", "②g 松开 c")
     nav_same(s, "②g 无 Aa 时 c 不擦除聚焦步 8", before, erase_steps(s))
@@ -1981,14 +1981,16 @@ def run_step_drum_lanes(s: Session) -> None:
     s.expect_int(r"focus_track=(\d+)", 0, "②f 焦点归一 T1（ENTER no-op 前提）")
     s.cmd("STATE SNAP")
     seq0 = s.snap_int(r"seq_status=(\d+)")
-    eng0 = nav_eng_snapshot(s)
+    # ENTER 在合成轨由 page_step.c:1118 直接返回；voices 是前序音频工作的异步读数，不能当 ENTER 的副作用。
+    eng0 = [re.sub(r" voices=\d+", "", line) for line in nav_eng_snapshot(s)]
     mask0 = seq_dstep_mask(s, 5)
     s.cmd("KEY 0x3D down")
     s.cmd("KEY 0x3D up")
     s.cmd("STATE SNAP")
     s.expect_int(r"seq_status=(\d+)", seq0, "②f ENTER 在合成轨不改 seq_status")
     (s.ok if seq_dstep_mask(s, 5) == mask0 else s.fail)("②f ENTER 在合成轨不写鼓步")
-    (s.ok if nav_eng_snapshot(s) == eng0 else s.fail)("②f ENTER 在合成轨不改引擎快照")
+    eng1 = [re.sub(r" voices=\d+", "", line) for line in nav_eng_snapshot(s)]
+    (s.ok if eng1 == eng0 else s.fail)("②f ENTER 在合成轨不改引擎快照（排除异步 voices）")
 
     # 收口：清鼓步、lane 归零、停止 + 默认窗口
     s.cmd("SEQ EDIT CLEAR 3 5")
@@ -9887,6 +9889,1082 @@ def run_sys(s: Session) -> None:
     store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ 收口 AUTO ON")
 
 
+# ---------------------------------------------------------------- SOUND（5B-1 卡片仪表盘）---
+# Sound 仪表盘（page_sound.c / sound_layout.h / page_sound_picker.c）的几何与成员表镜像：TAP 坐标、
+# 像素探针与「期望存在性 / 锁定态」都由这里派生（与 step_cell_xy / param_knob_xy 同纪律：页面宏改了
+# 先改这里，不写死数字）。槽级旋钮注入 `UI SOUND KNOB <flat> <press|drag> <dx> <dy>`：dx/dy 相对槽圆心，
+# 环带 30..52px（SOUND_RING_MIN_R/MAX_R，比页级 `UI KNOB` 的 55..95 小一圈）；锚点角度 =
+# lv_atan2(dy, dx)（LVGL 的整数反正切：轴点与 45° 对角点都是整度数），drag = 锚点值 + 角度差×值域/270。
+SOUND_TAB = 72                                   # UI_TAB_BAR_H：页面区 → 屏幕坐标
+SOUND_COL_W, SOUND_COL_GAP, SOUND_CARD_PAD, SOUND_TITLE_H = 616, 16, 12, 36
+SOUND_CELL_W, SOUND_CELL_H = 140, 132
+SOUND_RING_TOP, SOUND_KNOB_D = 12, 96            # 环外缘到槽矩形顶 / 旋钮直径
+SOUND_RING_R = SOUND_KNOB_D // 2 - 4             # 环中心线半径 44
+SOUND_RING_MIN_R, SOUND_RING_MAX_R = 30, 52      # 环带（SOUND_RING_MIN_R/MAX_R）
+SOUND_CARD_GAP = 8
+SOUND_VIEW_X, SOUND_VIEW_W, SOUND_VIEW_BOTTOM = 16, 1248, 644
+SOUND_VIEW_Y, SOUND_VIEW_Y_BANK = 80, 128        # 视口顶（银行行隐藏 / 显示）
+SOUND_SEL_X, SOUND_SEL_Y, SOUND_SEL_CELL_W = 960, 4, 76      # 选轨条（页面区 (960,4) 304×32，格宽 76）
+SOUND_BTN_MINUS, SOUND_BTN_PLUS = (1096 + 40, SOUND_TAB + 40 + 20), (1184 + 40, SOUND_TAB + 40 + 20)
+SOUND_PICK_X, SOUND_PICK_Y, SOUND_PICK_W, SOUND_PICK_H = 160, 120, 960, 440      # 选择器面板（页面区）
+SOUND_PICK_LIST_X, SOUND_PICK_LIST_W, SOUND_PICK_ROW_H = 176, 928, 32
+SOUND_PICK_LIST_Y_SYNTH, SOUND_PICK_LIST_Y_DRUM = 56, 24     # 列表顶（页面区相对；合成轨 = chip 行 8+40+8）
+SOUND_PICK_CHIP_Y = SOUND_TAB + 120 + 8 + 20                 # chip 行中心（屏幕 y = 220）
+SOUND_PICK_CHIP_X0, SOUND_PICK_CHIP_GAP = 176, 8
+SOUND_PICK_CHIP_PAD, SOUND_PICK_CHIP_CHAR_W = 24, 11         # chip 宽 = 11px/字符 + 24
+SOUND_NAME_ROW0, SOUND_NAME_ROW1 = (160, 92), (512, 92)      # 页眉 ENGINE/KIT 行、PRESET 行的名字区
+# 13 卡成员数（sound_layout.c 的 SOUND_CARD_LIST）与鼓轨可编辑的轨道参数（TD 宏：(卡, 卡内槽)）
+SOUND_CARD_TITLE = ("Global", "Master", "Envelope", "LFO", "Engine edit", "Voice", "FX", "Scale", "Arp",
+                    "Pattern", "Drums", "MIDI", "Texture")
+SOUND_CARD_SLOTS = (4, 5, 9, 11, 9, 9, 22, 7, 8, 4, 4, 10, 7)
+SOUND_CARD_BASE = tuple(sum(SOUND_CARD_SLOTS[:c]) for c in range(len(SOUND_CARD_SLOTS)))
+SOUND_FLAT_MAX = sum(SOUND_CARD_SLOTS)           # 成员表总数 = 109（扁平下标 0..108）
+# 成员表（sound_layout.c 的 SOUND_CARD_LIST × param_ids.h 的 id）：扁平下标 → (作用域, 参数 id)。
+# GS = 全局、TS/TD/TA = 轨道；描述符查询与 scope/id 回显核对都用它（ absent 槽的回显是 scope=- id=-）。
+SOUND_SCOPE_TRACK, SOUND_SCOPE_GLOBAL = 0, 1
+_G, _T = SOUND_SCOPE_GLOBAL, SOUND_SCOPE_TRACK
+
+
+def _members():
+    table, flat = [], 0
+    for scope_ids in (
+            ((_G, 0), (_G, 1), (_G, 2), (_G, 3)),                                   # Global
+            ((_G, 27), (_G, 28), (_G, 29), (_G, 30), (_T, 50)),                      # Master
+            tuple((_T, pid) for pid in (1, 2, 3, 4, 5, 6, 7, 8, 59)),               # Envelope
+            tuple((_T, pid) for pid in (9, 10, 11, 12, 60, 61, 62, 13, 14, 15, 16)),  # LFO
+            tuple((_T, 63 + k) for k in range(8)) + ((_T, 58),),                    # Engine edit（+ P_FTYPE）
+            tuple((_T, pid) for pid in (0, 37, 38, 41, 42, 43, 44, 39, 40)),         # Voice
+            tuple((_T, pid) for pid in (33, 34, 35, 36, 45, 46, 47, 48)) + ((_G, 49),)
+            + tuple((_G, pid) for pid in (4, 5, 6, 7, 8, 9, 10, 11))
+            + tuple((_T, pid) for pid in (53, 54, 55, 56, 57)),                      # FX
+            tuple((_T, pid) for pid in (25, 26, 27, 49, 28, 51, 52)),               # Scale
+            tuple((_T, pid) for pid in (17, 18, 19, 20, 21, 22, 23, 24)),            # Arp
+            tuple((_T, pid) for pid in (29, 30, 31, 32)),                            # Pattern
+            tuple((_G, pid) for pid in (24, 25, 26, 32)),                            # Drums
+            tuple((_G, pid) for pid in (33, 34, 35, 24, 36, 44, 45, 46, 47, 48)),    # MIDI
+            tuple((_G, pid) for pid in (37, 38, 39, 40, 41, 42, 43))):               # Texture
+        table += list(scope_ids)
+    assert list(SOUND_CARD_SLOTS) == [4, 5, 9, 11, 9, 9, 22, 7, 8, 4, 4, 10, 7]
+    return {i: m for i, m in enumerate(table)}
+
+
+SOUND_MEMBERS = _members()
+assert len(SOUND_MEMBERS) == SOUND_FLAT_MAX == 109
+del _G, _T, _members
+SOUND_DRUM_EDITABLE = frozenset({(1, 4), (5, 0), (5, 7), (6, 4), (6, 5), (6, 6), (6, 7), (6, 17), (6, 18),
+                                 (6, 19), (6, 20), (6, 21), (9, 0), (9, 1), (9, 2), (9, 3)})
+assert len(SOUND_DRUM_EDITABLE) == 16
+SOUND_FTYPE = (4, 8)                             # P_FTYPE：仅 ANALOG 合成轨出现（TA 宏）
+SOUND_FLAT_FTYPE = SOUND_CARD_BASE[4] + 8        # = 37
+SOUND_CARD_ENGINE, SOUND_CARD_PATTERN, SOUND_CARD_FX, SOUND_CARD_ENV = 4, 9, 6, 2
+SOUND_SLOT_ATK = SOUND_CARD_BASE[SOUND_CARD_ENV]         # Envelope 卡首槽 = P_ATK（STATE SNAP 的 atk 字段）
+SOUND_SLOT_SLEN = SOUND_CARD_BASE[SOUND_CARD_PATTERN]    # Pattern 卡首槽 = P_SLEN
+SOUND_SLOT_ITYPE = SOUND_CARD_BASE[SOUND_CARD_FX] + 17   # FX 卡第 17 槽 = P_ITYPE（其后 4 槽随它改名）
+SOUND_EST = 8704                                 # SOUND 页预算（= PARAM_EDIT_SUM_EST，不得抬）
+SOUND_KEY_LEFT, SOUND_KEY_RIGHT, SOUND_KEY_UP, SOUND_KEY_DOWN = 0x4A, 0x4C, 0x3B, 0x4B
+SOUND_KEY_ENTER, SOUND_KEY_ESC = 0x3D, 0x00
+SOUND_PARAM_LOCKED = r"locked \(page or slot N/A\)"
+# `STATE SNAP` 能直接对照的槽（参数投影行 / 全局行）；其余槽的真值走 `PARAM <id>` / `PARAM GLOBAL <id>`
+SOUND_STATE_TRACK = {0: "level", 1: "atk", 2: "dec", 3: "sus", 4: "rel", 29: "slen", 40: "mute"}
+SOUND_STATE_GLOBAL = {0: "bpm", 1: "swing"}
+# 拖动选项（按下点, 拖动点, 角度差）：按下点 = 锚点方向（270° / 0°）；对角点 (±28,∓28) 的半径 39.6
+# 仍在环带内。+90° 优先；值域太小（R<3 时 +90° 不足 1）或已在端点时依次换 −90° / 180° / −135° / ±45°
+SOUND_DRAGS = (((0, -40), (40, 0), 90), ((0, -40), (-40, 0), -90), ((0, -40), (0, 40), 180),
+               ((40, 0), (-28, -28), -135), ((0, -40), (28, -28), 45), ((0, -40), (-28, -28), -45))
+RE_SOUND_SLOT = re.compile(r"UI SOUND SLOT card=(\d+) slot=(\d+) flat=(\d+) present=(\d) scope=(-|\d+) "
+                           r"id=(-|\d+) label=\"([^\"]*)\" locked=(\d) value=(-?\d+) "
+                           r"x=(-?\d+) y=(-?\d+) w=(-?\d+) h=(-?\d+)")
+RE_ENG_DESC = re.compile(r"ENG DESC scope=(\w+) (?:track|engine)=(\d+) id=(\d+) label=\"([^\"]*)\" fmt=(\d+) "
+                         r"min=(-?\d+) max=(-?\d+) def=(-?\d+) unit=\"[^\"]*\" enums=(\d+)")
+RE_SOUND_FOCUS = re.compile(r'UI SOUND FOCUS flat=(\d+) card=(\d+) slot=(\d+) label="([^"]*)"')
+RE_SOUND_STATS = re.compile(r"UI SOUND STATS cards=(\d+) slots=(\d+) scroll_max=(-?\d+) collapsed=0x([0-9A-F]{4})")
+RE_SOUND_SCROLL = re.compile(r"UI SOUND SCROLL y=(-?\d+) max=(-?\d+)")
+RE_SOUND_KNOB = re.compile(r"UI SOUND KNOB flat=(\d+) (press|drag) dx=(-?\d+) dy=(-?\d+) "
+                           r"(?:value=(-?\d+)|ignored \((ring band|locked)\))")
+RE_SOUND_PICK = re.compile(r"UI SOUND PICK open=1 row=(\d) engine=(\d+) highlight=(\d+) rows=(\d+)")
+RE_SOUND_PICK_ROW = re.compile(r'UI SOUND PICK n=(\d+) text="([^"]*)" current=(\d) x=(-?\d+) y=(-?\d+) '
+                               r"w=(-?\d+) h=(-?\d+)")
+RE_SOUND_BUILD = re.compile(r"页面构建 page=SOUND\(6\) 池增量=(-?\d+)B 预算=(\d+)B 池剩余=(-?\d+)B 耗时=(\d+)ms")
+
+
+def sound_place(collapsed: int):
+    """sound_layout_place 的镜像：每卡 (列, 内容 y, 高) 与内容总高（内容坐标）。"""
+    pos, bottom = [], [0, 0]
+    for c, n in enumerate(SOUND_CARD_SLOTS):
+        h = (SOUND_TITLE_H if collapsed >> c & 1
+             else SOUND_TITLE_H + ((n + 3) // 4) * SOUND_CELL_H + SOUND_CARD_PAD)
+        col = 1 if bottom[1] < bottom[0] else 0
+        pos.append((col, bottom[col], h))
+        bottom[col] += h + SOUND_CARD_GAP
+    return pos, max(bottom) - SOUND_CARD_GAP
+
+
+def sound_scroll_max(collapsed: int, bank: bool = False) -> int:
+    _, height = sound_place(collapsed)
+    return max(0, height - (SOUND_VIEW_BOTTOM - (SOUND_VIEW_Y_BANK if bank else SOUND_VIEW_Y)))
+
+
+def sound_slot_rect(collapsed: int, scroll: int, card: int, slot: int) -> tuple:
+    """槽矩形（屏幕绝对坐标，银行行隐藏）：与 `UI SOUND CARD n SLOT m` 的 x/y/w/h 同源比对。"""
+    col, y, _ = sound_place(collapsed)[0][card]
+    return (SOUND_VIEW_X + col * (SOUND_COL_W + SOUND_COL_GAP) + SOUND_CARD_PAD + slot % 4 * SOUND_CELL_W,
+            SOUND_TAB + SOUND_VIEW_Y + y + SOUND_TITLE_H + (slot // 4) * SOUND_CELL_H - scroll,
+            SOUND_CELL_W, SOUND_CELL_H)
+
+
+def sound_card_rect(collapsed: int, scroll: int, card: int) -> tuple:
+    """卡片矩形（屏幕绝对坐标，银行行隐藏）。"""
+    col, y, h = sound_place(collapsed)[0][card]
+    return (SOUND_VIEW_X + col * (SOUND_COL_W + SOUND_COL_GAP), SOUND_TAB + SOUND_VIEW_Y + y - scroll,
+            SOUND_COL_W, h)
+
+
+def sound_card_probe(collapsed: int, scroll: int, card: int) -> tuple:
+    """卡片左内边距里的一点（x = 卡左 + 5，槽从 +12 起；折叠卡 = 标题行内）：卡片底 UI_PANEL。"""
+    x, y, _, h = sound_card_rect(collapsed, scroll, card)
+    return (x + 5, y + min(h - 12, 100))
+
+
+def sound_gap_probe(collapsed: int, scroll: int, card: int) -> tuple:
+    """卡片上方 8px 间隙的中点（卡片之间 / 折叠卡与下一张卡之间）：页面背景 UI_BG。"""
+    x, y, _, _ = sound_card_rect(collapsed, scroll, card)
+    return (x + 100, y - SOUND_CARD_GAP // 2)
+
+
+def sound_slot_xy(rect: tuple) -> tuple:
+    """槽圆心（屏幕绝对坐标）：x = 矩形中心，y = 矩形顶 + 12 + 48。"""
+    return (rect[0] + rect[2] // 2, rect[1] + SOUND_RING_TOP + SOUND_KNOB_D // 2)
+
+
+def sound_sel_xy(k: int) -> tuple:
+    """选轨条第 k 格中心（避开居中的轨号字形：取格左缘 + 10）。"""
+    return (SOUND_SEL_X + k * SOUND_SEL_CELL_W + 2 + 10, SOUND_TAB + SOUND_SEL_Y + 16)
+
+
+def sound_sel_tap_xy(k: int) -> tuple:
+    return (SOUND_SEL_X + k * SOUND_SEL_CELL_W + SOUND_SEL_CELL_W // 2, SOUND_TAB + SOUND_SEL_Y + 16)
+
+
+def sound_chip_probe(names: tuple, e: int) -> tuple:
+    """chip 内左上的一点（chip 左缘 + 24、顶 + 4：避开 10px 圆角与居中的字形）：chip 底色。"""
+    return (sound_chip_xy(names, e)[0] - (SOUND_PICK_CHIP_CHAR_W * len(names[e]) + SOUND_PICK_CHIP_PAD) // 2
+            + 24, SOUND_PICK_CHIP_Y - 16)
+
+
+def sound_chip_xy(names: tuple, e: int) -> tuple:
+    """选择器 chip 行第 e 个 chip 的中心（屏幕坐标；只用于前几个 chip——整行放得下、不滚动）。"""
+    x = SOUND_PICK_CHIP_X0
+    for name in names[:e]:
+        x += SOUND_PICK_CHIP_CHAR_W * len(name) + SOUND_PICK_CHIP_PAD + SOUND_PICK_CHIP_GAP
+    return (x + (SOUND_PICK_CHIP_CHAR_W * len(names[e]) + SOUND_PICK_CHIP_PAD) // 2, SOUND_PICK_CHIP_Y)
+
+
+def knob_drag_expect(lo: int, hi: int, anchor: int, delta_deg: int) -> int:
+    """knob_math.c 的 knob_drag_value：anchor + 角度差×值域/270（半值远离零取整、钳位到 [lo, hi]）。"""
+    num = delta_deg * (hi - lo)
+    dv = (num + 135) // 270 if num >= 0 else -((-num + 135) // 270)
+    return max(lo, min(hi, anchor + dv))
+
+
+def sound_slot(s: Session, card: int, slot: int) -> dict:
+    s.cmd(f"UI SOUND CARD {card} SLOT {slot}")
+    m = RE_SOUND_SLOT.search(s.last)
+    if m is None:
+        raise InjectError(f"UI SOUND CARD {card} SLOT {slot} 回显异常：{s.last.strip()[-160:]!r}")
+    g = m.groups()
+    return {"card": int(g[0]), "slot": int(g[1]), "flat": int(g[2]), "present": g[3] == "1",
+            "scope": -1 if g[4] == "-" else int(g[4]), "id": -1 if g[5] == "-" else int(g[5]),
+            "label": g[6], "locked": g[7] == "1", "value": int(g[8]),
+            "rect": tuple(int(v) for v in g[9:13])}
+
+
+def sound_flat(s: Session, flat: int) -> dict:
+    """按扁平下标取槽（卡片 / 卡内槽由成员表换算）。"""
+    card = max(c for c in range(len(SOUND_CARD_SLOTS)) if SOUND_CARD_BASE[c] <= flat)
+    return sound_slot(s, card, flat - SOUND_CARD_BASE[card])
+
+
+def sound_desc(s: Session, scope: int, pid: int, track: int = 0):
+    """槽的描述符（与页面同一来源）：轨道参数走 `ENG DESC live <track> <id>`（随 ITYPE/ESYNC/引擎变），
+    全局走 `ENG DESC global 0 <id>`；该上下文没有这个参数回 None。"""
+    s.cmd(f"ENG DESC live {track} {pid}" if scope == SOUND_SCOPE_TRACK else f"ENG DESC global 0 {pid}")
+    m = RE_ENG_DESC.search(s.last)
+    if m is not None:
+        return {"label": m.group(4), "min": int(m.group(6)), "max": int(m.group(7)), "enums": int(m.group(9))}
+    if re.search(r"^ENG DESC ERR ", s.last, re.MULTILINE):
+        return None
+    raise InjectError(f"ENG DESC（scope={scope} id={pid}）回显异常：{s.last.strip()[-160:]!r}")
+
+
+def sound_expect_present(card: int, slot: int, d, analog_synth: bool) -> bool:
+    """页面解析存在性的规则（page_sound.c resolve_slots）：描述符取到、名称非空、值域不退化
+    （min≠max 或有枚举），且引擎门槛满足（只有 P_FTYPE 要 ANALOG 合成轨）。"""
+    return (d is not None and d["label"] != "" and (d["min"] != d["max"] or d["enums"] > 0)
+            and (analog_synth or (card, slot) != SOUND_FTYPE))
+
+
+def sound_truth(s: Session, scope: int, pid: int) -> tuple:
+    """槽的引擎真值 (value, min, max)：`PARAM <id>`（选中轨）/ `PARAM GLOBAL <id>`（只读形式）。"""
+    s.cmd(f"PARAM {pid}" if scope == SOUND_SCOPE_TRACK else f"PARAM GLOBAL {pid}")
+    m = re.search(r"value=(-?\d+) min=(-?\d+) max=(-?\d+)", s.last)
+    if m is None:
+        raise InjectError(f"PARAM（scope={scope} id={pid}）回显异常：{s.last.strip()[-160:]!r}")
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def sound_truth_expect(s: Session, sl: dict, want: int, label: str) -> None:
+    """真值核对：PARAM（引擎读回）；`STATE SNAP` 有对应字段的槽再核一次（投影真值）。"""
+    got, _, _ = sound_truth(s, sl["scope"], sl["id"])
+    (s.ok if got == want else s.fail)(f"{label}: PARAM 真值 {got}（期望 {want}）")
+    line, field = (("param", SOUND_STATE_TRACK.get(sl["id"])) if sl["scope"] == SOUND_SCOPE_TRACK
+                   else ("global", SOUND_STATE_GLOBAL.get(sl["id"])))
+    if field is not None:
+        s.cmd("STATE SNAP")
+        m = re.search(rf"STATE SNAP {line} [^\r\n]*\b{field}=(-?\d+)", s.last)
+        got_state = int(m.group(1)) if m else None
+        (s.ok if got_state == want else s.fail)(f"{label}: STATE SNAP {field}={got_state}（期望 {want}）")
+
+
+def sound_focus(s: Session, flat: int = None) -> dict:
+    s.cmd("UI SOUND FOCUS" if flat is None else f"UI SOUND FOCUS {flat}")
+    m = RE_SOUND_FOCUS.search(s.last)
+    if m is None:
+        raise InjectError(f"UI SOUND FOCUS 回显异常：{s.last.strip()[-160:]!r}")
+    return {"flat": int(m.group(1)), "card": int(m.group(2)), "slot": int(m.group(3)), "label": m.group(4)}
+
+
+def sound_stats(s: Session) -> dict:
+    s.cmd("UI SOUND STATS")
+    m = RE_SOUND_STATS.search(s.last)
+    if m is None:
+        raise InjectError(f"UI SOUND STATS 回显异常：{s.last.strip()[-160:]!r}")
+    return {"cards": int(m.group(1)), "slots": int(m.group(2)), "scroll_max": int(m.group(3)),
+            "collapsed": int(m.group(4), 16)}
+
+
+def sound_scroll(s: Session, y: int = None) -> tuple:
+    s.cmd("UI SOUND SCROLL" if y is None else f"UI SOUND SCROLL {y}")
+    m = RE_SOUND_SCROLL.search(s.last)
+    if m is None:
+        raise InjectError(f"UI SOUND SCROLL 回显异常：{s.last.strip()[-160:]!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def sound_knob(s: Session, flat: int, op: str, dx: int, dy: int):
+    """`UI SOUND KNOB`：返回 ("value", v) / ("ring band", None) / ("locked", None)。"""
+    s.cmd(f"UI SOUND KNOB {flat} {op} {dx} {dy}")
+    m = RE_SOUND_KNOB.search(s.last)
+    if m is None or int(m.group(1)) != flat or m.group(2) != op:
+        raise InjectError(f"UI SOUND KNOB {flat} {op} 回显异常：{s.last.strip()[-160:]!r}")
+    return ("value", int(m.group(5))) if m.group(5) is not None else (m.group(6), None)
+
+
+def sound_knob_ignored(s: Session, flat: int, op: str, dx: int, dy: int, why: str, label: str) -> None:
+    kind, _ = sound_knob(s, flat, op, dx, dy)
+    (s.ok if kind == why else s.fail)(
+        f"{label}: UI SOUND KNOB {op} ({dx},{dy}) → {kind}（期望 {why}）")
+
+
+def sound_keys(s: Session, codes, label: str) -> None:
+    """一次按键序列（每个码 down + up 配对，一次批写）；断言 KEY 回显按序 2n 行。"""
+    want = [(f"{c:02X}", ev) for c in codes for ev in ("down", "up")]
+    s.cmd_batch([f"KEY 0x{c} {ev}" for c, ev in want])
+    got = re.findall(r"KEY 0x([0-9A-F]{2}) (down|up) \S+ elapsed_us=\d+", s.last)
+    (s.ok if got == want else s.fail)(f"{label}: KEY 回显 {len(got)}/{len(want)} 行、顺序"
+                                      f"{'一致' if got == want else '不一致'}")
+
+
+def sound_select(s: Session, track: int) -> None:
+    """Ctrl+数字键选轨（SEL 层，与 TRACKS 卡 / 选轨条同一命令）并断言选中轨。"""
+    key_with_layer(s, (KEY_SEL,), (track + 1,), 0x04, f"Ctrl+{track + 1} 选轨 {track}")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", track, f"STATE SNAP selected_track={track}")
+
+
+def sound_eng(s: Session, track: int) -> tuple:
+    """`ENG SNAP` 里轨 track 的 (engine, preset)。"""
+    s.cmd("ENG SNAP")
+    m = re.search(rf"ENG SNAP trk k={track} engine=(\d+) preset=(\d+) ", s.last)
+    if m is None:
+        raise InjectError(f"ENG SNAP 缺少轨 {track} 行：{s.last.strip()[-160:]!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def sound_read_vector(s: Session) -> dict:
+    """选中轨的 71 个轨道参数真值（`PARAM <id>` 只读）；该轨上无描述符的 id 不进字典。"""
+    out = {}
+    for pid in range(ENG_PARAM_COUNT):
+        s.cmd(f"PARAM {pid}")
+        m = re.search(rf"PARAM track=\d+ id={pid} value=(-?\d+)", s.last)
+        if m:
+            out[pid] = int(m.group(1))
+        elif not re.search(r"reason=invalid_id", s.last):
+            raise InjectError(f"PARAM {pid} 回显异常：{s.last.strip()[-160:]!r}")
+    return out
+
+
+def sound_write_vector(s: Session, vec: dict, label: str) -> None:
+    ids = sorted(vec)
+    bad = []
+    for i in range(0, len(ids), 14):            # PARAM BATCH ≤14 对（esp_console 的参数上限）
+        chunk = ids[i:i + 14]
+        s.cmd("PARAM BATCH " + " ".join(f"{pid} {vec[pid]}" for pid in chunk))
+        got = {int(a): int(b) for a, b in re.findall(r" id=(\d+) value=-?\d+ applied=(-?\d+)", s.last)}
+        bad += [pid for pid in chunk if got.get(pid) != vec[pid]]
+    (s.ok if not bad else s.fail)(f"{label}: 参数向量回写 {len(ids) - len(bad)}/{len(ids)}"
+                                  + ("" if not bad else f"；不符 {bad}"))
+
+
+def sound_read_globals(s: Session) -> dict:
+    out = {}
+    for gid in range(50):                       # 上游 PROJ_NG = 50
+        s.cmd(f"PARAM GLOBAL {gid}")
+        m = re.search(rf"PARAM GLOBAL id={gid} value=(-?\d+)", s.last)
+        if m:
+            out[gid] = int(m.group(1))
+    return out
+
+
+def sound_kit(s: Session) -> int:
+    """鼓轨的 kit（选中轨须是 3）。"""
+    s.cmd("PARAM 63")
+    m = re.search(r"PARAM track=3 id=63 value=(-?\d+)", s.last)
+    if m is None:
+        raise InjectError(f"鼓轨 PARAM 63（KIT）回显异常：{s.last.strip()[-160:]!r}")
+    return int(m.group(1))
+
+
+def sound_expand_all(s: Session, label: str) -> None:
+    for card in range(len(SOUND_CARD_SLOTS)):
+        if sound_stats(s)["collapsed"] >> card & 1:
+            s.cmd(f"UI SOUND CARDTOGGLE {card}")
+    st = sound_stats(s)
+    (s.ok if st["collapsed"] == 0 else s.fail)(f"{label}: 全部卡片展开 collapsed=0x{st['collapsed']:04X}")
+
+
+def sound_drag_to(s: Session, sl: dict, target: int, label: str) -> None:
+    """按下并拖到使槽值 == target 的方向（按下点 = 新锚点 = 当前值）；没有这样的方向时改用
+    `PARAM <id> <target>`（console 写，同一状态层命令）并在回显里核对 applied。"""
+    cur, lo, hi = sound_truth(s, sl["scope"], sl["id"])
+    if cur == target:
+        return
+    for press, drag, deg in SOUND_DRAGS:
+        if knob_drag_expect(lo, hi, cur, deg) == target:
+            kind, got = sound_knob(s, sl["flat"], "press", *press)
+            (s.ok if kind == "value" and got == cur else s.fail)(
+                f"{label}: KNOB press {press} → {kind} {got}（期望 value {cur}）")
+            kind, got = sound_knob(s, sl["flat"], "drag", *drag)
+            (s.ok if kind == "value" and got == target else s.fail)(
+                f"{label}: KNOB drag {drag}（{deg:+d}°）→ {kind} {got}（期望 value {target}）")
+            return
+    s.cmd(f"PARAM {sl['id']} {target}" if sl["scope"] == SOUND_SCOPE_TRACK
+          else f"PARAM GLOBAL {sl['id']} {target}")
+    s.expect(rf"applied={target} ", f"{label}: PARAM 写回 {target}（没有一步到位的拖动方向）")
+
+
+def sound_drag_change(s: Session, sl: dict, label: str) -> int:
+    """在槽上按下并拖到一个**会改值**的方向：断言 press 不改值、drag 回显 = knob_drag_value 的期望
+    与 PARAM 真值；返回拖后的值（调用方负责还原）。"""
+    v0, lo, hi = sound_truth(s, sl["scope"], sl["id"])
+    for press, drag, deg in SOUND_DRAGS:
+        want = knob_drag_expect(lo, hi, v0, deg)
+        if want != v0:
+            break
+    else:
+        raise InjectError(f"{label}: 值 {v0} 在 [{lo}..{hi}] 上任何拖动方向都不改值（值域退化）")
+    kind, got = sound_knob(s, sl["flat"], "press", *press)
+    (s.ok if kind == "value" and got == v0 else s.fail)(
+        f"{label}: KNOB press {press} → {kind} {got}（期望 value {v0}：按下只记锚点、不改值）")
+    kind, got = sound_knob(s, sl["flat"], "drag", *drag)
+    (s.ok if kind == "value" and got == want else s.fail)(
+        f"{label}: KNOB drag {drag}（{deg:+d}°）→ {kind} {got}"
+        f"（期望 value {want} = {v0} {deg:+d}°×[{lo}..{hi}]/270）")
+    sound_truth_expect(s, sl, want, label + " 拖后")
+    return want
+
+
+def sound_structure(s: Session, label: str, engine: int, drum: bool, per_card: bool,
+                     track: int = 0) -> int:
+    """结构核对：逐成员读 `UI SOUND CARD n SLOT m`，present / label 与描述符对照（规则见
+    sound_expect_present；鼓轨另核锁定态 = 轨道参数且不在鼓轨可编辑表里），并与 STATS 的 slots 对账；
+    返回存在槽数。per_card：逐卡一条断言（ANALOG 基线）；否则整上下文一条。"""
+    analog = not drum and engine == 0
+    bad, per_card_bad, n_present = [], [[] for _ in SOUND_CARD_SLOTS], 0
+    for card, n in enumerate(SOUND_CARD_SLOTS):
+        for slot in range(n):
+            sl = sound_slot(s, card, slot)
+            scope, pid = SOUND_MEMBERS[sl["flat"]]     # absent 槽的回显是 scope=- id=-：作用域/id 取成员表
+            d = sound_desc(s, scope, pid, track)
+            want = sound_expect_present(card, slot, d, analog)
+            if sl["present"] != want:
+                per_card_bad[card].append(f"卡{card}槽{slot} present={int(sl['present'])}≠{int(want)}")
+            elif want:
+                n_present += 1
+                if (sl["scope"], sl["id"]) != (scope, pid):
+                    per_card_bad[card].append(f"flat={sl['flat']} scope/id={(sl['scope'], sl['id'])}"
+                                              f"≠{(scope, pid)}")
+                if sl["label"] != d["label"]:
+                    per_card_bad[card].append(f"flat={sl['flat']} label={sl['label']!r}≠{d['label']!r}")
+                want_lock = drum and scope == SOUND_SCOPE_TRACK and (card, slot) not in SOUND_DRUM_EDITABLE
+                if sl["locked"] != want_lock:
+                    per_card_bad[card].append(f"flat={sl['flat']} locked={int(sl['locked'])}≠{int(want_lock)}")
+            if sl["flat"] != SOUND_CARD_BASE[card] + slot:
+                per_card_bad[card].append(f"flat={sl['flat']}≠{SOUND_CARD_BASE[card] + slot}")
+        bad += per_card_bad[card]
+        if per_card:
+            (s.ok if not per_card_bad[card] else s.fail)(
+                f"{label}：{SOUND_CARD_TITLE[card]} 卡 {n} 槽 flat/present/label"
+                f"{'/locked' if drum else ''} 与成员表·ENG DESC 一致" + ("" if not per_card_bad[card]
+                                                                      else f"：{per_card_bad[card]}"))
+    what = "/label/locked" if drum else "/label"
+    if not per_card:
+        (s.ok if not bad else s.fail)(f"{label}：{n_present} 个存在槽 present{what} 与 ENG DESC 一致"
+                                      + ("" if not bad else f"：{bad}"))
+    st = sound_stats(s)
+    (s.ok if st["cards"] == 13 and st["slots"] == n_present else s.fail)(
+        f"{label}: UI SOUND STATS cards={st['cards']} slots={st['slots']}（期望 13 / {n_present} = 逐槽核对的存在数）")
+    return n_present
+
+
+def sound_slot_matches_desc(s: Session, sl: dict) -> tuple:
+    """槽的 present / label 与描述符对照（ANALOG 合成轨）；返回 (一致?, 槽)。"""
+    scope, pid = SOUND_MEMBERS[sl["flat"]]
+    d = sound_desc(s, scope, pid)
+    return (sl["present"] and sl["label"] == d["label"]
+            if sound_expect_present(sl["card"], sl["slot"], d, True) else not sl["present"]), sl
+
+
+def sound_pick_status(s: Session) -> dict:
+    s.cmd("UI SOUND PICK")
+    m = RE_SOUND_PICK.search(s.last)
+    if m is None:
+        if re.search(r"^UI SOUND PICK open=0\r?$", s.last, re.MULTILINE):
+            return {"open": False}
+        raise InjectError(f"UI SOUND PICK 回显异常：{s.last.strip()[-160:]!r}")
+    return {"open": True, "row": int(m.group(1)), "engine": int(m.group(2)), "highlight": int(m.group(3)),
+            "rows": int(m.group(4))}
+
+
+def sound_pick_expect(s: Session, row: int, engine: int, highlight: int, rows: int, label: str) -> None:
+    got = sound_pick_status(s)
+    (s.ok if got == {"open": True, "row": row, "engine": engine, "highlight": highlight, "rows": rows}
+     else s.fail)(f"{label}: UI SOUND PICK {got}（期望 open row={row} engine={engine} highlight={highlight} "
+                  f"rows={rows}）")
+
+
+def sound_pick_row(s: Session, n: int) -> dict:
+    """列表第 n 行（文字 / 当前项 / 屏幕矩形）。不在一屏里的行查询时先滚进视口——要点它就先查再点。"""
+    s.cmd(f"UI SOUND PICK {n}")
+    m = RE_SOUND_PICK_ROW.search(s.last)
+    if m is None:
+        raise InjectError(f"UI SOUND PICK {n} 回显异常：{s.last.strip()[-160:]!r}")
+    x, y, w, h = (int(v) for v in m.groups()[3:7])
+    return {"n": int(m.group(1)), "text": m.group(2), "current": m.group(3) == "1",
+            "xy": (x + w // 2, y + h // 2), "rect": (x, y, w, h)}
+
+
+def sound_pick_tap(s: Session, n: int, pattern: str, label: str) -> dict:
+    """TAP 列表第 n 行的中心（先 `UI SOUND PICK n` 取矩形）。"""
+    row = sound_pick_row(s, n)
+    s.cmd("TAP %d %d" % row["xy"])
+    s.expect(pattern, label)
+    return row
+
+
+def sound_ring_probe(s: Session, img, rect: tuple, what: str, colour: tuple) -> None:
+    """环起点 135° 的左下点（中心线半径 44）：page_sound.c 先画整圈 UI_PANEL_HI，再从 135° 起叠
+    数值弧；rounded 起点帽不盖这个像素，而 150° 已落在数值弧上。名称画在槽顶，也不经过这里。"""
+    cx, cy = sound_slot_xy(rect)
+    s.probe(img, what, cx - 31, cy + 31, colour)
+
+
+def run_sound(s: Session) -> None:
+    """Sound 仪表盘（5B-1）注入：归一 → 池 → 结构 → 写入（KNOB / 键盘 / ±）→ 滚动与折叠 → 选轨条与
+    选择器 → 鼓轨锁定 → ITYPE 标签与切页保值 → 12 引擎 → 有序对与往返 → 6 张截屏；收口还原。
+
+    真值一律取 `PARAM <id>` / `PARAM GLOBAL <id>`（引擎读回；能对上 `STATE SNAP` 字段的另核一次）；
+    存在性 / 标签的期望取自 `ENG DESC`（与页面同一描述符来源）。入口快照（轨 0 引擎·预置·71 参数、
+    鼓轨 kit、50 个全局、选中轨、页）在归一**之前**拍，`try/finally` 还原——断言不过、InjectError、
+    截屏复位重跑都走到；autosave 为 ON 时落盘的就是还原后的状态（折叠位 / 滚动 / 焦点是 UI 局部态，
+    收口清零）。轨 0 的声音须来自工厂预置：换过引擎后 `ENG TRACK` 回不去用户预置。"""
+    s.cmd("UI")
+    m = re.search(r"UI page=(\w+) \((\d+)\)", s.last)
+    entry_page = (m.group(1), m.group(2))
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
+    eng0 = sound_eng(s, 0)
+    sound_select(s, 0)
+    vec0 = sound_read_vector(s)
+    glob0 = sound_read_globals(s)
+    sound_select(s, 3)
+    kit0 = sound_kit(s)
+    s.cmd("STATE SNAP")
+    zoom0 = s.snap_int(r"set_zoom=(\d+)")
+    if zoom0 != 0:                              # ZOOM 开时提示行换成读数行（UI_TEXT）：像素探针按 ZOOM 关
+        s.cmd("STORE SETTINGS SET zoom 0")
+        s.expect(r"STORE SETTINGS SET zoom=0 dirty=", "归一 ZOOM 关（提示行像素前提）")
+    s.ser.note(f"入口快照：轨 0 engine={eng0[0]} preset={eng0[1]}，kit={kit0}，选中轨 {entry_sel}，"
+               f"页 {entry_page[0]}，轨 0 参数 {len(vec0)} 项，全局 {len(glob0)} 项，zoom={zoom0}")
+
+    def restore() -> None:
+        try:
+            sound_select(s, 0)
+            if sound_eng(s, 0) != eng0:
+                s.cmd(f"ENG TRACK 0 {eng0[0]} {eng0[1]}")
+                s.expect(rf"ENG TRACK k=0 engine={eng0[0]} preset={eng0[1]} OK", "收口：轨 0 引擎·预置")
+            sound_write_vector(s, vec0, "收口：轨 0 参数向量")
+            after = sound_read_vector(s)
+            (s.ok if after == vec0 else s.fail)(
+                f"收口核对：轨 0 参数 {sum(after.get(k) == v for k, v in vec0.items())}/{len(vec0)} 回到入口值")
+            glob1 = sound_read_globals(s)
+            for gid, v in glob0.items():
+                if glob1.get(gid) != v:
+                    s.cmd(f"PARAM GLOBAL {gid} {v}")
+            glob1 = sound_read_globals(s)
+            (s.ok if glob1 == glob0 else s.fail)(
+                f"收口核对：全局参数 {sum(glob1.get(k) == v for k, v in glob0.items())}/{len(glob0)} 回到入口值")
+            sound_select(s, 3)
+            if sound_kit(s) != kit0:
+                s.cmd(f"PARAM 63 {kit0}")
+                s.expect(rf"PARAM track=3 id=63 value={kit0} applied={kit0} ", "收口：鼓轨 kit")
+            s.cmd("UI sound")
+            sound_expand_all(s, "收口")
+            s.cmd("UI SOUND SCROLL 0")
+            if zoom0 != 0:
+                s.cmd(f"STORE SETTINGS SET zoom {zoom0}")
+                s.expect(rf"STORE SETTINGS SET zoom={zoom0} dirty=", "收口：ZOOM 回入口值")
+            sound_select(s, entry_sel)
+            s.cmd(f"UI {entry_page[0]}")
+            s.expect(rf"UI page={entry_page[0]} \({entry_page[1]}\)", "收口：回入口页")
+        except InjectError as e:
+            s.ser.note(f"sound 收口还原未完成：{e}")
+            s.fail(f"收口还原未完成：{e}")
+
+    try:
+        sound_segments(s, kit0)
+    finally:
+        restore()
+
+
+def sound_segments(s: Session, kit0: int) -> None:
+    """run_sound 的段落 ①–⑫（快照与还原在 run_sound）。"""
+    n_cards = len(SOUND_CARD_SLOTS)
+
+    # ---------- ① 归一：停走带、轨 0、ANALOG 预置 0、SOUND 页、滚动 0、全部展开 ----------
+    ensure_stopped(s)
+    sound_select(s, 0)
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "① 归一轨 0 = ANALOG 预置 0")
+    s.cmd("UI sound")
+    s.expect(r"UI page=sound \(6\)", "① UI sound")
+    sound_expand_all(s, "①")
+    y, _ = sound_scroll(s, 0)
+    (s.ok if y == 0 else s.fail)(f"① UI SOUND SCROLL 0 → y={y}")
+    s.cmd("UI sound CHIP")
+    s.expect(r"^UI sound chip=255\r?$", "① `UI sound CHIP` → chip=255（仪表盘没有 chip 行）")
+    (s.ok if "UI sound slot=" not in s.last else s.fail)("① `UI sound CHIP` 没有逐槽行")
+
+    # ---------- ② 池：est 8,704（不得抬）/ 0 < delta ≤ est / build_ms ≤ 100 ----------
+    mem = param_mem(s)
+    state_, est, delta = mem["pages"].get(6, ("?", 0, 0))
+    (s.ok if state_ == "built" and est == SOUND_EST else s.fail)(
+        f"② UI MEM SOUND state={state_} est={est}（期望 built / {SOUND_EST:,}）")
+    (s.ok if 0 < delta <= SOUND_EST else s.fail)(f"② UI MEM SOUND delta={delta}（0 < delta ≤ {SOUND_EST:,}）")
+    g = mem["groups"]["EDIT"]
+    s.ser.note(f"② UI MEM SOUND est={est} delta={delta}；EDIT build_ms={g['build_ms']}")
+    (s.ok if g["built"] == 1 and g["sum_est"] == SOUND_EST and 0 < g["build_ms"] <= NAV_BUILD_BUDGET_MS
+     else s.fail)(f"② UI MEM EDIT built={g['built']} sum_est={g['sum_est']} build_ms={g['build_ms']}ms"
+                  f"（期望 1 / {SOUND_EST:,} / 0 < x ≤ {NAV_BUILD_BUDGET_MS}）")
+
+    # ---------- ③ 结构（ANALOG）：13 卡 109 槽，逐槽 label == ENG DESC；P_FTYPE 只在 ANALOG ----------
+    st = sound_stats(s)
+    (s.ok if st["cards"] == 13 and st["scroll_max"] == sound_scroll_max(0) else s.fail)(
+        f"③ UI SOUND STATS cards={st['cards']} scroll_max={st['scroll_max']}（期望 13 / {sound_scroll_max(0)}）")
+    n = sound_structure(s, "③ ANALOG", 0, False, per_card=True)
+    (s.ok if n == 109 else s.fail)(f"③ ANALOG 存在槽 {n}/109")
+    ft = sound_slot(s, *SOUND_FTYPE)
+    (s.ok if ft["present"] and ft["flat"] == SOUND_FLAT_FTYPE else s.fail)(
+        f"③ P_FTYPE（Engine edit 卡槽 8）present={int(ft['present'])} flat={ft['flat']} label={ft['label']!r}"
+        f"（期望 present=1 / flat={SOUND_FLAT_FTYPE}）")
+
+    # ---------- ④ 写：每张卡的首个可编辑槽——press 不改值、drag 改值（= knob_drag_value）、拖回还原 ----------
+    for card in range(n_cards):
+        sl = next(x for x in (sound_slot(s, card, k) for k in range(SOUND_CARD_SLOTS[card]))
+                  if x["present"] and not x["locked"])
+        v0, _, _ = sound_truth(s, sl["scope"], sl["id"])
+        label = f"④ {SOUND_CARD_TITLE[card]} 卡 {sl['label']}"
+        sound_drag_change(s, sl, label)
+        sound_drag_to(s, sl, v0, label + " 拖回")
+
+    # ---------- ⑤ 拖动门禁：环带外 / 无锚点忽略且值不变（锁定槽见 ⑨）----------
+    atk = sound_flat(s, SOUND_SLOT_ATK)
+    v0, _, _ = sound_truth(s, atk["scope"], atk["id"])
+    sound_knob_ignored(s, atk["flat"], "press", 0, SOUND_RING_MIN_R - 10, "ring band", "⑤ 环带内缘之内")
+    sound_knob_ignored(s, atk["flat"], "drag", 40, 0, "ring band", "⑤ 环带外按下之后的 drag")
+    sound_knob_ignored(s, atk["flat"], "press", 0, SOUND_RING_MAX_R + 8, "ring band", "⑤ 环带外缘之外")
+    sound_truth_expect(s, atk, v0, "⑤ 环带外两次注入之后")
+    sound_select(s, 1)                           # 换轨 ⇒ 页面作废拖动锚点
+    sound_select(s, 0)
+    sound_knob_ignored(s, atk["flat"], "drag", 40, 0, "ring band", "⑤ 无锚点（换轨后）的 drag")
+    sound_truth_expect(s, atk, v0, "⑤ 无锚点 drag 之后")
+
+    # ---------- ⑥ 键盘：焦点 ±1 与环绕、↑↓ / ENTER / ± 调值、折叠跳过、全折叠拒绝 ----------
+    sound_focus(s, SOUND_SLOT_ATK)
+    sound_keys(s, (SOUND_KEY_LEFT,), "⑥ ←")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_SLOT_ATK - 1 else s.fail)(
+        f"⑥ ←：焦点 flat={f['flat']} {f['label']!r}（期望 {SOUND_SLOT_ATK - 1}）")
+    sound_keys(s, (SOUND_KEY_RIGHT, SOUND_KEY_RIGHT), "⑥ → →")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_SLOT_ATK + 1 else s.fail)(
+        f"⑥ → →：焦点 flat={f['flat']} {f['label']!r}（期望 {SOUND_SLOT_ATK + 1}）")
+    sound_focus(s, 0)
+    sound_keys(s, (SOUND_KEY_LEFT,), "⑥ 焦点在首槽按 ←")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_FLAT_MAX - 1 else s.fail)(
+        f"⑥ ← 环绕：flat={f['flat']}（期望 {SOUND_FLAT_MAX - 1} = 末槽）")
+    sound_keys(s, (SOUND_KEY_RIGHT,), "⑥ 焦点在末槽按 →")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == 0 else s.fail)(f"⑥ → 环绕：flat={f['flat']}（期望 0）")
+    sound_focus(s, SOUND_SLOT_ATK)
+    orig, lo, hi = sound_truth(s, atk["scope"], atk["id"])
+    if not lo < orig < hi:                      # 入口值在端点：先挪到中值，±1 才都有判别力
+        sound_drag_to(s, atk, (lo + hi) // 2, "⑥ ATK 入口值在端点：先挪到中值")
+    v0, lo, hi = sound_truth(s, atk["scope"], atk["id"])
+    (s.ok if lo < v0 < hi else s.fail)(f"⑥ ATK 基线 {v0} 在 ({lo}..{hi}) 内（±1 都有判别力）")
+    sound_keys(s, (SOUND_KEY_UP,), "⑥ ↑")
+    sound_truth_expect(s, atk, v0 + 1, "⑥ ↑ = +1")
+    sound_keys(s, (SOUND_KEY_DOWN,), "⑥ ↓")
+    sound_truth_expect(s, atk, v0, "⑥ ↓ = −1（回基线）")
+    sound_keys(s, (SOUND_KEY_ENTER,), "⑥ ENTER")
+    sound_truth_expect(s, atk, v0 + 1, "⑥ ENTER = +1")
+    s.cmd("TAP %d %d" % SOUND_BTN_MINUS)
+    s.expect(rf"-> PARAM slot={SOUND_SLOT_ATK} id={atk['id']} delta=-1 value={v0}", "⑥ TAP −（焦点槽）")
+    sound_truth_expect(s, atk, v0, "⑥ TAP − 之后")
+    s.cmd("TAP %d %d" % SOUND_BTN_PLUS)
+    s.expect(rf"-> PARAM slot={SOUND_SLOT_ATK} id={atk['id']} delta=\+1 value={v0 + 1}", "⑥ TAP +（焦点槽）")
+    sound_truth_expect(s, atk, v0 + 1, "⑥ TAP + 之后")
+    s.cmd("TAP %d %d" % SOUND_BTN_MINUS)
+    s.expect(rf"-> PARAM slot={SOUND_SLOT_ATK} id={atk['id']} delta=-1 value={v0}", "⑥ TAP −（回基线）")
+    sound_truth_expect(s, atk, v0, "⑥ TAP − 回基线")
+    if v0 != orig:
+        sound_drag_to(s, atk, orig, "⑥ ATK 回入口值")
+    # 折叠跳过：焦点在 Envelope 卡（卡 2）槽 0，折叠该卡 ⇒ 焦点重指到扁平序里下一个可聚焦槽；←/→ 跳过整卡
+    sound_focus(s, SOUND_SLOT_ATK)
+    s.cmd(f"UI SOUND CARDTOGGLE {SOUND_CARD_ENV}")
+    s.expect(rf"UI SOUND CARDTOGGLE card={SOUND_CARD_ENV} collapsed=1", "⑥ 折叠 Envelope 卡")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_CARD_BASE[SOUND_CARD_ENV + 1] else s.fail)(
+        f"⑥ 焦点槽被折叠：重指到 flat={f['flat']} {f['label']!r}（期望 {SOUND_CARD_BASE[SOUND_CARD_ENV + 1]}）")
+    sound_keys(s, (SOUND_KEY_LEFT,), "⑥ ←（跳过折叠卡）")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_CARD_BASE[SOUND_CARD_ENV] - 1 else s.fail)(
+        f"⑥ ← 跳过折叠的 Envelope 卡：flat={f['flat']}（期望 {SOUND_CARD_BASE[SOUND_CARD_ENV] - 1}）")
+    sound_keys(s, (SOUND_KEY_RIGHT,), "⑥ →（跳过折叠卡）")
+    f = sound_focus(s)
+    (s.ok if f["flat"] == SOUND_CARD_BASE[SOUND_CARD_ENV + 1] else s.fail)(
+        f"⑥ → 跳过折叠的 Envelope 卡：flat={f['flat']}（期望 {SOUND_CARD_BASE[SOUND_CARD_ENV + 1]}）")
+    s.cmd(f"UI SOUND CARDTOGGLE {SOUND_CARD_ENV}")
+    s.expect(rf"UI SOUND CARDTOGGLE card={SOUND_CARD_ENV} collapsed=0", "⑥ 展开 Envelope 卡")
+    # R12：全部折叠 ⇒ 焦点保持原槽（它仍存在）、↑/↓ 与 ± 拒绝（值不变）
+    for card in range(n_cards):
+        s.cmd(f"UI SOUND CARDTOGGLE {card}")
+    st = sound_stats(s)
+    (s.ok if st["collapsed"] == (1 << n_cards) - 1 else s.fail)(
+        f"⑥ 全部折叠：collapsed=0x{st['collapsed']:04X}（期望 0x{(1 << n_cards) - 1:04X}）")
+    # R12：逐卡折叠时焦点按「扁平序里下一个可聚焦槽」顺次重指（随折叠顺序走），**全部折叠后**每拍的重指
+    # 找不到可聚焦槽 ⇒ 焦点保持（它仍是个存在的槽，只是所在卡被折叠）；这里断言「是个存在槽」+ 跨拍稳定
+    f = sound_focus(s)
+    slk = sound_flat(s, f["flat"])
+    time.sleep(0.1)
+    f2 = sound_focus(s)
+    (s.ok if slk["present"] and f2["flat"] == f["flat"] else s.fail)(
+        f"⑥ 全折叠下焦点保持：flat={f['flat']} {f['label']!r}（存在的槽；跨拍读回 {f2['flat']}）")
+    vk, _, _ = sound_truth(s, slk["scope"], slk["id"])
+    sound_keys(s, (SOUND_KEY_UP, SOUND_KEY_DOWN, SOUND_KEY_ENTER), "⑥ 全折叠下 ↑ ↓ ENTER")
+    s.cmd("TAP %d %d" % SOUND_BTN_PLUS)
+    s.expect(rf"-> PARAM slot={f['flat']} {SOUND_PARAM_LOCKED}", "⑥ 全折叠下 TAP + → locked")
+    sound_truth_expect(s, slk, vk, "⑥ 全折叠下 ↑↓/ENTER/+ 之后（值不变）")
+    sound_expand_all(s, "⑥")
+
+    # ---------- ⑦ 滚动与折叠：钳位、重排、焦点槽自动滚入视口；截屏 default / scrolled / collapsed ----------
+    sound_focus(s, 0)
+    y, mx = sound_scroll(s, 0)
+    (s.ok if (y, mx) == (0, sound_scroll_max(0)) else s.fail)(
+        f"⑦ SCROLL 0 → y={y} max={mx}（期望 0 / {sound_scroll_max(0)} = 内容高 − 视口高）")
+    img = s.capture("default")
+    s.probe(img, "⑦ 默认帧：Global 卡底（UI_PANEL）", *sound_card_probe(0, 0, 0), C_PANEL, 10)
+    s.probe(img, "⑦ 默认帧：Master 卡底（UI_PANEL）", *sound_card_probe(0, 0, 1), C_PANEL, 10)
+    s.probe(img, "⑦ 默认帧：卡间 8px 缝是页面背景", *sound_gap_probe(0, 0, SOUND_CARD_ENV), C_BG, 10)
+    s.probe(img, "⑦ 默认帧：列间 16px 缝是页面背景", SOUND_VIEW_X + SOUND_COL_W + SOUND_COL_GAP // 2, 400,
+            C_BG, 10)
+    s.probe(img, "⑦ 默认帧：选轨条第 1 格（当前轨）UI_PANEL_SEL", *sound_sel_xy(0), C_PANEL_SEL, 10)
+    s.probe(img, "⑦ 默认帧：选轨条第 2 格 UI_PANEL", *sound_sel_xy(1), C_PANEL, 10)
+    s.probe_region(img, "⑦ 默认帧：提示行灰字", (16, SOUND_TAB + 46, 1088, SOUND_TAB + 72), C_TEXT_DIM, 24, 40)
+    rect = sound_slot(s, 0, 0)["rect"]
+    (s.ok if rect == sound_slot_rect(0, 0, 0, 0) else s.fail)(
+        f"⑦ 槽 0 矩形 {rect}（期望 {sound_slot_rect(0, 0, 0, 0)}：页面区 + 视口顶 + 标题行）")
+    s.probe(img, "⑦ 默认帧：焦点槽（BPM）描边 UI_ACCENT", rect[0] + 2, rect[1] + 66, C_YELLOW, 10)
+    sound_ring_probe(s, img, rect, "⑦ 默认帧：BPM 环顶 UI_PANEL_HI", C_PANEL_HI)
+    cx, cy = sound_slot_xy(rect)
+    s.probe_region(img, "⑦ 默认帧：BPM 值文本（UI_TEXT）", (cx - 40, cy - 9, cx + 40, cy + 9), C_TEXT, 24, 20)
+    s.probe_region(img, "⑦ 默认帧：BPM 名称灰字", (cx - 40, rect[1], cx + 40, rect[1] + 16), C_TEXT_DIM, 24, 12)
+    y, mx = sound_scroll(s, 99999)
+    (s.ok if (y, mx) == (sound_scroll_max(0), sound_scroll_max(0)) else s.fail)(
+        f"⑦ SCROLL 99999 钳到底：y={y}（期望 max={sound_scroll_max(0)}）")
+    img = s.capture("scrolled")
+    s.probe(img, "⑦ 滚到底：Texture 卡底（UI_PANEL）", *sound_card_probe(0, y, 12), C_PANEL, 10)
+    s.probe(img, "⑦ 滚到底：MIDI 卡底（UI_PANEL）", *sound_card_probe(0, y, 11), C_PANEL, 10)
+    s.probe(img, "⑦ 滚到底：Drums/Texture 卡间缝是页面背景", *sound_gap_probe(0, y, 12), C_BG, 10)
+    s.probe_region(img, "⑦ 滚到底：提示行灰字（不随卡片滚动）", (16, SOUND_TAB + 46, 1088, SOUND_TAB + 72),
+                   C_TEXT_DIM, 24, 40)
+    sl = sound_slot(s, SOUND_CARD_ENGINE, 0)
+    (s.ok if sl["rect"] == sound_slot_rect(0, y, SOUND_CARD_ENGINE, 0) else s.fail)(
+        f"⑦ 滚到底后 Engine edit 卡槽 0 矩形 {sl['rect']}（期望 {sound_slot_rect(0, y, SOUND_CARD_ENGINE, 0)}）")
+    y, _ = sound_scroll(s, -5)
+    (s.ok if y == 0 else s.fail)(f"⑦ SCROLL -5 钳到顶：y={y}")
+    y, _ = sound_scroll(s, 500)
+    (s.ok if y == 500 else s.fail)(f"⑦ SCROLL 500 → y={y}")
+    sl = sound_slot(s, SOUND_CARD_ENGINE, 0)
+    (s.ok if sl["rect"] == sound_slot_rect(0, 500, SOUND_CARD_ENGINE, 0) else s.fail)(
+        f"⑦ 滚动 500 后 Engine edit 卡槽 0 矩形 {sl['rect']}（期望 {sound_slot_rect(0, 500, SOUND_CARD_ENGINE, 0)}）")
+    sound_focus(s, SOUND_SLOT_ATK)
+    y, _ = sound_scroll(s)
+    top = sound_slot(s, SOUND_CARD_ENV, 0)["rect"][1]
+    content_y = sound_slot_rect(0, 0, SOUND_CARD_ENV, 0)[1] - SOUND_TAB - SOUND_VIEW_Y     # 224：卡 y + 标题行
+    want_y = max(0, content_y - 8)               # 焦点槽滚进视口：越过上缘（留 8px 边距）才滚、滚到刚好可见
+    (s.ok if y == want_y and top == sound_slot_rect(0, want_y, SOUND_CARD_ENV, 0)[1]
+     and top >= SOUND_TAB + SOUND_VIEW_Y else s.fail)(
+        f"⑦ 焦点落到 ATK：自动滚入视口 y={y}，槽矩形顶 {top}（期望 y={want_y} = 内容 y {content_y} − 8、"
+        f"顶 {sound_slot_rect(0, want_y, SOUND_CARD_ENV, 0)[1]} ≥ 视口顶 {SOUND_TAB + SOUND_VIEW_Y}）")
+    # 折叠重排：Envelope / FX 折成 36px 标题行 ⇒ 右列 / 左列后续卡上移；scroll_max 按镜像对账
+    mask = (1 << SOUND_CARD_ENV) | (1 << (SOUND_CARD_ENV + 1))
+    for card in (SOUND_CARD_ENV, SOUND_CARD_ENV + 1):     # Envelope / LFO：折叠后仍在首屏（视口 152..716）
+        s.cmd(f"UI SOUND CARDTOGGLE {card}")
+    st = sound_stats(s)
+    (s.ok if st["collapsed"] == mask and st["scroll_max"] == sound_scroll_max(mask) else s.fail)(
+        f"⑦ 折叠 Envelope + LFO：scroll_max={st['scroll_max']} collapsed=0x{st['collapsed']:04X}"
+        f"（期望 {sound_scroll_max(mask)} / 0x{mask:04X}）")
+    y, _ = sound_scroll(s, 0)
+    img = s.capture("collapsed")
+    for card in (SOUND_CARD_ENV, SOUND_CARD_ENV + 1):
+        dead = sound_slot(s, card, 0)
+        (s.ok if dead["present"] and dead["rect"] == (0, 0, 0, 0) else s.fail)(
+            f"⑦ 折叠卡 {SOUND_CARD_TITLE[card]} 的槽仍有描述符但无矩形：present={int(dead['present'])} "
+            f"rect={dead['rect']}（期望 present=1 / (0, 0, 0, 0)）")
+        s.probe(img, f"⑦ 折叠帧：{SOUND_CARD_TITLE[card]} 卡折成标题行（UI_PANEL）",
+                *sound_card_probe(mask, 0, card), C_PANEL, 10)
+    # 折叠卡原来的槽区：后面的卡顶上来（Engine edit 卡的 WAVE 槽环顶），折叠的 LFO 与它之间是 8px 缝
+    nxt = sound_slot(s, SOUND_CARD_ENGINE, 0)["rect"]
+    (s.ok if nxt == sound_slot_rect(mask, 0, SOUND_CARD_ENGINE, 0) else s.fail)(
+        f"⑦ 折叠后重排：Engine edit 卡槽 0 矩形 {nxt}（期望 {sound_slot_rect(mask, 0, SOUND_CARD_ENGINE, 0)}："
+        f"原 {sound_slot_rect(0, 0, SOUND_CARD_ENGINE, 0)}）")
+    s.probe(img, "⑦ 折叠帧：LFO 卡与其下 Engine edit 卡之间是页面背景", *sound_gap_probe(mask, 0, SOUND_CARD_ENGINE),
+            C_BG, 10)
+    sound_ring_probe(s, img, nxt, "⑦ 折叠帧：上移后的 Engine edit 首槽环顶 UI_PANEL_HI", C_PANEL_HI)
+    sound_expand_all(s, "⑦")
+    y, mx = sound_scroll(s, 0)
+    (s.ok if mx == sound_scroll_max(0) else s.fail)(f"⑦ 重新展开：scroll_max={mx}（期望 {sound_scroll_max(0)}）")
+
+    # ---------- ⑧ 选轨条 + 页眉选择器（R16）；截屏 picker-engine / picker-preset ----------
+    s.cmd("TAP %d %d" % sound_sel_tap_xy(1))
+    s.expect(r"-> TRACKS select track=1 CMD_SELECT_TRACK", "⑧ TAP 选轨条第 2 格")
+    s.cmd("UI")
+    s.expect(r"UI page=sound \(6\)", "⑧ 选轨后仍在 SOUND 页")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 1, "⑧ STATE SNAP selected_track=1")
+    st = sound_stats(s)
+    (s.ok if st["slots"] == 109 else s.fail)(f"⑧ 轨 1 的仪表盘 slots={st['slots']}（轨 1 = ANALOG ⇒ 109）")
+    s.cmd("TAP %d %d" % sound_sel_tap_xy(0))
+    s.expect(r"-> TRACKS select track=0 CMD_SELECT_TRACK", "⑧ TAP 选轨条第 1 格回轨 0")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"selected_track=(\d+)", 0, "⑧ STATE SNAP selected_track=0")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    s.expect(r"-> SOUND pick open row=0", "⑧ TAP 页眉 ENGINE 行名字区 → 选择器 row 0")
+    sound_pick_expect(s, 0, 0, 0, 12, "⑧ 打开引擎选择器")
+    names = tuple(sound_pick_row(s, e)["text"] for e in range(12))
+    (s.ok if names[0] == "ANALOG" and names[9] == "FM6" and len(set(names)) == 12 else s.fail)(
+        f"⑧ 引擎列表 12 行：{' / '.join(names)}（期望 ANALOG 起、FM6 = 第 10 行、互不重名）")
+    s.cmd("UI SOUND PICK 12")
+    s.expect(r"^UI ERR sound \(absent\)\r?$", "⑧ `UI SOUND PICK 12`（越界）→ absent")
+    s.cmd("UI SOUND PICK x")
+    s.expect(r"^UI ERR sound \(invalid\)\r?$", "⑧ `UI SOUND PICK x` → invalid")
+    row = sound_pick_row(s, 0)
+    (s.ok if row["current"] else s.fail)("⑧ 引擎行 0（ANALOG）current=1")
+    sound_pick_tap(s, 0, r"-> SOUND pick engine=0 unchanged", "⑧ TAP 当前引擎行 → unchanged（不下发）")
+    (s.ok if sound_pick_status(s) == {"open": False} else s.fail)("⑧ 确认当前项后选择器关闭")
+    (s.ok if sound_eng(s, 0) == (0, 0) else s.fail)(f"⑧ unchanged 之后 ENG SNAP 轨 0 = {sound_eng(s, 0)}")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    s.expect(r"-> SOUND pick open row=0", "⑧ 再开引擎选择器")
+    s.cmd("TAP %d %d" % sound_chip_xy(names, 1))
+    s.expect(r"-> SOUND pick engine=1 highlight", "⑧ TAP chip DIGITAL → 只高亮")
+    sound_pick_expect(s, 0, 0, 1, 12, "⑧ chip 高亮 ≠ 当前引擎")
+    (s.ok if sound_eng(s, 0) == (0, 0) else s.fail)("⑧ chip 高亮不下发（ENG SNAP 轨 0 仍 ANALOG）")
+    s.cmd("TAP %d %d" % sound_chip_xy(names, 1))
+    s.expect(r"-> SOUND pick engine=1 CMD_SET_ENGINE", "⑧ 再 TAP 已高亮的 chip → CMD_SET_ENGINE")
+    (s.ok if sound_eng(s, 0) == (1, 0) and sound_pick_status(s) == {"open": False} else s.fail)(
+        f"⑧ 换引擎后 ENG SNAP 轨 0 = {sound_eng(s, 0)}，选择器关闭")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    sound_pick_expect(s, 0, 1, 1, 12, "⑧ 当前 = DIGITAL 时再开")
+    row = sound_pick_row(s, 1)
+    (s.ok if row["current"] and row["text"] == "DIGITAL" else s.fail)(f"⑧ 引擎行 1：{row}")
+    img = s.capture("picker-engine")
+    s.probe(img, "⑧ 选择器帧：面板左缘 2px 描边 UI_PANEL_HI", SOUND_PICK_X, 420, C_PANEL_HI, 10)
+    s.probe(img, "⑧ 选择器帧：面板顶缘 2px 描边 UI_PANEL_HI", 600, SOUND_TAB + SOUND_PICK_Y, C_PANEL_HI, 10)
+    s.probe(img, "⑧ 选择器帧：面板底 UI_PANEL（列表右端的空白）", 1000, 420, C_PANEL, 10)
+    s.probe(img, "⑧ 选择器帧：面板外的页眉行底 UI_PANEL_HI", 16 + 3, SOUND_ROW_Y + 4, C_PANEL_HI, 10)
+    chip = sound_chip_xy(names, 1)
+    s.probe_region(img, "⑧ 选择器帧：高亮 chip（DIGITAL）UI_ACCENT", (chip[0] - 20, chip[1] - 16, chip[0] + 20, chip[1] + 16),
+                   C_YELLOW, 24, 200)
+    s.probe(img, "⑧ 选择器帧：未高亮 chip（ANALOG）UI_PANEL_HI", *sound_chip_probe(names, 0), C_PANEL_HI, 10)
+    y0 = SOUND_TAB + SOUND_PICK_Y + SOUND_PICK_LIST_Y_SYNTH
+    s.probe(img, "⑧ 选择器帧：高亮行（DIGITAL）条 UI_PANEL_HI", 1000, y0 + SOUND_PICK_ROW_H + SOUND_PICK_ROW_H // 2,
+            C_PANEL_HI, 10)
+    s.probe(img, "⑧ 选择器帧：非高亮行（ANALOG）是面板底", 1000, y0 + SOUND_PICK_ROW_H // 2, C_PANEL, 10)
+    s.probe_region(img, "⑧ 选择器帧：当前项强调色文字", (SOUND_PICK_LIST_X + 12, y0 + SOUND_PICK_ROW_H + 4,
+                                                  SOUND_PICK_LIST_X + 200, y0 + 2 * SOUND_PICK_ROW_H - 2),
+                   C_YELLOW, 24, 20)
+    s.probe_region(img, "⑧ 选择器帧：底行提示灰字", (SOUND_PICK_LIST_X, SOUND_TAB + SOUND_PICK_Y + SOUND_PICK_H - 28,
+                                                SOUND_PICK_LIST_X + SOUND_PICK_LIST_W, SOUND_TAB + SOUND_PICK_Y + SOUND_PICK_H - 4),
+                   C_TEXT_DIM, 24, 40)
+    sound_pick_tap(s, 0, r"-> SOUND pick engine=0 CMD_SET_ENGINE", "⑧ TAP 引擎行 0（ANALOG）")
+    (s.ok if sound_eng(s, 0) == (0, 0) else s.fail)(f"⑧ TAP 引擎行后 ENG SNAP 轨 0 = {sound_eng(s, 0)}")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    sound_keys(s, (SOUND_KEY_UP,), "⑧ 选择器里 ↑（列表高亮环绕）")
+    sound_pick_expect(s, 0, 0, 11, 12, "⑧ ↑ 之后高亮 NOISE")
+    sound_keys(s, (SOUND_KEY_ENTER,), "⑧ 选择器里 ENTER")
+    (s.ok if sound_eng(s, 0) == (11, 0) and sound_pick_status(s) == {"open": False} else s.fail)(
+        f"⑧ row 0 列表焦点 ENTER ⇒ ENG SNAP 轨 0 = {sound_eng(s, 0)}，选择器关闭")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    sound_pick_tap(s, 0, r"-> SOUND pick engine=0 CMD_SET_ENGINE", "⑧ TAP 引擎行 0 回 ANALOG")
+    # 预置选择器（row 1 = 高亮引擎的预置；current 只在 chip 高亮 == 当前引擎时可能为 1）
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW1)
+    s.expect(r"-> SOUND pick open row=1", "⑧ TAP 页眉 PRESET 行名字区 → 选择器 row 1")
+    sound_pick_expect(s, 1, 0, 0, 22, "⑧ 打开预置选择器（ANALOG 22 个预置）")
+    row = sound_pick_row(s, 0)
+    (s.ok if row["current"] and row["text"].endswith("808 BOOM") else s.fail)(f"⑧ 预置行 0：{row}")
+    img = s.capture("picker-preset")
+    s.probe(img, "⑧ 预置选择器帧：面板左缘描边 UI_PANEL_HI", SOUND_PICK_X, 420, C_PANEL_HI, 10)
+    s.probe_region(img, "⑧ 预置选择器帧：高亮 chip（ANALOG）UI_ACCENT", (sound_chip_xy(names, 0)[0] - 20,
+                                                                   chip[1] - 16, sound_chip_xy(names, 0)[0] + 20,
+                                                                   chip[1] + 16), C_YELLOW, 24, 200)
+    s.probe(img, "⑧ 预置选择器帧：高亮行（预置 1）条 UI_PANEL_HI", 1000, y0 + SOUND_PICK_ROW_H // 2, C_PANEL_HI, 10)
+    s.probe(img, "⑧ 预置选择器帧：非高亮行（预置 2）是面板底", 1000, y0 + SOUND_PICK_ROW_H + SOUND_PICK_ROW_H // 2,
+            C_PANEL, 10)
+    s.probe_region(img, "⑧ 预置选择器帧：当前项强调色文字", (SOUND_PICK_LIST_X + 12, y0 + 4, SOUND_PICK_LIST_X + 200,
+                                                  y0 + SOUND_PICK_ROW_H - 2), C_YELLOW, 24, 20)
+    sound_pick_tap(s, 3, r"-> SOUND pick preset=3 CMD_SET_PRESET", "⑧ TAP 预置行 3")
+    (s.ok if sound_eng(s, 0) == (0, 3) else s.fail)(f"⑧ TAP 预置行后 ENG SNAP 轨 0 = {sound_eng(s, 0)}")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW1)
+    (s.ok if sound_pick_row(s, 3)["current"] else s.fail)("⑧ 再开：预置行 3 current=1")
+    sound_pick_tap(s, 3, r"-> SOUND pick preset=3 unchanged", "⑧ TAP 当前预置行 → unchanged")
+    (s.ok if sound_eng(s, 0) == (0, 3) else s.fail)("⑧ unchanged 之后预置仍 3")
+    # R16：chip 高亮 ≠ 当前引擎 ⇒ 列表只是预览：点行不执行、列表焦点的 ENTER 不动作；chip 焦点 ENTER 换引擎
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW1)
+    sound_keys(s, (SOUND_KEY_RIGHT,), "⑧ 预置选择器里 →（chip 高亮到 DIGITAL）")
+    st = sound_pick_status(s)
+    (s.ok if (st["row"], st["engine"], st["highlight"]) == (1, 0, 1) and st["rows"] > 0 else s.fail)(
+        f"⑧ → 之后 {st}（row 1 / 当前引擎 0 / 高亮 1）")
+    row = sound_pick_row(s, 0)
+    (s.ok if not row["current"] else s.fail)(f"⑧ 预览态：预置行 0 {row['text']!r} current=0")
+    sound_pick_tap(s, 0, r"-> SOUND pick preview engine=1", "⑧ 预览态 TAP 预置行 → preview（不下发）")
+    sound_pick_expect(s, 1, 0, 1, st["rows"], "⑧ 预览态点行后面板保持打开")
+    (s.ok if sound_eng(s, 0) == (0, 3) else s.fail)("⑧ 预览态点行：ENG SNAP 轨 0 仍 ANALOG 预置 3")
+    sound_keys(s, (SOUND_KEY_DOWN, SOUND_KEY_ENTER), "⑧ 预览态 ↓ + ENTER（焦点在列表）")
+    sound_pick_expect(s, 1, 0, 1, st["rows"], "⑧ 列表焦点的 ENTER 不动作（面板仍开）")
+    (s.ok if sound_eng(s, 0) == (0, 3) else s.fail)("⑧ 列表焦点的 ENTER：轨 0 仍 ANALOG 预置 3")
+    sound_keys(s, (SOUND_KEY_RIGHT,), "⑧ 预览态 →（焦点回 chip 行；高亮 1 → 2）")
+    st2 = sound_pick_status(s)
+    (s.ok if (st2["open"], st2["row"], st2["engine"], st2["highlight"]) == (True, 1, 0, 2) and st2["rows"] > 0
+     else s.fail)(f"⑧ → 之后 {st2}（期望 row 1 / 当前引擎 0 / 高亮 2；rows = 高亮引擎的预置数）")
+    sound_keys(s, (SOUND_KEY_ENTER,), "⑧ 预览态 chip 焦点 ENTER")
+    (s.ok if sound_eng(s, 0) == (2, 0) and sound_pick_status(s) == {"open": False} else s.fail)(
+        f"⑧ chip 焦点 ENTER ⇒ ENG SNAP 轨 0 = {sound_eng(s, 0)}（期望 (2, 0)：CMD_SET_ENGINE），选择器关闭")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "⑧ 轨 0 回 ANALOG 预置 0")
+    time.sleep(0.1)  # ENG TRACK 直写 core；等 state_sync 刷新 sound 投影，否则选择器下一拍按上下文变化关闭
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    s.expect(r"-> SOUND pick open row=0", "⑧ 再开选择器（ESC 用例）")
+    sound_keys(s, (SOUND_KEY_ESC,), "⑧ ESC")
+    (s.ok if sound_pick_status(s) == {"open": False} else s.fail)("⑧ ESC 关闭选择器")
+    s.cmd("UI")
+    s.expect(r"UI page=sound \(6\)", "⑧ ESC 不切页（仍 SOUND）")
+
+    # ---------- ⑨ 锁定：鼓轨上未标 drum_ok 的轨道参数全锁（PATTERN 卡可编辑）；截屏 drum ----------
+    sound_select(s, 3)
+    s.cmd("UI")
+    s.expect(r"UI page=sound \(6\)", "⑨ Ctrl+4 后仍在 SOUND 页")
+    st = sound_stats(s)
+    (s.ok if st["slots"] == 101 else s.fail)(f"⑨ 鼓轨 UI SOUND STATS slots={st['slots']}（期望 101 = 109 − E1..E7 − FTYPE）")
+    n = sound_structure(s, "⑨ 鼓轨", 0, True, per_card=False, track=3)
+    (s.ok if n == 101 else s.fail)(f"⑨ 鼓轨存在槽 {n}/101")
+    eng_card = [sound_slot(s, SOUND_CARD_ENGINE, k) for k in range(SOUND_CARD_SLOTS[SOUND_CARD_ENGINE])]
+    (s.ok if sum(x["locked"] for x in eng_card) == 1 and sum(x["present"] for x in eng_card) == 1
+     and eng_card[0]["present"] and eng_card[0]["label"] == "KIT" else s.fail)(
+        f"⑨ Engine edit 卡：{' '.join(f'{x['label'] if x['present'] else '-'}/{'L' if x['locked'] else 'e'}' for x in eng_card)}"
+        f"（期望只有 KIT present 且 locked；E1..E7 与 P_FTYPE absent）")
+    pat = [sound_slot(s, SOUND_CARD_PATTERN, k) for k in range(4)]
+    (s.ok if all(x["present"] and not x["locked"] for x in pat) else s.fail)(
+        f"⑨ Pattern 卡：{' '.join(f'{x['label']}/{'L' if x['locked'] else 'e'}' for x in pat)}（期望 4 个 present 且可编辑）")
+    atk = sound_slot(s, SOUND_CARD_ENV, 0)
+    (s.ok if atk["locked"] else s.fail)(f"⑨ 鼓轨 ATK 槽 locked={int(atk['locked'])}")
+    va, _, _ = sound_truth(s, SOUND_SCOPE_TRACK, atk["id"])
+    sound_knob_ignored(s, atk["flat"], "press", 0, -40, "locked", "⑤/⑨ 锁定槽 press")
+    sound_knob_ignored(s, atk["flat"], "drag", 40, 0, "locked", "⑤/⑨ 锁定槽 drag")
+    sound_focus(s, atk["flat"])
+    sound_keys(s, (SOUND_KEY_UP, SOUND_KEY_ENTER), "⑨ 锁定槽 ↑ ENTER")
+    s.cmd("TAP %d %d" % SOUND_BTN_PLUS)
+    s.expect(rf"-> PARAM slot={atk['flat']} {SOUND_PARAM_LOCKED}", "⑨ 锁定槽 TAP + → locked")
+    s.cmd("STATE SNAP")
+    s.expect_int(r"atk=(-?\d+)", va, "⑨ STATE SNAP atk（锁定槽注入后不变）")
+    sound_truth_expect(s, atk, va, "⑤/⑨ 锁定槽注入之后")
+    sl = sound_slot(s, SOUND_CARD_PATTERN, 0)
+    vs, lo, hi = sound_truth(s, SOUND_SCOPE_TRACK, sl["id"])
+    label = "⑨ Pattern 卡 LEN（鼓轨可编辑）"
+    want = sound_drag_change(s, sl, label)
+    sound_drag_to(s, sl, vs, label + " 拖回")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW1)
+    s.expect(r"TAP miss 512,92 page=6", "⑨ 鼓轨没有 PRESET 行：其名字区 TAP miss")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    s.expect(r"-> SOUND pick open row=0", "⑨ TAP 页眉 KIT 行名字区 → 选择器 row 0")
+    sound_pick_expect(s, 0, 0, 0, 46, "⑨ 打开 kit 选择器（46 个 kit）")
+    row = sound_pick_row(s, 1)
+    (s.ok if not row["current"] and row["rect"][1] == SOUND_TAB + SOUND_PICK_Y + SOUND_PICK_LIST_Y_DRUM + SOUND_PICK_ROW_H
+     else s.fail)(f"⑨ kit 行 1：{row}（鼓轨列表从面板顶起、非当前项）")
+    want_kit = 1 if kit0 != 1 else 2
+    sound_pick_tap(s, want_kit, rf"-> SOUND pick kit={want_kit} CMD_SET_PARAM", "⑨ TAP kit 行")
+    (s.ok if sound_kit(s) == want_kit else s.fail)(f"⑨ TAP kit 行后 PARAM 63 = {sound_kit(s)}（期望 {want_kit}）")
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW0)
+    (s.ok if sound_pick_row(s, want_kit)["current"] else s.fail)(f"⑨ 再开：kit 行 {want_kit} current=1")
+    sound_pick_tap(s, want_kit, rf"-> SOUND pick kit={want_kit} unchanged", "⑨ TAP 当前 kit 行 → unchanged")
+    (s.ok if sound_kit(s) == want_kit else s.fail)("⑨ unchanged 之后 kit 不变")
+    s.cmd(f"PARAM 63 {kit0}")
+    s.expect(rf"PARAM track=3 id=63 value={kit0} applied={kit0} ", "⑨ kit 回入口值")
+    sound_focus(s, SOUND_CARD_BASE[1] + 4)      # FILT：Master 卡的轨道参数、鼓轨可编辑
+    s.cmd("UI SOUND SCROLL 0")
+    atk = sound_flat(s, SOUND_SLOT_ATK)
+    img = s.capture("drum")
+    s.probe(img, "⑨ 鼓轨帧：KIT 行底色 UI_PANEL_HI", 16 + 3, SOUND_ROW_Y + 4, C_PANEL_HI, 10)
+    s.probe(img, "⑨ 鼓轨帧：PRESET 行缺席（页面背景）", 320 + 3, SOUND_ROW_Y + 4, C_BG, 10)
+    s.probe_region(img, "⑨ 鼓轨帧：页眉红字（NO SOUND）", (320, SOUND_ROW_Y + 4, 1080, SOUND_ROW_Y + 32),
+                   C_ERROR, 16, 200)
+    s.probe(img, "⑨ 鼓轨帧：选轨条第 4 格（当前轨）UI_PANEL_SEL", *sound_sel_xy(3), C_PANEL_SEL, 10)
+    sound_ring_probe(s, img, atk["rect"], "⑨ 鼓轨帧：锁定槽（ATK）环位是卡片底 UI_PANEL", C_PANEL)
+    cx, cy = sound_slot_xy(atk["rect"])
+    s.probe_region(img, "⑨ 鼓轨帧：锁定槽的值 `--`（UI_TEXT）", (cx - 20, cy - 9, cx + 20, cy + 9), C_TEXT, 24, 8)
+    filt = sound_slot(s, 1, 4)["rect"]
+    sound_ring_probe(s, img, filt, "⑨ 鼓轨帧：可编辑槽（FILT）环顶 UI_PANEL_HI", C_PANEL_HI)
+    s.probe(img, "⑨ 鼓轨帧：焦点槽（FILT）描边 UI_ACCENT", filt[0] + 2, filt[1] + 66, C_YELLOW, 10)
+    s.cmd("TAP %d %d" % SOUND_NAME_ROW1)
+    s.expect(r"TAP miss 512,92 page=6", "⑨ 鼓轨 PRESET 行矩形 TAP miss")
+    sound_select(s, 0)
+    s.cmd("UI sound")
+    s.expect(r"UI page=sound \(6\)", "⑨ 回轨 0（SOUND 页）")
+    st = sound_stats(s)
+    (s.ok if st["slots"] == 109 else s.fail)(f"⑨ 回合成轨：slots={st['slots']}（期望 109）")
+
+    # ---------- ⑩ INSERT 槽标签随 ITYPE 重解析；编辑跨页保值 ----------
+    ity = sound_flat(s, SOUND_SLOT_ITYPE)
+    ins = [sound_flat(s, SOUND_SLOT_ITYPE + k) for k in (1, 2, 3, 4)]
+    labels0 = [x["label"] for x in ins]
+    v_it, lo_it, hi_it = sound_truth(s, SOUND_SCOPE_TRACK, ity["id"])
+    want_it = v_it + 1 if v_it < hi_it else v_it - 1
+    sound_drag_to(s, ity, want_it, "⑩ ITYPE 槽改值")
+    (s.ok if sound_truth(s, SOUND_SCOPE_TRACK, ity["id"])[0] == want_it else s.fail)(
+        f"⑩ ITYPE {v_it} → {want_it}（PARAM {ity['id']}）")
+    after = [sound_slot_matches_desc(s, sound_flat(s, x["flat"])) for x in ins]
+    (s.ok if all(ok for ok, _ in after) else s.fail)(
+        "⑩ ITYPE 改后 INS A / INS B / INS C / MIX 四槽 present/label 重解析 == ENG DESC live："
+        + " | ".join(f"{a['label']!r}→{b['label']!r}" for a, (_, b) in zip(ins, after))
+        + ("" if all(ok for ok, _ in after) else f"；不符 {[m for _, (ok, m) in zip(after, after) if not ok]}"))
+    (s.ok if sum(a["label"] != b["label"] for a, (_, b) in zip(ins, after)) >= 1 else s.fail)(
+        "⑩ ITYPE 改后至少一个 INSERT 槽的标签变了（随 ITYPE 重解析）")
+    sound_drag_to(s, ity, v_it, "⑩ ITYPE 槽拖回")
+    back = [sound_slot_matches_desc(s, sound_flat(s, x["flat"])) for x in ins]
+    (s.ok if all(ok for ok, _ in back) and all(b["label"] == lab for (_, b), lab in zip(back, labels0)) else s.fail)(
+        "⑩ ITYPE 还原后四槽标签回到入口值：" + " | ".join(f"{lab!r}" for lab in labels0))
+    atk = sound_flat(s, SOUND_SLOT_ATK)
+    va, _, _ = sound_truth(s, SOUND_SCOPE_TRACK, atk["id"])
+    want = sound_drag_change(s, atk, "⑩ ATK 经 KNOB 改值")
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑩ UI step")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑩ UI transport")
+    s.cmd("UI sound")
+    s.expect(r"UI page=sound \(6\)", "⑩ UI sound")
+    y = sound_flat(s, SOUND_SLOT_ATK)
+    (s.ok if y["value"] == want else s.fail)(f"⑩ 切页回来槽显示 ATK value={y['value']}（期望 {want}）")
+    sound_truth_expect(s, atk, want, "⑩ 切页回来")
+    sound_drag_to(s, atk, va, "⑩ ATK 还原")
+
+    # ---------- ③b 12 引擎轮换：每个引擎的每个存在槽 label == ENG DESC live；P_FTYPE 只在 ANALOG ----------
+    counts = {}
+    for e in range(12):
+        s.cmd(f"ENG TRACK 0 {e} 0")
+        s.expect(rf"ENG TRACK k=0 engine={e} preset=0 OK", f"③ 换引擎 {e}（{names[e]}）")
+        time.sleep(0.1)
+        n = sound_structure(s, f"③ 引擎 {e}（{names[e]}）", e, False, per_card=False)
+        ft = sound_slot(s, *SOUND_FTYPE)
+        (s.ok if ft["present"] == (e == 0) else s.fail)(
+            f"③ 引擎 {e}（{names[e]}）：P_FTYPE present={int(ft['present'])}（期望 {int(e == 0)}：仅 ANALOG）"
+            f"；slots={n}")
+        counts[e] = n
+    s.ser.note(f"③ 12 引擎存在槽数：{counts}")
+    (s.ok if counts[9] == 108 else s.fail)(f"③ FM6（引擎 9）slots={counts[9]}（期望 108）")
+    s.cmd("ENG TRACK 0 0 0")
+    s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "③ 回 ANALOG")
+    st = sound_stats(s)
+    (s.ok if st["slots"] == 109 and st["scroll_max"] == sound_scroll_max(0) else s.fail)(
+        f"③ 回 ANALOG：slots={st['slots']} scroll_max={st['scroll_max']}")
+
+    # ---------- ⑪ 有序对 SEQ→SOUND 过渡峰值；SOUND↔STEP ×10 往返不泄漏 ----------
+    s.cmd("UI step")
+    s.expect(r"UI page=step \(2\)", "⑪ UI step")
+    s.cmd("UI transport")
+    s.expect(r"UI page=transport \(3\)", "⑪ UI transport")
+    s.cmd("UI sound")
+    m = RE_SOUND_BUILD.search(s.last)
+    if m is None:
+        raise InjectError(f"SEQ → SOUND 的构建日志缺失：{s.last.strip()[-200:]!r}")
+    inc, budget, free, ms = (int(v) for v in m.groups())
+    (s.ok if free >= NAV_POOL_FLOOR else s.fail)(
+        f"⑪ 有序对 SEQ（STEP + TRANSPORT 全建）→ SOUND：构建日志 池剩余={free}B（≥{NAV_POOL_FLOOR}）")
+    (s.ok if 0 < inc <= budget == SOUND_EST and 0 < ms <= NAV_BUILD_BUDGET_MS else s.fail)(
+        f"⑪ SOUND 构建日志 池增量={inc}B 预算={budget}B 耗时={ms}ms（期望 0 < 增量 ≤ 8,704、≤100ms）")
+    # 12 引擎扫描给 LVGL 文本缓存留下多批新标签；一轮预热不足（首轮实测其后 5 轮才稳），先往返 5 轮。
+    for _ in range(5):
+        s.cmd("UI step")
+        s.cmd("UI sound")
+    s.expect(r"UI page=sound \(6\)", "⑪ 预热：UI sound")
+    free0 = nav_pool_free(s)
+    for _ in range(5):                           # 起点须与下一次预热读数同处噪声带，排除单次 TLSF 碎片离群值
+        s.cmd("UI step")
+        s.cmd("UI sound")
+        free1 = nav_pool_free(s)
+        if abs(free1 - free0) <= NAV_LEAK_NOISE:
+            free0 = free1
+            break
+        free0 = free1
+    else:
+        raise InjectError("SOUND↔STEP 预热 10 轮后池读数仍未稳定（相邻两轮 >128B）")
+    per_trip = []
+    for trip in range(1, NAV_LEAK_TRIPS + 1):
+        s.cmd("UI step")
+        s.cmd("UI sound")
+        per_trip.append(nav_pool_free(s))
+    s.ser.note(f"⑪ pool_free：起点 {free0} → 逐次 {per_trip}（{NAV_LEAK_TRIPS} 次 SOUND↔STEP 往返）")
+    (s.ok if abs(free0 - per_trip[-1]) <= NAV_LEAK_NOISE else s.fail)(
+        f"⑪ {NAV_LEAK_TRIPS} 次 SOUND↔STEP 往返后 pool_free 变化 {free0} → {per_trip[-1]}"
+        f"（Δ={per_trip[-1] - free0:+d}B，允许 |Δ| ≤ {NAV_LEAK_NOISE}B）")
+    steps = [free0] + per_trip
+    worst = max(steps[i] - steps[i + 1] for i in range(len(steps) - 1))
+    (s.ok if worst <= NAV_LEAK_NOISE else s.fail)(f"⑪ 单次往返的最大池下降 {worst}B ≤ {NAV_LEAK_NOISE}B（无逐次增长）")
+    st = sound_stats(s)
+    (s.ok if st["slots"] == 109 and st["collapsed"] == 0 else s.fail)(
+        f"⑪ 往返后重建的仪表盘：slots={st['slots']} collapsed=0x{st['collapsed']:04X}（焦点/折叠位跨重建保留）")
+
+
+
 SCENARIOS = {
     "transport": run_transport,
     "params": run_params,
@@ -9898,13 +10976,14 @@ SCENARIOS = {
     "sequence": run_sequence,
     "synth": run_synth,
     "sys": run_sys,
+    "sound": run_sound,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Tab5 固件串口注入序列（AGENTS.md §5.4）")
     ap.add_argument("--scenario", required=True, choices=sorted(SCENARIOS),
-                    help="注入场景（十条 .sh 各对应一个）")
+                    help="注入场景（十一条 .sh 各对应一个）")
     ap.add_argument("--port", required=True, help="串口设备，如 /dev/ttyACM0")
     ap.add_argument("--out-dir", default=None,
                     help="产物目录（默认 $SLOOP_TAB5_PROJECT/build/verify/）")
