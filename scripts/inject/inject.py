@@ -3815,8 +3815,9 @@ def param_tools(s: Session) -> None:
     song0, song_mode0 = session_once(s, "params.tools.song", song_state, "⑪ 歌曲顺序快照")
     s.ser.note(f"⑪ 入口歌曲：count={song0['count']} loop={song0['loop']} mode={song_mode0} "
                f"entries={sorted(song0['entry'].items())[:song0['count']]}")
-    h0, _ = proj_snapshot_open(s, "params.tools", 3, "⑪")
+    # 本段与 section D 都以轨 0 为工作态；必须在项目快照之前选轨，否则 D 的选轨会不同于快照。
     select_track(s, 0)
+    h0, _ = proj_snapshot_open(s, "params.tools", 3, "⑪")
     ensure_window(s, 0, 16)
     s.cmd("UI step")
     nav_set_focus(s, 0, 5)
@@ -3990,6 +3991,11 @@ def run_params(s: Session) -> None:
         eng0.append(sound_eng(s, track))
         vec0.append(sound_read_vector(s))
     glob0 = sound_read_globals(s)
+    # 前段的参数锁用例也改步：先保存真实入口，在进入 param_tools 前恢复并关闭外层括号。
+    # 逐轨读取会留下轨 2 选中，必须先回 entry_sel，否则快照里的选轨就是错的。
+    select_track(s, entry_sel)
+    ensure_stopped(s)
+    proj_snapshot_open(s, "params.entry", 3, "入口")
     # 引擎归一到 ANALOG 预置 0：页眉 ± 的环绕断言（ENGINE − → NOISE、PRESET 的 808 DIRTY /
     # 808 BOOM）按 ANALOG 的预置表写；上一轮会话（store 场景的工程载入 / autosave resume）
     # 可能把轨 0 留在别的引擎上。引擎已经是 0 时该命令可能无操作。
@@ -4425,6 +4431,7 @@ def run_params(s: Session) -> None:
     # P4-F Task 6：TOOLS 页 / TRANSPORT 的 REC 配置行 / STEP 页键盘参数锁与 fill 条件
     param_rec_config(s)
     param_step_keys(s)
+    proj_snapshot_close(s, "params.entry", 3, "入口")
     param_tools(s)
     # 段落之后的 TOOLS 池水位（上面的有序对已建过一次；这里在 MIX 组内复核 Σ est）
     s.cmd("UI tools")

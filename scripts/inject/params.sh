@@ -12,6 +12,8 @@
 #   覆盖该槽后收口清空 ⇒ 入口时槽 3 / section D 非空的内容**丢失**（只可在空的开发机上
 #   跑）。歌曲顺序与 SONG/LOOP 模式按入口快照还原（入口歌曲引用 D 的项还原后缺 scene）。
 #   工作工程快照的基线跨截屏复位重跑保持：重跑不再 SAVE，槽里不是快照即终止（非零退出）。
+#   外层入口快照覆盖参数锁等前段的步编辑，并在进入 param_tools 前恢复；param_tools
+#   先选轨 0 再拍自己的快照，保证后续 section D 与项目快照使用同一选中轨。
 #
 # 断言与截屏都在 scripts/inject/inject.py 的 params 场景里；本脚本只是入口。
 # 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-params-<时间戳>.log + PNG
