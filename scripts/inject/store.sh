@@ -47,7 +47,8 @@
 #      且槽保持空（判别力）；收口擦槽 + 轨 0/1 回 ANALOG + `STORE AUTO ON`
 # 用法: bash scripts/inject/store.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
-# 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。
+# 断言在 scripts/inject/inject.py 的 store 场景里；本脚本只是入口。首次复位前逐轨拍入口
+# 引擎/预置/71 参数、50 个全局与选中轨，收尾按「引擎/预置 → 参数 → 入口选轨」恢复。
 # 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-store-<时间戳>.log（串口原始回显）。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

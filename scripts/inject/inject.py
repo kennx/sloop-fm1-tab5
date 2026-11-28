@@ -5158,9 +5158,8 @@ def run_store(s: Session) -> None:
     ⑪ 自动存档与上电恢复（run_store_autosave）：空闲写 / 20s gap / 同态不写 /
        播放与发声抑制 / `STORE AUTO OFF` 抑制（每一条都只有被测的那道门能拦住写入，
        见该函数的 docstring）/ 硬复位后 LIVEHASH+bpm+步表恢复且开机不重写。
-       它留一个 autosave 对象，故**第二次运行起** ⓪ 的「硬复位到工厂态」实际是「硬复位到
-       上一轮 ⑪ 结束时的状态」——本场景的断言全是同轮相对比较（h0/h1/h2 只在同轮内比），
-       不受影响；证据里的 h0 从第 2 轮起稳定。
+       它会写 autosave 对象；全场景收尾把三条合成轨、全局与入口选轨恢复到本轮回入口，
+       因此下一轮不再继承本场景的归一化工程。断言里的 h0/h1/h2 仍只在同轮内比较。
     ⑫ FM6 银行 27 槽（run_store_bank，最后跑）：live patch → PUT/GET 往返 → LIST →
        自检后**紧跟**写（`.bss` 的 used 位回滚，ADR-009 §8）→ 硬复位后仍 USED →
        PTCH=11 读回槽 3 的字节 → ERASE/空槽/越界/播放与鼓轨拒绝。本段全程
@@ -5192,15 +5191,23 @@ def run_store(s: Session) -> None:
        ERASE` ⇒ `status="ERASE OK"`、`GET 3` → empty → **先 ERASE 再 PLAY** 的 SAVE ⇒
        `STOP BEFORE SAVE` 且槽保持空；收口擦槽 + 轨 0/1 回 ANALOG + `STORE AUTO ON`。
 
-    ⓪ 归一（两次运行起点必须相同，否则 LIVEHASH 不可比）：esptool 硬复位——引擎参数/选轨/
-       引擎号不带上一次运行 ⑨ 载入的预置参数（实测：不归一时 run 2 的 h0 变成上一轮载入后
-       的状态，h0/h2 与 run 1 不同）。Task 6 起复位还会恢复上一轮的 autosave（⑪ 段留下的
-       工作工程），故「起点」= 上一轮 ⑪ 结束时的状态；它由本脚本自己写出，从第 2 轮起逐位
-       相同（实测 run 2/3 的 h0/h1/h2 全同）。再 `ENG AUDIO ON` + 停止：走带请求
+    ⓪ 归一：esptool 硬复位——引擎参数/选轨/引擎号不带上一次运行 ⑨ 载入的预置参数。
+       Task 6 起复位会恢复 autosave 里的工作工程；入口向量已在复位前拍下，全场景收尾恢复，
+       故归一化只影响本轮断言，不改变下一轮或用户工程。再 `ENG AUDIO ON` + 停止：走带请求
        （transport_req）只由渲染循环消费，停流时残留的请求会让写 API 回 playing。
        选中轨（`song.sel`，工程的一部分、随 autosave 恢复）显式归一到 0：⑩ 的 `PARAM`
        作用于选中轨，不归一就会写到上一轮剩下的轨上（设备实测：autosave 里 sel=1）。
     """
+    # 硬复位与后续归一之前拍下入口；PARAM 只读当前选中轨，故必须逐轨显式选中。
+    s.cmd("STATE SNAP")
+    entry_sel = s.snap_int(r"selected_track=(\d+)")
+    eng0, vec0 = [], []
+    for track in range(3):
+        select_track(s, track)
+        eng0.append(sound_eng(s, track))
+        vec0.append(sound_read_vector(s))
+    glob0 = sound_read_globals(s)
+
     # 归一：硬复位到工厂态（不写 flash，只 esptool 硬复位）
     s.ser.note("⓪ 归一：esptool 硬复位到工厂态（不带上一轮载入的预置参数）")
     s.reboot()
@@ -5335,6 +5342,23 @@ def run_store(s: Session) -> None:
     run_store_fields(s)
     run_store_file(s)
     run_store_ui_bank(s)
+
+    # 入口还原：引擎/预置先于参数，入口选轨最后；不让 store 的归一化改变用户工程。
+    for track in range(3):
+        select_track(s, track)
+        if sound_eng(s, track) != eng0[track]:
+            s.cmd(f"ENG TRACK {track} {eng0[track][0]} {eng0[track][1]}")
+            s.expect(rf"ENG TRACK k={track} engine={eng0[track][0]} preset={eng0[track][1]} OK",
+                     f"收口：轨 {track} 引擎·预置回入口")
+        sound_write_vector(s, vec0[track], f"收口：轨 {track} 参数向量回入口")
+        (s.ok if sound_read_vector(s) == vec0[track] else s.fail)(f"收口：轨 {track} 参数读回与入口一致")
+    for gid, value in sound_read_globals(s).items():
+        if gid in glob0 and value != glob0[gid]:
+            s.cmd(f"PARAM GLOBAL {gid} {glob0[gid]}")
+    (s.ok if sound_read_globals(s) == glob0 else s.fail)("收口：全局参数读回与入口一致")
+    select_track(s, entry_sel)
+    s.cmd("UI play")
+    s.expect(r"UI page=play \(0\)", "收口 UI play")
 
 
 def run_store_presets(s: Session) -> None:
