@@ -9534,6 +9534,8 @@ def run_sys(s: Session) -> None:
     中途状态写进工作工程（不跨复位，复位后重新下发）。
     """
     s.ser.note("sys 场景开始：① 归一（AUTO OFF / 停走带 / ENG AUDIO ON）")
+    s.cmd("STATE SNAP")
+    bpm0 = s.snap_int(r"bpm=(\d+)")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "① STORE AUTO OFF")
     s.cmd("ENG AUDIO ON")
     s.expect(r"ENG AUDIO streaming=1", "① ENG AUDIO streaming=1")
@@ -10047,6 +10049,8 @@ def run_sys(s: Session) -> None:
     settings_set(s, "theme_on", 0, label="⑨ 收口 THEME_ON=0")
     settings_set(s, "palette", 4, label="⑨ 收口 palette=MONO")
     settings_save(s, "⑨ 收口 SAVE（保留有效 side，回内置 MONO）")
+    store_cmd(s, f"PARAM GLOBAL 0 {bpm0}", rf"^PARAM GLOBAL id=0 value={bpm0} applied={bpm0} ",
+              "⑨ 收口 BPM 回入口")
     store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ 收口 AUTO ON")
 
 

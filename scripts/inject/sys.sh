@@ -7,7 +7,7 @@
 #      App version 与两行暗色文字的像素探针，P4-F Task 7）；③ TAP/键盘/走带中 NVS；
 #   ④ 硬复位持久化与 REC 三项；⑤ 182 例 golden（后立即复位取干净基线）；⑥ SEQ↔SYS 池峰值；⑦ 收口；
 #   ⑧ SELFTEST chip（STOP FIRST → worker/恢复 → RESET FIRST）；
-#   ⑨ RAW settings + SIDE theme（COLOR/像素/硬复位/STORE TEST）
+#   ⑨ RAW settings + SIDE theme（COLOR/像素/硬复位/STORE TEST）；收口 BPM 回入口再 AUTO ON
 # 用法: bash scripts/inject/sys.sh [PORT]   （PORT 缺省自动探测 ttyACM*）
 #
 # 断言都在 scripts/inject/inject.py 的 sys 场景里；本脚本只是入口。
