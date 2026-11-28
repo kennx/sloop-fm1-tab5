@@ -10601,7 +10601,7 @@ def run_sound(s: Session) -> None:
     选择器 → 鼓轨锁定 → ITYPE 标签与切页保值 → 12 引擎 → 有序对与往返 → 6 张截屏；收口还原。
 
     真值一律取 `PARAM <id>` / `PARAM GLOBAL <id>`（引擎读回；能对上 `STATE SNAP` 字段的另核一次）；
-    存在性 / 标签的期望取自 `ENG DESC`（与页面同一描述符来源）。入口快照（轨 0 引擎·预置·71 参数、
+    存在性 / 标签的期望取自 `ENG DESC`（与页面同一描述符来源）。入口快照（轨 0/1 引擎·预置·参数、
     鼓轨 kit、50 个全局、选中轨、页）在归一**之前**拍，`try/finally` 还原——断言不过、InjectError、
     截屏复位重跑都走到；autosave 为 ON 时落盘的就是还原后的状态（折叠位回入口、滚动清零、焦点是 UI 局部态）。
     括号覆盖第一次选轨/设置写入，入口快照不完整时原异常继续上抛。轨 0 声音须来自工厂预置：换引擎后
@@ -10612,9 +10612,10 @@ def run_sound(s: Session) -> None:
     s.cmd("STATE SNAP")
     entry_sel = s.snap_int(r"selected_track=(\d+)")
     eng0 = sound_eng(s, 0)
+    eng1 = sound_eng(s, 1)
     s.cmd("UI sound")
     collapsed0 = sound_stats(s)["collapsed"]
-    vec0, glob0, kit0, zoom0 = {}, {}, None, None
+    vec0, vec1, glob0, kit0, zoom0 = {}, {}, {}, None, None
 
     def restore() -> None:
         try:
@@ -10629,6 +10630,14 @@ def run_sound(s: Session) -> None:
                     f"收口核对：轨 0 参数 {sum(after.get(k) == v for k, v in vec0.items())}/{len(vec0)} 回到入口值")
             else:
                 s.ser.note("收口：入口轨 0 参数向量未拍到，跳过该项（原异常继续上抛）")
+            if vec1:
+                sound_select(s, 1)
+                if sound_eng(s, 1) != eng1:
+                    s.cmd(f"ENG TRACK 1 {eng1[0]} {eng1[1]}")
+                    s.expect(rf"ENG TRACK k=1 engine={eng1[0]} preset={eng1[1]} OK",
+                             "收口：轨 1 引擎·预置")
+                sound_write_vector(s, vec1, "收口：轨 1 参数向量")
+                (s.ok if sound_read_vector(s) == vec1 else s.fail)("收口：轨 1 参数读回与入口一致")
             if glob0:
                 glob1 = sound_read_globals(s)
                 for gid, v in glob0.items():
@@ -10667,6 +10676,11 @@ def run_sound(s: Session) -> None:
         sound_select(s, 0)
         vec0 = sound_read_vector(s)
         glob0 = sound_read_globals(s)
+        sound_select(s, 1)
+        vec1 = sound_read_vector(s)
+        if eng1[0] != 0:  # ⑧ 选轨条用例要求轨 1 = ANALOG（109 槽）；finally 恢复真实入口
+            s.cmd("ENG TRACK 1 0 0")
+            s.expect(r"ENG TRACK k=1 engine=0 preset=0 OK", "归一轨 1 = ANALOG（⑧ 的选轨条前提）")
         sound_select(s, 3)
         kit0 = sound_kit(s)
         s.cmd("STATE SNAP")
