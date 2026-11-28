@@ -697,7 +697,15 @@ def run_transport(s: Session) -> None:
         return pre, playhead_columns(img, wlen), img
 
     pre_a, cls_a, _ = shot_with_pos("step-playhead-a")
-    time.sleep(0.3)
+    # 不按固定 sleep 赌相位：先等引擎离开首样本 pos，再抓第二帧；最终 advanced 断言不变。
+    deadline = time.monotonic() + 2.0
+    while True:
+        s.cmd("ENG SNAP")
+        if s.snap_int(r"pos=(\d+)") != pre_a:
+            break
+        if time.monotonic() >= deadline:
+            raise InjectError(f"播放头第二样本等待超时：pos 一直={pre_a}")
+        time.sleep(0.05)
     pre_b, cls_b, img_b = shot_with_pos("step-playhead-b")
 
     s.probe_region(img_b, "播放头描边",
@@ -1118,6 +1126,15 @@ def run_transport_tools(s: Session) -> None:
     # 原⑩g 快照是在 normalize_pattern 之后拍的；中途 LOAD 后恢复同样的测试几何，
     # 否则入口的非默认 LEN/DIV 会泄漏到⑩h 与播放头用例。最终外层 close 仍恢复真实入口。
     normalize_pattern(s, "⑩g 中途后恢复测试 LEN/DIV")
+    # 原⑩g 快照还包含工具区入口造的「轨 0 步 2 = C4」；外层入口 LOAD 不带这个测试态，
+    # 用同一 KEY/TAP 路径补回，供⑩h 的 LVL/RAT/SLIDE 用例。最终 close 仍恢复真实入口。
+    ensure_window(s, 0, 16)
+    select_track(s, 0)
+    s.cmd("UI step")
+    s.cmd("KEY 0x21 down")
+    s.cmd("KEY 0x21 up")
+    ensure_step_on(s, 0, 2)
+    s.cmd("UI transport")
 
     # ---------- ⑩h 键盘：←/→ 移工具焦点、↑/↓ 调焦点字段、ENTER 切换 ----------
     select_track(s, 0)
