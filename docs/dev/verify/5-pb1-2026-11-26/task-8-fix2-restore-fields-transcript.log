@@ -1,0 +1,72 @@
+
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=87
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=115
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=67
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=51
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=1 solo=0
+STATE SNAP trk k=3 mute=1 solo=0
+STATE SNAP param trk=0 level=55 atk=11 dec=22 sus=33 rel=44 slen=16 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0 1
+PARAM track=0 id=0 value=1 applied=1 min=0 max=127
+sloop>  PARAM 1 0
+PARAM track=0 id=1 value=0 applied=0 min=0 max=127
+sloop>  PARAM 2 112
+PARAM track=0 id=2 value=112 applied=112 min=0 max=127
+sloop>  PARAM 3 0
+PARAM track=0 id=3 value=0 applied=0 min=0 max=127
+sloop>  PARAM 4 52
+PARAM track=0 id=4 value=52 applied=52 min=0 max=127
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=108
+sloop>  KEY 0x02 down
+KEY 0x02 down 2 elapsed_us=118
+sloop>  KEY 0x02 up
+KEY 0x02 up 2 elapsed_us=65
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=55
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=1 focus_step=5 layer_held=0x00 selected_track=1 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=1 solo=0
+STATE SNAP trk k=3 mute=1 solo=0
+STATE SNAP param trk=1 level=66 atk=21 dec=32 sus=43 rel=54 slen=16 mute=0
+STATE SNAP global bpm=120 swing=40
+sloop>  PARAM 0 104
+PARAM track=1 id=0 value=104 applied=104 min=0 max=127
+sloop>  PARAM 1 0
+PARAM track=1 id=1 value=0 applied=0 min=0 max=127
+sloop>  PARAM 2 112
+PARAM track=1 id=2 value=112 applied=112 min=0 max=127
+sloop>  PARAM 3 0
+PARAM track=1 id=3 value=0 applied=0 min=0 max=127
+sloop>  PARAM 4 52
+PARAM track=1 id=4 value=52 applied=52 min=0 max=127
+sloop>  KEY 0x40 down
+KEY 0x40 down ctrl elapsed_us=87
+sloop>  KEY 0x01 down
+KEY 0x01 down 1 elapsed_us=127
+sloop>  KEY 0x01 up
+KEY 0x01 up 1 elapsed_us=72
+sloop>  KEY 0x40 up
+KEY 0x40 up ctrl elapsed_us=50
+sloop>  STATE SNAP
+STATE SNAP page=0 focus_track=0 focus_step=5 layer_held=0x00 selected_track=0 last_note=0 bpm=120 playing=0 window_bank=0 window_start=0 window_len=16 seq_status=1 rec=off rec_track=0 rec_quant=0 rec_tempo=0 rec_count=0 rec_bars=0 dsyn_kit=0 dsyn_lane=0 dsyn_dirty=0 fm6p_slot=0 fm6p_engine_ok=0 sys_bright=100 sys_vol=70 sys_out=0 set_palette=4 set_lowcut=0 set_zoom=0 set_lights=0 set_theme=0 set_reso=0 set_dirty=0 set_nvs=0 selftest_req=0 selftest_done=0 selftest_ran=0 selftest_failed=0
+STATE SNAP trk k=0 mute=1 solo=0
+STATE SNAP trk k=1 mute=0 solo=0
+STATE SNAP trk k=2 mute=1 solo=0
+STATE SNAP trk k=3 mute=1 solo=0
+STATE SNAP param trk=0 level=1 atk=0 dec=112 sus=0 rel=52 slen=16 mute=1
+STATE SNAP global bpm=120 swing=40
+sloop>  STORE LIVEHASH
+LIVEHASH 0DB3A0B8
+sloop>  # [baseline] RESTORE FIELDS track0=['1', '0', '112', '0', '52'] track1=['104', '0', '112', '0', '52'] selected_track=0 LIVEHASH=0DB3A0B8

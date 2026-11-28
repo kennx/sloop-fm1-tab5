@@ -625,3 +625,19 @@ python3 scripts/selftest-heap.py /dev/ttyACM0 → rc=0（325s）
 矩阵 `task-8-fix1-sound-matrix/matrix-20261128-161533/` 六条目的 LIVEHASH 均为 **4114C0AC**。`selftest-heap` 两次均 182/182，run 1/2 Δ260/44B，`internal_min=75,136B`，收尾 75,987B。最终 `task-8-restore.txt` 是**不修改当前工程来迎合旧 hash**的硬复位对照：当前 `4114C0AC`，与原基线有 38 项字段差异（原 `30117351`；其中原始 pattern 已永久丢失）。本轮证明的是修复/归一后各场景的入口/出口稳定，而不是恢复原工程。
 
 其它仍无异常清理的快照使用者已登记 **DI-66**：`transport.pattern`、`step_edit.erase`、`params.tools`。按评审要求未在本轮统一重构；它们正常路径的 LIVEHASH 断言不受影响。
+
+### 18c. Task 8 fix round 2：params 非零入口选轨与完整恢复（2026-11-28；脚本 `a2dd6c7`）
+
+根因是 `sound_read_vector` 通过 `PARAM <id>` 读取**当前选中轨**，原入口却未先选轨 0；`entry_sel != 0` 时会把入口轨的向量误记为轨 0，并在收口写到错误轨道。修复在每次读取前显式选择目标轨，逐轨拍下三条合成轨的引擎/预置/71 参数及 50 个全局；快照结束后重选轨 0 再做页眉归一，收尾恢复全部快照和入口选轨。`ENG SNAP` 的轨号查询不改变选中轨，不能替代这一步。
+
+| 回归 | PASS / FAIL | LIVEHASH | 轨 0 参数向量 | 证据 |
+|---|---:|---|---|---|
+| track-0 clean run | 389 / 0 | `0DB3A0B8 → 0DB3A0B8` | 三轨与全局均逐项恢复 | `task-8-fix2-params-track0-4-{stdout,transcript}.log`、`task-8-fix2-params-track0-4-{entry,exit}-transcript.log` |
+| track-1 run 1 | 389 / 0 | `F07F2945 → F07F2945` | 入口/出口 71 项完全相等 | `task-8-fix2-params-track1-1-{before,after}.json`、`task-8-fix2-params-track1-1-{stdout,transcript}.log` 及 before/after 串口日志 |
+| track-1 run 2 | 389 / 0 | `F07F2945 → F07F2945` | 入口/出口 71 项完全相等 | 同上，前缀为 `task-8-fix2-params-track1-2-` |
+
+track-1 的判别性前置值：轨 0 的 LEVEL/ATK/DEC/SUS/REL = `55/11/22/33/44`，轨 1 = `66/21/32/43/54`，入口 `selected_track=1`。每轮读轨 0 后都重选轨 1，保证第二轮入口一致。两轮后按 `task-8-fix2-baseline.txt` 写回这十项并回选轨 0；`task-8-fix2-restore.txt` 为 **RESTORE OK（295/295，差异 0）**，LIVEHASH 回到 `0DB3A0B8`。三张通过运行的 SOUND PNG 均已视觉复看，无占位框、错位或脏区。
+
+开发失败证据未覆盖：`task-8-fix2-params-track0-stdout.log` 是仅轨 0 恢复时的 0 断言失败但 hash 漂移（`4114C0AC → 58DFFDEF`）；`-2` / `-3` 保留三轨快照后误停轨 2 造成的七项页眉失败，对应原始 transcript 同包。最终修复来自这些记录，不是放宽断言。
+
+离线复核：`python3 -m py_compile scripts/inject/inject.py scripts/inject/snapshot-selftest.py` 退出码 0；`task-8-fix2-{snapshot,soak,matrix}-selftest.log` 均 PASS。保留的 `scripts/inject/snapshot-selftest.py` 无设备可重跑，明确覆盖 hash-mismatch/no-erase/recovery-message、`ScenarioRestart` 清理排除，以及普通 `InjectError` 清理后原样上抛。固件文件未改，本轮不重建、不重烧。
