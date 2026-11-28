@@ -7724,8 +7724,8 @@ def run_sequence(s: Session) -> None:
       ⑧ esptool 硬复位后 PER3 歌曲与 section A/B 从 flash 恢复；
       ⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY 页、AUTO ON。
 
-    本场景**破坏性**：占用工程槽 A–C（section）与 D（诊断）、歌曲顺序与四条轨的图案。
-    它自带归一，可重复运行。
+    本场景**破坏性**：占用工程槽 A–C、歌曲顺序与四条轨的图案；入口工作工程先存到诊断槽 D，
+    内部只用 A–C，收口 LOAD 并断言 LIVEHASH 逐位还原，再还原歌曲/REC 配置。可重复运行。
     """
     s.ser.note("sequence 场景开始：⓪ 归一（AUTO/走带/遗留录音/选轨/步窗/诊断槽/工程槽/图案/歌曲）")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
@@ -7742,18 +7742,30 @@ def run_sequence(s: Session) -> None:
     if srec["srec"] != "off":
         s.cmd("SEQ SREC TOGGLE")
         s.expect(r"SEQ SREC srec=off", "⓪ 收口遗留 SONG REC")
+    ensure_stopped(s)
+
+    def song_state():
+        cfg = song_cfg(s)
+        s.cmd("SEQ SONG")
+        m = re.search(r"^SEQ SONG mode=(song|loop) ", s.last, re.MULTILINE)
+        if m is None:
+            raise InjectError(f"SEQ SONG 回显缺少 mode：{s.last.strip()!r}")
+        return cfg, m.group(1)
+
+    song0, song_mode0 = session_once(s, "sequence.song", song_state, "⓪ 歌曲顺序快照")
+    rec0 = session_once(s, "sequence.rec", lambda: seq_rec_fields(s), "⓪ REC 配置快照")
+    proj_snapshot_open(s, "sequence.full", SEQ_DIAG_SLOT, "⓪")
     s.cmd("SEQ REC CONFIG 0 0 0")
     s.expect(r"SEQ REC state=\w+ track=\d+ quant=on tempo=free count=note",
              "⓪ REC 配置归一（quant on / FREE / NOTE）")
-    ensure_stopped(s)
     ensure_window(s, 0, 16)
     select_track(s, SEQ_TRACK)
-    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C, SEQ_DIAG_SLOT):
-        proj_erase(s, slot, f"⓪ 清工程/诊断槽 {'ABCD'[slot]}")
+    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C):
+        proj_erase(s, slot, f"⓪ 清工程槽 {'ABCD'[slot]}")
     s.cmd("SEQ SONG MODE loop")
     s.expect(r"SEQ SONG mode=loop", "⓪ loop 模式")
-    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
-              r"^STORE SONG SET count=4 loop=0", "⓪ 默认歌曲 A4 B4 C4 D4")
+    store_cmd(s, "STORE SONG SET 3 0 0:4 1:4 2:4",
+              r"^STORE SONG SET count=3 loop=0", "⓪ 工作歌曲 A4 B4 C4（D 保留入口快照）")
     s.cmd("PARAM GLOBAL 0 120")
     s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⓪ BPM 120")
     seq_normalize_tracks(s, "⓪")
@@ -7769,8 +7781,8 @@ def run_sequence(s: Session) -> None:
         pattern_clear(s, k, f"⓪ 清轨 {k} 图案（DI-31 归一入口）")
     select_track(s, SEQ_TRACK)
     sec = song_section(s)
-    (s.ok if sec["ready"] == 0 else s.fail)(
-        f"⓪ 归一后 ready=0x{sec['ready']:02X}（期望 0）")
+    (s.ok if sec["ready"] == 1 << SEQ_DIAG_SLOT else s.fail)(
+        f"⓪ 归一后 ready=0x{sec['ready']:02X}（期望只有 D 的入口快照）")
 
     # ---------- ① 深度步 / 锁 / 工具 ----------
     s.ser.note("① 深度步（SPAN/TIE/micro/fill）+ 24+25 锁与非法锁 + pattern 工具")
@@ -8459,14 +8471,12 @@ def run_sequence(s: Session) -> None:
             f"⑧ 复位后工程槽 {'AB'[slot]} 的 RAM hash={got:08X} == ③ 捕获的 {ref:08X}")
 
     # ---------- ⑨ 收口 ----------
-    s.ser.note("⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY、AUTO ON")
+    s.ser.note("⑨ 收口：擦 section A–C、LOAD 入口快照、歌曲/REC 配置还原、PLAY、AUTO ON")
     seq_stop(s, "⑨ 收口停走带")
-    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C, SEQ_DIAG_SLOT):
+    for slot in (SEQ_SEC_A, SEQ_SEC_B, SEQ_SEC_C):
         proj_erase(s, slot, f"⑨ 擦工程槽 {'ABCD'[slot]}")
-    store_cmd(s, "STORE SONG SET 4 0 0:4 1:4 2:4 3:4",
-              r"^STORE SONG SET count=4 loop=0", "⑨ 恢复默认歌曲 A4 B4 C4 D4")
-    store_cmd(s, "STORE SONG SAVE", r"^STORE SONG SAVED len=\d+ side=1\r?$",
-              "⑨ 默认歌曲落盘")
+    store_cmd(s, "STORE SONG SET 3 0 0:4 1:4 2:4",
+              r"^STORE SONG SET count=3 loop=0", "⑨ 工作歌曲 A4 B4 C4（D 保留入口快照）")
     s.cmd("SEQ SONG MODE loop")
     s.expect(r"SEQ SONG mode=loop", "⑨ loop 模式")
     select_track(s, SEQ_TRACK)
@@ -8481,6 +8491,25 @@ def run_sequence(s: Session) -> None:
     s.expect(r"PARAM GLOBAL id=0 value=120 applied=120 ", "⑨ BPM 120")
     for k in range(4):
         pattern_clear(s, k, f"⑨ 清轨 {k} 图案")
+    proj_snapshot_close(s, "sequence.full", SEQ_DIAG_SLOT, "⑨")
+    ent = [song0["entry"].get(i, (0, 4)) for i in range(song0["count"])]
+    s.cmd("STORE SONG SET %d %d %s" % (song0["count"], song0["loop"],
+                                       " ".join(f"{sc}:{bars}" for sc, bars in ent)))
+    s.expect(rf"STORE SONG SET count={song0['count']} loop={song0['loop']} dirty=1",
+             "⑨ 歌曲顺序回入口快照")
+    s.cmd(f"SEQ SONG MODE {song_mode0}")
+    s.expect(rf"SEQ SONG mode={song_mode0}", "⑨ SONG/LOOP 模式回入口快照")
+    song1 = song_cfg(s)
+    (s.ok if (song1["count"], song1["loop"]) == (song0["count"], song0["loop"]) and
+     all(song1["entry"].get(i) == song0["entry"].get(i) for i in range(song0["count"])) else s.fail)(
+        f"⑨ 歌曲顺序逐项还原：count={song1['count']} loop={song1['loop']}")
+    quant = 0 if rec0["quant"] == "on" else 1
+    tempo = 0 if rec0["tempo"] == "free" else 1
+    count = 0 if rec0["count"] == "note" else 1
+    s.cmd(f"SEQ REC CONFIG {quant} {tempo} {count}")
+    s.expect(rf"quant={rec0['quant']} tempo={rec0['tempo']} count={rec0['count']}", "⑨ REC 配置回入口快照")
+    del s.snapshots["sequence.song"]
+    del s.snapshots["sequence.rec"]
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑨ 回 PLAY")
     store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ STORE AUTO ON（恢复默认）")
