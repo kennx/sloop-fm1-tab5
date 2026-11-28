@@ -4544,7 +4544,7 @@ def proj_snapshot_open(s: Session, name: str, slot: int, tag: str) -> tuple:
 
 def proj_snapshot_close(s: Session, name: str, slot: int, tag: str, erase=None) -> None:
     """工作工程快照的**闭括号**（与 proj_snapshot_open 成对）：槽必须仍是快照（否则
-    InjectError 终止）→ LOAD → LIVEHASH 逐位等于快照（断言）→ 擦槽。
+    InjectError 终止）→ LOAD → LIVEHASH 逐位等于快照（断言）→ 仅相等才允许擦槽；不等保槽并报错。
     erase：None = 入口为空才擦（非空入口的槽留着快照，step_edit ②g / transport ⑩g）；
     True = 无条件擦（调用方之后还要用这个槽或断言它为空，params ⑪）。"""
     hash0, was_empty = s.snapshots[name]
@@ -4559,6 +4559,10 @@ def proj_snapshot_close(s: Session, name: str, slot: int, tag: str, erase=None) 
     hash1 = live_hash(s)
     (s.ok if hash1 == hash0 else s.fail)(
         f"{tag} 收口后 LIVEHASH {hash1:08X} == 入口 {hash0:08X}（工作工程逐位还原）")
+    if hash1 != hash0:
+        raise InjectError(
+            f"{tag} 收口后 LIVEHASH {hash1:08X} != 入口 {hash0:08X}：工作工程已被改变；"
+            f"已知良好快照仍保存在诊断槽 {slot}，不会擦除。可发 STORE PROJ LOAD {slot} 恢复")
     if erase or (erase is None and was_empty):
         proj_erase(s, slot, f"{tag} 收口擦诊断槽 {slot}")
     del s.snapshots[name]
@@ -7696,13 +7700,13 @@ def seq_notes_in(s: Session, track: int, steps=range(16)) -> list:
     return hits
 
 
-def run_sequence(s: Session) -> None:
+def _run_sequence_body(s: Session) -> None:
     """sequence 场景（P4-C Task 12）：音序器的端到端设备矩阵。
 
     覆盖（每段自带归一）：
-      ⓪ 归一：AUTO OFF / 停走带 / 选中轨 0 / 步窗 0..16 / 擦诊断槽 D 与 section A–C /
-         默认歌曲与 loop 模式 / BPM 120 / 轨 0 的 POLY·非静音·ARP OFF·HOLD OFF /
-         四条轨的图案清空；
+      ⓪ 归一：记录 autosave / 歌曲 / REC / 整份工作工程快照（D 保留）→ AUTO OFF / 停走带 /
+         选中轨 0 / 步窗 0..16 / 擦 section A–C / 工作歌曲 A4 B4 C4 + loop / BPM 120 /
+         轨 0 的 POLY·非静音·ARP OFF·HOLD OFF / 四条轨的图案清空；
       ① 深度步与工具：SPAN 的 TIE 链、micro/fill、LVL/RAT/SLIDE、24+25 锁与非法锁、
          ROTATE/UNDO/REDO 的「只动 step[]」语义、TRANSPOSE（鼓轨拒绝）、LENGTH×2÷2、
          CLEAR 清 lock/micro/fill 且不改 LEN、DI-31 的孤立 TIE 归一；
@@ -7722,12 +7726,14 @@ def run_sequence(s: Session) -> None:
          live 段切换、STOP 后停在 B（无 song_restore），与 ⑤ 的 SONG 模式区分；
       ⑦ STORE TEST 与单例 SELFTEST 之后歌曲保持（自检的 `.bss` 回滚 + song_reload）；
       ⑧ esptool 硬复位后 PER3 歌曲与 section A/B 从 flash 恢复；
-      ⑨ 收口：擦 section A–C/D、默认歌曲、loop 模式、BPM 120、选轨 0、PLAY 页、AUTO ON。
+      ⑨ 收口：擦 section A–C → LOAD 入口快照并断言 LIVEHASH → 歌曲/REC 回入口 → PLAY 页、
+         autosave 回入口开关；异常另走尽力还原，ScenarioRestart 保持快照供重跑。
 
     本场景**破坏性**：占用工程槽 A–C、歌曲顺序与四条轨的图案；入口工作工程先存到诊断槽 D，
     内部只用 A–C，收口 LOAD 并断言 LIVEHASH 逐位还原，再还原歌曲/REC 配置。可重复运行。
     """
     s.ser.note("sequence 场景开始：⓪ 归一（AUTO/走带/遗留录音/选轨/步窗/诊断槽/工程槽/图案/歌曲）")
+    session_once(s, "sequence.autosave", lambda: autosave_fields(s)["on"], "⓪ autosave 开关快照")
     store_cmd(s, "STORE AUTO OFF", r"^STORE AUTO off\r?$", "⓪ STORE AUTO OFF")
     # 上一轮异常中断可能留下 free take / SONG REC / 非默认 REC 配置：先收口再停走带
     # （REC 关闭 free take 会启动走带，故 ensure_stopped 放在它后面）。
@@ -8510,9 +8516,86 @@ def run_sequence(s: Session) -> None:
     s.expect(rf"quant={rec0['quant']} tempo={rec0['tempo']} count={rec0['count']}", "⑨ REC 配置回入口快照")
     del s.snapshots["sequence.song"]
     del s.snapshots["sequence.rec"]
+    del s.snapshots["sequence.autosave"]
     s.cmd("UI play")
     s.expect(r"UI page=play \(0\)", "⑨ 回 PLAY")
     store_cmd(s, "STORE AUTO ON", r"^STORE AUTO on\r?$", "⑨ STORE AUTO ON（恢复默认）")
+
+
+def _sequence_cleanup_on_error(s: Session) -> None:
+    """异常路径的尽力还原；ScenarioRestart 由外层排除。每步独立报告，原异常继续上抛。"""
+    s.ser.note("sequence 异常收口：尽力还原工程 / 歌曲 / REC / autosave（失败项另记 FAIL）")
+    try:
+        ensure_stopped(s)
+    except Exception as e:
+        s.fail(f"sequence 异常收口：停走带未确认：{e}")
+    base = s.snapshots.get("sequence.full")
+    if base is not None:
+        hash0, was_empty = base
+        try:
+            cur = proj_slot_state(s, SEQ_DIAG_SLOT)
+            if cur != hash0:
+                got = "empty" if cur < 0 else f"hash={cur:08X}"
+                raise InjectError(f"诊断槽 {SEQ_DIAG_SLOT} 已非入口快照（{got}）")
+            store_cmd(s, f"STORE PROJ LOAD {SEQ_DIAG_SLOT}",
+                      rf"^PROJ {SEQ_DIAG_SLOT} LOADED hash={hash0:08X}\r?$", "sequence 异常收口 LOAD")
+            hash1 = live_hash(s)
+            if hash1 != hash0:
+                raise InjectError(f"LOAD 后 LIVEHASH {hash1:08X} != 入口 {hash0:08X}；快照保留")
+            s.ok(f"sequence 异常收口：LIVEHASH {hash1:08X} == 入口 {hash0:08X}")
+            if was_empty:
+                proj_erase(s, SEQ_DIAG_SLOT, "sequence 异常收口擦诊断槽")
+            del s.snapshots["sequence.full"]
+        except Exception as e:
+            s.fail(f"sequence 异常收口：工程还原未验证：{e}；可发 STORE PROJ LOAD {SEQ_DIAG_SLOT} 恢复")
+    song0 = s.snapshots.get("sequence.song")
+    if song0 is not None:
+        try:
+            cfg0, mode0 = song0
+            ent = [cfg0["entry"].get(i, (0, 4)) for i in range(cfg0["count"])]
+            s.cmd("STORE SONG SET %d %d %s" % (cfg0["count"], cfg0["loop"],
+                                               " ".join(f"{sc}:{bars}" for sc, bars in ent)))
+            s.expect(rf"STORE SONG SET count={cfg0['count']} loop={cfg0['loop']} dirty=1",
+                     "sequence 异常收口歌曲顺序")
+            s.cmd(f"SEQ SONG MODE {mode0}")
+            s.expect(rf"SEQ SONG mode={mode0}", "sequence 异常收口 SONG/LOOP 模式")
+            cfg1 = song_cfg(s)
+            if ((cfg1["count"], cfg1["loop"]) != (cfg0["count"], cfg0["loop"]) or
+                    any(cfg1["entry"].get(i) != cfg0["entry"].get(i) for i in range(cfg0["count"]))):
+                raise InjectError("歌曲顺序读回不一致")
+            del s.snapshots["sequence.song"]
+        except Exception as e:
+            s.fail(f"sequence 异常收口：歌曲还原未验证：{e}")
+    rec0 = s.snapshots.get("sequence.rec")
+    if rec0 is not None:
+        try:
+            quant = 0 if rec0["quant"] == "on" else 1
+            tempo = 0 if rec0["tempo"] == "free" else 1
+            count = 0 if rec0["count"] == "note" else 1
+            s.cmd(f"SEQ REC CONFIG {quant} {tempo} {count}")
+            s.expect(rf"quant={rec0['quant']} tempo={rec0['tempo']} count={rec0['count']}",
+                     "sequence 异常收口 REC 配置")
+            del s.snapshots["sequence.rec"]
+        except Exception as e:
+            s.fail(f"sequence 异常收口：REC 配置还原未验证：{e}")
+    auto0 = s.snapshots.get("sequence.autosave")
+    if auto0 is not None:
+        try:
+            store_cmd(s, f"STORE AUTO {'on' if auto0 else 'off'}",
+                      rf"^STORE AUTO {'on' if auto0 else 'off'}\r?$", "sequence 异常收口 autosave")
+            del s.snapshots["sequence.autosave"]
+        except Exception as e:
+            s.fail(f"sequence 异常收口：autosave 开关还原未验证：{e}")
+
+
+def run_sequence(s: Session) -> None:
+    try:
+        _run_sequence_body(s)
+    except ScenarioRestart:
+        raise
+    except BaseException:
+        _sequence_cleanup_on_error(s)
+        raise
 
 
 # ---- synth 场景（P4-D Task 11）：SYNTH 组三页 + 采样槽 + DSYN/FM6P 持久化 ----
@@ -10414,26 +10497,18 @@ def run_sound(s: Session) -> None:
     真值一律取 `PARAM <id>` / `PARAM GLOBAL <id>`（引擎读回；能对上 `STATE SNAP` 字段的另核一次）；
     存在性 / 标签的期望取自 `ENG DESC`（与页面同一描述符来源）。入口快照（轨 0 引擎·预置·71 参数、
     鼓轨 kit、50 个全局、选中轨、页）在归一**之前**拍，`try/finally` 还原——断言不过、InjectError、
-    截屏复位重跑都走到；autosave 为 ON 时落盘的就是还原后的状态（折叠位 / 滚动 / 焦点是 UI 局部态，
-    收口清零）。轨 0 的声音须来自工厂预置：换过引擎后 `ENG TRACK` 回不去用户预置。"""
+    截屏复位重跑都走到；autosave 为 ON 时落盘的就是还原后的状态（折叠位回入口、滚动清零、焦点是 UI 局部态）。
+    括号覆盖第一次选轨/设置写入，入口快照不完整时原异常继续上抛。轨 0 声音须来自工厂预置：换引擎后
+    `ENG TRACK` 回不去用户预置。"""
     s.cmd("UI")
     m = re.search(r"UI page=(\w+) \((\d+)\)", s.last)
     entry_page = (m.group(1), m.group(2))
     s.cmd("STATE SNAP")
     entry_sel = s.snap_int(r"selected_track=(\d+)")
     eng0 = sound_eng(s, 0)
-    sound_select(s, 0)
-    vec0 = sound_read_vector(s)
-    glob0 = sound_read_globals(s)
-    sound_select(s, 3)
-    kit0 = sound_kit(s)
-    s.cmd("STATE SNAP")
-    zoom0 = s.snap_int(r"set_zoom=(\d+)")
-    if zoom0 != 0:                              # ZOOM 开时提示行换成读数行（UI_TEXT）：像素探针按 ZOOM 关
-        s.cmd("STORE SETTINGS SET zoom 0")
-        s.expect(r"STORE SETTINGS SET zoom=0 dirty=", "归一 ZOOM 关（提示行像素前提）")
-    s.ser.note(f"入口快照：轨 0 engine={eng0[0]} preset={eng0[1]}，kit={kit0}，选中轨 {entry_sel}，"
-               f"页 {entry_page[0]}，轨 0 参数 {len(vec0)} 项，全局 {len(glob0)} 项，zoom={zoom0}")
+    s.cmd("UI sound")
+    collapsed0 = sound_stats(s)["collapsed"]
+    vec0, glob0, kit0, zoom0 = {}, {}, None, None
 
     def restore() -> None:
         try:
@@ -10441,25 +10516,38 @@ def run_sound(s: Session) -> None:
             if sound_eng(s, 0) != eng0:
                 s.cmd(f"ENG TRACK 0 {eng0[0]} {eng0[1]}")
                 s.expect(rf"ENG TRACK k=0 engine={eng0[0]} preset={eng0[1]} OK", "收口：轨 0 引擎·预置")
-            sound_write_vector(s, vec0, "收口：轨 0 参数向量")
-            after = sound_read_vector(s)
-            (s.ok if after == vec0 else s.fail)(
-                f"收口核对：轨 0 参数 {sum(after.get(k) == v for k, v in vec0.items())}/{len(vec0)} 回到入口值")
-            glob1 = sound_read_globals(s)
-            for gid, v in glob0.items():
-                if glob1.get(gid) != v:
-                    s.cmd(f"PARAM GLOBAL {gid} {v}")
-            glob1 = sound_read_globals(s)
-            (s.ok if glob1 == glob0 else s.fail)(
-                f"收口核对：全局参数 {sum(glob1.get(k) == v for k, v in glob0.items())}/{len(glob0)} 回到入口值")
-            sound_select(s, 3)
-            if sound_kit(s) != kit0:
-                s.cmd(f"PARAM 63 {kit0}")
-                s.expect(rf"PARAM track=3 id=63 value={kit0} applied={kit0} ", "收口：鼓轨 kit")
+            if vec0:
+                sound_write_vector(s, vec0, "收口：轨 0 参数向量")
+                after = sound_read_vector(s)
+                (s.ok if after == vec0 else s.fail)(
+                    f"收口核对：轨 0 参数 {sum(after.get(k) == v for k, v in vec0.items())}/{len(vec0)} 回到入口值")
+            else:
+                s.ser.note("收口：入口轨 0 参数向量未拍到，跳过该项（原异常继续上抛）")
+            if glob0:
+                glob1 = sound_read_globals(s)
+                for gid, v in glob0.items():
+                    if glob1.get(gid) != v:
+                        s.cmd(f"PARAM GLOBAL {gid} {v}")
+                glob1 = sound_read_globals(s)
+                (s.ok if glob1 == glob0 else s.fail)(
+                    f"收口核对：全局参数 {sum(glob1.get(k) == v for k, v in glob0.items())}/{len(glob0)} 回到入口值")
+            else:
+                s.ser.note("收口：入口全局向量未拍到，跳过该项（原异常继续上抛）")
+            if kit0 is not None:
+                sound_select(s, 3)
+                if sound_kit(s) != kit0:
+                    s.cmd(f"PARAM 63 {kit0}")
+                    s.expect(rf"PARAM track=3 id=63 value={kit0} applied={kit0} ", "收口：鼓轨 kit")
             s.cmd("UI sound")
-            sound_expand_all(s, "收口")
+            current = sound_stats(s)["collapsed"]
+            for card in range(len(SOUND_CARD_SLOTS)):
+                if (current ^ collapsed0) >> card & 1:
+                    s.cmd(f"UI SOUND CARDTOGGLE {card}")
+            st = sound_stats(s)
+            (s.ok if st["collapsed"] == collapsed0 else s.fail)(
+                f"收口：折叠位恢复 collapsed=0x{st['collapsed']:04X}（入口 0x{collapsed0:04X}）")
             s.cmd("UI SOUND SCROLL 0")
-            if zoom0 != 0:
+            if zoom0 is not None and zoom0 != 0:
                 s.cmd(f"STORE SETTINGS SET zoom {zoom0}")
                 s.expect(rf"STORE SETTINGS SET zoom={zoom0} dirty=", "收口：ZOOM 回入口值")
             sound_select(s, entry_sel)
@@ -10470,6 +10558,19 @@ def run_sound(s: Session) -> None:
             s.fail(f"收口还原未完成：{e}")
 
     try:
+        sound_select(s, 0)
+        vec0 = sound_read_vector(s)
+        glob0 = sound_read_globals(s)
+        sound_select(s, 3)
+        kit0 = sound_kit(s)
+        s.cmd("STATE SNAP")
+        zoom0 = s.snap_int(r"set_zoom=(\d+)")
+        if zoom0 != 0:                          # ZOOM 开时提示行换成读数行（UI_TEXT）：像素探针按 ZOOM 关
+            s.cmd("STORE SETTINGS SET zoom 0")
+            s.expect(r"STORE SETTINGS SET zoom=0 dirty=", "归一 ZOOM 关（提示行像素前提）")
+        s.ser.note(f"入口快照：轨 0 engine={eng0[0]} preset={eng0[1]}，kit={kit0}，选中轨 {entry_sel}，"
+                   f"页 {entry_page[0]}，轨 0 参数 {len(vec0)} 项，全局 {len(glob0)} 项，zoom={zoom0}，"
+                   f"collapsed=0x{collapsed0:04X}")
         sound_segments(s, kit0)
     finally:
         restore()
@@ -10597,18 +10698,21 @@ def sound_segments(s: Session, kit0: int) -> None:
     s.expect(rf"UI SOUND CARDTOGGLE card={SOUND_CARD_ENV} collapsed=0", "⑥ 展开 Envelope 卡")
     # R12：全部折叠 ⇒ 焦点保持原槽（它仍存在）、↑/↓ 与 ± 拒绝（值不变）
     for card in range(n_cards):
+        if card == n_cards - 1:
+            focus_before_last = sound_focus(s)["flat"]
         s.cmd(f"UI SOUND CARDTOGGLE {card}")
     st = sound_stats(s)
     (s.ok if st["collapsed"] == (1 << n_cards) - 1 else s.fail)(
         f"⑥ 全部折叠：collapsed=0x{st['collapsed']:04X}（期望 0x{(1 << n_cards) - 1:04X}）")
     # R12：逐卡折叠时焦点按「扁平序里下一个可聚焦槽」顺次重指（随折叠顺序走），**全部折叠后**每拍的重指
-    # 找不到可聚焦槽 ⇒ 焦点保持（它仍是个存在的槽，只是所在卡被折叠）；这里断言「是个存在槽」+ 跨拍稳定
+    # 找不到可聚焦槽 ⇒ 焦点保持（page_sound.c:277-297）；这里断言与最后一张展开卡折叠前的 flat 完全相等
     f = sound_focus(s)
     slk = sound_flat(s, f["flat"])
     time.sleep(0.1)
     f2 = sound_focus(s)
-    (s.ok if slk["present"] and f2["flat"] == f["flat"] else s.fail)(
-        f"⑥ 全折叠下焦点保持：flat={f['flat']} {f['label']!r}（存在的槽；跨拍读回 {f2['flat']}）")
+    (s.ok if slk["present"] and f["flat"] == focus_before_last and f2["flat"] == focus_before_last else s.fail)(
+        f"⑥ 全折叠下焦点保持：flat={f['flat']} {f['label']!r}（最后展开卡折叠前={focus_before_last}；"
+        f"跨拍读回 {f2['flat']}；存在的槽）")
     vk, _, _ = sound_truth(s, slk["scope"], slk["id"])
     sound_keys(s, (SOUND_KEY_UP, SOUND_KEY_DOWN, SOUND_KEY_ENTER), "⑥ 全折叠下 ↑ ↓ ENTER")
     s.cmd("TAP %d %d" % SOUND_BTN_PLUS)
@@ -10939,7 +11043,9 @@ def sound_segments(s: Session, kit0: int) -> None:
             f"；slots={n}")
         counts[e] = n
     s.ser.note(f"③ 12 引擎存在槽数：{counts}")
-    (s.ok if counts[9] == 108 else s.fail)(f"③ FM6（引擎 9）slots={counts[9]}（期望 108）")
+    expected_counts = (109, 107, 107, 108, 106, 108, 108, 108, 108, 108, 108, 108)
+    (s.ok if tuple(counts[e] for e in range(12)) == expected_counts else s.fail)(
+        f"③ 12 引擎存在槽数完整元组={tuple(counts[e] for e in range(12))}（期望 {expected_counts}）")
     s.cmd("ENG TRACK 0 0 0")
     s.expect(r"ENG TRACK k=0 engine=0 preset=0 OK", "③ 回 ANALOG")
     st = sound_stats(s)

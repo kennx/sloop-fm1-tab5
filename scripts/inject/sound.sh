@@ -8,8 +8,8 @@
 #
 # 改动面：轨 0 的引擎·预置（12 引擎轮换 / 选择器）、轨 0 的 71 个参数与 50 个全局参数（拖动改值后拖回）、
 #   鼓轨 kit、选中轨、ZOOM（仅入口为开时归一为关）。入口快照在归一之前拍，try/finally 还原并逐项核对
-#   （轨 0 = `ENG TRACK` 回入口引擎·预置 + 71 参数整份回写 ⇒ 入口声音须来自工厂预置）。不发 STORE 写命令、
-#   不碰步 / lane / bank / 用户预置。
+#   （轨 0 = `ENG TRACK` 回入口引擎·预置 + 71 参数整份回写 ⇒ 入口声音须来自工厂预置）。不做破坏性工程/银行
+#   STORE 操作（ZOOM 归一只用 `STORE SETTINGS SET`）、不碰步 / lane / bank / 用户预置。
 # 断言与截屏都在 scripts/inject/inject.py 的 sound 场景里；本脚本只是入口。
 # 产物：$SLOOP_TAB5_PROJECT/build/verify/inject-sound-<时间戳>.log + PNG
 #   （sound-{default,scrolled,collapsed,picker-engine,picker-preset,drum}.png 六张）。
