@@ -665,3 +665,36 @@ track-1 的判别性前置值：轨 0 的 LEVEL/ATK/DEC/SUS/REL = `55/11/22/33/4
 | 快照异常路径 | `python3 scripts/inject/snapshot-selftest.py` | `task-9-snapshot-selftest.log` | ✅ rc=0；3/3，`snapshot selftest OK` |
 
 文档遗留同步：DI-54 的现行引用指向 Task 6 的 `page_sound_picker.c`，012 的按名浏览行补 Task 8 `sound.sh` 设备证据；ADR-008 的预览 ENTER 描述核对为 R16 的按焦点分流语义；门禁参考补 settings 显式还原要求；DI-66 核对保留；新增 DI-67 记录 SOUND 静态文本缓冲的同步软件绘制前提。`scripts/inject/snapshot-selftest.py` 已在 scripts 参考中，无需重复添加。
+
+
+## 20. Task 9 leg B1：设备矩阵（2026-11-28；固件 `65f3e65`，中止于 `store` 漂移）
+
+FM-1 全程未接；boot 后 `FM1 STATUS link=none`。构建、烧录、启动与两项自检门禁通过，但 `store` 场景虽然自身 rc=0 / 902 PASS / 0 FAIL，外层入口/出口 `STORE LIVEHASH` 探针发现漂移。按任务停止规则，在 `store` 完成后立即停止；未重跑，后续场景、截屏矩阵与 soak 均未开始。串口已关闭。设备留在 `store` 出口工程态 `B17A591C`（该场景收尾已恢复 AUTO ON）；未再做写入或掩盖漂移。
+
+| 门禁 | 命令 | 证据文件 | 结果 / 读数 |
+|---|---|---|---|
+| 当前提交构建 | `scripts/build.sh` | `task-9-device-build.log` | ✅ rc=0，`App "sloop_fm1_tab5" version: 65f3e65`；仅有版本变化触发 configure 时的 §5.5 豁免提示对 |
+| 烧录 | `scripts/flash.sh /dev/ttyACM0` | `task-9-flash.log` | ✅ rc=0，`Hash of data verified` ×3 |
+| 启动 / FM-1 未接 | esptool 硬复位 + console `FM1 STATUS` | `task-9-boot.log`、`task-9-boot-stdout.log` | ✅ `App version: 65f3e65`；fatal/abort/backtrace 0；`link=none` |
+| 全量设备自检 | `python3 scripts/device-selftest.py /dev/ttyACM0 --output …task-9-device-selftest-transcript.log` | `task-9-device-selftest.log`、`task-9-device-selftest-transcript.log` | ✅ rc=0，182/182 identical、mismatch=0、health_fail=0、deterministic=1、result=PASS；一次既有 task-watchdog 报告（DI-64），未重启 |
+| 连续两次自检堆门禁 | `python3 scripts/selftest-heap.py /dev/ttyACM0` | `task-9-selftest-heap.log`、`task-9-selftest-heap-transcript.log` | ✅ rc=0；两次均 182/182；run 1/2 Δ=260/36B；`internal_min=75,400B`（≥61,440），收尾 internal_free=76,551B |
+| 场景 1 `sound` | `bash scripts/inject/sound.sh /dev/ttyACM0` + 外层 LIVEHASH | `task-9-sound-{stdout,transcript,entry-transcript,exit-transcript}.log` | ✅ rc=0，403 PASS / 0 FAIL；hash 不变 |
+| 场景 2 `nav` | `bash scripts/inject/nav.sh /dev/ttyACM0` + 外层 LIVEHASH | `task-9-nav-{stdout,transcript,entry-transcript,exit-transcript}.log` | ✅ rc=0，527 PASS / 0 FAIL；hash 不变 |
+| 场景 3 `params` | `bash scripts/inject/params.sh /dev/ttyACM0` + 外层 LIVEHASH | `task-9-params-{stdout,transcript,entry-transcript,exit-transcript}.log` | ✅ rc=0，389 PASS / 0 FAIL；hash 不变 |
+| 场景 4 `store` | `bash scripts/inject/store.sh /dev/ttyACM0` + 外层 LIVEHASH | `task-9-store-{stdout,transcript,entry-transcript,exit-transcript}.log`、`task-9-livehashes.log` | ❌ **leg 门禁失败**：场景 rc=0、902 PASS / 0 FAIL，但 LIVEHASH `5FB1EDD1 → B17A591C`；随即停止 |
+| 其余七场景 | 未运行 | — | NOT RUN：`song` / `sys` / `tracks` / `sequence` / `synth` / `step_edit` / `transport` |
+| 全量截屏矩阵 | 未运行 | — | NOT RUN：没有 24 条目、锚点或联系表结论，也未晋升本 leg 的矩阵 PNG |
+| soak | 未运行 | — | NOT RUN（本 leg 本就排除） |
+
+### 场景入口 / 出口 LIVEHASH
+
+外层探针在每个场景前后各发一次只读 `STORE LIVEHASH`，同时核对后一场景入口等于前一场景出口；原始回显在各 `*-entry-transcript.log` / `*-exit-transcript.log`，汇总与停止注记在 `task-9-livehashes.log`。
+
+| 场景 | PASS / FAIL | 入口 LIVEHASH | 出口 LIVEHASH | 结论 |
+|---|---:|---|---|---|
+| sound | 403 / 0 | `5FB1EDD1` | `5FB1EDD1` | ✅ 不变 |
+| nav | 527 / 0 | `5FB1EDD1` | `5FB1EDD1` | ✅ 不变 |
+| params | 389 / 0 | `5FB1EDD1` | `5FB1EDD1` | ✅ 不变 |
+| store | 902 / 0 | `5FB1EDD1` | `B17A591C` | ❌ 漂移；停止，不重跑 |
+
+本段不构成 Task 9 通过结论。后续须先裁定/修复 `store` 的入口还原缺口，再从未完成的设备矩阵继续；不得把本次部分证据记为全矩阵通过。
