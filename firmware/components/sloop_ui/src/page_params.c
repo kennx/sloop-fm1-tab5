@@ -2,8 +2,8 @@
  * 描述符驱动的参数页（ADR-008 §8）：布局表 8 槽旋钮 + 页眉 + ± 细调。
  *
  * 布局（页面区相对坐标；页面区绝对 y 起点 = UI_TAB_BAR_H = 72）：
- * - 页眉：上下文行 (16, 6) 20pt（GLOBAL / TRACK n / ANALOG · TRACK n；引擎不符时红字
- *   "… USES ENG k — N/A"）；
+ * - 页眉：上下文行 (16, 6) 20pt（GLOBAL / TRACK n / ANALOG - TRACK n；引擎不符时红字
+ *   "… USES ENG k - N/A"）；
  * - ± 细调：右上 (−) (1096,2) / (+) (1184,2)，80×40，作用于**焦点槽**（点旋钮设焦点）；
  * - 旋钮网格：4 列 × 2 行，cell 300×290，x = 16 + c·316，y = 52 + r·298
  *   （旋钮盒 160×160 在单元内 (70,26)：弧线 + 名称/数值两行文本，自绘见 knob.c）。
@@ -518,21 +518,21 @@ static void update_header(uint8_t index, const param_page_t *pg, const app_state
         snprintf(text, sizeof(text), "%s", pg->title);
     } else if (page_layout_is_sound(pg) && st->sound.drum) {
         /* 鼓轨没有引擎与预置：旋钮区锁定（各槽 --），页眉只剩 KIT 行 */
-        snprintf(text, sizeof(text), "%s · TRACK %u (DRUM) — NO SOUND", pg->title,
+        snprintf(text, sizeof(text), "%s - TRACK %u (DRUM) - NO SOUND", pg->title,
                  (unsigned)(track + 1u));
         lv_label_set_text(ui->header, text);
         lv_obj_set_style_text_color(ui->header, lv_color_hex(UI_ERROR), 0);
         return;
     } else if (locked && track >= 3u) {
-        snprintf(text, sizeof(text), "%s · TRACK %u (DRUM) — N/A", pg->title, (unsigned)(track + 1));
+        snprintf(text, sizeof(text), "%s - TRACK %u (DRUM) - N/A", pg->title, (unsigned)(track + 1));
     } else if (locked) {
-        snprintf(text, sizeof(text), "%s · TRACK %u USES ENG %u — N/A", pg->title,
+        snprintf(text, sizeof(text), "%s - TRACK %u USES ENG %u - N/A", pg->title,
                  (unsigned)(track + 1), (unsigned)st->core.trk[track].engine);
     } else if (track >= 3u) {
         /* 逐槽规则页在鼓轨上不是整页锁：标出鼓轨，锁定的槽各自显示 -- */
-        snprintf(text, sizeof(text), "%s · TRACK %u (DRUM)", pg->title, (unsigned)(track + 1));
+        snprintf(text, sizeof(text), "%s - TRACK %u (DRUM)", pg->title, (unsigned)(track + 1));
     } else {
-        snprintf(text, sizeof(text), "%s · TRACK %u", pg->title, (unsigned)(track + 1));
+        snprintf(text, sizeof(text), "%s - TRACK %u", pg->title, (unsigned)(track + 1));
     }
     lv_label_set_text(ui->header, text);
     lv_obj_set_style_text_color(ui->header, lv_color_hex(locked ? UI_ERROR : UI_TEXT_DIM), 0);
