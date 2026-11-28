@@ -5757,13 +5757,19 @@ def bank_hex(s: Session, cmd: str, pattern: str, label: str) -> str:
     回显里**没有** hex 行（命令缺失/回 STORE ERR）时抛 InjectError——拿不到值就没法继续
     断言（RED 阶段固件还没有该命令，就在这里失败）；长度不是 128 字节只记 FAIL 并返回，
     让后续的字节比较也把差异暴露出来（不掩盖「读到了但读错了」）。"""
-    s.cmd(cmd)
-    m = re.search(pattern, s.last, re.MULTILINE)
+    for attempt in range(3):
+        s.cmd(cmd)
+        m = re.search(pattern, s.last, re.MULTILINE)
+        if m is not None and len(m.group(1)) == BANK_PACKED_HEX:
+            val = m.group(1).upper()
+            s.ok(f"{label}: {len(val)} hex 字符（{BANK_PACKED_HEX // 2} 字节 packed 记录）")
+            return val
+        if attempt < 2:
+            time.sleep(0.1)          # 启动时 USB host 日志可与行长 hex 交错；GET/LIVE 都是只读，可安全重试
     if m is None:
         raise InjectError(f"{label}: 回显缺少 hex 记录（{s.last.strip()!r}）")
     val = m.group(1).upper()
-    (s.ok if len(val) == BANK_PACKED_HEX else s.fail)(
-        f"{label}: {len(val)} hex 字符（{BANK_PACKED_HEX // 2} 字节 packed 记录）")
+    s.fail(f"{label}: {len(val)} hex 字符（{BANK_PACKED_HEX // 2} 字节 packed 记录）")
     return val
 
 
